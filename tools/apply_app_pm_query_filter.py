@@ -54,7 +54,7 @@ s = s.replace(
         runCatching {
             pollPreferences()
             val explicit = intent.component != null || intent.`package` != null ||
-                outerIntent.component != null || outerIntent.`package` != null
+                outerIntent?.component != null || outerIntent?.`package` != null
             val kind = intent.intentKind(null)
             if (explicit || kind == null) {
                 diagnostic("APP_PM_QUERY_FILTER_SKIP package=$packageName action=${intent.action ?: "-"} explicit=$explicit kind=${kind ?: "-"}")
@@ -83,6 +83,23 @@ s = s.replace(
 
 s = s.replace('private enum class Layer { SYSTEM, RESOLVER }', 'private enum class Layer { SYSTEM, RESOLVER, APP }', 1)
 s = s.replace('const val APP_PM_QUERY_PROBE_HOOK_ID = "ic-app-pm-query-probe"', 'const val APP_PM_QUERY_FILTER_HOOK_ID = "ic-app-pm-query-filter"', 1)
+
+# Layer.APP makes the existing hot-reload when exhaustive; app-process hooks are refreshed separately.
+s = s.replace(
+'''                when (expectedLayer) {
+                    Layer.SYSTEM -> installSystemServerQueryHooks(it)
+                    Layer.RESOLVER -> installResolverClientHooks(it)
+                    null -> record("HOT_RELOAD_SKIP package=$baseProcess reason=system_scope_pseudo_process")
+                }
+''',
+'''                when (expectedLayer) {
+                    Layer.SYSTEM -> installSystemServerQueryHooks(it)
+                    Layer.RESOLVER -> installResolverClientHooks(it)
+                    Layer.APP -> Unit
+                    null -> record("HOT_RELOAD_SKIP package=$baseProcess reason=system_scope_pseudo_process")
+                }
+''',
+1)
 
 if 'APP_PM_QUERY_FILTER_APPLIED' not in s:
     raise SystemExit('filter hook replacement failed')
