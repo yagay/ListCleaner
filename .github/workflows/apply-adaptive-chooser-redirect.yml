@@ -1,0 +1,55 @@
+name: Apply Adaptive Chooser Redirect
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'tools/patch-adaptive-chooser-redirect.py'
+      - '.github/workflows/apply-adaptive-chooser-redirect.yml'
+
+permissions:
+  contents: write
+
+env:
+  GRADLE_OPTS: -Dorg.gradle.daemon=false
+
+jobs:
+  patch-build-commit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Apply patch
+        run: python3 tools/patch-adaptive-chooser-redirect.py
+      - name: Verify architecture
+        run: |
+          grep -q 'CHOOSER_REDIRECT_APPLIED' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+          grep -q 'class AdaptiveChooserActivity' app/src/main/java/com/yagay/ListCleaner/ui/AdaptiveChooserActivity.kt
+          grep -q 'AdaptiveChooserActivity' app/src/main/AndroidManifest.xml
+      - name: Build and test
+        run: |
+          chmod +x ./gradlew
+          ./gradlew testDebugUnitTest assembleDebug --stacktrace
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ListCleaner-adaptive-chooser-redirect-debug
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 90
+      - name: Remove one-shot patch files
+        run: |
+          rm -f tools/patch-adaptive-chooser-redirect.py
+          rm -f .github/workflows/apply-adaptive-chooser-redirect.yml
+      - name: Commit implementation
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Add adaptive chooser redirect'
+          git push
