@@ -3,6 +3,7 @@ package com.yagay.ListCleaner.domain
 import android.content.Intent
 import android.graphics.Bitmap
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 @Serializable
 enum class IntentKind(val action: String, val title: String) {
@@ -61,6 +62,10 @@ data class RuleBackup(
     val rules: Set<ComponentRule>,
     val priorities: PriorityConfig = PriorityConfig(),
     val displayMode: DisplayMode? = null,
+    /** Source-compatibility only. Not written to new backups. */
+    @Transient val tiles: TileConfig = TileConfig(),
     val hiddenFromApps: Set<String> = emptySet(),
+    /** Source-compatibility only. Not written to new backups. */
+    @Transient val defaultOpen: DefaultOpenConfig = DefaultOpenConfig(),
     val openTypes: OpenTypeConfig = OpenTypeConfig()
 )
