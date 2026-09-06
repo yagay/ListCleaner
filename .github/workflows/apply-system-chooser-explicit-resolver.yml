@@ -1,0 +1,45 @@
+name: Apply System Chooser Explicit Resolver
+on:
+  push:
+    paths:
+      - tools/apply_system_chooser_explicit_resolver.py
+      - .github/workflows/apply-system-chooser-explicit-resolver.yml
+permissions:
+  contents: write
+  actions: write
+jobs:
+  patch-build-commit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Apply patch
+        run: python3 tools/apply_system_chooser_explicit_resolver.py
+      - name: Verify fix
+        run: |
+          grep -q 'START_INTENT_NOT_RESOLVED' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+          grep -q 'chooser.component = resolverComponent' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+          grep -q 'ephemeralIntent' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+          grep -q 'setBoolean(request, true)' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+      - name: Build and test
+        run: ./gradlew :app:testDebugUnitTest :app:assembleDebug --stacktrace
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ListCleaner-system-chooser-explicit-debug
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 90
+      - name: Cleanup one-shot files
+        run: rm -f tools/apply_system_chooser_explicit_resolver.py .github/workflows/apply-system-chooser-explicit-resolver.yml
+      - name: Commit implementation
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Fix system chooser redirect resolution on OxygenOS'
+          git push
