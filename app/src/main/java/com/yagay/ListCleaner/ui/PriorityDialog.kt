@@ -35,6 +35,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.OpenPreset
+import com.yagay.ListCleaner.domain.matchesOpenPreset
 import com.yagay.ListCleaner.domain.priorityCandidates
 import com.yagay.ListCleaner.domain.priorityAppGroups
 import com.yagay.ListCleaner.domain.PriorityListFilter
@@ -49,20 +51,24 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
             onDismiss = { editingTitle = null })
     }
     var kind by rememberSaveable { mutableStateOf(state.filter ?: IntentKind.SHARE) }
+    var openPreset by rememberSaveable { mutableStateOf<OpenPreset?>(null) }
     var viewFilter by rememberSaveable { mutableStateOf(UiFilter.ALL) }
     var expandedKey by rememberSaveable { mutableStateOf<String?>(null) }
-    val rankedRaw = state.priorities.apps[kind].orEmpty()
-    val groups = remember(state.candidates, state.selected, state.displayMode, kind, rankedRaw, state.query, viewFilter) {
-        priorityAppGroups(state.candidates, state.selected, state.displayMode, kind, rankedRaw, state.query,
+    LaunchedEffect(kind) { if (kind != IntentKind.OPEN) openPreset = null }
+    val typedSelected = openPreset?.let { state.openTypes.selectedRules(it) }.orEmpty()
+    val scopedCandidates = if (kind == IntentKind.OPEN && openPreset != null) state.candidates.filter { it.matchesOpenPreset(openPreset!!) } else state.candidates
+    val rankedRaw = if (kind == IntentKind.OPEN && openPreset != null) state.openTypes.priorities[openPreset].orEmpty() else state.priorities.apps[kind].orEmpty()
+    val groups = remember(scopedCandidates, state.selected, typedSelected, state.displayMode, kind, openPreset, rankedRaw, state.query, viewFilter) {
+        priorityAppGroups(scopedCandidates, state.selected, state.displayMode, kind, rankedRaw, state.query,
             when (viewFilter) {
                 UiFilter.ALL -> PriorityListFilter.ALL
                 UiFilter.HIDE_SELECTED -> PriorityListFilter.UNSELECTED
                 UiFilter.SHOW_SELECTED -> PriorityListFilter.SELECTED
-            })
+            }, typedSelected)
     }
     // Search narrows the move targets too; hidden saved slots remain untouched.
     val moveTargets = groups.filter { it.rank != null }.sortedBy { it.rank }.map { it.packageName }
-    val visibleSaved = priorityCandidates(state.candidates, state.selected, state.displayMode, kind)
+    val visibleSaved = priorityCandidates(scopedCandidates, state.selected, state.displayMode, kind, typedSelected)
         .map { it.rule.packageName }.toSet()
     val hiddenSavedCount = rankedRaw.count { it !in visibleSaved }
 
@@ -76,7 +82,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     val edge = with(density) { 56.dp.toPx() }
     val speed = with(density) { 640.dp.toPx() }
     // Changing category/search/filter, importing or refreshing invalidates the gesture snapshot.
-    LaunchedEffect(kind, viewFilter, state.query, rankedRaw, moveTargets) { dragState.cancel() }
+    LaunchedEffect(kind, openPreset, viewFilter, state.query, rankedRaw, moveTargets) { dragState.cancel() }
     DisposableEffect(dragState) { onDispose { dragState.cancel() } }
     LaunchedEffect(drag?.packageName) {
         if (dragState.session != null) {
@@ -95,7 +101,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     }
 
     Box(Modifier.fillMaxSize()) {
-    LazyColumn(Modifier.fillMaxSize().pointerInput(kind, viewFilter, state.query) {
+    LazyColumn(Modifier.fillMaxSize().pointerInput(kind, openPreset, viewFilter, state.query) {
         detectDragGesturesAfterLongPress(
             onDragStart = { position ->
                 if (dragState.start(position.y, kind.name, currentVisible, currentSaved)) {
@@ -108,7 +114,8 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
             onDragCancel = { dragState.cancel() },
             onDragEnd = {
                 dragState.finish()?.let { finished ->
-                    vm.movePriorityTo(kind, finished.packageName, finished.target, finished.visible, finished.saved)
+                    if (kind == IntentKind.OPEN && openPreset != null) vm.moveOpenTypePriorityTo(openPreset!!, finished.packageName, finished.target, finished.visible, finished.saved)
+                    else vm.movePriorityTo(kind, finished.packageName, finished.target, finished.visible, finished.saved)
                 }
             }
         )
@@ -119,6 +126,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
         }
         stickyHeader(key = "controls") {
             Surface(tonalElevation = 2.dp) {
+                Column {
                 ListControls(state.copy(filter = kind, uiFilter = viewFilter),
                     onFilter = { entry -> if (entry != null) { kind = entry; expandedKey = null } },
                     onUiFilter = { viewFilter = it }, includeAllKinds = false,
@@ -127,8 +135,10 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                         UiFilter.HIDE_SELECTED -> "未优先"
                         UiFilter.SHOW_SELECTED -> "已优先"
                     } },
-                    onSelectAll = { vm.selectPriorityApps(kind, groups.map { it.packageName }) },
-                    onInvert = { vm.invertPriorityApps(kind, groups.map { it.packageName }) })
+                    onSelectAll = { if (kind == IntentKind.OPEN && openPreset != null) vm.selectOpenTypePriorityApps(openPreset!!, groups.map { it.packageName }) else vm.selectPriorityApps(kind, groups.map { it.packageName }) },
+                    onInvert = { if (kind == IntentKind.OPEN && openPreset != null) vm.invertOpenTypePriorityApps(openPreset!!, groups.map { it.packageName }) else vm.invertPriorityApps(kind, groups.map { it.packageName }) })
+                if (kind == IntentKind.OPEN) OpenPresetFilterRow(openPreset, { openPreset = it })
+                }
             }
         }
         item(key = "summary") {
@@ -159,7 +169,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
         }
         groups.forEach { group ->
             val packageName = group.packageName
-            val key = "${kind.name}|$packageName"
+            val key = "${kind.name}|${openPreset?.name ?: "ALL"}|$packageName"
             val expanded = expandedKey == key
             val onExpand = { expandedKey = if (expanded) null else key }
             val first = group.components.first()
@@ -179,7 +189,9 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                     verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = group.rank != null, enabled = group.rank != null || rankedRaw.size < 200,
                         onCheckedChange = { checked ->
-                            if (checked) vm.pinApp(kind, packageName) else vm.removePriority(kind, packageName)
+                            if (kind == IntentKind.OPEN && openPreset != null) {
+                                if (checked) vm.pinOpenTypeApp(openPreset!!, packageName) else vm.removeOpenTypePriority(openPreset!!, packageName)
+                            } else if (checked) vm.pinApp(kind, packageName) else vm.removePriority(kind, packageName)
                         })
                     AppIcon(first.appIcon, first.appLabel)
                     Column(Modifier.weight(1f).padding(start = 10.dp)) {
@@ -199,10 +211,10 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                     val index = moveTargets.indexOf(packageName)
                     Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("优先第 ${group.rank} 位", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium)
-                        TextButton(onClick = { vm.movePriority(kind, packageName, -1, moveTargets) }, enabled = index > 0) {
+                        TextButton(onClick = { if (kind == IntentKind.OPEN && openPreset != null) vm.moveOpenTypePriority(openPreset!!, packageName, -1, moveTargets) else vm.movePriority(kind, packageName, -1, moveTargets) }, enabled = index > 0) {
                             Icon(Icons.Rounded.ArrowUpward, null, Modifier.size(18.dp)); Text("上移")
                         }
-                        TextButton(onClick = { vm.movePriority(kind, packageName, 1, moveTargets) },
+                        TextButton(onClick = { if (kind == IntentKind.OPEN && openPreset != null) vm.moveOpenTypePriority(openPreset!!, packageName, 1, moveTargets) else vm.movePriority(kind, packageName, 1, moveTargets) },
                             enabled = index >= 0 && index < moveTargets.lastIndex) {
                             Icon(Icons.Rounded.ArrowDownward, null, Modifier.size(18.dp)); Text("下移")
                         }

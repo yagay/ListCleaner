@@ -30,6 +30,9 @@ import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.PriorityConfig
+import com.yagay.ListCleaner.domain.DefaultOpenConfig
+import com.yagay.ListCleaner.domain.OpenPreset
+import com.yagay.ListCleaner.domain.OpenTypeConfig
 import io.github.libxposed.service.XposedService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -94,6 +97,8 @@ data class MainState(
     val uiFilter: UiFilter = UiFilter.ALL,
     val diagnosticMode: Boolean = false,
     val priorities: PriorityConfig = PriorityConfig(),
+    val defaultOpen: DefaultOpenConfig = DefaultOpenConfig(),
+    val openTypes: OpenTypeConfig = OpenTypeConfig(),
     val tiles: TileConfig = TileConfig(),
     val hiddenFromApps: Set<String> = emptySet(),
     val groups: List<AppGroup> = emptyList(),
@@ -303,6 +308,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 report = DiagnosticCollector.collect(app, state.value.copy(
                     module = freshStatus, selected = config.rules, displayMode = config.mode,
                     priorities = config.priorities, diagnosticMode = config.diagnostic, tiles = config.tiles,
+                    openTypes = config.openTypes, defaultOpen = config.defaultOpen,
                     runtime = app.runtime.value,
                     syncStatus = app.syncStatus.value
                 ), mutableComponentScan.value, rootCatalog.lastOperation)
@@ -332,7 +338,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ListContent(emptyList(), null, "", emptyList()))
     
     val state: StateFlow<MainState> = combine(
-        moduleStatus, loading, error, grouped, app.runtime, app.rules.displayMode, app.rules.priorities, app.rules.diagnosticMode, app.syncStatus, destination, expandedAppKey, app.rules.tiles, app.rules.hiddenFromApps
+        moduleStatus, loading, error, grouped, app.runtime, app.rules.displayMode, app.rules.priorities, app.rules.diagnosticMode, app.syncStatus, destination, expandedAppKey, app.rules.tiles, app.rules.hiddenFromApps, app.rules.defaultOpen, app.rules.openTypes
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         MainState(
@@ -353,6 +359,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             expandedAppKey = values[10] as String?,
             tiles = values[11] as TileConfig,
             hiddenFromApps = values[12] as Set<String>,
+            defaultOpen = values[13] as DefaultOpenConfig,
+            openTypes = values[14] as OpenTypeConfig,
             uiFilter = (values[3] as ListContent).uiFilter
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainState())
@@ -371,6 +379,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refreshModuleStatus()
     }
 
+    fun setDefaultOpen(preset: OpenPreset, ruleId: String?) {
+        if (!canEdit()) return
+        app.rules.setDefaultOpen(preset, ruleId)
+    }
+
     fun setHiddenFromApps(packages: Set<String>) {
         app.rules.setHiddenFromApps(packages)
         viewModelScope.launch { app.synchronize() }
@@ -383,13 +396,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             loading.value = true
             error.value = null
             try {
-                candidates.value = app.catalog.completeConfigured(candidates.value, app.rules.rules.value)
+                val configured = app.rules.rules.value + app.rules.openTypes.value.rules.values.flatten().mapNotNull(ComponentRule::fromId)
+                candidates.value = app.catalog.completeConfigured(candidates.value, configured)
                 check(app.synchronize()) { app.runtime.value.message }
                 val result = app.catalog.scan()
                 check(app.synchronize()) { app.runtime.value.message }
                 if (generation == refreshGeneration) {
                     // Replace the directory, do not accumulate historical scan results.
-                    candidates.value = app.catalog.completeConfigured(result, app.rules.rules.value)
+                    val configured = app.rules.rules.value + app.rules.openTypes.value.rules.values.flatten().mapNotNull(ComponentRule::fromId)
+                    candidates.value = app.catalog.completeConfigured(result, configured)
                     error.value = app.catalog.scanWarning
                 }
             } catch (cancelled: CancellationException) {
@@ -503,6 +518,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun toggle(rule: ComponentRule) { if (canEdit()) app.rules.toggle(rule) }
     fun setGroupSelected(group: AppGroup, selected: Boolean) { if (canEdit()) app.rules.setSelected(group.components.map { it.rule }, selected) }
+    fun toggleOpenType(preset: OpenPreset, rule: ComponentRule) { if (canEdit()) app.rules.toggleOpenType(preset, rule) }
+    fun setOpenTypeGroupSelected(preset: OpenPreset, group: AppGroup, selected: Boolean) {
+        if (canEdit()) app.rules.setOpenTypeSelected(preset, group.components.map { it.rule }, selected)
+    }
+    fun selectOpenTypeRules(preset: OpenPreset, rules: Collection<ComponentRule>) {
+        if (canEdit() && rules.isNotEmpty()) app.rules.setOpenTypeSelected(preset, rules.distinct(), true)
+    }
+    fun invertOpenTypeRules(preset: OpenPreset, rules: Collection<ComponentRule>) {
+        if (canEdit() && rules.isNotEmpty()) app.rules.invertOpenTypeSelected(preset, rules)
+    }
     fun selectRules(rules: Collection<ComponentRule>) {
         if (!canEdit() || rules.isEmpty()) return
         app.rules.setSelected(rules.distinct(), true)
@@ -568,6 +593,41 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (current != expected) return
         val updated = com.yagay.ListCleaner.domain.moveVisiblePriorityTo(current, visible, packageName, target)
         if (updated != current) app.rules.setPriority(kind, updated)
+    }
+
+    fun selectOpenTypePriorityApps(preset: OpenPreset, packageNames: Collection<String>) {
+        if (!canEdit()) return
+        val current = app.rules.openTypes.value.priorities[preset].orEmpty()
+        val next = (current + packageNames.distinct().filter { it !in current }).take(200)
+        if (next != current) app.rules.setOpenTypePriority(preset, next)
+    }
+    fun invertOpenTypePriorityApps(preset: OpenPreset, packageNames: Collection<String>) {
+        if (!canEdit()) return
+        val visible = packageNames.distinct(); if (visible.isEmpty()) return
+        val current = app.rules.openTypes.value.priorities[preset].orEmpty()
+        val retained = current.filterNot { it in visible.toSet() }
+        val next = (retained + visible.filter { it !in current }).take(200)
+        if (next != current) app.rules.setOpenTypePriority(preset, next)
+    }
+    fun pinOpenTypeApp(preset: OpenPreset, packageName: String) {
+        if (!canEdit()) return
+        val current = app.rules.openTypes.value.priorities[preset].orEmpty()
+        if (packageName !in current && current.size < 200) app.rules.setOpenTypePriority(preset, current + packageName)
+    }
+    fun removeOpenTypePriority(preset: OpenPreset, packageName: String) {
+        if (canEdit()) app.rules.setOpenTypePriority(preset, app.rules.openTypes.value.priorities[preset].orEmpty() - packageName)
+    }
+    fun moveOpenTypePriority(preset: OpenPreset, packageName: String, offset: Int, visible: List<String>) {
+        if (!canEdit()) return
+        val current = app.rules.openTypes.value.priorities[preset].orEmpty()
+        app.rules.setOpenTypePriority(preset, com.yagay.ListCleaner.domain.moveVisiblePriority(current, visible, packageName, offset))
+    }
+    fun moveOpenTypePriorityTo(preset: OpenPreset, packageName: String, target: String, visible: List<String>, expected: List<String>) {
+        if (!canEdit()) return
+        val current = app.rules.openTypes.value.priorities[preset].orEmpty()
+        if (current != expected) return
+        val updated = com.yagay.ListCleaner.domain.moveVisiblePriorityTo(current, visible, packageName, target)
+        if (updated != current) app.rules.setOpenTypePriority(preset, updated)
     }
 
     fun requestScope() {

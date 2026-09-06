@@ -175,6 +175,16 @@ class IntentCatalog(private val context: Context) {
             add(Probe(Intent(Intent.ACTION_VIEW, Uri.parse("$scheme://example.com"))
                 .addCategory(Intent.CATEGORY_BROWSABLE), false, "网页 scheme=$scheme"))
         }
+        listOf(
+            "magnet" to "magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567",
+            "geo" to "geo:0,0?q=London",
+            "mailto" to "mailto:test@example.com",
+            "tel" to "tel:123456789",
+            "sms" to "sms:123456789",
+            "smsto" to "smsto:123456789"
+        ).forEach { (scheme, value) ->
+            add(Probe(Intent(Intent.ACTION_VIEW, Uri.parse(value)), false, "VIEW scheme=$scheme"))
+        }
         add(Probe(Intent(Intent.ACTION_PROCESS_TEXT).setType("text/plain"), false, "PROCESS_TEXT mime=text/plain"))
         for (mime in listOf("*/*", "image/*", "video/*", "audio/*")) {
             for (action in listOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE)) {
@@ -211,7 +221,14 @@ class IntentCatalog(private val context: Context) {
             "application/vnd.android.package-archive" to "sample.apk",
             "application/msword" to "sample.doc",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document" to "sample.docx",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" to "sample.xlsx"
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" to "sample.xlsx",
+            "application/vnd.ms-excel" to "sample.xls",
+            "application/vnd.ms-powerpoint" to "sample.ppt",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation" to "sample.pptx",
+            "application/x-bittorrent" to "sample.torrent",
+            "text/markdown" to "sample.md", "text/csv" to "sample.csv",
+            "application/xml" to "sample.xml", "image/svg+xml" to "sample.svg", "image/gif" to "sample.gif",
+            "application/x-7z-compressed" to "sample.7z", "application/vnd.rar" to "sample.rar"
         )
     }
 }

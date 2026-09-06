@@ -12,12 +12,15 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.OpenPreset
+import com.yagay.ListCleaner.domain.matchesOpenPreset
 import com.yagay.ListCleaner.BuildConfig
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -29,7 +32,15 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
             onSave = { vm.setComponentTitle(item.rule.id, it) },
             onDismiss = { editingTitle = null })
     }
-    val visibleRules = state.groups.flatMap { it.components }.map { it.rule }.distinct()
+    var openPreset by rememberSaveable { mutableStateOf<OpenPreset?>(null) }
+    LaunchedEffect(state.filter) { if (state.filter != IntentKind.OPEN) openPreset = null }
+    val typedSelected = openPreset?.let { state.openTypes.selectedRules(it) }.orEmpty()
+    val shownGroups = if (state.filter == IntentKind.OPEN && openPreset != null) {
+        groupCandidates(state.candidates.filter { it.matchesOpenPreset(openPreset!!) }, typedSelected,
+            IntentKind.OPEN, state.query, state.uiFilter)
+    } else state.groups
+    val activeSelected = if (openPreset != null && state.filter == IntentKind.OPEN) typedSelected else state.selected
+    val visibleRules = shownGroups.flatMap { it.components }.map { it.rule }.distinct()
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item(key = "module-indicator") {
@@ -38,14 +49,17 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
         }
         stickyHeader(key = "list-controls") {
             Surface(tonalElevation = 2.dp) {
-                ListControls(state, vm::setFilter, vm::setUiFilter,
-                    onSelectAll = { vm.selectRules(visibleRules) },
-                    onInvert = { vm.invertRules(visibleRules) })
+                Column {
+                    ListControls(state, vm::setFilter, vm::setUiFilter,
+                        onSelectAll = { if (openPreset != null && state.filter == IntentKind.OPEN) vm.selectOpenTypeRules(openPreset!!, visibleRules) else vm.selectRules(visibleRules) },
+                        onInvert = { if (openPreset != null && state.filter == IntentKind.OPEN) vm.invertOpenTypeRules(openPreset!!, visibleRules) else vm.invertRules(visibleRules) })
+                    if (state.filter == IntentKind.OPEN) OpenPresetFilterRow(openPreset, { openPreset = it })
+                }
             }
         }
         item(key = "list-summary") {
-            SummaryRow(state)
-            if (state.uiFilter != UiFilter.SHOW_SELECTED && state.candidates.any {
+            SummaryRow(state, shownGroups.size, openPreset)
+            if (openPreset == null && state.uiFilter != UiFilter.SHOW_SELECTED && state.candidates.any {
                     it.rule in state.selected && (it.unavailable || it.restricted)
                 }) {
                 TextButton(onClick = {
@@ -55,31 +69,32 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                 }, modifier = Modifier.padding(horizontal = 16.dp)) { Text("查看未匹配的已选规则") }
             }
         }
-        state.groups.forEach { group ->
-            val key = "${state.filter?.name ?: "ALL"}|${group.packageName}"
+        shownGroups.forEach { group ->
+            val key = "${state.filter?.name ?: "ALL"}|${openPreset?.name ?: "ALL"}|${group.packageName}"
             val expanded = state.expandedAppKey == key
             item(key = "app|${group.packageName}", contentType = "app") {
-                AppRow(group, state.selected, expanded,
+                AppRow(group, activeSelected, expanded,
                     { vm.toggleExpandedApp(key) },
-                    { selected -> vm.setGroupSelected(group, selected) })
+                    { selected -> if (openPreset != null && state.filter == IntentKind.OPEN) vm.setOpenTypeGroupSelected(openPreset!!, group, selected) else vm.setGroupSelected(group, selected) })
             }
             if (expanded) {
                 items(group.components, key = { "component|${it.rule.id}" }, contentType = { "component" }) { component ->
-                    ComponentRow(component, component.rule in state.selected, state.priorities.titles[component.rule.id],
-                        onToggle = { vm.toggle(component.rule) }, onEditTitle = { editingTitle = component })
+                    ComponentRow(component, component.rule in activeSelected, state.priorities.titles[component.rule.id],
+                        onToggle = { if (openPreset != null && state.filter == IntentKind.OPEN) vm.toggleOpenType(openPreset!!, component.rule) else vm.toggle(component.rule) },
+                        onEditTitle = { editingTitle = component })
                 }
             }
         }
-        if (!state.loading && state.groups.isEmpty()) {
+        if (!state.loading && shownGroups.isEmpty()) {
             item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { Text("没有匹配的组件") } }
         }
     }
 }
 
 @Composable
-private fun SummaryRow(state: MainState) {
+private fun SummaryRow(state: MainState, groupCount: Int = state.groups.size, openPreset: OpenPreset? = null) {
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text("应用列表 · ${state.groups.size}", style = MaterialTheme.typography.labelLarge)
+        Text("应用列表 · $groupCount" + (openPreset?.let { " · ${it.title}" } ?: ""), style = MaterialTheme.typography.labelLarge)
         Text("本页用于管理分享、多文件分享、打开方式、浏览器和文本处理等 Intent 候选入口：可按规则隐藏/保留组件，也可单独修改组件在系统候选菜单中的显示名称；不会修改实际 Intent、包名、组件名，也不会停用或卸载应用。",
             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(when (state.displayMode) {
@@ -87,7 +102,7 @@ private fun SummaryRow(state: MainState) {
             DisplayMode.SHOW_SELECTED -> "当前为“只显示选中”：规则生效后，对应分类保留勾选的组件，隐藏其他组件。"
             DisplayMode.SHOW_ALL -> "当前为“全部显示”：暂停清理系统候选列表，勾选只保存配置，恢复清理模式后生效。"
         }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("勾选应用可批量选择当前分类及搜索条件下显示的组件；展开后可逐项选择，点铅笔可设置该组件在当前分类中的菜单显示名称。改名与是否勾选规则相互独立；留空保存恢复原名称。“查看”只筛选本页列表，不改变清理规则。",
+        Text(if (openPreset == null) "勾选应用可批量选择当前分类及搜索条件下显示的组件；展开后可逐项选择，点铅笔可设置该组件在当前分类中的菜单显示名称。改名与是否勾选规则相互独立；留空保存恢复原名称。“查看”只筛选本页列表，不改变清理规则。" else "当前正在编辑“打开方式 · ${openPreset.title}”专用规则，只影响匹配该 MIME / scheme 类型的打开菜单；“全部”中的 OPEN 通用规则仍会同时生效。",
             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (state.displayMode == DisplayMode.SHOW_ALL) {
             Text(if (state.runtime.ready) "system 已确认暂停过滤、排序和自定义显示名称；相关配置仍保留" else "本地已选择暂停，尚未确认系统已应用", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)

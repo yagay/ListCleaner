@@ -11,9 +11,10 @@ data class PriorityAppGroup(
 /** Priority apps lead in saved order; remaining apps use their default alphabetic order. */
 fun priorityAppGroups(
     candidates: List<ComponentCandidate>, selected: Set<ComponentRule>, mode: DisplayMode,
-    kind: IntentKind, saved: List<String>, query: String, filter: PriorityListFilter
+    kind: IntentKind, saved: List<String>, query: String, filter: PriorityListFilter,
+    extraSelected: Set<ComponentRule> = emptySet()
 ): List<PriorityAppGroup> {
-    val apps = priorityCandidates(candidates, selected, mode, kind).groupBy { it.rule.packageName }
+    val apps = priorityCandidates(candidates, selected, mode, kind, extraSelected).groupBy { it.rule.packageName }
     val ranks = saved.filter { it in apps }.mapIndexed { index, pkg -> pkg to index + 1 }.toMap()
     val groups = apps.mapNotNull { (pkg, components) ->
         val rank = ranks[pkg]

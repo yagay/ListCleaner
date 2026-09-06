@@ -64,5 +64,7 @@ data class RuleBackup(
     val priorities: PriorityConfig = PriorityConfig(),
     val displayMode: DisplayMode? = null,
     val tiles: TileConfig = TileConfig(),
-    val hiddenFromApps: Set<String> = emptySet()
+    val hiddenFromApps: Set<String> = emptySet(),
+    val defaultOpen: DefaultOpenConfig = DefaultOpenConfig(),
+    val openTypes: OpenTypeConfig = OpenTypeConfig()
 )

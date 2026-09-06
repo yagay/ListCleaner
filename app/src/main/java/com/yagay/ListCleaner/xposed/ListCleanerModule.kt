@@ -20,6 +20,10 @@ import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.PriorityConfig
+import com.yagay.ListCleaner.domain.DefaultOpenConfig
+import com.yagay.ListCleaner.domain.OpenTypeConfig
+import com.yagay.ListCleaner.domain.OpenPreset
+import com.yagay.ListCleaner.domain.matchOpenPreset
 import com.yagay.ListCleaner.domain.prioritizeApps
 import com.yagay.ListCleaner.domain.selectedKinds
 import io.github.libxposed.api.XposedInterface
@@ -48,6 +52,8 @@ class ListCleanerModule : XposedModule() {
         val configured: Set<String>,
         val displayMode: DisplayMode,
         val priorities: PriorityConfig,
+        val defaultOpen: DefaultOpenConfig,
+        val openTypes: OpenTypeConfig,
         val diagnostic: Boolean,
         val managerAppId: Int = -1,
         val digest: String = "",
@@ -68,7 +74,7 @@ class ListCleanerModule : XposedModule() {
     private data class ListResult(val values: List<*>, val rebuild: (List<*>) -> Any?)
 
     @Volatile
-    private var snapshot = RuleSnapshot(emptySet(), DisplayMode.HIDE_SELECTED, PriorityConfig(), false)
+    private var snapshot = RuleSnapshot(emptySet(), DisplayMode.HIDE_SELECTED, PriorityConfig(), DefaultOpenConfig(), OpenTypeConfig(), false)
     private var lastEncodedConfig: String? = null
     @Volatile
     private var listenerRegistered = false
@@ -468,9 +474,23 @@ class ListCleanerModule : XposedModule() {
         return intent.intentKind(mime)
     }
 
+    private fun adapterOpenPreset(receiver: Any, kind: IntentKind): OpenPreset? {
+        if (kind != IntentKind.OPEN) return null
+        val intent = OrderingAccess.targetIntent(receiver) as? Intent ?: return null
+        val effective = intent.selector ?: intent
+        val context = runCatching { OrderingAccess.field(receiver, "mContext") as? Context }.getOrNull()
+        val mime = effective.type ?: runCatching { context?.let { effective.resolveTypeIfNeeded(it.contentResolver) } }.getOrNull()
+        return matchOpenPreset(kind, mime, effective.data?.scheme)
+    }
+
+    private fun effectivePriorities(kind: IntentKind, preset: OpenPreset?, current: RuleSnapshot): List<String> {
+        val typed = if (kind == IntentKind.OPEN && preset != null) current.openTypes.priorities[preset].orEmpty() else emptyList()
+        return if (typed.isNotEmpty()) typed else current.priorities.apps[kind].orEmpty()
+    }
+
     private fun orderItems(items: List<*>, kind: IntentKind, current: RuleSnapshot, stage: String,
-        fixedPackages: Set<String> = emptySet()): List<*> {
-        val priorities = current.priorities.apps[kind].orEmpty()
+        fixedPackages: Set<String> = emptySet(), preset: OpenPreset? = null): List<*> {
+        val priorities = effectivePriorities(kind, preset, current)
         if (priorities.isEmpty() || items.size < 2) return items
         val infos = items.map { item ->
             requireNotNull(item)
@@ -503,13 +523,14 @@ class ListCleanerModule : XposedModule() {
                 diagnostic("ORDER_SKIP reason=unclassified_intent")
                 return@runCatching null
             }
-            val priorities = current.priorities.apps[kind].orEmpty()
+            val preset = adapterOpenPreset(receiver, kind)
+            val priorities = effectivePriorities(kind, preset, current)
             if (priorities.isEmpty()) {
                 diagnostic("ORDER_SKIP kind=$kind reason=no_priorities")
                 return@runCatching null
             }
             val items = chain.args[0] as? List<*> ?: return@runCatching null
-            val ordered = orderItems(items, kind, current, "ranked")
+            val ordered = orderItems(items, kind, current, "ranked", preset = preset)
             if (ordered === items) null else chain.args.toTypedArray().also { it[0] = ordered }
         }.getOrElse {
             diagnostic("ORDER_FAILED error=${it.javaClass.name}")
@@ -533,6 +554,7 @@ class ListCleanerModule : XposedModule() {
                 return@runCatching
             }
             val kind = adapterKind(receiver) ?: return@runCatching
+            val preset = adapterOpenPreset(receiver, kind)
             val items = OrderingAccess.field(receiver, "mSortedList")
             if (items == null || items.javaClass != java.util.ArrayList::class.java) {
                 diagnostic("ORDER_SKIP stage=alpha reason=unsupported_backing_list")
@@ -545,7 +567,7 @@ class ListCleanerModule : XposedModule() {
                 val info = OrderingAccess.call(requireNotNull(target), "getResolveInfo") as ResolveInfo
                 info.activityInfo.packageName
             }.toSet()
-            val ordered = orderItems(list, kind, snapshot, "alpha", fixed)
+            val ordered = orderItems(list, kind, snapshot, "alpha", fixed, preset)
             if (ordered !== list) {
                 ordered.forEachIndexed { index, item -> list[index] = item }
                 diagnostic("ORDER_DELIVERED stage=alpha kind=$kind uiVerified=false")
@@ -650,7 +672,7 @@ class ListCleanerModule : XposedModule() {
             diagnostic("skip $layer ${intent.action}: unsupported result ${original?.javaClass?.name}")
             return original
         }
-        val replacement = transform(kind, extracted.values, layer, callerUid) ?: return original
+        val replacement = transform(kind, extracted.values, layer, callerUid, intent.type ?: resolvedType, intent.data?.scheme) ?: return original
         return runCatching { extracted.rebuild(replacement) }.getOrElse {
             Log.e(TAG, "Failed to rebuild ${original?.javaClass?.name}; keeping original", it)
             original
@@ -666,7 +688,7 @@ class ListCleanerModule : XposedModule() {
         return false
     }
 
-    private fun transform(kind: IntentKind, values: List<*>, layer: Layer, callerUid: Int): List<*>? {
+    private fun transform(kind: IntentKind, values: List<*>, layer: Layer, callerUid: Int, mimeType: String?, scheme: String?): List<*>? {
         if (values.isEmpty()) { diagnostic("SKIP $layer $kind empty_input"); return null }
         val current = snapshot
         if (current.displayMode == DisplayMode.SHOW_ALL) {
@@ -674,7 +696,10 @@ class ListCleanerModule : XposedModule() {
             return null
         }
         var changed = false
-        val filtered = if (!current.hasSelection(kind) && current.displayMode != DisplayMode.SHOW_SELECTED) {
+        val preset = matchOpenPreset(kind, mimeType, scheme)
+        val typedIds = if (kind == IntentKind.OPEN && preset != null) current.openTypes.rules[preset].orEmpty() else emptySet()
+        val hasSelection = current.hasSelection(kind) || typedIds.isNotEmpty()
+        val filtered = if (!hasSelection && current.displayMode != DisplayMode.SHOW_SELECTED) {
             values
         } else {
             values.filter { value ->
@@ -687,12 +712,13 @@ class ListCleanerModule : XposedModule() {
                 val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
                     activity.packageName, activity.name, activity.targetActivity
                 )
-                val selected = "${kind.name}|${activity.packageName}|$canonicalClass" in current.configured
+                val candidateId = "${kind.name}|${activity.packageName}|$canonicalClass"
+                val selected = candidateId in current.configured || candidateId in typedIds
                 diagnostic(
                     "CANDIDATE $layer $kind ${activity.packageName}/${activity.name} target=${activity.targetActivity} canonical=$canonicalClass selected=$selected match=${if (selected) "component" else "none"}",
                     detail = true
                 )
-                current.displayMode.includes(selected, current.hasSelection(kind)).also {
+                current.displayMode.includes(selected, hasSelection).also {
                     if (!it) changed = true
                 }
             }
@@ -703,7 +729,7 @@ class ListCleanerModule : XposedModule() {
             return null
         }
         val ordered = if (kind == IntentKind.PROCESS_TEXT) runCatching {
-            orderItems(filtered, kind, current, "text_query")
+            orderItems(filtered, kind, current, "text_query", preset = preset)
         }.getOrElse {
             diagnostic("ORDER_FAILED stage=text_query error=${it.javaClass.name}")
             filtered
@@ -715,7 +741,7 @@ class ListCleanerModule : XposedModule() {
         }
         if (titleCount > 0) changed = true
         if (!changed) {
-            diagnostic("NO_CHANGE $layer $kind size=${values.size} hasSelection=${current.hasSelection(kind)}")
+            diagnostic("NO_CHANGE $layer $kind size=${values.size} hasSelection=$hasSelection preset=$preset")
             return null
         }
         diagnostic("$layer $kind: ${values.size} -> ${titled.size}")
@@ -775,10 +801,10 @@ class ListCleanerModule : XposedModule() {
                 if (snapshot.digest == digest) return@runCatching
                 val config = Json { ignoreUnknownKeys = true }.decodeFromString(ModuleConfig.serializer(), encoded).validated()
                 snapshot = RuleSnapshot(config.rules.map { it.id }.toSet(), config.mode,
-                    config.priorities, config.diagnostic, config.managerAppId, digest, config.hiddenFromApps)
+                    config.priorities, config.defaultOpen, config.openTypes, config.diagnostic, config.managerAppId, digest, config.hiddenFromApps)
                 lastEncodedConfig = encoded
                 record("MANAGER_IDENTITY appId=${config.managerAppId} source=remote_config")
-                record("RULES_READ reason=$reason count=${snapshot.configured.size} mode=${config.mode} diagnostic=${config.diagnostic} atomic=true priorities=${config.priorities.apps.mapValues { it.value.size }} titles=${config.priorities.titles.size} hiddenFromApps=${config.hiddenFromApps.size} digest=$digest")
+                record("RULES_READ reason=$reason count=${snapshot.configured.size} mode=${config.mode} diagnostic=${config.diagnostic} atomic=true priorities=${config.priorities.apps.mapValues { it.value.size }} typedRules=${config.openTypes.rules.mapValues { it.value.size }} typedPriorities=${config.openTypes.priorities.mapValues { it.value.size }} titles=${config.priorities.titles.size} legacyDefaultOpenIgnored=${config.defaultOpen.preferred.size} hiddenFromApps=${config.hiddenFromApps.size} digest=$digest")
                 record("LEGACY_TILE_CONFIG ignored=true enabled=${config.tiles.enabled} hidden=${config.tiles.hidden.size}")
                 return@runCatching
             }
@@ -793,9 +819,12 @@ class ListCleanerModule : XposedModule() {
                     preferences.getString(RuleRepository.KEY_PRIORITIES, null) ?: "{}"
                 ).validated()
             }.getOrDefault(PriorityConfig())
+            val defaultOpen = runCatching {
+                Json.decodeFromString(DefaultOpenConfig.serializer(), preferences.getString(RuleRepository.KEY_DEFAULT_OPEN, null) ?: "{}").validated()
+            }.getOrDefault(DefaultOpenConfig())
             snapshot = RuleSnapshot(
                 configured = rules, displayMode = mode, priorities = priorities,
-                diagnostic = preferences.getBoolean(RuleRepository.KEY_DIAGNOSTIC, false)
+                defaultOpen = DefaultOpenConfig(), openTypes = OpenTypeConfig(), diagnostic = preferences.getBoolean(RuleRepository.KEY_DIAGNOSTIC, false)
             )
             lastEncodedConfig = null
             record("RULES_READ reason=$reason count=${rules.size} mode=$mode diagnostic=${snapshot.diagnostic}")
