@@ -6,7 +6,6 @@ import android.content.SharedPreferences
 import android.content.pm.ResolveInfo
 import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
-import android.content.pm.PackageManager
 import com.yagay.ListCleaner.BuildConfig
 import com.yagay.ListCleaner.domain.RuntimeProtocol
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
@@ -41,6 +40,7 @@ import kotlinx.serialization.json.Json
 import java.lang.reflect.Constructor
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Level 1 filters PackageManager resolver results. Level 2 runs only in system_server and adds
@@ -72,9 +72,9 @@ class ListCleanerModule : XposedModule() {
             if (kind != IntentKind.OPEN) return@mapNotNull null
             parts.getOrNull(1)?.takeIf { it.isNotBlank() }
         }.toSet()
-        // Package-visibility fallback is intentionally package-level. If ES is selected in
-        // hiddenFromApps, an app chosen only in a typed OPEN rule is hidden from ES as a whole.
-        val allSelectedPackages: Set<String> = selectedPackages.values.flatten().toSet() + typedOpenPackages
+        // Compatibility hiding is intentionally limited to OPEN targets. A caller such as ES
+        // should not lose an app merely because that app is selected in SHARE or PROCESS_TEXT.
+        val allSelectedPackages: Set<String> = selectedPackages[IntentKind.OPEN].orEmpty() + typedOpenPackages
         fun hasSelection(kind: IntentKind): Boolean = kind in selectedKinds
         fun hasPackageSelection(kind: IntentKind, packageName: String): Boolean = packageName in selectedPackages[kind].orEmpty()
     }
@@ -84,8 +84,7 @@ class ListCleanerModule : XposedModule() {
     @Volatile
     private var snapshot = RuleSnapshot(emptySet(), DisplayMode.HIDE_SELECTED, PriorityConfig(), DefaultOpenConfig(), OpenTypeConfig(), false)
     private var lastEncodedConfig: String? = null
-    @Volatile
-    private var listenerRegistered = false
+    @Volatile private var listenerRegistered = false
     private var processName = ""
     private var systemServer = false
     private var diagnosticWindow = 0L
@@ -97,6 +96,9 @@ class ListCleanerModule : XposedModule() {
     private val queryInProgress = ThreadLocal<Boolean>()
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
     private val tracedActions = ConcurrentHashMap.newKeySet<String>()
+    private val queryHits = AtomicLong()
+    private val visibilityHits = AtomicLong()
+    private val orderingHits = AtomicLong()
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
@@ -302,8 +304,6 @@ class ListCleanerModule : XposedModule() {
     private fun systemVisibilityHooker(adapter: VisibilityLayout) = XposedInterface.Hooker { chain ->
         pollPreferences()
         val current = snapshot
-        // Package-level hiding is intentionally limited to HIDE_SELECTED. SHOW_SELECTED at package
-        // visibility level would hide unrelated packages and can break the caller process.
         if (current.displayMode != DisplayMode.HIDE_SELECTED ||
             current.hiddenFromApps.isEmpty() || current.allSelectedPackages.isEmpty()) {
             return@Hooker chain.proceed()
@@ -313,8 +313,6 @@ class ListCleanerModule : XposedModule() {
         val callingUid = args.getOrNull(adapter.uidIndex) as? Int ?: return@Hooker chain.proceed()
         if (callingUid < 10_000) return@Hooker chain.proceed()
 
-        // Newer Android exposes a Computer/PackageDataSnapshot object; Android 12 does not, so
-        // fall back to the calling SettingBase/PackageSetting supplied by AppsFilter itself.
         val computer = args.firstOrNull { value -> value != null && hasGetPackagesForUid(value.javaClass) }
         val callers = if (computer != null) packagesForUid(computer, callingUid)
             else packageNamesFromCallerSetting(adapter.callerSettingIndex?.let(args::getOrNull))
@@ -325,6 +323,7 @@ class ListCleanerModule : XposedModule() {
             return@Hooker chain.proceed()
         }
 
+        visibilityHits.incrementAndGet()
         diagnostic("SYSTEM_VISIBILITY_FILTER uid=$callingUid caller=${callers.sorted()} target=$target")
         true
     }
@@ -469,7 +468,7 @@ class ListCleanerModule : XposedModule() {
         recordOrderingCapability()
     }
 
-    private fun recordOrderingCapability() = record("ORDER_CAPABILITY ranked=${installedMethods.any { it.startsWith("ORDER#") }} alphaBoundary=${installedMethods.any { it.startsWith("ALPHA#") }} execution=unverified")
+    private fun recordOrderingCapability() = record("ORDER_CAPABILITY ranked=${installedMethods.any { it.startsWith("ORDER#") }} alphaBoundary=${installedMethods.any { it.startsWith("ALPHA#") }} hits=${orderingHits.get()}")
 
     private fun adapterKind(receiver: Any): IntentKind? {
         val intent = OrderingAccess.targetIntent(receiver) as? Intent ?: return null
@@ -478,7 +477,7 @@ class ListCleanerModule : XposedModule() {
         val mime = effective.type ?: runCatching {
             context?.let { effective.resolveTypeIfNeeded(it.contentResolver) }
         }.getOrNull()
-        return intent.intentKind(mime)
+        return effective.intentKind(mime)
     }
 
     private fun adapterOpenPreset(receiver: Any, kind: IntentKind): OpenPreset? {
@@ -545,7 +544,10 @@ class ListCleanerModule : XposedModule() {
             null
         }
         val result = if (replacement == null) chain.proceed() else chain.proceed(replacement)
-        if (replacement != null) diagnostic("ORDER_DELIVERED stage=ranked uiVerified=false")
+        if (replacement != null) {
+            orderingHits.incrementAndGet()
+            diagnostic("ORDER_DELIVERED stage=ranked")
+        }
         result
     }
 
@@ -578,7 +580,8 @@ class ListCleanerModule : XposedModule() {
             val ordered = orderItems(list, kind, snapshot, "alpha", fixed, preset)
             if (ordered !== list) {
                 ordered.forEachIndexed { index, item -> list[index] = item }
-                diagnostic("ORDER_DELIVERED stage=alpha kind=$kind uiVerified=false")
+                orderingHits.incrementAndGet()
+                diagnostic("ORDER_DELIVERED stage=alpha kind=$kind")
             }
         }.onFailure { diagnostic("ORDER_FAILED stage=alpha error=${it.javaClass.name}") }
         chain.proceed()
@@ -635,9 +638,9 @@ class ListCleanerModule : XposedModule() {
                             uid = callerUid
                         }
                     }
-                    nonLocalizedLabel = "${BuildConfig.VERSION_CODE}:${applied.digest}"
+                    nonLocalizedLabel = "${BuildConfig.VERSION_CODE}:${applied.digest}:${queryHits.get()}:${visibilityHits.get()}:${orderingHits.get()}"
                 }
-                record("CONFIG_ACK version=${BuildConfig.VERSION_CODE} digest=${applied.digest} callerUid=$callerUid")
+                record("CONFIG_ACK version=${BuildConfig.VERSION_CODE} digest=${applied.digest} queryHits=${queryHits.get()} visibilityHits=${visibilityHits.get()} orderHits=${orderingHits.get()} callerUid=$callerUid")
                 return result.rebuild(listOf(ack))
             }
             return original
@@ -657,6 +660,7 @@ class ListCleanerModule : XposedModule() {
         val explicit = intent?.component != null || intent?.`package` != null ||
             outerIntent?.component != null || outerIntent?.`package` != null
         if (intent != null && kind != null) {
+            queryHits.incrementAndGet()
             val traceKey = "$layer|$kind|$callerUid"
             if (!explicit && (callerUid >= 10_000 || layer == Layer.RESOLVER) && snapshot.diagnostic &&
                 tracedActions.size < 128 && tracedActions.add(traceKey)) {
@@ -664,8 +668,8 @@ class ListCleanerModule : XposedModule() {
                     Throwable().stackTrace.take(14).joinToString(" <- ") { "${it.className}.${it.methodName}" })
             }
             diagnostic("QUERY layer=$layer kind=$kind action=${intent.action} mime=${intent.type ?: resolvedType} " +
-                "scheme=${intent.data?.scheme} file=${intent.data?.lastPathSegment} component=${intent.component?.flattenToShortString()} " +
-                "package=${intent.`package`} callerUid=$callerUid " +
+                "scheme=${intent.data?.scheme} ext=${safeExtension(intent.data?.lastPathSegment ?: intent.data?.path)} " +
+                "component=${intent.component?.flattenToShortString()} package=${intent.`package`} callerUid=$callerUid " +
                 "result=${original?.javaClass?.name} rules=${snapshot.configured.size} mode=${snapshot.displayMode}")
         }
         if (intent == null || explicit) {
@@ -689,6 +693,12 @@ class ListCleanerModule : XposedModule() {
             Log.e(TAG, "Failed to rebuild ${original?.javaClass?.name}; keeping original", it)
             original
         }
+    }
+
+    private fun safeExtension(fileNameOrPath: String?): String? {
+        val clean = fileNameOrPath?.substringBefore('?')?.substringBefore('#')?.substringAfterLast('/') ?: return null
+        val extension = clean.substringAfterLast('.', "").lowercase()
+        return extension.takeIf { it.length in 1..16 && it.all { ch -> ch.isLetterOrDigit() } }
     }
 
     private fun isSelectedCandidate(kind: IntentKind, activity: ActivityInfo, current: RuleSnapshot, layer: Layer): Boolean {
@@ -823,8 +833,7 @@ class ListCleanerModule : XposedModule() {
                     config.priorities, config.defaultOpen, config.openTypes, config.diagnostic, config.managerAppId, digest, config.hiddenFromApps)
                 lastEncodedConfig = encoded
                 record("MANAGER_IDENTITY appId=${config.managerAppId} source=remote_config")
-                record("RULES_READ reason=$reason count=${snapshot.configured.size} mode=${config.mode} diagnostic=${config.diagnostic} atomic=true priorities=${config.priorities.apps.mapValues { it.value.size }} typedRules=${config.openTypes.rules.mapValues { it.value.size }} typedPriorities=${config.openTypes.priorities.mapValues { it.value.size }} titles=${config.priorities.titles.size} legacyDefaultOpenIgnored=${config.defaultOpen.preferred.size} hiddenFromApps=${config.hiddenFromApps.size} visibilityTargets=${snapshot.allSelectedPackages.size} digest=$digest")
-                record("LEGACY_TILE_CONFIG ignored=true enabled=${config.tiles.enabled} hidden=${config.tiles.hidden.size}")
+                record("RULES_READ reason=$reason count=${snapshot.configured.size} mode=${config.mode} diagnostic=${config.diagnostic} atomic=true priorities=${config.priorities.apps.mapValues { it.value.size }} typedRules=${config.openTypes.rules.mapValues { it.value.size }} typedPriorities=${config.openTypes.priorities.mapValues { it.value.size }} titles=${config.priorities.titles.size} hiddenFromApps=${config.hiddenFromApps.size} visibilityOpenTargets=${snapshot.allSelectedPackages.size} digest=$digest")
                 return@runCatching
             }
             val rules = preferences.getStringSet(RuleRepository.KEY_RULES, emptySet()).orEmpty().toSet()
@@ -838,9 +847,6 @@ class ListCleanerModule : XposedModule() {
                     preferences.getString(RuleRepository.KEY_PRIORITIES, null) ?: "{}"
                 ).validated()
             }.getOrDefault(PriorityConfig())
-            val defaultOpen = runCatching {
-                Json.decodeFromString(DefaultOpenConfig.serializer(), preferences.getString(RuleRepository.KEY_DEFAULT_OPEN, null) ?: "{}").validated()
-            }.getOrDefault(DefaultOpenConfig())
             snapshot = RuleSnapshot(
                 configured = rules, displayMode = mode, priorities = priorities,
                 defaultOpen = DefaultOpenConfig(), openTypes = OpenTypeConfig(), diagnostic = preferences.getBoolean(RuleRepository.KEY_DIAGNOSTIC, false)
