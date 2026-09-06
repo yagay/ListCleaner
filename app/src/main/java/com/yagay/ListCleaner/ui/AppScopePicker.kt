@@ -1,6 +1,6 @@
 package com.yagay.ListCleaner.ui
 
-// Scope requests selected here are paired with the third-party PackageManager query Hook.
+// Scope requests selected here are paired with the third-party PackageManager query Hook; APP-layer matching prefers components and falls back to packages.
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.util.Log
