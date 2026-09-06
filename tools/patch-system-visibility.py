@@ -127,7 +127,7 @@ s = s.replace('''        record("SYSTEM_HOOKS new=$installed total=${installedMe
         }
     }
 
-    private fun packageNameFromVisibilityArgs(args: Array<Any?>): String? {
+    private fun packageNameFromVisibilityArgs(args: List<Any?>): String? {
         // Android 13+ AppsFilterImpl currently carries the target package state near index 3.
         val preferred = args.getOrNull(3)?.let(::packageNameFromState)
         if (!preferred.isNullOrBlank()) return preferred
