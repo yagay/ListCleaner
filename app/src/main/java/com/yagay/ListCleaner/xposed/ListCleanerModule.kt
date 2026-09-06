@@ -555,18 +555,27 @@ class ListCleanerModule : XposedModule() {
         val componentSpecifiedField = allInstanceFields(request.javaClass).firstOrNull { it.name == "componentSpecified" }
 
         return runCatching {
+            val resolverInfo = requireNotNull(resolved.activityInfo)
+            val resolverComponent = ComponentName(resolverInfo.packageName, resolverInfo.name)
+            // OxygenOS resolves ACTION_CHOOSER to a launcher/trampoline, but executeRequest may
+            // re-resolve an implicit chooser later and return START_INTENT_NOT_RESOLVED (-91).
+            // Pin the already-resolved platform component and keep both request Intent slots in sync.
+            chooser.component = resolverComponent
             intentField.isAccessible = true
             resolveField.isAccessible = true
             activityField.isAccessible = true
             intentField.set(request, chooser)
+            allInstanceFields(request.javaClass)
+                .firstOrNull { it.name == "ephemeralIntent" && Intent::class.java.isAssignableFrom(it.type) }
+                ?.let { field -> field.isAccessible = true; field.set(request, Intent(chooser)) }
             resolveField.set(request, resolved)
-            activityField.set(request, resolved.activityInfo)
+            activityField.set(request, resolverInfo)
             resolvedTypeField?.let { it.isAccessible = true; it.set(request, null) }
-            componentSpecifiedField?.let { it.isAccessible = true; it.setBoolean(request, false) }
+            componentSpecifiedField?.let { it.isAccessible = true; it.setBoolean(request, true) }
             diagnostic(
                 "CHOOSER_SYSTEM_REDIRECT_APPLIED uid=${view.uid} caller=${view.callerPackage} " +
                     "from=${component.flattenToShortString()} kind=${template.kind} targetAction=${payload.action} " +
-                    "mime=${payload.type} uri=${payloadHasUri(payload)} resolver=${resolved.activityInfo?.packageName}/${resolved.activityInfo?.name}"
+                    "mime=${payload.type} uri=${payloadHasUri(payload)} resolver=${resolverComponent.flattenToShortString()} explicit=true"
             )
             true
         }.getOrElse {
