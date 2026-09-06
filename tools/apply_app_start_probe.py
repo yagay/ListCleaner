@@ -100,12 +100,12 @@ if old_redirect not in s:
 s = s.replace(old_redirect, new_redirect, 1)
 
 # Add hook id constant next to existing chooser id.
-const_anchor = '        private const val CHOOSER_DISCOVERY_HOOK_ID = '
+const_anchor = '        const val CHOOSER_DISCOVERY_HOOK_ID = '
 pos = s.find(const_anchor)
 if pos == -1:
     raise SystemExit('chooser hook id constant not found')
 line_end = s.index('\n', pos)
-s = s[:line_end+1] + '        private const val APP_START_PROBE_HOOK_ID = "ic-app-start-probe"\n' + s[line_end+1:]
+s = s[:line_end+1] + '        const val APP_START_PROBE_HOOK_ID = "ic-app-start-probe"\n' + s[line_end+1:]
 
 p.write_text(s)
 print('patched app-side start probe')
