@@ -27,18 +27,31 @@ import com.yagay.ListCleaner.BuildConfig
 @Composable
 fun RulesTab(state: MainState, vm: MainViewModel) {
     var editingTitle by remember { mutableStateOf<com.yagay.ListCleaner.domain.ComponentCandidate?>(null) }
+    var showCustomTypes by rememberSaveable { mutableStateOf(false) }
     editingTitle?.let { item ->
         ComponentTitleDialog(item, state.priorities.titles[item.rule.id],
             onSave = { vm.setComponentTitle(item.rule.id, it) },
             onDismiss = { editingTitle = null })
     }
+    if (showCustomTypes) {
+        CustomOpenTypeDialog(
+            config = state.openTypesExplicit,
+            onSave = vm::setCustomOpenDefinition,
+            onDismiss = { showCustomTypes = false }
+        )
+    }
     var openPreset by rememberSaveable { mutableStateOf<OpenPreset?>(null) }
     LaunchedEffect(state.filter) { if (state.filter != IntentKind.OPEN) openPreset = null }
+    LaunchedEffect(state.openTypesExplicit.customDefinitions, openPreset) {
+        if (openPreset?.isCustom == true && openPreset !in state.openTypesExplicit.customDefinitions) openPreset = null
+    }
     val typedSelected = openPreset?.let { state.openTypes.selectedRules(it) }.orEmpty()
     val explicitTypedSelected = openPreset?.let { state.openTypesExplicit.selectedRules(it) }.orEmpty()
     val shownGroups = if (state.filter == IntentKind.OPEN && openPreset != null) {
-        groupCandidates(state.candidates.filter { it.matchesOpenPreset(openPreset!!) }, typedSelected,
-            IntentKind.OPEN, state.query, state.uiFilter)
+        groupCandidates(
+            state.candidates.filter { it.matchesOpenPreset(openPreset!!, state.openTypesExplicit.customDefinitions) },
+            typedSelected, IntentKind.OPEN, state.query, state.uiFilter
+        )
     } else state.groups
     val activeSelected = if (openPreset != null && state.filter == IntentKind.OPEN) typedSelected else state.selected
     val visibleRules = shownGroups.flatMap { it.components }.map { it.rule }.distinct()
@@ -54,7 +67,14 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                     ListControls(state, vm::setFilter, vm::setUiFilter,
                         onSelectAll = { if (openPreset != null && state.filter == IntentKind.OPEN) vm.selectOpenTypeRules(openPreset!!, visibleRules) else vm.selectRules(visibleRules) },
                         onInvert = { if (openPreset != null && state.filter == IntentKind.OPEN) vm.invertOpenTypeRules(openPreset!!, visibleRules) else vm.invertRules(visibleRules) })
-                    if (state.filter == IntentKind.OPEN) OpenPresetFilterRow(openPreset, { openPreset = it })
+                    if (state.filter == IntentKind.OPEN) {
+                        OpenPresetFilterRow(
+                            selected = openPreset,
+                            config = state.openTypesExplicit,
+                            onSelected = { openPreset = it },
+                            onManageCustom = { showCustomTypes = true }
+                        )
+                    }
                 }
             }
         }
@@ -83,7 +103,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                     val sourceNote = if (openPreset != null && state.filter == IntentKind.OPEN && component.rule in activeSelected) {
                         when {
                             component.rule in state.selected -> "继承自“打开方式 · 全部”"
-                            component.rule in explicitTypedSelected -> "${openPreset!!.title} 专用规则"
+                            component.rule in explicitTypedSelected -> "${state.openTypes.titleFor(openPreset!!)} 专用规则"
                             else -> null
                         }
                     } else null
@@ -102,8 +122,9 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
 
 @Composable
 private fun SummaryRow(state: MainState, groupCount: Int = state.groups.size, openPreset: OpenPreset? = null) {
+    val presetTitle = openPreset?.let(state.openTypes::titleFor)
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text("应用列表 · $groupCount" + (openPreset?.let { " · ${it.title}" } ?: ""), style = MaterialTheme.typography.labelLarge)
+        Text("应用列表 · $groupCount" + (presetTitle?.let { " · $it" } ?: ""), style = MaterialTheme.typography.labelLarge)
         Text("本页用于管理分享、多文件分享、打开方式、浏览器和文本处理等 Intent 候选入口：可按规则隐藏/保留组件，也可单独修改组件在系统候选菜单中的显示名称；不会修改实际 Intent、包名、组件名，也不会停用或卸载应用。",
             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(when (state.displayMode) {
@@ -111,7 +132,7 @@ private fun SummaryRow(state: MainState, groupCount: Int = state.groups.size, op
             DisplayMode.SHOW_SELECTED -> "当前为“只显示选中”：规则生效后，对应分类保留勾选的组件，隐藏其他组件。"
             DisplayMode.SHOW_ALL -> "当前为“全部显示”：暂停清理系统候选列表，勾选只保存配置，恢复清理模式后生效。"
         }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(if (openPreset == null) "勾选应用可批量选择当前分类及搜索条件下显示的组件；展开后可逐项选择，点铅笔可设置该组件在当前分类中的菜单显示名称。改名与是否勾选规则相互独立；留空保存恢复原名称。“查看”只筛选本页列表，不改变清理规则。" else "当前正在编辑“打开方式 · ${openPreset.title}”专用规则。有效勾选由“全部”中的 OPEN 通用规则与当前类型专用规则共同组成；继承自“全部”的项目会继续显示已勾选，并在展开项中标明来源。继承项不能在分类型里直接取消，需要回到“全部”取消；当前类型新增的规则只影响该 MIME / scheme 类型。",
+        Text(if (openPreset == null) "勾选应用可批量选择当前分类及搜索条件下显示的组件；展开后可逐项选择，点铅笔可设置该组件在当前分类中的菜单显示名称。改名与是否勾选规则相互独立；留空保存恢复原名称。“查看”只筛选本页列表，不改变清理规则。" else "当前正在编辑“打开方式 · $presetTitle”专用规则。有效勾选由“全部”中的 OPEN 通用规则与当前类型专用规则共同组成；继承自“全部”的项目会继续显示已勾选，并在展开项中标明来源。继承项不能在分类型里直接取消，需要回到“全部”取消；当前类型新增的规则只影响该 MIME / scheme / 文件后缀类型。",
             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (state.displayMode == DisplayMode.SHOW_ALL) {
             Text(if (state.runtime.ready) "system 已确认暂停过滤、排序和自定义显示名称；相关配置仍保留" else "本地已选择暂停，尚未确认系统已应用", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
@@ -143,10 +164,7 @@ fun DashboardTabContent(
     var showScopeDetails by remember { mutableStateOf(false) }
     var showAppScopePicker by remember { mutableStateOf(false) }
     if (showScopeDetails) ScopeDialog(state.module, vm::requestScope, vm::refreshModuleStatus) { showScopeDetails = false }
-    if (showAppScopePicker) AppScopePickerDialog(
-        selected = state.hiddenFromApps,
-        onSelectedChange = vm::setHiddenFromApps,
-    ) { showAppScopePicker = false }
+    if (showAppScopePicker) AppScopePickerDialog(selected = state.hiddenFromApps, onSelectedChange = vm::setHiddenFromApps) { showAppScopePicker = false }
     Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         RuntimePanel(state, vm)
         Text("全局清理模式", style = MaterialTheme.typography.titleMedium)
@@ -157,15 +175,10 @@ fun DashboardTabContent(
                     Text("控制系统选择器如何处理已选组件。", style = MaterialTheme.typography.bodySmall)
                 }
                 Box {
-                    TextButton(onClick = { menu = true }) {
-                        Text("切换")
-                        Icon(Icons.Rounded.ExpandMore, null, Modifier.size(18.dp))
-                    }
+                    TextButton(onClick = { menu = true }) { Text("切换"); Icon(Icons.Rounded.ExpandMore, null, Modifier.size(18.dp)) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DisplayMode.entries.forEach { mode ->
-                            DropdownMenuItem(text = { Text(mode.title) },
-                                leadingIcon = { if (mode == state.displayMode) Icon(Icons.Rounded.Check, null) },
-                                onClick = { menu = false; vm.setDisplayMode(mode) })
+                            DropdownMenuItem(text = { Text(mode.title) }, leadingIcon = { if (mode == state.displayMode) Icon(Icons.Rounded.Check, null) }, onClick = { menu = false; vm.setDisplayMode(mode) })
                         }
                     }
                 }
@@ -187,8 +200,7 @@ fun DashboardTabContent(
                 Text("Intent 查询 Hook：${state.runtime.queryHits} 次", style = MaterialTheme.typography.bodySmall)
                 Text("应用可见性兼容过滤：${state.runtime.visibilityHits} 次", style = MaterialTheme.typography.bodySmall)
                 Text("system 进程记录到的排序改写：${state.runtime.orderingHits} 次", style = MaterialTheme.typography.bodySmall)
-                Text("查询和应用可见性计数来自 system_server 的真实执行。排序通常在独立 Resolver/Chooser 进程执行，因此这里的排序计数为 0 不能单独判定排序失效；诊断模式会记录 Resolver 侧 ORDER_DELIVERED，实际菜单仍以设备复现为准。",
-                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("查询和应用可见性计数来自 system_server 的真实执行。排序通常在独立 Resolver/Chooser 进程执行，因此这里的排序计数为 0 不能单独判定排序失效；诊断模式会记录 Resolver 侧 ORDER_DELIVERED，实际菜单仍以设备复现为准。", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedButton(onClick = vm::refreshModuleStatus, modifier = Modifier.fillMaxWidth()) { Text("刷新运行状态") }
             }
         }
@@ -200,20 +212,13 @@ fun DashboardTabContent(
         }
 
         Text("模块状态", style = MaterialTheme.typography.titleMedium)
-        ModuleStatusRow(state) {
-            showScopeDetails = true
-            vm.refreshModuleStatus()
-        }
+        ModuleStatusRow(state) { showScopeDetails = true; vm.refreshModuleStatus() }
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("应用隐藏列表", fontWeight = FontWeight.Bold)
-                Text("用于普通 Resolver 规则对某些文件管理器不起作用时的兼容方案，例如 ES 自己生成的打开方式列表。启用后，从指定来源应用可见的已安装应用列表中隐藏“打开方式”规则目标；只跟随 OPEN 通用规则和 PDF、APK、图片、视频等分类型 OPEN 规则，不会再因为分享或文本处理规则而隐藏目标包。", style = MaterialTheme.typography.bodySmall)
-                Button(
-                    onClick = { showAppScopePicker = true },
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("管理应用隐藏列表（${state.hiddenFromApps.size}）") }
-                Text("勾选立即保存；仅在“隐藏选中”模式生效。实现位于 android/system_server，属于包级隐藏：命中后该目标包会整体对来源应用不可见，无法只隐藏其中一个 Activity。",
-                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("用于普通 Resolver 规则对某些文件管理器不起作用时的兼容方案，例如 ES 自己生成的打开方式列表。启用后，从指定来源应用可见的已安装应用列表中隐藏“打开方式”规则目标；只跟随 OPEN 通用规则和内置/自定义分类型 OPEN 规则，不会再因为分享或文本处理规则而隐藏目标包。", style = MaterialTheme.typography.bodySmall)
+                Button(onClick = { showAppScopePicker = true }, modifier = Modifier.fillMaxWidth()) { Text("管理应用隐藏列表（${state.hiddenFromApps.size}）") }
+                Text("勾选立即保存；仅在“隐藏选中”模式生效。实现位于 android/system_server，属于包级隐藏：命中后该目标包会整体对来源应用不可见，无法只隐藏其中一个 Activity。", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -222,26 +227,13 @@ fun DashboardTabContent(
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 Text("扫描只用于发现可管理组件，不保证等同于每次实际菜单。非文本分类保留空列表保护；文本允许隐藏全部候选，不处理应用硬编码菜单。", style = MaterialTheme.typography.labelSmall)
-                OutlinedButton(onClick = onInspectFile, enabled = !checkingFile, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (checkingFile) "正在检查文件…" else "用实际文件预览最终打开方式")
-                }
+                OutlinedButton(onClick = onInspectFile, enabled = !checkingFile, modifier = Modifier.fillMaxWidth()) { Text(if (checkingFile) "正在检查文件…" else "用实际文件预览最终打开方式") }
                 fileCheckStatus?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("诊断模式", Modifier.weight(1f))
-                    Switch(state.diagnosticMode, vm::setDiagnosticMode)
-                }
-                Text("开启后记录查询分类、规则与跳过原因；按分类和调用UID记录首个有效查询栈。管理扫描不占用调用栈记录。运行时只记录文件扩展名和识别类型，不记录完整文件名或 URI。每进程每5秒关键记录最多200条，候选明细另限40条。",
-                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically) { Text("诊断模式", Modifier.weight(1f)); Switch(state.diagnosticMode, vm::setDiagnosticMode) }
+                Text("开启后记录查询分类、规则与跳过原因；按分类和调用UID记录首个有效查询栈。管理扫描不占用调用栈记录。运行时只记录文件扩展名和识别类型，不记录完整文件名或 URI。每进程每5秒关键记录最多200条，候选明细另限40条。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (state.diagnosticMode) Text("诊断已开启；请复现分享、打开或文本处理操作。", style = MaterialTheme.typography.bodySmall)
-                Button(
-                    onClick = onCollectDiagnostics,
-                    enabled = !collectingDiagnostics,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    if (collectingDiagnostics) {
-                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                        Spacer(Modifier.width(8.dp))
-                    }
+                Button(onClick = onCollectDiagnostics, enabled = !collectingDiagnostics, modifier = Modifier.fillMaxWidth()) {
+                    if (collectingDiagnostics) { CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp); Spacer(Modifier.width(8.dp)) }
                     Text(if (collectingDiagnostics) "正在收集" else "一键导出诊断包")
                 }
                 Text("先开启诊断，再复现问题，最后导出。包含最近24小时内最多12份 LSPosed 日志；大文件保留开头与最新结尾。系统原始日志仍可能包含其他进程隐私，分享前请检查。需要 Root 授权，读取失败会记录在包内。", style = MaterialTheme.typography.labelSmall)
@@ -249,7 +241,6 @@ fun DashboardTabContent(
         }
 
         Spacer(Modifier.height(32.dp))
-        Text("${androidx.compose.ui.res.stringResource(com.yagay.ListCleaner.R.string.app_name)} v${BuildConfig.VERSION_NAME}", modifier = Modifier.align(Alignment.CenterHorizontally),
-             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("${androidx.compose.ui.res.stringResource(com.yagay.ListCleaner.R.string.app_name)} v${BuildConfig.VERSION_NAME}", modifier = Modifier.align(Alignment.CenterHorizontally), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
