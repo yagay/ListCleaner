@@ -6,9 +6,7 @@ import android.content.SharedPreferences
 import android.content.pm.ResolveInfo
 import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
-import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
-import android.content.ComponentName
 import com.yagay.ListCleaner.BuildConfig
 import com.yagay.ListCleaner.domain.RuntimeProtocol
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
@@ -134,7 +132,6 @@ class ListCleanerModule : XposedModule() {
                 val layer = when (handle.id) {
                     "$HOOK_ID-system" -> Layer.SYSTEM
                     "$HOOK_ID-resolver" -> Layer.RESOLVER
-                    "$HOOK_ID-app" -> Layer.APP
                     else -> null
                 }
                 when {
@@ -173,7 +170,6 @@ class ListCleanerModule : XposedModule() {
                 when (expectedLayer) {
                     Layer.SYSTEM -> installSystemServerQueryHooks(it)
                     Layer.RESOLVER -> installResolverClientHooks(it)
-                    Layer.APP -> installApplicationClientHooks(it, baseProcess)
                     null -> record("HOT_RELOAD_SKIP package=$baseProcess reason=system_scope_pseudo_process")
                 }
             }
@@ -381,70 +377,6 @@ class ListCleanerModule : XposedModule() {
         installFinalOrderingHooks(classLoader)
     }
 
-    private fun installApplicationClientHooks(classLoader: ClassLoader, packageName: String) {
-        val clazz = runCatching {
-            Class.forName("android.app.ApplicationPackageManager", false, classLoader)
-        }.getOrElse {
-            record("APP_QUERY_CLASS_UNAVAILABLE package=$packageName error=${it.javaClass.name}")
-            return
-        }
-        var installed = 0
-        clazz.declaredMethods.filter(::isQueryIntentActivitiesMethod).forEach { method ->
-            if (installHook(method, Layer.APP)) installed++
-        }
-        record("APP_QUERY_HOOKS package=$packageName new=$installed total=${installedMethods.size}")
-        installVirtualComponentHooks(clazz, packageName)
-    }
-
-    private fun installVirtualComponentHooks(clazz: Class<*>, packageName: String) {
-        var activityHooks = 0
-        var stateHooks = 0
-        var applicationHooks = 0
-        var packageHooks = 0
-        var installedApplicationHooks = 0
-        var installedPackageHooks = 0
-        var resolveHooks = 0
-        var optionHooks = 0
-
-        fun install(method: Method, keyPrefix: String, id: String, type: String, hooker: XposedInterface.Hooker): Boolean {
-            val key = "$keyPrefix#${method.toGenericString()}"
-            if (!installedMethods.add(key)) return false
-            return runCatching {
-                hook(method).setId(id).intercept(hooker)
-                true
-            }.getOrElse {
-                installedMethods.remove(key)
-                record("VIRTUAL_HOOK_FAILED package=$packageName type=$type method=${method.name} error=${it.javaClass.name}")
-                false
-            }
-        }
-
-        clazz.declaredMethods.filter(::isActivityInfoMethod).forEach { method ->
-            if (install(method, "VIRTUAL_ACTIVITY", VIRTUAL_ACTIVITY_HOOK_ID, "activity_info", virtualActivityInfoHooker())) activityHooks++
-        }
-        clazz.declaredMethods.filter(::isComponentEnabledSettingMethod).forEach { method ->
-            if (install(method, "VIRTUAL_STATE", VIRTUAL_STATE_HOOK_ID, "component_state", virtualComponentStateHooker())) stateHooks++
-        }
-        clazz.declaredMethods.filter(::isApplicationInfoMethod).forEach { method ->
-            if (install(method, "VIRTUAL_APPLICATION", VIRTUAL_APPLICATION_HOOK_ID, "application_info", virtualApplicationInfoHooker())) applicationHooks++
-        }
-        clazz.declaredMethods.filter(::isPackageInfoMethod).forEach { method ->
-            if (install(method, "VIRTUAL_PACKAGE", VIRTUAL_PACKAGE_HOOK_ID, "package_info", virtualPackageInfoHooker())) packageHooks++
-        }
-        clazz.declaredMethods.filter(::isInstalledApplicationsMethod).forEach { method ->
-            if (install(method, "VIRTUAL_INSTALLED_APPS", VIRTUAL_INSTALLED_APPS_HOOK_ID, "installed_applications", virtualInstalledApplicationsHooker())) installedApplicationHooks++
-        }
-        clazz.declaredMethods.filter(::isInstalledPackagesMethod).forEach { method ->
-            if (install(method, "VIRTUAL_INSTALLED_PACKAGES", VIRTUAL_INSTALLED_PACKAGES_HOOK_ID, "installed_packages", virtualInstalledPackagesHooker())) installedPackageHooks++
-        }
-        clazz.declaredMethods.filter(::isResolveActivityMethod).forEach { method ->
-            if (install(method, "VIRTUAL_RESOLVE", VIRTUAL_RESOLVE_HOOK_ID, "resolve_activity", virtualResolveActivityHooker())) resolveHooks++
-        }
-        clazz.declaredMethods.filter(::isQueryIntentActivityOptionsMethod).forEach { method ->
-            if (install(method, "VIRTUAL_OPTIONS", VIRTUAL_OPTIONS_HOOK_ID, "query_intent_activity_options", virtualQueryIntentActivityOptionsHooker())) optionHooks++
-        }
-        record("VIRTUAL_HOOKS package=$packageName mode=process_wide activityInfo=$activityHooks componentState=$stateHooks applicationInfo=$applicationHooks packageInfo=$packageHooks installedApps=$installedApplicationHooks installedPackages=$installedPackageHooks resolveActivity=$resolveHooks queryOptions=$optionHooks")
-    }
 
     private fun installFinalOrderingHooks(loader: ClassLoader) {
         listOf("com.android.internal.app.ResolverListAdapter", "com.android.internal.app.ChooserListAdapter",
@@ -685,25 +617,6 @@ class ListCleanerModule : XposedModule() {
             diagnostic("skip $layer ${intent.action}: unsupported result ${original?.javaClass?.name}")
             return original
         }
-        if (layer == Layer.APP) {
-            if (extracted.values.size <= 1) {
-                diagnostic("APP_SKIP kind=$kind reason=single_or_empty_candidate count=${extracted.values.size}")
-                return original
-            }
-            if (!snapshot.hasSelection(kind)) {
-                diagnostic("APP_SKIP kind=$kind reason=no_rules_for_kind")
-                return original
-            }
-            val hasMatchingRule = extracted.values.any { value ->
-                val info = value as? ResolveInfo ?: return@any false
-                val activity = info.activityInfo ?: return@any false
-                isSelectedCandidate(kind, activity, snapshot, Layer.APP)
-            }
-            if (!hasMatchingRule) {
-                diagnostic("APP_SKIP kind=$kind reason=no_component_or_package_match count=${extracted.values.size}")
-                return original
-            }
-        }
         val replacement = transform(kind, extracted.values, layer, callerUid) ?: return original
         return runCatching { extracted.rebuild(replacement) }.getOrElse {
             Log.e(TAG, "Failed to rebuild ${original?.javaClass?.name}; keeping original", it)
@@ -711,101 +624,13 @@ class ListCleanerModule : XposedModule() {
         }
     }
 
-    private fun processVisibilityHidden(packageName: String, current: RuleSnapshot): Boolean {
-        val owner = processName.substringBefore(':')
-        if (packageName.isBlank() || packageName == owner || current.displayMode == DisplayMode.SHOW_ALL) return false
-        val selected = packageName in current.allSelectedPackages
-        return current.displayMode.includes(selected, current.allSelectedPackages.isNotEmpty()).not()
-    }
-
-    private fun virtualActivityInfoHooker() = XposedInterface.Hooker { chain ->
-        pollPreferences()
-        val component = chain.args.firstOrNull { it is ComponentName } as? ComponentName ?: return@Hooker chain.proceed()
-        if (!processVisibilityHidden(component.packageName, snapshot)) return@Hooker chain.proceed()
-        diagnostic("PROCESS_VISIBILITY_ACTIVITY_HIDDEN component=${component.flattenToShortString()} result=NameNotFound")
-        throw PackageManager.NameNotFoundException(component.flattenToShortString())
-    }
-
-    private fun virtualComponentStateHooker() = XposedInterface.Hooker { chain ->
-        pollPreferences()
-        val component = chain.args.firstOrNull { it is ComponentName } as? ComponentName ?: return@Hooker chain.proceed()
-        if (!processVisibilityHidden(component.packageName, snapshot)) return@Hooker chain.proceed()
-        diagnostic("PROCESS_VISIBILITY_COMPONENT_STATE component=${component.flattenToShortString()} state=DISABLED")
-        PackageManager.COMPONENT_ENABLED_STATE_DISABLED
-    }
-
-    private fun virtualApplicationInfoHooker() = XposedInterface.Hooker { chain ->
-        pollPreferences()
-        val packageName = chain.args.firstOrNull { it is String } as? String ?: return@Hooker chain.proceed()
-        if (!processVisibilityHidden(packageName, snapshot)) return@Hooker chain.proceed()
-        diagnostic("PROCESS_VISIBILITY_APPLICATION_HIDDEN package=$packageName result=NameNotFound")
-        throw PackageManager.NameNotFoundException(packageName)
-    }
-
-    private fun virtualPackageInfoHooker() = XposedInterface.Hooker { chain ->
-        pollPreferences()
-        val packageName = chain.args.firstOrNull { it is String } as? String ?: return@Hooker chain.proceed()
-        if (!processVisibilityHidden(packageName, snapshot)) return@Hooker chain.proceed()
-        diagnostic("PROCESS_VISIBILITY_PACKAGE_HIDDEN package=$packageName result=NameNotFound")
-        throw PackageManager.NameNotFoundException(packageName)
-    }
-
-    private fun virtualInstalledApplicationsHooker() = XposedInterface.Hooker { chain ->
-        pollPreferences()
-        val original = chain.proceed()
-        val result = extractListResult(original) ?: return@Hooker original
-        val filtered = result.values.filter { value ->
-            val info = value as? ApplicationInfo ?: return@filter true
-            !processVisibilityHidden(info.packageName, snapshot)
-        }
-        if (filtered.size == result.values.size || filtered.isEmpty()) return@Hooker original
-        diagnostic("PROCESS_VISIBILITY_INSTALLED_APPLICATIONS ${result.values.size}->${filtered.size}")
-        runCatching { result.rebuild(filtered) }.getOrDefault(original)
-    }
-
-    private fun virtualInstalledPackagesHooker() = XposedInterface.Hooker { chain ->
-        pollPreferences()
-        val original = chain.proceed()
-        val result = extractListResult(original) ?: return@Hooker original
-        val filtered = result.values.filter { value ->
-            val info = value as? PackageInfo ?: return@filter true
-            !processVisibilityHidden(info.packageName, snapshot)
-        }
-        if (filtered.size == result.values.size || filtered.isEmpty()) return@Hooker original
-        diagnostic("PROCESS_VISIBILITY_INSTALLED_PACKAGES ${result.values.size}->${filtered.size}")
-        runCatching { result.rebuild(filtered) }.getOrDefault(original)
-    }
-
-    private fun virtualResolveActivityHooker() = XposedInterface.Hooker { chain ->
-        pollPreferences()
-        val original = chain.proceed()
-        val info = original as? ResolveInfo ?: return@Hooker original
-        val activity = info.activityInfo ?: return@Hooker original
-        if (!processVisibilityHidden(activity.packageName, snapshot)) return@Hooker original
-        diagnostic("PROCESS_VISIBILITY_RESOLVE_ACTIVITY component=${activity.packageName}/${activity.name} result=null")
-        null
-    }
-
-    private fun virtualQueryIntentActivityOptionsHooker() = XposedInterface.Hooker { chain ->
-        pollPreferences()
-        val original = chain.proceed()
-        val result = extractListResult(original) ?: return@Hooker original
-        val filtered = result.values.filter { value ->
-            val info = value as? ResolveInfo ?: return@filter true
-            val activity = info.activityInfo ?: return@filter true
-            !processVisibilityHidden(activity.packageName, snapshot)
-        }
-        if (filtered.size == result.values.size || filtered.isEmpty()) return@Hooker original
-        diagnostic("PROCESS_VISIBILITY_QUERY_OPTIONS ${result.values.size}->${filtered.size}")
-        runCatching { result.rebuild(filtered) }.getOrDefault(original)
-    }
 
     private fun isSelectedCandidate(kind: IntentKind, activity: ActivityInfo, current: RuleSnapshot, layer: Layer): Boolean {
         val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
             activity.packageName, activity.name, activity.targetActivity
         )
         if ("${kind.name}|${activity.packageName}|$canonicalClass" in current.configured) return true
-        return layer == Layer.APP && current.hasPackageSelection(kind, activity.packageName)
+        return false
     }
 
     private fun transform(kind: IntentKind, values: List<*>, layer: Layer, callerUid: Int): List<*>? {
@@ -830,7 +655,7 @@ class ListCleanerModule : XposedModule() {
                     activity.packageName, activity.name, activity.targetActivity
                 )
                 val exactSelected = "${kind.name}|${activity.packageName}|$canonicalClass" in current.configured
-                val packageFallback = layer == Layer.APP && !exactSelected && current.hasPackageSelection(kind, activity.packageName)
+                val packageFallback = false
                 val selected = exactSelected || packageFallback
                 diagnostic(
                     "CANDIDATE $layer $kind ${activity.packageName}/${activity.name} target=${activity.targetActivity} canonical=$canonicalClass selected=$selected match=${if (exactSelected) "component" else if (packageFallback) "package" else "none"}",
@@ -956,45 +781,8 @@ class ListCleanerModule : XposedModule() {
             (List::class.java.isAssignableFrom(method.returnType) ||
                 method.returnType.name == "android.content.pm.ParceledListSlice")
 
-    private fun isActivityInfoMethod(method: Method): Boolean =
-        method.name in setOf("getActivityInfo", "getActivityInfoAsUser") &&
-            method.parameterTypes.any { ComponentName::class.java.isAssignableFrom(it) } &&
-            ActivityInfo::class.java.isAssignableFrom(method.returnType)
 
-    private fun isComponentEnabledSettingMethod(method: Method): Boolean =
-        method.name == "getComponentEnabledSetting" &&
-            method.parameterTypes.any { ComponentName::class.java.isAssignableFrom(it) } &&
-            method.returnType == Int::class.javaPrimitiveType
-
-    private fun isApplicationInfoMethod(method: Method): Boolean =
-        method.name in setOf("getApplicationInfo", "getApplicationInfoAsUser") &&
-            method.parameterTypes.any { it == String::class.java } &&
-            ApplicationInfo::class.java.isAssignableFrom(method.returnType)
-
-    private fun isPackageInfoMethod(method: Method): Boolean =
-        method.name in setOf("getPackageInfo", "getPackageInfoAsUser") &&
-            method.parameterTypes.any { it == String::class.java } &&
-            PackageInfo::class.java.isAssignableFrom(method.returnType)
-
-    private fun isInstalledApplicationsMethod(method: Method): Boolean =
-        method.name in setOf("getInstalledApplications", "getInstalledApplicationsAsUser") &&
-            (List::class.java.isAssignableFrom(method.returnType) || method.returnType.name == "android.content.pm.ParceledListSlice")
-
-    private fun isInstalledPackagesMethod(method: Method): Boolean =
-        method.name in setOf("getInstalledPackages", "getInstalledPackagesAsUser") &&
-            (List::class.java.isAssignableFrom(method.returnType) || method.returnType.name == "android.content.pm.ParceledListSlice")
-
-    private fun isResolveActivityMethod(method: Method): Boolean =
-        method.name in setOf("resolveActivity", "resolveActivityAsUser") &&
-            method.parameterTypes.any { Intent::class.java.isAssignableFrom(it) } &&
-            ResolveInfo::class.java.isAssignableFrom(method.returnType)
-
-    private fun isQueryIntentActivityOptionsMethod(method: Method): Boolean =
-        method.name == "queryIntentActivityOptions" &&
-            method.parameterTypes.any { Intent::class.java.isAssignableFrom(it) } &&
-            (List::class.java.isAssignableFrom(method.returnType) || method.returnType.name == "android.content.pm.ParceledListSlice")
-
-    private enum class Layer { SYSTEM, RESOLVER, APP }
+    private enum class Layer { SYSTEM, RESOLVER }
 
     private companion object {
         const val TAG = "ListCleaner"
@@ -1005,14 +793,6 @@ class ListCleanerModule : XposedModule() {
         const val SYSTEM_SCOPE_PACKAGE = "system"
         const val SYSTEM_UI_PACKAGE = "com.android.systemui"
         const val PER_USER_RANGE = 100_000
-        const val VIRTUAL_ACTIVITY_HOOK_ID = "ic-virtual-activity-info"
-        const val VIRTUAL_STATE_HOOK_ID = "ic-virtual-component-state"
-        const val VIRTUAL_APPLICATION_HOOK_ID = "ic-virtual-application-info"
-        const val VIRTUAL_PACKAGE_HOOK_ID = "ic-virtual-package-info"
-        const val VIRTUAL_INSTALLED_APPS_HOOK_ID = "ic-virtual-installed-applications"
-        const val VIRTUAL_INSTALLED_PACKAGES_HOOK_ID = "ic-virtual-installed-packages"
-        const val VIRTUAL_RESOLVE_HOOK_ID = "ic-virtual-resolve-activity"
-        const val VIRTUAL_OPTIONS_HOOK_ID = "ic-virtual-query-options"
         const val VISIBILITY_HOOK_ID = "ic-system-package-visibility"
         const val MANAGER_PACKAGE = "com.yagay.ListCleaner"
         val SYSTEM_VISIBILITY_CLASSES = listOf(
