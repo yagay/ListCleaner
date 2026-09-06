@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'tools/patch-hidden-app-list.py'
+      - 'tools/fix-hidden-app-list.py'
       - '.github/workflows/apply-hidden-app-list.yml'
 
 permissions:
@@ -28,11 +29,14 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
       - name: Apply hidden app list migration
-        run: python3 tools/patch-hidden-app-list.py
+        run: |
+          python3 tools/patch-hidden-app-list.py
+          python3 tools/fix-hidden-app-list.py
       - name: Verify no app scope request remains in picker
         run: |
           ! grep -R "requestScope\|SCOPE_REQUEST_START\|加入 LSPosed Hook 列表" app/src/main/java/com/yagay/ListCleaner/ui/AppScopePicker.kt
           grep -q "hiddenFromApps" app/src/main/java/com/yagay/ListCleaner/domain/ModuleConfig.kt
+          grep -q "fun setHiddenFromApps" app/src/main/java/com/yagay/ListCleaner/data/RuleRepository.kt
           grep -q "应用隐藏列表" app/src/main/java/com/yagay/ListCleaner/ui/MainTabs.kt
       - name: Build and test
         run: ./gradlew :app:testDebugUnitTest :app:assembleDebug --stacktrace
@@ -45,6 +49,7 @@ jobs:
       - name: Remove one-shot patch files
         run: |
           rm -f tools/patch-hidden-app-list.py
+          rm -f tools/fix-hidden-app-list.py
           rm -f .github/workflows/apply-hidden-app-list.yml
       - name: Commit implementation
         run: |
