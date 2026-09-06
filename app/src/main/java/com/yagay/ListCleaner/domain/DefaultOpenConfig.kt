@@ -51,7 +51,7 @@ data class DefaultOpenConfig(
  * Classifies a resolver request into one of the typed OPEN buckets.
  *
  * MIME/scheme remains authoritative. [fileNameOrPath] is only used as a compatibility fallback
- * for file managers that send no MIME, `*/*`, or an opaque binary MIME such as
+ * for file managers that send no MIME, a wildcard MIME, or an opaque binary MIME such as
  * `application/octet-stream` (ES File Explorer and similar apps may do this for some files).
  */
 fun matchOpenPreset(
