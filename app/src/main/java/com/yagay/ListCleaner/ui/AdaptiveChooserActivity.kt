@@ -5,11 +5,16 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ResolveInfo
+import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.widget.BaseAdapter
 import android.widget.EditText
 import android.widget.ImageView
@@ -31,6 +36,7 @@ class AdaptiveChooserActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setFinishOnTouchOutside(true)
         @Suppress("DEPRECATION")
         val supplied = runCatching { intent.getParcelableExtra<Intent>(EXTRA_TARGET) }.getOrNull()
         sourcePackage = intent.getStringExtra(EXTRA_SOURCE).orEmpty()
@@ -45,6 +51,17 @@ class AdaptiveChooserActivity : Activity() {
             ?: IntentKind.OPEN
         allItems = queryAndFilter(kind)
         render(kind)
+        configurePopupWindow()
+    }
+
+    private fun configurePopupWindow() {
+        val metrics = resources.displayMetrics
+        val width = (metrics.widthPixels * 0.96f).toInt()
+        val maxHeight = (metrics.heightPixels * 0.70f).toInt()
+        window.setLayout(width, maxHeight)
+        window.setGravity(Gravity.BOTTOM)
+        window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        window.attributes = window.attributes.apply { dimAmount = 0.32f }
     }
 
     private fun queryAndFilter(kind: IntentKind): List<ResolveInfo> {
@@ -73,6 +90,10 @@ class AdaptiveChooserActivity : Activity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(12), dp(16), dp(12))
+            background = GradientDrawable().apply {
+                setColor(Color.WHITE)
+                cornerRadii = floatArrayOf(dp(20).toFloat(), dp(20).toFloat(), dp(20).toFloat(), dp(20).toFloat(), 0f, 0f, 0f, 0f)
+            }
         }
         val title = TextView(this).apply {
             text = when (kind) {
@@ -118,14 +139,47 @@ class AdaptiveChooserActivity : Activity() {
             setComponent(ComponentName(ai.packageName, ai.name))
             setPackage(null)
         }
+        val uris = collectGrantUris(outgoing)
+        var grantFlags = outgoing.flags and URI_GRANT_FLAGS
+        if (uris.isNotEmpty() && grantFlags == 0) {
+            grantFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+            outgoing.addFlags(grantFlags)
+        }
+        val grantFailure = runCatching {
+            uris.forEach { uri -> grantUriPermission(ai.packageName, uri, grantFlags) }
+        }.exceptionOrNull()
+        if (grantFailure != null) {
+            Log.w(TAG, "URI grant failed source=$sourcePackage target=${ai.packageName} uris=${uris.size} flags=$grantFlags", grantFailure)
+        }
         runCatching { startActivity(outgoing) }
             .onSuccess { finish() }
-            .onFailure { Toast.makeText(this, "打开失败：${it.javaClass.simpleName}", Toast.LENGTH_SHORT).show() }
+            .onFailure {
+                Log.w(TAG, "Launch failed source=$sourcePackage target=${ai.packageName} uris=${uris.size} flags=$grantFlags", it)
+                val suffix = if (it is SecurityException) "（URI 权限不足）" else ""
+                Toast.makeText(this, "打开失败：${it.javaClass.simpleName}$suffix", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun collectGrantUris(intent: Intent): Set<Uri> {
+        val uris = linkedSetOf<Uri>()
+        intent.data?.let(uris::add)
+        intent.clipData?.let { clip ->
+            for (index in 0 until clip.itemCount) clip.getItemAt(index).uri?.let(uris::add)
+        }
+        runCatching { intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM) }.getOrNull()?.let(uris::add)
+        runCatching { intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM) }.getOrNull()?.forEach(uris::add)
+        return uris
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     companion object {
+        private const val TAG = "ListCleanerChooser"
+        private const val URI_GRANT_FLAGS = Intent.FLAG_GRANT_READ_URI_PERMISSION or
+            Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+            Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION or
+            Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
         const val EXTRA_TARGET = "com.yagay.ListCleaner.extra.ADAPTIVE_TARGET"
         const val EXTRA_SOURCE = "com.yagay.ListCleaner.extra.ADAPTIVE_SOURCE"
         const val EXTRA_KIND = "com.yagay.ListCleaner.extra.ADAPTIVE_KIND"
