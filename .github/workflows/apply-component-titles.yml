@@ -1,0 +1,49 @@
+name: Apply Component Titles
+
+on:
+  push:
+    paths:
+      - 'tools/apply_component_titles.py'
+      - '.github/workflows/apply-component-titles.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Apply patch
+        run: python3 tools/apply_component_titles.py
+      - name: Verify component title implementation
+        run: |
+          grep -q 'val titles: Map<String, String>' app/src/main/java/com/yagay/ListCleaner/domain/PriorityConfig.kt
+          grep -q 'setComponentTitle' app/src/main/java/com/yagay/ListCleaner/data/RuleRepository.kt
+          grep -q 'ResolveInfo(info).apply { nonLocalizedLabel = title }' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+          grep -q 'ComponentTitleDialog' app/src/main/java/com/yagay/ListCleaner/ui/MainTabs.kt
+          grep -q 'ComponentTitleDialog' app/src/main/java/com/yagay/ListCleaner/ui/PriorityDialog.kt
+      - name: Build and test
+        run: ./gradlew testDebugUnitTest assembleDebug --stacktrace
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ListCleaner-component-titles-debug
+          path: app/build/outputs/apk/debug/*.apk
+      - name: Remove one-shot files
+        run: rm -f tools/apply_component_titles.py .github/workflows/apply-component-titles.yml
+      - name: Commit implementation
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Add component display name customization to rules and priority'
+          git push
