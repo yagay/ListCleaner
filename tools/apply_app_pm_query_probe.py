@@ -22,7 +22,7 @@ if idx == -1:
     raise SystemExit('installAppStartProbe anchor not found')
 
 probe = r'''    private fun installAppPmQueryProbe(classLoader: ClassLoader, packageName: String) {
-        val className = "android.content.pm.IPackageManager$Stub$Proxy"
+        val className = "android.content.pm.IPackageManager\$Stub\$Proxy"
         val clazz = runCatching { Class.forName(className, false, classLoader) }.getOrElse {
             record("APP_PM_QUERY_PROBE_CLASS_UNAVAILABLE package=$packageName class=$className error=${it.javaClass.name}")
             return
