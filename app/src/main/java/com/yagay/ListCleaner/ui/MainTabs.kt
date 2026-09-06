@@ -168,7 +168,6 @@ fun DashboardTabContent(
                 Text("勾选立即保存；List Cleaner 仅依赖 android/system_server 作用域执行系统级可见性过滤。", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        Text("运行版本由 LSPosed 提供；配置摘要由 system Hook 确认，不代表所有选择器行为均已验证。首次从 1.4.4 或更早版本迁移需重启；以后可尝试热更新，框架不支持或失败时仍需重启。", style = MaterialTheme.typography.bodySmall)
 
         Text("诊断工具", style = MaterialTheme.typography.titleMedium)
         Card(Modifier.fillMaxWidth()) {
