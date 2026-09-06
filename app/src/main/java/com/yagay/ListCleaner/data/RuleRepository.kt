@@ -11,6 +11,7 @@ import com.yagay.ListCleaner.domain.TileConfig
 import com.yagay.ListCleaner.domain.DefaultOpenConfig
 import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.OpenTypeConfig
+import com.yagay.ListCleaner.domain.CustomOpenDefinition
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -96,8 +97,25 @@ class RuleRepository(context: Context) {
         mutableRevision.value++
     }
 
+    @Synchronized fun setCustomOpenDefinition(preset: OpenPreset, definition: CustomOpenDefinition?) {
+        require(preset.isCustom) { "只能编辑自定义打开类型槽位" }
+        val current = mutableOpenTypes.value
+        val definitions = current.customDefinitions.toMutableMap()
+        val rules = current.rules.toMutableMap()
+        val priorities = current.priorities.toMutableMap()
+        if (definition == null) {
+            definitions.remove(preset)
+            rules.remove(preset)
+            priorities.remove(preset)
+        } else {
+            definitions[preset] = definition.validated()
+        }
+        setOpenTypes(current.copy(rules = rules, priorities = priorities, customDefinitions = definitions))
+    }
+
     @Synchronized fun setOpenTypeSelected(preset: OpenPreset, rules: Collection<ComponentRule>, selected: Boolean) {
         require(preset != OpenPreset.BROWSER)
+        if (preset.isCustom) require(preset in mutableOpenTypes.value.customDefinitions) { "自定义类型尚未配置" }
         val ids = rules.filter { it.kind == IntentKind.OPEN && it.isValid() }.map { requireNotNull(ComponentRule.fromId(it.id)).id }.toSet()
         if (ids.isEmpty()) return
         val map = mutableOpenTypes.value.rules.toMutableMap()
@@ -114,6 +132,7 @@ class RuleRepository(context: Context) {
 
     @Synchronized fun invertOpenTypeSelected(preset: OpenPreset, rules: Collection<ComponentRule>) {
         require(preset != OpenPreset.BROWSER)
+        if (preset.isCustom) require(preset in mutableOpenTypes.value.customDefinitions) { "自定义类型尚未配置" }
         val valid = rules.filter { it.kind == IntentKind.OPEN && it.isValid() }.map { requireNotNull(ComponentRule.fromId(it.id)).id }.distinct()
         if (valid.isEmpty()) return
         val map = mutableOpenTypes.value.rules.toMutableMap()
@@ -124,6 +143,7 @@ class RuleRepository(context: Context) {
 
     @Synchronized fun setOpenTypePriority(preset: OpenPreset, packages: List<String>) {
         require(preset != OpenPreset.BROWSER)
+        if (preset.isCustom) require(preset in mutableOpenTypes.value.customDefinitions) { "自定义类型尚未配置" }
         val map = mutableOpenTypes.value.priorities.toMutableMap().apply {
             if (packages.isEmpty()) remove(preset) else put(preset, packages.toList())
         }
@@ -220,7 +240,7 @@ class RuleRepository(context: Context) {
 
     @Synchronized fun exportJson(): String = json.encodeToString(
         RuleBackup.serializer(),
-        RuleBackup(version = 7, blacklist = mutableMode.value != DisplayMode.SHOW_SELECTED, rules = mutableRules.value,
+        RuleBackup(version = 8, blacklist = mutableMode.value != DisplayMode.SHOW_SELECTED, rules = mutableRules.value,
             priorities = mutablePriorities.value, displayMode = mutableMode.value, tiles = mutableTiles.value,
             hiddenFromApps = mutableHiddenFromApps.value, defaultOpen = mutableDefaultOpen.value, openTypes = mutableOpenTypes.value)
     )
@@ -228,7 +248,7 @@ class RuleRepository(context: Context) {
     fun importJson(content: String) {
         require(content.length <= MAX_BACKUP_CHARS) { "备份文件过大" }
         val backup = json.decodeFromString(RuleBackup.serializer(), content)
-        require(backup.version in 1..7) { "不支持的备份版本：${backup.version}" }
+        require(backup.version in 1..8) { "不支持的备份版本：${backup.version}" }
         replace(backup.rules, backup.blacklist,
             if (backup.version == 1) PriorityConfig() else backup.priorities,
             if (backup.version >= 3) requireNotNull(backup.displayMode) { "备份缺少显示模式" } else DisplayMode.fromStored(null, backup.blacklist),
