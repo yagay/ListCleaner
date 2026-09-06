@@ -5,6 +5,12 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ModuleConfigTest {
+    @Test fun hiddenFromAppsRoundTrip() {
+        val config = ModuleConfig(emptySet(), DisplayMode.HIDE_SELECTED, PriorityConfig(), false, 10715, TileConfig(), setOf("com.estrongs.android.pop"))
+        val encoded = Json.encodeToString(ModuleConfig.serializer(), config)
+        assertEquals(config, Json.decodeFromString(ModuleConfig.serializer(), encoded).validated())
+    }
+
     @Test fun atomicConfigurationRoundTrip() {
         val config = ModuleConfig(setOf(ComponentRule(IntentKind.OPEN, "com.example", "com.example.Open")),
             DisplayMode.SHOW_SELECTED, PriorityConfig(mapOf(IntentKind.OPEN to listOf("com.example"))), true, 10715)

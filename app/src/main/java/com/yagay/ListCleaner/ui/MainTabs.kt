@@ -12,7 +12,6 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -109,13 +108,10 @@ fun DashboardTabContent(
     var menu by remember { mutableStateOf(false) }
     var showScopeDetails by remember { mutableStateOf(false) }
     var showAppScopePicker by remember { mutableStateOf(false) }
-    var pendingHookApps by rememberSaveable { mutableStateOf<Set<String>>(emptySet()) }
     if (showScopeDetails) ScopeDialog(state.module, vm::requestScope, vm::refreshModuleStatus) { showScopeDetails = false }
     if (showAppScopePicker) AppScopePickerDialog(
-        status = state.module,
-        selected = pendingHookApps,
-        onSelectedChange = { pendingHookApps = it },
-        refresh = vm::refreshModuleStatus,
+        selected = state.hiddenFromApps,
+        onSelectedChange = vm::setHiddenFromApps,
     ) { showAppScopePicker = false }
     Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         RuntimePanel(state, vm)
@@ -163,17 +159,13 @@ fun DashboardTabContent(
         }
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("应用内列表 Hook", fontWeight = FontWeight.Bold)
-                Text("某些文件管理器、分享面板会自己查询并绘制应用列表。可把这类应用加入 LSPosed 作用域，让 List Cleaner 在目标应用进程内处理候选。", style = MaterialTheme.typography.bodySmall)
+                Text("应用隐藏列表", fontWeight = FontWeight.Bold)
+                Text("用于指定从哪些应用中隐藏规则目标，例如文件管理器自己的打开方式列表。这里不会 Hook 这些应用，也不需要把它们加入 LSPosed 作用域。", style = MaterialTheme.typography.bodySmall)
                 Button(
-                    onClick = {
-                        vm.refreshModuleStatus()
-                        showAppScopePicker = true
-                    },
-                    enabled = state.module.connected,
+                    onClick = { showAppScopePicker = true },
                     modifier = Modifier.fillMaxWidth()
-                ) { Text(if (pendingHookApps.isEmpty()) "选择应用加入 Hook" else "继续选择 / 加入 Hook（待提交 ${pendingHookApps.size}）") }
-                Text("勾选后必须在选择页面底部点击“加入 LSPosed Hook 列表”才会真正申请作用域。返回不会清空未提交选择。", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                ) { Text("管理应用隐藏列表（${state.hiddenFromApps.size}）") }
+                Text("勾选立即保存；List Cleaner 仅依赖 android/system_server 作用域执行系统级可见性过滤。", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Text("运行版本由 LSPosed 提供；配置摘要由 system Hook 确认，不代表所有选择器行为均已验证。首次从 1.4.4 或更早版本迁移需重启；以后可尝试热更新，框架不支持或失败时仍需重启。", style = MaterialTheme.typography.bodySmall)

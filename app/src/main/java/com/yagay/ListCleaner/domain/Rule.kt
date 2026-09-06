@@ -63,5 +63,6 @@ data class RuleBackup(
     val rules: Set<ComponentRule>,
     val priorities: PriorityConfig = PriorityConfig(),
     val displayMode: DisplayMode? = null,
-    val tiles: TileConfig = TileConfig()
+    val tiles: TileConfig = TileConfig(),
+    val hiddenFromApps: Set<String> = emptySet()
 )

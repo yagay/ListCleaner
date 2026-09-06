@@ -95,6 +95,7 @@ data class MainState(
     val diagnosticMode: Boolean = false,
     val priorities: PriorityConfig = PriorityConfig(),
     val tiles: TileConfig = TileConfig(),
+    val hiddenFromApps: Set<String> = emptySet(),
     val groups: List<AppGroup> = emptyList(),
     val destination: Destination = Destination.RULES,
     val expandedAppKey: String? = null,
@@ -295,7 +296,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ListContent(emptyList(), null, "", emptyList()))
     
     val state: StateFlow<MainState> = combine(
-        moduleStatus, loading, error, grouped, app.runtime, app.rules.displayMode, app.rules.priorities, app.rules.diagnosticMode, app.syncStatus, destination, expandedAppKey, app.rules.tiles
+        moduleStatus, loading, error, grouped, app.runtime, app.rules.displayMode, app.rules.priorities, app.rules.diagnosticMode, app.syncStatus, destination, expandedAppKey, app.rules.tiles, app.rules.hiddenFromApps
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         MainState(
@@ -315,6 +316,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             destination = values[9] as Destination,
             expandedAppKey = values[10] as String?,
             tiles = values[11] as TileConfig,
+            hiddenFromApps = values[12] as Set<String>,
             uiFilter = (values[3] as ListContent).uiFilter
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainState())
@@ -331,6 +333,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setDiagnosticMode(enabled: Boolean) {
         app.rules.setDiagnosticMode(enabled)
         refreshModuleStatus()
+    }
+
+    fun setHiddenFromApps(packages: Set<String>) {
+        app.rules.setHiddenFromApps(packages)
+        viewModelScope.launch { app.synchronize() }
     }
 
     fun refresh() {
