@@ -2,6 +2,8 @@ package com.yagay.ListCleaner.ui
 
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,11 +14,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -24,10 +28,11 @@ data class ScopeAppEntry(
     val packageName: String,
     val label: String,
     val system: Boolean,
+    val icon: Bitmap?,
 )
 
 @Suppress("DEPRECATION")
-private fun loadScopeApps(pm: PackageManager, selfPackage: String, selected: Set<String>): List<ScopeAppEntry> {
+private fun loadScopeApps(pm: PackageManager, selfPackage: String): List<ScopeAppEntry> {
     val installed = if (android.os.Build.VERSION.SDK_INT >= 33) {
         pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0))
     } else {
@@ -35,15 +40,15 @@ private fun loadScopeApps(pm: PackageManager, selfPackage: String, selected: Set
     }
     return installed.asSequence()
         .filter { it.packageName != selfPackage && it.packageName != "android" }
-        // The hide-list is for apps a user can actually open and operate. Service/provider-only
-        // packages cannot present their own chooser UI, so showing them only adds noise. Keep an
-        // already-selected package visible so a stale entry can still be removed from the list.
-        .filter { info -> info.packageName in selected || pm.getLaunchIntentForPackage(info.packageName) != null }
-        .map { info -> ScopeAppEntry(
-            packageName = info.packageName,
-            label = runCatching { pm.getApplicationLabel(info).toString() }.getOrDefault(info.packageName),
-            system = (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0 || (info.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0,
-        ) }
+        .map { info ->
+            ScopeAppEntry(
+                packageName = info.packageName,
+                label = runCatching { pm.getApplicationLabel(info).toString() }.getOrDefault(info.packageName),
+                system = (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0 ||
+                    (info.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0,
+                icon = runCatching { pm.getApplicationIcon(info).toBitmap(64, 64) }.getOrNull(),
+            )
+        }
         .distinctBy { it.packageName }
         .sortedWith(compareBy<ScopeAppEntry> { it.label.lowercase() }.thenBy { it.packageName })
         .toList()
@@ -58,12 +63,12 @@ internal fun AppScopePickerDialog(
 ) {
     val context = LocalContext.current
     var query by remember { mutableStateOf("") }
-    var showSystem by remember { mutableStateOf(false) }
+    var showSystem by remember { mutableStateOf(true) }
     var apps by remember { mutableStateOf<List<ScopeAppEntry>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
-        apps = withContext(Dispatchers.IO) { loadScopeApps(context.packageManager, context.packageName, selected) }
+        apps = withContext(Dispatchers.IO) { loadScopeApps(context.packageManager, context.packageName) }
         loading = false
     }
 
@@ -90,7 +95,7 @@ internal fun AppScopePickerDialog(
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp)) {
                 Text(
-                    "这里选择的是“从哪些应用中隐藏规则目标”。仅在“隐藏选中”模式生效；这些应用不需要加入 LSPosed Hook 作用域，List Cleaner 只在 system/system_server 侧应用包级隐藏。列表只显示可直接打开的应用，后台服务等无界面包不会显示。勾选立即保存。",
+                    "这里选择的是“从哪些应用中隐藏规则目标”。仅在“隐藏选中”模式生效；这些应用不需要加入 LSPosed Hook 作用域，List Cleaner 只在 system/system_server 侧应用包级隐藏。列表显示完整已安装应用，并显示应用图标。勾选立即保存。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -107,7 +112,7 @@ internal fun AppScopePickerDialog(
                     Switch(checked = showSystem, onCheckedChange = { showSystem = it })
                 }
                 Text(
-                    "已加入隐藏列表 ${selected.size} 个应用",
+                    "显示 ${visible.size}/${apps.size} 个应用 · 已加入隐藏列表 ${selected.size} 个",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -124,6 +129,14 @@ internal fun AppScopePickerDialog(
                                 }.padding(vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
+                                entry.icon?.let { bitmap ->
+                                    Image(
+                                        bitmap = bitmap.asImageBitmap(),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(40.dp),
+                                    )
+                                    Spacer(Modifier.width(10.dp))
+                                }
                                 Checkbox(
                                     checked = checked,
                                     onCheckedChange = { value ->
