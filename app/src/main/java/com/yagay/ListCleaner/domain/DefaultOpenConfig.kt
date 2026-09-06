@@ -27,9 +27,24 @@ enum class OpenPreset(val title: String, val description: String) {
     GEO("地图位置", "geo:"),
     MAILTO("邮件链接", "mailto:"),
     TEL("电话链接", "tel:"),
-    SMS("短信链接", "sms: / smsto:")
+    SMS("短信链接", "sms: / smsto:"),
+    CUSTOM_1("自定义 1", "用户定义"),
+    CUSTOM_2("自定义 2", "用户定义"),
+    CUSTOM_3("自定义 3", "用户定义"),
+    CUSTOM_4("自定义 4", "用户定义"),
+    CUSTOM_5("自定义 5", "用户定义"),
+    CUSTOM_6("自定义 6", "用户定义"),
+    CUSTOM_7("自定义 7", "用户定义"),
+    CUSTOM_8("自定义 8", "用户定义");
+
+    val isCustom: Boolean get() = this in CUSTOM_SLOTS
+
+    companion object {
+        val CUSTOM_SLOTS = listOf(CUSTOM_1, CUSTOM_2, CUSTOM_3, CUSTOM_4, CUSTOM_5, CUSTOM_6, CUSTOM_7, CUSTOM_8)
+    }
 }
 
+/** Deprecated backup compatibility only. Runtime no longer applies a forced default handler. */
 @Serializable
 data class DefaultOpenConfig(
     val preferred: Map<OpenPreset, String> = emptyMap()
@@ -47,18 +62,12 @@ data class DefaultOpenConfig(
     }
 }
 
-/**
- * Classifies a resolver request into one of the typed OPEN buckets.
- *
- * MIME/scheme remains authoritative. [fileNameOrPath] is only used as a compatibility fallback
- * for file managers that send no MIME, a wildcard MIME, or an opaque binary MIME such as
- * `application/octet-stream` (ES File Explorer and similar apps may do this for some files).
- */
 fun matchOpenPreset(
     kind: IntentKind,
     mimeType: String?,
     scheme: String?,
-    fileNameOrPath: String? = null
+    fileNameOrPath: String? = null,
+    customDefinitions: Map<OpenPreset, CustomOpenDefinition> = emptyMap()
 ): OpenPreset? {
     val normalizedScheme = scheme?.lowercase()
     if (kind == IntentKind.BROWSER && normalizedScheme in setOf("http", "https")) return OpenPreset.BROWSER
@@ -73,6 +82,12 @@ fun matchOpenPreset(
     }
 
     val mime = mimeType?.substringBefore(';')?.trim()?.lowercase().orEmpty()
+    customDefinitions.entries.firstOrNull { (_, definition) ->
+        definition.mimeTypes.any { configured ->
+            configured == mime || configured.endsWith("/*") && mime.startsWith(configured.removeSuffix("*"))
+        }
+    }?.let { return it.key }
+
     val mimePreset = when {
         mime == "application/pdf" -> OpenPreset.PDF
         mime in setOf("application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document") -> OpenPreset.WORD
@@ -84,7 +99,6 @@ fun matchOpenPreset(
         mime in setOf("text/markdown", "text/x-markdown") -> OpenPreset.MARKDOWN
         mime in setOf("text/csv", "application/csv") -> OpenPreset.CSV
         mime in setOf("application/json", "text/json") || mime.endsWith("+json") -> OpenPreset.JSON
-        // SVG is XML-based, so it must beat the generic +xml rule.
         mime == "image/svg+xml" -> OpenPreset.SVG
         mime == "image/gif" -> OpenPreset.GIF
         mime in setOf("application/xml", "text/xml") || mime.endsWith("+xml") -> OpenPreset.XML
@@ -101,8 +115,11 @@ fun matchOpenPreset(
     }
     if (mimePreset != null) return mimePreset
 
-    // Do not second-guess a specific, unknown MIME. Extension fallback is deliberately limited to
-    // absent/wildcard/binary MIME values that commonly lose the real file type in file managers.
+    val extension = normalizedExtension(fileNameOrPath)
+    if (extension != null) {
+        customDefinitions.entries.firstOrNull { (_, definition) -> extension in definition.extensions }?.let { return it.key }
+    }
+
     if (mime.isNotEmpty() && mime !in OPAQUE_FILE_MIMES) return null
     return matchOpenPresetByExtension(fileNameOrPath)
 }
@@ -114,12 +131,14 @@ private val OPAQUE_FILE_MIMES = setOf(
     "application/x-download"
 )
 
-private fun matchOpenPresetByExtension(fileNameOrPath: String?): OpenPreset? {
+private fun normalizedExtension(fileNameOrPath: String?): String? {
     val clean = fileNameOrPath?.trim()?.substringBefore('?')?.substringBefore('#')?.lowercase().orEmpty()
     if (clean.isEmpty()) return null
-    val extension = clean.substringAfterLast('/', clean).substringAfterLast('.', "")
-    if (extension.isEmpty()) return null
-    return when (extension) {
+    return clean.substringAfterLast('/', clean).substringAfterLast('.', "").takeIf { it.isNotEmpty() }
+}
+
+private fun matchOpenPresetByExtension(fileNameOrPath: String?): OpenPreset? {
+    return when (normalizedExtension(fileNameOrPath)) {
         "pdf" -> OpenPreset.PDF
         "doc", "docx" -> OpenPreset.WORD
         "xls", "xlsx" -> OpenPreset.EXCEL
@@ -142,12 +161,15 @@ private fun matchOpenPresetByExtension(fileNameOrPath: String?): OpenPreset? {
     }
 }
 
-/** Uses scan evidence so the rules/sort pages only show components that actually matched this preset probe. */
-fun ComponentCandidate.matchesOpenPreset(preset: OpenPreset): Boolean {
+fun ComponentCandidate.matchesOpenPreset(
+    preset: OpenPreset,
+    customDefinitions: Map<OpenPreset, CustomOpenDefinition> = emptyMap()
+): Boolean {
     if (preset == OpenPreset.BROWSER || rule.kind != IntentKind.OPEN) return false
     return evidence.any { line ->
         val mime = Regex("(?:^|\\s)mime=([^\\s]+)").find(line)?.groupValues?.getOrNull(1)
         val scheme = Regex("(?:^|\\s)scheme=([^\\s]+)").find(line)?.groupValues?.getOrNull(1)
-        matchOpenPreset(IntentKind.OPEN, mime, scheme) == preset
+        val sample = Regex("(?:^|\\s)sample=([^\\s]+)").find(line)?.groupValues?.getOrNull(1)
+        matchOpenPreset(IntentKind.OPEN, mime, scheme, sample, customDefinitions) == preset
     }
 }
