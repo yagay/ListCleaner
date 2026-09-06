@@ -95,7 +95,7 @@ internal fun AppScopePickerDialog(
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp)) {
                 Text(
-                    "这里选择的是“从哪些应用中隐藏规则目标”。仅在“隐藏选中”模式生效；这些应用不需要加入 LSPosed Hook 作用域，List Cleaner 只在 system/system_server 侧应用包级隐藏。列表显示完整已安装应用，并显示应用图标。勾选立即保存。",
+                    "这里选择的是“哪些来源应用需要打开方式兼容隐藏”。仅在“隐藏选中”模式生效；目标范围只跟随“打开方式”通用规则和 PDF、APK、视频等分类型 OPEN 规则，不再因为分享或文本处理规则而隐藏整个目标应用。该功能仍是 system/system_server 侧的包级隐藏，适合 ES 等自己查询应用列表的文件管理器。勾选立即保存。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
