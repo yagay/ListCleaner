@@ -18,32 +18,27 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.domain.OpenPreset
+import com.yagay.ListCleaner.domain.OpenTypeConfig
 
-/**
- * Secondary OPEN-type tabs. Keep the visual language identical to the primary IntentKind tabs:
- * text labels with a short underline for the active item, instead of a separate chip style.
- */
+/** Secondary OPEN-type tabs using the same visual language as the primary IntentKind tabs. */
 @Composable
 fun OpenPresetFilterRow(
     selected: OpenPreset?,
+    config: OpenTypeConfig,
     onSelected: (OpenPreset?) -> Unit,
+    onManageCustom: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val presets = OpenPreset.entries.filter { it != OpenPreset.BROWSER }
+    val presets = config.configuredPresets()
     LazyRow(modifier, contentPadding = PaddingValues(horizontal = 12.dp)) {
         item("all") {
-            OpenPresetTab(
-                title = "全部",
-                selected = selected == null,
-                onClick = { onSelected(null) }
-            )
+            OpenPresetTab("全部", selected == null) { onSelected(null) }
         }
         items(presets, key = { it.name }) { preset ->
-            OpenPresetTab(
-                title = preset.title,
-                selected = selected == preset,
-                onClick = { onSelected(preset) }
-            )
+            OpenPresetTab(config.titleFor(preset), selected == preset) { onSelected(preset) }
+        }
+        item("manage-custom") {
+            OpenPresetTab("+ 自定义", false, onManageCustom)
         }
     }
 }
@@ -55,14 +50,11 @@ private fun OpenPresetTab(title: String, selected: Boolean, onClick: () -> Unit)
             Text(
                 title,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                color = if (selected) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurfaceVariant
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         Box(
-            Modifier
-                .height(2.dp)
-                .width(24.dp)
+            Modifier.height(2.dp).width(24.dp)
                 .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
         )
     }
