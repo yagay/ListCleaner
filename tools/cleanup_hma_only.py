@@ -9,7 +9,33 @@ s = s.replace('                    "$HOOK_ID-app" -> Layer.APP\n', '')
 s = s.replace('                    Layer.APP -> installApplicationClientHooks(it, baseProcess)\n', '')
 s = s.replace('    private enum class Layer { SYSTEM, RESOLVER, APP }', '    private enum class Layer { SYSTEM, RESOLVER }')
 
-# Remove a private function/declaration safely, supporting both block and expression bodies.
+# Remove the now-dead APP-only branch inside query processing.
+def remove_if_block(text: str, marker: str) -> str:
+    pos = text.find(marker)
+    if pos < 0:
+        return text
+    brace = text.find('{', pos)
+    if brace < 0:
+        raise RuntimeError(f'no opening brace for {marker}')
+    depth = 0
+    i = brace
+    while i < len(text):
+        if text[i] == '{': depth += 1
+        elif text[i] == '}':
+            depth -= 1
+            if depth == 0:
+                end = i + 1
+                while end < len(text) and text[end] in ' \t': end += 1
+                if end < len(text) and text[end] == '\n': end += 1
+                return text[:pos] + text[end:]
+        i += 1
+    raise RuntimeError(f'unbalanced if block {marker}')
+
+s = remove_if_block(s, '        if (layer == Layer.APP) {')
+s = s.replace('        return layer == Layer.APP && current.hasPackageSelection(kind, activity.packageName)\n', '        return false\n')
+s = s.replace('                val packageFallback = layer == Layer.APP && !exactSelected && current.hasPackageSelection(kind, activity.packageName)\n', '                val packageFallback = false\n')
+
+# Remove a private function/declaration, supporting both block and expression bodies.
 def remove_function(text: str, name: str) -> str:
     m = re.search(r'\n\s*private fun\s+' + re.escape(name) + r'\s*\(', text)
     if not m:
@@ -21,7 +47,6 @@ def remove_function(text: str, name: str) -> str:
     if next_decl < 0:
         raise RuntimeError(f'cannot find declaration boundary for {name}')
     segment = text[m.start():next_decl]
-    # For ordinary block / Hooker expression bodies, validate braces are balanced inside the declaration.
     if '{' in segment and segment.count('{') != segment.count('}'):
         raise RuntimeError(f'unbalanced declaration {name}')
     return text[:start] + '\n' + text[next_decl:]
