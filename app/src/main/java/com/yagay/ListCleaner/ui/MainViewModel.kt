@@ -6,34 +6,32 @@ import android.net.Uri
 import java.io.File
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Dashboard
+import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.List
 import androidx.compose.material.icons.rounded.Sort
-import androidx.compose.material.icons.rounded.GridView
-import com.yagay.ListCleaner.domain.TileConfig
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.yagay.ListCleaner.BuildConfig
+import com.yagay.ListCleaner.ListCleanerApp
+import com.yagay.ListCleaner.RuntimeStatus
+import com.yagay.ListCleaner.data.ComponentRootCommand
+import com.yagay.ListCleaner.data.ResolverScopeDetector
 import com.yagay.ListCleaner.data.RootComponent
 import com.yagay.ListCleaner.data.RootComponentCatalog
 import com.yagay.ListCleaner.data.RootComponentScan
-import com.yagay.ListCleaner.data.ComponentRootCommand
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import com.yagay.ListCleaner.ListCleanerApp
-import com.yagay.ListCleaner.RuntimeStatus
-import com.yagay.ListCleaner.BuildConfig
-import com.yagay.ListCleaner.domain.RuntimeProtocol
-import io.github.libxposed.service.HookedTarget
-import io.github.libxposed.service.HotReloadResult
 import com.yagay.ListCleaner.data.RuleRepository
-import com.yagay.ListCleaner.data.ResolverScopeDetector
 import com.yagay.ListCleaner.data.ScopeDetection
 import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.ComponentRule
-import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.CustomOpenDefinition
 import com.yagay.ListCleaner.domain.DisplayMode
-import com.yagay.ListCleaner.domain.PriorityConfig
-import com.yagay.ListCleaner.domain.DefaultOpenConfig
+import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.OpenTypeConfig
-import com.yagay.ListCleaner.domain.CustomOpenDefinition
+import com.yagay.ListCleaner.domain.PriorityConfig
+import com.yagay.ListCleaner.domain.RuntimeProtocol
+import io.github.libxposed.service.HookedTarget
+import io.github.libxposed.service.HotReloadResult
 import io.github.libxposed.service.XposedService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -45,8 +43,8 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -67,9 +65,12 @@ data class ModuleStatus(
     val missingScope: Set<String> get() = detection.recommended - grantedScope
     val extraScope: Set<String> get() = grantedScope - detection.hosts.map { it.packageName }.toSet()
     val resolverLoaded: Boolean get() = runningTargets.any { target ->
-        RuntimeProtocol.current(target.state, target.version, BuildConfig.VERSION_CODE.toLong()) && detection.hosts.any { it.processName == target.processName }
+        RuntimeProtocol.current(target.state, target.version, BuildConfig.VERSION_CODE.toLong()) &&
+            detection.hosts.any { it.processName == target.processName }
     }
-    val outdated: Boolean get() = runningTargets.any { !RuntimeProtocol.current(it.state, it.version, BuildConfig.VERSION_CODE.toLong()) }
+    val outdated: Boolean get() = runningTargets.any {
+        !RuntimeProtocol.current(it.state, it.version, BuildConfig.VERSION_CODE.toLong())
+    }
 }
 
 enum class Destination(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
@@ -98,10 +99,10 @@ data class MainState(
     val uiFilter: UiFilter = UiFilter.ALL,
     val diagnosticMode: Boolean = false,
     val priorities: PriorityConfig = PriorityConfig(),
-    val defaultOpen: DefaultOpenConfig = DefaultOpenConfig(),
+    /** Effective per-type config after generic OPEN inheritance is projected for display. */
     val openTypes: OpenTypeConfig = OpenTypeConfig(),
+    /** Raw persisted per-type config used to distinguish inherited values from explicit values. */
     val openTypesExplicit: OpenTypeConfig = OpenTypeConfig(),
-    val tiles: TileConfig = TileConfig(),
     val hiddenFromApps: Set<String> = emptySet(),
     val groups: List<AppGroup> = emptyList(),
     val destination: Destination = Destination.RULES,
@@ -116,32 +117,52 @@ data class AppGroup(
     val components: List<ComponentCandidate>
 )
 
-fun groupCandidates(candidates: List<ComponentCandidate>, selected: Set<ComponentRule>, filter: IntentKind?, query: String, uiFilter: UiFilter): List<AppGroup> =
-    candidates.groupBy { it.rule.packageName }.mapNotNull { (_, all) ->
-        val matching = all.filter {
-            val isSelected = it.rule in selected
-            val matchesUiFilter = when (uiFilter) {
-                UiFilter.ALL -> true
-                UiFilter.HIDE_SELECTED -> !isSelected
-                UiFilter.SHOW_SELECTED -> isSelected
-            }
-            catalogVisible(it, isSelected, uiFilter) && matchesUiFilter && (filter == null || it.rule.kind == filter) && it.matchesQuery(query)
-        }.sortedBy { it.rule.kind.ordinal }
-        if (matching.isEmpty()) null else AppGroup(all.first().rule.packageName, all.first().appLabel, all.first().appIcon, matching)
-    }.sortedBy { it.appLabel.lowercase() }
+fun groupCandidates(
+    candidates: List<ComponentCandidate>,
+    selected: Set<ComponentRule>,
+    filter: IntentKind?,
+    query: String,
+    uiFilter: UiFilter
+): List<AppGroup> = candidates.groupBy { it.rule.packageName }.mapNotNull { (_, all) ->
+    val matching = all.filter {
+        val isSelected = it.rule in selected
+        val matchesUiFilter = when (uiFilter) {
+            UiFilter.ALL -> true
+            UiFilter.HIDE_SELECTED -> !isSelected
+            UiFilter.SHOW_SELECTED -> isSelected
+        }
+        catalogVisible(it, isSelected, uiFilter) && matchesUiFilter &&
+            (filter == null || it.rule.kind == filter) && it.matchesQuery(query)
+    }.sortedBy { it.rule.kind.ordinal }
+    if (matching.isEmpty()) null else AppGroup(
+        all.first().rule.packageName,
+        all.first().appLabel,
+        all.first().appIcon,
+        matching
+    )
+}.sortedBy { it.appLabel.lowercase() }
 
-fun retainConfiguredCandidates(items: List<ComponentCandidate>, selected: Set<ComponentRule>): List<ComponentCandidate> {
+fun retainConfiguredCandidates(
+    items: List<ComponentCandidate>,
+    selected: Set<ComponentRule>
+): List<ComponentCandidate> {
     val kept = items.filter { !it.unavailable || it.rule in selected }
     val ids = kept.map { it.rule.id }.toSet()
     return kept + selected.filter { it.id !in ids }.map { rule ->
-        ComponentCandidate(rule, rule.packageName, rule.className.substringAfterLast('.'),
-            evidence = listOf("已配置，但本次未扫描到；不代表已卸载"), unavailable = true)
+        ComponentCandidate(
+            rule,
+            rule.packageName,
+            rule.className.substringAfterLast('.'),
+            evidence = listOf("已配置，但本次未扫描到；不代表已卸载"),
+            unavailable = true
+        )
     }
 }
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as ListCleanerApp
     private val rootCatalog = RootComponentCatalog(app)
+
     private val mutableComponentScan = MutableStateFlow(RootComponentScan())
     val componentScan: StateFlow<RootComponentScan> = mutableComponentScan
     private val mutableComponentBusy = MutableStateFlow(false)
@@ -157,10 +178,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (mutableComponentBusy.value) return
         mutableComponentBusy.value = true
         viewModelScope.launch {
-            try { mutableComponentScan.value = withContext(Dispatchers.IO) { rootCatalog.scan() } }
-            catch (cancelled: CancellationException) { throw cancelled }
-            catch (failure: Exception) { mutableComponentMessage.value = failure.message ?: "扫描失败" }
-            finally { mutableComponentBusy.value = false }
+            try {
+                mutableComponentScan.value = withContext(Dispatchers.IO) { rootCatalog.scan() }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                mutableComponentMessage.value = failure.message ?: "扫描失败"
+            } finally {
+                mutableComponentBusy.value = false
+            }
         }
     }
 
@@ -168,8 +194,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun changeComponents(visibleTargets: List<RootComponent>, enable: Boolean) {
         if (mutableComponentBusy.value) return
-        val targets = visibleTargets.filter { it.blocked == null && it.enabled != null && it.enabled != enable }
-            .distinctBy { "${it.user}|${it.component.flattenToString()}" }
+        val targets = visibleTargets.filter {
+            it.blocked == null && it.enabled != null && it.enabled != enable
+        }.distinctBy { "${it.user}|${it.component.flattenToString()}" }
         if (targets.isEmpty()) return
         mutableComponentRootNotice.value = null
         mutableComponentBusy.value = true
@@ -187,15 +214,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         result = rootCatalog.change(target, enable)
                         completed++
                     }
-                    mutableComponentMessage.value = if (targets.size == 1) result else "已核验：${completed} 个组件已${if (enable) "启用" else "禁用"}；请重新打开目标选择器"
+                    mutableComponentMessage.value = if (targets.size == 1) result
+                    else "已核验：$completed 个组件已${if (enable) "启用" else "禁用"}；请重新打开目标选择器"
                 } catch (failure: ComponentRootCommand.RootAccessException) {
                     mutableComponentMessage.value = failure.message
                     mutableComponentRootNotice.value = failure.message
                 } catch (failure: Exception) {
                     mutableComponentMessage.value = "已完成 $completed/${targets.size}，操作已停止：${failure.message ?: "操作失败"}。失败项请核对系统状态；剩余项未执行，已完成项不回滚。"
                 } finally {
-                    if (operationStarted) runCatching { rootCatalog.scan() }.onSuccess { mutableComponentScan.value = it }
-                        .onFailure { mutableComponentScan.value = RootComponentScan(warning = "操作后扫描失败，请刷新；不使用旧状态") }
+                    if (operationStarted) {
+                        runCatching { rootCatalog.scan() }
+                            .onSuccess { mutableComponentScan.value = it }
+                            .onFailure { mutableComponentScan.value = RootComponentScan(warning = "操作后扫描失败，请刷新；不使用旧状态") }
+                    }
                     mutableComponentBusy.value = false
                 }
             }
@@ -204,8 +235,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun invertComponents(visibleTargets: List<RootComponent>) {
         if (mutableComponentBusy.value) return
-        val targets = visibleTargets.filter { it.blocked == null && it.enabled != null }
-            .distinctBy { "${it.user}|${it.component.flattenToString()}" }
+        val targets = visibleTargets.filter {
+            it.blocked == null && it.enabled != null
+        }.distinctBy { "${it.user}|${it.component.flattenToString()}" }
         if (targets.isEmpty()) return
         mutableComponentRootNotice.value = null
         mutableComponentBusy.value = true
@@ -218,9 +250,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     rootCatalog.requireRoot()
                     for (target in targets) {
                         operationStarted = true
-                        val enable = target.enabled == false
                         mutableComponentMessage.value = "正在反选 ${completed + 1}/${targets.size}：${target.label}"
-                        rootCatalog.change(target, enable)
+                        rootCatalog.change(target, target.enabled == false)
                         completed++
                     }
                     mutableComponentMessage.value = "已核验：$completed 个组件已反选；请重新打开目标选择器"
@@ -230,8 +261,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 } catch (failure: Exception) {
                     mutableComponentMessage.value = "已完成 $completed/${targets.size}，反选已停止：${failure.message ?: "操作失败"}。已完成项不回滚。"
                 } finally {
-                    if (operationStarted) runCatching { rootCatalog.scan() }.onSuccess { mutableComponentScan.value = it }
-                        .onFailure { mutableComponentScan.value = RootComponentScan(warning = "操作后扫描失败，请刷新；不使用旧状态") }
+                    if (operationStarted) {
+                        runCatching { rootCatalog.scan() }
+                            .onSuccess { mutableComponentScan.value = it }
+                            .onFailure { mutableComponentScan.value = RootComponentScan(warning = "操作后扫描失败，请刷新；不使用旧状态") }
+                    }
                     mutableComponentBusy.value = false
                 }
             }
@@ -242,6 +276,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val updating: StateFlow<Boolean> = mutableUpdating
     private val mutableUpdateMessage = MutableStateFlow<String?>(null)
     val updateMessage: StateFlow<String?> = mutableUpdateMessage
+
     private val candidates = MutableStateFlow<List<ComponentCandidate>>(emptyList())
     private val mutableFileCheckStatus = MutableStateFlow<String?>(null)
     val fileCheckStatus: StateFlow<String?> = mutableFileCheckStatus
@@ -259,8 +294,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val found = app.catalog.inspectFile(uri)
                 val config = app.rules.remoteSnapshot()
                 val preview = com.yagay.ListCleaner.domain.previewOpenEffect(
-                    found, config.rules, config.mode, config.priorities, config.openTypes,
-                    mime, uri.scheme, uri.lastPathSegment ?: uri.path
+                    found,
+                    config.rules,
+                    config.mode,
+                    config.priorities,
+                    config.openTypes,
+                    mime,
+                    uri.scheme,
+                    uri.lastPathSegment ?: uri.path
                 )
                 check(app.synchronize()) { app.runtime.value.message }
                 mutableFileCheckStatus.value = buildString {
@@ -269,19 +310,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     if (preview.restoredEmpty) append("（触发空列表保护，恢复系统原结果）")
                     append("。此预览不模拟来源应用自身的私有菜单或同 UID 保护。")
                     val details = preview.items.take(12)
-                    if (details.isNotEmpty()) append("\n")
+                    if (details.isNotEmpty()) append('\n')
                     details.forEachIndexed { index, item ->
-                        if (index > 0) append("\n")
+                        if (index > 0) append('\n')
                         append(if (item.included) "✓ " else "✕ ")
                         append(item.candidate.appLabel)
                         item.rank?.let { append(" · 优先第 $it 位") }
                         item.selectedBy?.let { append(" · 规则来源：$it") }
                     }
-                    if (preview.items.size > details.size) append("\n…另有 ${preview.items.size - details.size} 项，完整候选见诊断包")
+                    if (preview.items.size > details.size) {
+                        append("\n…另有 ${preview.items.size - details.size} 项，完整候选见诊断包")
+                    }
                 }
-            } catch (cancelled: CancellationException) { throw cancelled }
-            catch (failure: Exception) { mutableFileCheckStatus.value = failure.message ?: "文件检查失败" }
-            finally { mutableCheckingFile.value = false }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                mutableFileCheckStatus.value = failure.message ?: "文件检查失败"
+            } finally {
+                mutableCheckingFile.value = false
+            }
         }
     }
 
@@ -298,6 +345,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var statusGeneration = 0L
     private var scopeRequestInFlight = false
     private val scopeDetector = ResolverScopeDetector(application)
+
     private val mutableCollectingDiagnostics = MutableStateFlow(false)
     val collectingDiagnostics: StateFlow<Boolean> = mutableCollectingDiagnostics
     private val mutableExportMessage = MutableStateFlow<String?>(null)
@@ -311,75 +359,119 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             var report: File? = null
             try {
-                val freshStatus = moduleStatus.value
                 val config = app.rules.remoteSnapshot()
-                report = DiagnosticCollector.collect(app, state.value.copy(
-                    module = freshStatus, selected = config.rules, displayMode = config.mode,
-                    priorities = config.priorities, diagnosticMode = config.diagnostic, tiles = config.tiles,
-                    openTypes = config.openTypes, openTypesExplicit = config.openTypes, defaultOpen = config.defaultOpen,
-                    runtime = app.runtime.value, syncStatus = app.syncStatus.value
-                ), mutableComponentScan.value, rootCatalog.lastOperation)
+                report = DiagnosticCollector.collect(
+                    app,
+                    state.value.copy(
+                        module = moduleStatus.value,
+                        selected = config.rules,
+                        displayMode = config.mode,
+                        priorities = config.priorities,
+                        diagnosticMode = config.diagnostic,
+                        openTypes = config.openTypes,
+                        openTypesExplicit = config.openTypes,
+                        runtime = app.runtime.value,
+                        syncStatus = app.syncStatus.value
+                    ),
+                    mutableComponentScan.value,
+                    rootCatalog.lastOperation
+                )
                 val ready = requireNotNull(report)
                 withContext(Dispatchers.IO) {
                     val output = app.contentResolver.openOutputStream(uri, "wt") ?: error("无法创建诊断包")
                     output.use { destination -> ready.inputStream().use { it.copyTo(destination) } }
                 }
                 mutableExportMessage.value = "诊断包已导出"
-            } catch (cancelled: CancellationException) { throw cancelled }
-            catch (failure: Exception) { mutableExportMessage.value = "导出失败：${failure.message}；目标文件可能不完整，请重新导出" }
-            finally { report?.delete(); mutableCollectingDiagnostics.value = false }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                mutableExportMessage.value = "导出失败：${failure.message}；目标文件可能不完整，请重新导出"
+            } finally {
+                report?.delete()
+                mutableCollectingDiagnostics.value = false
+            }
         }
     }
 
-    private data class ListContent(val candidates: List<ComponentCandidate>, val filter: IntentKind?, val query: String, val groups: List<AppGroup>,
-        val selected: Set<ComponentRule> = emptySet(), val uiFilter: UiFilter = UiFilter.ALL)
+    private data class ListContent(
+        val candidates: List<ComponentCandidate>,
+        val filter: IntentKind?,
+        val query: String,
+        val groups: List<AppGroup>,
+        val selected: Set<ComponentRule> = emptySet(),
+        val uiFilter: UiFilter = UiFilter.ALL
+    )
 
-    private val grouped = combine(candidates, app.rules.rules, filter, query, uiFilter) { scanned, selected, kind, text, ui ->
+    private val grouped = combine(candidates, app.rules.rules, filter, query, uiFilter) {
+        scanned, selected, kind, text, ui ->
         val items = retainConfiguredCandidates(scanned, selected)
         ListContent(items, kind, text, groupCandidates(items, selected, kind, text, ui), selected, ui)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ListContent(emptyList(), null, "", emptyList()))
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        ListContent(emptyList(), null, "", emptyList())
+    )
 
     val state: StateFlow<MainState> = combine(
-        moduleStatus, loading, error, grouped, app.runtime, app.rules.displayMode, app.rules.priorities, app.rules.diagnosticMode, app.syncStatus, destination, expandedAppKey, app.rules.tiles, app.rules.hiddenFromApps, app.rules.defaultOpen, app.rules.openTypes
+        moduleStatus,
+        loading,
+        error,
+        grouped,
+        app.runtime,
+        app.rules.displayMode,
+        app.rules.priorities,
+        app.rules.diagnosticMode,
+        app.syncStatus,
+        destination,
+        expandedAppKey,
+        app.rules.hiddenFromApps,
+        app.rules.openTypes
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         val content = values[3] as ListContent
         val priorityConfig = values[6] as PriorityConfig
-        val rawOpenTypes = values[14] as OpenTypeConfig
-        val genericOpenIds = content.selected.asSequence().filter { it.kind == IntentKind.OPEN }.map { it.id }.toSet()
-        val genericOpenPriority = priorityConfig.apps[IntentKind.OPEN].orEmpty()
-        val typedPresets = rawOpenTypes.configuredPresets()
-        val effectiveRules = typedPresets.mapNotNull { preset ->
-            val ids = genericOpenIds + rawOpenTypes.rules[preset].orEmpty()
-            if (ids.isEmpty()) null else preset to ids
-        }.toMap()
-        val effectivePriorities = typedPresets.mapNotNull { preset ->
-            val explicit = rawOpenTypes.priorities[preset].orEmpty()
-            val packages = if (explicit.isNotEmpty()) explicit else genericOpenPriority
-            if (packages.isEmpty()) null else preset to packages
-        }.toMap()
-        val effectiveOpenTypes = rawOpenTypes.copy(rules = effectiveRules, priorities = effectivePriorities)
+        val rawOpenTypes = values[12] as OpenTypeConfig
         MainState(
-            module = values[0] as ModuleStatus, loading = values[1] as Boolean, error = values[2] as String?,
-            candidates = content.candidates, selected = content.selected, runtime = values[4] as RuntimeStatus,
-            displayMode = values[5] as DisplayMode, filter = content.filter, query = content.query,
-            priorities = priorityConfig, groups = content.groups, diagnosticMode = values[7] as Boolean,
-            syncStatus = values[8] as String, destination = values[9] as Destination,
-            expandedAppKey = values[10] as String?, tiles = values[11] as TileConfig,
-            hiddenFromApps = values[12] as Set<String>, defaultOpen = values[13] as DefaultOpenConfig,
-            openTypes = effectiveOpenTypes, openTypesExplicit = rawOpenTypes, uiFilter = content.uiFilter
+            module = values[0] as ModuleStatus,
+            loading = values[1] as Boolean,
+            error = values[2] as String?,
+            candidates = content.candidates,
+            selected = content.selected,
+            runtime = values[4] as RuntimeStatus,
+            displayMode = values[5] as DisplayMode,
+            filter = content.filter,
+            query = content.query,
+            priorities = priorityConfig,
+            groups = content.groups,
+            diagnosticMode = values[7] as Boolean,
+            syncStatus = values[8] as String,
+            destination = values[9] as Destination,
+            expandedAppKey = values[10] as String?,
+            hiddenFromApps = values[11] as Set<String>,
+            openTypes = effectiveOpenTypes(rawOpenTypes, content.selected, priorityConfig),
+            openTypesExplicit = rawOpenTypes,
+            uiFilter = content.uiFilter
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainState())
 
     init {
         viewModelScope.launch {
-            app.service.collectLatest { readModuleStatus(it); refresh() }
+            app.service.collectLatest {
+                readModuleStatus(it)
+                refresh()
+            }
         }
     }
 
-    fun setDiagnosticMode(enabled: Boolean) { app.rules.setDiagnosticMode(enabled); refreshModuleStatus() }
-    fun setDefaultOpen(preset: OpenPreset, ruleId: String?) { if (canEdit()) app.rules.setDefaultOpen(preset, ruleId) }
-    fun setHiddenFromApps(packages: Set<String>) { app.rules.setHiddenFromApps(packages); viewModelScope.launch { app.synchronize() } }
+    fun setDiagnosticMode(enabled: Boolean) {
+        app.rules.setDiagnosticMode(enabled)
+        refreshModuleStatus()
+    }
+
+    fun setHiddenFromApps(packages: Set<String>) {
+        app.rules.setHiddenFromApps(packages)
+        viewModelScope.launch { app.synchronize() }
+    }
 
     fun setCustomOpenDefinition(preset: OpenPreset, definition: CustomOpenDefinition?) {
         if (!canEdit()) return
@@ -394,25 +486,42 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             loading.value = true
             error.value = null
             try {
-                val configured = app.rules.rules.value + app.rules.openTypes.value.rules.values.flatten().mapNotNull(ComponentRule::fromId)
+                val configured = app.rules.rules.value +
+                    app.rules.openTypes.value.rules.values.flatten().mapNotNull(ComponentRule::fromId)
                 candidates.value = app.catalog.completeConfigured(candidates.value, configured)
                 check(app.synchronize()) { app.runtime.value.message }
                 val result = app.catalog.scan(app.rules.openTypes.value.customDefinitions)
                 check(app.synchronize()) { app.runtime.value.message }
                 if (generation == refreshGeneration) {
-                    val updatedConfigured = app.rules.rules.value + app.rules.openTypes.value.rules.values.flatten().mapNotNull(ComponentRule::fromId)
+                    val updatedConfigured = app.rules.rules.value +
+                        app.rules.openTypes.value.rules.values.flatten().mapNotNull(ComponentRule::fromId)
                     candidates.value = app.catalog.completeConfigured(result, updatedConfigured)
                     error.value = app.catalog.scanWarning
                 }
-            } catch (cancelled: CancellationException) { throw cancelled }
-            catch (failure: Throwable) { if (generation == refreshGeneration) error.value = failure.message ?: "扫描失败" }
-            finally { if (generation == refreshGeneration) loading.value = false }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Throwable) {
+                if (generation == refreshGeneration) error.value = failure.message ?: "扫描失败"
+            } finally {
+                if (generation == refreshGeneration) loading.value = false
+            }
         }
         refreshModuleStatus()
     }
 
-    fun refreshModuleStatus() { viewModelScope.launch { readModuleStatus(app.service.value); app.synchronize() } }
-    fun resolveRecovery(restore: Boolean) { viewModelScope.launch { app.resolveRecovery(restore); refresh() } }
+    fun refreshModuleStatus() {
+        viewModelScope.launch {
+            readModuleStatus(app.service.value)
+            app.synchronize()
+        }
+    }
+
+    fun resolveRecovery(restore: Boolean) {
+        viewModelScope.launch {
+            app.resolveRecovery(restore)
+            refresh()
+        }
+    }
 
     fun applyModuleUpdate() {
         if (mutableUpdating.value) return
@@ -422,16 +531,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val bound = app.service.value ?: error("未连接 LSPosed")
                 val targets = withContext(Dispatchers.IO) { bound.runningTargets }
-                val pending = targets.filter { !RuntimeProtocol.current(it.state.name, it.loadedVersionCode, BuildConfig.VERSION_CODE.toLong()) }
+                val pending = targets.filter {
+                    !RuntimeProtocol.current(it.state.name, it.loadedVersionCode, BuildConfig.VERSION_CODE.toLong())
+                }
                 val messages = mutableListOf<String>()
                 for (target in pending) {
                     try {
-                        if (target.state == HookedTarget.State.RELOADING) { messages += "${target.processName}：框架正在重载，请稍后重新检测"; continue }
-                        if (target.loadedVersionCode < 19) { messages += "${target.processName}：旧版本 ${target.loadedVersionCode} 不支持本模块热重载，请完整重启手机"; continue }
+                        if (target.state == HookedTarget.State.RELOADING) {
+                            messages += "${target.processName}：框架正在重载，请稍后重新检测"
+                            continue
+                        }
+                        if (target.loadedVersionCode < 19) {
+                            messages += "${target.processName}：旧版本 ${target.loadedVersionCode} 不支持本模块热重载，请完整重启手机"
+                            continue
+                        }
                         val result = withTimeoutOrNull(15_000) {
                             withContext(Dispatchers.IO) {
                                 suspendCancellableCoroutine<HotReloadResult> { continuation ->
-                                    bound.hotReloadModule(target, null) { _, reply -> if (continuation.isActive) continuation.resume(reply) }
+                                    bound.hotReloadModule(target, null) { _, reply ->
+                                        if (continuation.isActive) continuation.resume(reply)
+                                    }
                                 }
                             }
                         }
@@ -443,14 +562,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             HotReloadResult.Status.IN_PROGRESS -> "框架正在重载，请稍后重新检测"
                             null -> "等待超时，不代表已取消；请重新检测，勿重复请求"
                         }
-                    } catch (cancelled: CancellationException) { throw cancelled }
-                    catch (failure: Exception) { messages += "${target.processName}：更新请求失败（${failure.javaClass.simpleName}）；继续检查其他目标" }
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (failure: Exception) {
+                        messages += "${target.processName}：更新请求失败（${failure.javaClass.simpleName}）；继续检查其他目标"
+                    }
                 }
-                mutableUpdateMessage.value = if (messages.isEmpty()) "没有需要热更新的运行目标；正在核实配置" else messages.joinToString("\n")
+                mutableUpdateMessage.value = if (messages.isEmpty()) {
+                    "没有需要热更新的运行目标；正在核实配置"
+                } else messages.joinToString("\n")
                 refresh()
-            } catch (cancelled: CancellationException) { throw cancelled }
-            catch (failure: Exception) { mutableUpdateMessage.value = "更新检查失败：${failure.message}；未重启任何系统进程" }
-            finally { mutableUpdating.value = false }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                mutableUpdateMessage.value = "更新检查失败：${failure.message}；未重启任何系统进程"
+            } finally {
+                mutableUpdating.value = false
+            }
         }
     }
 
@@ -461,16 +589,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             var result = ModuleStatus(connected = service != null, detection = detection)
             if (service != null) {
                 try {
-                    result = result.copy(apiVersion = service.apiVersion, grantedScope = service.scope.toSet(), scopeKnown = true)
-                    result = if ((result.apiVersion ?: 0) >= 102) result.copy(runningTargets = service.runningTargets.map {
-                        RunningTargetStatus(it.processName, it.state.name, it.loadedVersionCode)
-                    }) else result.copy(error = "当前框架不支持运行目标检测")
-                } catch (cancelled: CancellationException) { throw cancelled }
-                catch (failure: Exception) { result = result.copy(error = failure.message ?: "无法读取 LSPosed 模块状态") }
+                    result = result.copy(
+                        apiVersion = service.apiVersion,
+                        grantedScope = service.scope.toSet(),
+                        scopeKnown = true
+                    )
+                    result = if ((result.apiVersion ?: 0) >= 102) {
+                        result.copy(runningTargets = service.runningTargets.map {
+                            RunningTargetStatus(it.processName, it.state.name, it.loadedVersionCode)
+                        })
+                    } else result.copy(error = "当前框架不支持运行目标检测")
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
+                    result = result.copy(error = failure.message ?: "无法读取 LSPosed 模块状态")
+                }
             }
             result
         }
-        if (generation == statusGeneration && app.service.value === service) moduleStatus.value = status.copy(requesting = scopeRequestInFlight)
+        if (generation == statusGeneration && app.service.value === service) {
+            moduleStatus.value = status.copy(requesting = scopeRequestInFlight)
+        }
         return status
     }
 
@@ -478,32 +617,51 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (!it) error.value = "请先完成远程配置恢复或重置，避免覆盖原有规则"
     }
 
-    private fun genericOpenSelected(): Set<ComponentRule> = app.rules.rules.value.filterTo(linkedSetOf()) { it.kind == IntentKind.OPEN }
+    private fun genericOpenSelected(): Set<ComponentRule> =
+        app.rules.rules.value.filterTo(linkedSetOf()) { it.kind == IntentKind.OPEN }
+
     private fun openTypePriorityBase(preset: OpenPreset): List<String> {
         val explicit = app.rules.openTypes.value.priorities[preset].orEmpty()
-        return if (explicit.isNotEmpty()) explicit else app.rules.priorities.value.apps[IntentKind.OPEN].orEmpty()
+        return if (explicit.isNotEmpty()) explicit
+        else app.rules.priorities.value.apps[IntentKind.OPEN].orEmpty()
     }
 
     fun toggle(rule: ComponentRule) { if (canEdit()) app.rules.toggle(rule) }
-    fun setGroupSelected(group: AppGroup, selected: Boolean) { if (canEdit()) app.rules.setSelected(group.components.map { it.rule }, selected) }
-    fun toggleOpenType(preset: OpenPreset, rule: ComponentRule) { if (canEdit() && rule !in genericOpenSelected()) app.rules.toggleOpenType(preset, rule) }
+
+    fun setGroupSelected(group: AppGroup, selected: Boolean) {
+        if (canEdit()) app.rules.setSelected(group.components.map { it.rule }, selected)
+    }
+
+    fun toggleOpenType(preset: OpenPreset, rule: ComponentRule) {
+        if (canEdit() && rule !in genericOpenSelected()) app.rules.toggleOpenType(preset, rule)
+    }
+
     fun setOpenTypeGroupSelected(preset: OpenPreset, group: AppGroup, selected: Boolean) {
         if (!canEdit()) return
         val editable = group.components.map { it.rule }.filterNot { it in genericOpenSelected() }
         if (editable.isNotEmpty()) app.rules.setOpenTypeSelected(preset, editable, selected)
     }
+
     fun selectOpenTypeRules(preset: OpenPreset, rules: Collection<ComponentRule>) {
         if (!canEdit() || rules.isEmpty()) return
         val editable = rules.distinct().filterNot { it in genericOpenSelected() }
         if (editable.isNotEmpty()) app.rules.setOpenTypeSelected(preset, editable, true)
     }
+
     fun invertOpenTypeRules(preset: OpenPreset, rules: Collection<ComponentRule>) {
         if (!canEdit() || rules.isEmpty()) return
         val editable = rules.distinct().filterNot { it in genericOpenSelected() }
         if (editable.isNotEmpty()) app.rules.invertOpenTypeSelected(preset, editable)
     }
-    fun selectRules(rules: Collection<ComponentRule>) { if (canEdit() && rules.isNotEmpty()) app.rules.setSelected(rules.distinct(), true) }
-    fun invertRules(rules: Collection<ComponentRule>) { if (canEdit() && rules.isNotEmpty()) app.rules.invertSelected(rules) }
+
+    fun selectRules(rules: Collection<ComponentRule>) {
+        if (canEdit() && rules.isNotEmpty()) app.rules.setSelected(rules.distinct(), true)
+    }
+
+    fun invertRules(rules: Collection<ComponentRule>) {
+        if (canEdit() && rules.isNotEmpty()) app.rules.invertSelected(rules)
+    }
+
     fun setDisplayMode(value: DisplayMode) { if (canEdit()) app.rules.setDisplayMode(value) }
     fun setFilter(value: IntentKind?) { filter.value = value }
     fun setQuery(value: String) { query.value = value }
@@ -512,7 +670,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleExpandedApp(key: String) { expandedAppKey.value = if (expandedAppKey.value == key) null else key }
     fun exportJson(): String = app.rules.exportJson()
     fun importJson(content: String) = app.rules.importJson(content)
-    fun setComponentTitle(ruleId: String, title: String?) { if (canEdit()) app.rules.setComponentTitle(ruleId, title) }
+    fun setComponentTitle(ruleId: String, title: String?) {
+        if (canEdit()) app.rules.setComponentTitle(ruleId, title)
+    }
 
     fun selectPriorityApps(kind: IntentKind, packageNames: Collection<String>) {
         if (!canEdit()) return
@@ -520,25 +680,46 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val next = (current + packageNames.distinct().filter { it !in current }).take(200)
         if (next != current) app.rules.setPriority(kind, next)
     }
+
     fun invertPriorityApps(kind: IntentKind, packageNames: Collection<String>) {
         if (!canEdit()) return
-        val visible = packageNames.distinct(); if (visible.isEmpty()) return
+        val visible = packageNames.distinct()
+        if (visible.isEmpty()) return
         val current = app.rules.priorities.value.apps[kind].orEmpty()
         val next = (current.filterNot { it in visible.toSet() } + visible.filter { it !in current }).take(200)
         if (next != current) app.rules.setPriority(kind, next)
     }
+
     fun pinApp(kind: IntentKind, packageName: String) {
         if (!canEdit()) return
         val current = app.rules.priorities.value.apps[kind].orEmpty()
         if (packageName !in current && current.size < 200) app.rules.setPriority(kind, current + packageName)
     }
-    fun removePriority(kind: IntentKind, packageName: String) { if (canEdit()) app.rules.setPriority(kind, app.rules.priorities.value.apps[kind].orEmpty() - packageName) }
-    fun movePriority(kind: IntentKind, packageName: String, offset: Int, visible: List<String>) {
-        if (canEdit()) app.rules.setPriority(kind, com.yagay.ListCleaner.domain.moveVisiblePriority(app.rules.priorities.value.apps[kind].orEmpty(), visible, packageName, offset))
+
+    fun removePriority(kind: IntentKind, packageName: String) {
+        if (canEdit()) app.rules.setPriority(kind, app.rules.priorities.value.apps[kind].orEmpty() - packageName)
     }
-    fun movePriorityTo(kind: IntentKind, packageName: String, target: String, visible: List<String>, expected: List<String>) {
+
+    fun movePriority(kind: IntentKind, packageName: String, offset: Int, visible: List<String>) {
         if (!canEdit()) return
-        val current = app.rules.priorities.value.apps[kind].orEmpty(); if (current != expected) return
+        app.rules.setPriority(
+            kind,
+            com.yagay.ListCleaner.domain.moveVisiblePriority(
+                app.rules.priorities.value.apps[kind].orEmpty(), visible, packageName, offset
+            )
+        )
+    }
+
+    fun movePriorityTo(
+        kind: IntentKind,
+        packageName: String,
+        target: String,
+        visible: List<String>,
+        expected: List<String>
+    ) {
+        if (!canEdit()) return
+        val current = app.rules.priorities.value.apps[kind].orEmpty()
+        if (current != expected) return
         val updated = com.yagay.ListCleaner.domain.moveVisiblePriorityTo(current, visible, packageName, target)
         if (updated != current) app.rules.setPriority(kind, updated)
     }
@@ -549,36 +730,53 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val next = (current + packageNames.distinct().filter { it !in current }).take(200)
         if (next != current) app.rules.setOpenTypePriority(preset, next)
     }
+
     fun invertOpenTypePriorityApps(preset: OpenPreset, packageNames: Collection<String>) {
         if (!canEdit()) return
-        val visible = packageNames.distinct(); if (visible.isEmpty()) return
+        val visible = packageNames.distinct()
+        if (visible.isEmpty()) return
         val current = openTypePriorityBase(preset)
         val next = (current.filterNot { it in visible.toSet() } + visible.filter { it !in current }).take(200)
         if (next != current) app.rules.setOpenTypePriority(preset, next)
     }
+
     fun pinOpenTypeApp(preset: OpenPreset, packageName: String) {
         if (!canEdit()) return
         val current = openTypePriorityBase(preset)
         if (packageName !in current && current.size < 200) app.rules.setOpenTypePriority(preset, current + packageName)
     }
+
     fun removeOpenTypePriority(preset: OpenPreset, packageName: String) {
         if (!canEdit()) return
-        val current = openTypePriorityBase(preset); val next = current - packageName
+        val current = openTypePriorityBase(preset)
+        val next = current - packageName
         if (next != current) app.rules.setOpenTypePriority(preset, next)
     }
+
     fun moveOpenTypePriority(preset: OpenPreset, packageName: String, offset: Int, visible: List<String>) {
         if (!canEdit()) return
         val current = openTypePriorityBase(preset)
         val updated = com.yagay.ListCleaner.domain.moveVisiblePriority(current, visible, packageName, offset)
         if (updated != current) app.rules.setOpenTypePriority(preset, updated)
     }
-    fun moveOpenTypePriorityTo(preset: OpenPreset, packageName: String, target: String, visible: List<String>, expected: List<String>) {
+
+    fun moveOpenTypePriorityTo(
+        preset: OpenPreset,
+        packageName: String,
+        target: String,
+        visible: List<String>,
+        expected: List<String>
+    ) {
         if (!canEdit()) return
-        val current = openTypePriorityBase(preset); if (current != expected) return
+        val current = openTypePriorityBase(preset)
+        if (current != expected) return
         val updated = com.yagay.ListCleaner.domain.moveVisiblePriorityTo(current, visible, packageName, target)
         if (updated != current) app.rules.setOpenTypePriority(preset, updated)
     }
-    fun resetOpenTypePriority(preset: OpenPreset) { if (canEdit()) app.rules.setOpenTypePriority(preset, emptyList()) }
+
+    fun resetOpenTypePriority(preset: OpenPreset) {
+        if (canEdit()) app.rules.setOpenTypePriority(preset, emptyList())
+    }
 
     fun requestScope() {
         if (scopeRequestInFlight) return
@@ -590,14 +788,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val current = readModuleStatus(service)
                 check(app.service.value === service) { "服务连接已变化，请重新检查" }
                 check(current.scopeKnown) { current.error ?: "无法读取已授权作用域，未提交申请" }
-                check(current.detection.recommended.isNotEmpty()) { "未确认可自动申请的选择器宿主，请查看检测详情并在 LSPosed 中手动核查" }
+                check(current.detection.recommended.isNotEmpty()) {
+                    "未确认可自动申请的选择器宿主，请查看检测详情并在 LSPosed 中手动核查"
+                }
                 val missing = current.missingScope.toList()
-                if (missing.isEmpty()) { moduleStatus.value = current.copy(requesting = true, message = "检测到的推荐作用域均已授权，无需重复申请"); return@launch }
+                if (missing.isEmpty()) {
+                    moduleStatus.value = current.copy(requesting = true, message = "检测到的推荐作用域均已授权，无需重复申请")
+                    return@launch
+                }
                 val approved = withTimeoutOrNull(120_000) {
                     suspendCancellableCoroutine<List<String>> { continuation ->
                         service.requestScope(missing, object : XposedService.OnScopeEventListener {
-                            override fun onScopeRequestApproved(approved: List<String>) { if (continuation.isActive) continuation.resume(approved) }
-                            override fun onScopeRequestFailed(message: String) { if (continuation.isActive) continuation.resumeWithException(IllegalStateException(message)) }
+                            override fun onScopeRequestApproved(approved: List<String>) {
+                                if (continuation.isActive) continuation.resume(approved)
+                            }
+                            override fun onScopeRequestFailed(message: String) {
+                                if (continuation.isActive) {
+                                    continuation.resumeWithException(IllegalStateException(message))
+                                }
+                            }
                         })
                     }
                 }
@@ -610,13 +819,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     else -> "推荐作用域已确认授权；若目标尚未加载，请重新启动相关选择器，必要时重启设备"
                 }
                 moduleStatus.value = refreshed.copy(message = message)
-            } catch (cancelled: CancellationException) { throw cancelled }
-            catch (failure: Exception) { moduleStatus.value = moduleStatus.value.copy(error = failure.message ?: "申请作用域失败") }
-            finally { scopeRequestInFlight = false; moduleStatus.value = moduleStatus.value.copy(requesting = false) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                moduleStatus.value = moduleStatus.value.copy(error = failure.message ?: "申请作用域失败")
+            } finally {
+                scopeRequestInFlight = false
+                moduleStatus.value = moduleStatus.value.copy(requesting = false)
+            }
         }
     }
 
-    companion object { const val MAX_BACKUP_CHARS = RuleRepository.MAX_BACKUP_CHARS }
+    companion object {
+        const val MAX_BACKUP_CHARS = RuleRepository.MAX_BACKUP_CHARS
+    }
 }
 
 internal fun catalogVisible(item: ComponentCandidate, selected: Boolean, uiFilter: UiFilter): Boolean =
