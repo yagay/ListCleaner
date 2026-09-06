@@ -30,7 +30,7 @@ fun previewOpenEffect(
     scheme: String?,
     fileNameOrPath: String?
 ): OpenEffectPreview {
-    val preset = matchOpenPreset(IntentKind.OPEN, mimeType, scheme, fileNameOrPath)
+    val preset = matchOpenPreset(IntentKind.OPEN, mimeType, scheme, fileNameOrPath, openTypes.customDefinitions)
     val genericIds = genericSelected.asSequence().filter { it.kind == IntentKind.OPEN }.map { it.id }.toSet()
     val typedIds = preset?.let { openTypes.rules[it].orEmpty() }.orEmpty()
     val hasSelection = genericIds.isNotEmpty() || typedIds.isNotEmpty()
@@ -57,9 +57,9 @@ fun previewOpenEffect(
             candidate = candidate,
             selected = inGeneric || inTyped,
             selectedBy = when {
-                inGeneric && inTyped -> "全部 + ${preset?.title ?: "分类型"}"
+                inGeneric && inTyped -> "全部 + ${preset?.let(openTypes::titleFor) ?: "分类型"}"
                 inGeneric -> "全部"
-                inTyped -> preset?.title ?: "分类型"
+                inTyped -> preset?.let(openTypes::titleFor) ?: "分类型"
                 else -> null
             },
             included = candidate.rule.id in keptIds,
