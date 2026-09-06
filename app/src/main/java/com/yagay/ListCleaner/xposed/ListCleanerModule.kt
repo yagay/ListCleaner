@@ -66,7 +66,15 @@ class ListCleanerModule : XposedModule() {
             val packageName = parts.getOrNull(1)?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
             kind to packageName
         }.groupBy({ it.first }, { it.second }).mapValues { (_, packages) -> packages.toSet() }
-        val allSelectedPackages: Set<String> = selectedPackages.values.flatten().toSet()
+        private val typedOpenPackages: Set<String> = openTypes.rules.values.asSequence().flatten().mapNotNull { id ->
+            val parts = id.split('|', limit = 3)
+            val kind = parts.getOrNull(0)?.let { runCatching { IntentKind.valueOf(it) }.getOrNull() }
+            if (kind != IntentKind.OPEN) return@mapNotNull null
+            parts.getOrNull(1)?.takeIf { it.isNotBlank() }
+        }.toSet()
+        // Package-visibility fallback is intentionally package-level. If ES is selected in
+        // hiddenFromApps, an app chosen only in a typed OPEN rule is hidden from ES as a whole.
+        val allSelectedPackages: Set<String> = selectedPackages.values.flatten().toSet() + typedOpenPackages
         fun hasSelection(kind: IntentKind): Boolean = kind in selectedKinds
         fun hasPackageSelection(kind: IntentKind, packageName: String): Boolean = packageName in selectedPackages[kind].orEmpty()
     }
@@ -416,7 +424,6 @@ class ListCleanerModule : XposedModule() {
         installFinalOrderingHooks(classLoader)
     }
 
-
     private fun installFinalOrderingHooks(loader: ClassLoader) {
         listOf("com.android.internal.app.ResolverListAdapter", "com.android.internal.app.ChooserListAdapter",
             "com.android.intentresolver.ResolverListAdapter", "com.android.intentresolver.ChooserListAdapter").forEach { name ->
@@ -480,7 +487,8 @@ class ListCleanerModule : XposedModule() {
         val effective = intent.selector ?: intent
         val context = runCatching { OrderingAccess.field(receiver, "mContext") as? Context }.getOrNull()
         val mime = effective.type ?: runCatching { context?.let { effective.resolveTypeIfNeeded(it.contentResolver) } }.getOrNull()
-        return matchOpenPreset(kind, mime, effective.data?.scheme)
+        val data = effective.data
+        return matchOpenPreset(kind, mime, data?.scheme, data?.lastPathSegment ?: data?.path)
     }
 
     private fun effectivePriorities(kind: IntentKind, preset: OpenPreset?, current: RuleSnapshot): List<String> {
@@ -656,7 +664,7 @@ class ListCleanerModule : XposedModule() {
                     Throwable().stackTrace.take(14).joinToString(" <- ") { "${it.className}.${it.methodName}" })
             }
             diagnostic("QUERY layer=$layer kind=$kind action=${intent.action} mime=${intent.type ?: resolvedType} " +
-                "scheme=${intent.data?.scheme} component=${intent.component?.flattenToShortString()} " +
+                "scheme=${intent.data?.scheme} file=${intent.data?.lastPathSegment} component=${intent.component?.flattenToShortString()} " +
                 "package=${intent.`package`} callerUid=$callerUid " +
                 "result=${original?.javaClass?.name} rules=${snapshot.configured.size} mode=${snapshot.displayMode}")
         }
@@ -672,13 +680,16 @@ class ListCleanerModule : XposedModule() {
             diagnostic("skip $layer ${intent.action}: unsupported result ${original?.javaClass?.name}")
             return original
         }
-        val replacement = transform(kind, extracted.values, layer, callerUid, intent.type ?: resolvedType, intent.data?.scheme) ?: return original
+        val data = intent.data
+        val replacement = transform(
+            kind, extracted.values, layer, callerUid, intent.type ?: resolvedType,
+            data?.scheme, data?.lastPathSegment ?: data?.path
+        ) ?: return original
         return runCatching { extracted.rebuild(replacement) }.getOrElse {
             Log.e(TAG, "Failed to rebuild ${original?.javaClass?.name}; keeping original", it)
             original
         }
     }
-
 
     private fun isSelectedCandidate(kind: IntentKind, activity: ActivityInfo, current: RuleSnapshot, layer: Layer): Boolean {
         val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
@@ -688,7 +699,15 @@ class ListCleanerModule : XposedModule() {
         return false
     }
 
-    private fun transform(kind: IntentKind, values: List<*>, layer: Layer, callerUid: Int, mimeType: String?, scheme: String?): List<*>? {
+    private fun transform(
+        kind: IntentKind,
+        values: List<*>,
+        layer: Layer,
+        callerUid: Int,
+        mimeType: String?,
+        scheme: String?,
+        fileNameOrPath: String?
+    ): List<*>? {
         if (values.isEmpty()) { diagnostic("SKIP $layer $kind empty_input"); return null }
         val current = snapshot
         if (current.displayMode == DisplayMode.SHOW_ALL) {
@@ -696,7 +715,7 @@ class ListCleanerModule : XposedModule() {
             return null
         }
         var changed = false
-        val preset = matchOpenPreset(kind, mimeType, scheme)
+        val preset = matchOpenPreset(kind, mimeType, scheme, fileNameOrPath)
         val typedIds = if (kind == IntentKind.OPEN && preset != null) current.openTypes.rules[preset].orEmpty() else emptySet()
         val hasSelection = current.hasSelection(kind) || typedIds.isNotEmpty()
         val filtered = if (!hasSelection && current.displayMode != DisplayMode.SHOW_SELECTED) {
@@ -715,7 +734,7 @@ class ListCleanerModule : XposedModule() {
                 val candidateId = "${kind.name}|${activity.packageName}|$canonicalClass"
                 val selected = candidateId in current.configured || candidateId in typedIds
                 diagnostic(
-                    "CANDIDATE $layer $kind ${activity.packageName}/${activity.name} target=${activity.targetActivity} canonical=$canonicalClass selected=$selected match=${if (selected) "component" else "none"}",
+                    "CANDIDATE $layer $kind preset=$preset ${activity.packageName}/${activity.name} target=${activity.targetActivity} canonical=$canonicalClass selected=$selected match=${if (selected) "component" else "none"}",
                     detail = true
                 )
                 current.displayMode.includes(selected, hasSelection).also {
@@ -744,7 +763,7 @@ class ListCleanerModule : XposedModule() {
             diagnostic("NO_CHANGE $layer $kind size=${values.size} hasSelection=$hasSelection preset=$preset")
             return null
         }
-        diagnostic("$layer $kind: ${values.size} -> ${titled.size}")
+        diagnostic("$layer $kind preset=$preset: ${values.size} -> ${titled.size}")
         return titled
     }
 
@@ -804,7 +823,7 @@ class ListCleanerModule : XposedModule() {
                     config.priorities, config.defaultOpen, config.openTypes, config.diagnostic, config.managerAppId, digest, config.hiddenFromApps)
                 lastEncodedConfig = encoded
                 record("MANAGER_IDENTITY appId=${config.managerAppId} source=remote_config")
-                record("RULES_READ reason=$reason count=${snapshot.configured.size} mode=${config.mode} diagnostic=${config.diagnostic} atomic=true priorities=${config.priorities.apps.mapValues { it.value.size }} typedRules=${config.openTypes.rules.mapValues { it.value.size }} typedPriorities=${config.openTypes.priorities.mapValues { it.value.size }} titles=${config.priorities.titles.size} legacyDefaultOpenIgnored=${config.defaultOpen.preferred.size} hiddenFromApps=${config.hiddenFromApps.size} digest=$digest")
+                record("RULES_READ reason=$reason count=${snapshot.configured.size} mode=${config.mode} diagnostic=${config.diagnostic} atomic=true priorities=${config.priorities.apps.mapValues { it.value.size }} typedRules=${config.openTypes.rules.mapValues { it.value.size }} typedPriorities=${config.openTypes.priorities.mapValues { it.value.size }} titles=${config.priorities.titles.size} legacyDefaultOpenIgnored=${config.defaultOpen.preferred.size} hiddenFromApps=${config.hiddenFromApps.size} visibilityTargets=${snapshot.allSelectedPackages.size} digest=$digest")
                 record("LEGACY_TILE_CONFIG ignored=true enabled=${config.tiles.enabled} hidden=${config.tiles.hidden.size}")
                 return@runCatching
             }
@@ -863,7 +882,6 @@ class ListCleanerModule : XposedModule() {
             method.parameterTypes.any { Intent::class.java.isAssignableFrom(it) } &&
             (List::class.java.isAssignableFrom(method.returnType) ||
                 method.returnType.name == "android.content.pm.ParceledListSlice")
-
 
     private enum class Layer { SYSTEM, RESOLVER }
 
