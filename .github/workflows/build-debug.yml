@@ -66,7 +66,6 @@ jobs:
           bash ./gradlew --no-daemon --console=plain --stacktrace :app:assembleDebug 2>&1 | tee debug-build.log
 
       - name: Upload Debug APK
-        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ListCleaner-debug-${{ github.run_number }}-${{ github.run_attempt }}
