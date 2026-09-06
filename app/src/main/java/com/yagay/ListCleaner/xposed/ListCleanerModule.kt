@@ -40,8 +40,8 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Level 1 filters PackageManager resolver results. Level 2 gives manually scoped third-party
- * apps a short-lived virtual component-disabled view while their chooser is being built.
- * Real package/component state is never changed; every failure is fail-open.
+ * apps a process-wide virtual package visibility view so preloaded/cached app lists cannot
+ * reintroduce hidden targets. Real package/component state is never changed; failures fail-open.
  */
 class ListCleanerModule : XposedModule() {
     private data class RuleSnapshot(
@@ -59,6 +59,7 @@ class ListCleanerModule : XposedModule() {
             val packageName = parts.getOrNull(1)?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
             kind to packageName
         }.groupBy({ it.first }, { it.second }).mapValues { (_, packages) -> packages.toSet() }
+        val allSelectedPackages: Set<String> = selectedPackages.values.flatten().toSet()
         fun hasSelection(kind: IntentKind): Boolean = kind in selectedKinds
         fun hasPackageSelection(kind: IntentKind, packageName: String): Boolean = packageName in selectedPackages[kind].orEmpty()
     }
@@ -81,14 +82,6 @@ class ListCleanerModule : XposedModule() {
     private val queryInProgress = ThreadLocal<Boolean>()
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
     private val tracedActions = ConcurrentHashMap.newKeySet<String>()
-    @Volatile private var virtualDisableContext: VirtualDisableContext? = null
-
-    private data class VirtualDisableContext(
-        val kind: IntentKind,
-        val expiresAt: Long,
-        val ownerPackage: String,
-    )
-
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
@@ -318,7 +311,7 @@ class ListCleanerModule : XposedModule() {
         clazz.declaredMethods.filter(::isQueryIntentActivityOptionsMethod).forEach { method ->
             if (install(method, "VIRTUAL_OPTIONS", VIRTUAL_OPTIONS_HOOK_ID, "query_intent_activity_options", virtualQueryIntentActivityOptionsHooker())) optionHooks++
         }
-        record("VIRTUAL_HOOKS package=$packageName activityInfo=$activityHooks componentState=$stateHooks applicationInfo=$applicationHooks packageInfo=$packageHooks installedApps=$installedApplicationHooks installedPackages=$installedPackageHooks resolveActivity=$resolveHooks queryOptions=$optionHooks")
+        record("VIRTUAL_HOOKS package=$packageName mode=process_wide activityInfo=$activityHooks componentState=$stateHooks applicationInfo=$applicationHooks packageInfo=$packageHooks installedApps=$installedApplicationHooks installedPackages=$installedPackageHooks resolveActivity=$resolveHooks queryOptions=$optionHooks")
     }
 
     private fun installFinalOrderingHooks(loader: ClassLoader) {
@@ -561,7 +554,6 @@ class ListCleanerModule : XposedModule() {
             return original
         }
         if (layer == Layer.APP) {
-            armVirtualDisable(kind)
             if (extracted.values.size <= 1) {
                 diagnostic("APP_SKIP kind=$kind reason=single_or_empty_candidate count=${extracted.values.size}")
                 return original
@@ -587,162 +579,92 @@ class ListCleanerModule : XposedModule() {
         }
     }
 
-    private fun armVirtualDisable(kind: IntentKind) {
+    private fun processVisibilityHidden(packageName: String, current: RuleSnapshot): Boolean {
         val owner = processName.substringBefore(':')
-        if (owner.isBlank() || owner == FRAMEWORK_PACKAGE || owner == INTENT_RESOLVER_PACKAGE || owner == SYSTEM_SCOPE_PACKAGE) return
-        val current = snapshot
-        if (current.displayMode == DisplayMode.SHOW_ALL || !current.hasSelection(kind)) {
-            virtualDisableContext = null
-            return
-        }
-        virtualDisableContext = VirtualDisableContext(
-            kind = kind,
-            expiresAt = SystemClock.elapsedRealtime() + VIRTUAL_DISABLE_WINDOW_MS,
-            ownerPackage = owner,
-        )
-        diagnostic("VIRTUAL_DISABLE_ARM kind=$kind owner=$owner windowMs=$VIRTUAL_DISABLE_WINDOW_MS mode=${current.displayMode}")
-    }
-
-    private fun activeVirtualDisableContext(): VirtualDisableContext? {
-        val context = virtualDisableContext ?: return null
-        if (processName.substringBefore(':') != context.ownerPackage || SystemClock.elapsedRealtime() > context.expiresAt) {
-            virtualDisableContext = null
-            return null
-        }
-        return context
-    }
-
-    private fun virtualSelected(kind: IntentKind, component: ComponentName, current: RuleSnapshot): Boolean {
-        if (component.packageName == processName.substringBefore(':')) return false
-        val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
-            component.packageName, component.className, null
-        )
-        if ("${kind.name}|${component.packageName}|$canonicalClass" in current.configured) return true
-        return current.hasPackageSelection(kind, component.packageName)
-    }
-
-    private fun virtualSelected(kind: IntentKind, activity: ActivityInfo, current: RuleSnapshot): Boolean {
-        if (activity.packageName == processName.substringBefore(':')) return false
-        val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
-            activity.packageName, activity.name, activity.targetActivity
-        )
-        if ("${kind.name}|${activity.packageName}|$canonicalClass" in current.configured) return true
-        return current.hasPackageSelection(kind, activity.packageName)
-    }
-
-    private fun shouldVirtuallyDisable(kind: IntentKind, component: ComponentName, current: RuleSnapshot): Boolean {
-        if (current.displayMode == DisplayMode.SHOW_ALL || !current.hasSelection(kind)) return false
-        val selected = virtualSelected(kind, component, current)
-        return !current.displayMode.includes(selected, true)
-    }
-
-    private fun shouldVirtuallyDisable(kind: IntentKind, activity: ActivityInfo, current: RuleSnapshot): Boolean {
-        if (current.displayMode == DisplayMode.SHOW_ALL || !current.hasSelection(kind)) return false
-        val selected = virtualSelected(kind, activity, current)
-        return !current.displayMode.includes(selected, true)
+        if (packageName.isBlank() || packageName == owner || current.displayMode == DisplayMode.SHOW_ALL) return false
+        val selected = packageName in current.allSelectedPackages
+        return current.displayMode.includes(selected, current.allSelectedPackages.isNotEmpty()).not()
     }
 
     private fun virtualActivityInfoHooker() = XposedInterface.Hooker { chain ->
         pollPreferences()
-        val context = activeVirtualDisableContext() ?: return@Hooker chain.proceed()
         val component = chain.args.firstOrNull { it is ComponentName } as? ComponentName ?: return@Hooker chain.proceed()
-        if (!shouldVirtuallyDisable(context.kind, component, snapshot)) return@Hooker chain.proceed()
-        diagnostic("VIRTUAL_ACTIVITY_HIDDEN kind=${context.kind} component=${component.flattenToShortString()} result=NameNotFound")
+        if (!processVisibilityHidden(component.packageName, snapshot)) return@Hooker chain.proceed()
+        diagnostic("PROCESS_VISIBILITY_ACTIVITY_HIDDEN component=${component.flattenToShortString()} result=NameNotFound")
         throw PackageManager.NameNotFoundException(component.flattenToShortString())
     }
 
     private fun virtualComponentStateHooker() = XposedInterface.Hooker { chain ->
         pollPreferences()
-        val context = activeVirtualDisableContext() ?: return@Hooker chain.proceed()
         val component = chain.args.firstOrNull { it is ComponentName } as? ComponentName ?: return@Hooker chain.proceed()
-        val current = snapshot
-        if (!shouldVirtuallyDisable(context.kind, component, current)) return@Hooker chain.proceed()
-        diagnostic("VIRTUAL_COMPONENT_STATE kind=${context.kind} component=${component.flattenToShortString()} state=DISABLED")
+        if (!processVisibilityHidden(component.packageName, snapshot)) return@Hooker chain.proceed()
+        diagnostic("PROCESS_VISIBILITY_COMPONENT_STATE component=${component.flattenToShortString()} state=DISABLED")
         PackageManager.COMPONENT_ENABLED_STATE_DISABLED
-    }
-
-    private fun shouldVirtuallyDisablePackage(kind: IntentKind, packageName: String, current: RuleSnapshot): Boolean {
-        if (packageName == processName.substringBefore(':')) return false
-        if (current.displayMode == DisplayMode.SHOW_ALL || !current.hasSelection(kind)) return false
-        val selected = current.hasPackageSelection(kind, packageName)
-        return !current.displayMode.includes(selected, true)
     }
 
     private fun virtualApplicationInfoHooker() = XposedInterface.Hooker { chain ->
         pollPreferences()
-        val context = activeVirtualDisableContext() ?: return@Hooker chain.proceed()
         val packageName = chain.args.firstOrNull { it is String } as? String ?: return@Hooker chain.proceed()
-        if (!shouldVirtuallyDisablePackage(context.kind, packageName, snapshot)) return@Hooker chain.proceed()
-        diagnostic("VIRTUAL_APPLICATION_HIDDEN kind=${context.kind} package=$packageName result=NameNotFound")
+        if (!processVisibilityHidden(packageName, snapshot)) return@Hooker chain.proceed()
+        diagnostic("PROCESS_VISIBILITY_APPLICATION_HIDDEN package=$packageName result=NameNotFound")
         throw PackageManager.NameNotFoundException(packageName)
     }
 
     private fun virtualPackageInfoHooker() = XposedInterface.Hooker { chain ->
         pollPreferences()
-        val context = activeVirtualDisableContext() ?: return@Hooker chain.proceed()
         val packageName = chain.args.firstOrNull { it is String } as? String ?: return@Hooker chain.proceed()
-        if (!shouldVirtuallyDisablePackage(context.kind, packageName, snapshot)) return@Hooker chain.proceed()
-        diagnostic("VIRTUAL_PACKAGE_HIDDEN kind=${context.kind} package=$packageName result=NameNotFound")
+        if (!processVisibilityHidden(packageName, snapshot)) return@Hooker chain.proceed()
+        diagnostic("PROCESS_VISIBILITY_PACKAGE_HIDDEN package=$packageName result=NameNotFound")
         throw PackageManager.NameNotFoundException(packageName)
     }
 
     private fun virtualInstalledApplicationsHooker() = XposedInterface.Hooker { chain ->
         pollPreferences()
-        val context = activeVirtualDisableContext() ?: return@Hooker chain.proceed()
         val original = chain.proceed()
         val result = extractListResult(original) ?: return@Hooker original
         val filtered = result.values.filter { value ->
             val info = value as? ApplicationInfo ?: return@filter true
-            !shouldVirtuallyDisablePackage(context.kind, info.packageName, snapshot)
+            !processVisibilityHidden(info.packageName, snapshot)
         }
         if (filtered.size == result.values.size || filtered.isEmpty()) return@Hooker original
-        diagnostic("VIRTUAL_INSTALLED_APPLICATIONS kind=${context.kind} ${result.values.size}->${filtered.size}")
+        diagnostic("PROCESS_VISIBILITY_INSTALLED_APPLICATIONS ${result.values.size}->${filtered.size}")
         runCatching { result.rebuild(filtered) }.getOrDefault(original)
     }
 
     private fun virtualInstalledPackagesHooker() = XposedInterface.Hooker { chain ->
         pollPreferences()
-        val context = activeVirtualDisableContext() ?: return@Hooker chain.proceed()
         val original = chain.proceed()
         val result = extractListResult(original) ?: return@Hooker original
         val filtered = result.values.filter { value ->
             val info = value as? PackageInfo ?: return@filter true
-            !shouldVirtuallyDisablePackage(context.kind, info.packageName, snapshot)
+            !processVisibilityHidden(info.packageName, snapshot)
         }
         if (filtered.size == result.values.size || filtered.isEmpty()) return@Hooker original
-        diagnostic("VIRTUAL_INSTALLED_PACKAGES kind=${context.kind} ${result.values.size}->${filtered.size}")
+        diagnostic("PROCESS_VISIBILITY_INSTALLED_PACKAGES ${result.values.size}->${filtered.size}")
         runCatching { result.rebuild(filtered) }.getOrDefault(original)
     }
 
     private fun virtualResolveActivityHooker() = XposedInterface.Hooker { chain ->
         pollPreferences()
-        val intent = chain.args.firstOrNull { it is Intent } as? Intent
-        val kind = intent?.let { (it.selector ?: it).intentKind(null) }
-        if (kind != null && intent?.component == null && intent?.`package` == null) armVirtualDisable(kind)
         val original = chain.proceed()
         val info = original as? ResolveInfo ?: return@Hooker original
-        val context = activeVirtualDisableContext() ?: return@Hooker original
         val activity = info.activityInfo ?: return@Hooker original
-        if (!shouldVirtuallyDisable(context.kind, activity, snapshot)) return@Hooker original
-        diagnostic("VIRTUAL_RESOLVE_ACTIVITY kind=${context.kind} component=${activity.packageName}/${activity.name} result=null")
+        if (!processVisibilityHidden(activity.packageName, snapshot)) return@Hooker original
+        diagnostic("PROCESS_VISIBILITY_RESOLVE_ACTIVITY component=${activity.packageName}/${activity.name} result=null")
         null
     }
 
     private fun virtualQueryIntentActivityOptionsHooker() = XposedInterface.Hooker { chain ->
         pollPreferences()
-        val intent = chain.args.firstOrNull { it is Intent } as? Intent
-        val kind = intent?.let { (it.selector ?: it).intentKind(null) }
-        if (kind != null && intent?.component == null && intent?.`package` == null) armVirtualDisable(kind)
         val original = chain.proceed()
-        val context = activeVirtualDisableContext() ?: return@Hooker original
         val result = extractListResult(original) ?: return@Hooker original
         val filtered = result.values.filter { value ->
             val info = value as? ResolveInfo ?: return@filter true
             val activity = info.activityInfo ?: return@filter true
-            !shouldVirtuallyDisable(context.kind, activity, snapshot)
+            !processVisibilityHidden(activity.packageName, snapshot)
         }
-        if (filtered.size == result.values.size || FilterPolicy.restoreEmpty(context.kind.name, result.values.size, filtered.size)) return@Hooker original
-        diagnostic("VIRTUAL_QUERY_OPTIONS kind=${context.kind} ${result.values.size}->${filtered.size}")
+        if (filtered.size == result.values.size || filtered.isEmpty()) return@Hooker original
+        diagnostic("PROCESS_VISIBILITY_QUERY_OPTIONS ${result.values.size}->${filtered.size}")
         runCatching { result.rebuild(filtered) }.getOrDefault(original)
     }
 
@@ -959,7 +881,6 @@ class ListCleanerModule : XposedModule() {
         const val VIRTUAL_INSTALLED_PACKAGES_HOOK_ID = "ic-virtual-installed-packages"
         const val VIRTUAL_RESOLVE_HOOK_ID = "ic-virtual-resolve-activity"
         const val VIRTUAL_OPTIONS_HOOK_ID = "ic-virtual-query-options"
-        const val VIRTUAL_DISABLE_WINDOW_MS = 8_000L
         val SYSTEM_QUERY_CLASSES = listOf(
             "com.android.server.pm.PackageManagerService\$IPackageManagerImpl",
             "com.android.server.pm.IPackageManagerImpl",
