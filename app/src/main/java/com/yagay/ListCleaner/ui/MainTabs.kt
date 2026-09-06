@@ -163,12 +163,12 @@ fun DashboardTabContent(
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("应用隐藏列表", fontWeight = FontWeight.Bold)
-                Text("用于指定从哪些应用中隐藏规则目标，例如文件管理器自己的打开方式列表。这里不会 Hook 这些应用，也不需要把它们加入 LSPosed 作用域。", style = MaterialTheme.typography.bodySmall)
+                Text("用于普通规则隐藏在某些应用中不起作用时的兼容方案，例如文件管理器自己的打开方式列表。启用后，会从指定应用可见的“已安装应用列表”中隐藏规则目标，使这些应用无法查询到对应目标包；不会 Hook 这些应用，也不需要把它们加入 LSPosed 作用域。", style = MaterialTheme.typography.bodySmall)
                 Button(
                     onClick = { showAppScopePicker = true },
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("管理应用隐藏列表（${state.hiddenFromApps.size}）") }
-                Text("勾选立即保存；List Cleaner 仅依赖 android/system_server 作用域执行系统级可见性过滤。", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("勾选立即保存；该功能通过 android/system_server 的系统级应用可见性过滤实现，属于包级隐藏，不区分同一应用内的单个 Activity 或组件。", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
