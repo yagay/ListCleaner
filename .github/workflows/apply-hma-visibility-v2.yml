@@ -1,0 +1,62 @@
+name: Apply HMA Visibility V2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/patch-hma-visibility-v2.py'
+      - '.github/workflows/apply-hma-visibility-v2.yml'
+
+permissions:
+  contents: write
+
+env:
+  JAVA_VERSION: '17'
+
+jobs:
+  patch-build-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Apply HMA-style visibility migration
+        run: python3 tools/patch-hma-visibility-v2.py
+      - name: Verify architecture
+        run: |
+          grep -q 'VisibilityMethodAdapter' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+          grep -q 'SYSTEM_VISIBILITY_ARCHIVED_FILTER' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+          grep -q 'hotPath=memory_snapshot' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+          ! grep -q 'installVirtualComponentHooks' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+          ! grep -q 'PROCESS_VISIBILITY_' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+          ! grep -q 'Layer.APP' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+      - name: Build and test
+        run: ./gradlew :app:testDebugUnitTest :app:assembleDebug --stacktrace
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ListCleaner-hma-visibility-v2-debug
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+      - name: Remove one-shot patch files
+        run: |
+          rm -f tools/patch-hma-visibility-v2.py
+          rm -f .github/workflows/apply-hma-visibility-v2.yml
+      - name: Commit implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+            exit 0
+          fi
+          git commit -m 'Optimize system package visibility engine'
+          git push
