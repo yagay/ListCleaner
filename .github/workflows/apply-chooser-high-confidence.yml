@@ -1,0 +1,53 @@
+name: Apply Chooser High Confidence
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/patch-chooser-high-confidence.py'
+      - '.github/workflows/apply-chooser-high-confidence.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build-commit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a
+      - name: Apply patch
+        run: python3 tools/patch-chooser-high-confidence.py
+      - name: Verify threshold
+        run: |
+          grep -q 'score >= 7 && hits >= 1 -> "HIGH"' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+          grep -q 'score >= 6 && hits >= 2 -> "HIGH"' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+      - name: Build and test
+        run: |
+          chmod +x ./gradlew
+          ./gradlew testDebugUnitTest assembleDebug --stacktrace
+      - name: Upload debug APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ListCleaner-chooser-high-confidence-debug
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 90
+      - name: Cleanup one-shot files
+        run: |
+          rm -f tools/patch-chooser-high-confidence.py
+          rm -f .github/workflows/apply-chooser-high-confidence.yml
+      - name: Commit implementation
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Raise chooser confidence for strong first hit'
+          git push origin main
