@@ -90,6 +90,16 @@ class ListCleanerModule : XposedModule() {
     @Volatile private var visibilityFailOpen = false
     @Volatile private var appGlobalsPackageManager: Any? = null
     @Volatile private var appGlobalsGetPackagesForUid: Method? = null
+
+    private data class RecentChooserLaunch(
+        val uid: Int,
+        val callerPackage: String,
+        val component: String,
+        val startedAt: Long,
+        val hasPayloadHint: Boolean,
+    )
+    private val recentChooserLaunches = ConcurrentHashMap<Int, RecentChooserLaunch>()
+    private val learnedChooserHits = ConcurrentHashMap<String, Int>()
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
@@ -248,6 +258,99 @@ class ListCleanerModule : XposedModule() {
         }
         record("SYSTEM_HOOKS new=$installed total=${installedMethods.size}")
         installSystemVisibilityHooks(classLoader)
+        installAdaptiveChooserDiscoveryHooks(classLoader)
+    }
+
+    private fun installAdaptiveChooserDiscoveryHooks(classLoader: ClassLoader) {
+        val clazz = runCatching {
+            Class.forName("com.android.server.wm.ActivityStarter", false, classLoader)
+        }.getOrElse {
+            record("CHOOSER_DISCOVERY_CLASS_UNAVAILABLE class=com.android.server.wm.ActivityStarter error=${it.javaClass.name}")
+            return
+        }
+        var installed = 0
+        val methods = generateSequence(clazz as Class<*>?) { it.superclass }
+            .flatMap { it.declaredMethods.asSequence() }
+            .filter { method -> method.name == "executeRequest" && method.parameterTypes.isNotEmpty() }
+            .distinctBy(Method::toGenericString)
+            .toList()
+        methods.forEach { method ->
+            val key = "CHOOSER_DISCOVERY#${method.toGenericString()}"
+            if (!installedMethods.add(key)) return@forEach
+            runCatching {
+                method.isAccessible = true
+                hook(method).setId(CHOOSER_DISCOVERY_HOOK_ID).intercept(activityStartObserverHooker())
+                installed++
+                record("CHOOSER_DISCOVERY_HOOK_INSTALLED method=${method.toGenericString()}")
+            }.onFailure {
+                installedMethods.remove(key)
+                record("CHOOSER_DISCOVERY_HOOK_FAILED method=${method.toGenericString()} error=${it.javaClass.name}")
+            }
+        }
+        record("CHOOSER_DISCOVERY_HOOKS new=$installed sourceApps=${snapshot.hiddenFromApps.size}")
+    }
+
+    private fun activityStartObserverHooker() = XposedInterface.Hooker { chain ->
+        runCatching { observeActivityStart(chain) }
+            .onFailure { diagnostic("CHOOSER_ACTIVITY_OBSERVER_FAILED error=${it.javaClass.name}") }
+        chain.proceed()
+    }
+
+    private fun observeActivityStart(chain: XposedInterface.Chain) {
+        val current = snapshot
+        if (!current.diagnostic || current.hiddenFromApps.isEmpty()) return
+        val request = chain.args.firstOrNull { value -> value != null && value.javaClass.name.contains("ActivityStarter\$Request") }
+            ?: chain.args.firstOrNull { value -> value != null && value.javaClass.simpleName == "Request" }
+            ?: return
+        val intent = readNamedField(request, listOf("intent", "mIntent")) as? Intent ?: return
+        val component = intent.component ?: return
+        val callerPackage = (readNamedField(request, listOf("callingPackage", "mCallingPackage")) as? String)
+            ?.takeIf { it.isNotBlank() } ?: return
+        if (callerPackage !in current.hiddenFromApps || component.packageName != callerPackage) return
+        val uid = (readNamedField(request, listOf("callingUid", "mCallingUid")) as? Int)
+            ?.takeIf { it >= Process.FIRST_APPLICATION_UID } ?: return
+        val hasPayloadHint = intent.data != null || intent.type != null || intent.clipData != null ||
+            intent.selector != null || runCatching { intent.extras?.keySet()?.isNotEmpty() == true }.getOrDefault(false)
+        val entry = RecentChooserLaunch(uid, callerPackage, component.flattenToShortString(), SystemClock.elapsedRealtime(), hasPayloadHint)
+        recentChooserLaunches[uid] = entry
+        diagnostic("CHOOSER_ACTIVITY_CANDIDATE uid=$uid caller=$callerPackage component=${entry.component} payloadHint=$hasPayloadHint")
+    }
+
+    private fun readNamedField(value: Any, names: List<String>): Any? {
+        for (clazz in generateSequence(value.javaClass as Class<*>?) { it.superclass }) {
+            for (name in names) {
+                val field = runCatching { clazz.getDeclaredField(name) }.getOrNull() ?: continue
+                runCatching {
+                    field.isAccessible = true
+                    return field.get(value)
+                }
+            }
+        }
+        return null
+    }
+
+    private fun observeChooserQuery(callerUid: Int, intent: Intent, kind: IntentKind, candidateCount: Int) {
+        val current = snapshot
+        if (!current.diagnostic || candidateCount < 2) return
+        val launch = recentChooserLaunches[callerUid] ?: return
+        val age = SystemClock.elapsedRealtime() - launch.startedAt
+        if (age !in 0..CHOOSER_DISCOVERY_WINDOW_MS) {
+            recentChooserLaunches.remove(callerUid, launch)
+            return
+        }
+        if (launch.callerPackage !in current.hiddenFromApps) return
+        var score = 3 // Multiple resolver candidates immediately after an app-owned Activity launch.
+        if (launch.hasPayloadHint) score += 1
+        if (intent.data != null || intent.type != null || intent.clipData != null) score += 2
+        if (kind in setOf(IntentKind.OPEN, IntentKind.SHARE, IntentKind.SHARE_MULTIPLE, IntentKind.BROWSER)) score += 1
+        val key = "${launch.callerPackage}|${launch.component}|${kind.name}"
+        val hits = learnedChooserHits.merge(key, 1, Int::plus) ?: 1
+        val confidence = when {
+            score >= 6 && hits >= 2 -> "HIGH"
+            score >= 6 -> "MEDIUM"
+            else -> "LOW"
+        }
+        diagnostic("CHOOSER_LEARNED uid=$callerUid caller=${launch.callerPackage} component=${launch.component} kind=$kind candidates=$candidateCount score=$score hits=$hits confidence=$confidence ageMs=$age")
     }
 
     private sealed interface PackageNameAccessor {
@@ -757,6 +860,7 @@ class ListCleanerModule : XposedModule() {
             diagnostic("skip $layer ${intent.action}: unsupported result ${original?.javaClass?.name}")
             return original
         }
+        if (layer == Layer.SYSTEM) observeChooserQuery(callerUid, intent, kind, extracted.values.size)
         val replacement = transform(kind, extracted.values, layer, callerUid) ?: return original
         return runCatching { extracted.rebuild(replacement) }.getOrElse {
             Log.e(TAG, "Failed to rebuild ${original?.javaClass?.name}; keeping original", it)
@@ -936,6 +1040,8 @@ class ListCleanerModule : XposedModule() {
         const val PER_USER_RANGE = 100_000
         const val VISIBILITY_HOOK_ID = "ic-system-package-visibility"
         const val ARCHIVED_VISIBILITY_HOOK_ID = "ic-system-archived-package-visibility"
+        const val CHOOSER_DISCOVERY_HOOK_ID = "ic-adaptive-chooser-discovery"
+        const val CHOOSER_DISCOVERY_WINDOW_MS = 3_000L
         const val MANAGER_PACKAGE = "com.yagay.ListCleaner"
         const val CALLER_CACHE_TTL_MS = 60_000L
         const val VISIBILITY_FAILURE_LIMIT = 3
