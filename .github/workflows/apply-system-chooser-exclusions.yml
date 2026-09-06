@@ -1,0 +1,52 @@
+name: Apply System Chooser Exclusions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/patch-system-chooser-exclusions.py'
+      - '.github/workflows/apply-system-chooser-exclusions.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build-commit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ github.token }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Apply patch
+        run: python3 tools/patch-system-chooser-exclusions.py
+      - name: Verify architecture
+        run: |
+          grep -q 'SYSTEM_CHOOSER_OBSERVED' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+          grep -q 'CHOOSER_EXCLUDE_INJECTED' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+          grep -q 'Intent.EXTRA_EXCLUDE_COMPONENTS' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+      - name: Build and test
+        run: ./gradlew :app:testDebugUnitTest :app:assembleDebug --stacktrace
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ListCleaner-system-chooser-exclusions-debug
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 90
+      - name: Remove one-shot patch files
+        run: |
+          rm -f tools/patch-system-chooser-exclusions.py
+          rm -f .github/workflows/apply-system-chooser-exclusions.yml
+      - name: Commit implementation
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Inject exclusions into system chooser intents'
+          git push
