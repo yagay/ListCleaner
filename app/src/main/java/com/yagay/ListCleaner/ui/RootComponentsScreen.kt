@@ -101,7 +101,6 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             onClick = { vm.invertComponents(visible) },
                             enabled = !busy && visible.any { it.blocked == null && it.enabled != null }
                         ) { Text("反选") }
-                        TextButton(onClick = vm::refreshComponents, enabled = !busy) { Text(if (busy) "处理中…" else "刷新") }
                     }
                     if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                     HorizontalDivider()
