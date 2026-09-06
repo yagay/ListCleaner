@@ -7,8 +7,6 @@ import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.PriorityConfig
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.ModuleConfig
-import com.yagay.ListCleaner.domain.TileConfig
-import com.yagay.ListCleaner.domain.DefaultOpenConfig
 import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.OpenTypeConfig
 import com.yagay.ListCleaner.domain.CustomOpenDefinition
@@ -27,22 +25,13 @@ class RuleRepository(context: Context) {
     private val mutablePriorities = MutableStateFlow(runCatching {
         json.decodeFromString(PriorityConfig.serializer(), prefs.getString(KEY_PRIORITIES, null) ?: "{}").validated()
     }.getOrDefault(PriorityConfig()))
-    private val mutableDefaultOpen = MutableStateFlow(runCatching {
-        json.decodeFromString(DefaultOpenConfig.serializer(), prefs.getString(KEY_DEFAULT_OPEN, null) ?: "{}").validated()
-    }.getOrDefault(DefaultOpenConfig()))
     private val mutableOpenTypes = MutableStateFlow(runCatching {
         json.decodeFromString(OpenTypeConfig.serializer(), prefs.getString(KEY_OPEN_TYPES, null) ?: "{}").validated()
     }.getOrDefault(OpenTypeConfig()))
-    val defaultOpen: StateFlow<DefaultOpenConfig> = mutableDefaultOpen.asStateFlow()
-    val openTypes: StateFlow<OpenTypeConfig> = mutableOpenTypes.asStateFlow()
     private val mutableDiagnostic = MutableStateFlow(prefs.getBoolean(KEY_DIAGNOSTIC, false))
-    private val mutableTiles = MutableStateFlow(runCatching {
-        json.decodeFromString(TileConfig.serializer(), prefs.getString(KEY_TILES, null) ?: "{}").validated()
-    }.getOrDefault(TileConfig()))
     private val mutableHiddenFromApps = MutableStateFlow(prefs.getStringSet(KEY_HIDDEN_FROM_APPS, emptySet()).orEmpty().toSet())
-    val tiles: StateFlow<TileConfig> = mutableTiles.asStateFlow()
+    val openTypes: StateFlow<OpenTypeConfig> = mutableOpenTypes.asStateFlow()
     val hiddenFromApps: StateFlow<Set<String>> = mutableHiddenFromApps.asStateFlow()
-
     val rules: StateFlow<Set<ComponentRule>> = mutableRules.asStateFlow()
     val displayMode: StateFlow<DisplayMode> = mutableMode.asStateFlow()
     val priorities: StateFlow<PriorityConfig> = mutablePriorities.asStateFlow()
@@ -52,23 +41,26 @@ class RuleRepository(context: Context) {
 
     fun hasLocalConfiguration(): Boolean = prefs.contains(KEY_INITIALIZED) || prefs.contains(KEY_RULES) ||
         prefs.contains(KEY_DISPLAY_MODE) || prefs.contains(KEY_BLACKLIST) || prefs.contains(KEY_PRIORITIES) ||
-        prefs.contains(KEY_TILES) || prefs.contains(KEY_HIDDEN_FROM_APPS) || prefs.contains(KEY_DEFAULT_OPEN) || prefs.contains(KEY_OPEN_TYPES)
+        prefs.contains(KEY_HIDDEN_FROM_APPS) || prefs.contains(KEY_OPEN_TYPES) ||
+        prefs.contains(KEY_TILES) || prefs.contains(KEY_DEFAULT_OPEN)
 
-    fun markInitialized() { prefs.edit().putBoolean(KEY_INITIALIZED, true).apply() }
+    fun markInitialized() {
+        prefs.edit().putBoolean(KEY_INITIALIZED, true).remove(KEY_TILES).remove(KEY_DEFAULT_OPEN).apply()
+    }
 
     @Synchronized fun restoreRemote(config: ModuleConfig) {
         config.validated()
-        replace(config.rules, config.mode != DisplayMode.SHOW_SELECTED, config.priorities, config.mode, config.tiles, config.defaultOpen, config.openTypes)
+        replace(config.rules, config.mode != DisplayMode.SHOW_SELECTED, config.priorities, config.mode, config.openTypes)
         setHiddenFromApps(config.hiddenFromApps)
         setDiagnosticMode(config.diagnostic)
         markInitialized()
     }
 
+    /** Legacy ModuleConfig fields remain deserializable, but new remote snapshots always use defaults. */
     @Synchronized fun remoteSnapshot(): ModuleConfig = ModuleConfig(
         rules = mutableRules.value.toSet(), mode = mutableMode.value, priorities = mutablePriorities.value,
         diagnostic = mutableDiagnostic.value, managerAppId = android.os.Process.myUid() % 100_000,
-        tiles = mutableTiles.value, hiddenFromApps = mutableHiddenFromApps.value.toSet(),
-        defaultOpen = mutableDefaultOpen.value, openTypes = mutableOpenTypes.value
+        hiddenFromApps = mutableHiddenFromApps.value.toSet(), openTypes = mutableOpenTypes.value
     )
 
     @Synchronized fun setHiddenFromApps(packages: Set<String>) {
@@ -77,23 +69,9 @@ class RuleRepository(context: Context) {
             .filter { it.isNotEmpty() && it != "android" && it != self && it.length <= 255 && it.none { ch -> ch.isWhitespace() || ch.isISOControl() || ch == '|' } }
             .take(2_001).toSet()
         require(valid.size <= 2_000) { "隐藏应用列表数量过多" }
+        if (valid == mutableHiddenFromApps.value) return
         mutableHiddenFromApps.value = valid
         prefs.edit().putStringSet(KEY_HIDDEN_FROM_APPS, valid).apply()
-        mutableRevision.value++
-    }
-
-    @Synchronized fun setDefaultOpen(preset: OpenPreset, ruleId: String?) {
-        val nextMap = mutableDefaultOpen.value.preferred.toMutableMap()
-        if (ruleId == null) nextMap.remove(preset) else {
-            val parsed = requireNotNull(ComponentRule.fromId(ruleId)) { "无效的默认打开组件" }
-            require(parsed.id == ruleId) { "默认打开组件必须使用规范化类名" }
-            if (preset == OpenPreset.BROWSER) require(parsed.kind == IntentKind.BROWSER) else require(parsed.kind == IntentKind.OPEN)
-            nextMap[preset] = ruleId
-        }
-        val next = DefaultOpenConfig(nextMap).validated()
-        if (next == mutableDefaultOpen.value) return
-        mutableDefaultOpen.value = next
-        prefs.edit().putString(KEY_DEFAULT_OPEN, json.encodeToString(DefaultOpenConfig.serializer(), next)).apply()
         mutableRevision.value++
     }
 
@@ -107,9 +85,7 @@ class RuleRepository(context: Context) {
             definitions.remove(preset)
             rules.remove(preset)
             priorities.remove(preset)
-        } else {
-            definitions[preset] = definition.validated()
-        }
+        } else definitions[preset] = definition.validated()
         setOpenTypes(current.copy(rules = rules, priorities = priorities, customDefinitions = definitions))
     }
 
@@ -126,8 +102,7 @@ class RuleRepository(context: Context) {
 
     @Synchronized fun toggleOpenType(preset: OpenPreset, rule: ComponentRule) {
         require(preset != OpenPreset.BROWSER && rule.kind == IntentKind.OPEN && rule.isValid())
-        val current = mutableOpenTypes.value.rules[preset].orEmpty()
-        setOpenTypeSelected(preset, listOf(rule), rule.id !in current)
+        setOpenTypeSelected(preset, listOf(rule), rule.id !in mutableOpenTypes.value.rules[preset].orEmpty())
     }
 
     @Synchronized fun invertOpenTypeSelected(preset: OpenPreset, rules: Collection<ComponentRule>) {
@@ -159,6 +134,7 @@ class RuleRepository(context: Context) {
     }
 
     @Synchronized fun setDiagnosticMode(enabled: Boolean) {
+        if (mutableDiagnostic.value == enabled) return
         mutableDiagnostic.value = enabled
         prefs.edit().putBoolean(KEY_DIAGNOSTIC, enabled).apply()
         mutableRevision.value++
@@ -168,6 +144,7 @@ class RuleRepository(context: Context) {
         val next = mutablePriorities.value.copy(apps = mutablePriorities.value.apps.toMutableMap().apply {
             if (packages.isEmpty()) remove(kind) else put(kind, packages.toList())
         }).validated()
+        if (next == mutablePriorities.value) return
         prefs.edit().putString(KEY_PRIORITIES, encodePriorities(next)).apply()
         mutablePriorities.value = next
         mutableRevision.value++
@@ -202,11 +179,11 @@ class RuleRepository(context: Context) {
     @Synchronized fun invertSelected(rules: Collection<ComponentRule>) {
         val valid = rules.filter(ComponentRule::isValid).mapNotNull { ComponentRule.fromId(it.id) }.distinct()
         if (valid.isEmpty()) return
-        val next = mutableRules.value.toMutableSet().apply { valid.forEach { rule -> if (!add(rule)) remove(rule) } }.toSet()
-        updateRules(next)
+        updateRules(mutableRules.value.toMutableSet().apply { valid.forEach { rule -> if (!add(rule)) remove(rule) } }.toSet())
     }
 
     @Synchronized fun setDisplayMode(value: DisplayMode) {
+        if (mutableMode.value == value) return
         mutableMode.value = value
         prefs.edit().putString(KEY_DISPLAY_MODE, value.name).apply()
         mutableRevision.value++
@@ -214,26 +191,23 @@ class RuleRepository(context: Context) {
 
     @Synchronized fun replace(
         rules: Set<ComponentRule>, blacklist: Boolean, priorities: PriorityConfig = PriorityConfig(),
-        displayMode: DisplayMode = DisplayMode.fromStored(null, blacklist), tiles: TileConfig = TileConfig(),
-        defaultOpen: DefaultOpenConfig = DefaultOpenConfig(), openTypes: OpenTypeConfig = OpenTypeConfig()
+        displayMode: DisplayMode = DisplayMode.fromStored(null, blacklist), openTypes: OpenTypeConfig = OpenTypeConfig()
     ) {
         require(rules.size <= MAX_RULES) { "备份规则数量过多" }
         require(rules.all(ComponentRule::isValid)) { "备份包含无效组件" }
-        priorities.validated(); tiles.validated(); defaultOpen.validated(); openTypes.validated()
+        priorities.validated(); openTypes.validated()
         mutableRules.value = rules.mapNotNull { ComponentRule.fromId(it.id) }.toSet()
         mutableMode.value = displayMode
         mutablePriorities.value = priorities
-        mutableTiles.value = tiles
-        mutableDefaultOpen.value = defaultOpen
-        mutableOpenTypes.value = openTypes
+        mutableOpenTypes.value = openTypes.validated()
         prefs.edit()
-            .putStringSet(KEY_RULES, rules.map(ComponentRule::id).toSet())
+            .putStringSet(KEY_RULES, mutableRules.value.map(ComponentRule::id).toSet())
             .putBoolean(KEY_BLACKLIST, blacklist)
             .putString(KEY_DISPLAY_MODE, displayMode.name)
             .putString(KEY_PRIORITIES, encodePriorities(priorities))
-            .putString(KEY_TILES, json.encodeToString(TileConfig.serializer(), tiles))
-            .putString(KEY_DEFAULT_OPEN, json.encodeToString(DefaultOpenConfig.serializer(), defaultOpen))
-            .putString(KEY_OPEN_TYPES, json.encodeToString(OpenTypeConfig.serializer(), openTypes))
+            .putString(KEY_OPEN_TYPES, json.encodeToString(OpenTypeConfig.serializer(), mutableOpenTypes.value))
+            .remove(KEY_TILES)
+            .remove(KEY_DEFAULT_OPEN)
             .apply()
         mutableRevision.value++
     }
@@ -241,25 +215,26 @@ class RuleRepository(context: Context) {
     @Synchronized fun exportJson(): String = json.encodeToString(
         RuleBackup.serializer(),
         RuleBackup(version = 8, blacklist = mutableMode.value != DisplayMode.SHOW_SELECTED, rules = mutableRules.value,
-            priorities = mutablePriorities.value, displayMode = mutableMode.value, tiles = mutableTiles.value,
-            hiddenFromApps = mutableHiddenFromApps.value, defaultOpen = mutableDefaultOpen.value, openTypes = mutableOpenTypes.value)
+            priorities = mutablePriorities.value, displayMode = mutableMode.value,
+            hiddenFromApps = mutableHiddenFromApps.value, openTypes = mutableOpenTypes.value)
     )
 
     fun importJson(content: String) {
         require(content.length <= MAX_BACKUP_CHARS) { "备份文件过大" }
         val backup = json.decodeFromString(RuleBackup.serializer(), content)
         require(backup.version in 1..8) { "不支持的备份版本：${backup.version}" }
+        // Legacy tiles/defaultOpen are deliberately ignored: those features no longer have runtime consumers.
         replace(backup.rules, backup.blacklist,
             if (backup.version == 1) PriorityConfig() else backup.priorities,
             if (backup.version >= 3) requireNotNull(backup.displayMode) { "备份缺少显示模式" } else DisplayMode.fromStored(null, backup.blacklist),
-            if (backup.version >= 4) backup.tiles else TileConfig(),
-            if (backup.version >= 6) backup.defaultOpen else DefaultOpenConfig(),
             if (backup.version >= 7) backup.openTypes else OpenTypeConfig())
         setHiddenFromApps(if (backup.version >= 5) backup.hiddenFromApps else emptySet())
+        markInitialized()
     }
 
     private fun updateRules(next: Set<ComponentRule>) {
         require(next.size <= MAX_RULES) { "规则数量过多" }
+        if (next == mutableRules.value) return
         mutableRules.value = next
         prefs.edit().putStringSet(KEY_RULES, next.map(ComponentRule::id).toSet()).apply()
         mutableRevision.value++
@@ -273,11 +248,12 @@ class RuleRepository(context: Context) {
         const val KEY_PRIORITIES = "priority_apps"
         const val KEY_DIAGNOSTIC = "diagnostic_mode"
         const val KEY_CONFIG = "config_v1"
+        /** Legacy keys retained only so upgrades can detect and erase old local state. */
         const val KEY_TILES = "tile_config"
-        const val KEY_HIDDEN_FROM_APPS = "hidden_from_apps"
         const val KEY_DEFAULT_OPEN = "default_open"
+        const val KEY_HIDDEN_FROM_APPS = "hidden_from_apps"
         const val KEY_OPEN_TYPES = "open_type_config"
-        val SYNCED_KEYS = setOf(KEY_RULES, KEY_BLACKLIST, KEY_DISPLAY_MODE, KEY_PRIORITIES, KEY_DIAGNOSTIC, KEY_HIDDEN_FROM_APPS, KEY_DEFAULT_OPEN, KEY_OPEN_TYPES)
+        val SYNCED_KEYS = setOf(KEY_RULES, KEY_BLACKLIST, KEY_DISPLAY_MODE, KEY_PRIORITIES, KEY_DIAGNOSTIC, KEY_HIDDEN_FROM_APPS, KEY_OPEN_TYPES)
         private const val LOCAL_PREFS = "rules_local"
         private const val KEY_INITIALIZED = "configuration_initialized"
         private const val MAX_RULES = 20_000
