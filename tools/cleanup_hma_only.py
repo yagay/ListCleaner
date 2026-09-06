@@ -4,36 +4,27 @@ import re
 p = Path('app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt')
 s = p.read_text()
 
-# Remove obsolete APP-layer hot-reload references.
+# Remove obsolete APP-layer hot-reload references left behind by the first system visibility migration.
 s = s.replace('                    "$HOOK_ID-app" -> Layer.APP\n', '')
 s = s.replace('                    Layer.APP -> installApplicationClientHooks(it, baseProcess)\n', '')
+s = s.replace('    private enum class Layer { SYSTEM, RESOLVER, APP }', '    private enum class Layer { SYSTEM, RESOLVER }')
 
-# Remove APP enum member if present.
-s = re.sub(r'(private enum class Layer\s*\{[^}]*)\bAPP,?\s*', r'\1', s, flags=re.S)
-
-# Remove obsolete app-process virtual visibility functions by balanced braces.
+# Remove a private function/declaration safely, supporting both block and expression bodies.
 def remove_function(text: str, name: str) -> str:
     m = re.search(r'\n\s*private fun\s+' + re.escape(name) + r'\s*\(', text)
     if not m:
         return text
     start = m.start()
-    brace = text.find('{', m.start())
-    if brace < 0:
-        raise RuntimeError(f'no opening brace for {name}')
-    depth = 0
-    i = brace
-    while i < len(text):
-        c = text[i]
-        if c == '{': depth += 1
-        elif c == '}':
-            depth -= 1
-            if depth == 0:
-                end = i + 1
-                while end < len(text) and text[end] in ' \t': end += 1
-                if end < len(text) and text[end] == '\n': end += 1
-                return text[:start] + '\n' + text[end:]
-        i += 1
-    raise RuntimeError(f'unbalanced function {name}')
+    next_decl = text.find('\n\n    private ', m.end())
+    if next_decl < 0:
+        next_decl = text.find('\n\n    companion object', m.end())
+    if next_decl < 0:
+        raise RuntimeError(f'cannot find declaration boundary for {name}')
+    segment = text[m.start():next_decl]
+    # For ordinary block / Hooker expression bodies, validate braces are balanced inside the declaration.
+    if '{' in segment and segment.count('{') != segment.count('}'):
+        raise RuntimeError(f'unbalanced declaration {name}')
+    return text[:start] + '\n' + text[next_decl:]
 
 obsolete = [
     'installApplicationClientHooks',
@@ -62,7 +53,7 @@ for name in obsolete:
 # Remove stale virtual hook constants.
 s = re.sub(r'^\s*const val VIRTUAL_[A-Z0-9_]+\s*=.*\n', '', s, flags=re.M)
 
-# Drop imports that belonged only to the removed virtual-PM layer when no longer referenced.
+# Drop imports that belonged only to the removed app-process PM virtualization layer.
 for fqcn, simple in [
     ('android.content.pm.ApplicationInfo', 'ApplicationInfo'),
     ('android.content.pm.PackageInfo', 'PackageInfo'),
@@ -73,7 +64,8 @@ for fqcn, simple in [
     if not re.search(r'\b' + re.escape(simple) + r'\b', body):
         s = s.replace(f'import {fqcn}\n', '')
 
-# Guardrails: only system/resolver query filtering + HMA-style system visibility may remain.
+# Guardrails: keep normal system/resolver component filtering and HMA-style system visibility,
+# but remove the abandoned third-party process virtualization path.
 for forbidden in [
     'Layer.APP', 'HOOK_ID-app', 'installApplicationClientHooks', 'installVirtualComponentHooks',
     'PROCESS_VISIBILITY_', 'VIRTUAL_ACTIVITY_HOOK_ID', 'VIRTUAL_STATE_HOOK_ID',
@@ -83,8 +75,7 @@ for forbidden in [
     if forbidden in s:
         raise RuntimeError(f'leftover obsolete token: {forbidden}')
 
-required = ['AppsFilterImpl', 'shouldFilterApplication', 'SYSTEM_VISIBILITY_FILTER', 'hiddenFromApps']
-for token in required:
+for token in ['AppsFilterImpl', 'shouldFilterApplication', 'SYSTEM_VISIBILITY_FILTER', 'hiddenFromApps']:
     if token not in s:
         raise RuntimeError(f'missing HMA visibility token: {token}')
 
