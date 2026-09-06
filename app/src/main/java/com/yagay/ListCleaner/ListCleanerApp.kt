@@ -23,6 +23,9 @@ data class RuntimeStatus(
     val message: String = "等待核实运行模块与配置",
     val digest: String = "",
     val recoveryCorrupt: Boolean = false,
+    val queryHits: Long = 0,
+    val visibilityHits: Long = 0,
+    val orderingHits: Long = 0,
     val observedAtMillis: Long = System.currentTimeMillis()
 )
 
@@ -97,15 +100,12 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                 }
                 pendingRecovery = null
                 corruptRecovery = false
-                // Never send a new schema to old code or accept a stale scan as a fresh catalog.
                 check(bound.apiVersion >= 102) { "框架需要 API 102；暂停同步和扫描" }
                 val targets = bound.runningTargets
                 val config = rules.remoteSnapshot()
                 val encoded = json.encodeToString(ModuleConfig.serializer(), config)
                 require(encoded.length <= RuleRepository.MAX_BACKUP_CHARS) { "配置超过传输上限，请减少规则后重试；未写入远程" }
                 val digest = RuntimeProtocol.digest(encoded)
-                // Only the known v1 JSON readers (19..24) may receive an Intent-filter pause
-                // before the strict scan/version gate. Never send new rules to stale code.
                 val canPause = config.mode == DisplayMode.SHOW_ALL && targets.isNotEmpty() && targets.all {
                     RuntimeProtocol.supportsSafetyPause(it.state.name, it.loadedVersionCode)
                 }
@@ -124,16 +124,27 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                 if (prefs.getString(RuleRepository.KEY_CONFIG, null) != encoded) {
                     check(prefs.edit().putString(RuleRepository.KEY_CONFIG, encoded).commit()) { "远程配置写入失败" }
                 }
-                // Read-back isn't hook acknowledgement. The private action is UID-authenticated
-                // in system_server and returns the digest of the actual applied snapshot.
+
                 var acknowledged = false
+                var queryHits = 0L
+                var visibilityHits = 0L
+                var orderingHits = 0L
                 repeat(4) {
                     if (!acknowledged) {
                         @Suppress("DEPRECATION")
                         val results = packageManager.queryIntentActivities(Intent(RuntimeProtocol.ACTION).setPackage(packageName), 0)
-                        acknowledged = results.any { info ->
+                        val prefix = "${BuildConfig.VERSION_CODE}:$digest"
+                        results.firstOrNull { info ->
                             info.activityInfo?.packageName == packageName && info.activityInfo?.name == RuntimeProtocol.COMPONENT &&
-                                info.nonLocalizedLabel?.toString() == "${BuildConfig.VERSION_CODE}:$digest"
+                                (info.nonLocalizedLabel?.toString() == prefix || info.nonLocalizedLabel?.toString()?.startsWith("$prefix:") == true)
+                        }?.let { info ->
+                            acknowledged = true
+                            val parts = info.nonLocalizedLabel?.toString().orEmpty().split(':')
+                            if (parts.size >= 5) {
+                                queryHits = parts[2].toLongOrNull() ?: 0L
+                                visibilityHits = parts[3].toLongOrNull() ?: 0L
+                                orderingHits = parts[4].toLongOrNull() ?: 0L
+                            }
                         }
                         if (!acknowledged) delay(150)
                     }
@@ -141,7 +152,14 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                 check(service.value === bound) { "连接已变化，请重试" }
                 check(acknowledged) { "配置已写入，但系统 Hook 未确认接收；暂停扫描，请重试或重启" }
                 check(rules.remoteSnapshot() == config) { "配置在确认期间发生变化，正在重新同步" }
-                publish(RuntimeStatus(ready = true, message = "系统 Hook 已确认配置和管理查询豁免；选择器效果仍需实际验证", digest = digest))
+                publish(RuntimeStatus(
+                    ready = true,
+                    message = "系统 Hook 已确认配置；可在状态页查看过滤、应用可见性和排序的实际命中次数",
+                    digest = digest,
+                    queryHits = queryHits,
+                    visibilityHits = visibilityHits,
+                    orderingHits = orderingHits
+                ))
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
