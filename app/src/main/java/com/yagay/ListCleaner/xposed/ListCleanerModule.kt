@@ -257,9 +257,71 @@ class ListCleanerModule : XposedModule() {
             installResolverClientHooks(param.classLoader)
         } else if (param.packageName == SYSTEM_SCOPE_PACKAGE) {
             record("PACKAGE_READY_SKIP package=${param.packageName} reason=system_scope_pseudo_process")
+        } else if (param.packageName in snapshot.hiddenFromApps) {
+            installAppStartProbe(param.classLoader, param.packageName)
         } else {
-            record("PACKAGE_READY_SKIP package=${param.packageName} reason=third_party_scope_not_required")
+            record("PACKAGE_READY_SKIP package=${param.packageName} reason=third_party_not_source")
         }
+    }
+
+    private fun installAppStartProbe(classLoader: ClassLoader, packageName: String) {
+        var installed = 0
+        val targets = listOf(
+            "android.app.Instrumentation" to setOf("execStartActivity"),
+            "android.app.Activity" to setOf("startActivityForResult"),
+            "android.app.ContextImpl" to setOf("startActivity"),
+        )
+        targets.forEach { (className, names) ->
+            val clazz = runCatching { Class.forName(className, false, classLoader) }.getOrElse {
+                record("APP_START_PROBE_CLASS_UNAVAILABLE package=$packageName class=$className error=${it.javaClass.name}")
+                return@forEach
+            }
+            generateSequence(clazz as Class<*>?) { it.superclass }
+                .flatMap { it.declaredMethods.asSequence() }
+                .filter { it.name in names && it.parameterTypes.any(Intent::class.java::isAssignableFrom) }
+                .distinctBy(Method::toGenericString)
+                .forEach { method ->
+                    val key = "APP_START_PROBE#${method.toGenericString()}"
+                    if (!installedMethods.add(key)) return@forEach
+                    runCatching {
+                        method.isAccessible = true
+                        hook(method).setId(APP_START_PROBE_HOOK_ID).intercept(appStartProbeHooker(packageName, className))
+                        installed++
+                        record("APP_START_PROBE_HOOK_INSTALLED package=$packageName class=$className method=${method.toGenericString()}")
+                    }.onFailure {
+                        installedMethods.remove(key)
+                        record("APP_START_PROBE_HOOK_FAILED package=$packageName class=$className method=${method.toGenericString()} error=${it.javaClass.name}")
+                    }
+                }
+        }
+        record("APP_START_PROBE_READY package=$packageName hooks=$installed")
+    }
+
+    private fun appStartProbeHooker(packageName: String, stage: String) = XposedInterface.Hooker { chain ->
+        runCatching {
+            val intent = chain.args.firstOrNull { it is Intent } as? Intent
+            if (intent != null) {
+                val data = intent.data
+                val extras = runCatching { intent.extras?.keySet()?.sorted()?.joinToString(",") }.getOrNull().orEmpty()
+                val nested = runCatching {
+                    intent.extras?.keySet().orEmpty().mapNotNull { key ->
+                        @Suppress("DEPRECATION")
+                        val value = intent.extras?.get(key)
+                        (value as? Intent)?.let { child ->
+                            "$key:${child.action ?: "-"}:${child.component?.flattenToShortString() ?: "-"}:${child.type ?: "-"}:${child.data?.scheme ?: "-"}"
+                        }
+                    }.joinToString(";")
+                }.getOrNull().orEmpty()
+                diagnostic(
+                    "APP_START_PROBE package=$packageName stage=$stage action=${intent.action ?: "-"} " +
+                        "component=${intent.component?.flattenToShortString() ?: "-"} pkg=${intent.`package` ?: "-"} " +
+                        "type=${intent.type ?: "-"} dataScheme=${data?.scheme ?: "-"} dataAuthority=${data?.authority ?: "-"} " +
+                        "selectorAction=${intent.selector?.action ?: "-"} selectorComponent=${intent.selector?.component?.flattenToShortString() ?: "-"} " +
+                        "clip=${intent.clipData?.itemCount ?: 0} flags=0x${intent.flags.toString(16)} extras=[$extras] nested=[$nested]"
+                )
+            }
+        }.onFailure { diagnostic("APP_START_PROBE_FAILED package=$packageName stage=$stage error=${it.javaClass.name}") }
+        chain.proceed()
     }
 
     private fun installSystemServerQueryHooks(classLoader: ClassLoader) {
@@ -337,7 +399,9 @@ class ListCleanerModule : XposedModule() {
         if (component != null && component.packageName == callerPackage) {
             val routeKey = "$callerPackage|${component.flattenToShortString()}"
             val template = learnedChooserTemplates[routeKey]
-            if (template != null && tryRedirectLearnedChooser(request, intent, view, component, template, current)) return
+            if (template != null && current.diagnostic) {
+                diagnostic("CHOOSER_SYSTEM_REDIRECT_DISABLED caller=$callerPackage component=${component.flattenToShortString()} reason=app_start_probe")
+            }
         }
 
         if (!current.diagnostic) return
@@ -1381,6 +1445,7 @@ class ListCleanerModule : XposedModule() {
         const val VISIBILITY_HOOK_ID = "ic-system-package-visibility"
         const val ARCHIVED_VISIBILITY_HOOK_ID = "ic-system-archived-package-visibility"
         const val CHOOSER_DISCOVERY_HOOK_ID = "ic-adaptive-chooser-discovery"
+        const val APP_START_PROBE_HOOK_ID = "ic-app-start-probe"
         const val CHOOSER_DISCOVERY_WINDOW_MS = 3_000L
         const val MANAGER_PACKAGE = "com.yagay.ListCleaner"
         const val ADAPTIVE_CHOOSER_ACTIVITY = "com.yagay.ListCleaner.ui.AdaptiveChooserActivity"
