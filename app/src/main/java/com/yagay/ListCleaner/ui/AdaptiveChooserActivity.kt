@@ -2,6 +2,7 @@ package com.yagay.ListCleaner.ui
 
 import android.app.Activity
 import android.content.ComponentName
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ResolveInfo
@@ -31,6 +32,7 @@ import com.yagay.ListCleaner.domain.intentKind
 class AdaptiveChooserActivity : Activity() {
     private lateinit var target: Intent
     private lateinit var sourcePackage: String
+    private var sessionToken: String = ""
     private var allItems: List<ResolveInfo> = emptyList()
     private lateinit var adapter: TargetAdapter
 
@@ -40,6 +42,7 @@ class AdaptiveChooserActivity : Activity() {
         @Suppress("DEPRECATION")
         val supplied = runCatching { intent.getParcelableExtra<Intent>(EXTRA_TARGET) }.getOrNull()
         sourcePackage = intent.getStringExtra(EXTRA_SOURCE).orEmpty()
+        sessionToken = intent.getStringExtra(EXTRA_SESSION).orEmpty()
         if (supplied == null || sourcePackage.isBlank()) {
             Toast.makeText(this, "无法恢复原始打开请求", Toast.LENGTH_SHORT).show()
             finish()
@@ -145,16 +148,45 @@ class AdaptiveChooserActivity : Activity() {
             grantFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
             outgoing.addFlags(grantFlags)
         }
-        val grantFailure = runCatching {
-            uris.forEach { uri -> grantUriPermission(ai.packageName, uri, grantFlags) }
-        }.exceptionOrNull()
-        if (grantFailure != null) {
-            Log.w(TAG, "URI grant failed source=$sourcePackage target=${ai.packageName} uris=${uris.size} flags=$grantFlags", grantFailure)
+        if (uris.isNotEmpty() && sessionToken.isNotBlank()) {
+            requestSystemGrantThenLaunch(ai.packageName, outgoing, uris.size, grantFlags)
+            return
         }
+        launchWithLocalGrant(ai.packageName, outgoing, uris, grantFlags)
+    }
+
+    private fun requestSystemGrantThenLaunch(targetPackage: String, outgoing: Intent, uriCount: Int, grantFlags: Int) {
+        val request = Intent(ACTION_GRANT).apply {
+            putExtra(EXTRA_SESSION, sessionToken)
+            putExtra(EXTRA_TARGET_PACKAGE, targetPackage)
+            addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
+        }
+        val finalReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (resultCode != RESULT_OK) {
+                    Log.w(TAG, "System URI grant failed source=$sourcePackage target=$targetPackage uris=$uriCount flags=$grantFlags result=$resultCode")
+                    Toast.makeText(this@AdaptiveChooserActivity, "打开失败：URL 权限不足", Toast.LENGTH_SHORT).show()
+                    return
+                }
+                runCatching { startActivity(outgoing) }
+                    .onSuccess { finish() }
+                    .onFailure {
+                        Log.w(TAG, "Launch after system grant failed source=$sourcePackage target=$targetPackage uris=$uriCount flags=$grantFlags", it)
+                        Toast.makeText(this@AdaptiveChooserActivity, "打开失败：${it.javaClass.simpleName}", Toast.LENGTH_SHORT).show()
+                    }
+            }
+        }
+        @Suppress("DEPRECATION")
+        sendOrderedBroadcast(request, null, finalReceiver, null, RESULT_CANCELED, null, null)
+    }
+
+    private fun launchWithLocalGrant(targetPackage: String, outgoing: Intent, uris: Set<Uri>, grantFlags: Int) {
+        val grantFailure = runCatching { uris.forEach { uri -> grantUriPermission(targetPackage, uri, grantFlags) } }.exceptionOrNull()
+        if (grantFailure != null) Log.w(TAG, "URI grant failed source=$sourcePackage target=$targetPackage uris=${uris.size} flags=$grantFlags", grantFailure)
         runCatching { startActivity(outgoing) }
             .onSuccess { finish() }
             .onFailure {
-                Log.w(TAG, "Launch failed source=$sourcePackage target=${ai.packageName} uris=${uris.size} flags=$grantFlags", it)
+                Log.w(TAG, "Launch failed source=$sourcePackage target=$targetPackage uris=${uris.size} flags=$grantFlags", it)
                 val suffix = if (it is SecurityException) "（URI 权限不足）" else ""
                 Toast.makeText(this, "打开失败：${it.javaClass.simpleName}$suffix", Toast.LENGTH_SHORT).show()
             }
@@ -183,6 +215,9 @@ class AdaptiveChooserActivity : Activity() {
         const val EXTRA_TARGET = "com.yagay.ListCleaner.extra.ADAPTIVE_TARGET"
         const val EXTRA_SOURCE = "com.yagay.ListCleaner.extra.ADAPTIVE_SOURCE"
         const val EXTRA_KIND = "com.yagay.ListCleaner.extra.ADAPTIVE_KIND"
+        const val EXTRA_SESSION = "com.yagay.ListCleaner.extra.ADAPTIVE_SESSION"
+        const val EXTRA_TARGET_PACKAGE = "com.yagay.ListCleaner.extra.ADAPTIVE_TARGET_PACKAGE"
+        const val ACTION_GRANT = "com.yagay.ListCleaner.action.ADAPTIVE_GRANT"
     }
 }
 

@@ -3,6 +3,8 @@ package com.yagay.ListCleaner.xposed
 import android.content.Intent
 import android.content.Context
 import android.content.ComponentName
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.pm.ResolveInfo
 import android.content.pm.ActivityInfo
@@ -12,6 +14,7 @@ import com.yagay.ListCleaner.domain.RuntimeProtocol
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.HotReloadedParam
 import android.os.Binder
+import android.app.Activity
 import android.os.Build
 import android.os.Looper
 import android.os.SystemClock
@@ -37,6 +40,7 @@ import java.lang.reflect.Constructor
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
+import java.util.UUID
 
 /**
  * Level 1 filters PackageManager resolver results. Level 2 runs only in system_server and adds
@@ -105,6 +109,15 @@ class ListCleanerModule : XposedModule() {
     private val learnedChooserTemplates = ConcurrentHashMap<String, LearnedChooserTemplate>()
     private val chooserRequestSchemasLogged = ConcurrentHashMap.newKeySet<Class<*>>()
     private val chooserRequestAccessorCache = ConcurrentHashMap<Class<*>, ActivityStartAccessor>()
+    private data class ChooserGrantSession(
+        val grants: Any,
+        val expiresAt: Long,
+        val userId: Int,
+        val allowedPackages: Set<String>,
+    )
+    private val chooserGrantSessions = ConcurrentHashMap<String, ChooserGrantSession>()
+    @Volatile private var adaptiveGrantContext: Context? = null
+    @Volatile private var adaptiveGrantReceiver: BroadcastReceiver? = null
 
     private data class ActivityStartAccessor(
         val intentField: Field,
@@ -141,6 +154,12 @@ class ListCleanerModule : XposedModule() {
             preferences.unregisterOnSharedPreferenceChangeListener(preferenceListener)
             listenerRegistered = false
         }
+        adaptiveGrantReceiver?.let { receiver ->
+            runCatching { adaptiveGrantContext?.unregisterReceiver(receiver) }
+        }
+        adaptiveGrantReceiver = null
+        adaptiveGrantContext = null
+        chooserGrantSessions.clear()
         record("HOT_RELOAD_RETIRING version=${BuildConfig.VERSION_CODE}")
         return true
     }
@@ -277,6 +296,7 @@ class ListCleanerModule : XposedModule() {
         }
         record("SYSTEM_HOOKS new=$installed total=${installedMethods.size}")
         installSystemVisibilityHooks(classLoader)
+        installAdaptiveGrantBridge()
         installAdaptiveChooserDiscoveryHooks(classLoader)
     }
 
@@ -526,15 +546,16 @@ class ListCleanerModule : XposedModule() {
             if (current.diagnostic) diagnostic("CHOOSER_REDIRECT_SKIP caller=${view.callerPackage} component=${component.flattenToShortString()} reason=no_current_payload kind=${template.kind}")
             return false
         }
+        val userId = (readNamedField(request, listOf("userId")) as? Int) ?: 0
+        val sessionToken = UUID.randomUUID().toString()
         val proxy = Intent().apply {
             setComponent(ComponentName(MANAGER_PACKAGE, ADAPTIVE_CHOOSER_ACTIVITY))
             putExtra(ADAPTIVE_TARGET_EXTRA, payload)
             putExtra(ADAPTIVE_SOURCE_EXTRA, view.callerPackage)
             putExtra(ADAPTIVE_KIND_EXTRA, template.kind.name)
+            putExtra(ADAPTIVE_SESSION_EXTRA, sessionToken)
             addFlags(source.flags and (Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
-            addFlags(payload.flags and (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION))
         }
-        val userId = (readNamedField(request, listOf("userId")) as? Int) ?: 0
         val resolved = resolveRedirectActivity(proxy, userId) ?: run {
             if (current.diagnostic) diagnostic("CHOOSER_REDIRECT_SKIP caller=${view.callerPackage} component=${component.flattenToShortString()} reason=proxy_unresolved")
             return false
@@ -546,9 +567,17 @@ class ListCleanerModule : XposedModule() {
         val componentSpecifiedField = allInstanceFields(request.javaClass).firstOrNull { it.name == "componentSpecified" }
         val grantField = allInstanceFields(request.javaClass).firstOrNull { it.name == "intentGrants" }
         val grants = grantField?.let { field -> runCatching { field.isAccessible = true; field.get(request) }.getOrNull() }
-        if (grants != null && payloadHasUri(payload) && !retargetNeededUriGrants(grants, resolved.activityInfo?.applicationInfo?.uid)) {
-            if (current.diagnostic) diagnostic("CHOOSER_REDIRECT_SKIP caller=${view.callerPackage} component=${component.flattenToShortString()} reason=uri_grant_retarget_failed")
-            return false
+        if (payloadHasUri(payload)) {
+            if (grants == null) {
+                if (current.diagnostic) diagnostic("CHOOSER_REDIRECT_SKIP caller=${view.callerPackage} component=${component.flattenToShortString()} reason=no_uri_grants")
+                return false
+            }
+            val allowed = resolveAdaptiveAllowedPackages(payload)
+            if (allowed.isEmpty()) {
+                if (current.diagnostic) diagnostic("CHOOSER_REDIRECT_SKIP caller=${view.callerPackage} component=${component.flattenToShortString()} reason=no_allowed_targets")
+                return false
+            }
+            chooserGrantSessions[sessionToken] = ChooserGrantSession(grants, SystemClock.elapsedRealtime() + ADAPTIVE_SESSION_TTL_MS, userId, allowed)
         }
         return runCatching {
             intentField.isAccessible = true
@@ -559,9 +588,10 @@ class ListCleanerModule : XposedModule() {
             activityField.set(request, resolved.activityInfo)
             resolvedTypeField?.let { it.isAccessible = true; it.set(request, null) }
             componentSpecifiedField?.let { it.isAccessible = true; it.setBoolean(request, true) }
-            diagnostic("CHOOSER_REDIRECT_APPLIED uid=${view.uid} caller=${view.callerPackage} from=${component.flattenToShortString()} kind=${template.kind} targetAction=${payload.action} mime=${payload.type} uri=${payload.data != null}")
+            diagnostic("CHOOSER_REDIRECT_APPLIED uid=${view.uid} caller=${view.callerPackage} from=${component.flattenToShortString()} kind=${template.kind} targetAction=${payload.action} mime=${payload.type} uri=${payloadHasUri(payload)} session=${if (payloadHasUri(payload)) sessionToken.take(8) else "none"}")
             true
         }.getOrElse {
+            chooserGrantSessions.remove(sessionToken)
             diagnostic("CHOOSER_REDIRECT_FAILED caller=${view.callerPackage} component=${component.flattenToShortString()} error=${it.javaClass.name}")
             false
         }
@@ -656,7 +686,7 @@ class ListCleanerModule : XposedModule() {
         }
     }
 
-    private fun retargetNeededUriGrants(grants: Any, targetUid: Int?): Boolean {
+    private fun retargetNeededUriGrants(grants: Any, targetPackage: String, targetUid: Int?): Boolean {
         if (targetUid == null) return false
         var packageChanged = false
         var uidChanged = false
@@ -665,7 +695,7 @@ class ListCleanerModule : XposedModule() {
                 field.isAccessible = true
                 when {
                     field.type == String::class.java && field.name.lowercase().contains("target") && (field.name.lowercase().contains("pkg") || field.name.lowercase().contains("package")) -> {
-                        field.set(grants, MANAGER_PACKAGE); packageChanged = true
+                        field.set(grants, targetPackage); packageChanged = true
                     }
                     (field.type == Int::class.javaPrimitiveType || field.type == Int::class.java) && field.name.lowercase().contains("target") && field.name.lowercase().contains("uid") -> {
                         field.setInt(grants, targetUid); uidChanged = true
@@ -673,8 +703,83 @@ class ListCleanerModule : XposedModule() {
                 }
             }
         }
-        // Some platform versions only store targetPkg and infer UID later.
         return packageChanged || uidChanged
+    }
+
+    private fun installAdaptiveGrantBridge() {
+        if (adaptiveGrantReceiver != null) return
+        val context = runCatching {
+            val at = Class.forName("android.app.ActivityThread")
+            val thread = at.getDeclaredMethod("currentActivityThread").invoke(null) ?: return@runCatching null
+            at.getDeclaredMethod("getSystemContext").invoke(thread) as? Context
+        }.getOrNull() ?: run {
+            record("CHOOSER_GRANT_BRIDGE_UNAVAILABLE reason=no_system_context")
+            return
+        }
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(receiverContext: Context?, intent: Intent?) {
+                if (intent?.action != ADAPTIVE_GRANT_ACTION) return
+                val token = intent.getStringExtra(ADAPTIVE_SESSION_EXTRA).orEmpty()
+                val targetPackage = intent.getStringExtra(ADAPTIVE_TARGET_PACKAGE_EXTRA).orEmpty()
+                val session = chooserGrantSessions.remove(token)
+                if (session == null || token.isBlank() || targetPackage.isBlank()) {
+                    setResultCode(Activity.RESULT_CANCELED)
+                    diagnostic("CHOOSER_GRANT_DENIED reason=session_missing target=$targetPackage")
+                    return
+                }
+                if (SystemClock.elapsedRealtime() > session.expiresAt || targetPackage !in session.allowedPackages) {
+                    setResultCode(Activity.RESULT_CANCELED)
+                    diagnostic("CHOOSER_GRANT_DENIED reason=expired_or_target target=$targetPackage")
+                    return
+                }
+                val ok = grantAdaptiveSession(session, targetPackage)
+                setResultCode(if (ok) Activity.RESULT_OK else Activity.RESULT_CANCELED)
+                diagnostic("CHOOSER_GRANT_RESULT target=$targetPackage ok=$ok")
+            }
+        }
+        runCatching {
+            context.registerReceiver(receiver, IntentFilter(ADAPTIVE_GRANT_ACTION), Context.RECEIVER_EXPORTED)
+            adaptiveGrantContext = context
+            adaptiveGrantReceiver = receiver
+            record("CHOOSER_GRANT_BRIDGE_READY")
+        }.onFailure { record("CHOOSER_GRANT_BRIDGE_FAILED error=${it.javaClass.name}") }
+    }
+
+    private fun resolveAdaptiveAllowedPackages(payload: Intent): Set<String> {
+        val context = adaptiveGrantContext ?: return emptySet()
+        val identity = Binder.clearCallingIdentity()
+        return try {
+            context.packageManager.queryIntentActivities(payload, 0).asSequence()
+                .mapNotNull { it.activityInfo?.packageName }
+                .filter { it != MANAGER_PACKAGE }
+                .toSet()
+        } catch (_: Throwable) { emptySet() } finally { Binder.restoreCallingIdentity(identity) }
+    }
+
+    private fun grantAdaptiveSession(session: ChooserGrantSession, targetPackage: String): Boolean {
+        val context = adaptiveGrantContext ?: return false
+        val identity = Binder.clearCallingIdentity()
+        return try {
+            val targetUid = runCatching { context.packageManager.getPackageUid(targetPackage, 0) }.getOrNull() ?: return false
+            if (!retargetNeededUriGrants(session.grants, targetPackage, targetUid)) return false
+            val serviceClass = Class.forName("com.android.server.uri.UriGrantsManagerInternal")
+            val localServices = Class.forName("com.android.server.LocalServices")
+            val getService = localServices.getDeclaredMethod("getService", Class::class.java)
+            val service = getService.invoke(null, serviceClass) ?: return false
+            val grantMethod = service.javaClass.methods.firstOrNull { method ->
+                method.name == "grantUriPermissionUncheckedFromIntent" && method.parameterTypes.size == 2
+            } ?: serviceClass.methods.firstOrNull { method ->
+                method.name == "grantUriPermissionUncheckedFromIntent" && method.parameterTypes.size == 2
+            } ?: return false
+            grantMethod.isAccessible = true
+            grantMethod.invoke(service, session.grants, null)
+            true
+        } catch (t: Throwable) {
+            diagnostic("CHOOSER_GRANT_INTERNAL_FAILED target=$targetPackage error=${t.javaClass.name}")
+            false
+        } finally {
+            Binder.restoreCallingIdentity(identity)
+        }
     }
 
     private sealed interface PackageNameAccessor {
@@ -1369,6 +1474,10 @@ class ListCleanerModule : XposedModule() {
         const val MANAGER_PACKAGE = "com.yagay.ListCleaner"
         const val ADAPTIVE_CHOOSER_ACTIVITY = "com.yagay.ListCleaner.ui.AdaptiveChooserActivity"
         const val ADAPTIVE_TARGET_EXTRA = "com.yagay.ListCleaner.extra.ADAPTIVE_TARGET"
+        const val ADAPTIVE_SESSION_EXTRA = "com.yagay.ListCleaner.extra.ADAPTIVE_SESSION"
+        const val ADAPTIVE_TARGET_PACKAGE_EXTRA = "com.yagay.ListCleaner.extra.ADAPTIVE_TARGET_PACKAGE"
+        const val ADAPTIVE_GRANT_ACTION = "com.yagay.ListCleaner.action.ADAPTIVE_GRANT"
+        const val ADAPTIVE_SESSION_TTL_MS = 60_000L
         const val ADAPTIVE_SOURCE_EXTRA = "com.yagay.ListCleaner.extra.ADAPTIVE_SOURCE"
         const val ADAPTIVE_KIND_EXTRA = "com.yagay.ListCleaner.extra.ADAPTIVE_KIND"
         const val URI_GRANT_FLAGS = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
