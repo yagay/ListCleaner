@@ -98,7 +98,10 @@ data class MainState(
     val diagnosticMode: Boolean = false,
     val priorities: PriorityConfig = PriorityConfig(),
     val defaultOpen: DefaultOpenConfig = DefaultOpenConfig(),
+    /** Effective OPEN config shown by UI after generic inheritance is applied. */
     val openTypes: OpenTypeConfig = OpenTypeConfig(),
+    /** Raw per-type config, used to distinguish inherited values from explicit overrides. */
+    val openTypesExplicit: OpenTypeConfig = OpenTypeConfig(),
     val tiles: TileConfig = TileConfig(),
     val hiddenFromApps: Set<String> = emptySet(),
     val groups: List<AppGroup> = emptyList(),
@@ -115,7 +118,7 @@ data class AppGroup(
 )
 
 fun groupCandidates(candidates: List<ComponentCandidate>, selected: Set<ComponentRule>, filter: IntentKind?, query: String, uiFilter: UiFilter): List<AppGroup> =
-    candidates.groupBy { it.rule.packageName }.mapNotNull { (pkg, all) ->
+    candidates.groupBy { it.rule.packageName }.mapNotNull { (_, all) ->
         val matching = all.filter {
             val isSelected = it.rule in selected
             val matchesUiFilter = when (uiFilter) {
@@ -126,7 +129,7 @@ fun groupCandidates(candidates: List<ComponentCandidate>, selected: Set<Componen
             catalogVisible(it, isSelected, uiFilter) && matchesUiFilter && (filter == null || it.rule.kind == filter) &&
                 it.matchesQuery(query)
         }.sortedBy { it.rule.kind.ordinal }
-        if (matching.isEmpty()) null else AppGroup(pkg, all.first().appLabel, all.first().appIcon,
+        if (matching.isEmpty()) null else AppGroup(all.first().rule.packageName, all.first().appLabel, all.first().appIcon,
             matching)
     }.sortedBy { it.appLabel.lowercase() }
 
@@ -255,12 +258,39 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (mutableCheckingFile.value) return
         mutableCheckingFile.value = true
         viewModelScope.launch {
-            mutableFileCheckStatus.value = "正在检查实际文件的候选，不会打开文件…"
+            mutableFileCheckStatus.value = "正在检查实际文件的候选和规则效果，不会打开文件…"
             try {
                 check(app.synchronize()) { app.runtime.value.message }
+                val mime = app.contentResolver.getType(uri)
                 val found = app.catalog.inspectFile(uri)
+                val config = app.rules.remoteSnapshot()
+                val preview = com.yagay.ListCleaner.domain.previewOpenEffect(
+                    candidates = found,
+                    genericSelected = config.rules,
+                    mode = config.mode,
+                    priorities = config.priorities,
+                    openTypes = config.openTypes,
+                    mimeType = mime,
+                    scheme = uri.scheme,
+                    fileNameOrPath = uri.lastPathSegment ?: uri.path
+                )
                 check(app.synchronize()) { app.runtime.value.message }
-                mutableFileCheckStatus.value = "查询返回 ${found.size} 个组件，其中 ${found.count { it.isCatalogCandidate }} 个符合目录管理条件。实际启动还取决于来源应用权限；明细见诊断包，不改变规则列表。"
+                mutableFileCheckStatus.value = buildString {
+                    append("识别类型：${preview.preset?.title ?: "通用打开方式"} · MIME=${mime ?: "未知"}\n")
+                    append("原始候选 ${preview.rawCount} 个 → 预计最终 ${preview.finalCount} 个")
+                    if (preview.restoredEmpty) append("（触发空列表保护，恢复系统原结果）")
+                    append("。此预览不模拟来源应用自身的私有菜单或同 UID 保护。")
+                    val details = preview.items.take(12)
+                    if (details.isNotEmpty()) append("\n")
+                    details.forEachIndexed { index, item ->
+                        if (index > 0) append("\n")
+                        append(if (item.included) "✓ " else "✕ ")
+                        append(item.candidate.appLabel)
+                        item.rank?.let { append(" · 优先第 $it 位") }
+                        item.selectedBy?.let { append(" · 规则来源：$it") }
+                    }
+                    if (preview.items.size > details.size) append("\n…另有 ${preview.items.size - details.size} 项，完整候选见诊断包")
+                }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
@@ -270,6 +300,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+
     private val loading = MutableStateFlow(true)
     private val error = MutableStateFlow<String?>(null)
     private val filter = MutableStateFlow<IntentKind?>(null)
@@ -301,7 +332,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 report = DiagnosticCollector.collect(app, state.value.copy(
                     module = freshStatus, selected = config.rules, displayMode = config.mode,
                     priorities = config.priorities, diagnosticMode = config.diagnostic, tiles = config.tiles,
-                    openTypes = config.openTypes, defaultOpen = config.defaultOpen,
+                    openTypes = config.openTypes, openTypesExplicit = config.openTypes, defaultOpen = config.defaultOpen,
                     runtime = app.runtime.value,
                     syncStatus = app.syncStatus.value
                 ), mutableComponentScan.value, rootCatalog.lastOperation)
@@ -373,6 +404,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             hiddenFromApps = values[12] as Set<String>,
             defaultOpen = values[13] as DefaultOpenConfig,
             openTypes = effectiveOpenTypes,
+            openTypesExplicit = rawOpenTypes,
             uiFilter = content.uiFilter
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainState())
@@ -531,9 +563,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun genericOpenSelected(): Set<ComponentRule> =
         app.rules.rules.value.filterTo(linkedSetOf()) { it.kind == IntentKind.OPEN }
 
-    private fun explicitOpenTypeRules(preset: OpenPreset): Set<ComponentRule> =
-        app.rules.openTypes.value.rules[preset].orEmpty().mapNotNullTo(linkedSetOf(), ComponentRule::fromId)
-
     private fun openTypePriorityBase(preset: OpenPreset): List<String> {
         val explicit = app.rules.openTypes.value.priorities[preset].orEmpty()
         return if (explicit.isNotEmpty()) explicit else app.rules.priorities.value.apps[IntentKind.OPEN].orEmpty()
@@ -676,6 +705,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (current != expected) return
         val updated = com.yagay.ListCleaner.domain.moveVisiblePriorityTo(current, visible, packageName, target)
         if (updated != current) app.rules.setOpenTypePriority(preset, updated)
+    }
+
+    fun resetOpenTypePriority(preset: OpenPreset) {
+        if (canEdit()) app.rules.setOpenTypePriority(preset, emptyList())
     }
 
     fun requestScope() {
