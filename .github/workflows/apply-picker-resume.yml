@@ -1,0 +1,51 @@
+name: Apply Picker Resume Trigger
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/apply_picker_resume.py'
+      - '.github/workflows/apply-picker-resume.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build-commit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Apply patch
+        run: python3 tools/apply_picker_resume.py
+      - name: Verify resume trigger
+        run: |
+          grep -Fq 'callActivityOnResume' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+          grep -Fq 'APP_PICKER_BRIDGE_RESUME_HOOK_INSTALLED' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+          grep -Fq 'APP_PICKER_BRIDGE_RESUME package=' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+      - name: Build and test
+        run: ./gradlew testDebugUnitTest assembleDebug --stacktrace
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ListCleaner-picker-resume-debug
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 14
+      - name: Cleanup one-shot files
+        run: rm tools/apply_picker_resume.py .github/workflows/apply-picker-resume.yml
+      - name: Commit implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Trigger picker bridge on Activity resume"
+          git push
