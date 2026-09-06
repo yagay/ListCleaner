@@ -261,6 +261,7 @@ class ListCleanerModule : XposedModule() {
         } else if (param.packageName in snapshot.hiddenFromApps) {
             installAppStartProbe(param.classLoader, param.packageName)
             installAppPmQueryProbe(param.classLoader, param.packageName)
+            installAppMenuConsumerProbe(param.classLoader, param.packageName)
         } else {
             record("PACKAGE_READY_SKIP package=${param.packageName} reason=third_party_not_source")
         }
@@ -325,6 +326,119 @@ class ListCleanerModule : XposedModule() {
             diagnostic("APP_PM_QUERY_FILTER_FAILED package=$packageName error=${it.javaClass.name}; keeping original")
             original
         }
+    }
+
+    private fun installAppMenuConsumerProbe(classLoader: ClassLoader, packageName: String) {
+        var installed = 0
+        val targets = listOf(
+            "android.widget.ListView" to "setAdapter",
+            "android.widget.GridView" to "setAdapter",
+            "androidx.recyclerview.widget.RecyclerView" to "setAdapter",
+        )
+        targets.forEach { (className, methodName) ->
+            val clazz = runCatching { Class.forName(className, false, classLoader) }.getOrElse {
+                diagnostic("APP_MENU_CONSUMER_CLASS_UNAVAILABLE package=$packageName class=$className")
+                return@forEach
+            }
+            generateSequence(clazz as Class<*>?) { it.superclass }
+                .flatMap { it.declaredMethods.asSequence() }
+                .filter { method -> method.name == methodName && method.parameterTypes.size == 1 }
+                .distinctBy(Method::toGenericString)
+                .forEach { method ->
+                    val key = "APP_MENU_CONSUMER#${method.toGenericString()}"
+                    if (!installedMethods.add(key)) return@forEach
+                    runCatching {
+                        method.isAccessible = true
+                        hook(method).setId(APP_MENU_CONSUMER_HOOK_ID)
+                            .intercept(appMenuConsumerProbeHooker(packageName, className))
+                        installed++
+                        record("APP_MENU_CONSUMER_HOOK_INSTALLED package=$packageName class=$className method=${method.toGenericString()}")
+                    }.onFailure {
+                        installedMethods.remove(key)
+                        record("APP_MENU_CONSUMER_HOOK_FAILED package=$packageName class=$className error=${it.javaClass.name}")
+                    }
+                }
+        }
+        record("APP_MENU_CONSUMER_READY package=$packageName hooks=$installed")
+    }
+
+    private fun appMenuConsumerProbeHooker(packageName: String, stage: String) = XposedInterface.Hooker { chain ->
+        val adapter = chain.args.firstOrNull()
+        val result = chain.proceed()
+        if (adapter != null) runCatching {
+            val summaries = inspectAdapterCollections(adapter)
+            diagnostic(
+                "APP_MENU_CONSUMER package=$packageName stage=$stage adapter=${adapter.javaClass.name} " +
+                    "collections=${summaries.size} data=[${summaries.joinToString(" | ")}]"
+            )
+        }.onFailure {
+            diagnostic("APP_MENU_CONSUMER_FAILED package=$packageName stage=$stage adapter=${adapter.javaClass.name} error=${it.javaClass.name}")
+        }
+        result
+    }
+
+    private fun inspectAdapterCollections(adapter: Any): List<String> {
+        val summaries = mutableListOf<String>()
+        allInstanceFields(adapter.javaClass).asSequence()
+            .filterNot { java.lang.reflect.Modifier.isStatic(it.modifiers) }
+            .take(APP_MENU_MAX_FIELDS)
+            .forEach { field ->
+                if (summaries.size >= APP_MENU_MAX_COLLECTIONS) return@forEach
+                val value = runCatching {
+                    field.isAccessible = true
+                    field.get(adapter)
+                }.getOrNull() ?: return@forEach
+                when (value) {
+                    is Collection<*> -> summarizeMenuCollection(field.name, value)?.let(summaries::add)
+                    is Map<*, *> -> summarizeMenuCollection(field.name + ".values", value.values)?.let(summaries::add)
+                    is Array<*> -> summarizeMenuCollection(field.name, value.asList())?.let(summaries::add)
+                }
+            }
+        return summaries
+    }
+
+    private fun summarizeMenuCollection(fieldName: String, values: Collection<*>): String? {
+        if (values.isEmpty()) return null
+        val samples = values.asSequence().take(APP_MENU_MAX_ITEMS).mapNotNull(::describeMenuValue).toList()
+        if (samples.isEmpty()) return null
+        val itemTypes = values.asSequence().take(APP_MENU_MAX_ITEMS).mapNotNull { it?.javaClass?.name }.distinct().take(4).joinToString(",")
+        return "$fieldName(size=${values.size},types=[$itemTypes],samples=[${samples.joinToString(",")}])"
+    }
+
+    private fun describeMenuValue(value: Any?): String? {
+        value ?: return null
+        return when (value) {
+            is ResolveInfo -> value.activityInfo?.let { "ResolveInfo:${it.packageName}/${it.name}" }
+            is ActivityInfo -> "ActivityInfo:${value.packageName}/${value.name}"
+            is ComponentName -> "Component:${value.flattenToShortString()}"
+            is Intent -> "Intent:${value.action ?: "-"}:${value.component?.flattenToShortString() ?: "-"}:${value.`package` ?: "-"}:${value.type ?: "-"}:${value.data?.scheme ?: "-"}"
+            is String -> value.takeIf(::looksLikePackageName)?.let { "String:$it" }
+            else -> describeMenuModel(value)
+        }
+    }
+
+    private fun describeMenuModel(value: Any): String? {
+        val hits = mutableListOf<String>()
+        allInstanceFields(value.javaClass).asSequence()
+            .filterNot { java.lang.reflect.Modifier.isStatic(it.modifiers) }
+            .take(APP_MENU_MAX_MODEL_FIELDS)
+            .forEach { field ->
+                if (hits.size >= APP_MENU_MAX_MODEL_HITS) return@forEach
+                val nested = runCatching {
+                    field.isAccessible = true
+                    field.get(value)
+                }.getOrNull() ?: return@forEach
+                val hit = when (nested) {
+                    is ResolveInfo -> nested.activityInfo?.let { "${field.name}=RI:${it.packageName}/${it.name}" }
+                    is ActivityInfo -> "${field.name}=AI:${nested.packageName}/${nested.name}"
+                    is ComponentName -> "${field.name}=CN:${nested.flattenToShortString()}"
+                    is Intent -> "${field.name}=I:${nested.action ?: "-"}:${nested.component?.flattenToShortString() ?: "-"}:${nested.`package` ?: "-"}"
+                    is String -> nested.takeIf(::looksLikePackageName)?.let { "${field.name}=S:$it" }
+                    else -> null
+                }
+                if (hit != null) hits += hit
+            }
+        return hits.takeIf { it.isNotEmpty() }?.let { "${value.javaClass.name}{${it.joinToString(";")}}" }
     }
 
     private fun installAppStartProbe(classLoader: ClassLoader, packageName: String) {
@@ -1509,6 +1623,12 @@ class ListCleanerModule : XposedModule() {
         const val ARCHIVED_VISIBILITY_HOOK_ID = "ic-system-archived-package-visibility"
         const val CHOOSER_DISCOVERY_HOOK_ID = "ic-adaptive-chooser-discovery"
         const val APP_PM_QUERY_FILTER_HOOK_ID = "ic-app-pm-query-filter"
+        const val APP_MENU_CONSUMER_HOOK_ID = "ic-app-menu-consumer-probe"
+        const val APP_MENU_MAX_FIELDS = 48
+        const val APP_MENU_MAX_COLLECTIONS = 12
+        const val APP_MENU_MAX_ITEMS = 12
+        const val APP_MENU_MAX_MODEL_FIELDS = 24
+        const val APP_MENU_MAX_MODEL_HITS = 6
         const val APP_START_PROBE_HOOK_ID = "ic-app-start-probe"
         const val CHOOSER_DISCOVERY_WINDOW_MS = 3_000L
         const val MANAGER_PACKAGE = "com.yagay.ListCleaner"
