@@ -47,7 +47,19 @@ data class DefaultOpenConfig(
     }
 }
 
-fun matchOpenPreset(kind: IntentKind, mimeType: String?, scheme: String?): OpenPreset? {
+/**
+ * Classifies a resolver request into one of the typed OPEN buckets.
+ *
+ * MIME/scheme remains authoritative. [fileNameOrPath] is only used as a compatibility fallback
+ * for file managers that send no MIME, `*/*`, or an opaque binary MIME such as
+ * `application/octet-stream` (ES File Explorer and similar apps may do this for some files).
+ */
+fun matchOpenPreset(
+    kind: IntentKind,
+    mimeType: String?,
+    scheme: String?,
+    fileNameOrPath: String? = null
+): OpenPreset? {
     val normalizedScheme = scheme?.lowercase()
     if (kind == IntentKind.BROWSER && normalizedScheme in setOf("http", "https")) return OpenPreset.BROWSER
     if (kind != IntentKind.OPEN) return null
@@ -61,7 +73,7 @@ fun matchOpenPreset(kind: IntentKind, mimeType: String?, scheme: String?): OpenP
     }
 
     val mime = mimeType?.substringBefore(';')?.trim()?.lowercase().orEmpty()
-    return when {
+    val mimePreset = when {
         mime == "application/pdf" -> OpenPreset.PDF
         mime in setOf("application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document") -> OpenPreset.WORD
         mime in setOf("application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") -> OpenPreset.EXCEL
@@ -85,6 +97,47 @@ fun matchOpenPreset(kind: IntentKind, mimeType: String?, scheme: String?): OpenP
             "application/vnd.rar", "application/x-7z-compressed", "application/x-tar",
             "application/gzip", "application/x-gzip"
         ) -> OpenPreset.ARCHIVE
+        else -> null
+    }
+    if (mimePreset != null) return mimePreset
+
+    // Do not second-guess a specific, unknown MIME. Extension fallback is deliberately limited to
+    // absent/wildcard/binary MIME values that commonly lose the real file type in file managers.
+    if (mime.isNotEmpty() && mime !in OPAQUE_FILE_MIMES) return null
+    return matchOpenPresetByExtension(fileNameOrPath)
+}
+
+private val OPAQUE_FILE_MIMES = setOf(
+    "*/*",
+    "application/octet-stream",
+    "binary/octet-stream",
+    "application/x-download"
+)
+
+private fun matchOpenPresetByExtension(fileNameOrPath: String?): OpenPreset? {
+    val clean = fileNameOrPath?.trim()?.substringBefore('?')?.substringBefore('#')?.lowercase().orEmpty()
+    if (clean.isEmpty()) return null
+    val extension = clean.substringAfterLast('/', clean).substringAfterLast('.', "")
+    if (extension.isEmpty()) return null
+    return when (extension) {
+        "pdf" -> OpenPreset.PDF
+        "doc", "docx" -> OpenPreset.WORD
+        "xls", "xlsx" -> OpenPreset.EXCEL
+        "ppt", "pptx" -> OpenPreset.POWERPOINT
+        "epub" -> OpenPreset.EPUB
+        "apk", "apks", "xapk" -> OpenPreset.APK
+        "torrent" -> OpenPreset.TORRENT
+        "md", "markdown" -> OpenPreset.MARKDOWN
+        "csv" -> OpenPreset.CSV
+        "json" -> OpenPreset.JSON
+        "xml" -> OpenPreset.XML
+        "svg" -> OpenPreset.SVG
+        "gif" -> OpenPreset.GIF
+        "jpg", "jpeg", "png", "webp", "bmp", "heic", "heif", "avif" -> OpenPreset.IMAGE
+        "mp4", "mkv", "webm", "avi", "mov", "m4v", "3gp" -> OpenPreset.VIDEO
+        "mp3", "m4a", "aac", "flac", "wav", "ogg", "opus" -> OpenPreset.AUDIO
+        "txt", "log", "ini", "conf", "cfg" -> OpenPreset.TEXT
+        "zip", "rar", "7z", "tar", "gz", "gzip", "tgz", "bz2", "xz" -> OpenPreset.ARCHIVE
         else -> null
     }
 }
