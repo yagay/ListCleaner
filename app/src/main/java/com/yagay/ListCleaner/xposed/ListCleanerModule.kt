@@ -89,6 +89,8 @@ class ListCleanerModule : XposedModule() {
     private val callerPackageCache = ConcurrentHashMap<Int, CallerCacheEntry>()
     private val packageAccessorCache = ConcurrentHashMap<Class<*>, PackageNameAccessor>()
     private val recentAppQueryKinds = ConcurrentHashMap<String, IntentKind>()
+    private data class SelfChooserSession(val kind: IntentKind, val startedAt: Long, val component: String)
+    private val recentSelfChooserSessions = ConcurrentHashMap<String, SelfChooserSession>()
     @Volatile private var visibilityFailureCount = 0
     @Volatile private var visibilityFailOpen = false
     @Volatile private var appGlobalsPackageManager: Any? = null
@@ -368,10 +370,13 @@ class ListCleanerModule : XposedModule() {
         val adapter = chain.args.firstOrNull()
         if (adapter != null) runCatching {
             pollPreferences()
-            val kind = recentAppQueryKinds[packageName]
+            val now = SystemClock.elapsedRealtime()
+            val selfSession = recentSelfChooserSessions[packageName]?.takeIf { now - it.startedAt <= SELF_CHOOSER_SESSION_TTL_MS }
+            val kind = selfSession?.kind ?: recentAppQueryKinds[packageName]
+            val source = if (selfSession != null) "self_chooser" else if (kind != null) "pm_query" else "none"
             if (kind != null) filterAdapterMenuCollections(adapter, packageName, kind)
             val summaries = inspectAdapterCollections(adapter)
-            diagnostic("APP_MENU_CONSUMER package=$packageName stage=$stage adapter=${adapter.javaClass.name} kind=${kind ?: "-"} collections=${summaries.size} data=[${summaries.joinToString(" | ")}]")
+            diagnostic("APP_MENU_CONSUMER package=$packageName stage=$stage adapter=${adapter.javaClass.name} kind=${kind ?: "-"} source=$source component=${selfSession?.component ?: "-"} collections=${summaries.size} data=[${summaries.joinToString(" | ")}]")
         }.onFailure { diagnostic("APP_MENU_CONSUMER_FAILED package=$packageName stage=$stage adapter=${adapter.javaClass.name} error=${it.javaClass.name}") }
         chain.proceed()
     }
@@ -543,15 +548,31 @@ class ListCleanerModule : XposedModule() {
             if (intent != null) {
                 val data = intent.data
                 val extras = runCatching { intent.extras?.keySet()?.sorted()?.joinToString(",") }.getOrNull().orEmpty()
-                val nested = runCatching {
+                val nestedIntents = runCatching {
                     intent.extras?.keySet().orEmpty().mapNotNull { key ->
                         @Suppress("DEPRECATION")
-                        val value = intent.extras?.get(key)
-                        (value as? Intent)?.let { child ->
-                            "$key:${child.action ?: "-"}:${child.component?.flattenToShortString() ?: "-"}:${child.type ?: "-"}:${child.data?.scheme ?: "-"}"
-                        }
-                    }.joinToString(";")
-                }.getOrNull().orEmpty()
+                        (intent.extras?.get(key) as? Intent)?.let { key to it }
+                    }
+                }.getOrDefault(emptyList())
+                val nested = nestedIntents.joinToString(";") { (key, child) ->
+                    "$key:${child.action ?: "-"}:${child.component?.flattenToShortString() ?: "-"}:${child.type ?: "-"}:${child.data?.scheme ?: "-"}"
+                }
+                val ownComponent = intent.component?.takeIf { it.packageName == packageName }
+                if (ownComponent != null) {
+                    val child = nestedIntents.asSequence().map { it.second }.firstOrNull { it.intentKind(null) != null }
+                    val childKind = child?.intentKind(null)
+                    if (childKind != null) {
+                        recentSelfChooserSessions[packageName] = SelfChooserSession(
+                            childKind,
+                            SystemClock.elapsedRealtime(),
+                            ownComponent.flattenToShortString(),
+                        )
+                        diagnostic(
+                            "APP_SELF_CHOOSER_SESSION package=$packageName stage=$stage component=${ownComponent.flattenToShortString()} " +
+                                "kind=$childKind action=${child.action ?: "-"} type=${child.type ?: "-"} scheme=${child.data?.scheme ?: "-"}"
+                        )
+                    }
+                }
                 diagnostic(
                     "APP_START_PROBE package=$packageName stage=$stage action=${intent.action ?: "-"} " +
                         "component=${intent.component?.flattenToShortString() ?: "-"} pkg=${intent.`package` ?: "-"} " +
@@ -1693,6 +1714,7 @@ class ListCleanerModule : XposedModule() {
         const val APP_MENU_MAX_MODEL_FIELDS = 24
         const val APP_MENU_MAX_MODEL_HITS = 6
         const val APP_START_PROBE_HOOK_ID = "ic-app-start-probe"
+        const val SELF_CHOOSER_SESSION_TTL_MS = 8_000L
         const val CHOOSER_DISCOVERY_WINDOW_MS = 3_000L
         const val MANAGER_PACKAGE = "com.yagay.ListCleaner"
         const val ADAPTIVE_CHOOSER_ACTIVITY = "com.yagay.ListCleaner.ui.AdaptiveChooserActivity"
