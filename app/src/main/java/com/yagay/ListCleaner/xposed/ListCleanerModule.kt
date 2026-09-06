@@ -6,6 +6,7 @@ import android.content.SharedPreferences
 import android.content.pm.ResolveInfo
 import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.content.ComponentName
 import com.yagay.ListCleaner.BuildConfig
 import com.yagay.ListCleaner.domain.RuntimeProtocol
@@ -35,11 +36,11 @@ import kotlinx.serialization.json.Json
 import java.lang.reflect.Constructor
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Two layers: system_server filters every caller; Resolver processes provide a fallback and
- * UI-only ordering. Every failure is fail-open and returns Android's original result.
+ * Level 1 filters PackageManager resolver results. Level 2 gives manually scoped third-party
+ * apps a short-lived virtual component-disabled view while their chooser is being built.
+ * Real package/component state is never changed; every failure is fail-open.
  */
 class ListCleanerModule : XposedModule() {
     private data class RuleSnapshot(
@@ -79,14 +80,10 @@ class ListCleanerModule : XposedModule() {
     private val queryInProgress = ThreadLocal<Boolean>()
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
     private val tracedActions = ConcurrentHashMap.newKeySet<String>()
-    private val adaptiveInstalled = ConcurrentHashMap.newKeySet<String>()
-    private val adaptiveGeneration = AtomicLong(0L)
-    @Volatile private var adaptiveContext: AdaptiveContext? = null
+    @Volatile private var virtualDisableContext: VirtualDisableContext? = null
 
-    private data class AdaptiveContext(
-        val generation: Long,
+    private data class VirtualDisableContext(
         val kind: IntentKind,
-        val selectedPackages: Set<String>,
         val expiresAt: Long,
         val ownerPackage: String,
     )
@@ -122,11 +119,19 @@ class ListCleanerModule : XposedModule() {
         systemServer = param.isSystemServer
         val loaders = linkedSetOf<ClassLoader>()
         try {
-            check(param.oldHookHandles.any { handle ->
-                val method = handle.executable as? Method
-                (handle.id == "$HOOK_ID-${if (systemServer) "system" else "resolver"}" &&
-                    method != null && isQueryIntentActivitiesMethod(method))
-            }) { "No compatible query handle; restart required" }
+            val reloadBaseProcess = processName.substringBefore(':')
+            val expectedQueryHookId = when {
+                systemServer -> "$HOOK_ID-system"
+                reloadBaseProcess == FRAMEWORK_PACKAGE || reloadBaseProcess == INTENT_RESOLVER_PACKAGE -> "$HOOK_ID-resolver"
+                reloadBaseProcess == SYSTEM_SCOPE_PACKAGE -> null
+                else -> "$HOOK_ID-app"
+            }
+            if (expectedQueryHookId != null) {
+                check(param.oldHookHandles.any { handle ->
+                    val method = handle.executable as? Method
+                    handle.id == expectedQueryHookId && method != null && isQueryIntentActivitiesMethod(method)
+                }) { "No compatible query handle; restart required" }
+            }
             initializePreferences()
             param.oldHookHandles.forEach { handle ->
                 val method = handle.executable as? Method
@@ -262,6 +267,35 @@ class ListCleanerModule : XposedModule() {
             if (installHook(method, Layer.APP)) installed++
         }
         record("APP_QUERY_HOOKS package=$packageName new=$installed total=${installedMethods.size}")
+        installVirtualComponentHooks(clazz, packageName)
+    }
+
+    private fun installVirtualComponentHooks(clazz: Class<*>, packageName: String) {
+        var activityHooks = 0
+        var stateHooks = 0
+        clazz.declaredMethods.filter(::isActivityInfoMethod).forEach { method ->
+            val key = "VIRTUAL_ACTIVITY#${method.toGenericString()}"
+            if (!installedMethods.add(key)) return@forEach
+            runCatching {
+                hook(method).setId(VIRTUAL_ACTIVITY_HOOK_ID).intercept(virtualActivityInfoHooker())
+                activityHooks++
+            }.onFailure {
+                installedMethods.remove(key)
+                record("VIRTUAL_HOOK_FAILED package=$packageName type=activity_info method=${method.name} error=${it.javaClass.name}")
+            }
+        }
+        clazz.declaredMethods.filter(::isComponentEnabledSettingMethod).forEach { method ->
+            val key = "VIRTUAL_STATE#${method.toGenericString()}"
+            if (!installedMethods.add(key)) return@forEach
+            runCatching {
+                hook(method).setId(VIRTUAL_STATE_HOOK_ID).intercept(virtualComponentStateHooker())
+                stateHooks++
+            }.onFailure {
+                installedMethods.remove(key)
+                record("VIRTUAL_HOOK_FAILED package=$packageName type=component_state method=${method.name} error=${it.javaClass.name}")
+            }
+        }
+        record("VIRTUAL_HOOKS package=$packageName activityInfo=$activityHooks componentState=$stateHooks")
     }
 
     private fun installFinalOrderingHooks(loader: ClassLoader) {
@@ -504,8 +538,7 @@ class ListCleanerModule : XposedModule() {
             return original
         }
         if (layer == Layer.APP) {
-            armAdaptiveChooser(kind)
-            installAdaptiveChooserHooksFromStack(kind)
+            armVirtualDisable(kind)
             if (extracted.values.size <= 1) {
                 diagnostic("APP_SKIP kind=$kind reason=single_or_empty_candidate count=${extracted.values.size}")
                 return original
@@ -531,152 +564,82 @@ class ListCleanerModule : XposedModule() {
         }
     }
 
-    private fun armAdaptiveChooser(kind: IntentKind) {
-        val baseProcess = processName.substringBefore(':')
-        if (baseProcess.isBlank() || baseProcess == FRAMEWORK_PACKAGE || baseProcess == INTENT_RESOLVER_PACKAGE || baseProcess == SYSTEM_SCOPE_PACKAGE) return
-        val selected = snapshot.configured.asSequence().mapNotNull { id ->
-            val parts = id.split('|', limit = 3)
-            if (parts.getOrNull(0) != kind.name) return@mapNotNull null
-            parts.getOrNull(1)?.takeIf { it.isNotBlank() }
-        }.toSet()
-        if (selected.isEmpty()) return
-        val generation = adaptiveGeneration.incrementAndGet()
-        adaptiveContext = AdaptiveContext(
-            generation = generation,
-            kind = kind,
-            selectedPackages = selected,
-            expiresAt = SystemClock.elapsedRealtime() + ADAPTIVE_WINDOW_MS,
-            ownerPackage = baseProcess,
-        )
-        diagnostic("ADAPTIVE_ARM kind=$kind generation=$generation packages=${selected.size} owner=$baseProcess")
-    }
-
-    private fun installAdaptiveChooserHooksFromStack(kind: IntentKind) {
+    private fun armVirtualDisable(kind: IntentKind) {
         val owner = processName.substringBefore(':')
         if (owner.isBlank() || owner == FRAMEWORK_PACKAGE || owner == INTENT_RESOLVER_PACKAGE || owner == SYSTEM_SCOPE_PACKAGE) return
-        Throwable().stackTrace.asSequence()
-            .filter { frame -> frame.className.startsWith(owner) && !frame.className.startsWith("${BuildConfig.APPLICATION_ID}.") }
-            .distinctBy { it.className to it.methodName }
-            .take(ADAPTIVE_STACK_LIMIT)
-            .forEach { frame ->
-                val clazz = runCatching { Class.forName(frame.className, false, Thread.currentThread().contextClassLoader) }.getOrNull()
-                    ?: return@forEach
-                clazz.declaredMethods.asSequence()
-                    .filter { method -> method.name == frame.methodName && isAdaptiveListBoundary(method) }
-                    .take(ADAPTIVE_METHODS_PER_FRAME)
-                    .forEach { method -> installAdaptiveBoundaryHook(method, owner, kind) }
-            }
+        val current = snapshot
+        if (current.displayMode == DisplayMode.SHOW_ALL || !current.hasSelection(kind)) {
+            virtualDisableContext = null
+            return
+        }
+        virtualDisableContext = VirtualDisableContext(
+            kind = kind,
+            expiresAt = SystemClock.elapsedRealtime() + VIRTUAL_DISABLE_WINDOW_MS,
+            ownerPackage = owner,
+        )
+        diagnostic("VIRTUAL_DISABLE_ARM kind=$kind owner=$owner windowMs=$VIRTUAL_DISABLE_WINDOW_MS mode=${current.displayMode}")
     }
 
-    private fun isAdaptiveListBoundary(method: Method): Boolean {
-        if (method.isSynthetic || method.isBridge) return false
-        if (List::class.java.isAssignableFrom(method.returnType) || Collection::class.java.isAssignableFrom(method.returnType)) return true
-        return method.parameterTypes.any { type -> List::class.java.isAssignableFrom(type) || Collection::class.java.isAssignableFrom(type) }
+    private fun activeVirtualDisableContext(): VirtualDisableContext? {
+        val context = virtualDisableContext ?: return null
+        if (processName.substringBefore(':') != context.ownerPackage || SystemClock.elapsedRealtime() > context.expiresAt) {
+            virtualDisableContext = null
+            return null
+        }
+        return context
     }
 
-    private fun installAdaptiveBoundaryHook(method: Method, owner: String, kind: IntentKind) {
-        val key = "ADAPTIVE#${method.toGenericString()}"
-        if (!adaptiveInstalled.add(key)) return
-        runCatching {
-            hook(method).setId("adaptive-chooser").intercept(adaptiveBoundaryHooker(method))
-            record("ADAPTIVE_HOOK_INSTALLED owner=$owner kind=$kind method=${method.toGenericString()}")
-        }.onFailure {
-            adaptiveInstalled.remove(key)
-            diagnostic("ADAPTIVE_HOOK_FAILED method=${method.name} error=${it.javaClass.name}")
-        }
+    private fun virtualSelected(kind: IntentKind, component: ComponentName, current: RuleSnapshot): Boolean {
+        if (component.packageName == processName.substringBefore(':')) return false
+        val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
+            component.packageName, component.className, null
+        )
+        if ("${kind.name}|${component.packageName}|$canonicalClass" in current.configured) return true
+        return current.hasPackageSelection(kind, component.packageName)
     }
 
-    private fun adaptiveBoundaryHooker(method: Method) = XposedInterface.Hooker { chain ->
-        val context = adaptiveContext
-        if (context == null || SystemClock.elapsedRealtime() > context.expiresAt || processName.substringBefore(':') != context.ownerPackage) {
-            return@Hooker chain.proceed()
-        }
-        val args = chain.args.toTypedArray()
-        var argsChanged = false
-        args.forEachIndexed { index, arg ->
-            val filtered = adaptiveFilterCollection(arg, context, "arg$index:${method.name}")
-            if (filtered != null && filtered !== arg) {
-                args[index] = filtered
-                argsChanged = true
-            }
-        }
-        val result = if (argsChanged) chain.proceed(args) else chain.proceed()
-        adaptiveFilterCollection(result, context, "return:${method.name}") ?: result
+    private fun virtualSelected(kind: IntentKind, activity: ActivityInfo, current: RuleSnapshot): Boolean {
+        if (activity.packageName == processName.substringBefore(':')) return false
+        val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
+            activity.packageName, activity.name, activity.targetActivity
+        )
+        if ("${kind.name}|${activity.packageName}|$canonicalClass" in current.configured) return true
+        return current.hasPackageSelection(kind, activity.packageName)
     }
 
-    private fun adaptiveFilterCollection(value: Any?, context: AdaptiveContext, stage: String): Any? {
-        val values: List<*> = when (value) {
-            is List<*> -> value
-            is Collection<*> -> value.toList()
-            else -> return null
-        }
-        if (values.size <= 1) return value
-        var recognized = 0
-        var removed = 0
-        val filtered = values.filter { item ->
-            val packageName = adaptivePackageName(item)
-            if (packageName != null) recognized++
-            val hide = packageName != null && packageName in context.selectedPackages
-            if (hide) removed++
-            !hide
-        }
-        if (recognized == 0 || removed == 0) {
-            diagnostic("ADAPTIVE_NO_CHANGE stage=$stage kind=${context.kind} size=${values.size} recognized=$recognized generation=${context.generation}")
-            return value
-        }
-        if (filtered.isEmpty() && context.kind != IntentKind.PROCESS_TEXT) {
-            diagnostic("ADAPTIVE_RESTORE_ALL stage=$stage kind=${context.kind} before=${values.size} generation=${context.generation}")
-            return value
-        }
-        diagnostic("ADAPTIVE_FILTER stage=$stage kind=${context.kind} ${values.size}->${filtered.size} recognized=$recognized generation=${context.generation}")
-        return when (value) {
-            is ArrayList<*> -> ArrayList(filtered)
-            is List<*> -> filtered
-            is Collection<*> -> filtered
-            else -> value
-        }
+    private fun shouldVirtuallyDisable(kind: IntentKind, component: ComponentName, current: RuleSnapshot): Boolean {
+        if (current.displayMode == DisplayMode.SHOW_ALL || !current.hasSelection(kind)) return false
+        val selected = virtualSelected(kind, component, current)
+        return !current.displayMode.includes(selected, true)
     }
 
-    private fun adaptivePackageName(value: Any?, depth: Int = 0): String? {
-        if (value == null || depth > ADAPTIVE_EXTRACT_DEPTH) return null
-        when (value) {
-            is ResolveInfo -> return value.activityInfo?.packageName
-            is ActivityInfo -> return value.packageName
-            is ApplicationInfo -> return value.packageName
-            is ComponentName -> return value.packageName
-            is Intent -> return value.component?.packageName ?: value.`package`
-        }
-        val clazz = value.javaClass
-        if (clazz.name.startsWith("java.") || clazz.name.startsWith("kotlin.") || clazz.name.startsWith("androidx.compose.")) return null
-        ADAPTIVE_FIELD_NAMES.forEach { name ->
-            val nested = runCatching {
-                var current: Class<*>? = clazz
-                while (current != null) {
-                    val c = current
-                    val field = runCatching { c.getDeclaredField(name) }.getOrNull()
-                    if (field != null) {
-                        field.isAccessible = true
-                        return@runCatching field.get(value)
-                    }
-                    current = c.superclass
-                }
-                null
-            }.getOrNull()
-            if (nested is String && looksLikePackageName(nested)) return nested
-            adaptivePackageName(nested, depth + 1)?.let { return it }
-        }
-        ADAPTIVE_GETTER_NAMES.forEach { name ->
-            val nested = runCatching {
-                clazz.methods.firstOrNull { it.name == name && it.parameterCount == 0 }?.invoke(value)
-            }.getOrNull()
-            if (nested is String && looksLikePackageName(nested)) return nested
-            adaptivePackageName(nested, depth + 1)?.let { return it }
-        }
-        return null
+    private fun shouldVirtuallyDisable(kind: IntentKind, activity: ActivityInfo, current: RuleSnapshot): Boolean {
+        if (current.displayMode == DisplayMode.SHOW_ALL || !current.hasSelection(kind)) return false
+        val selected = virtualSelected(kind, activity, current)
+        return !current.displayMode.includes(selected, true)
     }
 
-    private fun looksLikePackageName(value: String): Boolean =
-        value.length in 3..200 && '.' in value && value.none { it.isWhitespace() || it == '/' }
+    private fun virtualActivityInfoHooker() = XposedInterface.Hooker { chain ->
+        pollPreferences()
+        val context = activeVirtualDisableContext() ?: return@Hooker chain.proceed()
+        val component = chain.args.firstOrNull { it is ComponentName } as? ComponentName ?: return@Hooker chain.proceed()
+        val original = chain.proceed()
+        val info = original as? ActivityInfo ?: return@Hooker original
+        val current = snapshot
+        if (!shouldVirtuallyDisable(context.kind, info, current)) return@Hooker original
+        diagnostic("VIRTUAL_ACTIVITY_INFO kind=${context.kind} component=${component.flattenToShortString()} enabled=false")
+        ActivityInfo(info).apply { enabled = false }
+    }
+
+    private fun virtualComponentStateHooker() = XposedInterface.Hooker { chain ->
+        pollPreferences()
+        val context = activeVirtualDisableContext() ?: return@Hooker chain.proceed()
+        val component = chain.args.firstOrNull { it is ComponentName } as? ComponentName ?: return@Hooker chain.proceed()
+        val current = snapshot
+        if (!shouldVirtuallyDisable(context.kind, component, current)) return@Hooker chain.proceed()
+        diagnostic("VIRTUAL_COMPONENT_STATE kind=${context.kind} component=${component.flattenToShortString()} state=DISABLED")
+        PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+    }
 
     private fun isSelectedCandidate(kind: IntentKind, activity: ActivityInfo, current: RuleSnapshot, layer: Layer): Boolean {
         val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
@@ -834,6 +797,16 @@ class ListCleanerModule : XposedModule() {
             (List::class.java.isAssignableFrom(method.returnType) ||
                 method.returnType.name == "android.content.pm.ParceledListSlice")
 
+    private fun isActivityInfoMethod(method: Method): Boolean =
+        method.name in setOf("getActivityInfo", "getActivityInfoAsUser") &&
+            method.parameterTypes.any { ComponentName::class.java.isAssignableFrom(it) } &&
+            ActivityInfo::class.java.isAssignableFrom(method.returnType)
+
+    private fun isComponentEnabledSettingMethod(method: Method): Boolean =
+        method.name == "getComponentEnabledSetting" &&
+            method.parameterTypes.any { ComponentName::class.java.isAssignableFrom(it) } &&
+            method.returnType == Int::class.javaPrimitiveType
+
     private enum class Layer { SYSTEM, RESOLVER, APP }
 
     private companion object {
@@ -845,12 +818,9 @@ class ListCleanerModule : XposedModule() {
         const val SYSTEM_SCOPE_PACKAGE = "system"
         const val SYSTEM_UI_PACKAGE = "com.android.systemui"
         const val PER_USER_RANGE = 100_000
-        const val ADAPTIVE_WINDOW_MS = 3_000L
-        const val ADAPTIVE_STACK_LIMIT = 12
-        const val ADAPTIVE_METHODS_PER_FRAME = 4
-        const val ADAPTIVE_EXTRACT_DEPTH = 2
-        val ADAPTIVE_FIELD_NAMES = listOf("packageName", "package", "pkg", "resolveInfo", "activityInfo", "applicationInfo", "componentName", "component", "intent", "appInfo")
-        val ADAPTIVE_GETTER_NAMES = listOf("getPackageName", "getPackage", "getPkg", "getResolveInfo", "getActivityInfo", "getApplicationInfo", "getComponentName", "getComponent", "getIntent", "getAppInfo")
+        const val VIRTUAL_ACTIVITY_HOOK_ID = "ic-virtual-activity-info"
+        const val VIRTUAL_STATE_HOOK_ID = "ic-virtual-component-state"
+        const val VIRTUAL_DISABLE_WINDOW_MS = 8_000L
         val SYSTEM_QUERY_CLASSES = listOf(
             "com.android.server.pm.PackageManagerService\$IPackageManagerImpl",
             "com.android.server.pm.IPackageManagerImpl",
