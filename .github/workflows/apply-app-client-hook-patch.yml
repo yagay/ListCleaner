@@ -1,0 +1,30 @@
+name: Apply App Client Hook Patch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-app-client-hook-patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Patch source and remove temporary patch files
+        run: |
+          set -euo pipefail
+          python3 tools/patch-app-client-hook.py
+          rm -f tools/patch-app-client-hook.py .github/workflows/apply-app-client-hook-patch.yml
+          git config user.name 'Jie'
+          git config user.email '1614094+yagay@users.noreply.github.com'
+          git add app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt tools/patch-app-client-hook.py .github/workflows/apply-app-client-hook-patch.yml
+          git commit -m 'Hook selected third-party app chooser queries'
+          git push origin HEAD:main
