@@ -101,6 +101,22 @@ class ListCleanerModule : XposedModule() {
     )
     private val recentChooserLaunches = ConcurrentHashMap<Int, RecentChooserLaunch>()
     private val learnedChooserHits = ConcurrentHashMap<String, Int>()
+    private val chooserRequestSchemasLogged = ConcurrentHashMap.newKeySet<Class<*>>()
+    private val chooserRequestAccessorCache = ConcurrentHashMap<Class<*>, ActivityStartAccessor>()
+
+    private data class ActivityStartAccessor(
+        val intentField: Field,
+        val uidField: Field?,
+        val packageField: Field?,
+        val source: String,
+    )
+
+    private data class ActivityStartView(
+        val intent: Intent,
+        val uid: Int,
+        val callerPackage: String,
+        val source: String,
+    )
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
@@ -300,15 +316,15 @@ class ListCleanerModule : XposedModule() {
     private fun observeActivityStart(chain: XposedInterface.Chain) {
         val current = snapshot
         if (current.hiddenFromApps.isEmpty()) return
-        val request = chain.args.firstOrNull { value -> value != null && value.javaClass.name.contains("ActivityStarter\$Request") }
-            ?: chain.args.firstOrNull { value -> value != null && value.javaClass.simpleName == "Request" }
-            ?: return
-        val intent = readNamedField(request, listOf("intent", "mIntent")) as? Intent ?: return
-        val callerPackage = (readNamedField(request, listOf("callingPackage", "mCallingPackage")) as? String)
-            ?.takeIf { it.isNotBlank() } ?: return
-        if (callerPackage !in current.hiddenFromApps) return
-        val uid = (readNamedField(request, listOf("callingUid", "mCallingUid")) as? Int)
-            ?.takeIf { it >= Process.FIRST_APPLICATION_UID } ?: return
+        val request = findActivityStartRequest(chain) ?: run {
+            if (current.diagnostic) diagnostic("CHOOSER_REQUEST_NOT_FOUND args=${chain.args.joinToString { it?.javaClass?.name ?: "null" }}")
+            return
+        }
+        if (current.diagnostic) logChooserRequestSchema(request)
+        val view = extractActivityStartView(request, current) ?: return
+        val intent = view.intent
+        val callerPackage = view.callerPackage
+        val uid = view.uid
 
         if (intent.action == Intent.ACTION_CHOOSER) {
             injectSystemChooserExclusions(intent, callerPackage, uid, current)
@@ -321,8 +337,97 @@ class ListCleanerModule : XposedModule() {
             intent.selector != null || runCatching { intent.extras?.keySet()?.isNotEmpty() == true }.getOrDefault(false)
         val entry = RecentChooserLaunch(uid, callerPackage, component.flattenToShortString(), SystemClock.elapsedRealtime(), hasPayloadHint)
         recentChooserLaunches[uid] = entry
-        diagnostic("CHOOSER_ACTIVITY_CANDIDATE uid=$uid caller=$callerPackage component=${entry.component} payloadHint=$hasPayloadHint")
+        diagnostic("CHOOSER_ACTIVITY_CANDIDATE uid=$uid caller=$callerPackage component=${entry.component} payloadHint=$hasPayloadHint source=${view.source}")
     }
+
+    private fun findActivityStartRequest(chain: XposedInterface.Chain): Any? {
+        chain.args.firstOrNull { value -> value != null && value.javaClass.name.contains("ActivityStarter\$Request") }?.let { return it }
+        chain.args.firstOrNull { value -> value != null && value.javaClass.simpleName == "Request" }?.let { return it }
+        return chain.args.firstOrNull { value ->
+            value != null && allInstanceFields(value.javaClass).any { field -> Intent::class.java.isAssignableFrom(field.type) }
+        }
+    }
+
+    private fun extractActivityStartView(request: Any, current: RuleSnapshot): ActivityStartView? {
+        chooserRequestAccessorCache[request.javaClass]?.let { cached ->
+            readActivityStartWithAccessor(request, cached, current)?.let { return it }
+            chooserRequestAccessorCache.remove(request.javaClass, cached)
+        }
+
+        val fields = allInstanceFields(request.javaClass)
+        val values = fields.mapNotNull { field ->
+            runCatching {
+                field.isAccessible = true
+                field to field.get(request)
+            }.getOrNull()
+        }
+
+        val intentCandidates = values.filter { (_, value) -> value is Intent }
+        val intentPair = intentCandidates.firstOrNull { (_, value) -> (value as Intent).action == Intent.ACTION_CHOOSER }
+            ?: intentCandidates.firstOrNull { (_, value) -> (value as Intent).component != null }
+            ?: intentCandidates.firstOrNull()
+            ?: run {
+                if (current.diagnostic) diagnostic("CHOOSER_REQUEST_PROBE class=${request.javaClass.name} result=no_intent")
+                return null
+            }
+        val intent = intentPair.second as Intent
+
+        val preferredUidNames = setOf("callingUid", "mCallingUid", "realCallingUid", "mRealCallingUid", "originatingUid")
+        val intCandidates = values.mapNotNull { (field, value) ->
+            val uid = value as? Int ?: return@mapNotNull null
+            if (uid < Process.FIRST_APPLICATION_UID) return@mapNotNull null
+            val packages = runCatching { callerPackages(uid, null) }.getOrDefault(emptySet())
+            if (packages.none(current.hiddenFromApps::contains)) return@mapNotNull null
+            Triple(field, uid, packages)
+        }
+        val uidTriple = intCandidates.firstOrNull { it.first.name in preferredUidNames } ?: intCandidates.firstOrNull()
+            ?: run {
+                if (current.diagnostic) diagnostic("CHOOSER_REQUEST_PROBE class=${request.javaClass.name} intentField=${intentPair.first.name} result=no_source_uid intFields=${values.filter { it.second is Int }.joinToString { it.first.name }}")
+                return null
+            }
+
+        val preferredPackageNames = setOf("callingPackage", "mCallingPackage", "realCallingPackage", "mRealCallingPackage")
+        val packagePair = values.firstOrNull { (field, value) -> field.name in preferredPackageNames && value is String && value in current.hiddenFromApps }
+            ?: values.firstOrNull { (_, value) -> value is String && value in current.hiddenFromApps }
+        val callerPackage = (packagePair?.second as? String) ?: uidTriple.third.firstOrNull(current.hiddenFromApps::contains) ?: return null
+
+        val accessor = ActivityStartAccessor(
+            intentField = intentPair.first.apply { isAccessible = true },
+            uidField = uidTriple.first.apply { isAccessible = true },
+            packageField = packagePair?.first?.apply { isAccessible = true },
+            source = "dynamic_probe",
+        )
+        chooserRequestAccessorCache[request.javaClass] = accessor
+        if (current.diagnostic) diagnostic(
+            "CHOOSER_REQUEST_PROBE class=${request.javaClass.name} result=resolved intentField=${intentPair.first.name} uidField=${uidTriple.first.name} packageField=${packagePair?.first?.name ?: "uid_lookup"} caller=$callerPackage uid=${uidTriple.second} intentAction=${intent.action} component=${intent.component?.flattenToShortString()}"
+        )
+        return ActivityStartView(intent, uidTriple.second, callerPackage, accessor.source)
+    }
+
+    private fun readActivityStartWithAccessor(request: Any, accessor: ActivityStartAccessor, current: RuleSnapshot): ActivityStartView? {
+        val intent = runCatching { accessor.intentField.get(request) as? Intent }.getOrNull() ?: return null
+        val uid = runCatching { accessor.uidField?.get(request) as? Int }.getOrNull()?.takeIf { it >= Process.FIRST_APPLICATION_UID } ?: return null
+        val packages = runCatching { callerPackages(uid, null) }.getOrDefault(emptySet())
+        if (packages.none(current.hiddenFromApps::contains)) return null
+        val directPackage = runCatching { accessor.packageField?.get(request) as? String }.getOrNull()
+        val callerPackage = directPackage?.takeIf(current.hiddenFromApps::contains)
+            ?: packages.firstOrNull(current.hiddenFromApps::contains) ?: return null
+        return ActivityStartView(intent, uid, callerPackage, "cached_${accessor.source}")
+    }
+
+    private fun logChooserRequestSchema(request: Any) {
+        if (!chooserRequestSchemasLogged.add(request.javaClass)) return
+        val fields = allInstanceFields(request.javaClass)
+        val schema = fields.take(96).joinToString(",") { "${it.name}:${it.type.name}" }
+        diagnostic("CHOOSER_REQUEST_SCHEMA class=${request.javaClass.name} fields=$schema")
+    }
+
+    private fun allInstanceFields(clazz: Class<*>): List<Field> =
+        generateSequence(clazz as Class<*>?) { it.superclass }
+            .flatMap { it.declaredFields.asSequence() }
+            .filterNot { java.lang.reflect.Modifier.isStatic(it.modifiers) }
+            .distinctBy { "${it.declaringClass.name}#${it.name}" }
+            .toList()
 
     @Suppress("DEPRECATION")
     private fun injectSystemChooserExclusions(chooser: Intent, callerPackage: String, callerUid: Int, current: RuleSnapshot) {
