@@ -170,7 +170,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun changeComponents(visibleTargets: List<RootComponent>, enable: Boolean) {
         if (mutableComponentBusy.value) return
-        // Snapshot only the visible, editable components. A component can match multiple kinds.
         val targets = visibleTargets.filter { it.blocked == null && it.enabled != null && it.enabled != enable }
             .distinctBy { "${it.user}|${it.component.flattenToString()}" }
         if (targets.isEmpty()) return
@@ -178,7 +177,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         mutableComponentBusy.value = true
         mutableComponentMessage.value = "正在请求 Root 并核验系统状态…"
         viewModelScope.launch {
-            // Finish observation even if navigation/lifecycle cancels the awaiting UI.
             withContext(kotlinx.coroutines.NonCancellable + Dispatchers.IO) {
                 var completed = 0
                 var operationStarted = false
@@ -197,13 +195,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     mutableComponentMessage.value = failure.message
                     mutableComponentRootNotice.value = failure.message
                 } catch (failure: Exception) {
-                    // Stop on failure: do not repeatedly prompt for Root or claim an atomic batch.
                     mutableComponentMessage.value = "已完成 $completed/${targets.size}，操作已停止：${failure.message ?: "操作失败"}。失败项请核对系统状态；剩余项未执行，已完成项不回滚。"
                 } finally {
                     if (operationStarted) runCatching { rootCatalog.scan() }.onSuccess { mutableComponentScan.value = it }
-                        .onFailure {
-                            mutableComponentScan.value = RootComponentScan(warning = "操作后扫描失败，请刷新；不使用旧状态")
-                        }
+                        .onFailure { mutableComponentScan.value = RootComponentScan(warning = "操作后扫描失败，请刷新；不使用旧状态") }
                     mutableComponentBusy.value = false
                 }
             }
@@ -301,8 +296,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             var report: File? = null
             try {
-                // Rescue path: never wait for the sync mutex, PM probes or framework IPC.
-                // Export the last observed status with its age, then collect raw logs independently.
                 val freshStatus = moduleStatus.value
                 val config = app.rules.remoteSnapshot()
                 report = DiagnosticCollector.collect(app, state.value.copy(
@@ -336,23 +329,42 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val items = retainConfiguredCandidates(scanned, selected)
         ListContent(items, kind, text, groupCandidates(items, selected, kind, text, ui), selected, ui)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ListContent(emptyList(), null, "", emptyList()))
-    
+
     val state: StateFlow<MainState> = combine(
         moduleStatus, loading, error, grouped, app.runtime, app.rules.displayMode, app.rules.priorities, app.rules.diagnosticMode, app.syncStatus, destination, expandedAppKey, app.rules.tiles, app.rules.hiddenFromApps, app.rules.defaultOpen, app.rules.openTypes
     ) { values ->
         @Suppress("UNCHECKED_CAST")
+        val content = values[3] as ListContent
+        val priorityConfig = values[6] as PriorityConfig
+        val rawOpenTypes = values[14] as OpenTypeConfig
+        val genericOpenIds = content.selected.asSequence()
+            .filter { it.kind == IntentKind.OPEN }
+            .map { it.id }
+            .toSet()
+        val genericOpenPriority = priorityConfig.apps[IntentKind.OPEN].orEmpty()
+        val typedPresets = OpenPreset.entries.filter { it != OpenPreset.BROWSER }
+        val effectiveRules = typedPresets.mapNotNull { preset ->
+            val ids = genericOpenIds + rawOpenTypes.rules[preset].orEmpty()
+            if (ids.isEmpty()) null else preset to ids
+        }.toMap()
+        val effectivePriorities = typedPresets.mapNotNull { preset ->
+            val explicit = rawOpenTypes.priorities[preset].orEmpty()
+            val packages = if (explicit.isNotEmpty()) explicit else genericOpenPriority
+            if (packages.isEmpty()) null else preset to packages
+        }.toMap()
+        val effectiveOpenTypes = rawOpenTypes.copy(rules = effectiveRules, priorities = effectivePriorities)
         MainState(
             module = values[0] as ModuleStatus,
             loading = values[1] as Boolean,
             error = values[2] as String?,
-            candidates = (values[3] as ListContent).candidates,
-            selected = (values[3] as ListContent).selected,
+            candidates = content.candidates,
+            selected = content.selected,
             runtime = values[4] as RuntimeStatus,
             displayMode = values[5] as DisplayMode,
-            filter = (values[3] as ListContent).filter,
-            query = (values[3] as ListContent).query,
-            priorities = values[6] as PriorityConfig,
-            groups = (values[3] as ListContent).groups,
+            filter = content.filter,
+            query = content.query,
+            priorities = priorityConfig,
+            groups = content.groups,
             diagnosticMode = values[7] as Boolean,
             syncStatus = values[8] as String,
             destination = values[9] as Destination,
@@ -360,8 +372,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             tiles = values[11] as TileConfig,
             hiddenFromApps = values[12] as Set<String>,
             defaultOpen = values[13] as DefaultOpenConfig,
-            openTypes = values[14] as OpenTypeConfig,
-            uiFilter = (values[3] as ListContent).uiFilter
+            openTypes = effectiveOpenTypes,
+            uiFilter = content.uiFilter
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainState())
 
@@ -402,7 +414,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val result = app.catalog.scan()
                 check(app.synchronize()) { app.runtime.value.message }
                 if (generation == refreshGeneration) {
-                    // Replace the directory, do not accumulate historical scan results.
                     val configured = app.rules.rules.value + app.rules.openTypes.value.rules.values.flatten().mapNotNull(ComponentRule::fromId)
                     candidates.value = app.catalog.completeConfigured(result, configured)
                     error.value = app.catalog.scanWarning
@@ -444,31 +455,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val messages = mutableListOf<String>()
                 for (target in pending) {
                     try {
-                    if (target.state == HookedTarget.State.RELOADING) {
-                        messages += "${target.processName}：框架正在重载，请稍后重新检测"
-                        continue
-                    }
-                    if (target.loadedVersionCode < 19) {
-                        messages += "${target.processName}：旧版本 ${target.loadedVersionCode} 不支持本模块热重载，请完整重启手机"
-                        continue
-                    }
-                    val result = withTimeoutOrNull(15_000) {
-                        withContext(Dispatchers.IO) {
-                            suspendCancellableCoroutine<HotReloadResult> { continuation ->
-                                bound.hotReloadModule(target, null) { _, reply ->
-                                    if (continuation.isActive) continuation.resume(reply)
+                        if (target.state == HookedTarget.State.RELOADING) {
+                            messages += "${target.processName}：框架正在重载，请稍后重新检测"
+                            continue
+                        }
+                        if (target.loadedVersionCode < 19) {
+                            messages += "${target.processName}：旧版本 ${target.loadedVersionCode} 不支持本模块热重载，请完整重启手机"
+                            continue
+                        }
+                        val result = withTimeoutOrNull(15_000) {
+                            withContext(Dispatchers.IO) {
+                                suspendCancellableCoroutine<HotReloadResult> { continuation ->
+                                    bound.hotReloadModule(target, null) { _, reply ->
+                                        if (continuation.isActive) continuation.resume(reply)
+                                    }
                                 }
                             }
                         }
-                    }
-                    messages += "${target.processName}：" + when (result?.status()) {
-                        HotReloadResult.Status.SUCCEEDED -> "框架报告更新成功，正在重新核实"
-                        HotReloadResult.Status.UNSUPPORTED -> "框架不支持，请重启手机"
-                        HotReloadResult.Status.FAILED -> "更新失败：${result?.message() ?: "旧模块拒绝"}；请重启手机"
-                        HotReloadResult.Status.PROCESS_DIED -> "目标已退出，等待重新启动"
-                        HotReloadResult.Status.IN_PROGRESS -> "框架正在重载，请稍后重新检测"
-                        null -> "等待超时，不代表已取消；请重新检测，勿重复请求"
-                    }
+                        messages += "${target.processName}：" + when (result?.status()) {
+                            HotReloadResult.Status.SUCCEEDED -> "框架报告更新成功，正在重新核实"
+                            HotReloadResult.Status.UNSUPPORTED -> "框架不支持，请重启手机"
+                            HotReloadResult.Status.FAILED -> "更新失败：${result?.message() ?: "旧模块拒绝"}；请重启手机"
+                            HotReloadResult.Status.PROCESS_DIED -> "目标已退出，等待重新启动"
+                            HotReloadResult.Status.IN_PROGRESS -> "框架正在重载，请稍后重新检测"
+                            null -> "等待超时，不代表已取消；请重新检测，勿重复请求"
+                        }
                     } catch (cancelled: CancellationException) {
                         throw cancelled
                     } catch (failure: Exception) {
@@ -516,18 +527,47 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun canEdit(): Boolean = app.rules.hasLocalConfiguration().also {
         if (!it) error.value = "请先完成远程配置恢复或重置，避免覆盖原有规则"
     }
+
+    private fun genericOpenSelected(): Set<ComponentRule> =
+        app.rules.rules.value.filterTo(linkedSetOf()) { it.kind == IntentKind.OPEN }
+
+    private fun explicitOpenTypeRules(preset: OpenPreset): Set<ComponentRule> =
+        app.rules.openTypes.value.rules[preset].orEmpty().mapNotNullTo(linkedSetOf(), ComponentRule::fromId)
+
+    private fun openTypePriorityBase(preset: OpenPreset): List<String> {
+        val explicit = app.rules.openTypes.value.priorities[preset].orEmpty()
+        return if (explicit.isNotEmpty()) explicit else app.rules.priorities.value.apps[IntentKind.OPEN].orEmpty()
+    }
+
     fun toggle(rule: ComponentRule) { if (canEdit()) app.rules.toggle(rule) }
     fun setGroupSelected(group: AppGroup, selected: Boolean) { if (canEdit()) app.rules.setSelected(group.components.map { it.rule }, selected) }
-    fun toggleOpenType(preset: OpenPreset, rule: ComponentRule) { if (canEdit()) app.rules.toggleOpenType(preset, rule) }
+
+    fun toggleOpenType(preset: OpenPreset, rule: ComponentRule) {
+        if (!canEdit() || rule in genericOpenSelected()) return
+        app.rules.toggleOpenType(preset, rule)
+    }
+
     fun setOpenTypeGroupSelected(preset: OpenPreset, group: AppGroup, selected: Boolean) {
-        if (canEdit()) app.rules.setOpenTypeSelected(preset, group.components.map { it.rule }, selected)
+        if (!canEdit()) return
+        val inherited = genericOpenSelected()
+        val editable = group.components.map { it.rule }.filterNot { it in inherited }
+        if (editable.isNotEmpty()) app.rules.setOpenTypeSelected(preset, editable, selected)
     }
+
     fun selectOpenTypeRules(preset: OpenPreset, rules: Collection<ComponentRule>) {
-        if (canEdit() && rules.isNotEmpty()) app.rules.setOpenTypeSelected(preset, rules.distinct(), true)
+        if (!canEdit() || rules.isEmpty()) return
+        val inherited = genericOpenSelected()
+        val editable = rules.distinct().filterNot { it in inherited }
+        if (editable.isNotEmpty()) app.rules.setOpenTypeSelected(preset, editable, true)
     }
+
     fun invertOpenTypeRules(preset: OpenPreset, rules: Collection<ComponentRule>) {
-        if (canEdit() && rules.isNotEmpty()) app.rules.invertOpenTypeSelected(preset, rules)
+        if (!canEdit() || rules.isEmpty()) return
+        val inherited = genericOpenSelected()
+        val editable = rules.distinct().filterNot { it in inherited }
+        if (editable.isNotEmpty()) app.rules.invertOpenTypeSelected(preset, editable)
     }
+
     fun selectRules(rules: Collection<ComponentRule>) {
         if (!canEdit() || rules.isEmpty()) return
         app.rules.setSelected(rules.distinct(), true)
@@ -585,11 +625,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         app.rules.setPriority(kind, com.yagay.ListCleaner.domain.moveVisiblePriority(current, visible, packageName, offset))
     }
 
-
     fun movePriorityTo(kind: IntentKind, packageName: String, target: String, visible: List<String>, expected: List<String>) {
         if (!canEdit()) return
         val current = app.rules.priorities.value.apps[kind].orEmpty()
-        // A drag is a snapshot. Never overwrite a reset/import/edit that occurred during it.
         if (current != expected) return
         val updated = com.yagay.ListCleaner.domain.moveVisiblePriorityTo(current, visible, packageName, target)
         if (updated != current) app.rules.setPriority(kind, updated)
@@ -597,34 +635,44 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun selectOpenTypePriorityApps(preset: OpenPreset, packageNames: Collection<String>) {
         if (!canEdit()) return
-        val current = app.rules.openTypes.value.priorities[preset].orEmpty()
+        val current = openTypePriorityBase(preset)
         val next = (current + packageNames.distinct().filter { it !in current }).take(200)
         if (next != current) app.rules.setOpenTypePriority(preset, next)
     }
+
     fun invertOpenTypePriorityApps(preset: OpenPreset, packageNames: Collection<String>) {
         if (!canEdit()) return
-        val visible = packageNames.distinct(); if (visible.isEmpty()) return
-        val current = app.rules.openTypes.value.priorities[preset].orEmpty()
+        val visible = packageNames.distinct()
+        if (visible.isEmpty()) return
+        val current = openTypePriorityBase(preset)
         val retained = current.filterNot { it in visible.toSet() }
         val next = (retained + visible.filter { it !in current }).take(200)
         if (next != current) app.rules.setOpenTypePriority(preset, next)
     }
+
     fun pinOpenTypeApp(preset: OpenPreset, packageName: String) {
         if (!canEdit()) return
-        val current = app.rules.openTypes.value.priorities[preset].orEmpty()
+        val current = openTypePriorityBase(preset)
         if (packageName !in current && current.size < 200) app.rules.setOpenTypePriority(preset, current + packageName)
     }
+
     fun removeOpenTypePriority(preset: OpenPreset, packageName: String) {
-        if (canEdit()) app.rules.setOpenTypePriority(preset, app.rules.openTypes.value.priorities[preset].orEmpty() - packageName)
+        if (!canEdit()) return
+        val current = openTypePriorityBase(preset)
+        val next = current - packageName
+        if (next != current) app.rules.setOpenTypePriority(preset, next)
     }
+
     fun moveOpenTypePriority(preset: OpenPreset, packageName: String, offset: Int, visible: List<String>) {
         if (!canEdit()) return
-        val current = app.rules.openTypes.value.priorities[preset].orEmpty()
-        app.rules.setOpenTypePriority(preset, com.yagay.ListCleaner.domain.moveVisiblePriority(current, visible, packageName, offset))
+        val current = openTypePriorityBase(preset)
+        val updated = com.yagay.ListCleaner.domain.moveVisiblePriority(current, visible, packageName, offset)
+        if (updated != current) app.rules.setOpenTypePriority(preset, updated)
     }
+
     fun moveOpenTypePriorityTo(preset: OpenPreset, packageName: String, target: String, visible: List<String>, expected: List<String>) {
         if (!canEdit()) return
-        val current = app.rules.openTypes.value.priorities[preset].orEmpty()
+        val current = openTypePriorityBase(preset)
         if (current != expected) return
         val updated = com.yagay.ListCleaner.domain.moveVisiblePriorityTo(current, visible, packageName, target)
         if (updated != current) app.rules.setOpenTypePriority(preset, updated)
