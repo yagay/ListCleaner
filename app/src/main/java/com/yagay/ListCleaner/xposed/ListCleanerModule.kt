@@ -259,9 +259,64 @@ class ListCleanerModule : XposedModule() {
             record("PACKAGE_READY_SKIP package=${param.packageName} reason=system_scope_pseudo_process")
         } else if (param.packageName in snapshot.hiddenFromApps) {
             installAppStartProbe(param.classLoader, param.packageName)
+            installAppPmQueryProbe(param.classLoader, param.packageName)
         } else {
             record("PACKAGE_READY_SKIP package=${param.packageName} reason=third_party_not_source")
         }
+    }
+
+    private fun installAppPmQueryProbe(classLoader: ClassLoader, packageName: String) {
+        val className = "android.content.pm.IPackageManager\$Stub\$Proxy"
+        val clazz = runCatching { Class.forName(className, false, classLoader) }.getOrElse {
+            record("APP_PM_QUERY_PROBE_CLASS_UNAVAILABLE package=$packageName class=$className error=${it.javaClass.name}")
+            return
+        }
+        var installed = 0
+        val methods = generateSequence(clazz as Class<*>?) { it.superclass }
+            .flatMap { it.declaredMethods.asSequence() }
+            .filter(::isQueryIntentActivitiesMethod)
+            .distinctBy(Method::toGenericString)
+            .toList()
+        methods.forEach { method ->
+            val key = "APP_PM_QUERY_PROBE#${method.toGenericString()}"
+            if (!installedMethods.add(key)) return@forEach
+            runCatching {
+                method.isAccessible = true
+                hook(method).setId(APP_PM_QUERY_PROBE_HOOK_ID).intercept(appPmQueryProbeHooker(packageName))
+                installed++
+                record("APP_PM_QUERY_PROBE_HOOK_INSTALLED package=$packageName method=${method.toGenericString()}")
+            }.onFailure {
+                installedMethods.remove(key)
+                record("APP_PM_QUERY_PROBE_HOOK_FAILED package=$packageName method=${method.toGenericString()} error=${it.javaClass.name}")
+            }
+        }
+        record("APP_PM_QUERY_PROBE_READY package=$packageName hooks=$installed")
+    }
+
+    private fun appPmQueryProbeHooker(packageName: String) = XposedInterface.Hooker { chain ->
+        val intent = chain.args.firstOrNull { it is Intent } as? Intent
+        val result = chain.proceed()
+        if (intent != null) {
+            runCatching {
+                val extracted = extractListResult(result)
+                val values = extracted?.values.orEmpty()
+                val preview = values.asSequence().mapNotNull { value ->
+                    val info = value as? ResolveInfo ?: return@mapNotNull null
+                    val activity = info.activityInfo ?: return@mapNotNull null
+                    "${activity.packageName}/${activity.name}"
+                }.take(16).joinToString(",")
+                diagnostic(
+                    "APP_PM_QUERY_PROBE package=$packageName action=${intent.action ?: "-"} " +
+                        "component=${intent.component?.flattenToShortString() ?: "-"} pkg=${intent.`package` ?: "-"} " +
+                        "type=${intent.type ?: "-"} dataScheme=${intent.data?.scheme ?: "-"} " +
+                        "flags=0x${intent.flags.toString(16)} result=${result?.javaClass?.name ?: "null"} " +
+                        "size=${values.size} preview=[$preview]"
+                )
+            }.onFailure {
+                diagnostic("APP_PM_QUERY_PROBE_FAILED package=$packageName error=${it.javaClass.name}")
+            }
+        }
+        result
     }
 
     private fun installAppStartProbe(classLoader: ClassLoader, packageName: String) {
@@ -1445,6 +1500,7 @@ class ListCleanerModule : XposedModule() {
         const val VISIBILITY_HOOK_ID = "ic-system-package-visibility"
         const val ARCHIVED_VISIBILITY_HOOK_ID = "ic-system-archived-package-visibility"
         const val CHOOSER_DISCOVERY_HOOK_ID = "ic-adaptive-chooser-discovery"
+        const val APP_PM_QUERY_PROBE_HOOK_ID = "ic-app-pm-query-probe"
         const val APP_START_PROBE_HOOK_ID = "ic-app-start-probe"
         const val CHOOSER_DISCOVERY_WINDOW_MS = 3_000L
         const val MANAGER_PACKAGE = "com.yagay.ListCleaner"
