@@ -40,6 +40,19 @@ class DefaultOpenConfigTest {
         assertEquals(OpenPreset.CSV, matchOpenPreset(IntentKind.OPEN, "application/csv", "content"))
     }
 
+    @Test fun opaqueMimeFallsBackToFileExtension() {
+        assertEquals(OpenPreset.PDF, matchOpenPreset(IntentKind.OPEN, "*/*", "content", "/storage/emulated/0/Download/book.PDF"))
+        assertEquals(OpenPreset.APK, matchOpenPreset(IntentKind.OPEN, "application/octet-stream", "content", "release.apk"))
+        assertEquals(OpenPreset.ARCHIVE, matchOpenPreset(IntentKind.OPEN, "binary/octet-stream", "file", "backup.7z"))
+        assertEquals(OpenPreset.WORD, matchOpenPreset(IntentKind.OPEN, null, "content", "document.docx"))
+        assertEquals(OpenPreset.IMAGE, matchOpenPreset(IntentKind.OPEN, "application/x-download", "content", "photo.webp?token=1"))
+    }
+
+    @Test fun specificUnknownMimeDoesNotGetOverriddenByExtension() {
+        assertNull(matchOpenPreset(IntentKind.OPEN, "application/vnd.example.custom", "content", "looks-like.pdf"))
+        assertEquals(OpenPreset.TEXT, matchOpenPreset(IntentKind.OPEN, "text/plain", "content", "looks-like.pdf"))
+    }
+
     @Test fun configRequiresMatchingKindAndCanonicalId() {
         val open = ComponentRule(IntentKind.OPEN, "com.example", "com.example.Reader")
         DefaultOpenConfig(mapOf(OpenPreset.PDF to open.id, OpenPreset.MAGNET to open.id)).validated()
