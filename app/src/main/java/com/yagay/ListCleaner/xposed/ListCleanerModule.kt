@@ -216,6 +216,7 @@ class ListCleanerModule : XposedModule() {
                 when (expectedLayer) {
                     Layer.SYSTEM -> installSystemServerQueryHooks(it)
                     Layer.RESOLVER -> installResolverClientHooks(it)
+                    Layer.APP -> Unit
                     null -> record("HOT_RELOAD_SKIP package=$baseProcess reason=system_scope_pseudo_process")
                 }
             }
@@ -282,41 +283,48 @@ class ListCleanerModule : XposedModule() {
             if (!installedMethods.add(key)) return@forEach
             runCatching {
                 method.isAccessible = true
-                hook(method).setId(APP_PM_QUERY_PROBE_HOOK_ID).intercept(appPmQueryProbeHooker(packageName))
+                hook(method).setId(APP_PM_QUERY_FILTER_HOOK_ID).intercept(appPmQueryFilterHooker(packageName))
                 installed++
-                record("APP_PM_QUERY_PROBE_HOOK_INSTALLED package=$packageName method=${method.toGenericString()}")
+                record("APP_PM_QUERY_FILTER_HOOK_INSTALLED package=$packageName method=${method.toGenericString()}")
             }.onFailure {
                 installedMethods.remove(key)
                 record("APP_PM_QUERY_PROBE_HOOK_FAILED package=$packageName method=${method.toGenericString()} error=${it.javaClass.name}")
             }
         }
-        record("APP_PM_QUERY_PROBE_READY package=$packageName hooks=$installed")
+        record("APP_PM_QUERY_FILTER_READY package=$packageName hooks=$installed")
     }
 
-    private fun appPmQueryProbeHooker(packageName: String) = XposedInterface.Hooker { chain ->
-        val intent = chain.args.firstOrNull { it is Intent } as? Intent
-        val result = chain.proceed()
-        if (intent != null) {
-            runCatching {
-                val extracted = extractListResult(result)
-                val values = extracted?.values.orEmpty()
-                val preview = values.asSequence().mapNotNull { value ->
-                    val info = value as? ResolveInfo ?: return@mapNotNull null
-                    val activity = info.activityInfo ?: return@mapNotNull null
-                    "${activity.packageName}/${activity.name}"
-                }.take(16).joinToString(",")
-                diagnostic(
-                    "APP_PM_QUERY_PROBE package=$packageName action=${intent.action ?: "-"} " +
-                        "component=${intent.component?.flattenToShortString() ?: "-"} pkg=${intent.`package` ?: "-"} " +
-                        "type=${intent.type ?: "-"} dataScheme=${intent.data?.scheme ?: "-"} " +
-                        "flags=0x${intent.flags.toString(16)} result=${result?.javaClass?.name ?: "null"} " +
-                        "size=${values.size} preview=[$preview]"
-                )
-            }.onFailure {
-                diagnostic("APP_PM_QUERY_PROBE_FAILED package=$packageName error=${it.javaClass.name}")
+    private fun appPmQueryFilterHooker(packageName: String) = XposedInterface.Hooker { chain ->
+        val outerIntent = chain.args.firstOrNull { it is Intent } as? Intent
+        val intent = outerIntent?.selector ?: outerIntent
+        val original = chain.proceed()
+        if (intent == null) return@Hooker original
+        runCatching {
+            pollPreferences()
+            val explicit = intent.component != null || intent.`package` != null ||
+                outerIntent?.component != null || outerIntent?.`package` != null
+            val kind = intent.intentKind(null)
+            if (explicit || kind == null) {
+                diagnostic("APP_PM_QUERY_FILTER_SKIP package=$packageName action=${intent.action ?: "-"} explicit=$explicit kind=${kind ?: "-"}")
+                return@runCatching original
             }
+            val extracted = extractListResult(original) ?: run {
+                diagnostic("APP_PM_QUERY_FILTER_SKIP package=$packageName action=${intent.action ?: "-"} reason=unsupported_result result=${original?.javaClass?.name ?: "null"}")
+                return@runCatching original
+            }
+            val callerUid = Process.myUid()
+            val replacement = transform(kind, extracted.values, Layer.APP, callerUid)
+            if (replacement == null) {
+                diagnostic("APP_PM_QUERY_FILTER_NO_CHANGE package=$packageName kind=$kind size=${extracted.values.size}")
+                return@runCatching original
+            }
+            val rebuilt = extracted.rebuild(replacement)
+            diagnostic("APP_PM_QUERY_FILTER_APPLIED package=$packageName kind=$kind before=${extracted.values.size} after=${replacement.size} callerUid=$callerUid")
+            rebuilt
+        }.getOrElse {
+            diagnostic("APP_PM_QUERY_FILTER_FAILED package=$packageName error=${it.javaClass.name}; keeping original")
+            original
         }
-        result
     }
 
     private fun installAppStartProbe(classLoader: ClassLoader, packageName: String) {
@@ -1486,7 +1494,7 @@ class ListCleanerModule : XposedModule() {
             (List::class.java.isAssignableFrom(method.returnType) ||
                 method.returnType.name == "android.content.pm.ParceledListSlice")
 
-    private enum class Layer { SYSTEM, RESOLVER }
+    private enum class Layer { SYSTEM, RESOLVER, APP }
 
     private companion object {
         const val TAG = "ListCleaner"
@@ -1500,7 +1508,7 @@ class ListCleanerModule : XposedModule() {
         const val VISIBILITY_HOOK_ID = "ic-system-package-visibility"
         const val ARCHIVED_VISIBILITY_HOOK_ID = "ic-system-archived-package-visibility"
         const val CHOOSER_DISCOVERY_HOOK_ID = "ic-adaptive-chooser-discovery"
-        const val APP_PM_QUERY_PROBE_HOOK_ID = "ic-app-pm-query-probe"
+        const val APP_PM_QUERY_FILTER_HOOK_ID = "ic-app-pm-query-filter"
         const val APP_START_PROBE_HOOK_ID = "ic-app-start-probe"
         const val CHOOSER_DISCOVERY_WINDOW_MS = 3_000L
         const val MANAGER_PACKAGE = "com.yagay.ListCleaner"
