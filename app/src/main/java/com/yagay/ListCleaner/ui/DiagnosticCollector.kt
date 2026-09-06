@@ -170,7 +170,7 @@ object DiagnosticCollector {
         }
         appendLine("customOpenTypes:")
         state.openTypesExplicit.customDefinitions.entries.sortedBy { it.key.ordinal }.forEach { (preset, definition) ->
-            appendLine("${preset.name}|name=${definition.name}|mimes=${definition.mimeTypes.sorted().joinToString()}|extensions=${definition.extensions.sorted().joinToString()}")
+            appendLine("${preset.name}|title=${definition.title}|mimes=${definition.mimeTypes.sorted().joinToString()}|extensions=${definition.extensions.sorted().joinToString()}")
         }
     }
 
