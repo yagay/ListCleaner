@@ -25,7 +25,7 @@ jobs:
       - name: Verify probe
         run: |
           grep -q 'APP_PM_QUERY_PROBE_READY' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
-          grep -q 'IPackageManager\$Stub\$Proxy' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+          grep -Fq 'IPackageManager\$Stub\$Proxy' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
           grep -q 'APP_PM_QUERY_PROBE_HOOK_ID' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
       - name: Build and test
         run: |
