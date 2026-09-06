@@ -49,7 +49,14 @@ class ListCleanerModule : XposedModule() {
         val digest: String = ""
     ) {
         val selectedKinds: Set<IntentKind> = selectedKinds(configured)
+        private val selectedPackages: Map<IntentKind, Set<String>> = configured.mapNotNull { id ->
+            val parts = id.split('|', limit = 3)
+            val kind = parts.getOrNull(0)?.let { runCatching { IntentKind.valueOf(it) }.getOrNull() } ?: return@mapNotNull null
+            val packageName = parts.getOrNull(1)?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            kind to packageName
+        }.groupBy({ it.first }, { it.second }).mapValues { (_, packages) -> packages.toSet() }
         fun hasSelection(kind: IntentKind): Boolean = kind in selectedKinds
+        fun hasPackageSelection(kind: IntentKind, packageName: String): Boolean = packageName in selectedPackages[kind].orEmpty()
     }
 
     private data class ListResult(val values: List<*>, val rebuild: (List<*>) -> Any?)
@@ -138,21 +145,26 @@ class ListCleanerModule : XposedModule() {
                     .getDeclaredMethod("currentApplication").invoke(null) as? Context
                 application?.classLoader?.let(loaders::add)
             }.onFailure { record("ORDER_LOADER_UNAVAILABLE error=${it.javaClass.name}") }
+            val baseProcess = processName.substringBefore(':')
+            val expectedLayer = when {
+                systemServer -> Layer.SYSTEM
+                baseProcess == FRAMEWORK_PACKAGE || baseProcess == INTENT_RESOLVER_PACKAGE -> Layer.RESOLVER
+                baseProcess == SYSTEM_SCOPE_PACKAGE -> null
+                else -> Layer.APP
+            }
             loaders.forEach {
-                if (systemServer) {
-                    installSystemServerQueryHooks(it)
-                } else {
-                    val baseProcess = processName.substringBefore(':')
-                    if (baseProcess == FRAMEWORK_PACKAGE || baseProcess == INTENT_RESOLVER_PACKAGE) {
-                        installResolverClientHooks(it)
-                    } else {
-                        installApplicationClientHooks(it, baseProcess)
-                    }
+                when (expectedLayer) {
+                    Layer.SYSTEM -> installSystemServerQueryHooks(it)
+                    Layer.RESOLVER -> installResolverClientHooks(it)
+                    Layer.APP -> installApplicationClientHooks(it, baseProcess)
+                    null -> record("HOT_RELOAD_SKIP package=$baseProcess reason=system_scope_pseudo_process")
                 }
             }
-            check(installedMethods.any {
-                it.endsWith(if (systemServer) "@SYSTEM" else if (processName.substringBefore(':') == FRAMEWORK_PACKAGE || processName.substringBefore(':') == INTENT_RESOLVER_PACKAGE) "@RESOLVER" else "@APP")
-            }) { "No query hooks after reload; restart required" }
+            if (expectedLayer != null) {
+                check(installedMethods.any { it.endsWith("@$expectedLayer") }) {
+                    "No query hooks after reload; restart required"
+                }
+            }
             record("HOT_RELOAD_READY version=${BuildConfig.VERSION_CODE} hooks=${installedMethods.size}")
             if (!systemServer && !processName.startsWith(SYSTEM_UI_PACKAGE)) recordOrderingCapability()
         } catch (failure: Throwable) {
@@ -184,6 +196,8 @@ class ListCleanerModule : XposedModule() {
         initializePreferences()
         if (param.packageName == FRAMEWORK_PACKAGE || param.packageName == INTENT_RESOLVER_PACKAGE) {
             installResolverClientHooks(param.classLoader)
+        } else if (param.packageName == SYSTEM_SCOPE_PACKAGE) {
+            record("PACKAGE_READY_SKIP package=${param.packageName} reason=system_scope_pseudo_process")
         } else {
             // Additional LSPosed scope selected by the user: only intercept the app's own
             // PackageManager candidate query. Do not install Resolver UI ordering hooks here.
@@ -488,13 +502,10 @@ class ListCleanerModule : XposedModule() {
             val hasMatchingRule = extracted.values.any { value ->
                 val info = value as? ResolveInfo ?: return@any false
                 val activity = info.activityInfo ?: return@any false
-                val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
-                    activity.packageName, activity.name, activity.targetActivity
-                )
-                "${kind.name}|${activity.packageName}|$canonicalClass" in snapshot.configured
+                isSelectedCandidate(kind, activity, snapshot, Layer.APP)
             }
             if (!hasMatchingRule) {
-                diagnostic("APP_SKIP kind=$kind reason=no_matching_rule count=${extracted.values.size}")
+                diagnostic("APP_SKIP kind=$kind reason=no_component_or_package_match count=${extracted.values.size}")
                 return original
             }
         }
@@ -503,6 +514,14 @@ class ListCleanerModule : XposedModule() {
             Log.e(TAG, "Failed to rebuild ${original?.javaClass?.name}; keeping original", it)
             original
         }
+    }
+
+    private fun isSelectedCandidate(kind: IntentKind, activity: ActivityInfo, current: RuleSnapshot, layer: Layer): Boolean {
+        val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
+            activity.packageName, activity.name, activity.targetActivity
+        )
+        if ("${kind.name}|${activity.packageName}|$canonicalClass" in current.configured) return true
+        return layer == Layer.APP && current.hasPackageSelection(kind, activity.packageName)
     }
 
     private fun transform(kind: IntentKind, values: List<*>, layer: Layer, callerUid: Int): List<*>? {
@@ -526,9 +545,11 @@ class ListCleanerModule : XposedModule() {
                 val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
                     activity.packageName, activity.name, activity.targetActivity
                 )
-                val selected = "${kind.name}|${activity.packageName}|$canonicalClass" in current.configured
+                val exactSelected = "${kind.name}|${activity.packageName}|$canonicalClass" in current.configured
+                val packageFallback = layer == Layer.APP && !exactSelected && current.hasPackageSelection(kind, activity.packageName)
+                val selected = exactSelected || packageFallback
                 diagnostic(
-                    "CANDIDATE $layer $kind ${activity.packageName}/${activity.name} target=${activity.targetActivity} canonical=$canonicalClass selected=$selected",
+                    "CANDIDATE $layer $kind ${activity.packageName}/${activity.name} target=${activity.targetActivity} canonical=$canonicalClass selected=$selected match=${if (exactSelected) "component" else if (packageFallback) "package" else "none"}",
                     detail = true
                 )
                 current.displayMode.includes(selected, current.hasSelection(kind)).also {
@@ -659,6 +680,7 @@ class ListCleanerModule : XposedModule() {
         const val HOOK_ID = "ic-query-filter"
         const val FRAMEWORK_PACKAGE = "android"
         const val INTENT_RESOLVER_PACKAGE = "com.android.intentresolver"
+        const val SYSTEM_SCOPE_PACKAGE = "system"
         const val SYSTEM_UI_PACKAGE = "com.android.systemui"
         const val PER_USER_RANGE = 100_000
         val SYSTEM_QUERY_CLASSES = listOf(
