@@ -6,16 +6,43 @@ import org.junit.Test
 
 class ModuleConfigTest {
     @Test fun hiddenFromAppsRoundTrip() {
-        val config = ModuleConfig(emptySet(), DisplayMode.HIDE_SELECTED, PriorityConfig(), false, 10715, TileConfig(), setOf("com.estrongs.android.pop"))
+        val config = ModuleConfig(
+            emptySet(), DisplayMode.HIDE_SELECTED, PriorityConfig(), false, 10715,
+            hiddenFromApps = setOf("com.estrongs.android.pop")
+        )
         val encoded = Json.encodeToString(ModuleConfig.serializer(), config)
         assertEquals(config, Json.decodeFromString(ModuleConfig.serializer(), encoded).validated())
     }
 
     @Test fun atomicConfigurationRoundTrip() {
-        val config = ModuleConfig(setOf(ComponentRule(IntentKind.OPEN, "com.example", "com.example.Open")),
-            DisplayMode.SHOW_SELECTED, PriorityConfig(mapOf(IntentKind.OPEN to listOf("com.example"))), true, 10715)
+        val config = ModuleConfig(
+            setOf(ComponentRule(IntentKind.OPEN, "com.example", "com.example.Open")),
+            DisplayMode.SHOW_SELECTED,
+            PriorityConfig(mapOf(IntentKind.OPEN to listOf("com.example"))),
+            true,
+            10715
+        )
         assertEquals(config, Json.decodeFromString(ModuleConfig.serializer(),
             Json.encodeToString(ModuleConfig.serializer(), config)).validated())
+    }
+
+    @Test fun legacyRuntimeFieldsAreNotSerialized() {
+        val config = ModuleConfig(
+            emptySet(), DisplayMode.HIDE_SELECTED, PriorityConfig(), false,
+            tiles = TileConfig(enabled = true, hidden = setOf("pkg/.Tile")),
+            defaultOpen = DefaultOpenConfig(mapOf(
+                OpenPreset.PDF to ComponentRule(IntentKind.OPEN, "com.example", "com.example.Reader").id
+            ))
+        )
+        val encoded = Json.encodeToString(ModuleConfig.serializer(), config)
+        assertFalse(encoded.contains("tiles"))
+        assertFalse(encoded.contains("defaultOpen"))
+        val decoded = Json { ignoreUnknownKeys = true }.decodeFromString(
+            ModuleConfig.serializer(),
+            encoded.dropLast(1) + ",\"tiles\":{\"enabled\":true,\"hidden\":[]},\"defaultOpen\":{\"preferred\":{}}}"
+        )
+        assertEquals(TileConfig(), decoded.tiles)
+        assertEquals(DefaultOpenConfig(), decoded.defaultOpen)
     }
 
     @Test fun relativeNamesMatchExpandedRuleIds() {
