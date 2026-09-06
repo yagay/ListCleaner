@@ -53,6 +53,35 @@ class DefaultOpenConfigTest {
         assertEquals(OpenPreset.TEXT, matchOpenPreset(IntentKind.OPEN, "text/plain", "content", "looks-like.pdf"))
     }
 
+    @Test fun customMimeAndExtensionAreClassified() {
+        val definitions = mapOf(
+            OpenPreset.CUSTOM_1 to CustomOpenDefinition(
+                title = "Kindle",
+                mimeTypes = setOf("application/vnd.amazon.ebook"),
+                extensions = setOf("azw3", "mobi")
+            ).validated(),
+            OpenPreset.CUSTOM_2 to CustomOpenDefinition(
+                title = "Playlist",
+                mimeTypes = setOf("application/vnd.apple.mpegurl"),
+                extensions = setOf("m3u8")
+            ).validated()
+        )
+        assertEquals(OpenPreset.CUSTOM_1,
+            matchOpenPreset(IntentKind.OPEN, "application/vnd.amazon.ebook", "content", "book.bin", definitions))
+        assertEquals(OpenPreset.CUSTOM_1,
+            matchOpenPreset(IntentKind.OPEN, "application/octet-stream", "content", "book.AZW3", definitions))
+        assertEquals(OpenPreset.CUSTOM_2,
+            matchOpenPreset(IntentKind.OPEN, null, "content", "stream.m3u8?token=1", definitions))
+    }
+
+    @Test fun customWildcardMimeCanMatchSubtypeFamily() {
+        val definitions = mapOf(
+            OpenPreset.CUSTOM_1 to CustomOpenDefinition("Custom image", setOf("image/*"), emptySet()).validated()
+        )
+        assertEquals(OpenPreset.CUSTOM_1,
+            matchOpenPreset(IntentKind.OPEN, "image/heic", "content", null, definitions))
+    }
+
     @Test fun configRequiresMatchingKindAndCanonicalId() {
         val open = ComponentRule(IntentKind.OPEN, "com.example", "com.example.Reader")
         DefaultOpenConfig(mapOf(OpenPreset.PDF to open.id, OpenPreset.MAGNET to open.id)).validated()
