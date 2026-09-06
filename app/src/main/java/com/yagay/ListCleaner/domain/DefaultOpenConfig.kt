@@ -67,7 +67,7 @@ fun matchOpenPreset(
     mimeType: String?,
     scheme: String?,
     fileNameOrPath: String? = null,
-    customDefinitions: Map<OpenPreset, CustomOpenDefinition> = emptyMap()
+    customDefinitions: Map<OpenPreset, CustomOpenDefinition> = CustomOpenRegistry.snapshot()
 ): OpenPreset? {
     val normalizedScheme = scheme?.lowercase()
     if (kind == IntentKind.BROWSER && normalizedScheme in setOf("http", "https")) return OpenPreset.BROWSER
@@ -137,33 +137,31 @@ private fun normalizedExtension(fileNameOrPath: String?): String? {
     return clean.substringAfterLast('/', clean).substringAfterLast('.', "").takeIf { it.isNotEmpty() }
 }
 
-private fun matchOpenPresetByExtension(fileNameOrPath: String?): OpenPreset? {
-    return when (normalizedExtension(fileNameOrPath)) {
-        "pdf" -> OpenPreset.PDF
-        "doc", "docx" -> OpenPreset.WORD
-        "xls", "xlsx" -> OpenPreset.EXCEL
-        "ppt", "pptx" -> OpenPreset.POWERPOINT
-        "epub" -> OpenPreset.EPUB
-        "apk", "apks", "xapk" -> OpenPreset.APK
-        "torrent" -> OpenPreset.TORRENT
-        "md", "markdown" -> OpenPreset.MARKDOWN
-        "csv" -> OpenPreset.CSV
-        "json" -> OpenPreset.JSON
-        "xml" -> OpenPreset.XML
-        "svg" -> OpenPreset.SVG
-        "gif" -> OpenPreset.GIF
-        "jpg", "jpeg", "png", "webp", "bmp", "heic", "heif", "avif" -> OpenPreset.IMAGE
-        "mp4", "mkv", "webm", "avi", "mov", "m4v", "3gp" -> OpenPreset.VIDEO
-        "mp3", "m4a", "aac", "flac", "wav", "ogg", "opus" -> OpenPreset.AUDIO
-        "txt", "log", "ini", "conf", "cfg" -> OpenPreset.TEXT
-        "zip", "rar", "7z", "tar", "gz", "gzip", "tgz", "bz2", "xz" -> OpenPreset.ARCHIVE
-        else -> null
-    }
+private fun matchOpenPresetByExtension(fileNameOrPath: String?): OpenPreset? = when (normalizedExtension(fileNameOrPath)) {
+    "pdf" -> OpenPreset.PDF
+    "doc", "docx" -> OpenPreset.WORD
+    "xls", "xlsx" -> OpenPreset.EXCEL
+    "ppt", "pptx" -> OpenPreset.POWERPOINT
+    "epub" -> OpenPreset.EPUB
+    "apk", "apks", "xapk" -> OpenPreset.APK
+    "torrent" -> OpenPreset.TORRENT
+    "md", "markdown" -> OpenPreset.MARKDOWN
+    "csv" -> OpenPreset.CSV
+    "json" -> OpenPreset.JSON
+    "xml" -> OpenPreset.XML
+    "svg" -> OpenPreset.SVG
+    "gif" -> OpenPreset.GIF
+    "jpg", "jpeg", "png", "webp", "bmp", "heic", "heif", "avif" -> OpenPreset.IMAGE
+    "mp4", "mkv", "webm", "avi", "mov", "m4v", "3gp" -> OpenPreset.VIDEO
+    "mp3", "m4a", "aac", "flac", "wav", "ogg", "opus" -> OpenPreset.AUDIO
+    "txt", "log", "ini", "conf", "cfg" -> OpenPreset.TEXT
+    "zip", "rar", "7z", "tar", "gz", "gzip", "tgz", "bz2", "xz" -> OpenPreset.ARCHIVE
+    else -> null
 }
 
 fun ComponentCandidate.matchesOpenPreset(
     preset: OpenPreset,
-    customDefinitions: Map<OpenPreset, CustomOpenDefinition> = emptyMap()
+    customDefinitions: Map<OpenPreset, CustomOpenDefinition> = CustomOpenRegistry.snapshot()
 ): Boolean {
     if (preset == OpenPreset.BROWSER || rule.kind != IntentKind.OPEN) return false
     return evidence.any { line ->
