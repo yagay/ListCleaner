@@ -23,6 +23,12 @@ import com.yagay.ListCleaner.BuildConfig
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RulesTab(state: MainState, vm: MainViewModel) {
+    var editingTitle by remember { mutableStateOf<com.yagay.ListCleaner.domain.ComponentCandidate?>(null) }
+    editingTitle?.let { item ->
+        ComponentTitleDialog(item, state.priorities.titles[item.rule.id],
+            onSave = { vm.setComponentTitle(item.rule.id, it) },
+            onDismiss = { editingTitle = null })
+    }
     val visibleRules = state.groups.flatMap { it.components }.map { it.rule }.distinct()
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
@@ -59,7 +65,8 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
             }
             if (expanded) {
                 items(group.components, key = { "component|${it.rule.id}" }, contentType = { "component" }) { component ->
-                    ComponentRow(component, component.rule in state.selected) { vm.toggle(component.rule) }
+                    ComponentRow(component, component.rule in state.selected, state.priorities.titles[component.rule.id],
+                        onToggle = { vm.toggle(component.rule) }, onEditTitle = { editingTitle = component })
                 }
             }
         }
@@ -80,7 +87,7 @@ private fun SummaryRow(state: MainState) {
             DisplayMode.SHOW_SELECTED -> "当前为“只显示选中”：规则生效后，对应分类保留勾选的组件，隐藏其他组件。"
             DisplayMode.SHOW_ALL -> "当前为“全部显示”：暂停清理系统候选列表，勾选只保存配置，恢复清理模式后生效。"
         }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("勾选应用可批量选择当前分类及搜索条件下显示的组件；展开可逐项选择。“查看”只筛选本页列表，不改变清理规则。",
+        Text("勾选应用可批量选择当前分类及搜索条件下显示的组件；展开可逐项选择，也可修改组件在系统候选菜单中的显示名称。“查看”只筛选本页列表，不改变清理规则。",
             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (state.displayMode == DisplayMode.SHOW_ALL) {
             Text(if (state.runtime.ready) "system 已确认暂停过滤，勾选及排序保留" else "本地已选择暂停，尚未确认系统已应用", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)

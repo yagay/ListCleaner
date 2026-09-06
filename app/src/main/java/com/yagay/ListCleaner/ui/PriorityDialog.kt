@@ -14,6 +14,7 @@ import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -41,6 +42,12 @@ import com.yagay.ListCleaner.domain.PriorityListFilter
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
+    var editingTitle by remember { mutableStateOf<ComponentCandidate?>(null) }
+    editingTitle?.let { item ->
+        ComponentTitleDialog(item, state.priorities.titles[item.rule.id],
+            onSave = { vm.setComponentTitle(item.rule.id, it) },
+            onDismiss = { editingTitle = null })
+    }
     var kind by rememberSaveable { mutableStateOf(state.filter ?: IntentKind.SHARE) }
     var viewFilter by rememberSaveable { mutableStateOf(UiFilter.ALL) }
     var expandedKey by rememberSaveable { mutableStateOf<String?>(null) }
@@ -129,7 +136,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                 Text("应用列表 · ${groups.size}", style = MaterialTheme.typography.labelLarge)
                 Text("勾选后按优先位置排列，取消后回到未优先应用的默认名称顺序。",
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("长按已优先应用可拖动排序，松手保存；展开后也可上移、下移。",
+                Text("长按已优先应用可拖动排序，松手保存；展开后也可上移、下移。展开组件后可修改其在系统候选菜单中的显示名称。",
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("按分类保存。规则要求清理的组件不显示；应用仍有可见组件时保留。暂时隐藏的排序配置不删除，取消清理后恢复。分享适配推荐区及全部应用区，文本处理在查询出口排序；未知厂商菜单可能另行重排。联系人和调用方专属入口不调整。",
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -201,7 +208,9 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                         }
                     }
                 }
-                items(group.components, key = { "component|${it.rule.id}" }, contentType = { "component" }) { ComponentInfoRow(it) }
+                items(group.components, key = { "component|${it.rule.id}" }, contentType = { "component" }) { item ->
+                    ComponentInfoRow(item, state.priorities.titles[item.rule.id]) { editingTitle = item }
+                }
             }
         }
         if (!state.loading && groups.isEmpty()) item(key = "empty") {
@@ -236,15 +245,18 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
 }
 
 @Composable
-private fun ComponentInfoRow(item: ComponentCandidate) {
+private fun ComponentInfoRow(item: ComponentCandidate, customTitle: String?, onEditTitle: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
             .heightIn(min = 48.dp).padding(start = 24.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column {
+        Column(Modifier.weight(1f)) {
             Text(item.activityLabel, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (!customTitle.isNullOrBlank()) Text("显示为：$customTitle", style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(item.rule.className, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
+        IconButton(onClick = onEditTitle) { Icon(Icons.Rounded.Edit, "修改显示名称") }
     }
 }

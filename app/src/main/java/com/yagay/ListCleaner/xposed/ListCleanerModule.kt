@@ -709,12 +709,35 @@ class ListCleanerModule : XposedModule() {
             filtered
         } else filtered
         if (ordered !== filtered) changed = true
+        val (titled, titleCount) = runCatching { applyCustomTitles(kind, ordered, current) }.getOrElse { failure ->
+            diagnostic("TITLE_FAILED kind=$kind error=${failure.javaClass.name}")
+            ordered to 0
+        }
+        if (titleCount > 0) changed = true
         if (!changed) {
             diagnostic("NO_CHANGE $layer $kind size=${values.size} hasSelection=${current.hasSelection(kind)}")
             return null
         }
-        diagnostic("$layer $kind: ${values.size} -> ${ordered.size}")
-        return ordered
+        diagnostic("$layer $kind: ${values.size} -> ${titled.size}")
+        return titled
+    }
+
+    private fun applyCustomTitles(kind: IntentKind, values: List<*>, current: RuleSnapshot): Pair<List<*>, Int> {
+        if (current.priorities.titles.isEmpty()) return values to 0
+        var replaced = 0
+        val result = values.map { value ->
+            val info = value as? ResolveInfo ?: return@map value
+            val activity = info.activityInfo ?: return@map value
+            val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
+                activity.packageName, activity.name, activity.targetActivity
+            )
+            val key = "${kind.name}|${activity.packageName}|$canonicalClass"
+            val title = current.priorities.titles[key] ?: return@map value
+            replaced++
+            ResolveInfo(info).apply { nonLocalizedLabel = title }
+        }
+        if (replaced > 0) diagnostic("TITLES kind=$kind replaced=$replaced")
+        return if (replaced > 0) result to replaced else values to 0
     }
 
     private fun extractListResult(original: Any?): ListResult? = when {
@@ -755,7 +778,7 @@ class ListCleanerModule : XposedModule() {
                     config.priorities, config.diagnostic, config.managerAppId, digest, config.hiddenFromApps)
                 lastEncodedConfig = encoded
                 record("MANAGER_IDENTITY appId=${config.managerAppId} source=remote_config")
-                record("RULES_READ reason=$reason count=${snapshot.configured.size} mode=${config.mode} diagnostic=${config.diagnostic} atomic=true priorities=${config.priorities.apps.mapValues { it.value.size }} hiddenFromApps=${config.hiddenFromApps.size} digest=$digest")
+                record("RULES_READ reason=$reason count=${snapshot.configured.size} mode=${config.mode} diagnostic=${config.diagnostic} atomic=true priorities=${config.priorities.apps.mapValues { it.value.size }} titles=${config.priorities.titles.size} hiddenFromApps=${config.hiddenFromApps.size} digest=$digest")
                 record("LEGACY_TILE_CONFIG ignored=true enabled=${config.tiles.enabled} hidden=${config.tiles.hidden.size}")
                 return@runCatching
             }

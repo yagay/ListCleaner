@@ -519,6 +519,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleExpandedApp(key: String) { expandedAppKey.value = if (expandedAppKey.value == key) null else key }
     fun exportJson(): String = app.rules.exportJson()
     fun importJson(content: String) = app.rules.importJson(content)
+    fun setComponentTitle(ruleId: String, title: String?) {
+        if (canEdit()) app.rules.setComponentTitle(ruleId, title)
+    }
 
     fun selectPriorityApps(kind: IntentKind, packageNames: Collection<String>) {
         if (!canEdit()) return

@@ -78,9 +78,24 @@ class RuleRepository(context: Context) {
 
     @Synchronized
     fun setPriority(kind: IntentKind, packages: List<String>) {
-        val next = PriorityConfig(mutablePriorities.value.apps.toMutableMap().apply {
+        val next = mutablePriorities.value.copy(apps = mutablePriorities.value.apps.toMutableMap().apply {
             if (packages.isEmpty()) remove(kind) else put(kind, packages.toList())
         }).validated()
+        prefs.edit().putString(KEY_PRIORITIES, encodePriorities(next)).apply()
+        mutablePriorities.value = next
+        mutableRevision.value++
+    }
+
+    @Synchronized
+    fun setComponentTitle(ruleId: String, title: String?) {
+        val parsed = requireNotNull(ComponentRule.fromId(ruleId)) { "无效的组件标识" }
+        require(parsed.id == ruleId) { "组件标识必须使用规范化类名" }
+        val trimmed = title?.trim().orEmpty()
+        val titles = mutablePriorities.value.titles.toMutableMap().apply {
+            if (trimmed.isEmpty()) remove(ruleId) else put(ruleId, trimmed)
+        }
+        val next = mutablePriorities.value.copy(titles = titles).validated()
+        if (next == mutablePriorities.value) return
         prefs.edit().putString(KEY_PRIORITIES, encodePriorities(next)).apply()
         mutablePriorities.value = next
         mutableRevision.value++

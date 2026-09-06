@@ -39,6 +39,24 @@ class PriorityConfigTest {
         assertEquals(backup, Json.decodeFromString(RuleBackup.serializer(), text))
     }
 
+    @Test fun componentTitlesRoundTripAndRequireCanonicalRuleIds() {
+        val rule = ComponentRule(IntentKind.OPEN, "com.example", "com.example.OpenActivity")
+        val value = PriorityConfig(titles = mapOf(rule.id to "PDF 阅读器")).validated()
+        val text = Json.encodeToString(PriorityConfig.serializer(), value)
+        assertEquals(value, Json.decodeFromString(PriorityConfig.serializer(), text).validated())
+        assertThrows(IllegalArgumentException::class.java) {
+            PriorityConfig(titles = mapOf("OPEN|com.example|.OpenActivity" to "bad")).validated()
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            PriorityConfig(titles = mapOf(rule.id to "x".repeat(65))).validated()
+        }
+    }
+
+    @Test fun oldPriorityJsonDefaultsTitlesToEmpty() {
+        val decoded = Json.decodeFromString(PriorityConfig.serializer(), """{"apps":{"SHARE":["com.a"]}}""")
+        assertTrue(decoded.titles.isEmpty())
+    }
+
     @Test fun versionOneBackupDefaultsToSystemOrder() {
         val backup = Json.decodeFromString(RuleBackup.serializer(), """{"version":1,"blacklist":true,"rules":[]}""")
         assertTrue(backup.priorities.apps.isEmpty())

@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -91,7 +92,7 @@ import com.yagay.ListCleaner.domain.ComponentRule
     }
 
     @Composable
-    internal fun ComponentRow(item: ComponentCandidate, checked: Boolean, onToggle: () -> Unit) {
+    internal fun ComponentRow(item: ComponentCandidate, checked: Boolean, customTitle: String?, onToggle: () -> Unit, onEditTitle: () -> Unit) {
 
             Row(
                 Modifier.fillMaxWidth()
@@ -122,6 +123,13 @@ import com.yagay.ListCleaner.domain.ComponentRule
                             overflow = TextOverflow.Ellipsis
                         )
                     }
+                    if (!customTitle.isNullOrBlank()) Text(
+                        "显示为：$customTitle",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                     Text(
                         item.rule.className,
                         modifier = Modifier.padding(top = 2.dp),
@@ -133,6 +141,9 @@ import com.yagay.ListCleaner.domain.ComponentRule
                     if (item.unavailable) Text("当前未找到组件 · 可取消规则", style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error)
                     else if (item.restricted) Text("非公开组件 · 可取消已有规则", style = MaterialTheme.typography.labelSmall)
+                }
+                IconButton(onClick = onEditTitle) {
+                    Icon(Icons.Rounded.Edit, contentDescription = "修改显示名称")
                 }
             }
         }
