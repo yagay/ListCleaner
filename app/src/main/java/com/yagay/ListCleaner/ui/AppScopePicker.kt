@@ -27,7 +27,7 @@ data class ScopeAppEntry(
 )
 
 @Suppress("DEPRECATION")
-private fun loadScopeApps(pm: PackageManager, selfPackage: String): List<ScopeAppEntry> {
+private fun loadScopeApps(pm: PackageManager, selfPackage: String, selected: Set<String>): List<ScopeAppEntry> {
     val installed = if (android.os.Build.VERSION.SDK_INT >= 33) {
         pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0))
     } else {
@@ -35,6 +35,10 @@ private fun loadScopeApps(pm: PackageManager, selfPackage: String): List<ScopeAp
     }
     return installed.asSequence()
         .filter { it.packageName != selfPackage && it.packageName != "android" }
+        // The hide-list is for apps a user can actually open and operate. Service/provider-only
+        // packages cannot present their own chooser UI, so showing them only adds noise. Keep an
+        // already-selected package visible so a stale entry can still be removed from the list.
+        .filter { info -> info.packageName in selected || pm.getLaunchIntentForPackage(info.packageName) != null }
         .map { info -> ScopeAppEntry(
             packageName = info.packageName,
             label = runCatching { pm.getApplicationLabel(info).toString() }.getOrDefault(info.packageName),
@@ -59,7 +63,7 @@ internal fun AppScopePickerDialog(
     var loading by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
-        apps = withContext(Dispatchers.IO) { loadScopeApps(context.packageManager, context.packageName) }
+        apps = withContext(Dispatchers.IO) { loadScopeApps(context.packageManager, context.packageName, selected) }
         loading = false
     }
 
@@ -86,7 +90,7 @@ internal fun AppScopePickerDialog(
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp)) {
                 Text(
-                    "这里选择的是“从哪些应用中隐藏规则目标”。仅在“隐藏选中”模式生效；这些应用不需要加入 LSPosed Hook 作用域，List Cleaner 只在 system/system_server 侧应用包级隐藏。勾选立即保存。",
+                    "这里选择的是“从哪些应用中隐藏规则目标”。仅在“隐藏选中”模式生效；这些应用不需要加入 LSPosed Hook 作用域，List Cleaner 只在 system/system_server 侧应用包级隐藏。列表只显示可直接打开的应用，后台服务等无界面包不会显示。勾选立即保存。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
