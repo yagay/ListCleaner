@@ -9,14 +9,6 @@ on:
       - 'RELEASE_NOTES.md'
       - '.github/workflows/build-release.yml'
       - 'tools/prepare-release-signing.py'
-  push:
-    branches: [main]
-    paths:
-      - 'app/build.gradle.kts'
-      - 'RELEASE_NOTES.md'
-      - '.github/workflows/build-release.yml'
-      - 'tools/prepare-release-signing.py'
-      - 'signing/release-certificate.sha256'
 
 permissions:
   contents: read
@@ -67,7 +59,7 @@ jobs:
   release:
     permissions:
       contents: write
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     defaults:
