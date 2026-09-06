@@ -107,7 +107,9 @@ fun DashboardTabContent(
     val checkingFile by vm.checkingFile.collectAsState()
     var menu by remember { mutableStateOf(false) }
     var showScopeDetails by remember { mutableStateOf(false) }
+    var showAppScopePicker by remember { mutableStateOf(false) }
     if (showScopeDetails) ScopeDialog(state.module, vm::requestScope, vm::refreshModuleStatus) { showScopeDetails = false }
+    if (showAppScopePicker) AppScopePickerDialog(state.module, vm::refreshModuleStatus) { showAppScopePicker = false }
     Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         RuntimePanel(state, vm)
         Text("全局清理模式", style = MaterialTheme.typography.titleMedium)
@@ -151,6 +153,21 @@ fun DashboardTabContent(
         ModuleStatusRow(state) {
             showScopeDetails = true
             vm.refreshModuleStatus()
+        }
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("应用内列表 Hook", fontWeight = FontWeight.Bold)
+                Text("某些文件管理器、分享面板会自己查询并绘制应用列表。可把这类应用加入 LSPosed 作用域，让 List Cleaner 在目标应用进程内处理候选。", style = MaterialTheme.typography.bodySmall)
+                Button(
+                    onClick = {
+                        vm.refreshModuleStatus()
+                        showAppScopePicker = true
+                    },
+                    enabled = state.module.connected,
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("选择应用加入 Hook") }
+                Text("只建议勾选确实存在自定义“打开方式 / 分享”列表的应用；已在作用域中的应用会显示为“已 Hook”。", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         Text("运行版本由 LSPosed 提供；配置摘要由 system Hook 确认，不代表所有选择器行为均已验证。首次从 1.4.4 或更早版本迁移需重启；以后可尝试热更新，框架不支持或失败时仍需重启。", style = MaterialTheme.typography.bodySmall)
 
