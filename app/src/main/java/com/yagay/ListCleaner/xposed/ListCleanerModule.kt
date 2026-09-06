@@ -499,6 +499,7 @@ class ListCleanerModule : XposedModule() {
         val key = "${launch.callerPackage}|${launch.component}|${kind.name}"
         val hits = learnedChooserHits.merge(key, 1, Int::plus) ?: 1
         val confidence = when {
+            score >= 7 && hits >= 1 -> "HIGH"
             score >= 6 && hits >= 2 -> "HIGH"
             score >= 6 -> "MEDIUM"
             else -> "LOW"
