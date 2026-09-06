@@ -138,8 +138,16 @@ class ListCleanerModule : XposedModule() {
                 application?.classLoader?.let(loaders::add)
             }.onFailure { record("ORDER_LOADER_UNAVAILABLE error=${it.javaClass.name}") }
             loaders.forEach {
-                if (systemServer) installSystemServerQueryHooks(it)
-                else installResolverClientHooks(it)
+                if (systemServer) {
+                    installSystemServerQueryHooks(it)
+                } else {
+                    val baseProcess = processName.substringBefore(':')
+                    if (baseProcess == FRAMEWORK_PACKAGE || baseProcess == INTENT_RESOLVER_PACKAGE) {
+                        installResolverClientHooks(it)
+                    } else {
+                        installApplicationClientHooks(it, baseProcess)
+                    }
+                }
             }
             check(installedMethods.any {
                 it.endsWith(if (systemServer) "@SYSTEM" else "@RESOLVER")
@@ -175,6 +183,10 @@ class ListCleanerModule : XposedModule() {
         initializePreferences()
         if (param.packageName == FRAMEWORK_PACKAGE || param.packageName == INTENT_RESOLVER_PACKAGE) {
             installResolverClientHooks(param.classLoader)
+        } else {
+            // Additional LSPosed scope selected by the user: only intercept the app's own
+            // PackageManager candidate query. Do not install Resolver UI ordering hooks here.
+            installApplicationClientHooks(param.classLoader, param.packageName)
         }
     }
 
@@ -208,6 +220,20 @@ class ListCleanerModule : XposedModule() {
         }
         record("RESOLVER_HOOKS new=$installed total=${installedMethods.size}")
         installFinalOrderingHooks(classLoader)
+    }
+
+    private fun installApplicationClientHooks(classLoader: ClassLoader, packageName: String) {
+        val clazz = runCatching {
+            Class.forName("android.app.ApplicationPackageManager", false, classLoader)
+        }.getOrElse {
+            record("APP_QUERY_CLASS_UNAVAILABLE package=$packageName error=${it.javaClass.name}")
+            return
+        }
+        var installed = 0
+        clazz.declaredMethods.filter(::isQueryIntentActivitiesMethod).forEach { method ->
+            if (installHook(method, Layer.RESOLVER)) installed++
+        }
+        record("APP_QUERY_HOOKS package=$packageName new=$installed total=${installedMethods.size}")
     }
 
     private fun installFinalOrderingHooks(loader: ClassLoader) {
