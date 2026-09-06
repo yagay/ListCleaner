@@ -23,6 +23,7 @@ import com.yagay.ListCleaner.BuildConfig
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RulesTab(state: MainState, vm: MainViewModel) {
+    val visibleRules = state.groups.flatMap { it.components }.map { it.rule }.distinct()
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item(key = "module-indicator") {
@@ -31,7 +32,9 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
         }
         stickyHeader(key = "list-controls") {
             Surface(tonalElevation = 2.dp) {
-                ListControls(state, vm::setFilter, vm::setUiFilter)
+                ListControls(state, vm::setFilter, vm::setUiFilter,
+                    onSelectAll = { vm.selectRules(visibleRules) },
+                    onInvert = { vm.invertRules(visibleRules) })
             }
         }
         item(key = "list-summary") {

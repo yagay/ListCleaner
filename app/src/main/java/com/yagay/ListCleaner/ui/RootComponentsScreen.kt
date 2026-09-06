@@ -93,6 +93,14 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             }
                         }
                         Spacer(Modifier.weight(1f))
+                        TextButton(
+                            onClick = { vm.changeComponents(visible, enable = false) },
+                            enabled = !busy && visible.any { it.blocked == null && it.enabled != null && it.enabled == true }
+                        ) { Text("全选") }
+                        TextButton(
+                            onClick = { vm.invertComponents(visible) },
+                            enabled = !busy && visible.any { it.blocked == null && it.enabled != null }
+                        ) { Text("反选") }
                         TextButton(onClick = vm::refreshComponents, enabled = !busy) { Text(if (busy) "处理中…" else "刷新") }
                     }
                     if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())

@@ -205,6 +205,42 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun invertComponents(visibleTargets: List<RootComponent>) {
+        if (mutableComponentBusy.value) return
+        val targets = visibleTargets.filter { it.blocked == null && it.enabled != null }
+            .distinctBy { "${it.user}|${it.component.flattenToString()}" }
+        if (targets.isEmpty()) return
+        mutableComponentRootNotice.value = null
+        mutableComponentBusy.value = true
+        mutableComponentMessage.value = "正在请求 Root 并反选组件…"
+        viewModelScope.launch {
+            withContext(kotlinx.coroutines.NonCancellable + Dispatchers.IO) {
+                var completed = 0
+                var operationStarted = false
+                try {
+                    rootCatalog.requireRoot()
+                    for (target in targets) {
+                        operationStarted = true
+                        val enable = target.enabled == false
+                        mutableComponentMessage.value = "正在反选 ${completed + 1}/${targets.size}：${target.label}"
+                        rootCatalog.change(target, enable)
+                        completed++
+                    }
+                    mutableComponentMessage.value = "已核验：$completed 个组件已反选；请重新打开目标选择器"
+                } catch (failure: ComponentRootCommand.RootAccessException) {
+                    mutableComponentMessage.value = failure.message
+                    mutableComponentRootNotice.value = failure.message
+                } catch (failure: Exception) {
+                    mutableComponentMessage.value = "已完成 $completed/${targets.size}，反选已停止：${failure.message ?: "操作失败"}。已完成项不回滚。"
+                } finally {
+                    if (operationStarted) runCatching { rootCatalog.scan() }.onSuccess { mutableComponentScan.value = it }
+                        .onFailure { mutableComponentScan.value = RootComponentScan(warning = "操作后扫描失败，请刷新；不使用旧状态") }
+                    mutableComponentBusy.value = false
+                }
+            }
+        }
+    }
+
     private val mutableUpdating = MutableStateFlow(false)
     val updating: StateFlow<Boolean> = mutableUpdating
     private val mutableUpdateMessage = MutableStateFlow<String?>(null)
@@ -467,6 +503,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun toggle(rule: ComponentRule) { if (canEdit()) app.rules.toggle(rule) }
     fun setGroupSelected(group: AppGroup, selected: Boolean) { if (canEdit()) app.rules.setSelected(group.components.map { it.rule }, selected) }
+    fun selectRules(rules: Collection<ComponentRule>) {
+        if (!canEdit() || rules.isEmpty()) return
+        app.rules.setSelected(rules.distinct(), true)
+    }
+    fun invertRules(rules: Collection<ComponentRule>) {
+        if (!canEdit() || rules.isEmpty()) return
+        val current = app.rules.rules.value
+        val unique = rules.distinct()
+        val select = unique.filter { it !in current }
+        val unselect = unique.filter { it in current }
+        if (select.isNotEmpty()) app.rules.setSelected(select, true)
+        if (unselect.isNotEmpty()) app.rules.setSelected(unselect, false)
+    }
     fun setDisplayMode(value: DisplayMode) { if (canEdit()) app.rules.setDisplayMode(value) }
     fun setFilter(value: IntentKind?) { filter.value = value }
     fun setQuery(value: String) { query.value = value }
@@ -475,6 +524,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleExpandedApp(key: String) { expandedAppKey.value = if (expandedAppKey.value == key) null else key }
     fun exportJson(): String = app.rules.exportJson()
     fun importJson(content: String) = app.rules.importJson(content)
+
+    fun selectPriorityApps(kind: IntentKind, packageNames: Collection<String>) {
+        if (!canEdit()) return
+        val current = app.rules.priorities.value.apps[kind].orEmpty()
+        val additions = packageNames.distinct().filter { it !in current }
+        val next = (current + additions).take(200)
+        if (next != current) app.rules.setPriority(kind, next)
+    }
+
+    fun invertPriorityApps(kind: IntentKind, packageNames: Collection<String>) {
+        if (!canEdit()) return
+        val visible = packageNames.distinct()
+        if (visible.isEmpty()) return
+        val visibleSet = visible.toSet()
+        val current = app.rules.priorities.value.apps[kind].orEmpty()
+        val retained = current.filterNot { it in visibleSet }
+        val added = visible.filter { it !in current }
+        val next = (retained + added).take(200)
+        if (next != current) app.rules.setPriority(kind, next)
+    }
 
     fun pinApp(kind: IntentKind, packageName: String) {
         if (!canEdit()) return

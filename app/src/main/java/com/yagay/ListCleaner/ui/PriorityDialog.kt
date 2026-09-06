@@ -119,7 +119,9 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                         UiFilter.ALL -> "全部"
                         UiFilter.HIDE_SELECTED -> "未优先"
                         UiFilter.SHOW_SELECTED -> "已优先"
-                    } })
+                    } },
+                    onSelectAll = { vm.selectPriorityApps(kind, groups.map { it.packageName }) },
+                    onInvert = { vm.invertPriorityApps(kind, groups.map { it.packageName }) })
             }
         }
         item(key = "summary") {

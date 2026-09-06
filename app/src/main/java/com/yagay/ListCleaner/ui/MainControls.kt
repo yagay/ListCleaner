@@ -130,7 +130,8 @@ internal fun MainToolbar(query: String, expanded: Boolean, onQuery: (String) -> 
 
 @Composable
 internal fun ListControls(state: MainState, onFilter: (IntentKind?) -> Unit, onUiFilter: (UiFilter) -> Unit,
-                          includeAllKinds: Boolean = true, viewTitle: (UiFilter) -> String = { it.title }) {
+                          includeAllKinds: Boolean = true, viewTitle: (UiFilter) -> String = { it.title },
+                          onSelectAll: (() -> Unit)? = null, onInvert: (() -> Unit)? = null) {
     var menu by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
         LazyRow(contentPadding = PaddingValues(horizontal = 12.dp)) {
@@ -159,6 +160,15 @@ internal fun ListControls(state: MainState, onFilter: (IntentKind?) -> Unit, onU
                             leadingIcon = { if (mode == state.uiFilter) Icon(Icons.Rounded.Check, null) },
                             onClick = { menu = false; onUiFilter(mode) })
                     }
+                }
+            }
+            if (onSelectAll != null || onInvert != null) {
+                Spacer(Modifier.weight(1f))
+                onSelectAll?.let { action ->
+                    TextButton(onClick = action) { Text("全选") }
+                }
+                onInvert?.let { action ->
+                    TextButton(onClick = action) { Text("反选") }
                 }
             }
         }
