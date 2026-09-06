@@ -28,7 +28,8 @@
             android:name=".ui.AdaptiveChooserActivity"
             android:exported="true"
             android:excludeFromRecents="true"
-            android:launchMode="singleTop" />
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.ListCleaner.ChooserPopup" />
 
         <activity android:name=".ui.MainActivity" android:exported="true">
             <intent-filter>
