@@ -645,21 +645,21 @@ class ListCleanerModule : XposedModule() {
         var installed = 0
         clazz.declaredMethods.asSequence()
             .filter { method ->
-                method.name == "callActivityOnCreate" &&
+                method.name == "callActivityOnResume" &&
                     method.parameterTypes.any { Activity::class.java.isAssignableFrom(it) }
             }
             .distinctBy(Method::toGenericString)
             .forEach { method ->
-                val key = "APP_PICKER_CREATE#${method.toGenericString()}"
+                val key = "APP_PICKER_RESUME#${method.toGenericString()}"
                 if (!installedMethods.add(key)) return@forEach
                 runCatching {
                     method.isAccessible = true
-                    hook(method).setId(APP_PICKER_BRIDGE_HOOK_ID).intercept(appPickerCreateHooker(packageName))
+                    hook(method).setId(APP_PICKER_BRIDGE_HOOK_ID).intercept(appPickerResumeHooker(packageName))
                     installed++
-                    record("APP_PICKER_BRIDGE_CREATE_HOOK_INSTALLED package=$packageName method=${method.toGenericString()}")
+                    record("APP_PICKER_BRIDGE_RESUME_HOOK_INSTALLED package=$packageName method=${method.toGenericString()}")
                 }.onFailure {
                     installedMethods.remove(key)
-                    record("APP_PICKER_BRIDGE_CREATE_HOOK_FAILED package=$packageName error=${it.javaClass.name}")
+                    record("APP_PICKER_BRIDGE_RESUME_HOOK_FAILED package=$packageName error=${it.javaClass.name}")
                 }
             }
         clazz.declaredMethods.asSequence()
@@ -692,12 +692,17 @@ class ListCleanerModule : XposedModule() {
         record("APP_PICKER_BRIDGE_READY package=$packageName hooks=$installed")
     }
 
-    private fun appPickerCreateHooker(packageName: String) = XposedInterface.Hooker { chain ->
+    private fun appPickerResumeHooker(packageName: String) = XposedInterface.Hooker { chain ->
         val result = chain.proceed()
         runCatching {
             if (!snapshot.diagnostic) return@runCatching
             val activity = chain.args.firstOrNull { it is Activity } as? Activity ?: return@runCatching
-            val session = recentSelfChooserSessions[packageName] ?: return@runCatching
+            val session = recentSelfChooserSessions[packageName]
+            diagnostic(
+                "APP_PICKER_BRIDGE_RESUME package=$packageName activity=${activity.componentName?.flattenToShortString() ?: "-"} " +
+                    "session=${session?.component ?: "-"} kind=${session?.kind ?: "-"}"
+            )
+            session ?: return@runCatching
             val age = SystemClock.elapsedRealtime() - session.startedAt
             if (age !in 0..SELF_CHOOSER_SESSION_TTL_MS) return@runCatching
             val activityComponent = activity.componentName?.flattenToShortString() ?: return@runCatching
