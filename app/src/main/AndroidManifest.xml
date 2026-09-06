@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
     <queries>
         <package android:name="com.android.systemui"/>
         <intent><action android:name="android.service.quicksettings.action.QS_TILE"/></intent>

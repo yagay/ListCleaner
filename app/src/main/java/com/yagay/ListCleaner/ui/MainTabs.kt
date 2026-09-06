@@ -168,7 +168,7 @@ fun DashboardTabContent(
                     onClick = { showAppScopePicker = true },
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("管理应用隐藏列表（${state.hiddenFromApps.size}）") }
-                Text("勾选立即保存；该功能通过 android/system_server 的系统级应用可见性过滤实现，属于包级隐藏，不区分同一应用内的单个 Activity 或组件。", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("勾选立即保存；仅在“隐藏选中”模式生效。该功能通过 android/system_server 的系统级应用可见性过滤实现，属于包级隐藏，不区分同一应用内的单个 Activity 或组件。", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 

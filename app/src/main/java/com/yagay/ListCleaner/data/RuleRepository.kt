@@ -103,6 +103,15 @@ class RuleRepository(context: Context) {
         updateRules(next)
     }
 
+    @Synchronized fun invertSelected(rules: Collection<ComponentRule>) {
+        val valid = rules.filter(ComponentRule::isValid).mapNotNull { ComponentRule.fromId(it.id) }.distinct()
+        if (valid.isEmpty()) return
+        val next = mutableRules.value.toMutableSet().apply {
+            valid.forEach { rule -> if (!add(rule)) remove(rule) }
+        }.toSet()
+        updateRules(next)
+    }
+
     @Synchronized fun setDisplayMode(value: DisplayMode) {
         // An empty whitelist is treated as disabled by the hook, so it can never blank the Resolver.
         mutableMode.value = value

@@ -31,6 +31,8 @@ import com.yagay.ListCleaner.domain.ModuleConfig
 import com.yagay.ListCleaner.domain.FilterPolicy
 import com.yagay.ListCleaner.domain.intentKind
 import com.yagay.ListCleaner.domain.ManagerIdentity
+import com.yagay.ListCleaner.domain.VisibilityLayout
+import com.yagay.ListCleaner.domain.VisibilitySignature
 import kotlinx.serialization.json.Json
 import java.lang.reflect.Constructor
 import java.lang.reflect.Method
@@ -140,8 +142,14 @@ class ListCleanerModule : XposedModule() {
                         installedMethods.add("${method.declaringClass.name}#${method.toGenericString()}@$layer")
                     }
                     method != null && handle.id == VISIBILITY_HOOK_ID && method.name == "shouldFilterApplication" -> {
-                        handle.replaceHook(systemVisibilityHooker())
-                        installedMethods.add("VISIBILITY#${method.toGenericString()}")
+                        val adapter = visibilityAdapter(method)
+                        if (adapter != null) {
+                            handle.replaceHook(systemVisibilityHooker(adapter))
+                            installedMethods.add("VISIBILITY#${method.toGenericString()}")
+                        } else {
+                            record("VISIBILITY_RELOAD_SKIP method=${method.toGenericString()} reason=unsupported_signature")
+                            handle.unhook()
+                        }
                     }
                     method != null && handle.id == "ic-final-order" -> {
                         handle.replaceHook(orderHooker())
@@ -253,12 +261,18 @@ class ListCleanerModule : XposedModule() {
                 emptyList()
             }
             methods.forEach { method ->
+                val adapter = visibilityAdapter(method)
+                if (adapter == null) {
+                    record("VISIBILITY_HOOK_SKIP method=${method.toGenericString()} reason=unsupported_signature")
+                    return@forEach
+                }
                 val key = "VISIBILITY#${method.toGenericString()}"
                 if (!installedMethods.add(key)) return@forEach
                 runCatching {
                     method.isAccessible = true
-                    hook(method).setId(VISIBILITY_HOOK_ID).intercept(systemVisibilityHooker())
+                    hook(method).setId(VISIBILITY_HOOK_ID).intercept(systemVisibilityHooker(adapter))
                     installed++
+                    record("VISIBILITY_HOOK_INSTALLED method=${method.toGenericString()} uidIndex=${adapter.uidIndex} callerIndex=${adapter.callerSettingIndex} targetIndex=${adapter.targetIndex}")
                 }.onFailure {
                     installedMethods.remove(key)
                     record("VISIBILITY_HOOK_FAILED method=${method.toGenericString()} error=${it.javaClass.name}")
@@ -268,7 +282,10 @@ class ListCleanerModule : XposedModule() {
         record("VISIBILITY_HOOKS new=$installed callers=${snapshot.hiddenFromApps.size} targets=${snapshot.allSelectedPackages.size}")
     }
 
-    private fun systemVisibilityHooker() = XposedInterface.Hooker { chain ->
+    private fun visibilityAdapter(method: Method): VisibilityLayout? =
+        VisibilitySignature.parse(method.parameterTypes.map { it.name })
+
+    private fun systemVisibilityHooker(adapter: VisibilityLayout) = XposedInterface.Hooker { chain ->
         pollPreferences()
         val current = snapshot
         // Package-level hiding is intentionally limited to HIDE_SELECTED. SHOW_SELECTED at package
@@ -279,23 +296,46 @@ class ListCleanerModule : XposedModule() {
         }
 
         val args = chain.args
-        val callingUid = (args.getOrNull(1) as? Int)
-            ?: args.filterIsInstance<Int>().firstOrNull { it >= 10_000 }
-            ?: return@Hooker chain.proceed()
+        val callingUid = args.getOrNull(adapter.uidIndex) as? Int ?: return@Hooker chain.proceed()
         if (callingUid < 10_000) return@Hooker chain.proceed()
 
+        // Newer Android exposes a Computer/PackageDataSnapshot object; Android 12 does not, so
+        // fall back to the calling SettingBase/PackageSetting supplied by AppsFilter itself.
         val computer = args.firstOrNull { value -> value != null && hasGetPackagesForUid(value.javaClass) }
-            ?: return@Hooker chain.proceed()
-        val callers = packagesForUid(computer, callingUid)
+        val callers = if (computer != null) packagesForUid(computer, callingUid)
+            else packageNamesFromCallerSetting(adapter.callerSettingIndex?.let(args::getOrNull))
         if (callers.isEmpty() || callers.none { it in current.hiddenFromApps }) return@Hooker chain.proceed()
 
-        val target = packageNameFromVisibilityArgs(args) ?: return@Hooker chain.proceed()
+        val target = packageNameFromState(args.getOrNull(adapter.targetIndex)) ?: return@Hooker chain.proceed()
         if (target in callers || target == MANAGER_PACKAGE || target !in current.allSelectedPackages) {
             return@Hooker chain.proceed()
         }
 
         diagnostic("SYSTEM_VISIBILITY_FILTER uid=$callingUid caller=${callers.sorted()} target=$target")
         true
+    }
+
+    private fun packageNamesFromCallerSetting(value: Any?): Set<String> {
+        if (value == null) return emptySet()
+        packageNameFromState(value)?.let { return setOf(it) }
+        val classes = generateSequence(value.javaClass as Class<*>?) { it.superclass }.toList()
+        val result = linkedSetOf<String>()
+        classes.asSequence().flatMap { it.declaredFields.asSequence() }
+            .filter { field ->
+                val name = field.name.lowercase()
+                "package" in name || "packages" in name
+            }.take(12).forEach { field ->
+                runCatching {
+                    field.isAccessible = true
+                    when (val nested = field.get(value)) {
+                        is Array<*> -> nested.asSequence()
+                        is Collection<*> -> nested.asSequence()
+                        is Map<*, *> -> nested.values.asSequence()
+                        else -> emptySequence()
+                    }.mapNotNull(::packageNameFromState).forEach(result::add)
+                }
+            }
+        return result
     }
 
     private fun hasGetPackagesForUid(clazz: Class<*>): Boolean =
@@ -327,13 +367,6 @@ class ListCleanerModule : XposedModule() {
         } finally {
             Binder.restoreCallingIdentity(identity)
         }
-    }
-
-    private fun packageNameFromVisibilityArgs(args: List<Any?>): String? {
-        // Android 13+ AppsFilterImpl currently carries the target package state near index 3.
-        val preferred = args.getOrNull(3)?.let(::packageNameFromState)
-        if (!preferred.isNullOrBlank()) return preferred
-        return args.asSequence().mapNotNull(::packageNameFromState).firstOrNull()
     }
 
     private fun packageNameFromState(value: Any?): String? {
@@ -654,11 +687,9 @@ class ListCleanerModule : XposedModule() {
                 val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
                     activity.packageName, activity.name, activity.targetActivity
                 )
-                val exactSelected = "${kind.name}|${activity.packageName}|$canonicalClass" in current.configured
-                val packageFallback = false
-                val selected = exactSelected || packageFallback
+                val selected = "${kind.name}|${activity.packageName}|$canonicalClass" in current.configured
                 diagnostic(
-                    "CANDIDATE $layer $kind ${activity.packageName}/${activity.name} target=${activity.targetActivity} canonical=$canonicalClass selected=$selected match=${if (exactSelected) "component" else if (packageFallback) "package" else "none"}",
+                    "CANDIDATE $layer $kind ${activity.packageName}/${activity.name} target=${activity.targetActivity} canonical=$canonicalClass selected=$selected match=${if (selected) "component" else "none"}",
                     detail = true
                 )
                 current.displayMode.includes(selected, current.hasSelection(kind)).also {
@@ -796,7 +827,8 @@ class ListCleanerModule : XposedModule() {
         const val VISIBILITY_HOOK_ID = "ic-system-package-visibility"
         const val MANAGER_PACKAGE = "com.yagay.ListCleaner"
         val SYSTEM_VISIBILITY_CLASSES = listOf(
-            "com.android.server.pm.AppsFilterImpl"
+            "com.android.server.pm.AppsFilterImpl",
+            "com.android.server.pm.AppsFilter"
         )
         val SYSTEM_QUERY_CLASSES = listOf(
             "com.android.server.pm.PackageManagerService\$IPackageManagerImpl",

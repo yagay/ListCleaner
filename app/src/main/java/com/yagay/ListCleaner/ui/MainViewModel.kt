@@ -509,12 +509,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun invertRules(rules: Collection<ComponentRule>) {
         if (!canEdit() || rules.isEmpty()) return
-        val current = app.rules.rules.value
-        val unique = rules.distinct()
-        val select = unique.filter { it !in current }
-        val unselect = unique.filter { it in current }
-        if (select.isNotEmpty()) app.rules.setSelected(select, true)
-        if (unselect.isNotEmpty()) app.rules.setSelected(unselect, false)
+        app.rules.invertSelected(rules)
     }
     fun setDisplayMode(value: DisplayMode) { if (canEdit()) app.rules.setDisplayMode(value) }
     fun setFilter(value: IntentKind?) { filter.value = value }

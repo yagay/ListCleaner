@@ -86,7 +86,7 @@ internal fun AppScopePickerDialog(
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp)) {
                 Text(
-                    "这里选择的是“从哪些应用中隐藏规则目标”。这些应用不需要加入 LSPosed Hook 作用域；List Cleaner 只在 system/system_server 侧应用隐藏。勾选立即保存。",
+                    "这里选择的是“从哪些应用中隐藏规则目标”。仅在“隐藏选中”模式生效；这些应用不需要加入 LSPosed Hook 作用域，List Cleaner 只在 system/system_server 侧应用包级隐藏。勾选立即保存。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
