@@ -2,6 +2,7 @@ package com.yagay.ListCleaner.xposed
 
 import android.content.Intent
 import android.content.Context
+import android.content.ComponentName
 import android.content.SharedPreferences
 import android.content.pm.ResolveInfo
 import android.content.pm.ActivityInfo
@@ -298,22 +299,61 @@ class ListCleanerModule : XposedModule() {
 
     private fun observeActivityStart(chain: XposedInterface.Chain) {
         val current = snapshot
-        if (!current.diagnostic || current.hiddenFromApps.isEmpty()) return
+        if (current.hiddenFromApps.isEmpty()) return
         val request = chain.args.firstOrNull { value -> value != null && value.javaClass.name.contains("ActivityStarter\$Request") }
             ?: chain.args.firstOrNull { value -> value != null && value.javaClass.simpleName == "Request" }
             ?: return
         val intent = readNamedField(request, listOf("intent", "mIntent")) as? Intent ?: return
-        val component = intent.component ?: return
         val callerPackage = (readNamedField(request, listOf("callingPackage", "mCallingPackage")) as? String)
             ?.takeIf { it.isNotBlank() } ?: return
-        if (callerPackage !in current.hiddenFromApps || component.packageName != callerPackage) return
+        if (callerPackage !in current.hiddenFromApps) return
         val uid = (readNamedField(request, listOf("callingUid", "mCallingUid")) as? Int)
             ?.takeIf { it >= Process.FIRST_APPLICATION_UID } ?: return
+
+        if (intent.action == Intent.ACTION_CHOOSER) {
+            injectSystemChooserExclusions(intent, callerPackage, uid, current)
+        }
+
+        if (!current.diagnostic) return
+        val component = intent.component ?: return
+        if (component.packageName != callerPackage) return
         val hasPayloadHint = intent.data != null || intent.type != null || intent.clipData != null ||
             intent.selector != null || runCatching { intent.extras?.keySet()?.isNotEmpty() == true }.getOrDefault(false)
         val entry = RecentChooserLaunch(uid, callerPackage, component.flattenToShortString(), SystemClock.elapsedRealtime(), hasPayloadHint)
         recentChooserLaunches[uid] = entry
         diagnostic("CHOOSER_ACTIVITY_CANDIDATE uid=$uid caller=$callerPackage component=${entry.component} payloadHint=$hasPayloadHint")
+    }
+
+    @Suppress("DEPRECATION")
+    private fun injectSystemChooserExclusions(chooser: Intent, callerPackage: String, callerUid: Int, current: RuleSnapshot) {
+        val target = runCatching { chooser.getParcelableExtra<Intent>(Intent.EXTRA_INTENT) }.getOrNull()
+        if (target == null) {
+            diagnostic("SYSTEM_CHOOSER_OBSERVED uid=$callerUid caller=$callerPackage target=missing action=${chooser.action}")
+            return
+        }
+        val effective = target.selector ?: target
+        val kind = effective.intentKind(effective.type)
+        diagnostic("SYSTEM_CHOOSER_OBSERVED uid=$callerUid caller=$callerPackage targetAction=${effective.action} mime=${effective.type} kind=${kind?.name ?: "UNKNOWN"}")
+        if (current.displayMode != DisplayMode.HIDE_SELECTED || kind == null || !current.hasSelection(kind)) return
+
+        val configured = current.configured.asSequence().mapNotNull { id ->
+            val parts = id.split('|', limit = 3)
+            if (parts.size != 3 || parts[0] != kind.name) return@mapNotNull null
+            val pkg = parts[1]
+            if (pkg.isBlank() || pkg == callerPackage || pkg == MANAGER_PACKAGE) return@mapNotNull null
+            val cls = if (parts[2].startsWith('.')) pkg + parts[2] else parts[2]
+            runCatching { ComponentName(pkg, cls) }.getOrNull()
+        }.toList()
+        if (configured.isEmpty()) return
+
+        val existing = runCatching {
+            chooser.getParcelableArrayExtra(Intent.EXTRA_EXCLUDE_COMPONENTS)
+                ?.filterIsInstance<ComponentName>().orEmpty()
+        }.getOrDefault(emptyList())
+        val merged = LinkedHashMap<String, ComponentName>()
+        (existing + configured).forEach { component -> merged[component.flattenToString()] = component }
+        chooser.putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, merged.values.toTypedArray())
+        diagnostic("CHOOSER_EXCLUDE_INJECTED uid=$callerUid caller=$callerPackage kind=$kind added=${configured.size} existing=${existing.size} total=${merged.size}")
     }
 
     private fun readNamedField(value: Any, names: List<String>): Any? {
