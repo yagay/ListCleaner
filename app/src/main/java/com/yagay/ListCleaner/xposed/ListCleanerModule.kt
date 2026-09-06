@@ -88,6 +88,7 @@ class ListCleanerModule : XposedModule() {
     private data class CallerCacheEntry(val packages: Set<String>, val expiresAt: Long)
     private val callerPackageCache = ConcurrentHashMap<Int, CallerCacheEntry>()
     private val packageAccessorCache = ConcurrentHashMap<Class<*>, PackageNameAccessor>()
+    private val recentAppQueryKinds = ConcurrentHashMap<String, IntentKind>()
     @Volatile private var visibilityFailureCount = 0
     @Volatile private var visibilityFailOpen = false
     @Volatile private var appGlobalsPackageManager: Any? = null
@@ -305,6 +306,7 @@ class ListCleanerModule : XposedModule() {
             val explicit = intent.component != null || intent.`package` != null ||
                 outerIntent?.component != null || outerIntent?.`package` != null
             val kind = intent.intentKind(null)
+            if (!explicit && kind != null) recentAppQueryKinds[packageName] = kind
             if (explicit || kind == null) {
                 diagnostic("APP_PM_QUERY_FILTER_SKIP package=$packageName action=${intent.action ?: "-"} explicit=$explicit kind=${kind ?: "-"}")
                 return@runCatching original
@@ -364,17 +366,63 @@ class ListCleanerModule : XposedModule() {
 
     private fun appMenuConsumerProbeHooker(packageName: String, stage: String) = XposedInterface.Hooker { chain ->
         val adapter = chain.args.firstOrNull()
-        val result = chain.proceed()
         if (adapter != null) runCatching {
+            pollPreferences()
+            val kind = recentAppQueryKinds[packageName]
+            if (kind != null) filterAdapterMenuCollections(adapter, packageName, kind)
             val summaries = inspectAdapterCollections(adapter)
-            diagnostic(
-                "APP_MENU_CONSUMER package=$packageName stage=$stage adapter=${adapter.javaClass.name} " +
-                    "collections=${summaries.size} data=[${summaries.joinToString(" | ")}]"
-            )
-        }.onFailure {
-            diagnostic("APP_MENU_CONSUMER_FAILED package=$packageName stage=$stage adapter=${adapter.javaClass.name} error=${it.javaClass.name}")
+            diagnostic("APP_MENU_CONSUMER package=$packageName stage=$stage adapter=${adapter.javaClass.name} kind=${kind ?: "-"} collections=${summaries.size} data=[${summaries.joinToString(" | ")}]")
+        }.onFailure { diagnostic("APP_MENU_CONSUMER_FAILED package=$packageName stage=$stage adapter=${adapter.javaClass.name} error=${it.javaClass.name}") }
+        chain.proceed()
+    }
+
+    private data class MenuModelComponent(val packageName: String, val className: String)
+
+    private fun filterAdapterMenuCollections(adapter: Any, sourcePackage: String, kind: IntentKind) {
+        val seen = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Any, Boolean>())
+        var touched = 0
+        var removed = 0
+        allInstanceFields(adapter.javaClass).asSequence().filterNot { java.lang.reflect.Modifier.isStatic(it.modifiers) }.take(APP_MENU_MAX_FIELDS).forEach { field ->
+            val value = runCatching { field.isAccessible = true; field.get(adapter) }.getOrNull() ?: return@forEach
+            @Suppress("UNCHECKED_CAST") val items = value as? MutableCollection<Any?> ?: return@forEach
+            if (items.isEmpty() || !seen.add(items)) return@forEach
+            val recognized = items.mapNotNull(::extractMenuModelComponent)
+            if (recognized.isEmpty()) return@forEach
+            touched++
+            val before = items.size
+            val remove = items.filter { item ->
+                val c = extractMenuModelComponent(item) ?: return@filter false
+                val cls = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(c.packageName, c.className, null)
+                val selected = "${kind.name}|${c.packageName}|$cls" in snapshot.configured
+                !snapshot.displayMode.includes(selected, snapshot.hasSelection(kind))
+            }
+            if (remove.isEmpty()) return@forEach
+            if (FilterPolicy.restoreEmpty(kind.name, before, before-remove.size)) return@forEach
+            if (runCatching { items.removeAll(remove.toSet()) }.getOrDefault(false)) {
+                removed += before-items.size
+                diagnostic("APP_MENU_CONSUMER_FILTER_APPLIED package=$sourcePackage kind=$kind adapter=${adapter.javaClass.name} field=${field.name} before=$before after=${items.size} recognized=${recognized.size}")
+            }
         }
-        result
+        if (touched>0 && removed==0) diagnostic("APP_MENU_CONSUMER_FILTER_NO_CHANGE package=$sourcePackage kind=$kind adapter=${adapter.javaClass.name} collections=$touched")
+    }
+
+    private fun extractMenuModelComponent(value: Any?): MenuModelComponent? {
+        value ?: return null
+        when (value) {
+            is ResolveInfo -> return value.activityInfo?.let { MenuModelComponent(it.packageName,it.name) }
+            is ActivityInfo -> return MenuModelComponent(value.packageName,value.name)
+            is ComponentName -> return MenuModelComponent(value.packageName,value.className)
+        }
+        val strings=mutableListOf<String>()
+        allInstanceFields(value.javaClass).asSequence().filterNot { java.lang.reflect.Modifier.isStatic(it.modifiers) }.take(APP_MENU_MAX_MODEL_FIELDS).forEach { f ->
+            runCatching { f.isAccessible=true; f.get(value) as? String }.getOrNull()?.let(strings::add)
+        }
+        if (strings.none { it.startsWith("android.intent.action.") }) return null
+        val vals=strings.filterNot { it.startsWith("android.intent.action.") }
+        val cls=vals.firstOrNull { it.startsWith(".") || it.substringAfterLast('.').any(Char::isUpperCase) } ?: return null
+        val pkg=vals.firstOrNull { it!=cls && looksLikePackageName(it) && it.substringAfterLast('.').all { ch -> ch.isLowerCase() || ch.isDigit() || ch=='_' } }
+            ?: vals.firstOrNull { it!=cls && looksLikePackageName(it) }
+        return pkg?.let { MenuModelComponent(it,cls) }
     }
 
     private fun inspectAdapterCollections(adapter: Any): List<String> {
