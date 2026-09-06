@@ -1,0 +1,52 @@
+name: Apply Self Chooser Session Hook
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/apply-self-chooser-session.py'
+      - '.github/workflows/apply-self-chooser-session.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build-commit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Apply patch
+        run: python3 tools/apply-self-chooser-session.py
+      - name: Verify
+        run: |
+          grep -Fq 'APP_SELF_CHOOSER_SESSION' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+          grep -Fq 'SELF_CHOOSER_SESSION_TTL_MS' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+          grep -Fq 'source=$source' app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+      - name: Build and test
+        run: |
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest assembleDebug --stacktrace
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ListCleaner-self-chooser-session-debug
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Cleanup one-shot files
+        run: rm -f tools/apply-self-chooser-session.py .github/workflows/apply-self-chooser-session.yml
+      - name: Commit implementation
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m 'Prefer original app chooser session context'
+          git push origin HEAD:main
