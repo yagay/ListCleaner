@@ -148,7 +148,9 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("长按已优先应用可拖动排序，松手保存；展开后也可上移、下移。展开组件后点铅笔可修改该组件在当前 Intent 分类中的菜单显示名称，留空保存恢复原名称。",
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("排序和显示名称都按 Intent 分类保存，同一组件在分享、打开方式等分类中可设置不同名称。改名只改变候选菜单展示文字，不修改应用名、Activity 名或实际跳转目标；“全部显示”模式下暂停应用自定义名称。规则要求清理的组件不显示；未知厂商自定义菜单若不读取标准 ResolveInfo 标签，改名可能不生效。",
+                Text(if (kind == IntentKind.OPEN && openPreset != null)
+                    "当前正在编辑“打开方式 · ${openPreset!!.title}”排序。若该类型还没有专用排序，会直接继承并显示“全部”中的 OPEN 通用排序；第一次在当前类型里勾选、取消、拖动或上下移动时，会以继承顺序为基础创建该类型自己的专用排序。已有专用排序后以专用排序为准，不再跟随“全部”后续变化。"
+                    else "排序和显示名称都按 Intent 分类保存，同一组件在分享、打开方式等分类中可设置不同名称。改名只改变候选菜单展示文字，不修改应用名、Activity 名或实际跳转目标；“全部显示”模式下暂停应用自定义名称。规则要求清理的组件不显示；未知厂商自定义菜单若不读取标准 ResolveInfo 标签，改名可能不生效。",
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 val compatibility = when {
                     !state.module.connected -> "LSPosed 未连接：可以保存，但尚未生效。"
