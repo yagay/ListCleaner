@@ -1,5 +1,6 @@
 package com.yagay.ListCleaner.ui
 
+// Scope requests selected here are paired with the third-party PackageManager query Hook.
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import androidx.compose.foundation.clickable
