@@ -43,12 +43,10 @@ data class ComponentCandidate(
     val activityLabel: String,
     val appIcon: Bitmap? = null,
     val evidence: List<String> = emptyList(),
-    // Only non-exported foreign components, not raw enabled fields or manager permissions.
     val restricted: Boolean = false,
     val unavailable: Boolean = false,
     val broadMatch: Boolean = false
 ) {
-    // One predicate shared by rules, priority suggestions and diagnostic summaries.
     val isCatalogCandidate: Boolean get() = !unavailable && !restricted
 
     fun matchesQuery(query: String): Boolean = query.isBlank() ||
@@ -63,8 +61,6 @@ data class RuleBackup(
     val rules: Set<ComponentRule>,
     val priorities: PriorityConfig = PriorityConfig(),
     val displayMode: DisplayMode? = null,
-    val tiles: TileConfig = TileConfig(),
     val hiddenFromApps: Set<String> = emptySet(),
-    val defaultOpen: DefaultOpenConfig = DefaultOpenConfig(),
     val openTypes: OpenTypeConfig = OpenTypeConfig()
 )
