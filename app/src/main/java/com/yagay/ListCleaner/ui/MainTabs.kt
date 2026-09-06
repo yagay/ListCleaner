@@ -102,7 +102,7 @@ private fun SummaryRow(state: MainState, groupCount: Int = state.groups.size, op
             DisplayMode.SHOW_SELECTED -> "当前为“只显示选中”：规则生效后，对应分类保留勾选的组件，隐藏其他组件。"
             DisplayMode.SHOW_ALL -> "当前为“全部显示”：暂停清理系统候选列表，勾选只保存配置，恢复清理模式后生效。"
         }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(if (openPreset == null) "勾选应用可批量选择当前分类及搜索条件下显示的组件；展开后可逐项选择，点铅笔可设置该组件在当前分类中的菜单显示名称。改名与是否勾选规则相互独立；留空保存恢复原名称。“查看”只筛选本页列表，不改变清理规则。" else "当前正在编辑“打开方式 · ${openPreset.title}”专用规则，只影响匹配该 MIME / scheme 类型的打开菜单；“全部”中的 OPEN 通用规则仍会同时生效。",
+        Text(if (openPreset == null) "勾选应用可批量选择当前分类及搜索条件下显示的组件；展开后可逐项选择，点铅笔可设置该组件在当前分类中的菜单显示名称。改名与是否勾选规则相互独立；留空保存恢复原名称。“查看”只筛选本页列表，不改变清理规则。" else "当前正在编辑“打开方式 · ${openPreset.title}”专用规则。该页面的有效勾选 = “全部”中的 OPEN 通用规则 + 当前类型专用规则，因此从“全部”继承的项目也会显示为已勾选并继续生效；继承项不能在当前分类型里单独取消，需要回到“全部”取消。当前类型新增的专用规则只影响匹配该 MIME / scheme 类型的打开菜单。",
             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (state.displayMode == DisplayMode.SHOW_ALL) {
             Text(if (state.runtime.ready) "system 已确认暂停过滤、排序和自定义显示名称；相关配置仍保留" else "本地已选择暂停，尚未确认系统已应用", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
