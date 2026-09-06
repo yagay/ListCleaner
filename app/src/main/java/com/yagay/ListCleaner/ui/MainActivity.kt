@@ -147,6 +147,7 @@ class MainActivity : ComponentActivity() {
                 when (state.destination) {
                     Destination.RULES -> RulesTab(state, vm)
                     Destination.PRIORITY -> PriorityTab(state, vm)
+                    Destination.DEFAULT_OPEN -> DefaultOpenScreen(state, vm)
                     Destination.TILES -> RootComponentsScreen(state, vm)
                     Destination.DASHBOARD -> DashboardTabContent(state, vm,
                         { restore.launch(arrayOf("application/json", "text/plain")) },

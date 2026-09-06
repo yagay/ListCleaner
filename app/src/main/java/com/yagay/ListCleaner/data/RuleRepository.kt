@@ -8,6 +8,8 @@ import com.yagay.ListCleaner.domain.PriorityConfig
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.ModuleConfig
 import com.yagay.ListCleaner.domain.TileConfig
+import com.yagay.ListCleaner.domain.DefaultOpenConfig
+import com.yagay.ListCleaner.domain.OpenPreset
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,6 +25,10 @@ class RuleRepository(context: Context) {
     private val mutablePriorities = MutableStateFlow(runCatching {
         json.decodeFromString(PriorityConfig.serializer(), prefs.getString(KEY_PRIORITIES, null) ?: "{}").validated()
     }.getOrDefault(PriorityConfig()))
+    private val mutableDefaultOpen = MutableStateFlow(runCatching {
+    json.decodeFromString(DefaultOpenConfig.serializer(), prefs.getString(KEY_DEFAULT_OPEN, null) ?: "{}").validated()
+}.getOrDefault(DefaultOpenConfig()))
+val defaultOpen: StateFlow<DefaultOpenConfig> = mutableDefaultOpen.asStateFlow()
     private val mutableDiagnostic = MutableStateFlow(prefs.getBoolean(KEY_DIAGNOSTIC, false))
     private val mutableTiles = MutableStateFlow(runCatching {
         json.decodeFromString(TileConfig.serializer(), prefs.getString(KEY_TILES, null) ?: "{}").validated()
@@ -53,8 +59,9 @@ class RuleRepository(context: Context) {
     }
 
     @Synchronized fun remoteSnapshot(): ModuleConfig = ModuleConfig(
-        mutableRules.value.toSet(), mutableMode.value, mutablePriorities.value,
-        mutableDiagnostic.value, android.os.Process.myUid() % 100_000, mutableTiles.value, mutableHiddenFromApps.value.toSet()
+        rules = mutableRules.value.toSet(), mode = mutableMode.value, priorities = mutablePriorities.value,
+        diagnostic = mutableDiagnostic.value, managerAppId = android.os.Process.myUid() % 100_000,
+        tiles = mutableTiles.value, hiddenFromApps = mutableHiddenFromApps.value.toSet(), defaultOpen = mutableDefaultOpen.value
     )
 
     @Synchronized fun setHiddenFromApps(packages: Set<String>) {
@@ -66,6 +73,24 @@ class RuleRepository(context: Context) {
         require(valid.size <= 2_000) { "隐藏应用列表数量过多" }
         mutableHiddenFromApps.value = valid
         prefs.edit().putStringSet(KEY_HIDDEN_FROM_APPS, valid).apply()
+        mutableRevision.value++
+    }
+
+    @Synchronized
+    fun setDefaultOpen(preset: OpenPreset, ruleId: String?) {
+        val nextMap = mutableDefaultOpen.value.preferred.toMutableMap()
+        if (ruleId == null) {
+            nextMap.remove(preset)
+        } else {
+            val parsed = requireNotNull(ComponentRule.fromId(ruleId)) { "无效的默认打开组件" }
+            require(parsed.id == ruleId) { "默认打开组件必须使用规范化类名" }
+            if (preset == OpenPreset.BROWSER) require(parsed.kind == IntentKind.BROWSER) else require(parsed.kind == IntentKind.OPEN)
+            nextMap[preset] = ruleId
+        }
+        val next = DefaultOpenConfig(nextMap).validated()
+        if (next == mutableDefaultOpen.value) return
+        mutableDefaultOpen.value = next
+        prefs.edit().putString(KEY_DEFAULT_OPEN, json.encodeToString(DefaultOpenConfig.serializer(), next)).apply()
         mutableRevision.value++
     }
 
@@ -135,35 +160,38 @@ class RuleRepository(context: Context) {
     }
 
     @Synchronized
-    fun replace(rules: Set<ComponentRule>, blacklist: Boolean, priorities: PriorityConfig = PriorityConfig(), displayMode: DisplayMode = DisplayMode.fromStored(null, blacklist), tiles: TileConfig = TileConfig()) {
+    fun replace(rules: Set<ComponentRule>, blacklist: Boolean, priorities: PriorityConfig = PriorityConfig(), displayMode: DisplayMode = DisplayMode.fromStored(null, blacklist), tiles: TileConfig = TileConfig(), defaultOpen: DefaultOpenConfig = DefaultOpenConfig()) {
         require(rules.size <= MAX_RULES) { "备份规则数量过多" }
         require(rules.all(ComponentRule::isValid)) { "备份包含无效组件" }
         priorities.validated()
         tiles.validated()
+        defaultOpen.validated()
         mutableRules.value = rules.mapNotNull { ComponentRule.fromId(it.id) }.toSet()
         mutableMode.value = displayMode
         mutablePriorities.value = priorities
         mutableTiles.value = tiles
+        mutableDefaultOpen.value = defaultOpen
         prefs.edit()
             .putStringSet(KEY_RULES, rules.map(ComponentRule::id).toSet())
             .putBoolean(KEY_BLACKLIST, blacklist)
             .putString(KEY_DISPLAY_MODE, displayMode.name)
             .putString(KEY_PRIORITIES, encodePriorities(priorities))
             .putString(KEY_TILES, json.encodeToString(TileConfig.serializer(), tiles))
+            .putString(KEY_DEFAULT_OPEN, json.encodeToString(DefaultOpenConfig.serializer(), defaultOpen))
             .apply()
         mutableRevision.value++
     }
 
     @Synchronized fun exportJson(): String = json.encodeToString(
         RuleBackup.serializer(),
-        RuleBackup(version = 5, blacklist = mutableMode.value != DisplayMode.SHOW_SELECTED, rules = mutableRules.value, priorities = mutablePriorities.value, displayMode = mutableMode.value, tiles = mutableTiles.value, hiddenFromApps = mutableHiddenFromApps.value)
+        RuleBackup(version = 6, blacklist = mutableMode.value != DisplayMode.SHOW_SELECTED, rules = mutableRules.value, priorities = mutablePriorities.value, displayMode = mutableMode.value, tiles = mutableTiles.value, hiddenFromApps = mutableHiddenFromApps.value, defaultOpen = mutableDefaultOpen.value)
     )
 
     fun importJson(content: String) {
         require(content.length <= MAX_BACKUP_CHARS) { "备份文件过大" }
         val backup = json.decodeFromString(RuleBackup.serializer(), content)
-        require(backup.version in 1..5) { "不支持的备份版本：${backup.version}" }
-        replace(backup.rules, backup.blacklist, if (backup.version == 1) PriorityConfig() else backup.priorities, if (backup.version >= 3) requireNotNull(backup.displayMode) { "备份缺少显示模式" } else DisplayMode.fromStored(null, backup.blacklist), if (backup.version >= 4) backup.tiles else TileConfig())
+        require(backup.version in 1..6) { "不支持的备份版本：${backup.version}" }
+        replace(backup.rules, backup.blacklist, if (backup.version == 1) PriorityConfig() else backup.priorities, if (backup.version >= 3) requireNotNull(backup.displayMode) { "备份缺少显示模式" } else DisplayMode.fromStored(null, backup.blacklist), if (backup.version >= 4) backup.tiles else TileConfig(), if (backup.version >= 6) backup.defaultOpen else DefaultOpenConfig())
         setHiddenFromApps(if (backup.version >= 5) backup.hiddenFromApps else emptySet())
     }
 
@@ -184,7 +212,8 @@ class RuleRepository(context: Context) {
         const val KEY_CONFIG = "config_v1"
         const val KEY_TILES = "tile_config"
         const val KEY_HIDDEN_FROM_APPS = "hidden_from_apps"
-        val SYNCED_KEYS = setOf(KEY_RULES, KEY_BLACKLIST, KEY_DISPLAY_MODE, KEY_PRIORITIES, KEY_DIAGNOSTIC, KEY_HIDDEN_FROM_APPS)
+        const val KEY_DEFAULT_OPEN = "default_open"
+        val SYNCED_KEYS = setOf(KEY_RULES, KEY_BLACKLIST, KEY_DISPLAY_MODE, KEY_PRIORITIES, KEY_DIAGNOSTIC, KEY_HIDDEN_FROM_APPS, KEY_DEFAULT_OPEN)
         private const val LOCAL_PREFS = "rules_local"
         private const val KEY_INITIALIZED = "configuration_initialized"
         private const val MAX_RULES = 20_000

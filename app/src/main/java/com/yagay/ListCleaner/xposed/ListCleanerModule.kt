@@ -20,6 +20,8 @@ import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.PriorityConfig
+import com.yagay.ListCleaner.domain.DefaultOpenConfig
+import com.yagay.ListCleaner.domain.matchOpenPreset
 import com.yagay.ListCleaner.domain.prioritizeApps
 import com.yagay.ListCleaner.domain.selectedKinds
 import io.github.libxposed.api.XposedInterface
@@ -48,6 +50,7 @@ class ListCleanerModule : XposedModule() {
         val configured: Set<String>,
         val displayMode: DisplayMode,
         val priorities: PriorityConfig,
+        val defaultOpen: DefaultOpenConfig,
         val diagnostic: Boolean,
         val managerAppId: Int = -1,
         val digest: String = "",
@@ -68,7 +71,7 @@ class ListCleanerModule : XposedModule() {
     private data class ListResult(val values: List<*>, val rebuild: (List<*>) -> Any?)
 
     @Volatile
-    private var snapshot = RuleSnapshot(emptySet(), DisplayMode.HIDE_SELECTED, PriorityConfig(), false)
+    private var snapshot = RuleSnapshot(emptySet(), DisplayMode.HIDE_SELECTED, PriorityConfig(), DefaultOpenConfig(), false)
     private var lastEncodedConfig: String? = null
     @Volatile
     private var listenerRegistered = false
@@ -650,7 +653,7 @@ class ListCleanerModule : XposedModule() {
             diagnostic("skip $layer ${intent.action}: unsupported result ${original?.javaClass?.name}")
             return original
         }
-        val replacement = transform(kind, extracted.values, layer, callerUid) ?: return original
+        val replacement = transform(kind, extracted.values, layer, callerUid, intent.type ?: resolvedType, intent.data?.scheme) ?: return original
         return runCatching { extracted.rebuild(replacement) }.getOrElse {
             Log.e(TAG, "Failed to rebuild ${original?.javaClass?.name}; keeping original", it)
             original
@@ -666,7 +669,7 @@ class ListCleanerModule : XposedModule() {
         return false
     }
 
-    private fun transform(kind: IntentKind, values: List<*>, layer: Layer, callerUid: Int): List<*>? {
+    private fun transform(kind: IntentKind, values: List<*>, layer: Layer, callerUid: Int, mimeType: String?, scheme: String?): List<*>? {
         if (values.isEmpty()) { diagnostic("SKIP $layer $kind empty_input"); return null }
         val current = snapshot
         if (current.displayMode == DisplayMode.SHOW_ALL) {
@@ -709,9 +712,14 @@ class ListCleanerModule : XposedModule() {
             filtered
         } else filtered
         if (ordered !== filtered) changed = true
-        val (titled, titleCount) = runCatching { applyCustomTitles(kind, ordered, current) }.getOrElse { failure ->
+        val preferred = runCatching { applyDefaultOpen(kind, mimeType, scheme, ordered, current) }.getOrElse { failure ->
+            diagnostic("DEFAULT_OPEN_FAILED kind=$kind error=${failure.javaClass.name}")
+            ordered
+        }
+        if (preferred !== ordered) changed = true
+        val (titled, titleCount) = runCatching { applyCustomTitles(kind, preferred, current) }.getOrElse { failure ->
             diagnostic("TITLE_FAILED kind=$kind error=${failure.javaClass.name}")
-            ordered to 0
+            preferred to 0
         }
         if (titleCount > 0) changed = true
         if (!changed) {
@@ -720,6 +728,38 @@ class ListCleanerModule : XposedModule() {
         }
         diagnostic("$layer $kind: ${values.size} -> ${titled.size}")
         return titled
+    }
+
+    private fun applyDefaultOpen(kind: IntentKind, mimeType: String?, scheme: String?, values: List<*>, current: RuleSnapshot): List<*> {
+        val preset = matchOpenPreset(kind, mimeType, scheme) ?: return values
+        val targetId = current.defaultOpen.preferred[preset] ?: return values
+        if (values.size < 2) return values
+        val result = values.toMutableList()
+        var moved = false
+        values.indices.groupBy { index ->
+            val info = values[index] as? ResolveInfo
+            (info?.activityInfo?.applicationInfo?.uid ?: -1) / PER_USER_RANGE
+        }.values.forEach { positions ->
+            val targetPosition = positions.firstOrNull { position ->
+                val info = values[position] as? ResolveInfo ?: return@firstOrNull false
+                val activity = info.activityInfo ?: return@firstOrNull false
+                val canonical = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
+                    activity.packageName, activity.name, activity.targetActivity
+                )
+                "${kind.name}|${activity.packageName}|$canonical" == targetId
+            } ?: return@forEach
+            val firstPosition = positions.first()
+            if (targetPosition != firstPosition) {
+                val ordered = positions.map { values[it] }.toMutableList()
+                val localIndex = positions.indexOf(targetPosition)
+                val target = ordered.removeAt(localIndex)
+                ordered.add(0, target)
+                positions.forEachIndexed { index, position -> result[position] = ordered[index] }
+                moved = true
+            }
+        }
+        if (moved) diagnostic("DEFAULT_OPEN preset=$preset target=$targetId mime=$mimeType scheme=$scheme")
+        return if (moved) result else values
     }
 
     private fun applyCustomTitles(kind: IntentKind, values: List<*>, current: RuleSnapshot): Pair<List<*>, Int> {
@@ -775,10 +815,10 @@ class ListCleanerModule : XposedModule() {
                 if (snapshot.digest == digest) return@runCatching
                 val config = Json { ignoreUnknownKeys = true }.decodeFromString(ModuleConfig.serializer(), encoded).validated()
                 snapshot = RuleSnapshot(config.rules.map { it.id }.toSet(), config.mode,
-                    config.priorities, config.diagnostic, config.managerAppId, digest, config.hiddenFromApps)
+                    config.priorities, config.defaultOpen, config.diagnostic, config.managerAppId, digest, config.hiddenFromApps)
                 lastEncodedConfig = encoded
                 record("MANAGER_IDENTITY appId=${config.managerAppId} source=remote_config")
-                record("RULES_READ reason=$reason count=${snapshot.configured.size} mode=${config.mode} diagnostic=${config.diagnostic} atomic=true priorities=${config.priorities.apps.mapValues { it.value.size }} titles=${config.priorities.titles.size} hiddenFromApps=${config.hiddenFromApps.size} digest=$digest")
+                record("RULES_READ reason=$reason count=${snapshot.configured.size} mode=${config.mode} diagnostic=${config.diagnostic} atomic=true priorities=${config.priorities.apps.mapValues { it.value.size }} titles=${config.priorities.titles.size} defaultOpen=${config.defaultOpen.preferred.size} hiddenFromApps=${config.hiddenFromApps.size} digest=$digest")
                 record("LEGACY_TILE_CONFIG ignored=true enabled=${config.tiles.enabled} hidden=${config.tiles.hidden.size}")
                 return@runCatching
             }
@@ -793,8 +833,11 @@ class ListCleanerModule : XposedModule() {
                     preferences.getString(RuleRepository.KEY_PRIORITIES, null) ?: "{}"
                 ).validated()
             }.getOrDefault(PriorityConfig())
+            val defaultOpen = runCatching {
+                Json.decodeFromString(DefaultOpenConfig.serializer(), preferences.getString(RuleRepository.KEY_DEFAULT_OPEN, null) ?: "{}").validated()
+            }.getOrDefault(DefaultOpenConfig())
             snapshot = RuleSnapshot(
-                configured = rules, displayMode = mode, priorities = priorities,
+                configured = rules, displayMode = mode, priorities = priorities, defaultOpen = defaultOpen,
                 diagnostic = preferences.getBoolean(RuleRepository.KEY_DIAGNOSTIC, false)
             )
             lastEncodedConfig = null

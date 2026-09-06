@@ -14,7 +14,8 @@ data class ModuleConfig(
     val tiles: TileConfig = TileConfig(),
     // Apps in this list are callers from which selected target packages will be hidden at system_server.
     // They do NOT need to be added to the LSPosed module scope.
-    val hiddenFromApps: Set<String> = emptySet()
+    val hiddenFromApps: Set<String> = emptySet(),
+    val defaultOpen: DefaultOpenConfig = DefaultOpenConfig()
 ) {
     fun validated(): ModuleConfig {
         require(rules.size <= 20_000 && rules.all(ComponentRule::isValid))
@@ -22,6 +23,7 @@ data class ModuleConfig(
         tiles.validated()
         require(managerAppId == -1 || ManagerIdentity.valid(managerAppId))
         require(hiddenFromApps.size <= 2_000 && hiddenFromApps.all(::validPackageName))
+        defaultOpen.validated()
         return this
     }
 

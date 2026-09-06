@@ -9,6 +9,7 @@ import androidx.compose.material.icons.rounded.Dashboard
 import androidx.compose.material.icons.rounded.List
 import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.OpenInNew
 import com.yagay.ListCleaner.domain.TileConfig
 import com.yagay.ListCleaner.data.RootComponent
 import com.yagay.ListCleaner.data.RootComponentCatalog
@@ -30,6 +31,8 @@ import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.PriorityConfig
+import com.yagay.ListCleaner.domain.DefaultOpenConfig
+import com.yagay.ListCleaner.domain.OpenPreset
 import io.github.libxposed.service.XposedService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -71,6 +74,7 @@ data class ModuleStatus(
 enum class Destination(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     RULES("规则", Icons.Rounded.List),
     PRIORITY("排序", Icons.Rounded.Sort),
+    DEFAULT_OPEN("默认", Icons.Rounded.OpenInNew),
     TILES("组件", Icons.Rounded.GridView),
     DASHBOARD("状态", Icons.Rounded.Dashboard)
 }
@@ -94,6 +98,7 @@ data class MainState(
     val uiFilter: UiFilter = UiFilter.ALL,
     val diagnosticMode: Boolean = false,
     val priorities: PriorityConfig = PriorityConfig(),
+    val defaultOpen: DefaultOpenConfig = DefaultOpenConfig(),
     val tiles: TileConfig = TileConfig(),
     val hiddenFromApps: Set<String> = emptySet(),
     val groups: List<AppGroup> = emptyList(),
@@ -332,7 +337,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ListContent(emptyList(), null, "", emptyList()))
     
     val state: StateFlow<MainState> = combine(
-        moduleStatus, loading, error, grouped, app.runtime, app.rules.displayMode, app.rules.priorities, app.rules.diagnosticMode, app.syncStatus, destination, expandedAppKey, app.rules.tiles, app.rules.hiddenFromApps
+        moduleStatus, loading, error, grouped, app.runtime, app.rules.displayMode, app.rules.priorities, app.rules.diagnosticMode, app.syncStatus, destination, expandedAppKey, app.rules.tiles, app.rules.hiddenFromApps, app.rules.defaultOpen
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         MainState(
@@ -353,6 +358,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             expandedAppKey = values[10] as String?,
             tiles = values[11] as TileConfig,
             hiddenFromApps = values[12] as Set<String>,
+            defaultOpen = values[13] as DefaultOpenConfig,
             uiFilter = (values[3] as ListContent).uiFilter
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainState())
@@ -369,6 +375,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setDiagnosticMode(enabled: Boolean) {
         app.rules.setDiagnosticMode(enabled)
         refreshModuleStatus()
+    }
+
+    fun setDefaultOpen(preset: OpenPreset, ruleId: String?) {
+        if (!canEdit()) return
+        app.rules.setDefaultOpen(preset, ruleId)
     }
 
     fun setHiddenFromApps(packages: Set<String>) {
