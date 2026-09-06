@@ -83,20 +83,20 @@ bridge = r'''    private fun installAppPickerBridge(classLoader: ClassLoader, pa
             val session = recentSelfChooserSessions[packageName] ?: return@runCatching
             val age = SystemClock.elapsedRealtime() - session.startedAt
             if (age !in 0..SELF_CHOOSER_SESSION_TTL_MS) return@runCatching
-            val component = activity.componentName?.flattenToShortString() ?: return@runCatching
-            if (component != session.component) return@runCatching
+            val activityComponent = activity.componentName?.flattenToShortString() ?: return@runCatching
+            if (activityComponent != session.component) return@runCatching
             val launchKey = "$packageName|${session.component}|${session.startedAt}"
             if (pickerBridgeLaunched.putIfAbsent(launchKey, SystemClock.elapsedRealtime()) != null) return@runCatching
 
             val queryIntent = Intent(session.targetIntent).apply {
-                component = null
-                `package` = null
+                setComponent(null)
+                setPackage(null)
             }
             val picker = Intent(Intent.ACTION_PICK_ACTIVITY).apply {
                 putExtra(Intent.EXTRA_INTENT, queryIntent)
             }
             diagnostic(
-                "APP_PICKER_BRIDGE_LAUNCH package=$packageName component=$component kind=${session.kind} " +
+                "APP_PICKER_BRIDGE_LAUNCH package=$packageName component=$activityComponent kind=${session.kind} " +
                     "targetAction=${queryIntent.action ?: "-"} targetType=${queryIntent.type ?: "-"} targetScheme=${queryIntent.data?.scheme ?: "-"}"
             )
             activity.startActivityForResult(picker, APP_PICKER_REQUEST_CODE)
@@ -134,8 +134,7 @@ bridge = r'''    private fun installAppPickerBridge(classLoader: ClassLoader, pa
             if (age !in 0..SELF_CHOOSER_SESSION_TTL_MS) return@runCatching
             if (activity.componentName?.flattenToShortString() != session.component) return@runCatching
 
-            val target = session.targetIntent
-            target.component = chosen
+            val target = Intent(session.targetIntent).apply { setComponent(chosen) }
             diagnostic(
                 "APP_PICKER_BRIDGE_DISPATCH package=$packageName component=${chosen.flattenToShortString()} " +
                     "action=${target.action ?: "-"} type=${target.type ?: "-"} scheme=${target.data?.scheme ?: "-"} callerActivity=${session.component}"
