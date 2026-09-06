@@ -14,11 +14,8 @@ import androidx.lifecycle.viewModelScope
 import com.yagay.ListCleaner.BuildConfig
 import com.yagay.ListCleaner.ListCleanerApp
 import com.yagay.ListCleaner.RuntimeStatus
-import com.yagay.ListCleaner.data.ComponentRootCommand
 import com.yagay.ListCleaner.data.ResolverScopeDetector
 import com.yagay.ListCleaner.data.RootComponent
-import com.yagay.ListCleaner.data.RootComponentCatalog
-import com.yagay.ListCleaner.data.RootComponentScan
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.data.ScopeDetection
 import com.yagay.ListCleaner.domain.ComponentCandidate
@@ -161,116 +158,18 @@ fun retainConfiguredCandidates(
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as ListCleanerApp
-    private val rootCatalog = RootComponentCatalog(app)
+    private val rootComponents = RootComponentsController(app, viewModelScope)
 
-    private val mutableComponentScan = MutableStateFlow(RootComponentScan())
-    val componentScan: StateFlow<RootComponentScan> = mutableComponentScan
-    private val mutableComponentBusy = MutableStateFlow(false)
-    val componentBusy: StateFlow<Boolean> = mutableComponentBusy
-    private val mutableComponentMessage = MutableStateFlow<String?>(null)
-    val componentMessage: StateFlow<String?> = mutableComponentMessage
-    private val mutableComponentRootNotice = MutableStateFlow<String?>(null)
-    val componentRootNotice: StateFlow<String?> = mutableComponentRootNotice
+    val componentScan = rootComponents.scan
+    val componentBusy = rootComponents.busy
+    val componentMessage = rootComponents.message
+    val componentRootNotice = rootComponents.rootNotice
 
-    fun dismissComponentRootNotice() { mutableComponentRootNotice.value = null }
-
-    fun refreshComponents() {
-        if (mutableComponentBusy.value) return
-        mutableComponentBusy.value = true
-        viewModelScope.launch {
-            try {
-                mutableComponentScan.value = withContext(Dispatchers.IO) { rootCatalog.scan() }
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (failure: Exception) {
-                mutableComponentMessage.value = failure.message ?: "扫描失败"
-            } finally {
-                mutableComponentBusy.value = false
-            }
-        }
-    }
-
-    fun changeComponent(target: RootComponent, enable: Boolean) = changeComponents(listOf(target), enable)
-
-    fun changeComponents(visibleTargets: List<RootComponent>, enable: Boolean) {
-        if (mutableComponentBusy.value) return
-        val targets = visibleTargets.filter {
-            it.blocked == null && it.enabled != null && it.enabled != enable
-        }.distinctBy { "${it.user}|${it.component.flattenToString()}" }
-        if (targets.isEmpty()) return
-        mutableComponentRootNotice.value = null
-        mutableComponentBusy.value = true
-        mutableComponentMessage.value = "正在请求 Root 并核验系统状态…"
-        viewModelScope.launch {
-            withContext(kotlinx.coroutines.NonCancellable + Dispatchers.IO) {
-                var completed = 0
-                var operationStarted = false
-                try {
-                    rootCatalog.requireRoot()
-                    var result = ""
-                    for (target in targets) {
-                        operationStarted = true
-                        mutableComponentMessage.value = "正在${if (enable) "启用" else "禁用"} ${completed + 1}/${targets.size}：${target.label}"
-                        result = rootCatalog.change(target, enable)
-                        completed++
-                    }
-                    mutableComponentMessage.value = if (targets.size == 1) result
-                    else "已核验：$completed 个组件已${if (enable) "启用" else "禁用"}；请重新打开目标选择器"
-                } catch (failure: ComponentRootCommand.RootAccessException) {
-                    mutableComponentMessage.value = failure.message
-                    mutableComponentRootNotice.value = failure.message
-                } catch (failure: Exception) {
-                    mutableComponentMessage.value = "已完成 $completed/${targets.size}，操作已停止：${failure.message ?: "操作失败"}。失败项请核对系统状态；剩余项未执行，已完成项不回滚。"
-                } finally {
-                    if (operationStarted) {
-                        runCatching { rootCatalog.scan() }
-                            .onSuccess { mutableComponentScan.value = it }
-                            .onFailure { mutableComponentScan.value = RootComponentScan(warning = "操作后扫描失败，请刷新；不使用旧状态") }
-                    }
-                    mutableComponentBusy.value = false
-                }
-            }
-        }
-    }
-
-    fun invertComponents(visibleTargets: List<RootComponent>) {
-        if (mutableComponentBusy.value) return
-        val targets = visibleTargets.filter {
-            it.blocked == null && it.enabled != null
-        }.distinctBy { "${it.user}|${it.component.flattenToString()}" }
-        if (targets.isEmpty()) return
-        mutableComponentRootNotice.value = null
-        mutableComponentBusy.value = true
-        mutableComponentMessage.value = "正在请求 Root 并反选组件…"
-        viewModelScope.launch {
-            withContext(kotlinx.coroutines.NonCancellable + Dispatchers.IO) {
-                var completed = 0
-                var operationStarted = false
-                try {
-                    rootCatalog.requireRoot()
-                    for (target in targets) {
-                        operationStarted = true
-                        mutableComponentMessage.value = "正在反选 ${completed + 1}/${targets.size}：${target.label}"
-                        rootCatalog.change(target, target.enabled == false)
-                        completed++
-                    }
-                    mutableComponentMessage.value = "已核验：$completed 个组件已反选；请重新打开目标选择器"
-                } catch (failure: ComponentRootCommand.RootAccessException) {
-                    mutableComponentMessage.value = failure.message
-                    mutableComponentRootNotice.value = failure.message
-                } catch (failure: Exception) {
-                    mutableComponentMessage.value = "已完成 $completed/${targets.size}，反选已停止：${failure.message ?: "操作失败"}。已完成项不回滚。"
-                } finally {
-                    if (operationStarted) {
-                        runCatching { rootCatalog.scan() }
-                            .onSuccess { mutableComponentScan.value = it }
-                            .onFailure { mutableComponentScan.value = RootComponentScan(warning = "操作后扫描失败，请刷新；不使用旧状态") }
-                    }
-                    mutableComponentBusy.value = false
-                }
-            }
-        }
-    }
+    fun dismissComponentRootNotice() = rootComponents.dismissRootNotice()
+    fun refreshComponents() = rootComponents.refresh()
+    fun changeComponent(target: RootComponent, enable: Boolean) = rootComponents.change(target, enable)
+    fun changeComponents(targets: List<RootComponent>, enable: Boolean) = rootComponents.change(targets, enable)
+    fun invertComponents(targets: List<RootComponent>) = rootComponents.invert(targets)
 
     private val mutableUpdating = MutableStateFlow(false)
     val updating: StateFlow<Boolean> = mutableUpdating
@@ -373,8 +272,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         runtime = app.runtime.value,
                         syncStatus = app.syncStatus.value
                     ),
-                    mutableComponentScan.value,
-                    rootCatalog.lastOperation
+                    rootComponents.scan.value,
+                    rootComponents.lastOperation
                 )
                 val ready = requireNotNull(report)
                 withContext(Dispatchers.IO) {
@@ -802,6 +701,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             override fun onScopeRequestApproved(approved: List<String>) {
                                 if (continuation.isActive) continuation.resume(approved)
                             }
+
                             override fun onScopeRequestFailed(message: String) {
                                 if (continuation.isActive) {
                                     continuation.resumeWithException(IllegalStateException(message))
