@@ -9,16 +9,6 @@ on:
         type: string
   release:
     types: [published]
-  workflow_run:
-    workflows: ['Build and Publish Release']
-    types: [completed]
-    branches: [main]
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/sync-lsposed.yml'
-      - 'tools/sync-lsposed.py'
-      - 'docs/lsposed/**'
 
 permissions:
   contents: read
@@ -31,11 +21,7 @@ jobs:
   sync:
     if: >-
       github.repository == 'yagay/ListCleaner' &&
-      (github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main') &&
-      (github.event_name != 'workflow_run' ||
-       (github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.head_repository.full_name == github.repository &&
-        (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch')))
+      (github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
