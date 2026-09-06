@@ -1,0 +1,50 @@
+name: Build Current Debug APK
+
+on:
+  push:
+    branches: [build/debug-current]
+    paths:
+      - '.github/workflows/build-debug-current.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Install project SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "cmdline-tools;23.0" > sdk-tools.log 2>&1
+          sdk_manager="${ANDROID_HOME}/cmdline-tools/23.0/bin/sdkmanager"
+          "$sdk_manager" --channel=3 "platforms;android-37.0" "build-tools;36.0.0" "platform-tools" > sdk-install.log 2>&1
+      - name: Build Debug APK
+        shell: bash
+        run: ./gradlew --no-daemon --console=plain --stacktrace :app:assembleDebug
+      - name: Run unit tests
+        shell: bash
+        run: ./gradlew --no-daemon --console=plain --stacktrace :app:testDebugUnitTest
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ListCleaner-debug-current
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
