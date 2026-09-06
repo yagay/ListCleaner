@@ -1,0 +1,60 @@
+name: Apply System Visibility
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/patch-system-visibility.py'
+      - '.github/workflows/apply-system-visibility.yml'
+
+permissions:
+  contents: write
+
+env:
+  JAVA_VERSION: '17'
+
+jobs:
+  patch-build-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Apply system visibility migration
+        run: python3 tools/patch-system-visibility.py
+      - name: Verify architecture
+        run: |
+          grep -q "AppsFilterImpl" app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+          grep -q "SYSTEM_VISIBILITY_FILTER" app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+          grep -q "third_party_scope_not_required" app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+          grep -q "hiddenFromApps" app/src/main/java/com/yagay/ListCleaner/xposed/ListCleanerModule.kt
+      - name: Build and test
+        run: ./gradlew :app:testDebugUnitTest :app:assembleDebug --stacktrace
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ListCleaner-system-visibility-debug
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+      - name: Remove one-shot patch files
+        run: |
+          rm -f tools/patch-system-visibility.py
+          rm -f .github/workflows/apply-system-visibility.yml
+      - name: Commit implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Use system package visibility for hidden app list"
+          git push
