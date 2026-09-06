@@ -7,10 +7,8 @@ on:
         description: 'Source release tag (for example v1.6.5); empty means latest'
         required: false
         type: string
-  workflow_run:
-    workflows: ['Build and Publish Release']
-    types: [completed]
-    branches: [main]
+  release:
+    types: [published]
 
 permissions:
   contents: write
@@ -23,11 +21,7 @@ jobs:
   publish:
     if: >-
       github.repository == 'yagay/ListCleaner' &&
-      (github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main') &&
-      (github.event_name != 'workflow_run' ||
-       (github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.head_repository.full_name == github.repository &&
-        (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch')))
+      (github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -51,5 +45,5 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: '@LISTCLEANER'
-          SOURCE_TAG: ${{ inputs.tag || '' }}
+          SOURCE_TAG: ${{ inputs.tag || github.event.release.tag_name || '' }}
         run: python3 tools/publish-telegram.py
