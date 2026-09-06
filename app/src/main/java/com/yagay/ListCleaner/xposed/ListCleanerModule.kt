@@ -392,8 +392,23 @@ class ListCleanerModule : XposedModule() {
             val before = items.size
             val remove = items.filter { item ->
                 val c = extractMenuModelComponent(item) ?: return@filter false
-                val cls = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(c.packageName, c.className, null)
-                val selected = "${kind.name}|${c.packageName}|$cls" in snapshot.configured
+                val rawClass = c.className
+                val expandedClass = when {
+                    rawClass.startsWith(".") -> c.packageName + rawClass
+                    '.' !in rawClass -> "${c.packageName}.$rawClass"
+                    else -> rawClass
+                }
+                val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(c.packageName, expandedClass, null)
+                val candidateIds = linkedSetOf(
+                    "${kind.name}|${c.packageName}|$rawClass",
+                    "${kind.name}|${c.packageName}|$expandedClass",
+                    "${kind.name}|${c.packageName}|$canonicalClass",
+                )
+                val selected = candidateIds.any(snapshot.configured::contains)
+                if (snapshot.diagnostic) diagnostic(
+                    "APP_MENU_MODEL_DECISION package=$sourcePackage kind=$kind target=${c.packageName}/$rawClass " +
+                        "expanded=$expandedClass canonical=$canonicalClass selected=$selected"
+                )
                 !snapshot.displayMode.includes(selected, snapshot.hasSelection(kind))
             }
             if (remove.isEmpty()) return@forEach
