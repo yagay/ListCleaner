@@ -134,11 +134,11 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
         item(key = "summary") {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Text("应用列表 · ${groups.size}", style = MaterialTheme.typography.labelLarge)
-                Text("勾选后按优先位置排列，取消后回到未优先应用的默认名称顺序。",
+                Text("勾选控制应用的优先顺序；自定义显示名称是独立功能，不需要把应用加入优先列表。",
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("长按已优先应用可拖动排序，松手保存；展开后也可上移、下移。展开组件后可修改其在系统候选菜单中的显示名称。",
+                Text("长按已优先应用可拖动排序，松手保存；展开后也可上移、下移。展开组件后点铅笔可修改该组件在当前 Intent 分类中的菜单显示名称，留空保存恢复原名称。",
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("按分类保存。规则要求清理的组件不显示；应用仍有可见组件时保留。暂时隐藏的排序配置不删除，取消清理后恢复。分享适配推荐区及全部应用区，文本处理在查询出口排序；未知厂商菜单可能另行重排。联系人和调用方专属入口不调整。",
+                Text("排序和显示名称都按 Intent 分类保存，同一组件在分享、打开方式等分类中可设置不同名称。改名只改变候选菜单展示文字，不修改应用名、Activity 名或实际跳转目标；“全部显示”模式下暂停应用自定义名称。规则要求清理的组件不显示；未知厂商自定义菜单若不读取标准 ResolveInfo 标签，改名可能不生效。",
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 val compatibility = when {
                     !state.module.connected -> "LSPosed 未连接：可以保存，但尚未生效。"

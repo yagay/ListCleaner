@@ -35,13 +35,14 @@ internal fun ComponentTitleDialog(
         text = {
             Column {
                 Text("原名称：${item.activityLabel}", style = MaterialTheme.typography.bodyMedium)
+                Text("仅修改该组件在 ${item.rule.kind.shortTitle} 候选菜单中的显示文字，不会修改应用名、Intent、包名、组件名或实际启动目标。", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(item.rule.className, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(androidx.compose.ui.Modifier.height(12.dp))
                 OutlinedTextField(
                     value = text,
                     onValueChange = { if (it.length <= 64 && it.none(Char::isISOControl)) text = it },
                     label = { Text("菜单显示名称") },
-                    supportingText = { Text("${text.length}/64 · 留空保存可恢复原名称") },
+                    supportingText = { Text("${text.length}/64 · 留空保存恢复原名称 · “全部显示”模式下暂不应用自定义名称") },
                     singleLine = true
                 )
             }
