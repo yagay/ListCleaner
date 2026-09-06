@@ -114,6 +114,7 @@ class ListCleanerModule : XposedModule() {
                 val layer = when (handle.id) {
                     "$HOOK_ID-system" -> Layer.SYSTEM
                     "$HOOK_ID-resolver" -> Layer.RESOLVER
+                    "$HOOK_ID-app" -> Layer.APP
                     else -> null
                 }
                 when {
@@ -150,7 +151,7 @@ class ListCleanerModule : XposedModule() {
                 }
             }
             check(installedMethods.any {
-                it.endsWith(if (systemServer) "@SYSTEM" else "@RESOLVER")
+                it.endsWith(if (systemServer) "@SYSTEM" else if (processName.substringBefore(':') == FRAMEWORK_PACKAGE || processName.substringBefore(':') == INTENT_RESOLVER_PACKAGE) "@RESOLVER" else "@APP")
             }) { "No query hooks after reload; restart required" }
             record("HOT_RELOAD_READY version=${BuildConfig.VERSION_CODE} hooks=${installedMethods.size}")
             if (!systemServer && !processName.startsWith(SYSTEM_UI_PACKAGE)) recordOrderingCapability()
@@ -231,7 +232,7 @@ class ListCleanerModule : XposedModule() {
         }
         var installed = 0
         clazz.declaredMethods.filter(::isQueryIntentActivitiesMethod).forEach { method ->
-            if (installHook(method, Layer.RESOLVER)) installed++
+            if (installHook(method, Layer.APP)) installed++
         }
         record("APP_QUERY_HOOKS package=$packageName new=$installed total=${installedMethods.size}")
     }
@@ -475,6 +476,28 @@ class ListCleanerModule : XposedModule() {
             diagnostic("skip $layer ${intent.action}: unsupported result ${original?.javaClass?.name}")
             return original
         }
+        if (layer == Layer.APP) {
+            if (extracted.values.size <= 1) {
+                diagnostic("APP_SKIP kind=$kind reason=single_or_empty_candidate count=${extracted.values.size}")
+                return original
+            }
+            if (!snapshot.hasSelection(kind)) {
+                diagnostic("APP_SKIP kind=$kind reason=no_rules_for_kind")
+                return original
+            }
+            val hasMatchingRule = extracted.values.any { value ->
+                val info = value as? ResolveInfo ?: return@any false
+                val activity = info.activityInfo ?: return@any false
+                val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
+                    activity.packageName, activity.name, activity.targetActivity
+                )
+                "${kind.name}|${activity.packageName}|$canonicalClass" in snapshot.configured
+            }
+            if (!hasMatchingRule) {
+                diagnostic("APP_SKIP kind=$kind reason=no_matching_rule count=${extracted.values.size}")
+                return original
+            }
+        }
         val replacement = transform(kind, extracted.values, layer, callerUid) ?: return original
         return runCatching { extracted.rebuild(replacement) }.getOrElse {
             Log.e(TAG, "Failed to rebuild ${original?.javaClass?.name}; keeping original", it)
@@ -628,7 +651,7 @@ class ListCleanerModule : XposedModule() {
             (List::class.java.isAssignableFrom(method.returnType) ||
                 method.returnType.name == "android.content.pm.ParceledListSlice")
 
-    private enum class Layer { SYSTEM, RESOLVER }
+    private enum class Layer { SYSTEM, RESOLVER, APP }
 
     private companion object {
         const val TAG = "ListCleaner"
