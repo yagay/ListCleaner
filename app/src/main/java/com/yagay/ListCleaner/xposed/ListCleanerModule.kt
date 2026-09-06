@@ -89,8 +89,9 @@ class ListCleanerModule : XposedModule() {
     private val callerPackageCache = ConcurrentHashMap<Int, CallerCacheEntry>()
     private val packageAccessorCache = ConcurrentHashMap<Class<*>, PackageNameAccessor>()
     private val recentAppQueryKinds = ConcurrentHashMap<String, IntentKind>()
-    private data class SelfChooserSession(val kind: IntentKind, val startedAt: Long, val component: String)
+    private data class SelfChooserSession(val kind: IntentKind, val startedAt: Long, val component: String, val targetIntent: Intent)
     private val recentSelfChooserSessions = ConcurrentHashMap<String, SelfChooserSession>()
+    private val pickerBridgeLaunched = ConcurrentHashMap<String, Long>()
     @Volatile private var visibilityFailureCount = 0
     @Volatile private var visibilityFailOpen = false
     @Volatile private var appGlobalsPackageManager: Any? = null
@@ -263,6 +264,7 @@ class ListCleanerModule : XposedModule() {
             record("PACKAGE_READY_SKIP package=${param.packageName} reason=system_scope_pseudo_process")
         } else if (param.packageName in snapshot.hiddenFromApps) {
             installAppStartProbe(param.classLoader, param.packageName)
+            installAppPickerBridge(param.classLoader, param.packageName)
             installAppPmQueryProbe(param.classLoader, param.packageName)
             installAppMenuConsumerProbe(param.classLoader, param.packageName)
         } else {
@@ -615,6 +617,7 @@ class ListCleanerModule : XposedModule() {
                             childKind,
                             SystemClock.elapsedRealtime(),
                             ownComponent.flattenToShortString(),
+                            child,
                         )
                         diagnostic(
                             "APP_SELF_CHOOSER_SESSION package=$packageName stage=$stage component=${ownComponent.flattenToShortString()} " +
@@ -631,6 +634,134 @@ class ListCleanerModule : XposedModule() {
                 )
             }
         }.onFailure { diagnostic("APP_START_PROBE_FAILED package=$packageName stage=$stage error=${it.javaClass.name}") }
+        chain.proceed()
+    }
+
+    private fun installAppPickerBridge(classLoader: ClassLoader, packageName: String) {
+        val clazz = runCatching { Class.forName("android.app.Instrumentation", false, classLoader) }.getOrElse {
+            record("APP_PICKER_BRIDGE_CLASS_UNAVAILABLE package=$packageName error=${it.javaClass.name}")
+            return
+        }
+        var installed = 0
+        clazz.declaredMethods.asSequence()
+            .filter { method ->
+                method.name == "callActivityOnCreate" &&
+                    method.parameterTypes.any { Activity::class.java.isAssignableFrom(it) }
+            }
+            .distinctBy(Method::toGenericString)
+            .forEach { method ->
+                val key = "APP_PICKER_CREATE#${method.toGenericString()}"
+                if (!installedMethods.add(key)) return@forEach
+                runCatching {
+                    method.isAccessible = true
+                    hook(method).setId(APP_PICKER_BRIDGE_HOOK_ID).intercept(appPickerCreateHooker(packageName))
+                    installed++
+                    record("APP_PICKER_BRIDGE_CREATE_HOOK_INSTALLED package=$packageName method=${method.toGenericString()}")
+                }.onFailure {
+                    installedMethods.remove(key)
+                    record("APP_PICKER_BRIDGE_CREATE_HOOK_FAILED package=$packageName error=${it.javaClass.name}")
+                }
+            }
+        clazz.declaredMethods.asSequence()
+            .filter { method ->
+                method.name == "callActivityOnActivityResult" &&
+                    method.parameterTypes.any { Activity::class.java.isAssignableFrom(it) } &&
+                    method.parameterTypes.any { Intent::class.java.isAssignableFrom(it) }
+            }
+            .distinctBy(Method::toGenericString)
+            .forEach { method ->
+                val key = "APP_PICKER_RESULT#${method.toGenericString()}"
+                if (!installedMethods.add(key)) return@forEach
+                val activityIndex = method.parameterTypes.indexOfFirst { Activity::class.java.isAssignableFrom(it) }
+                val intIndices = method.parameterTypes.indices.filter { method.parameterTypes[it] == Int::class.javaPrimitiveType }
+                val requestIndex = intIndices.getOrNull(0) ?: return@forEach
+                val resultIndex = intIndices.getOrNull(1) ?: return@forEach
+                val intentIndex = method.parameterTypes.indexOfLast { Intent::class.java.isAssignableFrom(it) }
+                runCatching {
+                    method.isAccessible = true
+                    hook(method).setId(APP_PICKER_BRIDGE_HOOK_ID).intercept(
+                        appPickerResultHooker(packageName, activityIndex, requestIndex, resultIndex, intentIndex)
+                    )
+                    installed++
+                    record("APP_PICKER_BRIDGE_RESULT_HOOK_INSTALLED package=$packageName method=${method.toGenericString()}")
+                }.onFailure {
+                    installedMethods.remove(key)
+                    record("APP_PICKER_BRIDGE_RESULT_HOOK_FAILED package=$packageName error=${it.javaClass.name}")
+                }
+            }
+        record("APP_PICKER_BRIDGE_READY package=$packageName hooks=$installed")
+    }
+
+    private fun appPickerCreateHooker(packageName: String) = XposedInterface.Hooker { chain ->
+        val result = chain.proceed()
+        runCatching {
+            if (!snapshot.diagnostic) return@runCatching
+            val activity = chain.args.firstOrNull { it is Activity } as? Activity ?: return@runCatching
+            val session = recentSelfChooserSessions[packageName] ?: return@runCatching
+            val age = SystemClock.elapsedRealtime() - session.startedAt
+            if (age !in 0..SELF_CHOOSER_SESSION_TTL_MS) return@runCatching
+            val activityComponent = activity.componentName?.flattenToShortString() ?: return@runCatching
+            if (activityComponent != session.component) return@runCatching
+            val launchKey = "$packageName|${session.component}|${session.startedAt}"
+            if (pickerBridgeLaunched.putIfAbsent(launchKey, SystemClock.elapsedRealtime()) != null) return@runCatching
+
+            val queryIntent = Intent(session.targetIntent).apply {
+                setComponent(null)
+                setPackage(null)
+            }
+            val picker = Intent(Intent.ACTION_PICK_ACTIVITY).apply {
+                putExtra(Intent.EXTRA_INTENT, queryIntent)
+            }
+            diagnostic(
+                "APP_PICKER_BRIDGE_LAUNCH package=$packageName component=$activityComponent kind=${session.kind} " +
+                    "targetAction=${queryIntent.action ?: "-"} targetType=${queryIntent.type ?: "-"} targetScheme=${queryIntent.data?.scheme ?: "-"}"
+            )
+            activity.startActivityForResult(picker, APP_PICKER_REQUEST_CODE)
+        }.onFailure {
+            diagnostic("APP_PICKER_BRIDGE_LAUNCH_FAILED package=$packageName error=${it.javaClass.name}")
+        }
+        result
+    }
+
+    private fun appPickerResultHooker(
+        packageName: String,
+        activityIndex: Int,
+        requestIndex: Int,
+        resultIndex: Int,
+        intentIndex: Int,
+    ) = XposedInterface.Hooker { chain ->
+        runCatching {
+            val requestCode = chain.args.getOrNull(requestIndex) as? Int ?: return@runCatching
+            if (requestCode != APP_PICKER_REQUEST_CODE) return@runCatching
+            val activity = chain.args.getOrNull(activityIndex) as? Activity ?: return@runCatching
+            val resultCode = chain.args.getOrNull(resultIndex) as? Int ?: Activity.RESULT_CANCELED
+            val data = chain.args.getOrNull(intentIndex) as? Intent
+            val session = recentSelfChooserSessions[packageName]
+            val chosen = data?.component ?: runCatching {
+                @Suppress("DEPRECATION")
+                data?.extras?.get(Intent.EXTRA_CHOSEN_COMPONENT) as? ComponentName
+            }.getOrNull()
+            diagnostic(
+                "APP_PICKER_BRIDGE_RESULT package=$packageName activity=${activity.componentName?.flattenToShortString() ?: "-"} " +
+                    "resultCode=$resultCode component=${chosen?.flattenToShortString() ?: "-"} action=${data?.action ?: "-"} " +
+                    "extras=${runCatching { data?.extras?.keySet()?.sorted()?.joinToString(",") }.getOrNull().orEmpty()}"
+            )
+            if (resultCode != Activity.RESULT_OK || chosen == null || session == null) return@runCatching
+            val age = SystemClock.elapsedRealtime() - session.startedAt
+            if (age !in 0..SELF_CHOOSER_SESSION_TTL_MS) return@runCatching
+            if (activity.componentName?.flattenToShortString() != session.component) return@runCatching
+
+            val target = Intent(session.targetIntent).apply { setComponent(chosen) }
+            diagnostic(
+                "APP_PICKER_BRIDGE_DISPATCH package=$packageName component=${chosen.flattenToShortString()} " +
+                    "action=${target.action ?: "-"} type=${target.type ?: "-"} scheme=${target.data?.scheme ?: "-"} callerActivity=${session.component}"
+            )
+            activity.startActivity(target)
+            activity.finish()
+            recentSelfChooserSessions.remove(packageName, session)
+        }.onFailure {
+            diagnostic("APP_PICKER_BRIDGE_RESULT_FAILED package=$packageName error=${it.javaClass.name}")
+        }
         chain.proceed()
     }
 
@@ -1763,6 +1894,8 @@ class ListCleanerModule : XposedModule() {
         const val APP_MENU_MAX_MODEL_FIELDS = 24
         const val APP_MENU_MAX_MODEL_HITS = 6
         const val APP_START_PROBE_HOOK_ID = "ic-app-start-probe"
+        const val APP_PICKER_BRIDGE_HOOK_ID = "ic-app-picker-bridge"
+        const val APP_PICKER_REQUEST_CODE = 0x4C43
         const val SELF_CHOOSER_SESSION_TTL_MS = 8_000L
         const val CHOOSER_DISCOVERY_WINDOW_MS = 3_000L
         const val MANAGER_PACKAGE = "com.yagay.ListCleaner"
