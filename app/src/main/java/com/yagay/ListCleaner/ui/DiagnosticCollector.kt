@@ -2,6 +2,7 @@ package com.yagay.ListCleaner.ui
 
 import android.content.Context
 import android.os.Build
+import android.os.SystemClock
 import com.yagay.ListCleaner.BuildConfig
 import com.yagay.ListCleaner.ListCleanerApp
 import kotlinx.coroutines.Dispatchers
@@ -12,7 +13,6 @@ import java.io.FileOutputStream
 import java.nio.charset.StandardCharsets
 import java.time.Instant
 import java.time.ZoneId
-import android.os.SystemClock
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import java.util.zip.ZipEntry
@@ -61,7 +61,6 @@ object DiagnosticCollector {
                 }
                 zip.addText("app/scan-candidates.txt", "truncated=${candidateEvidence.truncated()}\n" +
                     candidateEvidence.snapshot().toString(StandardCharsets.UTF_8))
-                // Capture volatile buffers first, before slower file and package inspection.
                 zip.addCapture("logcat/buffer-state.txt", root("logcat -g -b all", 128 * 1024))
                 zip.addCapture("root/root-status.txt", root("id; getenforce; command -v su; echo KERNEL=$(uname -a)"))
                 zip.addCapture("logcat/ListCleaner.txt", root(
@@ -102,7 +101,6 @@ object DiagnosticCollector {
             maxBytes = 512 * 1024
         )
         zip.addCapture("lsposed/listing.txt", listing)
-        // Preserve valid paths even when find reports a partial failure.
         listing.bytes.toString(StandardCharsets.UTF_8).lineSequence()
             .mapNotNull { line ->
                 val fields = line.split(' ', limit = 2)
@@ -118,10 +116,7 @@ object DiagnosticCollector {
                 val source = "lsposed/${index.toString().padStart(2, '0')}-$safeName"
                 val capture = root("cat -- '${path.replace("'", "'\\''")}'", MAX_LSPOSED_FILE_BYTES)
                 zip.addCapture(source, capture)
-                capture.bytes.toString(StandardCharsets.UTF_8).lineSequence()
-                    .forEach { line ->
-                        evidence.accept(source, line)
-                    }
+                capture.bytes.toString(StandardCharsets.UTF_8).lineSequence().forEach { line -> evidence.accept(source, line) }
             }
         zip.addText("analysis/module-evidence.txt", evidence.report())
     }
@@ -136,7 +131,6 @@ object DiagnosticCollector {
         appendLine("grantedScope=${state.module.grantedScope.sorted().joinToString()}")
         appendLine("missingScope=${state.module.missingScope.sorted().joinToString()}")
         appendLine("displayMode=${state.displayMode.name}")
-        appendLine("legacyTileRulesIgnored=true enabled=${state.tiles.enabled} hiddenTiles=${state.tiles.hidden.size}")
         appendLine("diagnosticMode=${state.diagnosticMode}")
         appendLine("syncStatus=${state.syncStatus}")
         appendLine("systemConfigAcknowledged=${state.runtime.ready}")
@@ -144,13 +138,14 @@ object DiagnosticCollector {
         appendLine("runtimeObservedAtMillis=${state.runtime.observedAtMillis}")
         appendLine("runtimeObservationAgeMillis=${System.currentTimeMillis() - state.runtime.observedAtMillis}")
         appendLine("configDigest=${state.runtime.digest}")
+        appendLine("queryHits=${state.runtime.queryHits}")
+        appendLine("visibilityHits=${state.runtime.visibilityHits}")
+        appendLine("orderingHits=${state.runtime.orderingHits}")
         appendLine("recoveryDecisionRequired=${state.runtime.needsDecision}")
         appendLine("runtimeMessage=${state.runtime.message}")
         appendLine("uiFilter=${state.uiFilter} category=${state.filter}")
         appendLine("searchActive=${state.query.isNotBlank()} candidates=${state.candidates.size} visibleGroups=${state.groups.size}")
-        state.module.runningTargets.forEach {
-            appendLine("target=${it.processName}|${it.state}|version=${it.version}")
-        }
+        state.module.runningTargets.forEach { appendLine("target=${it.processName}|${it.state}|version=${it.version}") }
         state.module.detection.hosts.forEach {
             appendLine("host=${it.packageName}|${it.className}|${it.processName}|${it.scenarios.sorted().joinToString()}")
         }
@@ -165,8 +160,18 @@ object DiagnosticCollector {
         state.priorities.apps.entries.sortedBy { it.key.ordinal }.forEach { (kind, packages) ->
             appendLine("${kind.name}=${packages.joinToString()}")
         }
-        appendLine("tilesEnabled=${state.tiles.enabled}")
-        state.tiles.hidden.sorted().forEach { appendLine("hiddenTile=$it") }
+        appendLine("openTypeRules:")
+        state.openTypesExplicit.rules.entries.sortedBy { it.key.ordinal }.forEach { (preset, ids) ->
+            appendLine("${preset.name}=${ids.sorted().joinToString()}")
+        }
+        appendLine("openTypePriorities:")
+        state.openTypesExplicit.priorities.entries.sortedBy { it.key.ordinal }.forEach { (preset, packages) ->
+            appendLine("${preset.name}=${packages.joinToString()}")
+        }
+        appendLine("customOpenTypes:")
+        state.openTypesExplicit.customDefinitions.entries.sortedBy { it.key.ordinal }.forEach { (preset, definition) ->
+            appendLine("${preset.name}|name=${definition.name}|mimes=${definition.mimeTypes.sorted().joinToString()}|extensions=${definition.extensions.sorted().joinToString()}")
+        }
     }
 
     private fun systemInfo(): String = buildString {
@@ -191,13 +196,14 @@ object DiagnosticCollector {
         Generated read-only. No command changes system state.
 
         Contents:
-        - app/: module state, LSPosed scope, running targets and active rules
+        - app/: module state, LSPosed scope, running targets, active rules and typed OPEN configuration
         - device/: Android/build information
         - logcat/: module/framework/resolver logs, activity events, crash and buffer state
         - lsposed/: newest 12 log files modified within 24 hours, each retaining up to 4 MiB
         - root/: root status and installed module metadata
 
         Logcat and LSPosed logs may contain package names, paths or user activity. Review before sharing.
+        Runtime ListCleaner messages log file extensions and recognized types, not full file names or URIs.
         Large streams retain their beginning and latest end, with an explicit omitted-byte marker.
         Storage is bounded per entry (8 MiB normally). Startup logs already overwritten cannot be recovered.
         The module also writes lifecycle and rate-limited diagnostic messages to the framework log
@@ -215,9 +221,7 @@ object DiagnosticCollector {
         val readFailure = AtomicReference<String?>(null)
         var process: Process? = null
         return try {
-            val running = ProcessBuilder(command)
-                .redirectErrorStream(true)
-                .start()
+            val running = ProcessBuilder(command).redirectErrorStream(true).start()
             process = running
             val reader = Thread({
                 try {
@@ -245,7 +249,7 @@ object DiagnosticCollector {
         } catch (interrupted: InterruptedException) {
             throw interrupted
         } catch (failure: Exception) {
-            Capture((failure.stackTraceToString()).toByteArray(), -1, false, false,
+            Capture(failure.stackTraceToString().toByteArray(), -1, false, false,
                 startedAt, Instant.now().toString(), buffer.totalBytes(), true)
         } finally {
             runCatching { process?.destroyForcibly() }
