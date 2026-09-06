@@ -60,6 +60,8 @@ private fun loadScopeApps(pm: PackageManager, selfPackage: String): List<ScopeAp
 @Composable
 internal fun AppScopePickerDialog(
     status: ModuleStatus,
+    selected: Set<String>,
+    onSelectedChange: (Set<String>) -> Unit,
     refresh: () -> Unit,
     dismiss: () -> Unit,
 ) {
@@ -68,7 +70,6 @@ internal fun AppScopePickerDialog(
     val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf("") }
     var showSystem by remember { mutableStateOf(false) }
-    var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
     var apps by remember { mutableStateOf<List<ScopeAppEntry>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var requesting by remember { mutableStateOf(false) }
@@ -116,7 +117,7 @@ internal fun AppScopePickerDialog(
                             onClick = {
                                 if (pending.isEmpty() || requesting) return@Button
                                 requesting = true
-                                message = "正在请求 LSPosed 授权 ${pending.size} 个应用…"
+                                message = "正在加入 LSPosed Hook 列表：${pending.size} 个应用…"
                                 scope.launch {
                                     try {
                                         val service = app.service.value ?: error("未连接 LSPosed，请先启用模块")
@@ -134,10 +135,11 @@ internal fun AppScopePickerDialog(
                                             }
                                         }
                                         refresh()
-                                        message = if (approved == null) {
-                                            "等待授权超时；申请可能仍在 LSPosed 中处理，请稍后刷新。"
+                                        if (approved == null) {
+                                            message = "等待授权超时；申请可能仍在 LSPosed 中处理，请稍后刷新。"
                                         } else {
-                                            "已提交并获批 ${approved.size} 个应用；目标应用需重新启动后才能加载 Hook。"
+                                            onSelectedChange(selected - approved.toSet())
+                                            message = "已加入 ${approved.size} 个应用到 LSPosed Hook 列表；目标应用需重新启动后加载 Hook。"
                                         }
                                     } catch (failure: Exception) {
                                         message = "失败：${failure.message ?: "无法申请作用域"}"
@@ -154,11 +156,17 @@ internal fun AppScopePickerDialog(
                                 Spacer(Modifier.width(8.dp))
                             }
                             Text(when {
-                                requesting -> "正在申请…"
-                                pending.isEmpty() && selected.isNotEmpty() -> "所选应用已在 Hook 范围"
+                                requesting -> "正在加入…"
+                                pending.isEmpty() && selected.isNotEmpty() -> "所选应用已在 Hook 列表"
                                 selected.isEmpty() -> "请选择应用"
-                                else -> "加入 LSPosed Hook（${pending.size}）"
+                                else -> "加入 LSPosed Hook 列表（${pending.size}）"
                             })
+                        }
+                        if (selected.isNotEmpty() && !requesting) {
+                            TextButton(
+                                onClick = { onSelectedChange(emptySet()) },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text("清空未提交选择") }
                         }
                     }
                 }
@@ -166,7 +174,7 @@ internal fun AppScopePickerDialog(
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp)) {
                 Text(
-                    "用于应用自己绘制的“打开方式 / 分享”列表。这里只向 LSPosed 申请作用域，不会修改应用数据。仅选择确实需要处理自定义列表的应用。",
+                    "先勾选应用，再点击底部“加入 LSPosed Hook 列表”。返回不会丢失尚未提交的勾选；重新进入后仍会保留。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -197,14 +205,14 @@ internal fun AppScopePickerDialog(
                             val checked = granted || entry.packageName in selected
                             Row(
                                 Modifier.fillMaxWidth().clickable(enabled = !granted && !requesting) {
-                                    selected = if (entry.packageName in selected) selected - entry.packageName else selected + entry.packageName
+                                    onSelectedChange(if (entry.packageName in selected) selected - entry.packageName else selected + entry.packageName)
                                 }.padding(vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Checkbox(
                                     checked = checked,
                                     onCheckedChange = if (granted || requesting) null else { value ->
-                                        selected = if (value) selected + entry.packageName else selected - entry.packageName
+                                        onSelectedChange(if (value) selected + entry.packageName else selected - entry.packageName)
                                     },
                                 )
                                 Column(Modifier.weight(1f)) {
@@ -214,6 +222,8 @@ internal fun AppScopePickerDialog(
                                 }
                                 if (granted) Text("已 Hook", style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.primary)
+                                else if (entry.packageName in selected) Text("待加入", style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.secondary)
                             }
                             HorizontalDivider()
                         }
