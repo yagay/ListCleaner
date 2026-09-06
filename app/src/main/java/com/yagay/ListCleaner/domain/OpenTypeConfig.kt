@@ -1,6 +1,7 @@
 package com.yagay.ListCleaner.domain
 
 import kotlinx.serialization.Serializable
+import java.util.concurrent.atomic.AtomicReference
 
 @Serializable
 data class CustomOpenDefinition(
@@ -34,6 +35,16 @@ data class CustomOpenDefinition(
     }
 }
 
+/**
+ * Process-local registry used by the four-argument matcher call sites inside the hooked Android
+ * processes. ModuleConfig.validated() refreshes it whenever a new remote snapshot is decoded.
+ */
+object CustomOpenRegistry {
+    private val definitions = AtomicReference<Map<OpenPreset, CustomOpenDefinition>>(emptyMap())
+    fun replace(value: Map<OpenPreset, CustomOpenDefinition>) { definitions.set(value.toMap()) }
+    fun snapshot(): Map<OpenPreset, CustomOpenDefinition> = definitions.get()
+}
+
 /** Per-open-type rules and ordering. Generic OPEN rules/priorities remain the fallback. */
 @Serializable
 data class OpenTypeConfig(
@@ -49,8 +60,8 @@ data class OpenTypeConfig(
             definition.validated()
         }
         require(cleanCustom.size <= OpenPreset.CUSTOM_SLOTS.size) { "自定义打开类型过多" }
-        require(rules.keys.filter(OpenPreset::isCustom).all { it in cleanCustom }) { "自定义规则缺少类型定义" }
-        require(priorities.keys.filter(OpenPreset::isCustom).all { it in cleanCustom }) { "自定义排序缺少类型定义" }
+        require(rules.keys.filter { it.isCustom }.all { it in cleanCustom }) { "自定义规则缺少类型定义" }
+        require(priorities.keys.filter { it.isCustom }.all { it in cleanCustom }) { "自定义排序缺少类型定义" }
         require(rules.values.all { ids ->
             ids.size <= 2_000 && ids.all { id ->
                 val parsed = ComponentRule.fromId(id)
@@ -62,6 +73,7 @@ data class OpenTypeConfig(
                 it.isNotBlank() && it.length <= 255 && '|' !in it && it.none { ch -> ch.isWhitespace() || ch.isISOControl() }
             }
         }) { "打开类型排序配置无效" }
+        CustomOpenRegistry.replace(cleanCustom)
         return if (cleanCustom == customDefinitions) this else copy(customDefinitions = cleanCustom)
     }
 
