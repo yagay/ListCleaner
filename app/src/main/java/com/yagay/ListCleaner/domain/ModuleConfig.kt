@@ -12,9 +12,10 @@ data class ModuleConfig(
     // Supplied by our own app via framework-owned remote preferences, never by an Intent extra.
     val managerAppId: Int = -1,
     val tiles: TileConfig = TileConfig(),
-    // Apps in this list are callers from which selected target packages will be hidden at system_server.
-    // They do NOT need to be added to the LSPosed module scope.
-    val hiddenFromApps: Set<String> = emptySet()
+    // Caller apps whose package view is restricted in system_server. They do not need LSPosed scope.
+    val hiddenFromApps: Set<String> = emptySet(),
+    // Explicit package targets hidden from callers above. Resolver component rules are intentionally separate.
+    val visibilityHiddenTargets: Set<String> = emptySet()
 ) {
     fun validated(): ModuleConfig {
         require(rules.size <= 20_000 && rules.all(ComponentRule::isValid))
@@ -22,6 +23,7 @@ data class ModuleConfig(
         tiles.validated()
         require(managerAppId == -1 || ManagerIdentity.valid(managerAppId))
         require(hiddenFromApps.size <= 2_000 && hiddenFromApps.all(::validPackageName))
+        require(visibilityHiddenTargets.size <= 2_000 && visibilityHiddenTargets.all(::validPackageName))
         return this
     }
 

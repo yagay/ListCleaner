@@ -28,8 +28,10 @@ class RuleRepository(context: Context) {
         json.decodeFromString(TileConfig.serializer(), prefs.getString(KEY_TILES, null) ?: "{}").validated()
     }.getOrDefault(TileConfig()))
     private val mutableHiddenFromApps = MutableStateFlow(prefs.getStringSet(KEY_HIDDEN_FROM_APPS, emptySet()).orEmpty().toSet())
+    private val mutableVisibilityHiddenTargets = MutableStateFlow(prefs.getStringSet(KEY_VISIBILITY_HIDDEN_TARGETS, emptySet()).orEmpty().toSet())
     val tiles: StateFlow<TileConfig> = mutableTiles.asStateFlow()
     val hiddenFromApps: StateFlow<Set<String>> = mutableHiddenFromApps.asStateFlow()
+    val visibilityHiddenTargets: StateFlow<Set<String>> = mutableVisibilityHiddenTargets.asStateFlow()
 
     val rules: StateFlow<Set<ComponentRule>> = mutableRules.asStateFlow()
     val displayMode: StateFlow<DisplayMode> = mutableMode.asStateFlow()
@@ -40,7 +42,7 @@ class RuleRepository(context: Context) {
 
     // Existing installations may have deliberately empty rules; key presence, not count, matters.
     fun hasLocalConfiguration(): Boolean = prefs.contains(KEY_INITIALIZED) || prefs.contains(KEY_RULES) ||
-        prefs.contains(KEY_DISPLAY_MODE) || prefs.contains(KEY_BLACKLIST) || prefs.contains(KEY_PRIORITIES) || prefs.contains(KEY_TILES) || prefs.contains(KEY_HIDDEN_FROM_APPS)
+        prefs.contains(KEY_DISPLAY_MODE) || prefs.contains(KEY_BLACKLIST) || prefs.contains(KEY_PRIORITIES) || prefs.contains(KEY_TILES) || prefs.contains(KEY_HIDDEN_FROM_APPS) || prefs.contains(KEY_VISIBILITY_HIDDEN_TARGETS)
 
     fun markInitialized() { prefs.edit().putBoolean(KEY_INITIALIZED, true).apply() }
 
@@ -48,13 +50,15 @@ class RuleRepository(context: Context) {
         config.validated()
         replace(config.rules, config.mode != DisplayMode.SHOW_SELECTED, config.priorities, config.mode, config.tiles)
         setHiddenFromApps(config.hiddenFromApps)
+        setVisibilityHiddenTargets(config.visibilityHiddenTargets)
         setDiagnosticMode(config.diagnostic)
         markInitialized()
     }
 
     @Synchronized fun remoteSnapshot(): ModuleConfig = ModuleConfig(
         mutableRules.value.toSet(), mutableMode.value, mutablePriorities.value,
-        mutableDiagnostic.value, android.os.Process.myUid() % 100_000, mutableTiles.value, mutableHiddenFromApps.value.toSet()
+        mutableDiagnostic.value, android.os.Process.myUid() % 100_000, mutableTiles.value,
+        mutableHiddenFromApps.value.toSet(), mutableVisibilityHiddenTargets.value.toSet()
     )
 
     @Synchronized fun setHiddenFromApps(packages: Set<String>) {
@@ -66,6 +70,19 @@ class RuleRepository(context: Context) {
         require(valid.size <= 2_000) { "隐藏应用列表数量过多" }
         mutableHiddenFromApps.value = valid
         prefs.edit().putStringSet(KEY_HIDDEN_FROM_APPS, valid).apply()
+        mutableRevision.value++
+    }
+
+
+    @Synchronized fun setVisibilityHiddenTargets(packages: Set<String>) {
+        val self = "com.yagay.ListCleaner"
+        val valid = packages.asSequence()
+            .map(String::trim)
+            .filter { it.isNotEmpty() && it != "android" && it != self && it.length <= 255 && it.none { ch -> ch.isWhitespace() || ch.isISOControl() || ch == '|' } }
+            .take(2_001).toSet()
+        require(valid.size <= 2_000) { "隐藏目标应用数量过多" }
+        mutableVisibilityHiddenTargets.value = valid
+        prefs.edit().putStringSet(KEY_VISIBILITY_HIDDEN_TARGETS, valid).apply()
         mutableRevision.value++
     }
 
@@ -132,15 +149,16 @@ class RuleRepository(context: Context) {
 
     @Synchronized fun exportJson(): String = json.encodeToString(
         RuleBackup.serializer(),
-        RuleBackup(version = 5, blacklist = mutableMode.value != DisplayMode.SHOW_SELECTED, rules = mutableRules.value, priorities = mutablePriorities.value, displayMode = mutableMode.value, tiles = mutableTiles.value, hiddenFromApps = mutableHiddenFromApps.value)
+        RuleBackup(version = 6, blacklist = mutableMode.value != DisplayMode.SHOW_SELECTED, rules = mutableRules.value, priorities = mutablePriorities.value, displayMode = mutableMode.value, tiles = mutableTiles.value, hiddenFromApps = mutableHiddenFromApps.value, visibilityHiddenTargets = mutableVisibilityHiddenTargets.value)
     )
 
     fun importJson(content: String) {
         require(content.length <= MAX_BACKUP_CHARS) { "备份文件过大" }
         val backup = json.decodeFromString(RuleBackup.serializer(), content)
-        require(backup.version in 1..5) { "不支持的备份版本：${backup.version}" }
+        require(backup.version in 1..6) { "不支持的备份版本：${backup.version}" }
         replace(backup.rules, backup.blacklist, if (backup.version == 1) PriorityConfig() else backup.priorities, if (backup.version >= 3) requireNotNull(backup.displayMode) { "备份缺少显示模式" } else DisplayMode.fromStored(null, backup.blacklist), if (backup.version >= 4) backup.tiles else TileConfig())
         setHiddenFromApps(if (backup.version >= 5) backup.hiddenFromApps else emptySet())
+        setVisibilityHiddenTargets(if (backup.version >= 6) backup.visibilityHiddenTargets else emptySet())
     }
 
     private fun updateRules(next: Set<ComponentRule>) {
@@ -160,7 +178,8 @@ class RuleRepository(context: Context) {
         const val KEY_CONFIG = "config_v1"
         const val KEY_TILES = "tile_config"
         const val KEY_HIDDEN_FROM_APPS = "hidden_from_apps"
-        val SYNCED_KEYS = setOf(KEY_RULES, KEY_BLACKLIST, KEY_DISPLAY_MODE, KEY_PRIORITIES, KEY_DIAGNOSTIC, KEY_HIDDEN_FROM_APPS)
+        const val KEY_VISIBILITY_HIDDEN_TARGETS = "visibility_hidden_targets"
+        val SYNCED_KEYS = setOf(KEY_RULES, KEY_BLACKLIST, KEY_DISPLAY_MODE, KEY_PRIORITIES, KEY_DIAGNOSTIC, KEY_HIDDEN_FROM_APPS, KEY_VISIBILITY_HIDDEN_TARGETS)
         private const val LOCAL_PREFS = "rules_local"
         private const val KEY_INITIALIZED = "configuration_initialized"
         private const val MAX_RULES = 20_000

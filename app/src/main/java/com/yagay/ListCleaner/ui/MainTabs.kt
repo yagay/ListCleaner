@@ -108,11 +108,22 @@ fun DashboardTabContent(
     var menu by remember { mutableStateOf(false) }
     var showScopeDetails by remember { mutableStateOf(false) }
     var showAppScopePicker by remember { mutableStateOf(false) }
+    var showVisibilityTargetPicker by remember { mutableStateOf(false) }
     if (showScopeDetails) ScopeDialog(state.module, vm::requestScope, vm::refreshModuleStatus) { showScopeDetails = false }
     if (showAppScopePicker) AppScopePickerDialog(
         selected = state.hiddenFromApps,
         onSelectedChange = vm::setHiddenFromApps,
+        title = "限制来源应用",
+        description = "选择“谁不能看到隐藏目标”，例如 ES 文件管理器。这里只保存 caller，不会 Hook 这些应用。",
+        selectedLabel = "已限制来源"
     ) { showAppScopePicker = false }
+    if (showVisibilityTargetPicker) AppScopePickerDialog(
+        selected = state.visibilityHiddenTargets,
+        onSelectedChange = vm::setVisibilityHiddenTargets,
+        title = "隐藏目标应用",
+        description = "选择要对上面的来源应用隐藏的完整应用包。这里与 OPEN/SHARE/BROWSER 等组件规则完全独立，避免把所有规则涉及的应用都隐藏。",
+        selectedLabel = "已隐藏目标"
+    ) { showVisibilityTargetPicker = false }
     Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         RuntimePanel(state, vm)
         Text("全局清理模式", style = MaterialTheme.typography.titleMedium)
@@ -159,13 +170,15 @@ fun DashboardTabContent(
         }
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("应用隐藏列表", fontWeight = FontWeight.Bold)
-                Text("用于指定从哪些应用中隐藏规则目标，例如文件管理器自己的打开方式列表。这里不会 Hook 这些应用，也不需要把它们加入 LSPosed 作用域。", style = MaterialTheme.typography.bodySmall)
-                Button(
-                    onClick = { showAppScopePicker = true },
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("管理应用隐藏列表（${state.hiddenFromApps.size}）") }
-                Text("勾选立即保存；List Cleaner 仅依赖 android/system_server 作用域执行系统级可见性过滤。", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("系统级应用隐藏", fontWeight = FontWeight.Bold)
+                Text("分开配置“从哪些应用中隐藏”和“隐藏哪些应用”。组件清理规则不会再自动变成整包隐藏目标。", style = MaterialTheme.typography.bodySmall)
+                Button(onClick = { showAppScopePicker = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("限制来源应用（${state.hiddenFromApps.size}）")
+                }
+                OutlinedButton(onClick = { showVisibilityTargetPicker = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("隐藏目标应用（${state.visibilityHiddenTargets.size}）")
+                }
+                Text("只有来源列表与目标列表都非空时，system_server 才执行 HMA 风格包可见性过滤。", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Text("运行版本由 LSPosed 提供；配置摘要由 system Hook 确认，不代表所有选择器行为均已验证。首次从 1.4.4 或更早版本迁移需重启；以后可尝试热更新，框架不支持或失败时仍需重启。", style = MaterialTheme.typography.bodySmall)

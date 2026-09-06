@@ -96,6 +96,7 @@ data class MainState(
     val priorities: PriorityConfig = PriorityConfig(),
     val tiles: TileConfig = TileConfig(),
     val hiddenFromApps: Set<String> = emptySet(),
+    val visibilityHiddenTargets: Set<String> = emptySet(),
     val groups: List<AppGroup> = emptyList(),
     val destination: Destination = Destination.RULES,
     val expandedAppKey: String? = null,
@@ -296,7 +297,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ListContent(emptyList(), null, "", emptyList()))
     
     val state: StateFlow<MainState> = combine(
-        moduleStatus, loading, error, grouped, app.runtime, app.rules.displayMode, app.rules.priorities, app.rules.diagnosticMode, app.syncStatus, destination, expandedAppKey, app.rules.tiles, app.rules.hiddenFromApps
+        moduleStatus, loading, error, grouped, app.runtime, app.rules.displayMode, app.rules.priorities, app.rules.diagnosticMode, app.syncStatus, destination, expandedAppKey, app.rules.tiles, app.rules.hiddenFromApps, app.rules.visibilityHiddenTargets
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         MainState(
@@ -317,6 +318,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             expandedAppKey = values[10] as String?,
             tiles = values[11] as TileConfig,
             hiddenFromApps = values[12] as Set<String>,
+            visibilityHiddenTargets = values[13] as Set<String>,
             uiFilter = (values[3] as ListContent).uiFilter
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainState())
@@ -337,6 +339,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setHiddenFromApps(packages: Set<String>) {
         app.rules.setHiddenFromApps(packages)
+        viewModelScope.launch { app.synchronize() }
+    }
+
+    fun setVisibilityHiddenTargets(packages: Set<String>) {
+        app.rules.setVisibilityHiddenTargets(packages)
         viewModelScope.launch { app.synchronize() }
     }
 

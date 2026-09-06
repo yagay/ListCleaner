@@ -50,7 +50,8 @@ class ListCleanerModule : XposedModule() {
         val diagnostic: Boolean,
         val managerAppId: Int = -1,
         val digest: String = "",
-        val hiddenFromApps: Set<String> = emptySet()
+        val hiddenFromApps: Set<String> = emptySet(),
+        val visibilityHiddenTargets: Set<String> = emptySet()
     ) {
         val selectedKinds: Set<IntentKind> = selectedKinds(configured)
         private val selectedPackages: Map<IntentKind, Set<String>> = configured.mapNotNull { id ->
@@ -329,7 +330,7 @@ class ListCleanerModule : XposedModule() {
             }
         }
         installArchivedPackageHook(classLoader)
-        record("VISIBILITY_HOOKS new=$installed callers=${snapshot.hiddenFromApps.size} targets=${snapshot.allSelectedPackages.size} hotPath=memory_snapshot")
+        record("VISIBILITY_HOOKS new=$installed callers=${snapshot.hiddenFromApps.size} targets=${snapshot.visibilityHiddenTargets.size} hotPath=memory_snapshot")
     }
 
     private fun installArchivedPackageHook(classLoader: ClassLoader) {
@@ -398,10 +399,10 @@ class ListCleanerModule : XposedModule() {
 
     private fun visibilityEnabled(current: RuleSnapshot): Boolean =
         current.displayMode == DisplayMode.HIDE_SELECTED &&
-            current.hiddenFromApps.isNotEmpty() && current.allSelectedPackages.isNotEmpty()
+            current.hiddenFromApps.isNotEmpty() && current.visibilityHiddenTargets.isNotEmpty()
 
     private fun shouldHidePackage(current: RuleSnapshot, callers: Set<String>, target: String): Boolean {
-        if (target !in current.allSelectedPackages) return false
+        if (target !in current.visibilityHiddenTargets) return false
         if (target in PROTECTED_VISIBILITY_PACKAGES || target in callers) return false
         return callers.any(current.hiddenFromApps::contains)
     }
@@ -859,13 +860,13 @@ class ListCleanerModule : XposedModule() {
                 if (snapshot.digest == digest) return@runCatching
                 val config = Json { ignoreUnknownKeys = true }.decodeFromString(ModuleConfig.serializer(), encoded).validated()
                 snapshot = RuleSnapshot(config.rules.map { it.id }.toSet(), config.mode,
-                    config.priorities, config.diagnostic, config.managerAppId, digest, config.hiddenFromApps)
+                    config.priorities, config.diagnostic, config.managerAppId, digest, config.hiddenFromApps, config.visibilityHiddenTargets)
                 callerPackageCache.clear()
                 visibilityFailureCount = 0
                 visibilityFailOpen = false
                 lastEncodedConfig = encoded
                 record("MANAGER_IDENTITY appId=${config.managerAppId} source=remote_config")
-                record("RULES_READ reason=$reason count=${snapshot.configured.size} mode=${config.mode} diagnostic=${config.diagnostic} atomic=true priorities=${config.priorities.apps.mapValues { it.value.size }} hiddenFromApps=${config.hiddenFromApps.size} digest=$digest")
+                record("RULES_READ reason=$reason count=${snapshot.configured.size} mode=${config.mode} diagnostic=${config.diagnostic} atomic=true priorities=${config.priorities.apps.mapValues { it.value.size }} hiddenFromApps=${config.hiddenFromApps.size} visibilityTargets=${config.visibilityHiddenTargets.size} digest=$digest")
                 record("LEGACY_TILE_CONFIG ignored=true enabled=${config.tiles.enabled} hidden=${config.tiles.hidden.size}")
                 return@runCatching
             }

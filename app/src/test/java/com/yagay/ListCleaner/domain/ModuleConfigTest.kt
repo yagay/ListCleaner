@@ -36,4 +36,10 @@ class ModuleConfigTest {
         assertFalse(FilterPolicy.sameCaller(10001, 1010001))
         assertTrue(FilterPolicy.sameCaller(10001, 10001))
     }
+    @Test fun visibilityTargetsRoundTrip() {
+        val config = ModuleConfig(emptySet(), DisplayMode.HIDE_SELECTED, PriorityConfig(), false, 10715, TileConfig(), setOf("com.estrongs.android.pop"), setOf("com.openai.chatgpt"))
+        val decoded = Json.decodeFromString(ModuleConfig.serializer(), Json.encodeToString(ModuleConfig.serializer(), config)).validated()
+        assertEquals(setOf("com.estrongs.android.pop"), decoded.hiddenFromApps)
+        assertEquals(setOf("com.openai.chatgpt"), decoded.visibilityHiddenTargets)
+    }
 }

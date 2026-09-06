@@ -50,6 +50,9 @@ private fun loadScopeApps(pm: PackageManager, selfPackage: String): List<ScopeAp
 internal fun AppScopePickerDialog(
     selected: Set<String>,
     onSelectedChange: (Set<String>) -> Unit,
+    title: String = "应用隐藏列表",
+    description: String = "这里选择的是“从哪些应用中隐藏目标”。这些应用不需要加入 LSPosed Hook 作用域；List Cleaner 只在 system/system_server 侧应用隐藏。勾选立即保存。",
+    selectedLabel: String = "已选择",
     dismiss: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -79,14 +82,14 @@ internal fun AppScopePickerDialog(
             modifier = Modifier.fillMaxSize(),
             topBar = {
                 TopAppBar(
-                    title = { Text("应用隐藏列表") },
+                    title = { Text(title) },
                     navigationIcon = { IconButton(onClick = dismiss) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "返回") } },
                 )
             },
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp)) {
                 Text(
-                    "这里选择的是“从哪些应用中隐藏规则目标”。这些应用不需要加入 LSPosed Hook 作用域；List Cleaner 只在 system/system_server 侧应用隐藏。勾选立即保存。",
+                    description,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -103,7 +106,7 @@ internal fun AppScopePickerDialog(
                     Switch(checked = showSystem, onCheckedChange = { showSystem = it })
                 }
                 Text(
-                    "已加入隐藏列表 ${selected.size} 个应用",
+                    "$selectedLabel ${selected.size} 个应用",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
