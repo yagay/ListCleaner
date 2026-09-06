@@ -57,6 +57,10 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     LaunchedEffect(kind) { if (kind != IntentKind.OPEN) openPreset = null }
     val typedSelected = openPreset?.let { state.openTypes.selectedRules(it) }.orEmpty()
     val scopedCandidates = if (kind == IntentKind.OPEN && openPreset != null) state.candidates.filter { it.matchesOpenPreset(openPreset!!) } else state.candidates
+    val explicitTypedPriority = openPreset?.let { state.openTypesExplicit.priorities[it].orEmpty() }.orEmpty()
+    val genericOpenPriority = state.priorities.apps[IntentKind.OPEN].orEmpty()
+    val inheritsOpenPriority = kind == IntentKind.OPEN && openPreset != null && explicitTypedPriority.isEmpty() && genericOpenPriority.isNotEmpty()
+    val hasExplicitOpenPriority = kind == IntentKind.OPEN && openPreset != null && explicitTypedPriority.isNotEmpty()
     val rankedRaw = if (kind == IntentKind.OPEN && openPreset != null) state.openTypes.priorities[openPreset].orEmpty() else state.priorities.apps[kind].orEmpty()
     val groups = remember(scopedCandidates, state.selected, typedSelected, state.displayMode, kind, openPreset, rankedRaw, state.query, viewFilter) {
         priorityAppGroups(scopedCandidates, state.selected, state.displayMode, kind, rankedRaw, state.query,
@@ -66,7 +70,6 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                 UiFilter.SHOW_SELECTED -> PriorityListFilter.SELECTED
             }, typedSelected)
     }
-    // Search narrows the move targets too; hidden saved slots remain untouched.
     val moveTargets = groups.filter { it.rank != null }.sortedBy { it.rank }.map { it.packageName }
     val visibleSaved = priorityCandidates(scopedCandidates, state.selected, state.displayMode, kind, typedSelected)
         .map { it.rule.packageName }.toSet()
@@ -81,7 +84,6 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     val density = LocalDensity.current
     val edge = with(density) { 56.dp.toPx() }
     val speed = with(density) { 640.dp.toPx() }
-    // Changing category/search/filter, importing or refreshing invalidates the gesture snapshot.
     LaunchedEffect(kind, openPreset, viewFilter, state.query, rankedRaw, moveTargets) { dragState.cancel() }
     DisposableEffect(dragState) { onDispose { dragState.cancel() } }
     LaunchedEffect(drag?.packageName) {
@@ -148,19 +150,37 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("长按已优先应用可拖动排序，松手保存；展开后也可上移、下移。展开组件后点铅笔可修改该组件在当前 Intent 分类中的菜单显示名称，留空保存恢复原名称。",
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(if (kind == IntentKind.OPEN && openPreset != null)
-                    "当前正在编辑“打开方式 · ${openPreset!!.title}”排序。若该类型还没有专用排序，会直接继承并显示“全部”中的 OPEN 通用排序；第一次在当前类型里勾选、取消、拖动或上下移动时，会以继承顺序为基础创建该类型自己的专用排序。已有专用排序后以专用排序为准，不再跟随“全部”后续变化。"
-                    else "排序和显示名称都按 Intent 分类保存，同一组件在分享、打开方式等分类中可设置不同名称。改名只改变候选菜单展示文字，不修改应用名、Activity 名或实际跳转目标；“全部显示”模式下暂停应用自定义名称。规则要求清理的组件不显示；未知厂商自定义菜单若不读取标准 ResolveInfo 标签，改名可能不生效。",
-                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (kind == IntentKind.OPEN && openPreset != null) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            when {
+                                inheritsOpenPriority -> "当前排序来源：继承“打开方式 · 全部”"
+                                hasExplicitOpenPriority -> "当前排序来源：${openPreset!!.title} 专用排序"
+                                else -> "当前类型和“全部”都没有优先排序"
+                            },
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (inheritsOpenPriority) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (hasExplicitOpenPriority) {
+                            TextButton(onClick = { vm.resetOpenTypePriority(openPreset!!) }) { Text("恢复继承全部") }
+                        }
+                    }
+                    Text("没有专用排序时直接继承“全部”；第一次在当前类型里勾选、取消、拖动或上下移动会以继承顺序为基础创建专用排序。恢复继承后会重新跟随“全部”的后续变化。",
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    Text("排序和显示名称都按 Intent 分类保存。同一组件在分享、打开方式等分类中可设置不同名称；改名只改变候选菜单展示文字，不修改应用名、Activity 名或实际跳转目标。",
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 val compatibility = when {
                     !state.module.connected -> "LSPosed 未连接：可以保存，但尚未生效。"
                     state.module.detection.hosts.isEmpty() -> "未确认选择器宿主，当前设备排序能力未知。"
                     state.module.detection.hosts.any { it.packageName != "system" && !it.className.startsWith("com.android.internal.app.") && !it.className.startsWith("com.android.intentresolver.") } ->
                         "厂商独立排序路径尚未适配；仅走 AOSP 路径时可能有效，不能保证置顶。"
-                    else -> "已实现 AOSP 路径适配，未确认本机命中。保存后重新打开选择器核对。"
+                    else -> "已实现 AOSP 路径适配；状态页会显示排序 Hook 的实际命中次数。"
                 }
                 Text(if (!state.runtime.ready) state.runtime.message else if (kind == IntentKind.PROCESS_TEXT)
-                    "文本候选按查询结果排序；来源应用若自行重排，仍可能不同。保存后重新打开文本菜单。" else compatibility,
+                    "文本候选按查询结果排序；来源应用若自行重排，仍可能不同。" else compatibility,
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (hiddenSavedCount > 0) Text("$hiddenSavedCount 项因已清理或本次未匹配而暂不显示，排序配置保留。",
                     style = MaterialTheme.typography.bodySmall)
@@ -198,7 +218,9 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                     AppIcon(first.appIcon, first.appLabel)
                     Column(Modifier.weight(1f).padding(start = 10.dp)) {
                         Text(first.appLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
-                        Text((group.rank?.let { "优先第 $it 位" } ?: "未优先") + " · ${group.components.size} 个组件",
+                        Text((group.rank?.let { "优先第 $it 位" } ?: "未优先") +
+                            (if (group.rank != null && inheritsOpenPriority) " · 继承自全部" else "") +
+                            " · ${group.components.size} 个组件",
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = onExpand) {
@@ -212,7 +234,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                 if (group.rank != null) item(key = "order|$key") {
                     val index = moveTargets.indexOf(packageName)
                     Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("优先第 ${group.rank} 位", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium)
+                        Text("优先第 ${group.rank} 位" + if (inheritsOpenPriority) " · 继承" else "", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium)
                         TextButton(onClick = { if (kind == IntentKind.OPEN && openPreset != null) vm.moveOpenTypePriority(openPreset!!, packageName, -1, moveTargets) else vm.movePriority(kind, packageName, -1, moveTargets) }, enabled = index > 0) {
                             Icon(Icons.Rounded.ArrowUpward, null, Modifier.size(18.dp)); Text("上移")
                         }
