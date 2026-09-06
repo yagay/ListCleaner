@@ -101,6 +101,8 @@ class ListCleanerModule : XposedModule() {
     )
     private val recentChooserLaunches = ConcurrentHashMap<Int, RecentChooserLaunch>()
     private val learnedChooserHits = ConcurrentHashMap<String, Int>()
+    private data class LearnedChooserTemplate(val kind: IntentKind, val action: String?, val mime: String?, val flags: Int)
+    private val learnedChooserTemplates = ConcurrentHashMap<String, LearnedChooserTemplate>()
     private val chooserRequestSchemasLogged = ConcurrentHashMap.newKeySet<Class<*>>()
     private val chooserRequestAccessorCache = ConcurrentHashMap<Class<*>, ActivityStartAccessor>()
 
@@ -330,9 +332,15 @@ class ListCleanerModule : XposedModule() {
             injectSystemChooserExclusions(intent, callerPackage, uid, current)
         }
 
+        val component = intent.component
+        if (component != null && component.packageName == callerPackage) {
+            val routeKey = "$callerPackage|${component.flattenToShortString()}"
+            val template = learnedChooserTemplates[routeKey]
+            if (template != null && tryRedirectLearnedChooser(request, intent, view, component, template, current)) return
+        }
+
         if (!current.diagnostic) return
-        val component = intent.component ?: return
-        if (component.packageName != callerPackage) return
+        if (component == null || component.packageName != callerPackage) return
         val hasPayloadHint = intent.data != null || intent.type != null || intent.clipData != null ||
             intent.selector != null || runCatching { intent.extras?.keySet()?.isNotEmpty() == true }.getOrDefault(false)
         val entry = RecentChooserLaunch(uid, callerPackage, component.flattenToShortString(), SystemClock.elapsedRealtime(), hasPayloadHint)
@@ -495,7 +503,177 @@ class ListCleanerModule : XposedModule() {
             score >= 6 -> "MEDIUM"
             else -> "LOW"
         }
+        if (confidence == "HIGH") {
+            val routeKey = "${launch.callerPackage}|${launch.component}"
+            learnedChooserTemplates[routeKey] = LearnedChooserTemplate(kind, intent.action, intent.type, intent.flags)
+            diagnostic("CHOOSER_REDIRECT_ARMED caller=${launch.callerPackage} component=${launch.component} kind=$kind mime=${intent.type}")
+        }
         diagnostic("CHOOSER_LEARNED uid=$callerUid caller=${launch.callerPackage} component=${launch.component} kind=$kind candidates=$candidateCount score=$score hits=$hits confidence=$confidence ageMs=$age")
+    }
+
+    private fun tryRedirectLearnedChooser(
+        request: Any,
+        source: Intent,
+        view: ActivityStartView,
+        component: ComponentName,
+        template: LearnedChooserTemplate,
+        current: RuleSnapshot,
+    ): Boolean {
+        // Never redirect the manager itself or a system chooser. A learned route must be HIGH confidence.
+        if (view.callerPackage == MANAGER_PACKAGE || source.action == Intent.ACTION_CHOOSER) return false
+        val payload = buildAdaptiveChooserPayload(source, template) ?: run {
+            if (current.diagnostic) diagnostic("CHOOSER_REDIRECT_SKIP caller=${view.callerPackage} component=${component.flattenToShortString()} reason=no_current_payload kind=${template.kind}")
+            return false
+        }
+        val proxy = Intent().apply {
+            setComponent(ComponentName(MANAGER_PACKAGE, ADAPTIVE_CHOOSER_ACTIVITY))
+            putExtra(ADAPTIVE_TARGET_EXTRA, payload)
+            putExtra(ADAPTIVE_SOURCE_EXTRA, view.callerPackage)
+            putExtra(ADAPTIVE_KIND_EXTRA, template.kind.name)
+            addFlags(source.flags and (Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+            addFlags(payload.flags and (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION))
+        }
+        val userId = (readNamedField(request, listOf("userId")) as? Int) ?: 0
+        val resolved = resolveRedirectActivity(proxy, userId) ?: run {
+            if (current.diagnostic) diagnostic("CHOOSER_REDIRECT_SKIP caller=${view.callerPackage} component=${component.flattenToShortString()} reason=proxy_unresolved")
+            return false
+        }
+        val intentField = allInstanceFields(request.javaClass).firstOrNull { it.name == "intent" && Intent::class.java.isAssignableFrom(it.type) } ?: return false
+        val resolveField = allInstanceFields(request.javaClass).firstOrNull { it.name == "resolveInfo" && ResolveInfo::class.java.isAssignableFrom(it.type) } ?: return false
+        val activityField = allInstanceFields(request.javaClass).firstOrNull { it.name == "activityInfo" && ActivityInfo::class.java.isAssignableFrom(it.type) } ?: return false
+        val resolvedTypeField = allInstanceFields(request.javaClass).firstOrNull { it.name == "resolvedType" }
+        val componentSpecifiedField = allInstanceFields(request.javaClass).firstOrNull { it.name == "componentSpecified" }
+        val grantField = allInstanceFields(request.javaClass).firstOrNull { it.name == "intentGrants" }
+        val grants = grantField?.let { field -> runCatching { field.isAccessible = true; field.get(request) }.getOrNull() }
+        if (grants != null && payloadHasUri(payload) && !retargetNeededUriGrants(grants, resolved.activityInfo?.applicationInfo?.uid)) {
+            if (current.diagnostic) diagnostic("CHOOSER_REDIRECT_SKIP caller=${view.callerPackage} component=${component.flattenToShortString()} reason=uri_grant_retarget_failed")
+            return false
+        }
+        return runCatching {
+            intentField.isAccessible = true
+            resolveField.isAccessible = true
+            activityField.isAccessible = true
+            intentField.set(request, proxy)
+            resolveField.set(request, resolved)
+            activityField.set(request, resolved.activityInfo)
+            resolvedTypeField?.let { it.isAccessible = true; it.set(request, null) }
+            componentSpecifiedField?.let { it.isAccessible = true; it.setBoolean(request, true) }
+            diagnostic("CHOOSER_REDIRECT_APPLIED uid=${view.uid} caller=${view.callerPackage} from=${component.flattenToShortString()} kind=${template.kind} targetAction=${payload.action} mime=${payload.type} uri=${payload.data != null}")
+            true
+        }.getOrElse {
+            diagnostic("CHOOSER_REDIRECT_FAILED caller=${view.callerPackage} component=${component.flattenToShortString()} error=${it.javaClass.name}")
+            false
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun buildAdaptiveChooserPayload(source: Intent, template: LearnedChooserTemplate): Intent? {
+        fun nested(intent: Intent, depth: Int): Intent? {
+            if (depth > 3) return null
+            val selector = intent.selector
+            if (selector != null) {
+                val kind = selector.intentKind(selector.type)
+                if (kind == template.kind && payloadHasUri(selector)) return Intent(selector).apply { setComponent(null); setPackage(null) }
+                nested(selector, depth + 1)?.let { return it }
+            }
+            val extraIntent = runCatching { intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT) }.getOrNull()
+            if (extraIntent != null) {
+                val kind = extraIntent.intentKind(extraIntent.type)
+                if (kind == template.kind && payloadHasUri(extraIntent)) return Intent(extraIntent).apply { setComponent(null); setPackage(null) }
+                nested(extraIntent, depth + 1)?.let { return it }
+            }
+            val bundle = runCatching { intent.extras }.getOrNull()
+            bundle?.keySet()?.forEach { key ->
+                val value = runCatching { bundle.get(key) }.getOrNull()
+                if (value is Intent) {
+                    val kind = value.intentKind(value.type)
+                    if (kind == template.kind && payloadHasUri(value)) return Intent(value).apply { setComponent(null); setPackage(null) }
+                    nested(value, depth + 1)?.let { return it }
+                }
+            }
+            return null
+        }
+        nested(source, 0)?.let { target ->
+            if (target.action == null) target.setAction(template.action ?: if (template.kind == IntentKind.OPEN || template.kind == IntentKind.BROWSER) Intent.ACTION_VIEW else null)
+            if (target.type == null && template.mime != null) target.setType(template.mime)
+            target.addFlags(source.flags and URI_GRANT_FLAGS)
+            return target
+        }
+        if (template.kind !in setOf(IntentKind.OPEN, IntentKind.BROWSER)) return null
+        val uri = firstUri(source) ?: return null
+        return Intent(template.action ?: Intent.ACTION_VIEW).apply {
+            if (template.mime != null) setDataAndType(uri, template.mime) else setData(uri)
+            addFlags((source.flags or template.flags) and URI_GRANT_FLAGS)
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun firstUri(intent: Intent, depth: Int = 0): android.net.Uri? {
+        if (depth > 3) return null
+        intent.data?.let { return it }
+        intent.clipData?.let { clip -> if (clip.itemCount > 0) clip.getItemAt(0).uri?.let { return it } }
+        val bundle = runCatching { intent.extras }.getOrNull() ?: return null
+        bundle.keySet().forEach { key ->
+            when (val value = runCatching { bundle.get(key) }.getOrNull()) {
+                is android.net.Uri -> return value
+                is Intent -> firstUri(value, depth + 1)?.let { return it }
+                is Array<*> -> value.filterIsInstance<android.net.Uri>().firstOrNull()?.let { return it }
+                is Collection<*> -> value.filterIsInstance<android.net.Uri>().firstOrNull()?.let { return it }
+            }
+        }
+        return null
+    }
+
+    private fun payloadHasUri(intent: Intent): Boolean = intent.data != null || intent.clipData != null || firstUri(intent) != null
+
+    private fun resolveRedirectActivity(intent: Intent, userId: Int): ResolveInfo? {
+        val identity = Binder.clearCallingIdentity()
+        return try {
+            val pms = Class.forName("android.app.AppGlobals").getDeclaredMethod("getPackageManager").invoke(null) ?: return null
+            val methods = (pms.javaClass.methods.asSequence() + pms.javaClass.interfaces.asSequence().flatMap { it.methods.asSequence() })
+                .filter { it.name == "resolveIntent" && it.parameterTypes.firstOrNull() == Intent::class.java }
+                .distinctBy(Method::toGenericString)
+                .toList()
+            methods.firstNotNullOfOrNull { method ->
+                runCatching {
+                    method.isAccessible = true
+                    val args = method.parameterTypes.mapIndexed { index, type ->
+                        when {
+                            index == 0 -> intent
+                            type == String::class.java -> null
+                            type == Long::class.javaPrimitiveType || type == Long::class.java -> 0L
+                            type == Int::class.javaPrimitiveType || type == Int::class.java -> if (index == method.parameterTypes.lastIndex) userId else 0
+                            type == Boolean::class.javaPrimitiveType || type == Boolean::class.java -> false
+                            else -> null
+                        }
+                    }.toTypedArray()
+                    method.invoke(pms, *args) as? ResolveInfo
+                }.getOrNull()
+            }?.takeIf { it.activityInfo?.packageName == MANAGER_PACKAGE && it.activityInfo?.name == ADAPTIVE_CHOOSER_ACTIVITY }
+        } finally {
+            Binder.restoreCallingIdentity(identity)
+        }
+    }
+
+    private fun retargetNeededUriGrants(grants: Any, targetUid: Int?): Boolean {
+        if (targetUid == null) return false
+        var packageChanged = false
+        var uidChanged = false
+        allInstanceFields(grants.javaClass).forEach { field ->
+            runCatching {
+                field.isAccessible = true
+                when {
+                    field.type == String::class.java && field.name.lowercase().contains("target") && (field.name.lowercase().contains("pkg") || field.name.lowercase().contains("package")) -> {
+                        field.set(grants, MANAGER_PACKAGE); packageChanged = true
+                    }
+                    (field.type == Int::class.javaPrimitiveType || field.type == Int::class.java) && field.name.lowercase().contains("target") && field.name.lowercase().contains("uid") -> {
+                        field.setInt(grants, targetUid); uidChanged = true
+                    }
+                }
+            }
+        }
+        // Some platform versions only store targetPkg and infer UID later.
+        return packageChanged || uidChanged
     }
 
     private sealed interface PackageNameAccessor {
@@ -1188,6 +1366,11 @@ class ListCleanerModule : XposedModule() {
         const val CHOOSER_DISCOVERY_HOOK_ID = "ic-adaptive-chooser-discovery"
         const val CHOOSER_DISCOVERY_WINDOW_MS = 3_000L
         const val MANAGER_PACKAGE = "com.yagay.ListCleaner"
+        const val ADAPTIVE_CHOOSER_ACTIVITY = "com.yagay.ListCleaner.ui.AdaptiveChooserActivity"
+        const val ADAPTIVE_TARGET_EXTRA = "com.yagay.ListCleaner.extra.ADAPTIVE_TARGET"
+        const val ADAPTIVE_SOURCE_EXTRA = "com.yagay.ListCleaner.extra.ADAPTIVE_SOURCE"
+        const val ADAPTIVE_KIND_EXTRA = "com.yagay.ListCleaner.extra.ADAPTIVE_KIND"
+        const val URI_GRANT_FLAGS = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
         const val CALLER_CACHE_TTL_MS = 60_000L
         const val VISIBILITY_FAILURE_LIMIT = 3
         val PROTECTED_VISIBILITY_PACKAGES = setOf(
