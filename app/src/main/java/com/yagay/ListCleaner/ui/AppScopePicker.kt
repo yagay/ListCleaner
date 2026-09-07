@@ -78,12 +78,16 @@ internal fun AppScopePickerDialog(
         loading = false
     }
 
-    val visible = remember(apps, query, showSystem) {
+    val visible = remember(apps, query, showSystem, selected) {
         val needle = query.trim().lowercase()
         apps.filter { entry ->
             (showSystem || !entry.system) &&
                 (needle.isEmpty() || entry.label.lowercase().contains(needle) || entry.packageName.lowercase().contains(needle))
-        }
+        }.sortedWith(
+            compareBy<ScopeAppEntry> { if (it.packageName in selected) 0 else 1 }
+                .thenBy { it.label.lowercase() }
+                .thenBy { it.packageName }
+        )
     }
     val activeTargets = remember(visibilityScopes, fullPackages) {
         com.yagay.ListCleaner.domain.VisibilityCompatConfig(visibilityScopes, fullPackages).activePackages()
