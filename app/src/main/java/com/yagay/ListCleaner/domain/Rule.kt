@@ -67,5 +67,7 @@ data class RuleBackup(
     val hiddenFromApps: Set<String> = emptySet(),
     /** Source-compatibility only. Not written to new backups. */
     @Transient val defaultOpen: DefaultOpenConfig = DefaultOpenConfig(),
-    val openTypes: OpenTypeConfig = OpenTypeConfig()
+    val openTypes: OpenTypeConfig = OpenTypeConfig(),
+    /** User choice only; derived full-package targets are rebuilt from current catalog/rules. */
+    val visibilityScopes: Set<VisibilityScope> = emptySet()
 )
