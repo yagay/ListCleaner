@@ -114,6 +114,15 @@ data class AppGroup(
     val components: List<ComponentCandidate>
 )
 
+private fun appSelectionRank(group: AppGroup, selected: Set<ComponentRule>): Int {
+    val selectedCount = group.components.count { it.rule in selected }
+    return when {
+        group.components.isNotEmpty() && selectedCount == group.components.size -> 0
+        selectedCount > 0 -> 1
+        else -> 2
+    }
+}
+
 fun groupCandidates(
     candidates: List<ComponentCandidate>,
     selected: Set<ComponentRule>,
@@ -137,7 +146,11 @@ fun groupCandidates(
         all.first().appIcon,
         matching
     )
-}.sortedBy { it.appLabel.lowercase() }
+}.sortedWith(
+    compareBy<AppGroup> { appSelectionRank(it, selected) }
+        .thenBy { it.appLabel.lowercase() }
+        .thenBy { it.packageName }
+)
 
 fun retainConfiguredCandidates(
     items: List<ComponentCandidate>,
