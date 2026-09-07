@@ -2,11 +2,13 @@ package com.yagay.ListCleaner.domain
 
 /** Same category and rule mode as filtering. A partially hidden app keeps surviving entries. */
 fun priorityCandidates(
-    candidates: List<ComponentCandidate>, selected: Set<ComponentRule>, mode: DisplayMode, kind: IntentKind
+    candidates: List<ComponentCandidate>, selected: Set<ComponentRule>, mode: DisplayMode, kind: IntentKind,
+    extraSelected: Set<ComponentRule> = emptySet()
 ): List<ComponentCandidate> {
-    val hasSelection = selected.any { it.kind == kind }
+    val effectiveSelected = selected + extraSelected
+    val hasSelection = effectiveSelected.any { it.kind == kind }
     return candidates.filter {
-        it.rule.kind == kind && it.isCatalogCandidate && mode.includes(it.rule in selected, hasSelection)
+        it.rule.kind == kind && it.isCatalogCandidate && mode.includes(it.rule in effectiveSelected, hasSelection)
     }
 }
 

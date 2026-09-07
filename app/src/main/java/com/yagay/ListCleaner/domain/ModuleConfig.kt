@@ -1,6 +1,7 @@
 package com.yagay.ListCleaner.domain
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 /** One remote preference value prevents mixed old/new fields during backup restore. */
 @Serializable
@@ -11,17 +12,24 @@ data class ModuleConfig(
     val diagnostic: Boolean,
     // Supplied by our own app via framework-owned remote preferences, never by an Intent extra.
     val managerAppId: Int = -1,
-    val tiles: TileConfig = TileConfig(),
-    // Apps in this list are callers from which selected target packages will be hidden at system_server.
+    /** Source-compatibility only. Never serialized or consumed by current runtime behavior. */
+    @Transient val tiles: TileConfig = TileConfig(),
+    // Apps in this list are callers from which selected target packages may be hidden at system_server.
     // They do NOT need to be added to the LSPosed module scope.
-    val hiddenFromApps: Set<String> = emptySet()
+    val hiddenFromApps: Set<String> = emptySet(),
+    /** Source-compatibility only. Never serialized or consumed by current runtime behavior. */
+    @Transient val defaultOpen: DefaultOpenConfig = DefaultOpenConfig(),
+    val openTypes: OpenTypeConfig = OpenTypeConfig(),
+    /** Empty by default. Only explicitly selected categories contribute fully-selected package targets. */
+    val visibilityCompat: VisibilityCompatConfig = VisibilityCompatConfig()
 ) {
     fun validated(): ModuleConfig {
         require(rules.size <= 20_000 && rules.all(ComponentRule::isValid))
         priorities.validated()
-        tiles.validated()
         require(managerAppId == -1 || ManagerIdentity.valid(managerAppId))
         require(hiddenFromApps.size <= 2_000 && hiddenFromApps.all(::validPackageName))
+        openTypes.validated()
+        visibilityCompat.validated()
         return this
     }
 

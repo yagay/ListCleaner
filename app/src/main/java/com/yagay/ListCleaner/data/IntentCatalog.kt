@@ -12,16 +12,24 @@ import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.ComponentIdentity
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.OpenPreset
+import com.yagay.ListCleaner.domain.CustomOpenDefinition
 import com.yagay.ListCleaner.domain.intentKind
 import com.yagay.ListCleaner.domain.FilterPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import java.time.Instant
 
 /** Evidence-based discovery, not a claim to enumerate every installed intent filter. */
 class IntentCatalog(private val context: Context) {
+    private val mutableCandidates = MutableStateFlow<List<ComponentCandidate>>(emptyList())
+    val candidates: StateFlow<List<ComponentCandidate>> = mutableCandidates.asStateFlow()
+
     suspend fun completeConfigured(items: List<ComponentCandidate>, selected: Set<ComponentRule>): List<ComponentCandidate> = withContext(Dispatchers.IO) {
         val known = items.map { it.rule.id }.toSet()
         items + selected.filter { it.id !in known }.map { rule ->
@@ -45,11 +53,11 @@ class IntentCatalog(private val context: Context) {
     private data class Probe(val intent: Intent, val broad: Boolean, val label: String)
     private data class QueryResult(val candidates: List<ComponentCandidate>, val raw: Int, val flags: Int = 0)
 
-    suspend fun scan(): List<ComponentCandidate> = withContext(Dispatchers.IO) {
+    suspend fun scan(customDefinitions: Map<OpenPreset, CustomOpenDefinition> = emptyMap()): List<ComponentCandidate> = withContext(Dispatchers.IO) {
         appIconCache.evictAll()
         val found = mutableListOf<ComponentCandidate>()
         val known = mutableSetOf<String>()
-        val report = StringBuilder("startedAt=${Instant.now()}\nmanagerUid=${android.os.Process.myUid()}\n")
+        val report = StringBuilder("startedAt=${Instant.now()}\nmanagerUid=${android.os.Process.myUid()}\ncustomOpenTypes=${customDefinitions.size}\n")
         for (scheme in listOf("http", "https")) {
             val web = Intent(Intent.ACTION_VIEW, Uri.parse("$scheme://example.com")).addCategory(Intent.CATEGORY_BROWSABLE)
             runCatching {
@@ -62,7 +70,7 @@ class IntentCatalog(private val context: Context) {
         }
         var failures = 0
         scanWarning = null
-        for (probe in probes()) {
+        for (probe in probes(customDefinitions)) {
             currentCoroutineContext().ensureActive()
             try {
                 val result = query(probe)
@@ -80,6 +88,7 @@ class IntentCatalog(private val context: Context) {
         report.appendLine("finishedAt=${Instant.now()} unique=${result.size} failures=$failures")
         lastReport = report.toString()
         if (failures > 0) scanWarning = "部分扫描失败（$failures 项）；成功结果已更新，未匹配的已配置项可在“已选规则”中管理"
+        mutableCandidates.value = result
         result
     }
 
@@ -109,14 +118,11 @@ class IntentCatalog(private val context: Context) {
     private fun query(probe: Probe, discovery: Boolean = true): QueryResult {
         val kind = probe.intent.intentKind() ?: return QueryResult(emptyList(), 0)
         val flags = queryFlags(kind, discovery)
-        check(flags and (PackageManager.MATCH_DISABLED_COMPONENTS or
-            PackageManager.MATCH_DISABLED_UNTIL_USED_COMPONENTS) == 0)
+        check(flags and (PackageManager.MATCH_DISABLED_COMPONENTS or PackageManager.MATCH_DISABLED_UNTIL_USED_COMPONENTS) == 0)
         val raw = context.packageManager.queryIntentActivities(probe.intent, flags)
         val candidates = raw.mapNotNull { info ->
             val activity = info.activityInfo ?: return@mapNotNull null
-            val canonicalClass = ComponentIdentity.canonicalClassName(
-                activity.packageName, activity.name, activity.targetActivity
-            )
+            val canonicalClass = ComponentIdentity.canonicalClassName(activity.packageName, activity.name, activity.targetActivity)
             val rule = ComponentRule(kind, activity.packageName, canonicalClass)
             if (!rule.isValid()) return@mapNotNull null
             val managerUid = android.os.Process.myUid()
@@ -125,9 +131,7 @@ class IntentCatalog(private val context: Context) {
             val facts = buildList {
                 add("启用状态以系统查询为准；元数据 activityEnabled=${activity.enabled} appEnabled=${activity.applicationInfo?.enabled}")
                 add("exported=${activity.exported} targetUid=$targetUid managerUid=$managerUid")
-                if (activity.targetActivity?.isNotBlank() == true) {
-                    add("activityAlias=${activity.name} targetActivity=${activity.targetActivity} canonical=$canonicalClass")
-                }
+                if (activity.targetActivity?.isNotBlank() == true) add("activityAlias=${activity.name} targetActivity=${activity.targetActivity} canonical=$canonicalClass")
                 if (restricted) add("非公开的其他应用组件；不放入普通目录")
                 activity.permission?.takeIf { it.isNotBlank() }?.let { permission ->
                     val granted = runCatching { context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED }.getOrNull()
@@ -139,8 +143,7 @@ class IntentCatalog(private val context: Context) {
                 runCatching { activity.applicationInfo.loadLabel(context.packageManager).toString() }.getOrDefault(activity.packageName),
                 runCatching { info.loadLabel(context.packageManager).toString() }.getOrDefault(activity.name.substringAfterLast('.')),
                 loadAppIcon(activity.packageName) {
-                    runCatching { activity.applicationInfo.loadIcon(context.packageManager) }.getOrNull()
-                        ?: context.packageManager.defaultActivityIcon
+                    runCatching { activity.applicationInfo.loadIcon(context.packageManager) }.getOrNull() ?: context.packageManager.defaultActivityIcon
                 },
                 evidence = listOf(probe.label + " flags=0x${flags.toString(16)}") + facts,
                 restricted = restricted, broadMatch = probe.broad
@@ -151,12 +154,10 @@ class IntentCatalog(private val context: Context) {
 
     private fun loadAppIcon(packageName: String, loader: () -> Drawable): Bitmap? {
         appIconCache.get(packageName)?.let { return it }
-        return runCatching { loader().toBitmap(width = 96, height = 96) }.getOrNull()?.also {
-            appIconCache.put(packageName, it)
-        }
+        return runCatching { loader().toBitmap(width = 96, height = 96) }.getOrNull()?.also { appIconCache.put(packageName, it) }
     }
 
-    private fun probes(): List<Probe> = buildList {
+    private fun probes(customDefinitions: Map<OpenPreset, CustomOpenDefinition>): List<Probe> = buildList {
         for ((mime, file) in FILE_TYPES) {
             for (action in listOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE)) {
                 add(Probe(Intent(action).setType(mime), false, "${action.substringAfterLast('.')} mime=$mime"))
@@ -167,14 +168,36 @@ class IntentCatalog(private val context: Context) {
                     "file" -> "file:///storage/emulated/0/Download/$file"
                     else -> "https://example.com/$file"
                 }
-                val intent = Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(uri), mime)
-                add(Probe(intent, false, "VIEW scheme=$scheme mime=$mime sample=$file"))
+                add(Probe(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(uri), mime), false, "VIEW scheme=$scheme mime=$mime sample=$file"))
             }
         }
-        for (scheme in listOf("http", "https")) {
-            add(Probe(Intent(Intent.ACTION_VIEW, Uri.parse("$scheme://example.com"))
-                .addCategory(Intent.CATEGORY_BROWSABLE), false, "网页 scheme=$scheme"))
+
+        customDefinitions.toSortedMap(compareBy { it.ordinal }).forEach { (preset, definition) ->
+            val fallbackExt = definition.extensions.firstOrNull() ?: "custom"
+            definition.mimeTypes.take(24).forEachIndexed { index, mime ->
+                val sample = "custom-$index.$fallbackExt"
+                for (scheme in listOf("content", "file")) {
+                    val uri = if (scheme == "content") "content://com.yagay.ListCleaner.placeholder/$sample" else "file:///storage/emulated/0/Download/$sample"
+                    add(Probe(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(uri), mime), false,
+                        "CUSTOM preset=${preset.name} VIEW scheme=$scheme mime=$mime sample=$sample"))
+                }
+            }
+            definition.extensions.take(48).forEach { ext ->
+                val sample = "custom.$ext"
+                val uri = "content://com.yagay.ListCleaner.placeholder/$sample"
+                add(Probe(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(uri), "application/octet-stream"), false,
+                    "CUSTOM preset=${preset.name} VIEW scheme=content mime=application/octet-stream sample=$sample"))
+            }
         }
+
+        for (scheme in listOf("http", "https")) {
+            add(Probe(Intent(Intent.ACTION_VIEW, Uri.parse("$scheme://example.com")).addCategory(Intent.CATEGORY_BROWSABLE), false, "网页 scheme=$scheme"))
+        }
+        listOf(
+            "magnet" to "magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567",
+            "geo" to "geo:0,0?q=London", "mailto" to "mailto:test@example.com", "tel" to "tel:123456789",
+            "sms" to "sms:123456789", "smsto" to "smsto:123456789"
+        ).forEach { (scheme, value) -> add(Probe(Intent(Intent.ACTION_VIEW, Uri.parse(value)), false, "VIEW scheme=$scheme")) }
         add(Probe(Intent(Intent.ACTION_PROCESS_TEXT).setType("text/plain"), false, "PROCESS_TEXT mime=text/plain"))
         for (mime in listOf("*/*", "image/*", "video/*", "audio/*")) {
             for (action in listOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE)) {
@@ -182,36 +205,34 @@ class IntentCatalog(private val context: Context) {
             }
             for (scheme in listOf("content", "file")) {
                 val uri = if (scheme == "content") "content://com.yagay.ListCleaner.placeholder/item" else "file:///item"
-                add(Probe(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(uri), mime), true,
-                    "宽泛 VIEW scheme=$scheme mime=$mime"))
+                add(Probe(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(uri), mime), true, "宽泛 VIEW scheme=$scheme mime=$mime"))
             }
         }
     }
 
     companion object {
         fun queryFlags(kind: IntentKind, discovery: Boolean): Int =
-            (if (discovery) PackageManager.MATCH_ALL else 0) or
-                (if (kind == IntentKind.PROCESS_TEXT) 0 else PackageManager.MATCH_DEFAULT_ONLY)
+            (if (discovery) PackageManager.MATCH_ALL else 0) or (if (kind == IntentKind.PROCESS_TEXT) 0 else PackageManager.MATCH_DEFAULT_ONLY)
 
         fun merge(items: List<ComponentCandidate>): List<ComponentCandidate> =
             items.groupBy { it.rule.id }.values.map { matches ->
                 val first = matches.firstOrNull { it.isCatalogCandidate } ?: matches.first()
-                first.copy(evidence = matches.flatMap { it.evidence }.distinct()
-                    .sortedBy { !it.startsWith("实际文件检查") }.take(32),
-                    restricted = matches.all { it.restricted }, unavailable = matches.all { it.unavailable },
-                    broadMatch = matches.all { it.broadMatch })
+                first.copy(evidence = matches.flatMap { it.evidence }.distinct().sortedBy { !it.startsWith("实际文件检查") }.take(32),
+                    restricted = matches.all { it.restricted }, unavailable = matches.all { it.unavailable }, broadMatch = matches.all { it.broadMatch })
             }.sortedWith(compareBy({ it.rule.kind.ordinal }, { it.appLabel.lowercase() }, { it.rule.id }))
 
         private val FILE_TYPES = listOf(
             "text/plain" to "sample.txt", "text/html" to "sample.html",
             "image/jpeg" to "sample.jpg", "image/png" to "sample.png",
             "video/mp4" to "sample.mp4", "audio/mpeg" to "sample.mp3",
-            "application/pdf" to "sample.pdf", "application/zip" to "sample.zip",
-            "application/json" to "sample.json", "application/epub+zip" to "sample.epub",
-            "application/vnd.android.package-archive" to "sample.apk",
-            "application/msword" to "sample.doc",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document" to "sample.docx",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" to "sample.xlsx"
+            "application/pdf" to "sample.pdf", "application/epub+zip" to "sample.epub",
+            "application/vnd.android.package-archive" to "sample.apk", "application/x-bittorrent" to "sample.torrent",
+            "text/markdown" to "sample.md", "text/csv" to "sample.csv", "application/json" to "sample.json",
+            "application/xml" to "sample.xml", "image/svg+xml" to "sample.svg", "image/gif" to "sample.gif",
+            "application/zip" to "sample.zip", "application/vnd.rar" to "sample.rar",
+            "application/msword" to "sample.doc", "application/vnd.openxmlformats-officedocument.wordprocessingml.document" to "sample.docx",
+            "application/vnd.ms-excel" to "sample.xls", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" to "sample.xlsx",
+            "application/vnd.ms-powerpoint" to "sample.ppt", "application/vnd.openxmlformats-officedocument.presentationml.presentation" to "sample.pptx"
         )
     }
 }
