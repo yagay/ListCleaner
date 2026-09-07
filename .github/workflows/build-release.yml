@@ -2,6 +2,13 @@ name: Build and Publish Release
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'app/build.gradle.kts'
+      - 'RELEASE_NOTES.md'
+      - '.github/workflows/build-release.yml'
+      - 'tools/prepare-release-signing.py'
   pull_request:
     paths:
       - 'app/**'
@@ -59,7 +66,8 @@ jobs:
   release:
     permissions:
       contents: write
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+      actions: write
+    if: (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     defaults:
@@ -176,6 +184,7 @@ jobs:
           retention-days: 30
 
       - name: Publish or refresh GitHub Release
+        id: publish
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -185,6 +194,7 @@ jobs:
           set -euo pipefail
           if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
             gh release edit "$RELEASE_TAG" --title "List Cleaner $RELEASE_VERSION" --notes-file release-notes.md
+            echo "created=false" >> "$GITHUB_OUTPUT"
             echo "::notice::Release $RELEASE_TAG already exists; refreshed notes only and kept published assets unchanged."
             {
               echo "Release 编译和签名校验成功。"
@@ -195,7 +205,18 @@ jobs:
           else
             gh release create "$RELEASE_TAG" release-output/*.apk release-output/SHA256SUMS.txt release-output/signature.txt \
               --target "$GITHUB_SHA" --title "List Cleaner $RELEASE_VERSION" --notes-file release-notes.md
+            echo "created=true" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Dispatch Telegram and LSPosed publication
+        if: steps.publish.outputs.created == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.assets.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh workflow run publish-telegram.yml --ref main -f tag="$RELEASE_TAG"
+          gh workflow run sync-lsposed.yml --ref main -f tag="$RELEASE_TAG"
 
       - name: Remove private signing material
         if: always()
