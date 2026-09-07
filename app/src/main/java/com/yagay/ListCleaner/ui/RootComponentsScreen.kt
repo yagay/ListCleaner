@@ -23,6 +23,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.data.CleanupKind
+import com.yagay.ListCleaner.data.RootComponent
+
+private fun componentAppSelectionRank(items: List<RootComponent>): Int {
+    val editable = items.filter { it.blocked == null && it.enabled != null }
+    val disabledCount = editable.count { it.enabled == false }
+    return when {
+        editable.isNotEmpty() && disabledCount == editable.size -> 0
+        disabledCount > 0 -> 1
+        else -> 2
+    }
+}
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -58,7 +69,11 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
             (state.query.isBlank() || listOf(it.label, it.owner, it.component.flattenToString()).any { text -> text.contains(state.query, true) })
     }
     val groups = visible.groupBy { "${it.user}|${it.component.packageName}" }.entries
-        .sortedWith(compareBy({ it.value.first().owner.lowercase() }, { it.key }))
+        .sortedWith(
+            compareBy<Map.Entry<String, List<RootComponent>>> { componentAppSelectionRank(it.value) }
+                .thenBy { it.value.first().owner.lowercase() }
+                .thenBy { it.key }
+        )
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item(key = "title") {
