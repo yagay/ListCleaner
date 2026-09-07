@@ -19,11 +19,17 @@ import com.yagay.ListCleaner.domain.FilterPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import java.time.Instant
 
 /** Evidence-based discovery, not a claim to enumerate every installed intent filter. */
 class IntentCatalog(private val context: Context) {
+    private val mutableCandidates = MutableStateFlow<List<ComponentCandidate>>(emptyList())
+    val candidates: StateFlow<List<ComponentCandidate>> = mutableCandidates.asStateFlow()
+
     suspend fun completeConfigured(items: List<ComponentCandidate>, selected: Set<ComponentRule>): List<ComponentCandidate> = withContext(Dispatchers.IO) {
         val known = items.map { it.rule.id }.toSet()
         items + selected.filter { it.id !in known }.map { rule ->
@@ -82,6 +88,7 @@ class IntentCatalog(private val context: Context) {
         report.appendLine("finishedAt=${Instant.now()} unique=${result.size} failures=$failures")
         lastReport = report.toString()
         if (failures > 0) scanWarning = "部分扫描失败（$failures 项）；成功结果已更新，未匹配的已配置项可在“已选规则”中管理"
+        mutableCandidates.value = result
         result
     }
 
@@ -218,17 +225,14 @@ class IntentCatalog(private val context: Context) {
             "text/plain" to "sample.txt", "text/html" to "sample.html",
             "image/jpeg" to "sample.jpg", "image/png" to "sample.png",
             "video/mp4" to "sample.mp4", "audio/mpeg" to "sample.mp3",
-            "application/pdf" to "sample.pdf", "application/zip" to "sample.zip",
-            "application/json" to "sample.json", "application/epub+zip" to "sample.epub",
-            "application/vnd.android.package-archive" to "sample.apk",
-            "application/msword" to "sample.doc",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document" to "sample.docx",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" to "sample.xlsx",
-            "application/vnd.ms-excel" to "sample.xls", "application/vnd.ms-powerpoint" to "sample.ppt",
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation" to "sample.pptx",
-            "application/x-bittorrent" to "sample.torrent", "text/markdown" to "sample.md", "text/csv" to "sample.csv",
+            "application/pdf" to "sample.pdf", "application/epub+zip" to "sample.epub",
+            "application/vnd.android.package-archive" to "sample.apk", "application/x-bittorrent" to "sample.torrent",
+            "text/markdown" to "sample.md", "text/csv" to "sample.csv", "application/json" to "sample.json",
             "application/xml" to "sample.xml", "image/svg+xml" to "sample.svg", "image/gif" to "sample.gif",
-            "application/x-7z-compressed" to "sample.7z", "application/vnd.rar" to "sample.rar"
+            "application/zip" to "sample.zip", "application/vnd.rar" to "sample.rar",
+            "application/msword" to "sample.doc", "application/vnd.openxmlformats-officedocument.wordprocessingml.document" to "sample.docx",
+            "application/vnd.ms-excel" to "sample.xls", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" to "sample.xlsx",
+            "application/vnd.ms-powerpoint" to "sample.ppt", "application/vnd.openxmlformats-officedocument.presentationml.presentation" to "sample.pptx"
         )
     }
 }
