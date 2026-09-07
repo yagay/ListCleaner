@@ -22,6 +22,7 @@ import com.yagay.ListCleaner.domain.PriorityConfig
 import com.yagay.ListCleaner.domain.DefaultOpenConfig
 import com.yagay.ListCleaner.domain.OpenTypeConfig
 import com.yagay.ListCleaner.domain.OpenPreset
+import com.yagay.ListCleaner.domain.VisibilityCompatConfig
 import com.yagay.ListCleaner.domain.matchOpenPreset
 import com.yagay.ListCleaner.domain.prioritizeApps
 import com.yagay.ListCleaner.domain.selectedKinds
@@ -57,7 +58,8 @@ class ListCleanerModule : XposedModule() {
         val diagnostic: Boolean,
         val managerAppId: Int = -1,
         val digest: String = "",
-        val hiddenFromApps: Set<String> = emptySet()
+        val hiddenFromApps: Set<String> = emptySet(),
+        val visibilityCompat: VisibilityCompatConfig = VisibilityCompatConfig()
     ) {
         val selectedKinds: Set<IntentKind> = selectedKinds(configured)
         private val selectedPackages: Map<IntentKind, Set<String>> = configured.mapNotNull { id ->
@@ -66,15 +68,7 @@ class ListCleanerModule : XposedModule() {
             val packageName = parts.getOrNull(1)?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
             kind to packageName
         }.groupBy({ it.first }, { it.second }).mapValues { (_, packages) -> packages.toSet() }
-        private val typedOpenPackages: Set<String> = openTypes.rules.values.asSequence().flatten().mapNotNull { id ->
-            val parts = id.split('|', limit = 3)
-            val kind = parts.getOrNull(0)?.let { runCatching { IntentKind.valueOf(it) }.getOrNull() }
-            if (kind != IntentKind.OPEN) return@mapNotNull null
-            parts.getOrNull(1)?.takeIf { it.isNotBlank() }
-        }.toSet()
-        // Compatibility hiding is intentionally limited to OPEN targets. A caller such as ES
-        // should not lose an app merely because that app is selected in SHARE or PROCESS_TEXT.
-        val allSelectedPackages: Set<String> = selectedPackages[IntentKind.OPEN].orEmpty() + typedOpenPackages
+        val allSelectedPackages: Set<String> = visibilityCompat.activePackages()
         fun hasSelection(kind: IntentKind): Boolean = kind in selectedKinds
         fun hasPackageSelection(kind: IntentKind, packageName: String): Boolean = packageName in selectedPackages[kind].orEmpty()
     }
@@ -295,7 +289,7 @@ class ListCleanerModule : XposedModule() {
                 }
             }
         }
-        record("VISIBILITY_HOOKS new=$installed callers=${snapshot.hiddenFromApps.size} targets=${snapshot.allSelectedPackages.size}")
+        record("VISIBILITY_HOOKS new=$installed callers=${snapshot.hiddenFromApps.size} scopes=${snapshot.visibilityCompat.scopes.map { it.name }.sorted()} targets=${snapshot.allSelectedPackages.size}")
     }
 
     private fun visibilityAdapter(method: Method): VisibilityLayout? =
@@ -324,7 +318,7 @@ class ListCleanerModule : XposedModule() {
         }
 
         visibilityHits.incrementAndGet()
-        diagnostic("SYSTEM_VISIBILITY_FILTER uid=$callingUid caller=${callers.sorted()} target=$target")
+        diagnostic("SYSTEM_VISIBILITY_FILTER uid=$callingUid caller=${callers.sorted()} target=$target scopes=${current.visibilityCompat.scopes.map { it.name }.sorted()}")
         true
     }
 
@@ -830,10 +824,11 @@ class ListCleanerModule : XposedModule() {
                 if (snapshot.digest == digest) return@runCatching
                 val config = Json { ignoreUnknownKeys = true }.decodeFromString(ModuleConfig.serializer(), encoded).validated()
                 snapshot = RuleSnapshot(config.rules.map { it.id }.toSet(), config.mode,
-                    config.priorities, config.defaultOpen, config.openTypes, config.diagnostic, config.managerAppId, digest, config.hiddenFromApps)
+                    config.priorities, config.defaultOpen, config.openTypes, config.diagnostic, config.managerAppId, digest,
+                    config.hiddenFromApps, config.visibilityCompat)
                 lastEncodedConfig = encoded
                 record("MANAGER_IDENTITY appId=${config.managerAppId} source=remote_config")
-                record("RULES_READ reason=$reason count=${snapshot.configured.size} mode=${config.mode} diagnostic=${config.diagnostic} atomic=true priorities=${config.priorities.apps.mapValues { it.value.size }} typedRules=${config.openTypes.rules.mapValues { it.value.size }} typedPriorities=${config.openTypes.priorities.mapValues { it.value.size }} titles=${config.priorities.titles.size} hiddenFromApps=${config.hiddenFromApps.size} visibilityOpenTargets=${snapshot.allSelectedPackages.size} digest=$digest")
+                record("RULES_READ reason=$reason count=${snapshot.configured.size} mode=${config.mode} diagnostic=${config.diagnostic} atomic=true priorities=${config.priorities.apps.mapValues { it.value.size }} typedRules=${config.openTypes.rules.mapValues { it.value.size }} typedPriorities=${config.openTypes.priorities.mapValues { it.value.size }} titles=${config.priorities.titles.size} hiddenFromApps=${config.hiddenFromApps.size} visibilityScopes=${config.visibilityCompat.scopes.map { it.name }.sorted()} visibilityTargets=${snapshot.allSelectedPackages.size} digest=$digest")
                 return@runCatching
             }
             val rules = preferences.getStringSet(RuleRepository.KEY_RULES, emptySet()).orEmpty().toSet()
