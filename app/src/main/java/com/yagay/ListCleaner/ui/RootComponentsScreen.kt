@@ -14,7 +14,6 @@ import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
@@ -54,13 +53,11 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
     var kind by remember { mutableStateOf<CleanupKind?>(null) }
     var viewFilter by remember { mutableStateOf(UiFilter.ALL) }
     var filterMenu by remember { mutableStateOf(false) }
-    var onlyModified by rememberSaveable { mutableStateOf(false) }
     var expandedAppKey by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { vm.refreshComponents() }
 
     val visible = scan.items.filter {
         (kind == null || it.kind == kind) &&
-            (!onlyModified || it.modifiedByListCleaner) &&
             (when (viewFilter) {
                 UiFilter.ALL -> true
                 UiFilter.SHOW_SELECTED -> it.enabled == false
@@ -129,13 +126,6 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             enabled = !busy && visible.any { it.blocked == null && it.enabled != null }
                         ) { Text("反选") }
                     }
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("只看本应用修改", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                        Switch(checked = onlyModified, onCheckedChange = { onlyModified = it })
-                    }
                     if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                     HorizontalDivider()
                 }
@@ -150,11 +140,11 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    "勾选＝组件已禁用。系统当前状态始终直接读取；“本应用修改”历史只在 Root 操作成功且系统状态核验成功后记录，用于筛选，不作为当前启用/禁用状态依据。",
+                    "勾选＝组件已禁用。组件状态始终直接读取当前系统状态，不保存或推断修改历史。",
                     style = MaterialTheme.typography.bodySmall
                 )
                 Text(
-                    "勾选立即禁用，取消勾选立即明确启用，不再弹窗确认。禁用会影响正在使用此组件的功能；启用不是恢复原默认状态。清除应用数据不会改变系统组件状态，但会清除本应用修改历史。",
+                    "勾选立即禁用，取消勾选立即明确启用，不再弹窗确认。禁用会影响正在使用此组件的功能；启用不是恢复原默认状态。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -168,13 +158,6 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                if (onlyModified) {
-                    Text(
-                        "当前只显示曾被 List Cleaner 成功修改过的组件；即使后来被其他工具再次改动，仍会保留历史标记。",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
                 if (scan.warning.isNotBlank()) Text(scan.warning, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             }
@@ -214,14 +197,6 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        val modifiedCount = components.count { it.modifiedByListCleaner }
-                        if (modifiedCount > 0) {
-                            Text(
-                                "本应用修改历史 $modifiedCount 项",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
                         if (editableComponents.size < components.size) {
                             Text(
                                 "${components.size - editableComponents.size} 项仅展示，不参与批量操作",
@@ -280,23 +255,13 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             },
                             style = MaterialTheme.typography.bodySmall
                         )
-                        if (item.modifiedByListCleaner) {
-                            Text(
-                                "曾由 List Cleaner 成功修改",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
                     }
                 }
             }
         }
         if (visible.isEmpty() && !busy) {
             item {
-                Text(
-                    if (onlyModified) "没有符合条件的本应用修改历史" else "没有匹配的组件",
-                    Modifier.padding(vertical = 16.dp)
-                )
+                Text("没有匹配的组件", Modifier.padding(vertical = 16.dp))
             }
         }
     }
