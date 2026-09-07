@@ -20,8 +20,7 @@ data class RootComponent(
     val kind: CleanupKind, val component: ComponentName, val user: Int,
     val label: String, val owner: String, val icon: Bitmap?,
     val overrideState: Int?, val enabled: Boolean?, val applicationEnabled: Boolean?,
-    val blocked: String? = null,
-    val modifiedByListCleaner: Boolean = false
+    val blocked: String? = null
 ) {
     val id: String get() = "$user|${kind.name}|${component.flattenToString()}"
 }
@@ -37,7 +36,6 @@ class RootComponentCatalog(private val context: Context) {
     private val pm = context.packageManager
     private val user = android.os.Process.myUid() / 100_000
     private val icons = android.util.LruCache<String, Bitmap>(128)
-    private val historyPrefs = context.getSharedPreferences(HISTORY_PREFS, Context.MODE_PRIVATE)
     private val flags = PackageManager.MATCH_DISABLED_COMPONENTS or
         PackageManager.MATCH_DISABLED_UNTIL_USED_COMPONENTS or PackageManager.MATCH_ALL or
         PackageManager.GET_META_DATA
@@ -55,24 +53,6 @@ class RootComponentCatalog(private val context: Context) {
         }
     }
 
-    fun clearModificationHistory() {
-        historyPrefs.edit().remove(KEY_MODIFIED_IDS).apply()
-    }
-
-    private fun modifiedIds(): Set<String> = historyPrefs.getStringSet(KEY_MODIFIED_IDS, emptySet()).orEmpty().toSet()
-
-    private fun markModified(id: String) {
-        val next = modifiedIds().toMutableSet().apply {
-            add(id)
-            if (size > MAX_HISTORY) {
-                // Component ids are not time ordered in SharedPreferences. Keep a bounded deterministic subset.
-                val trimmed = sorted().takeLast(MAX_HISTORY).toSet()
-                clear(); addAll(trimmed)
-            }
-        }
-        historyPrefs.edit().putStringSet(KEY_MODIFIED_IDS, next).apply()
-    }
-
     @Suppress("DEPRECATION")
     private fun query(kind: CleanupKind): List<ComponentInfo> = when (kind) {
         CleanupKind.TILE -> pm.queryIntentServices(Intent(kind.action), flags).mapNotNull { it.serviceInfo }
@@ -87,11 +67,10 @@ class RootComponentCatalog(private val context: Context) {
     fun scan(): RootComponentScan {
         icons.evictAll()
         val errors = mutableListOf<String>()
-        val modified = modifiedIds()
         val items = CleanupKind.entries.flatMap { kind ->
             try {
                 query(kind).distinctBy { ComponentName(it.packageName, it.name) }.map { info ->
-                    read(kind, info, modified)
+                    read(kind, info)
                 }
             } catch (failure: Exception) {
                 errors += "${kind.title}扫描失败：${failure.javaClass.simpleName}"
@@ -101,7 +80,7 @@ class RootComponentCatalog(private val context: Context) {
         return RootComponentScan(items, errors.joinToString("\n"), System.currentTimeMillis())
     }
 
-    private fun read(kind: CleanupKind, info: ComponentInfo, modified: Set<String> = modifiedIds()): RootComponent {
+    private fun read(kind: CleanupKind, info: ComponentInfo): RootComponent {
         val component = ComponentName(info.packageName, info.name)
         val raw = runCatching { pm.getComponentEnabledSetting(component) }.getOrNull()
         val enabled = raw?.let { ComponentStatePolicy.enabled(it, info.enabled) }
@@ -116,14 +95,13 @@ class RootComponentCatalog(private val context: Context) {
             !appEnabled -> "所属应用已停用；本功能不会启用整个应用"
             else -> null
         }
-        val id = "$user|${kind.name}|${component.flattenToString()}"
         return RootComponent(
             kind, component, user,
             runCatching { info.loadLabel(pm).toString() }.getOrDefault(component.shortClassName),
             runCatching { info.applicationInfo.loadLabel(pm).toString() }.getOrDefault(info.packageName),
             icons.get(info.packageName) ?: runCatching { info.applicationInfo.loadIcon(pm).toBitmap(96, 96) }
                 .getOrNull()?.also { icons.put(info.packageName, it) },
-            raw, enabled, appEnabled, blocked, id in modified
+            raw, enabled, appEnabled, blocked
         )
     }
 
@@ -161,13 +139,6 @@ class RootComponentCatalog(private val context: Context) {
         check(!result.timedOut && result.exitCode == 0 && observed == expected) {
             "操作未确认成功（退出码 ${result.exitCode}，系统状态 ${observed ?: "未知"}）。请核对 Root 授权并刷新；不会自动重试。"
         }
-        markModified(target.id)
         return if (enable) "已核验：组件已启用；不保证恢复原磁贴/小部件位置" else "已核验：组件已禁用；请重新打开目标选择器"
-    }
-
-    private companion object {
-        const val HISTORY_PREFS = "root_component_history"
-        const val KEY_MODIFIED_IDS = "modified_ids"
-        const val MAX_HISTORY = 4_000
     }
 }
