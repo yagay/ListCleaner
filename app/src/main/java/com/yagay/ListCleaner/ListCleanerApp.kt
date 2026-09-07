@@ -8,6 +8,7 @@ import com.yagay.ListCleaner.domain.ModuleConfig
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.PriorityConfig
 import com.yagay.ListCleaner.domain.RuntimeProtocol
+import com.yagay.ListCleaner.domain.deriveFullySelectedPackages
 import io.github.libxposed.service.XposedService
 import io.github.libxposed.service.XposedServiceHelper
 import kotlinx.coroutines.*
@@ -46,6 +47,11 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
         rules = RuleRepository(this)
         catalog = IntentCatalog(this)
         XposedServiceHelper.registerListener(this)
+        applicationScope.launch {
+            combine(rules.rules, catalog.candidates) { selected, candidates ->
+                deriveFullySelectedPackages(candidates, selected)
+            }.collect(rules::setVisibilityFullPackages)
+        }
         applicationScope.launch {
             combine(rules.revision, service) { _, _ -> Unit }.collect { synchronize() }
         }
