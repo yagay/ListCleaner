@@ -7,6 +7,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -21,6 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.graphics.drawable.toBitmap
+import com.yagay.ListCleaner.ListCleanerApp
+import com.yagay.ListCleaner.domain.VisibilityScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -62,6 +65,9 @@ internal fun AppScopePickerDialog(
     dismiss: () -> Unit,
 ) {
     val context = LocalContext.current
+    val app = context.applicationContext as ListCleanerApp
+    val visibilityScopes by app.rules.visibilityScopes.collectAsState()
+    val fullPackages by app.rules.visibilityFullPackages.collectAsState()
     var query by remember { mutableStateOf("") }
     var showSystem by remember { mutableStateOf(true) }
     var apps by remember { mutableStateOf<List<ScopeAppEntry>>(emptyList()) }
@@ -79,6 +85,9 @@ internal fun AppScopePickerDialog(
                 (needle.isEmpty() || entry.label.lowercase().contains(needle) || entry.packageName.lowercase().contains(needle))
         }
     }
+    val activeTargets = remember(visibilityScopes, fullPackages) {
+        com.yagay.ListCleaner.domain.VisibilityCompatConfig(visibilityScopes, fullPackages).activePackages()
+    }
 
     Dialog(
         onDismissRequest = dismiss,
@@ -95,15 +104,43 @@ internal fun AppScopePickerDialog(
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp)) {
                 Text(
-                    "这里选择的是“哪些来源应用需要打开方式兼容隐藏”。仅在“隐藏选中”模式生效；目标范围只跟随“打开方式”通用规则和 PDF、APK、视频等分类型 OPEN 规则，不再因为分享或文本处理规则而隐藏整个目标应用。该功能仍是 system/system_server 侧的包级隐藏，适合 ES 等自己查询应用列表的文件管理器。勾选立即保存。",
+                    "这里选择“哪些来源应用”需要包级隐藏兼容。下面的“命中分类”决定哪些规则分类可以贡献目标应用；默认不选择任何分类，因此不会自动启用兼容隐藏。仅在“隐藏选中”模式生效。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(8.dp))
+                Text("命中分类（可多选）", style = MaterialTheme.typography.labelLarge)
+                LazyRow(
+                    contentPadding = PaddingValues(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    items(VisibilityScope.entries, key = { it.name }) { scope ->
+                        val checked = scope in visibilityScopes
+                        FilterChip(
+                            selected = checked,
+                            onClick = {
+                                app.rules.setVisibilityScopes(
+                                    if (checked) visibilityScopes - scope else visibilityScopes + scope
+                                )
+                            },
+                            label = { Text(scope.title) },
+                        )
+                    }
+                }
+                Text(
+                    if (visibilityScopes.isEmpty()) {
+                        "当前未选择分类：应用隐藏兼容不会隐藏任何目标应用。"
+                    } else {
+                        "只使用所选分类中“应用整行完整勾选”的目标；半勾选（只选部分组件）不加入。当前可命中 ${activeTargets.size} 个目标包。"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    label = { Text("搜索应用或包名") },
+                    label = { Text("搜索来源应用或包名") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -112,7 +149,7 @@ internal fun AppScopePickerDialog(
                     Switch(checked = showSystem, onCheckedChange = { showSystem = it })
                 }
                 Text(
-                    "显示 ${visible.size}/${apps.size} 个应用 · 已加入隐藏列表 ${selected.size} 个",
+                    "显示 ${visible.size}/${apps.size} 个来源应用 · 已加入 ${selected.size} 个",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
