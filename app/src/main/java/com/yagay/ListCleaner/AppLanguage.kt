@@ -1,5 +1,6 @@
 package com.yagay.ListCleaner
 
+import android.app.Application
 import android.content.Context
 import java.util.Locale
 
@@ -26,8 +27,21 @@ internal object AppLanguage {
     private fun isChinese(): Boolean =
         Locale.getDefault().language.equals("zh", ignoreCase = true)
 
+    private fun resolveContext(): Context? {
+        appContext?.let { return it }
+        val application = runCatching {
+            val activityThread = Class.forName("android.app.ActivityThread")
+            activityThread.getMethod("currentApplication").invoke(null) as? Application
+        }.getOrNull()
+        application?.applicationContext?.let {
+            appContext = it
+            return it
+        }
+        return null
+    }
+
     private fun resourceOverrides(): Map<String, String> {
-        val context = appContext ?: return emptyMap()
+        val context = resolveContext() ?: return emptyMap()
         return runCatching {
             context.resources.getStringArray(R.array.locale_overrides)
                 .mapNotNull { item ->
