@@ -11,12 +11,12 @@ data class PriorityConfig(
         require(apps.values.all { packages ->
             packages.size <= 200 && packages.distinct().size == packages.size &&
                 packages.all { it.isNotBlank() && it.length <= 255 && '|' !in it }
-        }) { "优先排序配置无效：每类最多 200 个应用，且不能重复" }
+        }) { "invalid_priority_config" }
         require(titles.size <= 2_000 && titles.all { (key, value) ->
             val parsed = ComponentRule.fromId(key)
             parsed != null && parsed.id == key && value.isNotBlank() && value.length <= 64 &&
                 value.none { it.isISOControl() }
-        }) { "自定义显示名称配置无效：最多 2000 项，每项最多 64 字符" }
+        }) { "invalid_component_title_config" }
         return this
     }
 }
