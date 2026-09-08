@@ -7,7 +7,7 @@
     <string name="runtime_remote_config_too_large">Remote configuration is too large</string>
     <string name="runtime_legacy_rules_corrupt">Legacy remote rules are corrupted; restore from a JSON backup first</string>
     <string name="runtime_recovery_available">Local configuration is missing while remote configuration still exists (%1$d rules). Choose restore or reset first; the remote configuration has not been overwritten.</string>
-    <string name="runtime_recovery_corrupt">Remote configuration could not be read or validated (%1$s). The original configuration was not overwritten; import a backup or confirm reset.</string>
+    <string name="runtime_recovery_corrupt">Remote configuration could not be read or validated. The original configuration was not overwritten; import a backup or confirm reset.</string>
     <string name="runtime_framework_api_required">The framework must support API 102; synchronization and scanning are paused</string>
     <string name="runtime_config_transfer_too_large">Configuration exceeds the transfer limit. Reduce the number of rules and try again; nothing was written remotely</string>
     <string name="runtime_pause_write_failed">Failed to write the pause configuration</string>
