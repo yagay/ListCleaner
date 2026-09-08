@@ -31,7 +31,7 @@
     <string name="scope_no_recommended">无自动推荐目标</string>
     <string name="scope_recommended_granted">推荐范围已授权</string>
     <string name="scope_request_missing">申请缺少的作用域（%1$d）</string>
-    <string name="scope_detection_failed">%1$s 检测失败：%2$s</string>
+    <string name="scope_detection_failed">%1$s 检测失败</string>
     <string name="scope_scenario_system_share_sheet">系统分享面板</string>
     <string name="scope_scenario_share">分享</string>
     <string name="scope_scenario_share_multiple">多文件分享</string>
