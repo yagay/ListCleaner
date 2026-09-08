@@ -153,14 +153,19 @@ def main():
             return destination / name
 
         missing = asset_plan(release['assets'] if release else [], files, download)
-        # Initialize the empty official repository before creating a release tag.
-        sync_document(target_token, 'README.md')
-        sync_document(target_token, 'SUMMARY')
+        # Initialize/update the official repository documentation before creating a release tag.
+        for document in ('README.md', 'README.zh-CN.md', 'SUMMARY', 'SUMMARY.zh-CN'):
+            sync_document(target_token, document)
         metadata = api(target_token, TARGET)
-        if metadata.get('description') != '列表清理 · List Cleaner' or metadata.get('homepage') != f'https://github.com/{SOURCE}':
+        description = 'List Cleaner · 列表清理'
+        if metadata.get('description') != description or metadata.get('homepage') != f'https://github.com/{SOURCE}':
             api(target_token, TARGET, method='PATCH', data={
-                'description': '列表清理 · List Cleaner', 'homepage': f'https://github.com/{SOURCE}'})
-        body = (source.get('body') or '') + f'\n\n原始发布：{source["html_url"]}\n\n需要 modern libxposed API 102；Android 12 及以上。\n'
+                'description': description, 'homepage': f'https://github.com/{SOURCE}'})
+        body = (
+            (source.get('body') or '')
+            + f'\n\nOriginal release / 原始发布: {source["html_url"]}\n'
+            + '\nRequirements / 使用要求: modern libxposed API 102; Android 12 or newer / Android 12 及以上。\n'
+        )
         if release is None:
             release = api(target_token, TARGET, '/releases', 'POST', {
                 'tag_name': official_tag, 'target_commitish': metadata['default_branch'],
@@ -178,7 +183,7 @@ def main():
         print(f'Synchronized verified release: {url}')
         if os.environ.get('GITHUB_STEP_SUMMARY'):
             with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
-                summary.write(f'已同步 [{official_tag}]({url})，APK 与作者仓库已发布版本一致。\n')
+                summary.write(f'Synchronized [{official_tag}]({url}); APK matches the published source release.\n')
 
 
 if __name__ == '__main__':
