@@ -91,6 +91,9 @@ class IntentCatalog(private val context: Context) {
                 report.appendLine("${probe.label} ERROR=${failure.javaClass.name}")
             }
         }
+        // PackageManager queries are blocking. Cancellation can arrive while the final query is
+        // running, so check once more before publishing shared catalog state.
+        currentCoroutineContext().ensureActive()
         val result = merge(found)
         report.appendLine("finishedAt=${Instant.now()} unique=${result.size} failures=$failures")
         lastReport = report.toString()
