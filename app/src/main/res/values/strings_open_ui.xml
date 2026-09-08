@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="open_manage_custom">+ Custom</string>
+    <string name="custom_open_title">Custom open types</string>
+    <string name="custom_open_help">Up to 8 custom types are supported. Each type can be identified by MIME type and file extension and has its own rules and ordering. If no dedicated rule or ordering is configured, it inherits from Open · All. Deleting a type also removes its dedicated rules and ordering.</string>
+    <string name="custom_open_not_configured">Not configured</string>
+    <string name="custom_open_name">Name</string>
+    <string name="custom_open_mime_label">MIME (one per line or comma-separated)</string>
+    <string name="custom_open_mime_example">For example, application/vnd.amazon.ebook or application/*</string>
+    <string name="custom_open_extension_label">File extensions (one per line or comma-separated)</string>
+    <string name="custom_open_extension_example">For example, azw3, mobi, m3u8; the leading dot is optional</string>
+    <string name="custom_open_invalid_configuration">Invalid configuration</string>
+    <string name="custom_open_invalid_title">Invalid custom type name</string>
+    <string name="custom_open_invalid_mime">Invalid custom MIME type</string>
+    <string name="custom_open_invalid_extension">Invalid custom file extension</string>
+    <string name="custom_open_missing_matcher">Add at least one MIME type or file extension</string>
+    <string name="custom_open_generic_error">Invalid custom open-type configuration</string>
+</resources>
