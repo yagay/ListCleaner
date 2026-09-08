@@ -7,10 +7,8 @@ on:
         description: 'Source release tag (for example v1.6.3); empty means latest'
         required: false
         type: string
-  release:
-    types: [published]
   workflow_run:
-    workflows: ['Build and Publish Release']
+    workflows: ['Complete Release Changelog']
     types: [completed]
     branches: [main]
   push:
@@ -72,5 +70,5 @@ jobs:
         env:
           SOURCE_TOKEN: ${{ github.token }}
           LSPOSED_REPO_TOKEN: ${{ secrets.LSPOSED_REPO_TOKEN }}
-          SOURCE_TAG: ${{ inputs.tag || github.event.release.tag_name || '' }}
+          SOURCE_TAG: ${{ inputs.tag || '' }}
         run: python3 tools/sync-lsposed.py
