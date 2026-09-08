@@ -11,48 +11,30 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.yagay.ListCleaner.domain.DisplayMode
-import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.R
+import com.yagay.ListCleaner.data.readBackupText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-import androidx.compose.material3.*
-import androidx.compose.foundation.layout.*
-import com.yagay.ListCleaner.data.readBackupText
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -75,7 +57,7 @@ class MainActivity : ComponentActivity() {
         val collectingDiagnostics by vm.collectingDiagnostics.collectAsStateWithLifecycle()
         val exportMessage by vm.exportMessage.collectAsStateWithLifecycle()
         LaunchedEffect(exportMessage) {
-            exportMessage?.let { toast(UiText.translate(it), true); vm.clearExportMessage() }
+            exportMessage?.let { toast(it, true); vm.clearExportMessage() }
         }
         val keyboard = LocalSoftwareKeyboardController.current
         val closeSearch: () -> Unit = {
@@ -94,11 +76,11 @@ class MainActivity : ComponentActivity() {
             lifecycleScope.launch {
                 runCatching {
                     withContext(Dispatchers.IO) {
-                        val output = contentResolver.openOutputStream(uri) ?: error("无法创建备份文件")
+                        val output = contentResolver.openOutputStream(uri) ?: error(getString(R.string.backup_create_failed))
                         output.bufferedWriter().use { it.write(vm.exportJson()) }
                     }
-                }.onSuccess { toast(UiText.translate("备份已导出")) }
-                    .onFailure { toast(UiText.translate(it.message ?: "导出失败"), true) }
+                }.onSuccess { toast(getString(R.string.backup_exported)) }
+                    .onFailure { toast(it.message ?: getString(R.string.backup_export_failed), true) }
             }
         }
         val restore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -108,8 +90,8 @@ class MainActivity : ComponentActivity() {
                     withContext(Dispatchers.IO) {
                         vm.importJson(readLimitedText(uri, MainViewModel.MAX_BACKUP_CHARS))
                     }
-                }.onSuccess { toast(UiText.translate("备份已恢复")) }
-                    .onFailure { toast(UiText.translate(it.message ?: "恢复失败"), true) }
+                }.onSuccess { toast(getString(R.string.backup_restored)) }
+                    .onFailure { toast(it.message ?: getString(R.string.backup_restore_failed), true) }
             }
         }
         val diagnosticExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
@@ -123,8 +105,12 @@ class MainActivity : ComponentActivity() {
         Scaffold(
             topBar = {
                 MainToolbar(
-                    state.query, searchExpanded, vm::setQuery,
-                    { searchExpanded = true }, closeSearch, { if (state.destination == Destination.TILES) vm.refreshComponents() else vm.refresh() },
+                    state.query,
+                    searchExpanded,
+                    vm::setQuery,
+                    { searchExpanded = true },
+                    closeSearch,
+                    { if (state.destination == Destination.TILES) vm.refreshComponents() else vm.refresh() },
                     { restore.launch(arrayOf("application/json", "text/plain")) },
                     { export.launch("ListCleaner-backup.json") }
                 )
@@ -136,7 +122,7 @@ class MainActivity : ComponentActivity() {
                             selected = state.destination == dest,
                             onClick = { vm.setDestination(dest) },
                             icon = { Icon(dest.icon, null) },
-                            label = { Text(dest.label) }
+                            label = { Text(stringResource(dest.labelRes())) }
                         )
                     }
                 }
@@ -147,24 +133,28 @@ class MainActivity : ComponentActivity() {
                     Destination.RULES -> RulesTab(state, vm)
                     Destination.PRIORITY -> PriorityTab(state, vm)
                     Destination.TILES -> RootComponentsScreen(state, vm)
-                    Destination.DASHBOARD -> DashboardTabContent(state, vm,
+                    Destination.DASHBOARD -> DashboardTabContent(
+                        state,
+                        vm,
                         { restore.launch(arrayOf("application/json", "text/plain")) },
                         { export.launch("ListCleaner-backup.json") },
                         collectingDiagnostics,
                         {
                             val stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
                             diagnosticExport.launch("ListCleaner-diagnostic-$stamp.zip")
-                        }, { fileCheck.launch(arrayOf("*/*")) })
+                        },
+                        { fileCheck.launch(arrayOf("*/*")) }
+                    )
                 }
             }
         }
     }
 
     private fun readLimitedText(uri: Uri, maxChars: Int): String {
-        val input = contentResolver.openInputStream(uri) ?: error("无法读取备份")
+        val input = contentResolver.openInputStream(uri) ?: error(getString(R.string.backup_read_failed))
         return input.bufferedReader().use { it.readBackupText(maxChars) }
     }
 
     private fun toast(message: String, long: Boolean = false) =
-        Toast.makeText(this, UiText.translate(message), if (long) Toast.LENGTH_LONG else Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, message, if (long) Toast.LENGTH_LONG else Toast.LENGTH_SHORT).show()
 }
