@@ -1,1 +1,1 @@
-清理分享、打开方式和文本处理列表，支持应用优先排序，以及通过 Root 管理磁贴、快捷方式创建入口和桌面小部件。需要 modern libxposed API 102，Android 12 及以上。
+Trim share, open-with, browser, and text-processing candidate lists, prioritize frequently used apps, and manage tiles, shortcut creation entries, and home-screen widgets with Root. Requires modern libxposed API 102 and Android 12 or newer.
