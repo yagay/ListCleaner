@@ -13,6 +13,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.yagay.ListCleaner.BuildConfig
 import com.yagay.ListCleaner.ListCleanerApp
+import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.RuntimeStatus
 import com.yagay.ListCleaner.data.ResolverScopeDetector
 import com.yagay.ListCleaner.data.RootComponent
@@ -24,6 +25,7 @@ import com.yagay.ListCleaner.domain.CustomOpenDefinition
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.OpenPreset
+import com.yagay.ListCleaner.domain.OpenSelectionSource
 import com.yagay.ListCleaner.domain.OpenTypeConfig
 import com.yagay.ListCleaner.domain.PriorityConfig
 import com.yagay.ListCleaner.domain.RuntimeProtocol
@@ -70,22 +72,22 @@ data class ModuleStatus(
     }
 }
 
-enum class Destination(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    RULES("规则", Icons.Rounded.List),
-    PRIORITY("排序", Icons.Rounded.Sort),
-    TILES("组件", Icons.Rounded.GridView),
-    DASHBOARD("状态", Icons.Rounded.Dashboard)
+enum class Destination(val icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    RULES(Icons.Rounded.List),
+    PRIORITY(Icons.Rounded.Sort),
+    TILES(Icons.Rounded.GridView),
+    DASHBOARD(Icons.Rounded.Dashboard)
 }
 
-enum class UiFilter(val title: String) {
-    ALL("全部"),
-    HIDE_SELECTED("未选规则"),
-    SHOW_SELECTED("已选规则")
+enum class UiFilter {
+    ALL,
+    HIDE_SELECTED,
+    SHOW_SELECTED
 }
 
 data class MainState(
     val module: ModuleStatus = ModuleStatus(),
-    val syncStatus: String = "已保存，等待连接",
+    val syncStatus: String = "",
     val loading: Boolean = true,
     val error: String? = null,
     val candidates: List<ComponentCandidate> = emptyList(),
@@ -154,7 +156,8 @@ fun groupCandidates(
 
 fun retainConfiguredCandidates(
     items: List<ComponentCandidate>,
-    selected: Set<ComponentRule>
+    selected: Set<ComponentRule>,
+    unavailableEvidence: String = "Configured but not observed during this scan; this does not mean the app is uninstalled"
 ): List<ComponentCandidate> {
     val kept = items.filter { !it.unavailable || it.rule in selected }
     val ids = kept.map { it.rule.id }.toSet()
@@ -163,7 +166,7 @@ fun retainConfiguredCandidates(
             rule,
             rule.packageName,
             rule.className.substringAfterLast('.'),
-            evidence = listOf("已配置，但本次未扫描到；不代表已卸载"),
+            evidence = listOf(unavailableEvidence),
             unavailable = true
         )
     }
@@ -195,11 +198,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val mutableCheckingFile = MutableStateFlow(false)
     val checkingFile: StateFlow<Boolean> = mutableCheckingFile
 
+    private fun openPresetTitle(config: OpenTypeConfig, preset: OpenPreset): String =
+        config.customDefinitions[preset]?.title ?: app.getString(preset.titleRes())
+
+    private fun selectionSourceTitle(source: OpenSelectionSource): String = app.getString(
+        when (source) {
+            OpenSelectionSource.GENERIC -> R.string.file_preview_source_generic
+            OpenSelectionSource.TYPED -> R.string.file_preview_source_typed
+            OpenSelectionSource.GENERIC_AND_TYPED -> R.string.file_preview_source_generic_and_typed
+        }
+    )
+
     fun inspectFile(uri: Uri) {
         if (mutableCheckingFile.value) return
         mutableCheckingFile.value = true
         viewModelScope.launch {
-            mutableFileCheckStatus.value = "正在检查实际文件的候选和规则效果，不会打开文件…"
+            mutableFileCheckStatus.value = app.getString(R.string.file_preview_checking)
             try {
                 check(app.synchronize()) { app.runtime.value.message }
                 val mime = app.contentResolver.getType(uri)
@@ -217,27 +231,35 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 check(app.synchronize()) { app.runtime.value.message }
                 mutableFileCheckStatus.value = buildString {
-                    append("识别类型：${preview.preset?.let(config.openTypes::titleFor) ?: "通用打开方式"} · MIME=${mime ?: "未知"}\n")
-                    append("原始候选 ${preview.rawCount} 个 → 预计最终 ${preview.finalCount} 个")
-                    if (preview.restoredEmpty) append("（触发空列表保护，恢复系统原结果）")
-                    append("。此预览不模拟来源应用自身的私有菜单或同 UID 保护。")
+                    val typeTitle = preview.preset?.let { openPresetTitle(config.openTypes, it) }
+                        ?: app.getString(R.string.file_preview_generic_open)
+                    append(app.getString(
+                        R.string.file_preview_header,
+                        typeTitle,
+                        mime ?: app.getString(R.string.common_unknown)
+                    ))
+                    append(app.getString(R.string.file_preview_counts, preview.rawCount, preview.finalCount))
+                    if (preview.restoredEmpty) append(app.getString(R.string.file_preview_empty_restored))
+                    append(app.getString(R.string.file_preview_disclaimer))
                     val details = preview.items.take(12)
                     if (details.isNotEmpty()) append('\n')
                     details.forEachIndexed { index, item ->
                         if (index > 0) append('\n')
                         append(if (item.included) "✓ " else "✕ ")
                         append(item.candidate.appLabel)
-                        item.rank?.let { append(" · 优先第 $it 位") }
-                        item.selectedBy?.let { append(" · 规则来源：$it") }
+                        item.rank?.let { append(app.getString(R.string.file_preview_rank, it)) }
+                        item.selectedBy?.let {
+                            append(app.getString(R.string.file_preview_source, selectionSourceTitle(it)))
+                        }
                     }
                     if (preview.items.size > details.size) {
-                        append("\n…另有 ${preview.items.size - details.size} 项，完整候选见诊断包")
+                        append(app.getString(R.string.file_preview_more, preview.items.size - details.size))
                     }
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                mutableFileCheckStatus.value = failure.message ?: "文件检查失败"
+                mutableFileCheckStatus.value = failure.message ?: app.getString(R.string.file_preview_failed)
             } finally {
                 mutableCheckingFile.value = false
             }
@@ -290,14 +312,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 val ready = requireNotNull(report)
                 withContext(Dispatchers.IO) {
-                    val output = app.contentResolver.openOutputStream(uri, "wt") ?: error("无法创建诊断包")
+                    val output = app.contentResolver.openOutputStream(uri, "wt")
+                        ?: error(app.getString(R.string.diagnostic_create_failed))
                     output.use { destination -> ready.inputStream().use { it.copyTo(destination) } }
                 }
-                mutableExportMessage.value = "诊断包已导出"
+                mutableExportMessage.value = app.getString(R.string.diagnostic_exported)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                mutableExportMessage.value = "导出失败：${failure.message}；目标文件可能不完整，请重新导出"
+                mutableExportMessage.value = app.getString(
+                    R.string.diagnostic_export_failed,
+                    failure.message ?: failure.javaClass.simpleName
+                )
             } finally {
                 report?.delete()
                 mutableCollectingDiagnostics.value = false
@@ -316,7 +342,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val grouped = combine(candidates, app.rules.rules, filter, query, uiFilter) {
         scanned, selected, kind, text, ui ->
-        val items = retainConfiguredCandidates(scanned, selected)
+        val items = retainConfiguredCandidates(
+            scanned,
+            selected,
+            app.getString(R.string.candidate_configured_not_observed)
+        )
         ListContent(items, kind, text, groupCandidates(items, selected, kind, text, ui), selected, ui)
     }.stateIn(
         viewModelScope,
@@ -413,7 +443,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Throwable) {
-                if (generation == refreshGeneration) error.value = failure.message ?: "扫描失败"
+                if (generation == refreshGeneration) {
+                    error.value = failure.message ?: app.getString(R.string.scan_failed)
+                }
             } finally {
                 if (generation == refreshGeneration) loading.value = false
             }
@@ -438,10 +470,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun applyModuleUpdate() {
         if (mutableUpdating.value) return
         mutableUpdating.value = true
-        mutableUpdateMessage.value = "正在检测运行目标…"
+        mutableUpdateMessage.value = app.getString(R.string.update_detecting_targets)
         viewModelScope.launch {
             try {
-                val bound = app.service.value ?: error("未连接 LSPosed")
+                val bound = app.service.value ?: error(app.getString(R.string.update_lsposed_disconnected))
                 val targets = withContext(Dispatchers.IO) { bound.runningTargets }
                 val pending = targets.filter {
                     !RuntimeProtocol.current(it.state.name, it.loadedVersionCode, BuildConfig.VERSION_CODE.toLong())
@@ -450,11 +482,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 for (target in pending) {
                     try {
                         if (target.state == HookedTarget.State.RELOADING) {
-                            messages += "${target.processName}：框架正在重载，请稍后重新检测"
+                            messages += app.getString(R.string.update_target_reloading, target.processName)
                             continue
                         }
                         if (target.loadedVersionCode < 19) {
-                            messages += "${target.processName}：旧版本 ${target.loadedVersionCode} 不支持本模块热重载，请完整重启手机"
+                            messages += app.getString(
+                                R.string.update_target_too_old,
+                                target.processName,
+                                target.loadedVersionCode
+                            )
                             continue
                         }
                         val result = withTimeoutOrNull(15_000) {
@@ -466,28 +502,39 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 }
                             }
                         }
-                        messages += "${target.processName}：" + when (result?.status()) {
-                            HotReloadResult.Status.SUCCEEDED -> "框架报告更新成功，正在重新核实"
-                            HotReloadResult.Status.UNSUPPORTED -> "框架不支持，请重启手机"
-                            HotReloadResult.Status.FAILED -> "更新失败：${result?.message() ?: "旧模块拒绝"}；请重启手机"
-                            HotReloadResult.Status.PROCESS_DIED -> "目标已退出，等待重新启动"
-                            HotReloadResult.Status.IN_PROGRESS -> "框架正在重载，请稍后重新检测"
-                            null -> "等待超时，不代表已取消；请重新检测，勿重复请求"
+                        val resultText = when (result?.status()) {
+                            HotReloadResult.Status.SUCCEEDED -> app.getString(R.string.update_succeeded)
+                            HotReloadResult.Status.UNSUPPORTED -> app.getString(R.string.update_unsupported)
+                            HotReloadResult.Status.FAILED -> app.getString(
+                                R.string.update_failed,
+                                result?.message() ?: app.getString(R.string.update_old_module_rejected)
+                            )
+                            HotReloadResult.Status.PROCESS_DIED -> app.getString(R.string.update_process_died)
+                            HotReloadResult.Status.IN_PROGRESS -> app.getString(R.string.update_in_progress)
+                            null -> app.getString(R.string.update_timeout)
                         }
+                        messages += app.getString(R.string.update_target_result, target.processName, resultText)
                     } catch (cancelled: CancellationException) {
                         throw cancelled
                     } catch (failure: Exception) {
-                        messages += "${target.processName}：更新请求失败（${failure.javaClass.simpleName}）；继续检查其他目标"
+                        messages += app.getString(
+                            R.string.update_request_failed,
+                            target.processName,
+                            failure.javaClass.simpleName
+                        )
                     }
                 }
                 mutableUpdateMessage.value = if (messages.isEmpty()) {
-                    "没有需要热更新的运行目标；正在核实配置"
+                    app.getString(R.string.update_nothing_pending)
                 } else messages.joinToString("\n")
                 refresh()
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                mutableUpdateMessage.value = "更新检查失败：${failure.message}；未重启任何系统进程"
+                mutableUpdateMessage.value = app.getString(
+                    R.string.update_check_failed,
+                    failure.message ?: failure.javaClass.simpleName
+                )
             } finally {
                 mutableUpdating.value = false
             }
@@ -510,11 +557,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         result.copy(runningTargets = service.runningTargets.map {
                             RunningTargetStatus(it.processName, it.state.name, it.loadedVersionCode)
                         })
-                    } else result.copy(error = "当前框架不支持运行目标检测")
+                    } else result.copy(error = app.getString(R.string.module_target_detection_unsupported))
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (failure: Exception) {
-                    result = result.copy(error = failure.message ?: "无法读取 LSPosed 模块状态")
+                    result = result.copy(
+                        error = failure.message ?: app.getString(R.string.module_status_read_failed)
+                    )
                 }
             }
             result
@@ -526,7 +575,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun canEdit(): Boolean = app.rules.hasLocalConfiguration().also {
-        if (!it) error.value = "请先完成远程配置恢复或重置，避免覆盖原有规则"
+        if (!it) error.value = app.getString(R.string.editing_requires_recovery)
     }
 
     private fun genericOpenSelected(): Set<ComponentRule> =
@@ -696,16 +745,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         moduleStatus.value = moduleStatus.value.copy(requesting = true, message = null)
         viewModelScope.launch {
             try {
-                val service = app.service.value ?: error("未连接 LSPosed，请先启用模块")
+                val service = app.service.value ?: error(app.getString(R.string.scope_lsposed_not_connected))
                 val current = readModuleStatus(service)
-                check(app.service.value === service) { "服务连接已变化，请重新检查" }
-                check(current.scopeKnown) { current.error ?: "无法读取已授权作用域，未提交申请" }
+                check(app.service.value === service) { app.getString(R.string.scope_service_changed_retry) }
+                check(current.scopeKnown) {
+                    current.error ?: app.getString(R.string.scope_granted_read_failed)
+                }
                 check(current.detection.recommended.isNotEmpty()) {
-                    "未确认可自动申请的选择器宿主，请查看检测详情并在 LSPosed 中手动核查"
+                    app.getString(R.string.scope_no_auto_host)
                 }
                 val missing = current.missingScope.toList()
                 if (missing.isEmpty()) {
-                    moduleStatus.value = current.copy(requesting = true, message = "检测到的推荐作用域均已授权，无需重复申请")
+                    moduleStatus.value = current.copy(
+                        requesting = true,
+                        message = app.getString(R.string.scope_all_recommended_granted)
+                    )
                     return@launch
                 }
                 val approved = withTimeoutOrNull(120_000) {
@@ -723,19 +777,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         })
                     }
                 }
-                check(app.service.value === service) { "服务连接已变化，请重新检查授权结果" }
+                check(app.service.value === service) {
+                    app.getString(R.string.scope_service_changed_result)
+                }
                 val refreshed = readModuleStatus(service)
                 val message = when {
-                    approved == null -> "等待授权超时，框架申请可能仍在处理；请先在 LSPosed 查看结果"
-                    !refreshed.scopeKnown -> "框架已返回，暂时无法核实授权结果，请重新检查"
-                    refreshed.missingScope.isNotEmpty() -> "仍缺少作用域：${refreshed.missingScope.joinToString()}"
-                    else -> "推荐作用域已确认授权；若目标尚未加载，请重新启动相关选择器，必要时重启设备"
+                    approved == null -> app.getString(R.string.scope_request_timeout)
+                    !refreshed.scopeKnown -> app.getString(R.string.scope_result_unverified)
+                    refreshed.missingScope.isNotEmpty() -> app.getString(
+                        R.string.scope_still_missing,
+                        refreshed.missingScope.joinToString()
+                    )
+                    else -> app.getString(R.string.scope_granted_confirmed)
                 }
                 moduleStatus.value = refreshed.copy(message = message)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                moduleStatus.value = moduleStatus.value.copy(error = failure.message ?: "申请作用域失败")
+                moduleStatus.value = moduleStatus.value.copy(
+                    error = failure.message ?: app.getString(R.string.scope_request_failed)
+                )
             } finally {
                 scopeRequestInFlight = false
                 moduleStatus.value = moduleStatus.value.copy(requesting = false)
