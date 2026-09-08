@@ -60,6 +60,11 @@
     <string name="dashboard_scan_disclaimer">扫描只用于发现可管理组件，不保证等同于每次实际菜单。非文本分类保留空列表保护；文本允许隐藏全部候选，不处理应用硬编码菜单。</string>
     <string name="dashboard_inspecting_file">正在检查文件…</string>
     <string name="dashboard_inspect_file">用实际文件预览最终打开方式</string>
+    <string name="diagnostic_mode">诊断模式</string>
+    <string name="diagnostic_mode_help">开启后记录查询分类、规则与跳过原因；按分类和调用 UID 记录首个有效查询栈。管理扫描不占用调用栈记录。运行时只记录文件扩展名和识别类型，不记录完整文件名或 URI。每进程每 5 秒关键记录最多 200 条，候选明细另限 40 条。</string>
+    <string name="diagnostic_enabled_help">诊断已开启；请复现分享、打开或文本处理操作。</string>
     <string name="dashboard_collecting">正在收集</string>
     <string name="dashboard_export_diagnostics">一键导出诊断包</string>
+    <string name="diagnostic_export_help">先开启诊断，再复现问题，最后导出。包含最近 24 小时内最多 12 份 LSPosed 日志；大文件保留开头与最新结尾。系统原始日志仍可能包含其他进程隐私，分享前请检查。需要 Root 授权，读取失败会记录在包内。</string>
+    <string name="app_version_format">%1$s v%2$s</string>
 </resources>
