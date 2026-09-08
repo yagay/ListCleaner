@@ -749,8 +749,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         scopeRequestInFlight = true
         moduleStatus.value = moduleStatus.value.copy(requesting = true, message = null)
         viewModelScope.launch {
+            var requestService: XposedService? = null
             try {
                 val service = app.service.value ?: error(app.getString(R.string.scope_lsposed_not_connected))
+                requestService = service
                 val current = readModuleStatus(service)
                 check(app.service.value === service) { app.getString(R.string.scope_service_changed_retry) }
                 check(current.scopeKnown) {
@@ -761,10 +763,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 val missing = current.missingScope.toList()
                 if (missing.isEmpty()) {
-                    moduleStatus.value = current.copy(
-                        requesting = true,
-                        message = app.getString(R.string.scope_all_recommended_granted)
-                    )
+                    if (app.service.value === service) {
+                        moduleStatus.value = current.copy(
+                            requesting = true,
+                            message = app.getString(R.string.scope_all_recommended_granted)
+                        )
+                    }
                     return@launch
                 }
                 val approved = withTimeoutOrNull(120_000) {
@@ -795,17 +799,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     )
                     else -> app.getString(R.string.scope_granted_confirmed)
                 }
-                moduleStatus.value = refreshed.copy(message = message)
+                if (app.service.value === service) {
+                    moduleStatus.value = refreshed.copy(message = message, requesting = true)
+                }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
                 Log.e(TAG, "Scope request failed", failure)
-                moduleStatus.value = moduleStatus.value.copy(
-                    error = app.getString(R.string.scope_request_failed)
-                )
+                if (requestService == null || app.service.value === requestService) {
+                    moduleStatus.value = moduleStatus.value.copy(
+                        error = app.getString(R.string.scope_request_failed)
+                    )
+                }
             } finally {
                 scopeRequestInFlight = false
-                moduleStatus.value = moduleStatus.value.copy(requesting = false)
+                val currentService = app.service.value
+                if (currentService === requestService || requestService == null) {
+                    moduleStatus.value = moduleStatus.value.copy(requesting = false)
+                } else {
+                    readModuleStatus(currentService)
+                }
             }
         }
     }
