@@ -60,6 +60,11 @@
     <string name="dashboard_scan_disclaimer">Scanning discovers manageable candidates and may not exactly match every live menu. Non-text categories keep empty-list protection; text processing may hide all candidates and cannot change hard-coded in-app menus.</string>
     <string name="dashboard_inspecting_file">Inspecting file…</string>
     <string name="dashboard_inspect_file">Preview final open targets with an actual file</string>
+    <string name="diagnostic_mode">Diagnostic mode</string>
+    <string name="diagnostic_mode_help">When enabled, records query categories, rules, and skip reasons, including the first valid query stack by category and calling UID. Management scans do not consume stack records. Runtime logs only file extensions and detected types, not full filenames or URIs. Key records are limited to 200 per process every 5 seconds, with candidate details limited to 40.</string>
+    <string name="diagnostic_enabled_help">Diagnostics enabled; reproduce the share, open, or text-processing operation.</string>
     <string name="dashboard_collecting">Collecting…</string>
     <string name="dashboard_export_diagnostics">Export diagnostic package</string>
+    <string name="diagnostic_export_help">Enable diagnostics first, reproduce the problem, then export. The package includes up to 12 LSPosed logs from the last 24 hours; large files retain the beginning and newest tail. Raw system logs can contain data from other processes, so review before sharing. Root access is required; read failures are recorded in the package.</string>
+    <string name="app_version_format">%1$s v%2$s</string>
 </resources>
