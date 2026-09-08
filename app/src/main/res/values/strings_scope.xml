@@ -31,4 +31,12 @@ It may come from an older version or manual configuration and has been retained.
     <string name="scope_no_recommended">No automatic targets recommended</string>
     <string name="scope_recommended_granted">Recommended scope is authorized</string>
     <string name="scope_request_missing">Request missing scope (%1$d)</string>
+    <string name="scope_detection_failed">%1$s detection failed: %2$s</string>
+    <string name="scope_scenario_system_share_sheet">System share sheet</string>
+    <string name="scope_scenario_share">Share</string>
+    <string name="scope_scenario_share_multiple">Share multiple</string>
+    <string name="scope_scenario_open_file">Open file</string>
+    <string name="scope_scenario_web_link">Web link</string>
+    <string name="scope_scenario_process_text">Text processing</string>
+    <string name="scope_scenario_global_intent">Global Intent resolution</string>
 </resources>
