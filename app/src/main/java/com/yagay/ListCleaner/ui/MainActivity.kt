@@ -152,7 +152,9 @@ class MainActivity : ComponentActivity() {
 
     private fun readLimitedText(uri: Uri, maxChars: Int): String {
         val input = contentResolver.openInputStream(uri) ?: error(getString(R.string.backup_read_failed))
-        return input.bufferedReader().use { it.readBackupText(maxChars) }
+        return input.bufferedReader().use {
+            it.readBackupText(maxChars, getString(R.string.backup_too_large))
+        }
     }
 
     private fun toast(message: String, long: Boolean = false) =
