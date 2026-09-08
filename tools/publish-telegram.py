@@ -47,23 +47,38 @@ def find_asset(release, name):
     return matches[0] if matches else None
 
 
-def compact_notes(body, limit=620):
-    text = (body or "").replace("\r", "").strip()
-    text = re.sub(r"\n{3,}", "\n\n", text)
+def _compact(text, limit):
+    text = re.sub(r"\n{3,}", "\n\n", (text or "").replace("\r", "").strip())
     if len(text) <= limit:
         return text
     return text[: limit - 1].rstrip() + "…"
 
 
+def compact_notes(body, limit=620):
+    """Keep both languages visible; RELEASE_NOTES.md is Chinese first, English second."""
+    text = (body or "").replace("\r", "").strip()
+    marker = "\n## English\n"
+    if marker not in text:
+        return _compact(text, limit)
+    chinese, english = text.split(marker, 1)
+    chinese = re.sub(r"^#.*?\n+", "", chinese, count=1).strip()
+    chinese = re.sub(r"^## 中文\n+", "", chinese, count=1).strip()
+    english = english.strip()
+    # Telegram captions are short; reserve space for both sections while keeping Chinese first.
+    zh = _compact(chinese, 350)
+    en = _compact(english, 230)
+    return f"中文\n{zh}\n\nEnglish\n{en}"
+
+
 def make_caption(version, body, release_url):
     notes = compact_notes(body)
-    parts = [f"📢 List Cleaner {version} 发布"]
+    parts = [f"📢 List Cleaner {version} 发布 / Release"]
     if notes:
         parts += ["", notes]
     parts += [
         "",
         f"GitHub Release：{release_url}",
-        "LSPosed 官方仓库：https://github.com/Xposed-Modules-Repo/com.yagay.ListCleaner/releases",
+        "LSPosed 官方仓库 / Official repository：https://github.com/Xposed-Modules-Repo/com.yagay.ListCleaner/releases",
         "",
         "#ListCleaner #LSPosed",
     ]
