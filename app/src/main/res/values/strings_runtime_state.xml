@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runtime_waiting_verify">Waiting to verify the running module and configuration</string>
+    <string name="runtime_waiting_connection">Waiting for connection</string>
+    <string name="runtime_connection_lost">Connection lost; scanning is paused and the current list is retained</string>
+    <string name="runtime_lsposed_disconnected">LSPosed is not connected; scanning is paused and the current list is retained</string>
+    <string name="runtime_remote_config_too_large">Remote configuration is too large</string>
+    <string name="runtime_legacy_rules_corrupt">Legacy remote rules are corrupted; restore from a JSON backup first</string>
+    <string name="runtime_recovery_available">Local configuration is missing while remote configuration still exists (%1$d rules). Choose restore or reset first; the remote configuration has not been overwritten.</string>
+    <string name="runtime_recovery_corrupt">Remote configuration could not be read or validated (%1$s). The original configuration was not overwritten; import a backup or confirm reset.</string>
+    <string name="runtime_framework_api_required">The framework must support API 102; synchronization and scanning are paused</string>
+    <string name="runtime_config_transfer_too_large">Configuration exceeds the transfer limit. Reduce the number of rules and try again; nothing was written remotely</string>
+    <string name="runtime_pause_write_failed">Failed to write the pause configuration</string>
+    <string name="runtime_pause_submitted">Pause configuration submitted; not all running targets have confirmed it yet</string>
+    <string name="runtime_incompatible_targets">Old module or abnormal runtime state: %1$s; try hot update, or fully restart the phone if the old version does not support it. %2$s</string>
+    <string name="runtime_incompatible_pause_pending">A compatible pause configuration was submitted but not confirmed; scanning remains paused.</string>
+    <string name="runtime_incompatible_paused">Synchronization and scanning are paused.</string>
+    <string name="runtime_system_target_missing">The module was not detected in system; check the scope and restart. Scanning is paused</string>
+    <string name="runtime_waiting_ack">Local configuration saved; waiting for the system hook to confirm the new configuration</string>
+    <string name="runtime_remote_write_failed">Failed to write the remote configuration</string>
+    <string name="runtime_connection_changed">The service connection changed; try again</string>
+    <string name="runtime_ack_missing">Configuration was written, but the system hook did not confirm receipt. Scanning is paused; try again or restart</string>
+    <string name="runtime_config_changed">Configuration changed while confirmation was in progress; synchronizing again</string>
+    <string name="runtime_confirmed_hits">The system hook confirmed the configuration; view actual filtering, app-visibility and ordering hit counts on the Status page</string>
+    <string name="runtime_validation_failed">Runtime verification failed; the current list is retained</string>
+    <string name="runtime_recovered_waiting">Local configuration restored; waiting for system confirmation</string>
+    <string name="runtime_reset_waiting">Local configuration reset and pause selected; waiting for system confirmation</string>
+</resources>
