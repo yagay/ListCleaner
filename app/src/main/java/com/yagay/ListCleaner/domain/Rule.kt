@@ -6,14 +6,12 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 
 @Serializable
-enum class IntentKind(val action: String, val title: String) {
-    SHARE(Intent.ACTION_SEND, "分享"),
-    SHARE_MULTIPLE(Intent.ACTION_SEND_MULTIPLE, "多文件分享"),
-    OPEN(Intent.ACTION_VIEW, "打开方式"),
-    BROWSER(Intent.ACTION_VIEW, "浏览器"),
-    PROCESS_TEXT(Intent.ACTION_PROCESS_TEXT, "文本处理");
-
-    val shortTitle: String get() = if (this == PROCESS_TEXT) "文本处理" else title
+enum class IntentKind(val action: String) {
+    SHARE(Intent.ACTION_SEND),
+    SHARE_MULTIPLE(Intent.ACTION_SEND_MULTIPLE),
+    OPEN(Intent.ACTION_VIEW),
+    BROWSER(Intent.ACTION_VIEW),
+    PROCESS_TEXT(Intent.ACTION_PROCESS_TEXT)
 }
 
 @Serializable
