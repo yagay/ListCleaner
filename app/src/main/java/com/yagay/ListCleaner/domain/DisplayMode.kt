@@ -6,10 +6,10 @@ internal fun selectedKinds(ids: Set<String>): Set<IntentKind> =
     ids.mapNotNull { ComponentRule.fromId(it)?.kind }.toSet()
 
 @Serializable
-enum class DisplayMode(val title: String) {
-    HIDE_SELECTED("隐藏选中"),
-    SHOW_SELECTED("只显示选中"),
-    SHOW_ALL("全部显示");
+enum class DisplayMode {
+    HIDE_SELECTED,
+    SHOW_SELECTED,
+    SHOW_ALL;
 
     fun includes(selected: Boolean, hasSelection: Boolean): Boolean =
         !hasSelection || when (this) {
