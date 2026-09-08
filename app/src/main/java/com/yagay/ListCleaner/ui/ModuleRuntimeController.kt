@@ -40,7 +40,7 @@ data class ModuleStatus(
     val extraScope: Set<String> get() = grantedScope - detection.hosts.map { it.packageName }.toSet()
     val resolverLoaded: Boolean get() = runningTargets.any { target ->
         RuntimeProtocol.current(target.state, target.version, BuildConfig.VERSION_CODE.toLong()) &&
-            detection.hosts.any { it.processName == target.processName }
+            detection.hosts.any { host -> host.packageName != "system" && host.processName == target.processName }
     }
     val outdated: Boolean get() = runningTargets.any {
         !RuntimeProtocol.current(it.state, it.version, BuildConfig.VERSION_CODE.toLong())
