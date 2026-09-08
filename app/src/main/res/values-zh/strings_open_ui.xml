@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="open_manage_custom">+ 自定义</string>
+    <string name="custom_open_title">自定义打开方式类型</string>
+    <string name="custom_open_help">最多 8 个自定义类型。每个类型可以按 MIME 和文件后缀识别，并拥有自己的规则与排序；未设置专用规则/排序时仍继承“打开方式 · 全部”。删除类型会同时清理该类型的专用规则和排序。</string>
+    <string name="custom_open_not_configured">未配置</string>
+    <string name="custom_open_name">名称</string>
+    <string name="custom_open_mime_label">MIME（每行或逗号分隔）</string>
+    <string name="custom_open_mime_example">例如 application/vnd.amazon.ebook 或 application/*</string>
+    <string name="custom_open_extension_label">文件后缀（每行或逗号分隔）</string>
+    <string name="custom_open_extension_example">例如 azw3, mobi, m3u8；可写或不写开头的点</string>
+    <string name="custom_open_invalid_configuration">配置无效</string>
+    <string name="custom_open_invalid_title">自定义类型名称无效</string>
+    <string name="custom_open_invalid_mime">自定义 MIME 无效</string>
+    <string name="custom_open_invalid_extension">自定义文件后缀无效</string>
+    <string name="custom_open_missing_matcher">自定义类型至少需要一个 MIME 或文件后缀</string>
+    <string name="custom_open_generic_error">自定义打开方式配置无效</string>
+</resources>
