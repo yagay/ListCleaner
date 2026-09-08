@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Navigation -->
+    <string name="nav_rules">Rules</string>
+    <string name="nav_priority">Ordering</string>
+    <string name="nav_components">Components</string>
+    <string name="nav_status">Status</string>
+
+    <!-- Common -->
+    <string name="common_all">All</string>
+    <string name="common_none">None</string>
+    <string name="common_unknown">Unknown</string>
+    <string name="common_back">Back</string>
+    <string name="common_close">Close</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="common_save">Save</string>
+    <string name="common_delete">Delete</string>
+    <string name="common_add">Add</string>
+    <string name="common_edit">Edit</string>
+    <string name="common_done">Done</string>
+    <string name="common_ok">OK</string>
+    <string name="common_refresh">Refresh</string>
+    <string name="common_search">Search</string>
+    <string name="common_more">More</string>
+    <string name="common_enable">Enable</string>
+    <string name="common_disable">Disable</string>
+    <string name="common_expand">Expand</string>
+    <string name="common_collapse">Collapse</string>
+    <string name="common_selected">Selected</string>
+    <string name="common_not_selected">Not selected</string>
+
+    <!-- UI filters -->
+    <string name="filter_unselected_rules">Unselected rules</string>
+    <string name="filter_selected_rules">Selected rules</string>
+
+    <!-- Intent kinds -->
+    <string name="intent_share">Share</string>
+    <string name="intent_share_multiple">Share multiple</string>
+    <string name="intent_open">Open</string>
+    <string name="intent_browser">Browser</string>
+    <string name="intent_process_text">Text processing</string>
+
+    <!-- Display modes -->
+    <string name="display_hide_selected">Hide selected</string>
+    <string name="display_show_selected">Show selected only</string>
+    <string name="display_show_all">Show all</string>
+
+    <!-- Root component kinds -->
+    <string name="cleanup_tile">Tiles</string>
+    <string name="cleanup_shortcut">Shortcuts</string>
+    <string name="cleanup_widget">Widgets</string>
+
+    <!-- Open presets -->
+    <string name="open_browser">Web links</string>
+    <string name="open_pdf">PDF</string>
+    <string name="open_word">Word</string>
+    <string name="open_excel">Excel</string>
+    <string name="open_powerpoint">PowerPoint</string>
+    <string name="open_epub">E-books</string>
+    <string name="open_apk">Android packages</string>
+    <string name="open_torrent">BitTorrent files</string>
+    <string name="open_markdown">Markdown</string>
+    <string name="open_csv">CSV</string>
+    <string name="open_json">JSON</string>
+    <string name="open_xml">XML</string>
+    <string name="open_svg">SVG</string>
+    <string name="open_gif">GIF</string>
+    <string name="open_image">Images</string>
+    <string name="open_video">Video</string>
+    <string name="open_audio">Audio</string>
+    <string name="open_text">Text</string>
+    <string name="open_archive">Archives</string>
+    <string name="open_magnet">Magnet links</string>
+    <string name="open_geo">Map locations</string>
+    <string name="open_mailto">Mail links</string>
+    <string name="open_tel">Phone links</string>
+    <string name="open_sms">SMS links</string>
+    <string name="open_custom_1">Custom 1</string>
+    <string name="open_custom_2">Custom 2</string>
+    <string name="open_custom_3">Custom 3</string>
+    <string name="open_custom_4">Custom 4</string>
+    <string name="open_custom_5">Custom 5</string>
+    <string name="open_custom_6">Custom 6</string>
+    <string name="open_custom_7">Custom 7</string>
+    <string name="open_custom_8">Custom 8</string>
+    <string name="open_user_defined">User-defined</string>
+    <string name="open_desc_browser">HTTP / HTTPS links</string>
+    <string name="open_desc_pdf">application/pdf</string>
+    <string name="open_desc_word">DOC / DOCX</string>
+    <string name="open_desc_excel">XLS / XLSX</string>
+    <string name="open_desc_powerpoint">PPT / PPTX</string>
+    <string name="open_desc_epub">EPUB</string>
+    <string name="open_desc_apk">APK</string>
+    <string name="open_desc_torrent">.torrent</string>
+    <string name="open_desc_markdown">text/markdown</string>
+    <string name="open_desc_csv">text/csv</string>
+    <string name="open_desc_json">application/json</string>
+    <string name="open_desc_xml">application/xml / text/xml</string>
+    <string name="open_desc_svg">image/svg+xml</string>
+    <string name="open_desc_gif">image/gif</string>
+    <string name="open_desc_image">image/*</string>
+    <string name="open_desc_video">video/*</string>
+    <string name="open_desc_audio">audio/*</string>
+    <string name="open_desc_text">text/*</string>
+    <string name="open_desc_archive">ZIP / RAR / 7Z / TAR / GZIP</string>
+    <string name="open_desc_magnet">magnet:</string>
+    <string name="open_desc_geo">geo:</string>
+    <string name="open_desc_mailto">mailto:</string>
+    <string name="open_desc_tel">tel:</string>
+    <string name="open_desc_sms">sms: / smsto:</string>
+</resources>
