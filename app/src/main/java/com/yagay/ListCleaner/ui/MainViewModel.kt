@@ -806,7 +806,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 throw cancelled
             } catch (failure: Exception) {
                 Log.e(TAG, "Scope request failed", failure)
-                if (requestService == null || app.service.value === requestService) {
+                if (app.service.value === requestService) {
                     moduleStatus.value = moduleStatus.value.copy(
                         error = app.getString(R.string.scope_request_failed)
                     )
@@ -814,7 +814,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } finally {
                 scopeRequestInFlight = false
                 val currentService = app.service.value
-                if (currentService === requestService || requestService == null) {
+                if (currentService === requestService) {
                     moduleStatus.value = moduleStatus.value.copy(requesting = false)
                 } else {
                     readModuleStatus(currentService)
