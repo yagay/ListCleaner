@@ -45,6 +45,27 @@ internal fun RuntimePanel(state: MainState, vm: MainViewModel, showUpdateTools: 
                 }
             }
         }
+
+        Text(stringResource(R.string.capability_title), style = MaterialTheme.typography.titleSmall)
+        runtimeCapabilities(state.module, state.runtime).forEach { capability ->
+            val name = stringResource(
+                when (capability.capability) {
+                    RuntimeCapability.FILTERING -> R.string.capability_filtering
+                    RuntimeCapability.ORDERING -> R.string.capability_ordering
+                    RuntimeCapability.PACKAGE_VISIBILITY -> R.string.capability_visibility
+                }
+            )
+            val status = when (capability.state) {
+                CapabilityState.OBSERVED -> stringResource(R.string.capability_observed, capability.hits)
+                CapabilityState.LOADED_UNOBSERVED -> stringResource(R.string.capability_loaded_unobserved)
+                CapabilityState.MISSING_SCOPE -> stringResource(R.string.capability_missing_scope)
+                CapabilityState.OUTDATED -> stringResource(R.string.capability_outdated)
+                CapabilityState.DISCONNECTED -> stringResource(R.string.capability_disconnected)
+                CapabilityState.NOT_READY -> stringResource(R.string.capability_not_ready)
+            }
+            Text(stringResource(R.string.capability_row, name, status), style = MaterialTheme.typography.bodySmall)
+        }
+
         if (showUpdateTools) {
             OutlinedButton(onClick = vm::applyModuleUpdate, enabled = state.module.connected && !updating) {
                 Text(stringResource(if (updating) R.string.runtime_checking_update else R.string.runtime_apply_update))

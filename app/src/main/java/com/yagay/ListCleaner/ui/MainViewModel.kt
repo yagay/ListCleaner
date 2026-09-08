@@ -12,14 +12,11 @@ import androidx.compose.material.icons.rounded.List
 import androidx.compose.material.icons.rounded.Sort
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.yagay.ListCleaner.BuildConfig
 import com.yagay.ListCleaner.ListCleanerApp
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.RuntimeStatus
-import com.yagay.ListCleaner.data.ResolverScopeDetector
 import com.yagay.ListCleaner.data.RootComponent
 import com.yagay.ListCleaner.data.RuleRepository
-import com.yagay.ListCleaner.data.ScopeDetection
 import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.CustomOpenDefinition
@@ -29,49 +26,17 @@ import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.OpenSelectionSource
 import com.yagay.ListCleaner.domain.OpenTypeConfig
 import com.yagay.ListCleaner.domain.PriorityConfig
-import com.yagay.ListCleaner.domain.RuntimeProtocol
-import io.github.libxposed.service.HookedTarget
-import io.github.libxposed.service.HotReloadResult
-import io.github.libxposed.service.XposedService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
-
-data class RunningTargetStatus(val processName: String, val state: String, val version: Long)
-
-data class ModuleStatus(
-    val connected: Boolean = false,
-    val apiVersion: Int? = null,
-    val grantedScope: Set<String> = emptySet(),
-    val runningTargets: List<RunningTargetStatus> = emptyList(),
-    val detection: ScopeDetection = ScopeDetection(),
-    val scopeKnown: Boolean = false,
-    val requesting: Boolean = false,
-    val message: String? = null,
-    val error: String? = null
-) {
-    val missingScope: Set<String> get() = detection.recommended - grantedScope
-    val extraScope: Set<String> get() = grantedScope - detection.hosts.map { it.packageName }.toSet()
-    val resolverLoaded: Boolean get() = runningTargets.any { target ->
-        RuntimeProtocol.current(target.state, target.version, BuildConfig.VERSION_CODE.toLong()) &&
-            detection.hosts.any { it.processName == target.processName }
-    }
-    val outdated: Boolean get() = runningTargets.any {
-        !RuntimeProtocol.current(it.state, it.version, BuildConfig.VERSION_CODE.toLong())
-    }
-}
 
 enum class Destination(val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     RULES(Icons.Rounded.List),
@@ -176,6 +141,7 @@ fun retainConfiguredCandidates(
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as ListCleanerApp
     private val rootComponents = RootComponentsController(app, viewModelScope)
+    private val moduleRuntime = ModuleRuntimeController(app, viewModelScope)
 
     val componentScan = rootComponents.scan
     val componentBusy = rootComponents.busy
@@ -188,10 +154,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun changeComponents(targets: List<RootComponent>, enable: Boolean) = rootComponents.change(targets, enable)
     fun invertComponents(targets: List<RootComponent>) = rootComponents.invert(targets)
 
-    private val mutableUpdating = MutableStateFlow(false)
-    val updating: StateFlow<Boolean> = mutableUpdating
-    private val mutableUpdateMessage = MutableStateFlow<String?>(null)
-    val updateMessage: StateFlow<String?> = mutableUpdateMessage
+    val updating: StateFlow<Boolean> = moduleRuntime.updating
+    val updateMessage: StateFlow<String?> = moduleRuntime.updateMessage
 
     private val candidates = MutableStateFlow<List<ComponentCandidate>>(emptyList())
     private val mutableFileCheckStatus = MutableStateFlow<String?>(null)
@@ -273,14 +237,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val filter = MutableStateFlow<IntentKind?>(null)
     private val query = MutableStateFlow("")
     private val uiFilter = MutableStateFlow(UiFilter.ALL)
-    private val moduleStatus = MutableStateFlow(ModuleStatus())
+    private val moduleStatus: StateFlow<ModuleStatus> = moduleRuntime.status
     private val destination = MutableStateFlow(Destination.RULES)
     private val expandedAppKey = MutableStateFlow<String?>(null)
     private var refreshJob: Job? = null
     private var refreshGeneration = 0L
-    private var statusGeneration = 0L
-    private var scopeRequestInFlight = false
-    private val scopeDetector = ResolverScopeDetector(application)
 
     private val mutableCollectingDiagnostics = MutableStateFlow(false)
     val collectingDiagnostics: StateFlow<Boolean> = mutableCollectingDiagnostics
@@ -401,8 +362,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
-            app.service.collectLatest {
-                readModuleStatus(it)
+            app.serviceSession.collectLatest { session ->
+                moduleRuntime.readStatus(session)
                 refresh()
             }
         }
@@ -435,9 +396,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     app.rules.openTypes.value.rules.values.flatten().mapNotNull(ComponentRule::fromId)
                 candidates.value = app.catalog.completeConfigured(candidates.value, configured)
                 check(app.synchronize()) { app.runtime.value.message }
+                val session = app.currentSession()
                 val result = app.catalog.scan(app.rules.openTypes.value.customDefinitions)
+                check(app.isCurrent(session)) { app.getString(R.string.runtime_connection_changed) }
                 check(app.synchronize()) { app.runtime.value.message }
-                if (generation == refreshGeneration) {
+                if (generation == refreshGeneration && app.isCurrent(session)) {
                     val updatedConfigured = app.rules.rules.value +
                         app.rules.openTypes.value.rules.values.flatten().mapNotNull(ComponentRule::fromId)
                     candidates.value = app.catalog.completeConfigured(result, updatedConfigured)
@@ -447,9 +410,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 throw cancelled
             } catch (failure: Throwable) {
                 Log.e(TAG, "Candidate scan failed", failure)
-                if (generation == refreshGeneration) {
-                    error.value = app.getString(R.string.scan_failed)
-                }
+                if (generation == refreshGeneration) error.value = app.getString(R.string.scan_failed)
             } finally {
                 if (generation == refreshGeneration) loading.value = false
             }
@@ -457,12 +418,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refreshModuleStatus()
     }
 
-    fun refreshModuleStatus() {
-        viewModelScope.launch {
-            readModuleStatus(app.service.value)
-            app.synchronize()
-        }
-    }
+    fun refreshModuleStatus() = moduleRuntime.refresh()
 
     fun resolveRecovery(restore: Boolean) {
         viewModelScope.launch {
@@ -471,125 +427,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun applyModuleUpdate() {
-        if (mutableUpdating.value) return
-        mutableUpdating.value = true
-        mutableUpdateMessage.value = app.getString(R.string.update_detecting_targets)
-        viewModelScope.launch {
-            var updateService: XposedService? = null
-            try {
-                val bound = app.service.value ?: error(app.getString(R.string.update_lsposed_disconnected))
-                updateService = bound
-                val targets = withContext(Dispatchers.IO) { bound.runningTargets }
-                if (app.service.value !== bound) return@launch
-                val pending = targets.filter {
-                    !RuntimeProtocol.current(it.state.name, it.loadedVersionCode, BuildConfig.VERSION_CODE.toLong())
-                }
-                val messages = mutableListOf<String>()
-                for (target in pending) {
-                    if (app.service.value !== bound) return@launch
-                    try {
-                        if (target.state == HookedTarget.State.RELOADING) {
-                            messages += app.getString(R.string.update_target_reloading, target.processName)
-                            continue
-                        }
-                        if (target.loadedVersionCode < 19) {
-                            messages += app.getString(
-                                R.string.update_target_too_old,
-                                target.processName,
-                                target.loadedVersionCode
-                            )
-                            continue
-                        }
-                        val result = withTimeoutOrNull(15_000) {
-                            withContext(Dispatchers.IO) {
-                                suspendCancellableCoroutine<HotReloadResult> { continuation ->
-                                    bound.hotReloadModule(target, null) { _, reply ->
-                                        if (continuation.isActive) continuation.resume(reply)
-                                    }
-                                }
-                            }
-                        }
-                        if (app.service.value !== bound) return@launch
-                        val resultText = when (result?.status()) {
-                            HotReloadResult.Status.SUCCEEDED -> app.getString(R.string.update_succeeded)
-                            HotReloadResult.Status.UNSUPPORTED -> app.getString(R.string.update_unsupported)
-                            HotReloadResult.Status.FAILED -> app.getString(
-                                R.string.update_failed,
-                                app.getString(R.string.update_old_module_rejected)
-                            )
-                            HotReloadResult.Status.PROCESS_DIED -> app.getString(R.string.update_process_died)
-                            HotReloadResult.Status.IN_PROGRESS -> app.getString(R.string.update_in_progress)
-                            null -> app.getString(R.string.update_timeout)
-                        }
-                        messages += app.getString(R.string.update_target_result, target.processName, resultText)
-                    } catch (cancelled: CancellationException) {
-                        throw cancelled
-                    } catch (failure: Exception) {
-                        Log.e(TAG, "Hot reload request failed for ${target.processName}", failure)
-                        if (app.service.value !== bound) return@launch
-                        messages += app.getString(
-                            R.string.update_request_failed,
-                            target.processName,
-                            app.getString(R.string.update_old_module_rejected)
-                        )
-                    }
-                }
-                if (app.service.value !== bound) return@launch
-                mutableUpdateMessage.value = if (messages.isEmpty()) {
-                    app.getString(R.string.update_nothing_pending)
-                } else messages.joinToString("\n")
-                refresh()
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (failure: Exception) {
-                Log.e(TAG, "Hot update check failed", failure)
-                if (app.service.value === updateService) {
-                    mutableUpdateMessage.value = app.getString(
-                        R.string.update_check_failed,
-                        app.getString(R.string.update_old_module_rejected)
-                    )
-                }
-            } finally {
-                if (updateService != null && app.service.value !== updateService) {
-                    mutableUpdateMessage.value = null
-                }
-                mutableUpdating.value = false
-            }
-        }
-    }
-
-    private suspend fun readModuleStatus(service: XposedService?): ModuleStatus {
-        val generation = ++statusGeneration
-        val status = withContext(Dispatchers.IO) {
-            val detection = scopeDetector.detect()
-            var result = ModuleStatus(connected = service != null, detection = detection)
-            if (service != null) {
-                try {
-                    result = result.copy(
-                        apiVersion = service.apiVersion,
-                        grantedScope = service.scope.toSet(),
-                        scopeKnown = true
-                    )
-                    result = if ((result.apiVersion ?: 0) >= 102) {
-                        result.copy(runningTargets = service.runningTargets.map {
-                            RunningTargetStatus(it.processName, it.state.name, it.loadedVersionCode)
-                        })
-                    } else result.copy(error = app.getString(R.string.module_target_detection_unsupported))
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (failure: Exception) {
-                    Log.e(TAG, "Module status read failed", failure)
-                    result = result.copy(error = app.getString(R.string.module_status_read_failed))
-                }
-            }
-            result
-        }
-        if (generation == statusGeneration && app.service.value === service) {
-            moduleStatus.value = status.copy(requesting = scopeRequestInFlight)
-        }
-        return status
-    }
+    fun applyModuleUpdate() = moduleRuntime.applyUpdate(::refresh)
 
     private fun canEdit(): Boolean = app.rules.hasLocalConfiguration().also {
         if (!it) error.value = app.getString(R.string.editing_requires_recovery)
@@ -756,84 +594,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (canEdit()) app.rules.setOpenTypePriority(preset, emptyList())
     }
 
-    fun requestScope() {
-        if (scopeRequestInFlight) return
-        scopeRequestInFlight = true
-        moduleStatus.value = moduleStatus.value.copy(requesting = true, message = null)
-        viewModelScope.launch {
-            var requestService: XposedService? = null
-            try {
-                val service = app.service.value ?: error(app.getString(R.string.scope_lsposed_not_connected))
-                requestService = service
-                val current = readModuleStatus(service)
-                check(app.service.value === service) { app.getString(R.string.scope_service_changed_retry) }
-                check(current.scopeKnown) {
-                    current.error ?: app.getString(R.string.scope_granted_read_failed)
-                }
-                check(current.detection.recommended.isNotEmpty()) {
-                    app.getString(R.string.scope_no_auto_host)
-                }
-                val missing = current.missingScope.toList()
-                if (missing.isEmpty()) {
-                    if (app.service.value === service) {
-                        moduleStatus.value = current.copy(
-                            requesting = true,
-                            message = app.getString(R.string.scope_all_recommended_granted)
-                        )
-                    }
-                    return@launch
-                }
-                val approved = withTimeoutOrNull(120_000) {
-                    suspendCancellableCoroutine<List<String>> { continuation ->
-                        service.requestScope(missing, object : XposedService.OnScopeEventListener {
-                            override fun onScopeRequestApproved(approved: List<String>) {
-                                if (continuation.isActive) continuation.resume(approved)
-                            }
-
-                            override fun onScopeRequestFailed(message: String) {
-                                if (continuation.isActive) {
-                                    continuation.resumeWithException(IllegalStateException(message))
-                                }
-                            }
-                        })
-                    }
-                }
-                check(app.service.value === service) {
-                    app.getString(R.string.scope_service_changed_result)
-                }
-                val refreshed = readModuleStatus(service)
-                val message = when {
-                    approved == null -> app.getString(R.string.scope_request_timeout)
-                    !refreshed.scopeKnown -> app.getString(R.string.scope_result_unverified)
-                    refreshed.missingScope.isNotEmpty() -> app.getString(
-                        R.string.scope_still_missing,
-                        refreshed.missingScope.joinToString()
-                    )
-                    else -> app.getString(R.string.scope_granted_confirmed)
-                }
-                if (app.service.value === service) {
-                    moduleStatus.value = refreshed.copy(message = message, requesting = true)
-                }
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (failure: Exception) {
-                Log.e(TAG, "Scope request failed", failure)
-                if (app.service.value === requestService) {
-                    moduleStatus.value = moduleStatus.value.copy(
-                        error = app.getString(R.string.scope_request_failed)
-                    )
-                }
-            } finally {
-                scopeRequestInFlight = false
-                val currentService = app.service.value
-                if (currentService === requestService) {
-                    moduleStatus.value = moduleStatus.value.copy(requesting = false)
-                } else {
-                    readModuleStatus(currentService)
-                }
-            }
-        }
-    }
+    fun requestScope() = moduleRuntime.requestScope()
 
     companion object {
         const val MAX_BACKUP_CHARS = RuleRepository.MAX_BACKUP_CHARS

@@ -65,7 +65,7 @@ Disabling a component can affect places where it is already used, including exis
 
 ### Backup and diagnostics
 
-- Import and export JSON rule backups containing rules, display modes, and priority ordering, compatible with backup formats v1–v4.
+- Import and export JSON rule backups containing rules, display modes, and priority ordering, compatible with backup formats v1–v9.
 - Rule backups **do not save or restore actual Root component enabled states**. Legacy tile configuration remains readable for compatibility but is not automatically converted into component-disable operations.
 - The Status page shows module connection, scope, and configuration synchronization state. A diagnostic ZIP can be exported to troubleshoot filtering, ordering, and Root operations. Diagnostics can contain application lists and logs; review them before sharing.
 

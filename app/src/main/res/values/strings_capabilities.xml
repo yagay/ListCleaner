@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="capability_title">Runtime capabilities</string>
+    <string name="capability_filtering">Resolver filtering</string>
+    <string name="capability_ordering">Priority ordering</string>
+    <string name="capability_visibility">Package visibility</string>
+    <string name="capability_row">%1$s · %2$s</string>
+    <string name="capability_observed">Observed · %1$d hits</string>
+    <string name="capability_loaded_unobserved">Loaded · no hit observed yet</string>
+    <string name="capability_missing_scope">Missing recommended scope</string>
+    <string name="capability_outdated">Hooked process is running an older module</string>
+    <string name="capability_disconnected">LSPosed service disconnected</string>
+    <string name="capability_not_ready">Waiting for configuration acknowledgement</string>
+</resources>
