@@ -80,15 +80,23 @@ if missing_zh:
 if extra_zh:
     errors.append("Chinese resources have unmatched keys: " + ", ".join(f"{t}:{n}" for t, n in extra_zh))
 
-# Diagnostic human-readable guide is sourced through normal Android resources in both maintained languages.
-if string_value(default_dir, "diagnostic_readme") is None:
-    errors.append("English diagnostic_readme resource missing")
-if string_value(zh_dir, "diagnostic_readme") is None:
-    errors.append("Chinese diagnostic_readme resource missing")
+# Diagnostic human-readable explanations are sourced through normal Android resources in both languages.
+for resource_name in ("diagnostic_readme", "diagnostic_evidence_intro"):
+    if string_value(default_dir, resource_name) is None:
+        errors.append(f"English {resource_name} resource missing")
+    if string_value(zh_dir, resource_name) is None:
+        errors.append(f"Chinese {resource_name} resource missing")
+
 diag = (ROOT / "app/src/main/java/com/yagay/ListCleaner/ui/DiagnosticCollector.kt").read_text(encoding="utf-8")
-for required in ('README.zh-CN.txt', 'README.en.txt', 'localizedReadme(context, "zh-CN")', 'localizedReadme(context, "en")', 'R.string.diagnostic_readme'):
+for required in (
+    'README.zh-CN.txt', 'README.en.txt',
+    'analysis/module-evidence.zh-CN.txt', 'analysis/module-evidence.en.txt',
+    'localizedString(context, "zh-CN"', 'localizedString(context, "en"',
+    'R.string.diagnostic_readme', 'R.string.diagnostic_evidence_intro',
+    'evidence.reportBody()'
+):
     if required not in diag:
-        errors.append(f"diagnostic bilingual guide missing marker: {required}")
+        errors.append(f"diagnostic bilingual output missing marker: {required}")
 
 # RELEASE_NOTES.md is the single bilingual source used by GitHub Release, Telegram and LSPosed sync.
 notes_path = ROOT / "RELEASE_NOTES.md"
@@ -132,4 +140,4 @@ for zh, en in PAIRS:
     print(f"- {zh} <-> {en}")
 print(f"- Android resource keys: {len(default_keys)} English / {len(zh_keys)} Chinese")
 print("- Release Notes: Chinese first <-> English, shared by GitHub/Telegram/LSPosed")
-print("- Diagnostic guides: README.zh-CN.txt <-> README.en.txt via Android resources")
+print("- Diagnostic guides and evidence explanations: Chinese <-> English via Android resources")
