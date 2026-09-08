@@ -4,6 +4,7 @@
     <string name="capability_filtering">Resolver filtering</string>
     <string name="capability_ordering">Priority ordering</string>
     <string name="capability_visibility">Package visibility</string>
+    <string name="capability_row">%1$s · %2$s</string>
     <string name="capability_observed">Observed · %1$d hits</string>
     <string name="capability_loaded_unobserved">Loaded · no hit observed yet</string>
     <string name="capability_missing_scope">Missing recommended scope</string>
