@@ -1,29 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Rename this file to app/src/main/res/values-<language>/strings.xml -->
-    <string name="app_name">List Cleaner</string>
-
     <!--
-      Add one entry for each translated source string.
-      Format: Chinese source text|||Translated text
-      Missing entries automatically fall back to English.
+      Starter template for a standard Android locale resource file.
+
+      Usage:
+      1. Create app/src/main/res/values-<language>/.
+      2. Copy the relevant XML files from app/src/main/res/values/.
+      3. Translate only the string values; keep resource names and placeholders unchanged.
+      4. Add the locale tag to res/xml/locales_config.xml.
+
+      The complete source of truth is app/src/main/res/values/.
+      Missing translated keys automatically fall back to those English resources.
     -->
-    <string-array name="locale_overrides">
-        <item>搜索应用、组件或包名|||TRANSLATE: Search apps, components, or package names</item>
-        <item>刷新|||TRANSLATE: Refresh</item>
-        <item>规则|||TRANSLATE: Rules</item>
-        <item>排序|||TRANSLATE: Ordering</item>
-        <item>组件|||TRANSLATE: Components</item>
-        <item>应用隐藏列表|||TRANSLATE: App visibility list</item>
-        <item>模块状态|||TRANSLATE: Module status</item>
-        <item>诊断工具|||TRANSLATE: Diagnostics</item>
-        <item>需要 Root 授权|||TRANSLATE: Root permission required</item>
-        <item>正在请求 Root 并核验系统状态…|||TRANSLATE: Requesting Root permission and verifying system state…</item>
-        <item>操作失败|||TRANSLATE: Operation failed</item>
-        <item>操作成功|||TRANSLATE: Operation succeeded</item>
-        <item>保存|||TRANSLATE: Save</item>
-        <item>取消|||TRANSLATE: Cancel</item>
-        <item>删除|||TRANSLATE: Delete</item>
-        <item>完成|||TRANSLATE: Done</item>
-    </string-array>
+
+    <string name="app_name">List Cleaner</string>
+    <string name="common_search">TRANSLATE: Search</string>
+    <string name="common_refresh">TRANSLATE: Refresh</string>
+    <string name="common_save">TRANSLATE: Save</string>
+    <string name="common_cancel">TRANSLATE: Cancel</string>
+    <string name="common_delete">TRANSLATE: Delete</string>
+    <string name="common_done">TRANSLATE: Done</string>
 </resources>
