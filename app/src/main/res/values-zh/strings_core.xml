@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nav_rules">规则</string>
+    <string name="nav_priority">排序</string>
+    <string name="nav_components">组件</string>
+    <string name="nav_status">状态</string>
+
+    <string name="common_all">全部</string>
+    <string name="common_none">暂无</string>
+    <string name="common_unknown">未知</string>
+    <string name="common_back">返回</string>
+    <string name="common_close">关闭</string>
+    <string name="common_cancel">取消</string>
+    <string name="common_save">保存</string>
+    <string name="common_delete">删除</string>
+    <string name="common_add">添加</string>
+    <string name="common_edit">编辑</string>
+    <string name="common_done">完成</string>
+    <string name="common_ok">确定</string>
+    <string name="common_refresh">刷新</string>
+    <string name="common_search">搜索</string>
+    <string name="common_more">更多</string>
+    <string name="common_enable">启用</string>
+    <string name="common_disable">禁用</string>
+    <string name="common_expand">展开</string>
+    <string name="common_collapse">折叠</string>
+    <string name="common_selected">已选择</string>
+    <string name="common_not_selected">未选择</string>
+
+    <string name="filter_unselected_rules">未选规则</string>
+    <string name="filter_selected_rules">已选规则</string>
+
+    <string name="intent_share">分享</string>
+    <string name="intent_share_multiple">多文件分享</string>
+    <string name="intent_open">打开方式</string>
+    <string name="intent_browser">浏览器</string>
+    <string name="intent_process_text">文本处理</string>
+
+    <string name="display_hide_selected">隐藏选中</string>
+    <string name="display_show_selected">只显示选中</string>
+    <string name="display_show_all">全部显示</string>
+
+    <string name="cleanup_tile">磁贴</string>
+    <string name="cleanup_shortcut">快捷方式</string>
+    <string name="cleanup_widget">小部件</string>
+
+    <string name="open_browser">网页链接</string>
+    <string name="open_pdf">PDF</string>
+    <string name="open_word">Word</string>
+    <string name="open_excel">Excel</string>
+    <string name="open_powerpoint">PowerPoint</string>
+    <string name="open_epub">电子书</string>
+    <string name="open_apk">Android 安装包</string>
+    <string name="open_torrent">BT 种子</string>
+    <string name="open_markdown">Markdown</string>
+    <string name="open_csv">CSV</string>
+    <string name="open_json">JSON</string>
+    <string name="open_xml">XML</string>
+    <string name="open_svg">SVG</string>
+    <string name="open_gif">GIF</string>
+    <string name="open_image">图片</string>
+    <string name="open_video">视频</string>
+    <string name="open_audio">音频</string>
+    <string name="open_text">文本</string>
+    <string name="open_archive">压缩包</string>
+    <string name="open_magnet">磁力链接</string>
+    <string name="open_geo">地图位置</string>
+    <string name="open_mailto">邮件链接</string>
+    <string name="open_tel">电话链接</string>
+    <string name="open_sms">短信链接</string>
+    <string name="open_custom_1">自定义 1</string>
+    <string name="open_custom_2">自定义 2</string>
+    <string name="open_custom_3">自定义 3</string>
+    <string name="open_custom_4">自定义 4</string>
+    <string name="open_custom_5">自定义 5</string>
+    <string name="open_custom_6">自定义 6</string>
+    <string name="open_custom_7">自定义 7</string>
+    <string name="open_custom_8">自定义 8</string>
+    <string name="open_user_defined">用户定义</string>
+    <string name="open_desc_browser">http / https 链接</string>
+    <string name="open_desc_pdf">application/pdf</string>
+    <string name="open_desc_word">DOC / DOCX</string>
+    <string name="open_desc_excel">XLS / XLSX</string>
+    <string name="open_desc_powerpoint">PPT / PPTX</string>
+    <string name="open_desc_epub">EPUB</string>
+    <string name="open_desc_apk">APK</string>
+    <string name="open_desc_torrent">.torrent</string>
+    <string name="open_desc_markdown">text/markdown</string>
+    <string name="open_desc_csv">text/csv</string>
+    <string name="open_desc_json">application/json</string>
+    <string name="open_desc_xml">application/xml / text/xml</string>
+    <string name="open_desc_svg">image/svg+xml</string>
+    <string name="open_desc_gif">image/gif</string>
+    <string name="open_desc_image">image/*</string>
+    <string name="open_desc_video">video/*</string>
+    <string name="open_desc_audio">audio/*</string>
+    <string name="open_desc_text">text/*</string>
+    <string name="open_desc_archive">ZIP / RAR / 7Z / TAR / GZIP</string>
+    <string name="open_desc_magnet">magnet:</string>
+    <string name="open_desc_geo">geo:</string>
+    <string name="open_desc_mailto">mailto:</string>
+    <string name="open_desc_tel">tel:</string>
+    <string name="open_desc_sms">sms: / smsto:</string>
+</resources>
