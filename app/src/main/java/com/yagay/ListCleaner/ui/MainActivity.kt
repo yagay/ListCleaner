@@ -30,6 +30,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.readBackupText
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -75,14 +76,15 @@ class MainActivity : ComponentActivity() {
         val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
             uri ?: return@rememberLauncherForActivityResult
             lifecycleScope.launch {
-                runCatching {
+                try {
                     withContext(Dispatchers.IO) {
                         val output = contentResolver.openOutputStream(uri) ?: error(getString(R.string.backup_create_failed))
                         output.bufferedWriter().use { it.write(vm.exportJson()) }
                     }
-                }.onSuccess {
                     toast(getString(R.string.backup_exported))
-                }.onFailure { failure ->
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
                     Log.e(TAG, "Backup export failed", failure)
                     toast(getString(R.string.backup_export_failed), true)
                 }
@@ -91,13 +93,14 @@ class MainActivity : ComponentActivity() {
         val restore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             uri ?: return@rememberLauncherForActivityResult
             lifecycleScope.launch {
-                runCatching {
+                try {
                     withContext(Dispatchers.IO) {
                         vm.importJson(readLimitedText(uri, MainViewModel.MAX_BACKUP_CHARS))
                     }
-                }.onSuccess {
                     toast(getString(R.string.backup_restored))
-                }.onFailure { failure ->
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
                     Log.e(TAG, "Backup restore failed", failure)
                     toast(getString(R.string.backup_restore_failed), true)
                 }
