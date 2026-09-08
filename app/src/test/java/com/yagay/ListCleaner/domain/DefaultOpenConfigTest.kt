@@ -48,6 +48,17 @@ class DefaultOpenConfigTest {
         assertEquals(OpenPreset.IMAGE, matchOpenPreset(IntentKind.OPEN, "application/x-download", "content", "photo.webp?token=1"))
     }
 
+    @Test fun encodedDocumentIdsFallBackToDecodedExtension() {
+        assertEquals(OpenPreset.PDF,
+            matchOpenPreset(IntentKind.OPEN, null, "content", "primary%3ADownload%2Fbook.pdf"))
+        assertEquals(OpenPreset.WORD,
+            matchOpenPreset(IntentKind.OPEN, "application/octet-stream", "content", "home%3ADocuments%2Freport.DOCX"))
+        assertEquals(OpenPreset.ARCHIVE,
+            matchOpenPreset(IntentKind.OPEN, "*/*", "content", "downloads%2Fbackup.7z"))
+        assertEquals(OpenPreset.PDF,
+            matchOpenPreset(IntentKind.OPEN, null, "content", "folder%2Fmy+book.pdf"))
+    }
+
     @Test fun specificUnknownMimeDoesNotGetOverriddenByExtension() {
         assertNull(matchOpenPreset(IntentKind.OPEN, "application/vnd.example.custom", "content", "looks-like.pdf"))
         assertEquals(OpenPreset.TEXT, matchOpenPreset(IntentKind.OPEN, "text/plain", "content", "looks-like.pdf"))
