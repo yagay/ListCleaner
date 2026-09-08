@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="scope_title">选择器作用域</string>
+    <string name="scope_intro">以下结果来自示例请求解析，不代表所有内容类型或厂商场景；不会打开应用。</string>
+    <string name="scope_detected_hosts">检测到的宿主</string>
+    <string name="scope_no_hosts">未确认宿主。可能已有默认处理应用，或系统采用其他选择器实现。</string>
+    <string name="scope_host_details">%1$s
+%2$s
+进程：%3$s
+依据：%4$s</string>
+    <string name="scope_manual_host_warning">未确认兼容的宿主或进程：不会自动申请。请在 LSPosed 手动核查，不建议扩大到所有系统应用。</string>
+    <string name="scope_android_system_note">android 用于框架选择器界面兜底；system 用于系统服务全局查询过滤，两者不能互相替代。</string>
+    <string name="scope_unconfirmed_installed">仅检测到已安装，未确认宿主：
+%1$s</string>
+    <string name="scope_granted">已授权范围</string>
+    <string name="scope_grant_unknown">暂未读取到授权结果</string>
+    <string name="scope_extra_grants">未被本次宿主检测确认的额外授权：
+%1$s
+可能来自旧版或手动配置，已保留。请在 LSPosed 中核查，确认不需要后再移除。</string>
+    <string name="scope_running_targets">运行目标</string>
+    <string name="scope_no_running_targets">未读取到运行目标，不代表作用域一定错误。</string>
+    <string name="scope_target_up_to_date">当前版本已加载</string>
+    <string name="scope_target_stale">仍加载旧版本</string>
+    <string name="scope_target_reloading">正在重载</string>
+    <string name="scope_target_failed">加载或重载失败</string>
+    <string name="scope_target_details">%1$s · %2$s · 版本码 %3$d</string>
+    <string name="scope_runtime_warning">模块加载不等于过滤成功。请实际打开分享或文件选择器核对规则；文本处理不保证覆盖应用内菜单。</string>
+    <string name="scope_recheck">重新检测</string>
+    <string name="scope_advanced">高级配置：在 LSPosed → 本模块 → 作用域中手动管理，不建议勾选所有应用。</string>
+    <string name="scope_requesting">正在申请…</string>
+    <string name="scope_no_recommended">无自动推荐目标</string>
+    <string name="scope_recommended_granted">推荐范围已授权</string>
+    <string name="scope_request_missing">申请缺少的作用域（%1$d）</string>
+</resources>
