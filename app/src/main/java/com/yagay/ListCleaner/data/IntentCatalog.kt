@@ -52,6 +52,7 @@ class IntentCatalog(private val context: Context) {
     private val appIconCache = LruCache<String, Bitmap>(192)
     @Volatile private var cachedDefinitionFingerprint: String? = null
     @Volatile private var invalidated = true
+    @Volatile private var cacheHitsSinceLastScan = 0L
     @Volatile var lastReport: String = "Not scanned"
         private set
     @Volatile var lastFileReport: String = "No real-file probe"
@@ -77,13 +78,18 @@ class IntentCatalog(private val context: Context) {
             .joinToString("|") { (preset, definition) -> "$preset=$definition" }
         val cached = mutableCandidates.value
         if (!force && !invalidated && cached.isNotEmpty() && fingerprint == cachedDefinitionFingerprint) {
-            lastReport = "cacheHitAt=${Instant.now()} unique=${cached.size} customOpenTypes=${customDefinitions.size}\n" + lastReport
+            cacheHitsSinceLastScan++
             return@withContext cached
         }
 
+        val previousCacheHits = cacheHitsSinceLastScan
+        cacheHitsSinceLastScan = 0L
         val found = mutableListOf<ComponentCandidate>()
         val known = mutableSetOf<String>()
-        val report = StringBuilder("startedAt=${Instant.now()}\nmanagerUid=${android.os.Process.myUid()}\ncustomOpenTypes=${customDefinitions.size}\n")
+        val report = StringBuilder(
+            "startedAt=${Instant.now()}\nmanagerUid=${android.os.Process.myUid()}\n" +
+                "customOpenTypes=${customDefinitions.size}\ncacheHitsSincePreviousScan=$previousCacheHits\n"
+        )
         for (scheme in listOf("http", "https")) {
             val web = Intent(Intent.ACTION_VIEW, Uri.parse("$scheme://example.com")).addCategory(Intent.CATEGORY_BROWSABLE)
             runCatching {
