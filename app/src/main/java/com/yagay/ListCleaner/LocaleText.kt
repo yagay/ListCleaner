@@ -1,24 +1,12 @@
 package com.yagay.ListCleaner
 
-import java.util.Locale
-
 /** Locale helper for runtime-generated messages that contain dynamic values. */
 internal object LocaleText {
-    private fun isChinese(): Boolean = Locale.getDefault().language.equals("zh", ignoreCase = true)
-
-    fun pick(chinese: String, english: String): String = if (isChinese()) chinese else english
-
-    private fun replaceRuntime(text: String, replacements: List<Pair<String, String>>): String {
-        var result = text
-        for ((source, target) in replacements.sortedByDescending { it.first.length }) {
-            result = result.replace(source, target)
-        }
-        return result
-    }
+    fun pick(chinese: String, english: String): String = AppLanguage.pick(chinese, english)
 
     fun moduleMessage(text: String?): String? {
-        if (text == null || isChinese()) return text
-        return replaceRuntime(text, listOf(
+        if (text == null) return null
+        return AppLanguage.translate(text, listOf(
             "等待核实运行模块与配置" to "Waiting to verify the running module and configuration",
             "等待连接" to "Waiting for connection",
             "连接已断开；暂停扫描，保留当前列表" to "Connection lost; scanning paused and the current list is retained",
@@ -50,13 +38,9 @@ internal object LocaleText {
         ))
     }
 
-    /**
-     * Runtime Root/component messages often contain component names, counters, exit codes, or exception text,
-     * so they cannot be covered reliably by exact UI string lookup alone.
-     */
     fun rootMessage(text: String?): String? {
-        if (text == null || isChinese()) return text
-        return replaceRuntime(text, listOf(
+        if (text == null) return null
+        return AppLanguage.translate(text, listOf(
             "正在请求 Root 并核验系统状态…" to "Requesting Root permission and verifying system state…",
             "正在请求 Root 并反选组件…" to "Requesting Root permission and inverting components…",
             "用户身份已变化，请重新扫描" to "The user profile changed; scan again",
