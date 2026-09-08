@@ -7,7 +7,7 @@
     <string name="runtime_remote_config_too_large">远程配置过大</string>
     <string name="runtime_legacy_rules_corrupt">远程旧规则损坏，请先从 JSON 备份恢复</string>
     <string name="runtime_recovery_available">本地配置缺失，远程配置仍存在（%1$d 条规则）。请先选择恢复或重置；尚未覆盖远程配置。</string>
-    <string name="runtime_recovery_corrupt">远程配置无法读取或校验（%1$s）。未覆盖原配置；可导入备份，或确认重置。</string>
+    <string name="runtime_recovery_corrupt">远程配置无法读取或校验。未覆盖原配置；可导入备份，或确认重置。</string>
     <string name="runtime_framework_api_required">框架需要 API 102；暂停同步和扫描</string>
     <string name="runtime_config_transfer_too_large">配置超过传输上限，请减少规则后重试；未写入远程</string>
     <string name="runtime_pause_write_failed">暂停配置写入失败</string>
