@@ -50,7 +50,7 @@ internal fun AppRow(group: AppGroup, selected: Set<com.yagay.ListCleaner.domain.
     }
     Row(
         modifier = Modifier.fillMaxWidth()
-            .clickable(onClickLabel = if (expanded) "折叠" else "展开", onClick = onExpand)
+            .clickable(onClickLabel = UiText.translate(if (expanded) "折叠" else "展开"), onClick = onExpand)
             .heightIn(min = 64.dp)
             .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -67,7 +67,7 @@ internal fun AppRow(group: AppGroup, selected: Set<com.yagay.ListCleaner.domain.
             val missing = group.components.count { it.unavailable || it.restricted }
             if (missing > 0) Text("含 $missing 条当前不可用规则", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
         }
-        IconButton(onClick = onExpand) { Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, if (expanded) "折叠" else "展开") }
+        IconButton(onClick = onExpand) { Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, UiText.translate(if (expanded) "折叠" else "展开")) }
     }
     HorizontalDivider()
 }
@@ -92,7 +92,7 @@ internal fun ComponentRow(item: ComponentCandidate, checked: Boolean, customTitl
             if (item.unavailable) Text("当前未找到组件 · 可取消规则", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
             else if (item.restricted) Text("非公开组件 · 可取消已有规则", style = MaterialTheme.typography.labelSmall)
         }
-        IconButton(onClick = onEditTitle) { Icon(Icons.Rounded.Edit, contentDescription = "修改显示名称") }
+        IconButton(onClick = onEditTitle) { Icon(Icons.Rounded.Edit, contentDescription = UiText.translate("修改显示名称")) }
     }
 }
 
@@ -112,5 +112,5 @@ internal fun AppIcon(bitmap: Bitmap?, appLabel: String) {
         Icon(Icons.Rounded.Apps, null, Modifier.size(40.dp))
         return
     }
-    Image(bitmap = bitmap.asImageBitmap(), contentDescription = "$appLabel 图标", modifier = Modifier.size(40.dp).clip(RoundedCornerShape(9.dp)), contentScale = ContentScale.Fit)
+    Image(bitmap = bitmap.asImageBitmap(), contentDescription = UiText.translate("$appLabel 图标"), modifier = Modifier.size(40.dp).clip(RoundedCornerShape(9.dp)), contentScale = ContentScale.Fit)
 }
