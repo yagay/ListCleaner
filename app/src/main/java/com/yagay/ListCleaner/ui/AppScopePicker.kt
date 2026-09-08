@@ -3,6 +3,7 @@ package com.yagay.ListCleaner.ui
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -23,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.graphics.drawable.toBitmap
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.ListCleanerApp
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.VisibilityScope
@@ -33,8 +35,13 @@ data class ScopeAppEntry(
     val packageName: String,
     val label: String,
     val system: Boolean,
-    val icon: Bitmap?,
+    val normalizedLabel: String = label.lowercase(),
+    val normalizedPackage: String = packageName.lowercase(),
 )
+
+private object ScopeIconCache {
+    val icons = LruCache<String, Bitmap>(128)
+}
 
 @Suppress("DEPRECATION")
 private fun loadScopeApps(pm: PackageManager, selfPackage: String): List<ScopeAppEntry> {
@@ -51,12 +58,27 @@ private fun loadScopeApps(pm: PackageManager, selfPackage: String): List<ScopeAp
                 label = runCatching { pm.getApplicationLabel(info).toString() }.getOrDefault(info.packageName),
                 system = (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0 ||
                     (info.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0,
-                icon = runCatching { pm.getApplicationIcon(info).toBitmap(64, 64) }.getOrNull(),
             )
         }
         .distinctBy { it.packageName }
-        .sortedWith(compareBy<ScopeAppEntry> { it.label.lowercase() }.thenBy { it.packageName })
+        .sortedWith(compareBy<ScopeAppEntry> { it.normalizedLabel }.thenBy { it.packageName })
         .toList()
+}
+
+@Composable
+private fun scopeAppIcon(packageName: String): Bitmap? {
+    val context = LocalContext.current
+    val cached = remember(packageName) { ScopeIconCache.icons.get(packageName) }
+    val icon by produceState<Bitmap?>(initialValue = cached, packageName) {
+        if (value == null) {
+            value = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.packageManager.getApplicationIcon(packageName).toBitmap(64, 64)
+                }.getOrNull()?.also { ScopeIconCache.icons.put(packageName, it) }
+            }
+        }
+    }
+    return icon
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -68,8 +90,8 @@ internal fun AppScopePickerDialog(
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as ListCleanerApp
-    val visibilityScopes by app.rules.visibilityScopes.collectAsState()
-    val fullPackages by app.rules.visibilityFullPackages.collectAsState()
+    val visibilityScopes by app.rules.visibilityScopes.collectAsStateWithLifecycle()
+    val fullPackages by app.rules.visibilityFullPackages.collectAsStateWithLifecycle()
     var query by remember { mutableStateOf("") }
     var showSystem by remember { mutableStateOf(true) }
     var apps by remember { mutableStateOf<List<ScopeAppEntry>>(emptyList()) }
@@ -84,10 +106,10 @@ internal fun AppScopePickerDialog(
         val needle = query.trim().lowercase()
         apps.filter { entry ->
             (showSystem || !entry.system) &&
-                (needle.isEmpty() || entry.label.lowercase().contains(needle) || entry.packageName.lowercase().contains(needle))
+                (needle.isEmpty() || entry.normalizedLabel.contains(needle) || entry.normalizedPackage.contains(needle))
         }.sortedWith(
             compareBy<ScopeAppEntry> { if (it.packageName in selected) 0 else 1 }
-                .thenBy { it.label.lowercase() }
+                .thenBy { it.normalizedLabel }
                 .thenBy { it.packageName }
         )
     }
@@ -170,15 +192,16 @@ internal fun AppScopePickerDialog(
                     LazyColumn(Modifier.fillMaxSize()) {
                         items(visible, key = { it.packageName }) { entry ->
                             val checked = entry.packageName in selected
+                            val bitmap = scopeAppIcon(entry.packageName)
                             Row(
                                 Modifier.fillMaxWidth().clickable {
                                     onSelectedChange(if (checked) selected - entry.packageName else selected + entry.packageName)
                                 }.padding(vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                entry.icon?.let { bitmap ->
+                                bitmap?.let {
                                     Image(
-                                        bitmap = bitmap.asImageBitmap(),
+                                        bitmap = it.asImageBitmap(),
                                         contentDescription = null,
                                         modifier = Modifier.size(40.dp),
                                     )
