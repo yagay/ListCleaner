@@ -68,6 +68,22 @@ def verify_checksum(apk, checksum_file):
         raise ValueError('Published APK checksum is missing, duplicated or incorrect')
 
 
+def document_sections(text):
+    return re.findall(r'<!--\s*section:([a-z0-9_-]+)\s*-->', text)
+
+
+def verify_bilingual_docs():
+    chinese = (ROOT / 'docs/lsposed/README.md').read_text()
+    english = (ROOT / 'docs/lsposed/README.en.md').read_text()
+    zh_sections = document_sections(chinese)
+    en_sections = document_sections(english)
+    if not zh_sections or zh_sections != en_sections:
+        raise ValueError(
+            'LSPosed Chinese and English documentation sections are out of sync. '
+            'Update README.md and README.en.md together with matching section markers.'
+        )
+
+
 def sync_document(token, name):
     path = '/' + 'contents/' + name
     current = api(token, TARGET, path, missing_ok=True)
@@ -111,6 +127,7 @@ def asset_plan(assets, files, download):
 
 
 def main():
+    verify_bilingual_docs()
     source_token = os.environ['SOURCE_TOKEN']
     target_token = os.environ['LSPOSED_REPO_TOKEN']
     if not target_token:
