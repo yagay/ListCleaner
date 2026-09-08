@@ -2,6 +2,7 @@ package com.yagay.ListCleaner
 
 import android.app.Application
 import android.content.Intent
+import android.util.Log
 import com.yagay.ListCleaner.data.IntentCatalog
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.ModuleConfig
@@ -121,6 +122,7 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                         rules.markInitialized()
                     } catch (failure: Exception) {
                         if (failure is CancellationException) throw failure
+                        Log.e(TAG, "Remote configuration recovery validation failed", failure)
                         pendingRecovery = null
                         corruptRecovery = true
                         return@withLock publish(
@@ -228,11 +230,8 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                publish(
-                    RuntimeStatus(
-                        message = failure.message ?: getString(R.string.runtime_validation_failed)
-                    )
-                )
+                Log.e(TAG, "Runtime synchronization failed", failure)
+                publish(RuntimeStatus(message = getString(R.string.runtime_validation_failed)))
             }
         }
     }
@@ -259,5 +258,9 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
             )
         }
         synchronize()
+    }
+
+    private companion object {
+        const val TAG = "ListCleaner.App"
     }
 }
