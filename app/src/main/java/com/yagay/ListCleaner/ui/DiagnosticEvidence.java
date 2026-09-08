@@ -67,13 +67,21 @@ public final class DiagnosticEvidence {
         buffer.append(bytes, bytes.length);
     }
 
-    public String report() {
-        StringBuilder result = new StringBuilder("Historical observations, NOT live health.\n");
-        result.append("Missing evidence is UNKNOWN. Counts are deduplicated event counts, not active hooks.\n")
-            .append("Check source timestamps/PIDs; old boots, truncation and rate limits can hide events.\n")
-            .append("duplicatesRemoved=").append(duplicates).append(" omittedEvents=").append(omitted)
+    /** Stable machine-oriented report body. Human explanations are added by the localized exporter. */
+    public String reportBody() {
+        StringBuilder result = new StringBuilder();
+        result.append("duplicatesRemoved=").append(duplicates)
+            .append(" omittedEvents=").append(omitted)
             .append(" textTruncated=").append(buffer.truncated()).append("\n\n");
         counts.forEach((key, value) -> result.append(key).append(" events=").append(value).append('\n'));
         return result.append("\nEvidence:\n").append(new String(buffer.snapshot(), StandardCharsets.UTF_8)).toString();
+    }
+
+    /** Kept for host-side regression checks and tooling compatibility. */
+    public String report() {
+        return "Historical observations, NOT live health.\n"
+            + "Missing evidence is UNKNOWN. Counts are deduplicated event counts, not active hooks.\n"
+            + "Check source timestamps/PIDs; old boots, truncation and rate limits can hide events.\n"
+            + reportBody();
     }
 }
