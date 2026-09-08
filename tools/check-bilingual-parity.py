@@ -14,7 +14,11 @@ PAIRS = [
 ]
 
 FORBIDDEN_LEGACY = [
+    "README.zh-CN.md",
+    "RELEASE_NOTES.zh-CN.md",
     "docs/RELEASE.zh-CN.md",
+    "docs/lsposed/README.zh-CN.md",
+    "docs/lsposed/SUMMARY.zh-CN",
 ]
 
 errors = []
@@ -42,9 +46,9 @@ for zh_name, en_name in PAIRS:
     elif headings(zh) != headings(en):
         errors.append(f"heading structure differs: {zh_name} <-> {en_name}")
 
-for legacy in FORBIDDEN_LEGACY:
-    if (ROOT / legacy).exists():
-        errors.append(f"legacy duplicate bilingual document must be removed: {legacy}")
+for name in FORBIDDEN_LEGACY:
+    if (ROOT / name).exists():
+        errors.append(f"legacy duplicate must not return: {name}")
 
 # Android resource keys must match exactly for the two maintained languages.
 def resources(directory: Path):
@@ -64,6 +68,37 @@ if missing_zh:
 if extra_zh:
     errors.append("Chinese resources have unmatched keys: " + ", ".join(f"{t}:{n}" for t, n in extra_zh))
 
+# RELEASE_NOTES.md is the single bilingual source used by GitHub Release, Telegram and LSPosed sync.
+notes_path = ROOT / "RELEASE_NOTES.md"
+if not notes_path.is_file():
+    errors.append("missing bilingual release notes: RELEASE_NOTES.md")
+else:
+    notes = notes_path.read_text(encoding="utf-8").replace("\r", "")
+    required = ["\n## 中文\n", "\n## English\n"]
+    for marker in required:
+        if marker not in notes:
+            errors.append(f"RELEASE_NOTES.md missing section: {marker.strip()}")
+    if all(marker in notes for marker in required):
+        if notes.index("\n## 中文\n") > notes.index("\n## English\n"):
+            errors.append("RELEASE_NOTES.md must keep Chinese before English")
+        zh = notes.split("\n## 中文\n", 1)[1].split("\n## English\n", 1)[0].strip()
+        en = notes.split("\n## English\n", 1)[1].strip()
+        zh_bullets = len(re.findall(r"^- ", zh, re.M))
+        en_bullets = len(re.findall(r"^- ", en, re.M))
+        if zh_bullets != en_bullets:
+            errors.append(f"release note bullet counts differ: Chinese={zh_bullets}, English={en_bullets}")
+        if zh_bullets == 0:
+            errors.append("RELEASE_NOTES.md has no release-note bullets")
+
+telegram = (ROOT / "tools/publish-telegram.py").read_text(encoding="utf-8")
+for required in ('marker = "\\n## English\\n"', 'return f"中文\\n{zh}\\n\\nEnglish\\n{en}"', 'Path("RELEASE_NOTES.md")'):
+    if required not in telegram:
+        errors.append(f"Telegram publisher no longer preserves bilingual release notes: {required}")
+
+sync = (ROOT / "tools/sync-lsposed.py").read_text(encoding="utf-8")
+if "RELEASE_NOTES.md" not in sync and "release.get(\"body\"" not in sync and "release.get('body'" not in sync:
+    errors.append("LSPosed synchronizer no longer derives notes from the source Release/bilingual release notes")
+
 # Diagnostic package must ship paired human-readable guides while machine paths stay stable.
 diag = (ROOT / "app/src/main/java/com/yagay/ListCleaner/ui/DiagnosticCollector.kt").read_text(encoding="utf-8")
 for required in ('README.zh-CN.txt', 'README.en.txt', 'readmeZh()', 'readmeEn()'):
@@ -80,4 +115,5 @@ print("Bilingual parity check passed.")
 for zh, en in PAIRS:
     print(f"- {zh} <-> {en}")
 print(f"- Android resource keys: {len(default_keys)} English / {len(zh_keys)} Chinese")
+print("- Release Notes: Chinese first <-> English, shared by GitHub/Telegram/LSPosed")
 print("- Diagnostic guides: README.zh-CN.txt <-> README.en.txt")
