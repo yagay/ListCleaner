@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="scope_title">Resolver scope</string>
+    <string name="scope_intro">The results below come from sample request analysis. They do not represent every content type or vendor implementation, and no app will be opened.</string>
+    <string name="scope_detected_hosts">Detected hosts</string>
+    <string name="scope_no_hosts">No host was confirmed. A default handler may already exist, or the system may use another resolver implementation.</string>
+    <string name="scope_host_details">%1$s
+%2$s
+Process: %3$s
+Evidence: %4$s</string>
+    <string name="scope_manual_host_warning">The host or process is not confirmed compatible. It will not be requested automatically. Check it manually in LSPosed; do not expand the scope to all system apps.</string>
+    <string name="scope_android_system_note">android provides a fallback for the framework resolver UI; system handles global query filtering in the system service. They cannot replace each other.</string>
+    <string name="scope_unconfirmed_installed">Installed but unconfirmed hosts:
+%1$s</string>
+    <string name="scope_granted">Authorized scope</string>
+    <string name="scope_grant_unknown">Authorization result not available yet</string>
+    <string name="scope_extra_grants">Additional scope not confirmed by this host detection:
+%1$s
+It may come from an older version or manual configuration and has been retained. Check it in LSPosed and remove it only if no longer needed.</string>
+    <string name="scope_running_targets">Runtime targets</string>
+    <string name="scope_no_running_targets">No runtime targets were found; this does not necessarily mean the scope is incorrect.</string>
+    <string name="scope_target_up_to_date">Current version loaded</string>
+    <string name="scope_target_stale">Older version still loaded</string>
+    <string name="scope_target_reloading">Reloading</string>
+    <string name="scope_target_failed">Load or reload failed</string>
+    <string name="scope_target_details">%1$s · %2$s · Version code %3$d</string>
+    <string name="scope_runtime_warning">Module loading does not mean filtering succeeded. Verify rules by opening the actual share or file chooser; text processing does not guarantee coverage of in-app menus.</string>
+    <string name="scope_recheck">Recheck</string>
+    <string name="scope_advanced">Advanced configuration: manage this manually in LSPosed → this module → Scope. Selecting every application is not recommended.</string>
+    <string name="scope_requesting">Requesting…</string>
+    <string name="scope_no_recommended">No automatic targets recommended</string>
+    <string name="scope_recommended_granted">Recommended scope is authorized</string>
+    <string name="scope_request_missing">Request missing scope (%1$d)</string>
+</resources>
