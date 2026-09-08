@@ -18,8 +18,8 @@ class OpenEffectPreviewTest {
         )
         assertEquals(OpenPreset.PDF, preview.preset)
         assertEquals(1, preview.finalCount)
-        assertEquals("全部", preview.items.first { it.candidate.rule == a.rule }.selectedBy)
-        assertEquals("PDF", preview.items.first { it.candidate.rule == b.rule }.selectedBy)
+        assertEquals(OpenSelectionSource.GENERIC, preview.items.first { it.candidate.rule == a.rule }.selectedBy)
+        assertEquals(OpenSelectionSource.TYPED, preview.items.first { it.candidate.rule == b.rule }.selectedBy)
         assertFalse(preview.items.first { it.candidate.rule == a.rule }.included)
         assertTrue(preview.items.first { it.candidate.rule == c.rule }.included)
     }
