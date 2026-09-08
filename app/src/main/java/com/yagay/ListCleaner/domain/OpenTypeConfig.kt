@@ -11,10 +11,10 @@ data class CustomOpenDefinition(
 ) {
     fun validated(): CustomOpenDefinition {
         val cleanTitle = title.trim()
-        require(cleanTitle.isNotEmpty() && cleanTitle.length <= 24 && cleanTitle.none { it.isISOControl() }) { "自定义类型名称无效" }
-        require(mimeTypes.size <= 24 && mimeTypes.all(::validMime)) { "自定义 MIME 无效" }
-        require(extensions.size <= 48 && extensions.all(::validExtension)) { "自定义文件后缀无效" }
-        require(mimeTypes.isNotEmpty() || extensions.isNotEmpty()) { "自定义类型至少需要一个 MIME 或文件后缀" }
+        require(cleanTitle.isNotEmpty() && cleanTitle.length <= 24 && cleanTitle.none { it.isISOControl() }) { "custom_open_invalid_title" }
+        require(mimeTypes.size <= 24 && mimeTypes.all(::validMime)) { "custom_open_invalid_mime" }
+        require(extensions.size <= 48 && extensions.all(::validExtension)) { "custom_open_invalid_extension" }
+        require(mimeTypes.isNotEmpty() || extensions.isNotEmpty()) { "custom_open_missing_matcher" }
         return copy(
             title = cleanTitle,
             mimeTypes = mimeTypes.map { it.trim().lowercase() }.toSet(),
@@ -53,34 +53,32 @@ data class OpenTypeConfig(
     val customDefinitions: Map<OpenPreset, CustomOpenDefinition> = emptyMap()
 ) {
     fun validated(): OpenTypeConfig {
-        require(OpenPreset.BROWSER !in rules && OpenPreset.BROWSER !in priorities) { "浏览器不属于打开方式类型规则" }
+        require(OpenPreset.BROWSER !in rules && OpenPreset.BROWSER !in priorities) { "browser_not_open_type" }
         require(rules.size <= OpenPreset.entries.size && priorities.size <= OpenPreset.entries.size)
         val cleanCustom = customDefinitions.mapValues { (preset, definition) ->
-            require(preset.isCustom) { "自定义定义只能使用自定义类型槽位" }
+            require(preset.isCustom) { "custom_definition_requires_custom_slot" }
             definition.validated()
         }
-        require(cleanCustom.size <= OpenPreset.CUSTOM_SLOTS.size) { "自定义打开类型过多" }
-        require(rules.keys.filter { it.isCustom }.all { it in cleanCustom }) { "自定义规则缺少类型定义" }
-        require(priorities.keys.filter { it.isCustom }.all { it in cleanCustom }) { "自定义排序缺少类型定义" }
+        require(cleanCustom.size <= OpenPreset.CUSTOM_SLOTS.size) { "too_many_custom_open_types" }
+        require(rules.keys.filter { it.isCustom }.all { it in cleanCustom }) { "custom_rule_missing_definition" }
+        require(priorities.keys.filter { it.isCustom }.all { it in cleanCustom }) { "custom_priority_missing_definition" }
         require(rules.values.all { ids ->
             ids.size <= 2_000 && ids.all { id ->
                 val parsed = ComponentRule.fromId(id)
                 parsed != null && parsed.id == id && parsed.kind == IntentKind.OPEN
             }
-        }) { "打开类型规则无效" }
+        }) { "invalid_open_type_rules" }
         require(priorities.values.all { packages ->
             packages.size <= 200 && packages.distinct().size == packages.size && packages.all {
                 it.isNotBlank() && it.length <= 255 && '|' !in it && it.none { ch -> ch.isWhitespace() || ch.isISOControl() }
             }
-        }) { "打开类型排序配置无效" }
+        }) { "invalid_open_type_priorities" }
         CustomOpenRegistry.replace(cleanCustom)
         return if (cleanCustom == customDefinitions) this else copy(customDefinitions = cleanCustom)
     }
 
     fun selectedRules(preset: OpenPreset): Set<ComponentRule> =
         rules[preset].orEmpty().mapNotNull(ComponentRule::fromId).toSet()
-
-    fun titleFor(preset: OpenPreset): String = customDefinitions[preset]?.title ?: preset.title
 
     fun configuredPresets(): List<OpenPreset> =
         OpenPreset.entries.filter { it != OpenPreset.BROWSER && (!it.isCustom || it in customDefinitions) }
