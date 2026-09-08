@@ -50,7 +50,7 @@ for name in FORBIDDEN_LEGACY:
     if (ROOT / name).exists():
         errors.append(f"legacy duplicate must not return: {name}")
 
-# Android resource keys must match exactly for the two maintained languages.
+
 def resources(directory: Path):
     keys = set()
     for path in directory.glob("*.xml"):
@@ -59,14 +59,36 @@ def resources(directory: Path):
             keys.add((tag, name))
     return keys
 
-default_keys = resources(ROOT / "app/src/main/res/values")
-zh_keys = resources(ROOT / "app/src/main/res/values-zh")
+
+def string_value(directory: Path, name: str):
+    for path in directory.glob("*.xml"):
+        text = path.read_text(encoding="utf-8")
+        match = re.search(rf"<string\b[^>]*\bname=\"{re.escape(name)}\"[^>]*>(.*?)</string>", text, re.S)
+        if match:
+            return match.group(1)
+    return None
+
+
+default_dir = ROOT / "app/src/main/res/values"
+zh_dir = ROOT / "app/src/main/res/values-zh"
+default_keys = resources(default_dir)
+zh_keys = resources(zh_dir)
 missing_zh = sorted(default_keys - zh_keys)
 extra_zh = sorted(zh_keys - default_keys)
 if missing_zh:
     errors.append("Chinese resources missing: " + ", ".join(f"{t}:{n}" for t, n in missing_zh))
 if extra_zh:
     errors.append("Chinese resources have unmatched keys: " + ", ".join(f"{t}:{n}" for t, n in extra_zh))
+
+# Diagnostic human-readable guide is sourced through normal Android resources in both maintained languages.
+if string_value(default_dir, "diagnostic_readme") is None:
+    errors.append("English diagnostic_readme resource missing")
+if string_value(zh_dir, "diagnostic_readme") is None:
+    errors.append("Chinese diagnostic_readme resource missing")
+diag = (ROOT / "app/src/main/java/com/yagay/ListCleaner/ui/DiagnosticCollector.kt").read_text(encoding="utf-8")
+for required in ('README.zh-CN.txt', 'README.en.txt', 'localizedReadme(context, "zh-CN")', 'localizedReadme(context, "en")', 'R.string.diagnostic_readme'):
+    if required not in diag:
+        errors.append(f"diagnostic bilingual guide missing marker: {required}")
 
 # RELEASE_NOTES.md is the single bilingual source used by GitHub Release, Telegram and LSPosed sync.
 notes_path = ROOT / "RELEASE_NOTES.md"
@@ -99,12 +121,6 @@ sync = (ROOT / "tools/sync-lsposed.py").read_text(encoding="utf-8")
 if "RELEASE_NOTES.md" not in sync and "release.get(\"body\"" not in sync and "release.get('body'" not in sync:
     errors.append("LSPosed synchronizer no longer derives notes from the source Release/bilingual release notes")
 
-# Diagnostic package must ship paired human-readable guides while machine paths stay stable.
-diag = (ROOT / "app/src/main/java/com/yagay/ListCleaner/ui/DiagnosticCollector.kt").read_text(encoding="utf-8")
-for required in ('README.zh-CN.txt', 'README.en.txt', 'readmeZh()', 'readmeEn()'):
-    if required not in diag:
-        errors.append(f"diagnostic bilingual guide missing marker: {required}")
-
 if errors:
     print("Bilingual parity check failed:", file=sys.stderr)
     for error in errors:
@@ -116,4 +132,4 @@ for zh, en in PAIRS:
     print(f"- {zh} <-> {en}")
 print(f"- Android resource keys: {len(default_keys)} English / {len(zh_keys)} Chinese")
 print("- Release Notes: Chinese first <-> English, shared by GitHub/Telegram/LSPosed")
-print("- Diagnostic guides: README.zh-CN.txt <-> README.en.txt")
+print("- Diagnostic guides: README.zh-CN.txt <-> README.en.txt via Android resources")
