@@ -63,7 +63,7 @@ internal fun RuntimePanel(state: MainState, vm: MainViewModel, showUpdateTools: 
                 CapabilityState.DISCONNECTED -> stringResource(R.string.capability_disconnected)
                 CapabilityState.NOT_READY -> stringResource(R.string.capability_not_ready)
             }
-            Text("$name · $status", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.capability_row, name, status), style = MaterialTheme.typography.bodySmall)
         }
 
         if (showUpdateTools) {
