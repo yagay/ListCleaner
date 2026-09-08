@@ -1,7 +1,7 @@
 package com.yagay.ListCleaner.ui
 
 import com.yagay.ListCleaner.ListCleanerApp
-import com.yagay.ListCleaner.LocaleText
+import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.ComponentRootCommand
 import com.yagay.ListCleaner.data.RootComponent
 import com.yagay.ListCleaner.data.RootComponentCatalog
@@ -17,12 +17,14 @@ import kotlinx.coroutines.withContext
 
 /** Owns Root component scanning/mutation state so MainViewModel can focus on resolver rules and module state. */
 internal class RootComponentsController(
-    app: ListCleanerApp,
+    private val app: ListCleanerApp,
     private val scope: CoroutineScope
 ) {
     private val catalog = RootComponentCatalog(app)
 
-    private val mutableScan = MutableStateFlow(RootComponentScan())
+    private val mutableScan = MutableStateFlow(
+        RootComponentScan(warning = app.getString(R.string.root_not_scanned))
+    )
     val scan: StateFlow<RootComponentScan> = mutableScan
 
     private val mutableBusy = MutableStateFlow(false)
@@ -38,21 +40,28 @@ internal class RootComponentsController(
 
     fun dismissRootNotice() { mutableRootNotice.value = null }
 
-    private fun localized(message: String?): String? = LocaleText.rootMessage(message)
-
-    private fun localizedScan(scan: RootComponentScan): RootComponentScan =
-        scan.copy(warning = localized(scan.warning).orEmpty())
+    private fun rootAccessMessage(failure: ComponentRootCommand.RootAccessException): String {
+        val guidance = app.getString(R.string.root_guidance)
+        return app.getString(
+            when (failure.reason) {
+                ComponentRootCommand.RootFailureReason.UNAVAILABLE -> R.string.root_access_unavailable
+                ComponentRootCommand.RootFailureReason.TIMEOUT -> R.string.root_access_timeout
+                ComponentRootCommand.RootFailureReason.DENIED -> R.string.root_access_denied
+            },
+            guidance
+        )
+    }
 
     fun refresh() {
         if (mutableBusy.value) return
         mutableBusy.value = true
         scope.launch {
             try {
-                mutableScan.value = withContext(Dispatchers.IO) { localizedScan(catalog.scan()) }
+                mutableScan.value = withContext(Dispatchers.IO) { catalog.scan() }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                mutableMessage.value = localized(failure.message ?: "扫描失败")
+                mutableMessage.value = failure.message ?: app.getString(R.string.root_scan_failed)
             } finally {
                 mutableBusy.value = false
             }
@@ -69,7 +78,7 @@ internal class RootComponentsController(
         if (targets.isEmpty()) return
         mutableRootNotice.value = null
         mutableBusy.value = true
-        mutableMessage.value = localized("正在请求 Root 并核验系统状态…")
+        mutableMessage.value = app.getString(R.string.root_requesting_verify)
         scope.launch {
             withContext(NonCancellable + Dispatchers.IO) {
                 var completed = 0
@@ -79,17 +88,34 @@ internal class RootComponentsController(
                     var result = ""
                     for (target in targets) {
                         operationStarted = true
-                        mutableMessage.value = localized("正在${if (enable) "启用" else "禁用"} ${completed + 1}/${targets.size}：${target.label}")
+                        mutableMessage.value = app.getString(
+                            if (enable) R.string.root_progress_enable else R.string.root_progress_disable,
+                            completed + 1,
+                            targets.size,
+                            target.label
+                        )
                         result = catalog.change(target, enable)
                         completed++
                     }
-                    mutableMessage.value = localized(if (targets.size == 1) result
-                    else "已核验：$completed 个组件已${if (enable) "启用" else "禁用"}；请重新打开目标选择器")
+                    mutableMessage.value = if (targets.size == 1) {
+                        result
+                    } else {
+                        app.getString(
+                            if (enable) R.string.root_batch_enabled else R.string.root_batch_disabled,
+                            completed
+                        )
+                    }
                 } catch (failure: ComponentRootCommand.RootAccessException) {
-                    mutableMessage.value = localized(failure.message)
-                    mutableRootNotice.value = localized(failure.message)
+                    val message = rootAccessMessage(failure)
+                    mutableMessage.value = message
+                    mutableRootNotice.value = message
                 } catch (failure: Exception) {
-                    mutableMessage.value = localized("已完成 $completed/${targets.size}，操作已停止：${failure.message ?: "操作失败"}。失败项请核对系统状态；剩余项未执行，已完成项不回滚。")
+                    mutableMessage.value = app.getString(
+                        R.string.root_batch_stopped,
+                        completed,
+                        targets.size,
+                        failure.message ?: app.getString(R.string.root_operation_not_allowed)
+                    )
                 } finally {
                     if (operationStarted) refreshAfterMutation()
                     mutableBusy.value = false
@@ -106,7 +132,7 @@ internal class RootComponentsController(
         if (targets.isEmpty()) return
         mutableRootNotice.value = null
         mutableBusy.value = true
-        mutableMessage.value = localized("正在请求 Root 并反选组件…")
+        mutableMessage.value = app.getString(R.string.root_requesting_invert)
         scope.launch {
             withContext(NonCancellable + Dispatchers.IO) {
                 var completed = 0
@@ -115,16 +141,27 @@ internal class RootComponentsController(
                     catalog.requireRoot()
                     for (target in targets) {
                         operationStarted = true
-                        mutableMessage.value = localized("正在反选 ${completed + 1}/${targets.size}：${target.label}")
+                        mutableMessage.value = app.getString(
+                            R.string.root_progress_invert,
+                            completed + 1,
+                            targets.size,
+                            target.label
+                        )
                         catalog.change(target, target.enabled == false)
                         completed++
                     }
-                    mutableMessage.value = localized("已核验：$completed 个组件已反选；请重新打开目标选择器")
+                    mutableMessage.value = app.getString(R.string.root_batch_inverted, completed)
                 } catch (failure: ComponentRootCommand.RootAccessException) {
-                    mutableMessage.value = localized(failure.message)
-                    mutableRootNotice.value = localized(failure.message)
+                    val message = rootAccessMessage(failure)
+                    mutableMessage.value = message
+                    mutableRootNotice.value = message
                 } catch (failure: Exception) {
-                    mutableMessage.value = localized("已完成 $completed/${targets.size}，反选已停止：${failure.message ?: "操作失败"}。已完成项不回滚。")
+                    mutableMessage.value = app.getString(
+                        R.string.root_invert_stopped,
+                        completed,
+                        targets.size,
+                        failure.message ?: app.getString(R.string.root_operation_not_allowed)
+                    )
                 } finally {
                     if (operationStarted) refreshAfterMutation()
                     mutableBusy.value = false
@@ -135,7 +172,11 @@ internal class RootComponentsController(
 
     private fun refreshAfterMutation() {
         runCatching { catalog.scan() }
-            .onSuccess { mutableScan.value = localizedScan(it) }
-            .onFailure { mutableScan.value = RootComponentScan(warning = localized("操作后扫描失败，请刷新；不使用旧状态").orEmpty()) }
+            .onSuccess { mutableScan.value = it }
+            .onFailure {
+                mutableScan.value = RootComponentScan(
+                    warning = app.getString(R.string.root_post_scan_failed)
+                )
+            }
     }
 }
