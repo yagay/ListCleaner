@@ -20,7 +20,7 @@ internal fun RuntimePanel(state: MainState, vm: MainViewModel, showUpdateTools: 
     )
     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (!state.runtime.ready) {
-            Text(state.runtime.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            Text(UiText.translate(state.runtime.message), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             if (showUpdateTools) Text("验证失败时不更新扫描结果；已选规则仍可管理。", style = MaterialTheme.typography.labelSmall)
         }
         if (state.runtime.needsDecision) {
@@ -32,6 +32,6 @@ internal fun RuntimePanel(state: MainState, vm: MainViewModel, showUpdateTools: 
         if (showUpdateTools) OutlinedButton(onClick = vm::applyModuleUpdate, enabled = state.module.connected && !updating) {
             Text(if (updating) "正在检查更新…" else "检测并应用模块更新")
         }
-        if (showUpdateTools) result?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+        if (showUpdateTools) result?.let { Text(UiText.translate(it), style = MaterialTheme.typography.bodySmall) }
     }
 }
