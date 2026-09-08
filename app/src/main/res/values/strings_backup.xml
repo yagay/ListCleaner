@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="backup_exported">Backup exported</string>
+    <string name="backup_restored">Backup restored</string>
+    <string name="backup_export_failed">Export failed</string>
+    <string name="backup_restore_failed">Restore failed</string>
+    <string name="backup_create_failed">Unable to create backup file</string>
+    <string name="backup_read_failed">Unable to read backup</string>
+</resources>
