@@ -32,14 +32,22 @@ jobs:
           python3 - <<'PY'
           import json
           import os
+          import re
           import subprocess
           import tempfile
+          from pathlib import Path
 
           repo = os.environ['GITHUB_REPOSITORY']
           release_sha = os.environ['RELEASE_SHA']
 
           def run(*args):
               return subprocess.check_output(args, text=True).strip()
+
+          gradle = Path('app/build.gradle.kts').read_text(encoding='utf-8')
+          version_match = re.search(r'versionName\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"', gradle)
+          if not version_match:
+              raise SystemExit('Unable to read stable versionName from app/build.gradle.kts')
+          current_tag = f'v{version_match.group(1)}'
 
           releases = json.loads(run('gh', 'api', f'repos/{repo}/releases?per_page=100'))
           published = [
@@ -48,16 +56,15 @@ jobs:
           ]
           published.sort(key=lambda r: r['published_at'], reverse=True)
 
-          current = next((r for r in published if r.get('target_commitish') == release_sha), None)
+          current = next((r for r in published if r.get('tag_name') == current_tag), None)
           if current is None:
-              raise SystemExit(f'No published release targets workflow SHA {release_sha}')
+              raise SystemExit(f'Published release {current_tag} was not found')
 
           previous = next((r for r in published if r['id'] != current['id']), None)
           if previous is None:
               print('No previous published release; keeping existing release notes unchanged.')
               raise SystemExit(0)
 
-          current_tag = current['tag_name']
           previous_tag = previous['tag_name']
           body = current.get('body') or ''
 
