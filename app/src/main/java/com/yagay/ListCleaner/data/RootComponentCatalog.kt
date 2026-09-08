@@ -7,6 +7,7 @@ import android.content.pm.ComponentInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import androidx.core.graphics.drawable.toBitmap
+import com.yagay.ListCleaner.LocaleText
 import com.yagay.ListCleaner.domain.ComponentStatePolicy
 import kotlinx.coroutines.delay
 
@@ -27,7 +28,7 @@ data class RootComponent(
 
 data class RootComponentScan(
     val items: List<RootComponent> = emptyList(),
-    val warning: String = "尚未扫描",
+    val warning: String = LocaleText.pick("尚未扫描", "Not scanned yet"),
     val observedAt: Long = 0
 )
 
@@ -73,7 +74,7 @@ class RootComponentCatalog(private val context: Context) {
                     read(kind, info)
                 }
             } catch (failure: Exception) {
-                errors += "${kind.title}扫描失败：${failure.javaClass.simpleName}"
+                errors += LocaleText.rootMessage("${kind.title}扫描失败：${failure.javaClass.simpleName}").orEmpty()
                 emptyList()
             }
         }.sortedWith(compareBy({ it.owner.lowercase() }, { it.label.lowercase() }, { it.id }))
@@ -88,11 +89,11 @@ class RootComponentCatalog(private val context: Context) {
             ComponentStatePolicy.enabled(pm.getApplicationEnabledSetting(info.packageName), info.applicationInfo.enabled)
         }.getOrNull()
         val blocked = when {
-            !ComponentStatePolicy.valid(component.packageName, component.className, user) -> "组件标识不受支持"
+            !ComponentStatePolicy.valid(component.packageName, component.className, user) -> LocaleText.pick("组件标识不受支持", "Unsupported component identifier")
             info.packageName in setOf(context.packageName, "android", "com.android.systemui") ||
-                info.applicationInfo.uid % 100_000 < 10_000 -> "核心系统/管理组件，仅展示"
-            raw == null || enabled == null || appEnabled == null -> "状态读取失败，请刷新"
-            !appEnabled -> "所属应用已停用；本功能不会启用整个应用"
+                info.applicationInfo.uid % 100_000 < 10_000 -> LocaleText.pick("核心系统/管理组件，仅展示", "Core system/management component; display only")
+            raw == null || enabled == null || appEnabled == null -> LocaleText.pick("状态读取失败，请刷新", "Failed to read state; refresh and try again")
+            !appEnabled -> LocaleText.pick("所属应用已停用；本功能不会启用整个应用", "The owning app is disabled; this feature will not enable the entire app")
             else -> null
         }
         return RootComponent(
@@ -107,23 +108,29 @@ class RootComponentCatalog(private val context: Context) {
 
     /** Re-discover before mutation: no arbitrary component strings from UI/imports/root output. */
     suspend fun change(target: RootComponent, enable: Boolean): String {
-        require(target.user == user) { "用户身份已变化，请重新扫描" }
+        require(target.user == user) { LocaleText.pick("用户身份已变化，请重新扫描", "The user profile changed; scan again") }
         val info = query(target.kind).firstOrNull {
             ComponentName(it.packageName, it.name) == target.component
-        } ?: error("组件已消失或不再属于此分类，请刷新")
+        } ?: error(LocaleText.pick("组件已消失或不再属于此分类，请刷新", "The component disappeared or no longer belongs to this category; refresh"))
         val fresh = read(target.kind, info)
-        check(fresh.blocked == null) { fresh.blocked ?: "无法操作" }
+        check(fresh.blocked == null) { fresh.blocked ?: LocaleText.pick("无法操作", "Operation not allowed") }
         check(fresh.overrideState == target.overrideState && fresh.enabled == target.enabled) {
-            "组件状态已被其他操作改变，请刷新后重试"
+            LocaleText.pick("组件状态已被其他操作改变，请刷新后重试", "The component state changed elsewhere; refresh and try again")
         }
-        if (fresh.enabled == enable) return "系统已处于目标状态，未执行命令"
+        if (fresh.enabled == enable) return LocaleText.pick("系统已处于目标状态，未执行命令", "The system is already in the requested state; no command was run")
         val script = ComponentStatePolicy.command(target.component.packageName, target.component.className, user, enable)
         lastOperation = "at=${System.currentTimeMillis()} component=${target.id} requestedEnabled=$enable status=started"
         val result = try {
             ComponentRootCommand.run(script)
         } catch (failure: Exception) {
             lastOperation += " error=${failure.javaClass.name}"
-            throw IllegalStateException("Root 命令未完成：${failure.javaClass.simpleName}；请刷新核对实际状态", failure)
+            throw IllegalStateException(
+                LocaleText.pick(
+                    "Root 命令未完成：${failure.javaClass.simpleName}；请刷新核对实际状态",
+                    "Root command did not complete: ${failure.javaClass.simpleName}; refresh and verify the actual state"
+                ),
+                failure
+            )
         }
         val expected = if (enable) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED
         var observed: Int? = null
@@ -137,8 +144,15 @@ class RootComponentCatalog(private val context: Context) {
             "exit=${result.exitCode} timeout=${result.timedOut} observed=$observed\n${result.output}"
         android.util.Log.i("ListCleaner", "COMPONENT_STATE ${target.id} exit=${result.exitCode} observed=$observed")
         check(!result.timedOut && result.exitCode == 0 && observed == expected) {
-            "操作未确认成功（退出码 ${result.exitCode}，系统状态 ${observed ?: "未知"}）。请核对 Root 授权并刷新；不会自动重试。"
+            LocaleText.pick(
+                "操作未确认成功（退出码 ${result.exitCode}，系统状态 ${observed ?: "未知"}）。请核对 Root 授权并刷新；不会自动重试。",
+                "The operation could not be confirmed (exit code ${result.exitCode}, system state ${observed ?: "unknown"}). Check Root permission and refresh; it will not retry automatically."
+            )
         }
-        return if (enable) "已核验：组件已启用；不保证恢复原磁贴/小部件位置" else "已核验：组件已禁用；请重新打开目标选择器"
+        return if (enable) {
+            LocaleText.pick("已核验：组件已启用；不保证恢复原磁贴/小部件位置", "Verified: component enabled; original tile/widget placement is not guaranteed to be restored")
+        } else {
+            LocaleText.pick("已核验：组件已禁用；请重新打开目标选择器", "Verified: component disabled; reopen the target resolver")
+        }
     }
 }
