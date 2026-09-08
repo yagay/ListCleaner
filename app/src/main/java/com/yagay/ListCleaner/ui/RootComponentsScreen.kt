@@ -1,13 +1,13 @@
 package com.yagay.ListCleaner.ui
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandLess
@@ -16,11 +16,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.state.ToggleableState
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.data.RootComponent
 
@@ -44,9 +47,13 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
     rootNotice?.let { notice ->
         AlertDialog(
             onDismissRequest = vm::dismissComponentRootNotice,
-            title = { Text("需要 Root 授权") },
+            title = { Text(stringResource(R.string.root_permission_required)) },
             text = { Text(notice) },
-            confirmButton = { TextButton(onClick = vm::dismissComponentRootNotice) { Text("知道了") } }
+            confirmButton = {
+                TextButton(onClick = vm::dismissComponentRootNotice) {
+                    Text(stringResource(R.string.root_permission_ack))
+                }
+            }
         )
     }
 
@@ -75,7 +82,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item(key = "title") {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Text("组件清理 · Root", style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(R.string.root_screen_title), style = MaterialTheme.typography.titleLarge)
             }
         }
         stickyHeader(key = "controls") {
@@ -86,30 +93,30 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 TextButton(onClick = { kind = entry }) {
                                     Text(
-                                        entry?.title ?: "全部",
+                                        entry?.let { stringResource(it.titleRes()) } ?: stringResource(R.string.common_all),
                                         fontWeight = if (kind == entry) FontWeight.Bold else FontWeight.Normal,
                                         color = if (kind == entry) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                                 Box(
                                     Modifier.height(2.dp).width(24.dp).background(
-                                        if (kind == entry) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Transparent
+                                        if (kind == entry) MaterialTheme.colorScheme.primary else Color.Transparent
                                     )
                                 )
                             }
                         }
                     }
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("查看", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.view_filter), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Box {
                             TextButton(onClick = { filterMenu = true }) {
-                                Text(viewFilter.title)
+                                Text(stringResource(viewFilter.titleRes()))
                                 Icon(Icons.Rounded.ExpandMore, null, Modifier.size(18.dp))
                             }
                             DropdownMenu(expanded = filterMenu, onDismissRequest = { filterMenu = false }) {
                                 UiFilter.entries.forEach { filter ->
                                     DropdownMenuItem(
-                                        text = { Text(filter.title) },
+                                        text = { Text(stringResource(filter.titleRes())) },
                                         leadingIcon = { if (viewFilter == filter) Icon(Icons.Rounded.Check, null) },
                                         onClick = { viewFilter = filter; filterMenu = false }
                                     )
@@ -119,12 +126,12 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                         Spacer(Modifier.weight(1f))
                         TextButton(
                             onClick = { vm.changeComponents(visible, enable = false) },
-                            enabled = !busy && visible.any { it.blocked == null && it.enabled != null && it.enabled == true }
-                        ) { Text("全选") }
+                            enabled = !busy && visible.any { it.blocked == null && it.enabled == true }
+                        ) { Text(stringResource(R.string.select_all)) }
                         TextButton(
                             onClick = { vm.invertComponents(visible) },
                             enabled = !busy && visible.any { it.blocked == null && it.enabled != null }
-                        ) { Text("反选") }
+                        ) { Text(stringResource(R.string.invert_selection)) }
                     }
                     if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                     HorizontalDivider()
@@ -133,28 +140,27 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
         }
         item(key = "summary") {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Text("应用列表 · ${groups.size} · ${visible.size} 个组件", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.root_summary, groups.size, visible.size), style = MaterialTheme.typography.labelLarge)
                 Text(
-                    "计数仅针对当前可见组件；应用勾选仅操作其中可更改的组件，保护/未知状态项跳过。全部视图不会因勾选隐藏应用。",
+                    stringResource(R.string.root_filter_help),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Text(stringResource(R.string.root_selection_semantics), style = MaterialTheme.typography.bodySmall)
                 Text(
-                    "勾选＝组件已禁用。组件状态始终直接读取当前系统状态，不保存或推断修改历史。",
-                    style = MaterialTheme.typography.bodySmall
-                )
-                Text(
-                    "勾选立即禁用，取消勾选立即明确启用，不再弹窗确认。禁用会影响正在使用此组件的功能；启用不是恢复原默认状态。",
+                    stringResource(R.string.root_change_semantics),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    when (kind) {
-                        null -> "仅管理标准磁贴服务、快捷方式创建入口及小部件接收器；不是禁用整个应用。"
-                        CleanupKind.TILE -> "仅列出标准 TileService。Wi-Fi、蓝牙等没有独立服务的系统内置磁贴不支持；核心系统组件仅展示。"
-                        CleanupKind.SHORTCUT -> "标准快捷方式创建 Activity；不含动态快捷方式或 ShortX 私有项目。禁用后可能影响其他使用该 Activity 的入口。"
-                        CleanupKind.WIDGET -> "带小部件声明的接收器。禁用可能使已放置的小部件失效；启用不保证恢复原布局。"
-                    },
+                    stringResource(
+                        when (kind) {
+                            null -> R.string.root_kind_all_help
+                            CleanupKind.TILE -> R.string.root_kind_tile_help
+                            CleanupKind.SHORTCUT -> R.string.root_kind_shortcut_help
+                            CleanupKind.WIDGET -> R.string.root_kind_widget_help
+                        }
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -178,9 +184,12 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
             val onExpand = { expandedAppKey = if (expandedAppKey == expansionKey) null else expansionKey }
 
             item(key = "app|$expansionKey") {
+                val expandLabel = stringResource(if (expanded) R.string.common_collapse else R.string.common_expand)
+                val kindTitles = CleanupKind.entries.filter { entry -> components.any { it.kind == entry } }
+                    .map { stringResource(it.titleRes()) }
                 Row(
                     Modifier.fillMaxWidth()
-                        .clickable(onClickLabel = UiText.translate(if (expanded) "折叠" else "展开"), onClick = onExpand)
+                        .clickable(onClickLabel = expandLabel, onClick = onExpand)
                         .heightIn(min = 64.dp).padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -193,23 +202,25 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                     Column(Modifier.weight(1f).padding(start = 10.dp)) {
                         Text(first.owner, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
                         Text(
-                            "已禁用 ${components.count { it.enabled == false }}/${components.size} · ${components.map { it.kind.title }.distinct().joinToString("、")}",
+                            stringResource(
+                                R.string.root_disabled_summary,
+                                components.count { it.enabled == false },
+                                components.size,
+                                kindTitles.joinToString(" · ")
+                            ),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         if (editableComponents.size < components.size) {
                             Text(
-                                "${components.size - editableComponents.size} 项仅展示，不参与批量操作",
+                                stringResource(R.string.root_display_only_count, components.size - editableComponents.size),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
                     IconButton(onClick = onExpand) {
-                        Icon(
-                            if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                            UiText.translate(if (expanded) "折叠" else "展开")
-                        )
+                        Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, expandLabel)
                     }
                 }
                 HorizontalDivider()
@@ -238,7 +249,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                     Column(Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(item.label, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            Text(item.kind.title, style = MaterialTheme.typography.labelMedium)
+                            Text(stringResource(item.kind.titleRes()), style = MaterialTheme.typography.labelMedium)
                         }
                         Text(
                             item.component.flattenToShortString(),
@@ -247,12 +258,14 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             style = MaterialTheme.typography.labelSmall
                         )
                         Text(
-                            UiText.translate(item.blocked ?: when (item.overrideState) {
-                                0 -> if (item.enabled == true) "默认启用" else "默认关闭"
-                                1 -> "明确启用"
-                                2, 3, 4 -> "已禁用（来源未知）"
-                                else -> "状态未知"
-                            }),
+                            item.blocked ?: stringResource(
+                                when (item.overrideState) {
+                                    0 -> if (item.enabled == true) R.string.root_default_enabled else R.string.root_default_disabled
+                                    1 -> R.string.root_explicit_enabled
+                                    2, 3, 4 -> R.string.root_disabled_unknown_source
+                                    else -> R.string.root_unknown_state
+                                }
+                            ),
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
@@ -260,9 +273,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
             }
         }
         if (visible.isEmpty() && !busy) {
-            item {
-                Text("没有匹配的组件", Modifier.padding(vertical = 16.dp))
-            }
+            item { Text(stringResource(R.string.root_no_components), Modifier.padding(vertical = 16.dp)) }
         }
     }
 }
