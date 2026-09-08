@@ -17,12 +17,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.graphics.drawable.toBitmap
 import com.yagay.ListCleaner.ListCleanerApp
+import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.VisibilityScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -101,19 +103,23 @@ internal fun AppScopePickerDialog(
             modifier = Modifier.fillMaxSize(),
             topBar = {
                 TopAppBar(
-                    title = { Text("应用隐藏列表") },
-                    navigationIcon = { IconButton(onClick = dismiss) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, UiText.translate("返回")) } },
+                    title = { Text(stringResource(R.string.visibility_title)) },
+                    navigationIcon = {
+                        IconButton(onClick = dismiss) {
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.common_back))
+                        }
+                    },
                 )
             },
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp)) {
                 Text(
-                    "这里选择“哪些来源应用”需要包级隐藏兼容。下面的“命中分类”决定哪些规则分类可以贡献目标应用；默认不选择任何分类，因此不会自动启用兼容隐藏。仅在“隐藏选中”模式生效。",
+                    stringResource(R.string.visibility_help),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(8.dp))
-                Text("命中分类（可多选）", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.visibility_match_categories), style = MaterialTheme.typography.labelLarge)
                 LazyRow(
                     contentPadding = PaddingValues(vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -127,15 +133,15 @@ internal fun AppScopePickerDialog(
                                     if (checked) visibilityScopes - scope else visibilityScopes + scope
                                 )
                             },
-                            label = { Text(scope.title) },
+                            label = { Text(stringResource(scope.titleRes())) },
                         )
                     }
                 }
                 Text(
                     if (visibilityScopes.isEmpty()) {
-                        "当前未选择分类：应用隐藏兼容不会隐藏任何目标应用。"
+                        stringResource(R.string.visibility_no_categories)
                     } else {
-                        "只使用所选分类中“应用整行完整勾选”的目标；半勾选（只选部分组件）不加入。当前可命中 ${activeTargets.size} 个目标包。"
+                        stringResource(R.string.visibility_active_targets, activeTargets.size)
                     },
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -144,16 +150,16 @@ internal fun AppScopePickerDialog(
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    label = { Text("搜索来源应用或包名") },
+                    label = { Text(stringResource(R.string.visibility_search_sources)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("显示系统应用", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.visibility_show_system), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                     Switch(checked = showSystem, onCheckedChange = { showSystem = it })
                 }
                 Text(
-                    "显示 ${visible.size}/${apps.size} 个来源应用 · 已加入 ${selected.size} 个",
+                    stringResource(R.string.visibility_summary, visible.size, apps.size, selected.size),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -188,7 +194,13 @@ internal fun AppScopePickerDialog(
                                     Text(entry.label, fontWeight = FontWeight.Medium)
                                     Text(entry.packageName, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
-                                if (checked) Text("已加入", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                if (checked) {
+                                    Text(
+                                        stringResource(R.string.visibility_added),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
                             }
                             HorizontalDivider()
                         }
