@@ -1,126 +1,111 @@
-# List Cleaner
+# 列表清理 · List Cleaner
 
-**English** | [简体中文](README.zh-CN.md)
+**简体中文** | [English](README.en.md)
 
-Trim Android share, open-with, browser, and text-processing menus so the apps you use most appear first. With Root access, List Cleaner can also manage app-provided Quick Settings tiles, shortcut creation entries, and home-screen widgets.
+精简 Android 的分享、打开方式和文本处理菜单，让常用应用排在前面；也可以通过 Root 管理应用提供的磁贴、快捷方式创建入口和桌面小部件。
 
-[Download release](https://github.com/yagay/ListCleaner/releases/latest) · [Report an issue](https://github.com/yagay/ListCleaner/issues) · [Telegram channel](https://t.me/LISTCLEANER)
+[下载正式版](https://github.com/yagay/ListCleaner/releases/latest) · [反馈问题](https://github.com/yagay/ListCleaner/issues) · [Telegram 频道](https://t.me/LISTCLEANER)
 
-## Telegram channel
+## Telegram 频道
 
-Follow **@LISTCLEANER** for release updates, usage tips, and related announcements.
+关注 **@LISTCLEANER** 获取版本更新、使用提示和相关消息。
 
-[Join @LISTCLEANER on Telegram](https://t.me/LISTCLEANER)
+[加入 Telegram 频道 @LISTCLEANER](https://t.me/LISTCLEANER)
 
 <p align="center">
   <a href="https://t.me/LISTCLEANER">
-    <img src="docs/telegram-channel.jpg" alt="List Cleaner Telegram channel QR code" width="360">
+    <img src="docs/telegram-channel.jpg" alt="List Cleaner Telegram 频道二维码" width="360">
   </a>
 </p>
 
-## Requirements
+## 使用要求
 
-- Android 12 or newer.
-- **Rule filtering and priority ordering:** a framework that supports **modern libxposed API 102**, with the module enabled and its scope configured. Legacy Xposed APIs and frameworks that only support older APIs are not supported.
-- **Component management:** grant List Cleaner Root access through KernelSU, Magisk, or another Root manager. Enabling the LSPosed module does not grant Root access. Browsing the component list itself does not require Root.
+- Android 12 或更高版本。
+- **规则过滤与优先排序**：需要支持 **modern libxposed API 102** 的框架，启用模块并配置作用域。传统 Xposed API 或仅支持较旧 API 的框架不适用。
+- **组件管理**：需要在 KernelSU、Magisk 等管理器中为“列表清理”授予 Root 权限。仅启用 LSPosed 模块不等于授予 Root；查看组件列表不需要 Root。
 
-Package name: `com.yagay.ListCleaner`. The app is displayed as “列表清理” in Chinese and “List Cleaner” in other languages.
+包名为 `com.yagay.ListCleaner`。中文环境显示“列表清理”，其他语言显示“List Cleaner”。
 
-## Features
+## 功能介绍
 
-### Rules: choose which apps appear in system menus
+### 规则：决定菜单里显示哪些应用
 
-Manage five candidate-list categories independently: Share, Multi-share, Open with, Browser, and Text processing. You can search apps, expand them to inspect components, and filter the list by all, selected, or unselected items.
+分别管理分享、多文件分享、打开方式、浏览器和文本处理五类候选列表。支持搜索应用、展开查看组件，以及按全部、已选、未选筛选。
 
-| Display mode | Effect of selecting an item |
+| 显示模式 | 勾选的作用 |
 | --- | --- |
-| Hide selected | Hide selected items from the matching system candidate list |
-| Show selected only | Keep only selected items; if no rules are selected for the category, show everything |
-| Show all | Pause filtering while keeping saved selections |
+| 隐藏选中 | 从相应系统候选列表中隐藏勾选项 |
+| 只显示选中 | 只保留勾选项；该分类没有选中规则时显示全部 |
+| 全部显示 | 暂停过滤，保留已保存的选择 |
 
-**Selecting an app row applies only to components currently visible under the active category and search filter.** It does not disable the whole app. Expand an app to select individual components. Cleaning one category does not automatically affect another category. Configured entries that cannot currently be scanned can still be removed from the selected-rules view.
+**应用行的勾选针对当前分类、当前搜索条件下显示的组件**，不是禁用整个应用。展开应用后，可以单独选择某个组件；清理某一分类不会自动清理其他分类。已配置但暂时无法扫描到的项仍可在“已选规则”中取消。
 
-Rules adjust candidate lists returned by the system. They do not uninstall apps or change Android component enabled states. The scan catalog is a configuration entry point and does not imply that every file type will expose the same candidates.
+这些规则调整系统返回的候选列表，不卸载应用，也不修改组件的启用状态。扫描目录是配置入口，不代表每一种文件的实际菜单都包含同样的候选。
 
-### Ordering: put frequently used apps first
+### 排序：让常用应用优先出现
 
-Each of the five categories stores its own app-level priority order.
+五类列表分别保存优先顺序，排序以应用为单位。
 
-- Select an app to add it to the priority list and place it at the corresponding position. Deselect it to return it to the normal alphabetical group.
-- Prioritized apps are shown first in the saved order; non-prioritized apps follow alphabetically. You can filter by all, prioritized, or non-prioritized apps.
-- **Long-press prioritized apps to drag and reorder them.** The list auto-scrolls near the edges and saves on release. Expanded rows also provide move-up and move-down controls.
-- While searching, only visible prioritized apps are reordered; hidden configuration retains its position. Candidates hidden by rules are omitted from the current ordering list, but their saved order is preserved.
+- 勾选应用即可加入优先列表，并移动到对应位置；取消勾选后回到未优先应用的默认名称顺序。
+- 已优先应用按保存的顺序排在前面，未优先应用按名称排列；可筛选全部、未优先或已优先。
+- **长按已优先应用可以拖动排序**，靠近列表边缘自动滚动，松手保存。展开后也可以使用上移、下移按钮。
+- 搜索时只调整匹配的优先应用，未显示的配置保留原位置。被规则隐藏的候选不会显示在当前排序列表，其已保存顺序仍会保留。
 
-The module applies priority ordering in supported system query and selector-ordering paths. OEM selectors, app-side reordering, or fully custom menus may behave differently.
+模块在已适配的系统查询和选择器排序环节应用优先顺序。厂商定制选择器、应用自行重排或自建菜单可能有不同表现。
 
-### Components: manage tiles, shortcuts, and widgets
+### 组件：管理磁贴、快捷方式和小部件
 
-The Components page reads actual Android component state and supports search plus disabled-state filtering.
+“组件”页读取系统实际状态，支持搜索和禁用状态筛选。
 
-| Category | Supported scope |
+| 分类 | 支持范围 |
 | --- | --- |
-| Tiles | Standard app-provided `TileService` components; built-in system tiles without standalone services, such as Wi-Fi or Bluetooth, are not included |
-| Shortcuts | Standard `ACTION_CREATE_SHORTCUT` creation entries; not every dynamic, pinned, or private app shortcut is covered |
-| Widgets | Standard home-screen widget receivers that declare widget metadata |
+| 磁贴 | 应用提供的标准 `TileService`；不包含没有独立服务的 Wi-Fi、蓝牙等系统内置磁贴 |
+| 快捷方式 | 标准 `ACTION_CREATE_SHORTCUT` 创建入口；不包含所有动态、固定快捷方式或应用私有项目 |
+| 小部件 | 声明小部件元数据的标准桌面小部件接收器 |
 
-**Selected means disabled; deselected means explicitly enabled.** It does not restore a previous default state. Root permission is checked before changes, and the resulting system state is read back afterward. If authorization is missing or times out, the app reports that instead of showing a false success state.
+**勾选表示禁用，取消勾选表示明确启用**，不是恢复此前的默认状态。操作前会检查 Root 权限，执行后回读系统结果；未授权或授权等待超时时会提示处理方法，不会显示虚假的成功勾选。
 
-Component operations apply only to the Android user in which List Cleaner is installed. Core system components, SystemUI, List Cleaner itself, and components belonging to apps that are globally disabled are shown as read-only.
+组件操作仅针对本应用所在的 Android 用户。系统核心组件、SystemUI、本应用及所属应用整体停用的组件只展示，不允许操作。
 
-Disabling a component can affect existing placements such as added tiles or widgets. Re-enabling it does not guarantee restoration to its former position. Clearing List Cleaner data or uninstalling the module **does not revert component disabled states**; re-enable anything you need before uninstalling.
+禁用会影响使用该组件的位置，包括已添加的磁贴或小部件；重新启用不保证恢复原位置。清除本应用数据或卸载模块**不会撤销系统中的组件禁用状态**，需要在卸载前按需启用。
 
-### Backup and diagnostics
+### 备份与诊断
 
-- Import and export JSON backups containing rules, display modes, and priority order. Backup formats v1–v4 are supported.
-- Rule backups **do not save or restore actual Root-managed component enabled states**. Legacy tile configuration is read only for compatibility and is not automatically converted into component disable operations.
-- The Status page shows module connection, scope, and configuration synchronization state. Diagnostic ZIP export can help troubleshoot filtering, ordering, and Root operations. Diagnostics may contain app lists and logs, so review them before sharing.
+- 导入、导出 JSON 规则备份，保存规则、显示模式和优先顺序，兼容 v1–v4 备份。
+- 规则备份**不保存或恢复 Root 组件的实际启用状态**。旧磁贴配置只保留兼容读取，不自动转换为组件禁用操作。
+- 状态页查看模块连接、作用域及配置同步情况，可导出诊断 ZIP，辅助排查过滤、排序和 Root 操作问题。诊断可能包含应用列表和日志，分享前请检查内容。
 
-## Getting started
+## 开始使用
 
-1. Download and install the release APK from [Releases](https://github.com/yagay/ListCleaner/releases/latest).
-2. Enable List Cleaner in an API 102-capable module manager, configure the recommended system and actual selector scopes, then restart as instructed by the framework.
-3. Open the app, confirm module and configuration synchronization on the Status page, then configure categories and display mode on the Rules page.
-4. To change app ordering, select and drag frequently used apps on the Ordering page.
-5. To manage tiles, shortcut creation entries, or widgets, open the Components page and grant Root permission in your Root manager.
+1. 从 [Releases](https://github.com/yagay/ListCleaner/releases/latest) 下载并安装正式版 APK。
+2. 在支持 API 102 的模块管理器中启用“列表清理”，按推荐配置系统和实际选择器作用域，按框架提示重启。
+3. 打开应用，在状态页确认模块和配置同步状态，再到规则页选择分类与显示模式。
+4. 需要调整应用先后顺序时，在排序页勾选并拖动常用应用。
+5. 需要管理磁贴、快捷方式或小部件时，进入组件页，并在 Root 管理器中授权。授权后返回重新操作即可。
 
-Component management is independent of rule display mode and does not require a SystemUI hook. System or OEM caches may require closing and reopening the relevant menu; some devices may require restarting the affected process or the system before changes become visible.
+组件管理独立于规则显示模式，不需要 SystemUI Hook。系统或厂商缓存可能需要关闭菜单后重新打开；部分设备需要重启相关进程或系统才能体现变更。
 
-## FAQ
+## 常见问题
 
-**Nothing changed after I selected a component.**
-Check whether your Root manager allows this app to use `su`, then retry based on the in-app message. LSPosed authorization and Root authorization are separate. The component list reflects the state read back from Android.
+**勾选组件后没有变化？**
+先检查 Root 管理器是否允许本应用使用 `su`，再根据应用提示重试。LSPosed 授权与 Root 授权是两回事。组件列表以系统回读结果为准。
 
-**Why is an app or entry missing from the list?**
-Different Intents, package visibility rules, and OEM implementations affect scan results. Custom share panels, private shortcuts, and non-standard component declarations may not be supported. Explicitly targeted Intents are also different from system candidate menus.
+**某个应用或入口没有出现在列表？**
+不同 Intent、应用可见性和厂商实现会影响扫描结果。自建分享面板、私有快捷方式和不规范声明的组件不一定受支持。显式指定目标的调用也不等同于系统候选菜单。
 
-**Why do I get a signature conflict when updating?**
-Official releases use the same release certificate for in-place upgrades. Debug builds use debug certificates and may not replace an official release or a Debug build produced on another machine. Before uninstalling, export your rules and check whether any disabled components should be re-enabled.
+**更新时提示签名冲突？**
+正式版应使用同一发布签名覆盖升级。Debug 使用调试签名，可能无法覆盖正式版或其他构建机生成的 Debug。需要卸载前请先导出规则，并检查是否要恢复已禁用的组件。
 
-## Build and development
+## 构建与开发
 
-The project currently uses Java 17, Gradle 9.4.1, AGP 9.2.0, Compile/Target SDK 37, Min SDK 31, and libxposed API/Service 102.0.0. Install the corresponding Android SDK and configure your local SDK path.
+当前工程使用 Java 17、Gradle 9.4.1、AGP 9.2.0、Compile/Target SDK 37、Min SDK 31，以及 libxposed API/Service 102.0.0。请安装对应 Android SDK，并在本地配置 SDK 路径。
 
 ```bash
-# Build Debug
 bash ./gradlew :app:assembleDebug
-
-# Run unit tests
 bash ./gradlew :app:testDebugUnitTest
-
-# Build Release after configuring signing
 bash ./gradlew :app:assembleRelease
 ```
 
-See [Release and signing](docs/RELEASE.md) for signing and automated publishing details. Do not commit private keys, signing passwords, or `local.properties`.
+签名配置及自动发布流程见 [Release 构建说明](docs/RELEASE.md)。不要提交私钥、签名密码或 `local.properties`。
 
-Source or build-configuration changes on `main` automatically build Debug and run unit tests, and the workflow can also be started manually from Actions. Debug APKs are available from the corresponding workflow artifacts. Use the Release workflow for formal releases; existing versions are never overwritten, and new releases require both `versionName` and `versionCode` to be incremented.
-
-Main source locations:
-
-- `app/src/main/java/com/yagay/ListCleaner/ui`: UI and interaction.
-- `app/src/main/java/com/yagay/ListCleaner/data`: catalog scanning, configuration storage, Root operations, and diagnostics.
-- `app/src/main/java/com/yagay/ListCleaner/domain`: rules, ordering, and validation logic.
-- `app/src/main/java/com/yagay/ListCleaner/xposed`: module entry points and system hooks.
-- `app/src/test`, `tools/*Check.java`: unit tests and host-side Java regression checks.
-
-When reporting an issue, include Android version, device model, framework version, affected category, and reproduction steps. Attach a reviewed diagnostic log when needed.
+main 分支的源码或构建配置变更会自动编译 Debug 并运行单元测试。正式发布请使用 Release 工作流；已有版本不会重复发布，新版本需要同时更新版本名和版本码。
