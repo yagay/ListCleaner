@@ -23,6 +23,28 @@ USER_VISIBLE_PATTERNS = (
     ("setMessage literal", re.compile(rf"\bsetMessage\s*\(\s*({LATIN_TEXT})", re.MULTILINE)),
 )
 
+# Developer/runtime exception details are useful in Log.e and diagnostics, but must not
+# become user-facing text. Keep the check deliberately focused on known UI sinks so
+# developer-only reports such as IntentCatalog ERROR=<ExceptionClass> remain allowed.
+EXCEPTION_UI_PATTERNS = (
+    ("exception message in toast", re.compile(r"\btoast\s*\([^\n]*(?:failure|it)\.(?:message|localizedMessage)")),
+    ("exception message in visible state", re.compile(
+        r"\b(?:mutable[A-Za-z0-9_]*(?:Message|Status|Notice)|error|message)\.value\s*=\s*[^\n]*(?:failure|it)\.(?:message|localizedMessage)"
+    )),
+    ("exception message in UI copy", re.compile(
+        r"\bcopy\s*\([^)]*\b(?:error|message)\s*=\s*(?:failure|it)\.(?:message|localizedMessage)", re.DOTALL
+    )),
+    ("exception message in RuntimeStatus", re.compile(
+        r"\bRuntimeStatus\s*\([^)]*\bmessage\s*=\s*(?:failure|it)\.(?:message|localizedMessage)", re.DOTALL
+    )),
+    ("exception detail passed to localized UI string", re.compile(
+        r"\bgetString\s*\([^)]*(?:failure|it)\.(?:message|localizedMessage|javaClass\.simpleName)", re.DOTALL
+    )),
+    ("framework result message passed to UI", re.compile(
+        r"\bgetString\s*\([^)]*\b(?:result|reply)\??\.message\s*\(\)", re.DOTALL
+    )),
+)
+
 IGNORE_MARKER = "localization:ignore"
 violations = []
 
@@ -56,7 +78,7 @@ for path in sorted(JAVA_ROOT.rglob("*")):
 
     # English source text is allowed for technical/internal data, so only flag
     # literals passed directly to known user-facing UI APIs.
-    for label, pattern in USER_VISIBLE_PATTERNS:
+    for label, pattern in USER_VISIBLE_PATTERNS + EXCEPTION_UI_PATTERNS:
         for match in pattern.finditer(text):
             if ignored(text, match.start()):
                 continue
@@ -77,11 +99,11 @@ if MANIFEST.is_file():
                            f"Manifest android:{match.group(1)} literal", value))
 
 if violations:
-    print("Localization source check failed. User-visible text must live in Android string resources.")
+    print("Localization source check failed. User-visible text must live in Android string resources, and developer exception details must not leak into UI.")
     print(f"Use stringResource(R.string.*) in Compose or Context.getString(R.string.*) elsewhere. "
-          f"Only stable machine/internal text may use // {IGNORE_MARKER} when a false positive is unavoidable.")
+          f"Log full exceptions separately with Log.e. Only stable machine/internal text may use // {IGNORE_MARKER} when a false positive is unavoidable.")
     for path, number, label, line in violations:
         print(f"{path}:{number}: [{label}] {line}")
     sys.exit(1)
 
-print("Localization source check passed: no CJK source text or hardcoded high-risk user-visible literals found.")
+print("Localization source check passed: no CJK source text, hardcoded high-risk UI literals, or developer exception details in user-facing sinks found.")
