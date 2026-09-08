@@ -476,14 +476,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         mutableUpdating.value = true
         mutableUpdateMessage.value = app.getString(R.string.update_detecting_targets)
         viewModelScope.launch {
+            var updateService: XposedService? = null
             try {
                 val bound = app.service.value ?: error(app.getString(R.string.update_lsposed_disconnected))
+                updateService = bound
                 val targets = withContext(Dispatchers.IO) { bound.runningTargets }
+                if (app.service.value !== bound) return@launch
                 val pending = targets.filter {
                     !RuntimeProtocol.current(it.state.name, it.loadedVersionCode, BuildConfig.VERSION_CODE.toLong())
                 }
                 val messages = mutableListOf<String>()
                 for (target in pending) {
+                    if (app.service.value !== bound) return@launch
                     try {
                         if (target.state == HookedTarget.State.RELOADING) {
                             messages += app.getString(R.string.update_target_reloading, target.processName)
@@ -506,6 +510,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 }
                             }
                         }
+                        if (app.service.value !== bound) return@launch
                         val resultText = when (result?.status()) {
                             HotReloadResult.Status.SUCCEEDED -> app.getString(R.string.update_succeeded)
                             HotReloadResult.Status.UNSUPPORTED -> app.getString(R.string.update_unsupported)
@@ -522,6 +527,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         throw cancelled
                     } catch (failure: Exception) {
                         Log.e(TAG, "Hot reload request failed for ${target.processName}", failure)
+                        if (app.service.value !== bound) return@launch
                         messages += app.getString(
                             R.string.update_request_failed,
                             target.processName,
@@ -529,6 +535,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         )
                     }
                 }
+                if (app.service.value !== bound) return@launch
                 mutableUpdateMessage.value = if (messages.isEmpty()) {
                     app.getString(R.string.update_nothing_pending)
                 } else messages.joinToString("\n")
@@ -537,11 +544,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 throw cancelled
             } catch (failure: Exception) {
                 Log.e(TAG, "Hot update check failed", failure)
-                mutableUpdateMessage.value = app.getString(
-                    R.string.update_check_failed,
-                    app.getString(R.string.update_old_module_rejected)
-                )
+                if (app.service.value === updateService) {
+                    mutableUpdateMessage.value = app.getString(
+                        R.string.update_check_failed,
+                        app.getString(R.string.update_old_module_rejected)
+                    )
+                }
             } finally {
+                if (updateService != null && app.service.value !== updateService) {
+                    mutableUpdateMessage.value = null
+                }
                 mutableUpdating.value = false
             }
         }
