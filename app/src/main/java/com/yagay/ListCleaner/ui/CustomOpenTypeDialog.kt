@@ -1,5 +1,6 @@
 package com.yagay.ListCleaner.ui
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -7,11 +8,22 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.CustomOpenDefinition
 import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.OpenTypeConfig
+
+@StringRes
+private fun customOpenErrorRes(code: String?): Int = when (code) {
+    "custom_open_invalid_title" -> R.string.custom_open_invalid_title
+    "custom_open_invalid_mime" -> R.string.custom_open_invalid_mime
+    "custom_open_invalid_extension" -> R.string.custom_open_invalid_extension
+    "custom_open_missing_matcher" -> R.string.custom_open_missing_matcher
+    else -> R.string.custom_open_generic_error
+}
 
 @Composable
 internal fun CustomOpenTypeDialog(
@@ -34,11 +46,11 @@ internal fun CustomOpenTypeDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("自定义打开方式类型") },
+        title = { Text(stringResource(R.string.custom_open_title)) },
         text = {
             Column(Modifier.fillMaxWidth()) {
                 Text(
-                    "最多 8 个自定义类型。每个类型可以按 MIME 和文件后缀识别，并拥有自己的规则与排序；未设置专用规则/排序时仍继承“打开方式 · 全部”。删除类型会同时清理该类型的专用规则和排序。",
+                    stringResource(R.string.custom_open_help),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -47,22 +59,46 @@ internal fun CustomOpenTypeDialog(
                     items(OpenPreset.CUSTOM_SLOTS, key = { it.name }) { slot ->
                         val definition = config.customDefinitions[slot]
                         ListItem(
-                            headlineContent = { Text(definition?.title ?: slot.title, fontWeight = if (definition != null) FontWeight.Medium else FontWeight.Normal) },
-                            supportingContent = {
-                                Text(if (definition == null) "未配置" else buildString {
-                                    if (definition.mimeTypes.isNotEmpty()) append("MIME ${definition.mimeTypes.joinToString()}")
-                                    if (definition.mimeTypes.isNotEmpty() && definition.extensions.isNotEmpty()) append(" · ")
-                                    if (definition.extensions.isNotEmpty()) append("后缀 ${definition.extensions.joinToString { ".$it" }}")
-                                })
+                            headlineContent = {
+                                Text(
+                                    definition?.title ?: stringResource(slot.titleRes()),
+                                    fontWeight = if (definition != null) FontWeight.Medium else FontWeight.Normal
+                                )
                             },
-                            trailingContent = { TextButton(onClick = { editing = slot }) { Text(if (definition == null) "添加" else "编辑") } }
+                            supportingContent = {
+                                Text(
+                                    if (definition == null) {
+                                        stringResource(R.string.custom_open_not_configured)
+                                    } else {
+                                        buildString {
+                                            if (definition.mimeTypes.isNotEmpty()) {
+                                                append(stringResource(R.string.custom_open_mime_summary, definition.mimeTypes.joinToString()))
+                                            }
+                                            if (definition.mimeTypes.isNotEmpty() && definition.extensions.isNotEmpty()) append(" · ")
+                                            if (definition.extensions.isNotEmpty()) {
+                                                append(
+                                                    stringResource(
+                                                        R.string.custom_open_extension_summary,
+                                                        definition.extensions.joinToString { ".$it" }
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    }
+                                )
+                            },
+                            trailingContent = {
+                                TextButton(onClick = { editing = slot }) {
+                                    Text(stringResource(if (definition == null) R.string.common_add else R.string.common_edit))
+                                }
+                            }
                         )
                         HorizontalDivider()
                     }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("完成") } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_done)) } }
     )
 }
 
@@ -77,7 +113,7 @@ private fun CustomOpenTypeEditor(
     var title by remember(initial) { mutableStateOf(initial?.title.orEmpty()) }
     var mimeText by remember(initial) { mutableStateOf(initial?.mimeTypes?.sorted()?.joinToString("\n").orEmpty()) }
     var extensionText by remember(initial) { mutableStateOf(initial?.extensions?.sorted()?.joinToString("\n").orEmpty()) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var errorRes by remember { mutableStateOf<Int?>(null) }
 
     fun parseSet(text: String): Set<String> = text
         .split(',', ';', '\n', '\r', '\t', ' ')
@@ -85,37 +121,61 @@ private fun CustomOpenTypeEditor(
         .filter(String::isNotEmpty)
         .toSet()
 
+    val presetTitle = stringResource(preset.titleRes())
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (initial == null) "添加 ${preset.title}" else "编辑 ${initial.title}") },
+        title = {
+            Text(
+                if (initial == null) stringResource(R.string.custom_open_add_title, presetTitle)
+                else stringResource(R.string.custom_open_edit_title, initial.title)
+            )
+        },
         text = {
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(title, { title = it; error = null }, label = { Text("名称") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(
-                    mimeText, { mimeText = it; error = null },
-                    label = { Text("MIME（每行或逗号分隔）") },
-                    supportingText = { Text("例如 application/vnd.amazon.ebook 或 application/*") },
+                    title,
+                    { title = it; errorRes = null },
+                    label = { Text(stringResource(R.string.custom_open_name)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    mimeText,
+                    { mimeText = it; errorRes = null },
+                    label = { Text(stringResource(R.string.custom_open_mime_label)) },
+                    supportingText = { Text(stringResource(R.string.custom_open_mime_example)) },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp)
                 )
                 OutlinedTextField(
-                    extensionText, { extensionText = it; error = null },
-                    label = { Text("文件后缀（每行或逗号分隔）") },
-                    supportingText = { Text("例如 azw3, mobi, m3u8；可写或不写开头的点") },
+                    extensionText,
+                    { extensionText = it; errorRes = null },
+                    label = { Text(stringResource(R.string.custom_open_extension_label)) },
+                    supportingText = { Text(stringResource(R.string.custom_open_extension_example)) },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp)
                 )
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                errorRes?.let {
+                    Text(stringResource(it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
             }
         },
         confirmButton = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                onDelete?.let { delete -> TextButton(onClick = delete) { Text("删除", color = MaterialTheme.colorScheme.error) } }
-                TextButton(onClick = {
-                    runCatching {
-                        CustomOpenDefinition(title, parseSet(mimeText), parseSet(extensionText)).validated()
-                    }.onSuccess(onSave).onFailure { error = it.message ?: "配置无效" }
-                }) { Text("保存") }
+                onDelete?.let { delete ->
+                    TextButton(onClick = delete) {
+                        Text(stringResource(R.string.common_delete), color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                TextButton(
+                    onClick = {
+                        runCatching {
+                            CustomOpenDefinition(title, parseSet(mimeText), parseSet(extensionText)).validated()
+                        }.onSuccess(onSave).onFailure { errorRes = customOpenErrorRes(it.message) }
+                    }
+                ) {
+                    Text(stringResource(R.string.common_save))
+                }
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } }
     )
 }
