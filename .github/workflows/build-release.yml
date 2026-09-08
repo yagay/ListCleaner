@@ -206,14 +206,13 @@ jobs:
             echo "created=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Dispatch Telegram and LSPosed publication
+      - name: Dispatch LSPosed publication
         if: steps.publish.outputs.created == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.assets.outputs.tag }}
         run: |
           set -euo pipefail
-          gh workflow run publish-telegram.yml --ref main -f tag="$RELEASE_TAG"
           gh workflow run sync-lsposed.yml --ref main -f tag="$RELEASE_TAG"
 
       - name: Remove private signing material
