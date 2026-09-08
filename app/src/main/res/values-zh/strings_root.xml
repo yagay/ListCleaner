@@ -2,7 +2,7 @@
 <resources>
     <string name="root_not_scanned">尚未扫描</string>
     <string name="root_scan_failed">扫描失败</string>
-    <string name="root_kind_scan_failed">%1$s扫描失败：%2$s</string>
+    <string name="root_kind_scan_failed">%1$s扫描失败</string>
     <string name="root_component_invalid">组件标识不受支持</string>
     <string name="root_component_protected">核心系统/管理组件，仅展示</string>
     <string name="root_state_read_failed">状态读取失败，请刷新</string>
@@ -12,7 +12,7 @@
     <string name="root_component_missing">组件已消失或不再属于此分类，请刷新</string>
     <string name="root_component_changed">组件状态已被其他操作改变，请刷新后重试</string>
     <string name="root_already_target_state">系统已处于目标状态，未执行命令</string>
-    <string name="root_command_incomplete">Root 命令未完成：%1$s；请刷新核对实际状态</string>
+    <string name="root_command_incomplete">Root 命令未完成，请刷新核对实际状态</string>
     <string name="root_operation_unconfirmed">操作未确认成功（退出码 %1$d，系统状态 %2$s）。请核对 Root 授权并刷新；不会自动重试。</string>
     <string name="root_verified_enabled">已核验：组件已启用；不保证恢复原磁贴/小部件位置</string>
     <string name="root_verified_disabled">已核验：组件已禁用；请重新打开目标选择器</string>
