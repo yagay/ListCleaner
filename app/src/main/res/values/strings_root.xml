@@ -2,7 +2,7 @@
 <resources>
     <string name="root_not_scanned">Not scanned yet</string>
     <string name="root_scan_failed">Scan failed</string>
-    <string name="root_kind_scan_failed">%1$s scan failed: %2$s</string>
+    <string name="root_kind_scan_failed">%1$s scan failed</string>
     <string name="root_component_invalid">Unsupported component identifier</string>
     <string name="root_component_protected">Core system/management component; display only</string>
     <string name="root_state_read_failed">Failed to read state; refresh and try again</string>
@@ -12,7 +12,7 @@
     <string name="root_component_missing">The component disappeared or no longer belongs to this category; refresh</string>
     <string name="root_component_changed">The component state changed elsewhere; refresh and try again</string>
     <string name="root_already_target_state">The system is already in the requested state; no command was run</string>
-    <string name="root_command_incomplete">Root command did not complete: %1$s; refresh and verify the actual state</string>
+    <string name="root_command_incomplete">Root command did not complete; refresh and verify the actual state</string>
     <string name="root_operation_unconfirmed">The operation could not be confirmed (exit code %1$d, system state %2$s). Check Root permission and refresh; it will not retry automatically.</string>
     <string name="root_verified_enabled">Verified: component enabled; original tile/widget placement is not guaranteed to be restored</string>
     <string name="root_verified_disabled">Verified: component disabled; reopen the target resolver</string>
