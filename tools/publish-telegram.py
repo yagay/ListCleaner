@@ -2,8 +2,9 @@
 """Publish a verified GitHub Release APK to the List Cleaner Telegram channel.
 
 The bot token is read only from TELEGRAM_BOT_TOKEN. A marker asset stores the
-Release-body digest after Telegram confirms delivery, so reruns do not resend
-identical release notes but can republish when the published notes change.
+Release-body digest and Telegram message id. Identical reruns are skipped; when
+the same release notes change, the previous Telegram post is deleted first and
+then replaced with the refreshed APK post.
 """
 import hashlib
 import json
@@ -13,6 +14,7 @@ import re
 import subprocess
 import tempfile
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 
@@ -64,7 +66,6 @@ def compact_notes(body, limit=620):
     chinese = re.sub(r"^#.*?\n+", "", chinese, count=1).strip()
     chinese = re.sub(r"^## 中文\n+", "", chinese, count=1).strip()
     english = english.strip()
-    # Telegram captions are short; reserve space for both sections while keeping Chinese first.
     zh = _compact(chinese, 350)
     en = _compact(english, 230)
     return f"中文\n{zh}\n\nEnglish\n{en}"
@@ -84,6 +85,48 @@ def make_caption(version, body, release_url):
     ]
     caption = "\n".join(parts)
     return caption[:900]
+
+
+def telegram_call(token, method, fields):
+    payload = urllib.parse.urlencode(fields).encode("utf-8")
+    request = urllib.request.Request(
+        f"https://api.telegram.org/bot{token}/{method}",
+        data=payload,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            result = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        detail = ""
+        try:
+            body = json.loads(error.read().decode("utf-8"))
+            detail = body.get("description", "")
+        except Exception:
+            pass
+        message = f"Telegram {method} failed: HTTP {error.code}"
+        if detail:
+            message += f" - {detail}"
+        raise RuntimeError(message) from error
+    if not result.get("ok"):
+        raise RuntimeError(f"Telegram {method} rejected the request: {result.get('description', 'unknown error')}")
+    return result.get("result")
+
+
+def delete_message(token, chat_id, message_id):
+    if not message_id:
+        return False
+    try:
+        telegram_call(token, "deleteMessage", {"chat_id": chat_id, "message_id": int(message_id)})
+        print(f"Deleted previous Telegram release post: chat={chat_id}; message_id={message_id}")
+        return True
+    except RuntimeError as error:
+        text = str(error).lower()
+        if "message to delete not found" in text or "message can't be deleted" in text:
+            print(f"Previous Telegram post could not be deleted ({error}); continuing with replacement send.")
+            return False
+        raise
 
 
 def multipart(fields, file_field, filename, payload):
@@ -164,6 +207,7 @@ def main():
 
     with tempfile.TemporaryDirectory(prefix="listcleaner-telegram-") as directory:
         directory = Path(directory)
+        marker_data = {}
         if marker_asset:
             gh("release", "download", tag, "--repo", SOURCE, "--dir", str(directory), "--pattern", MARKER_NAME)
             marker_path = directory / MARKER_NAME
@@ -179,6 +223,12 @@ def main():
         apk = directory / apk_name
         if not apk.is_file() or apk.stat().st_size == 0:
             raise ValueError("Downloaded APK is empty")
+
+        old_message_id = marker_data.get("message_id")
+        old_chat_id = marker_data.get("chat_id") or chat_id
+        if old_message_id:
+            delete_message(token, old_chat_id, old_message_id)
+
         caption = make_caption(version, release_body, release["html_url"])
         message_id = send_document(token, chat_id, apk, caption)
         marker = directory / MARKER_NAME
