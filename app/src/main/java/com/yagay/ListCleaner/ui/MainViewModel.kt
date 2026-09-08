@@ -34,6 +34,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -91,14 +93,25 @@ private fun appSelectionRank(group: AppGroup, selected: Set<ComponentRule>): Int
     }
 }
 
-fun groupCandidates(
-    candidates: List<ComponentCandidate>,
+private fun baseAppGroups(candidates: List<ComponentCandidate>): List<AppGroup> =
+    candidates.groupBy { it.rule.packageName }.map { (_, all) ->
+        val first = all.first()
+        AppGroup(
+            first.rule.packageName,
+            first.appLabel,
+            first.appIcon,
+            all.sortedBy { it.rule.kind.ordinal }
+        )
+    }
+
+private fun filterAppGroups(
+    groups: List<AppGroup>,
     selected: Set<ComponentRule>,
     filter: IntentKind?,
     query: String,
     uiFilter: UiFilter
-): List<AppGroup> = candidates.groupBy { it.rule.packageName }.mapNotNull { (_, all) ->
-    val matching = all.filter {
+): List<AppGroup> = groups.mapNotNull { group ->
+    val matching = group.components.filter {
         val isSelected = it.rule in selected
         val matchesUiFilter = when (uiFilter) {
             UiFilter.ALL -> true
@@ -107,18 +120,21 @@ fun groupCandidates(
         }
         catalogVisible(it, isSelected, uiFilter) && matchesUiFilter &&
             (filter == null || it.rule.kind == filter) && it.matchesQuery(query)
-    }.sortedBy { it.rule.kind.ordinal }
-    if (matching.isEmpty()) null else AppGroup(
-        all.first().rule.packageName,
-        all.first().appLabel,
-        all.first().appIcon,
-        matching
-    )
+    }
+    if (matching.isEmpty()) null else group.copy(components = matching)
 }.sortedWith(
     compareBy<AppGroup> { appSelectionRank(it, selected) }
-        .thenBy { it.appLabel.lowercase() }
+        .thenBy { it.components.firstOrNull()?.normalizedAppLabel ?: it.appLabel.lowercase() }
         .thenBy { it.packageName }
 )
+
+fun groupCandidates(
+    candidates: List<ComponentCandidate>,
+    selected: Set<ComponentRule>,
+    filter: IntentKind?,
+    query: String,
+    uiFilter: UiFilter
+): List<AppGroup> = filterAppGroups(baseAppGroups(candidates), selected, filter, query, uiFilter)
 
 fun retainConfiguredCandidates(
     items: List<ComponentCandidate>,
@@ -236,6 +252,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val error = MutableStateFlow<String?>(null)
     private val filter = MutableStateFlow<IntentKind?>(null)
     private val query = MutableStateFlow("")
+    @OptIn(kotlinx.coroutines.FlowPreview::class)
+    private val debouncedQuery = query.debounce(120).distinctUntilChanged()
     private val uiFilter = MutableStateFlow(UiFilter.ALL)
     private val moduleStatus: StateFlow<ModuleStatus> = moduleRuntime.status
     private val destination = MutableStateFlow(Destination.RULES)
@@ -295,27 +313,45 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private data class PreparedCandidates(
+        val candidates: List<ComponentCandidate>,
+        val selected: Set<ComponentRule>,
+        val groups: List<AppGroup>
+    )
+
     private data class ListContent(
         val candidates: List<ComponentCandidate>,
         val filter: IntentKind?,
-        val query: String,
         val groups: List<AppGroup>,
         val selected: Set<ComponentRule> = emptySet(),
         val uiFilter: UiFilter = UiFilter.ALL
     )
 
-    private val grouped = combine(candidates, app.rules.rules, filter, query, uiFilter) {
-        scanned, selected, kind, text, ui ->
+    private val preparedCandidates = combine(candidates, app.rules.rules) { scanned, selected ->
         val items = retainConfiguredCandidates(
             scanned,
             selected,
             app.getString(R.string.candidate_configured_not_observed)
         )
-        ListContent(items, kind, text, groupCandidates(items, selected, kind, text, ui), selected, ui)
+        PreparedCandidates(items, selected, baseAppGroups(items))
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
-        ListContent(emptyList(), null, "", emptyList())
+        PreparedCandidates(emptyList(), emptySet(), emptyList())
+    )
+
+    private val grouped = combine(preparedCandidates, filter, debouncedQuery, uiFilter) { prepared, kind, text, ui ->
+        ListContent(
+            prepared.candidates,
+            kind,
+            filterAppGroups(prepared.groups, prepared.selected, kind, text, ui),
+            prepared.selected,
+            ui
+        )
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        ListContent(emptyList(), null, emptyList())
     )
 
     val state: StateFlow<MainState> = combine(
@@ -331,7 +367,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         destination,
         expandedAppKey,
         app.rules.hiddenFromApps,
-        app.rules.openTypes
+        app.rules.openTypes,
+        query
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         val content = values[3] as ListContent
@@ -346,7 +383,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             runtime = values[4] as RuntimeStatus,
             displayMode = values[5] as DisplayMode,
             filter = content.filter,
-            query = content.query,
+            query = values[13] as String,
             priorities = priorityConfig,
             groups = content.groups,
             diagnosticMode = values[7] as Boolean,
@@ -385,7 +422,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refresh()
     }
 
-    fun refresh() {
+    fun refresh(forceCatalog: Boolean = false) {
         val generation = ++refreshGeneration
         refreshJob?.cancel()
         refreshJob = viewModelScope.launch {
@@ -397,7 +434,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 candidates.value = app.catalog.completeConfigured(candidates.value, configured)
                 check(app.synchronize()) { app.runtime.value.message }
                 val session = app.currentSession()
-                val result = app.catalog.scan(app.rules.openTypes.value.customDefinitions)
+                val result = app.catalog.scan(app.rules.openTypes.value.customDefinitions, force = forceCatalog)
                 check(app.isCurrent(session)) { app.getString(R.string.runtime_connection_changed) }
                 check(app.synchronize()) { app.runtime.value.message }
                 if (generation == refreshGeneration && app.isCurrent(session)) {
