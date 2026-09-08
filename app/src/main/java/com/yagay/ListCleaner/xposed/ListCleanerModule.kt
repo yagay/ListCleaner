@@ -614,6 +614,23 @@ class ListCleanerModule : XposedModule() {
         }
     }
 
+    private fun resolveQueryMime(
+        chain: XposedInterface.Chain,
+        intent: Intent,
+        layer: Layer,
+        systemResolvedType: String?
+    ): String? {
+        intent.type?.let { return it }
+        if (layer == Layer.SYSTEM) return systemResolvedType
+        val data = intent.data ?: return null
+        if (data.scheme != "content") return null
+        val receiver = chain.thisObject ?: return null
+        val context = runCatching { OrderingAccess.field(receiver, "mContext") as? Context }.getOrNull() ?: return null
+        return runCatching { intent.resolveTypeIfNeeded(context.contentResolver) }
+            .onFailure { diagnostic("MIME_RESOLVE_FAILED layer=$layer error=${it.javaClass.name}") }
+            .getOrNull()
+    }
+
     private fun processQuery(chain: XposedInterface.Chain, original: Any?, layer: Layer, callerUid: Int): Any? {
         val outerIntent = chain.args.firstOrNull { it is Intent } as? Intent
         val intent = outerIntent?.selector ?: outerIntent
@@ -639,6 +656,10 @@ class ListCleanerModule : XposedModule() {
             }
             return original
         }
+        if (layer == Layer.SYSTEM && !FilterPolicy.ordinaryAppCaller(callerUid)) {
+            diagnostic("FILTER_SKIP reason=privileged_caller uid=$callerUid")
+            return original
+        }
         val moduleAppId = snapshot.managerAppId
         if (layer == Layer.SYSTEM && !ManagerIdentity.valid(moduleAppId)) {
             diagnostic("FILTER_PAUSED reason=manager_identity_unknown open_module_app_to_sync")
@@ -649,7 +670,8 @@ class ListCleanerModule : XposedModule() {
             return original
         }
         val intentIndex = chain.args.indexOfFirst { it is Intent }
-        val resolvedType = if (layer == Layer.SYSTEM) chain.args.getOrNull(intentIndex + 1) as? String else null
+        val systemResolvedType = if (layer == Layer.SYSTEM) chain.args.getOrNull(intentIndex + 1) as? String else null
+        val resolvedType = intent?.let { resolveQueryMime(chain, it, layer, systemResolvedType) }
         val kind = intent?.intentKind(resolvedType)
         val explicit = intent?.component != null || intent?.`package` != null ||
             outerIntent?.component != null || outerIntent?.`package` != null
@@ -661,7 +683,7 @@ class ListCleanerModule : XposedModule() {
                 diagnostic("FIRST_QUERY_STACK layer=$layer kind=$kind callerUid=$callerUid action=${intent.action} " +
                     Throwable().stackTrace.take(14).joinToString(" <- ") { "${it.className}.${it.methodName}" })
             }
-            diagnostic("QUERY layer=$layer kind=$kind action=${intent.action} mime=${intent.type ?: resolvedType} " +
+            diagnostic("QUERY layer=$layer kind=$kind action=${intent.action} mime=$resolvedType " +
                 "scheme=${intent.data?.scheme} ext=${safeExtension(intent.data?.lastPathSegment ?: intent.data?.path)} " +
                 "component=${intent.component?.flattenToShortString()} package=${intent.`package`} callerUid=$callerUid " +
                 "result=${original?.javaClass?.name} rules=${snapshot.configured.size} mode=${snapshot.displayMode}")
@@ -671,7 +693,7 @@ class ListCleanerModule : XposedModule() {
             return original
         }
         if (kind == null) {
-            if (intent.action == Intent.ACTION_VIEW) diagnostic("SKIP_UNCLASSIFIED scheme=${intent.data?.scheme} mime=${intent.type ?: resolvedType}")
+            if (intent.action == Intent.ACTION_VIEW) diagnostic("SKIP_UNCLASSIFIED scheme=${intent.data?.scheme} mime=$resolvedType")
             return original
         }
         val extracted = extractListResult(original) ?: run {
@@ -680,7 +702,7 @@ class ListCleanerModule : XposedModule() {
         }
         val data = intent.data
         val replacement = transform(
-            kind, extracted.values, layer, callerUid, intent.type ?: resolvedType,
+            kind, extracted.values, layer, callerUid, resolvedType,
             data?.scheme, data?.lastPathSegment ?: data?.path
         ) ?: return original
         return runCatching { extracted.rebuild(replacement) }.getOrElse {
