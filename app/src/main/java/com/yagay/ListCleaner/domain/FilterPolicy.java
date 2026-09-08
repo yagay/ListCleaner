@@ -4,6 +4,13 @@ package com.yagay.ListCleaner.domain;
 public final class FilterPolicy {
     private FilterPolicy() {}
 
+    /** Android application UIDs start at 10000. System/privileged callers must not have their
+     * package-manager query results rewritten by the system_server hook. Resolver UI filtering
+     * has its own client-side hook, so this boundary avoids changing unrelated framework work. */
+    public static boolean ordinaryAppCaller(int callerUid) {
+        return callerUid >= 10_000;
+    }
+
     public static boolean sameCaller(int callerUid, int targetUid) {
         return callerUid >= 0 && callerUid == targetUid;
     }
