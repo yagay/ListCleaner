@@ -1,5 +1,7 @@
 package com.yagay.ListCleaner.domain
 
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -131,10 +133,23 @@ private val OPAQUE_FILE_MIMES = setOf(
     "application/x-download"
 )
 
+/**
+ * SAF/document providers commonly embed a display path inside a document id, for example
+ * `primary%3ADownload%2Fbook.pdf`. Decode only percent escapes (not `+`) before taking the
+ * extension so typed OPEN fallback still works when a provider supplies no useful MIME type.
+ */
 private fun normalizedExtension(fileNameOrPath: String?): String? {
-    val clean = fileNameOrPath?.trim()?.substringBefore('?')?.substringBefore('#')?.lowercase().orEmpty()
-    if (clean.isEmpty()) return null
-    return clean.substringAfterLast('/', clean).substringAfterLast('.', "").takeIf { it.isNotEmpty() }
+    val raw = fileNameOrPath?.trim()?.substringBefore('?')?.substringBefore('#').orEmpty()
+    if (raw.isEmpty()) return null
+    val clean = if ('%' in raw) {
+        runCatching {
+            URLDecoder.decode(raw.replace("+", "%2B"), StandardCharsets.UTF_8.name())
+        }.getOrDefault(raw)
+    } else raw
+    return clean.lowercase()
+        .substringAfterLast('/', clean.lowercase())
+        .substringAfterLast('.', "")
+        .takeIf { it.isNotEmpty() }
 }
 
 private fun matchOpenPresetByExtension(fileNameOrPath: String?): OpenPreset? = when (normalizedExtension(fileNameOrPath)) {
