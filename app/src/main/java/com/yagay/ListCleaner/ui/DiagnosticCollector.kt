@@ -29,8 +29,8 @@ object DiagnosticCollector {
         val output = File.createTempFile("ListCleaner-diagnostic-", ".zip", context.cacheDir)
         try {
             ZipOutputStream(BufferedOutputStream(FileOutputStream(output))).use { zip ->
-                zip.addText("README.zh-CN.txt", readmeZh())
-                zip.addText("README.en.txt", readmeEn())
+                zip.addText("README.zh-CN.txt", localizedReadme(context, "zh-CN"))
+                zip.addText("README.en.txt", localizedReadme(context, "en"))
                 zip.addText("app/module-state.txt", moduleState(state))
                 zip.addText("app/rules.txt", rules(state))
                 zip.addText("app/root-components.txt", buildString {
@@ -145,43 +145,11 @@ object DiagnosticCollector {
         appendLine("incremental=${Build.VERSION.INCREMENTAL}"); appendLine("fingerprint=${Build.FINGERPRINT}"); appendLine("supportedAbis=${Build.SUPPORTED_ABIS.joinToString()}")
     }
 
-    private fun readmeZh(): String = """
-        ListCleaner 诊断包
-        此诊断包以只读方式生成，不会执行改变系统状态的命令。
-
-        内容：
-        - app/：模块状态、LSPosed 作用域、运行目标、当前规则和分类 OPEN 配置
-        - device/：Android 与构建信息
-        - logcat/：模块、框架、选择器日志，Activity 事件、崩溃和日志缓冲区状态
-        - lsposed/：24 小时内修改的最新 12 个 LSPosed 日志，每个最多保留 4 MiB
-        - root/：Root 状态和已安装模块元数据
-
-        logcat 和 LSPosed 日志可能包含包名、路径或用户活动，分享前请检查。
-        ListCleaner 运行时消息只记录文件扩展名和识别类型，不记录完整文件名或 URI。
-        大型数据流会保留开头和最新结尾，并明确标记被省略的字节。
-        每个条目的存储有上限（通常为 8 MiB）；已经被覆盖的启动日志无法恢复。
-        模块还会通过 API 102 log(int, String, String) 向框架日志写入生命周期和限频诊断消息。
-        模块不会记录完整 Intent 或 extras。
-    """.trimIndent()
-
-    private fun readmeEn(): String = """
-        ListCleaner diagnostic package
-        This diagnostic package is generated read-only. No command changes system state.
-
-        Contents:
-        - app/: module state, LSPosed scope, running targets, active rules and typed OPEN configuration
-        - device/: Android and build information
-        - logcat/: module, framework and resolver logs, activity events, crash and buffer state
-        - lsposed/: newest 12 LSPosed log files modified within 24 hours, each retaining up to 4 MiB
-        - root/: Root status and installed module metadata
-
-        Logcat and LSPosed logs may contain package names, paths, or user activity. Review them before sharing.
-        Runtime ListCleaner messages log file extensions and recognized types, not full file names or URIs.
-        Large streams retain their beginning and latest end, with an explicit omitted-byte marker.
-        Storage is bounded per entry (normally 8 MiB); startup logs already overwritten cannot be recovered.
-        The module also writes lifecycle and rate-limited diagnostic messages to the framework log through
-        API 102 log(int, String, String). The module does not log full Intents or extras.
-    """.trimIndent()
+    private fun localizedReadme(context: Context, localeTag: String): String {
+        val configuration = android.content.res.Configuration(context.resources.configuration)
+        configuration.setLocale(java.util.Locale.forLanguageTag(localeTag))
+        return context.createConfigurationContext(configuration).getString(com.yagay.ListCleaner.R.string.diagnostic_readme)
+    }
 
     private fun root(command: String, maxBytes: Int = MAX_TEXT_BYTES): Capture {
         if (Thread.currentThread().isInterrupted) throw InterruptedException("Collection cancelled")
