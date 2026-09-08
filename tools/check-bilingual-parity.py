@@ -8,8 +8,13 @@ ROOT = Path(__file__).resolve().parents[1]
 PAIRS = [
     ("README.md", "README.en.md"),
     ("docs/LOCALIZATION.md", "docs/LOCALIZATION.en.md"),
+    ("docs/RELEASE.md", "docs/RELEASE.en.md"),
     ("docs/lsposed/README.md", "docs/lsposed/README.en.md"),
     ("docs/lsposed/SUMMARY", "docs/lsposed/SUMMARY.en"),
+]
+
+FORBIDDEN_LEGACY = [
+    "docs/RELEASE.zh-CN.md",
 ]
 
 errors = []
@@ -36,6 +41,10 @@ for zh_name, en_name in PAIRS:
             errors.append(f"section markers differ: {zh_name} <-> {en_name}: {zh_markers} != {en_markers}")
     elif headings(zh) != headings(en):
         errors.append(f"heading structure differs: {zh_name} <-> {en_name}")
+
+for legacy in FORBIDDEN_LEGACY:
+    if (ROOT / legacy).exists():
+        errors.append(f"legacy duplicate bilingual document must be removed: {legacy}")
 
 # Android resource keys must match exactly for the two maintained languages.
 def resources(directory: Path):
