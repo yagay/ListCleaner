@@ -28,7 +28,7 @@ class OpenTypeConfigTest {
                 OpenPreset.CUSTOM_1 to CustomOpenDefinition("Kindle", extensions = setOf("azw3"))
             )
         ).validated()
-        assertEquals("Kindle", config.titleFor(OpenPreset.CUSTOM_1))
+        assertEquals("Kindle", config.customDefinitions[OpenPreset.CUSTOM_1]?.title)
         assertTrue(OpenPreset.CUSTOM_1 in config.configuredPresets())
         assertFalse(OpenPreset.CUSTOM_2 in config.configuredPresets())
     }
