@@ -1,6 +1,7 @@
 package com.yagay.ListCleaner.data
 
 import android.content.Context
+import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.RuleBackup
 import com.yagay.ListCleaner.domain.DisplayMode
@@ -18,7 +19,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
 
 class RuleRepository(context: Context) {
-    private val prefs = context.getSharedPreferences(LOCAL_PREFS, Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences(LOCAL_PREFS, Context.MODE_PRIVATE)
     private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
     private val mutableRules = MutableStateFlow(
         prefs.getStringSet(KEY_RULES, emptySet()).orEmpty().mapNotNull(ComponentRule::fromId).toSet()
@@ -83,7 +85,7 @@ class RuleRepository(context: Context) {
         val valid = packages.asSequence().map(String::trim)
             .filter { it.isNotEmpty() && it != "android" && it != self && it.length <= 255 && it.none { ch -> ch.isWhitespace() || ch.isISOControl() || ch == '|' } }
             .take(2_001).toSet()
-        require(valid.size <= 2_000) { "隐藏应用列表数量过多" }
+        require(valid.size <= 2_000) { appContext.getString(R.string.repo_hidden_apps_too_many) }
         if (valid == mutableHiddenFromApps.value) return
         mutableHiddenFromApps.value = valid
         prefs.edit().putStringSet(KEY_HIDDEN_FROM_APPS, valid).apply()
@@ -108,7 +110,7 @@ class RuleRepository(context: Context) {
     }
 
     @Synchronized fun setCustomOpenDefinition(preset: OpenPreset, definition: CustomOpenDefinition?) {
-        require(preset.isCustom) { "只能编辑自定义打开类型槽位" }
+        require(preset.isCustom) { appContext.getString(R.string.repo_custom_slot_only) }
         val current = mutableOpenTypes.value
         val definitions = current.customDefinitions.toMutableMap()
         val rules = current.rules.toMutableMap()
@@ -123,11 +125,16 @@ class RuleRepository(context: Context) {
 
     @Synchronized fun setOpenTypeSelected(preset: OpenPreset, rules: Collection<ComponentRule>, selected: Boolean) {
         require(preset != OpenPreset.BROWSER)
-        if (preset.isCustom) require(preset in mutableOpenTypes.value.customDefinitions) { "自定义类型尚未配置" }
-        val ids = rules.filter { it.kind == IntentKind.OPEN && it.isValid() }.map { requireNotNull(ComponentRule.fromId(it.id)).id }.toSet()
+        if (preset.isCustom) require(preset in mutableOpenTypes.value.customDefinitions) {
+            appContext.getString(R.string.repo_custom_type_not_configured)
+        }
+        val ids = rules.filter { it.kind == IntentKind.OPEN && it.isValid() }
+            .map { requireNotNull(ComponentRule.fromId(it.id)).id }.toSet()
         if (ids.isEmpty()) return
         val map = mutableOpenTypes.value.rules.toMutableMap()
-        val nextSet = map[preset].orEmpty().toMutableSet().apply { if (selected) addAll(ids) else removeAll(ids) }
+        val nextSet = map[preset].orEmpty().toMutableSet().apply {
+            if (selected) addAll(ids) else removeAll(ids)
+        }
         if (nextSet.isEmpty()) map.remove(preset) else map[preset] = nextSet
         setOpenTypes(mutableOpenTypes.value.copy(rules = map))
     }
@@ -139,18 +146,25 @@ class RuleRepository(context: Context) {
 
     @Synchronized fun invertOpenTypeSelected(preset: OpenPreset, rules: Collection<ComponentRule>) {
         require(preset != OpenPreset.BROWSER)
-        if (preset.isCustom) require(preset in mutableOpenTypes.value.customDefinitions) { "自定义类型尚未配置" }
-        val valid = rules.filter { it.kind == IntentKind.OPEN && it.isValid() }.map { requireNotNull(ComponentRule.fromId(it.id)).id }.distinct()
+        if (preset.isCustom) require(preset in mutableOpenTypes.value.customDefinitions) {
+            appContext.getString(R.string.repo_custom_type_not_configured)
+        }
+        val valid = rules.filter { it.kind == IntentKind.OPEN && it.isValid() }
+            .map { requireNotNull(ComponentRule.fromId(it.id)).id }.distinct()
         if (valid.isEmpty()) return
         val map = mutableOpenTypes.value.rules.toMutableMap()
-        val nextSet = map[preset].orEmpty().toMutableSet().apply { valid.forEach { if (!add(it)) remove(it) } }
+        val nextSet = map[preset].orEmpty().toMutableSet().apply {
+            valid.forEach { if (!add(it)) remove(it) }
+        }
         if (nextSet.isEmpty()) map.remove(preset) else map[preset] = nextSet
         setOpenTypes(mutableOpenTypes.value.copy(rules = map))
     }
 
     @Synchronized fun setOpenTypePriority(preset: OpenPreset, packages: List<String>) {
         require(preset != OpenPreset.BROWSER)
-        if (preset.isCustom) require(preset in mutableOpenTypes.value.customDefinitions) { "自定义类型尚未配置" }
+        if (preset.isCustom) require(preset in mutableOpenTypes.value.customDefinitions) {
+            appContext.getString(R.string.repo_custom_type_not_configured)
+        }
         val map = mutableOpenTypes.value.priorities.toMutableMap().apply {
             if (packages.isEmpty()) remove(preset) else put(preset, packages.toList())
         }
@@ -183,10 +197,14 @@ class RuleRepository(context: Context) {
     }
 
     @Synchronized fun setComponentTitle(ruleId: String, title: String?) {
-        val parsed = requireNotNull(ComponentRule.fromId(ruleId)) { "无效的组件标识" }
-        require(parsed.id == ruleId) { "组件标识必须使用规范化类名" }
+        val parsed = requireNotNull(ComponentRule.fromId(ruleId)) {
+            appContext.getString(R.string.repo_invalid_component_id)
+        }
+        require(parsed.id == ruleId) { appContext.getString(R.string.repo_component_id_not_normalized) }
         val trimmed = title?.trim().orEmpty()
-        val titles = mutablePriorities.value.titles.toMutableMap().apply { if (trimmed.isEmpty()) remove(ruleId) else put(ruleId, trimmed) }
+        val titles = mutablePriorities.value.titles.toMutableMap().apply {
+            if (trimmed.isEmpty()) remove(ruleId) else put(ruleId, trimmed)
+        }
         val next = mutablePriorities.value.copy(titles = titles).validated()
         if (next == mutablePriorities.value) return
         prefs.edit().putString(KEY_PRIORITIES, encodePriorities(next)).apply()
@@ -194,24 +212,29 @@ class RuleRepository(context: Context) {
         mutableRevision.value++
     }
 
-    fun encodePriorities(value: PriorityConfig = mutablePriorities.value): String = json.encodeToString(PriorityConfig.serializer(), value)
+    fun encodePriorities(value: PriorityConfig = mutablePriorities.value): String =
+        json.encodeToString(PriorityConfig.serializer(), value)
 
     @Synchronized fun toggle(rule: ComponentRule) {
-        require(rule.isValid()) { "无效的组件规则" }
+        require(rule.isValid()) { appContext.getString(R.string.repo_invalid_component_rule) }
         val canonical = requireNotNull(ComponentRule.fromId(rule.id))
         updateRules(mutableRules.value.toMutableSet().apply { if (!add(canonical)) remove(canonical) }.toSet())
     }
 
     @Synchronized fun setSelected(rules: Collection<ComponentRule>, selected: Boolean) {
         val valid = rules.filter(ComponentRule::isValid).mapNotNull { ComponentRule.fromId(it.id) }
-        val next = mutableRules.value.toMutableSet().apply { if (selected) addAll(valid) else removeAll(valid.toSet()) }.toSet()
+        val next = mutableRules.value.toMutableSet().apply {
+            if (selected) addAll(valid) else removeAll(valid.toSet())
+        }.toSet()
         updateRules(next)
     }
 
     @Synchronized fun invertSelected(rules: Collection<ComponentRule>) {
         val valid = rules.filter(ComponentRule::isValid).mapNotNull { ComponentRule.fromId(it.id) }.distinct()
         if (valid.isEmpty()) return
-        updateRules(mutableRules.value.toMutableSet().apply { valid.forEach { rule -> if (!add(rule)) remove(rule) } }.toSet())
+        updateRules(mutableRules.value.toMutableSet().apply {
+            valid.forEach { rule -> if (!add(rule)) remove(rule) }
+        }.toSet())
     }
 
     @Synchronized fun setDisplayMode(value: DisplayMode) {
@@ -225,9 +248,10 @@ class RuleRepository(context: Context) {
         rules: Set<ComponentRule>, blacklist: Boolean, priorities: PriorityConfig = PriorityConfig(),
         displayMode: DisplayMode = DisplayMode.fromStored(null, blacklist), openTypes: OpenTypeConfig = OpenTypeConfig()
     ) {
-        require(rules.size <= MAX_RULES) { "备份规则数量过多" }
-        require(rules.all(ComponentRule::isValid)) { "备份包含无效组件" }
-        priorities.validated(); openTypes.validated()
+        require(rules.size <= MAX_RULES) { appContext.getString(R.string.repo_backup_too_many_rules) }
+        require(rules.all(ComponentRule::isValid)) { appContext.getString(R.string.repo_backup_invalid_component) }
+        priorities.validated()
+        openTypes.validated()
         mutableRules.value = rules.mapNotNull { ComponentRule.fromId(it.id) }.toSet()
         mutableMode.value = displayMode
         mutablePriorities.value = priorities
@@ -247,28 +271,41 @@ class RuleRepository(context: Context) {
 
     @Synchronized fun exportJson(): String = json.encodeToString(
         RuleBackup.serializer(),
-        RuleBackup(version = 9, blacklist = mutableMode.value != DisplayMode.SHOW_SELECTED, rules = mutableRules.value,
-            priorities = mutablePriorities.value, displayMode = mutableMode.value,
-            hiddenFromApps = mutableHiddenFromApps.value, openTypes = mutableOpenTypes.value,
-            visibilityScopes = mutableVisibilityScopes.value)
+        RuleBackup(
+            version = 9,
+            blacklist = mutableMode.value != DisplayMode.SHOW_SELECTED,
+            rules = mutableRules.value,
+            priorities = mutablePriorities.value,
+            displayMode = mutableMode.value,
+            hiddenFromApps = mutableHiddenFromApps.value,
+            openTypes = mutableOpenTypes.value,
+            visibilityScopes = mutableVisibilityScopes.value
+        )
     )
 
     fun importJson(content: String) {
-        require(content.length <= MAX_BACKUP_CHARS) { "备份文件过大" }
+        require(content.length <= MAX_BACKUP_CHARS) { appContext.getString(R.string.repo_backup_too_large) }
         val backup = json.decodeFromString(RuleBackup.serializer(), content)
-        require(backup.version in 1..9) { "不支持的备份版本：${backup.version}" }
+        require(backup.version in 1..9) {
+            appContext.getString(R.string.repo_backup_unsupported_version, backup.version)
+        }
         // Legacy tiles/defaultOpen are deliberately ignored: those features no longer have runtime consumers.
-        replace(backup.rules, backup.blacklist,
+        replace(
+            backup.rules,
+            backup.blacklist,
             if (backup.version == 1) PriorityConfig() else backup.priorities,
-            if (backup.version >= 3) requireNotNull(backup.displayMode) { "备份缺少显示模式" } else DisplayMode.fromStored(null, backup.blacklist),
-            if (backup.version >= 7) backup.openTypes else OpenTypeConfig())
+            if (backup.version >= 3) requireNotNull(backup.displayMode) {
+                appContext.getString(R.string.repo_backup_missing_display_mode)
+            } else DisplayMode.fromStored(null, backup.blacklist),
+            if (backup.version >= 7) backup.openTypes else OpenTypeConfig()
+        )
         setHiddenFromApps(if (backup.version >= 5) backup.hiddenFromApps else emptySet())
         setVisibilityScopes(if (backup.version >= 9) backup.visibilityScopes else emptySet())
         markInitialized()
     }
 
     private fun updateRules(next: Set<ComponentRule>) {
-        require(next.size <= MAX_RULES) { "规则数量过多" }
+        require(next.size <= MAX_RULES) { appContext.getString(R.string.repo_too_many_rules) }
         if (next == mutableRules.value) return
         mutableRules.value = next
         prefs.edit().putStringSet(KEY_RULES, next.map(ComponentRule::id).toSet()).apply()
@@ -289,8 +326,16 @@ class RuleRepository(context: Context) {
         const val KEY_HIDDEN_FROM_APPS = "hidden_from_apps"
         const val KEY_OPEN_TYPES = "open_type_config"
         const val KEY_VISIBILITY_SCOPES = "visibility_scopes"
-        val SYNCED_KEYS = setOf(KEY_RULES, KEY_BLACKLIST, KEY_DISPLAY_MODE, KEY_PRIORITIES, KEY_DIAGNOSTIC,
-            KEY_HIDDEN_FROM_APPS, KEY_OPEN_TYPES, KEY_VISIBILITY_SCOPES)
+        val SYNCED_KEYS = setOf(
+            KEY_RULES,
+            KEY_BLACKLIST,
+            KEY_DISPLAY_MODE,
+            KEY_PRIORITIES,
+            KEY_DIAGNOSTIC,
+            KEY_HIDDEN_FROM_APPS,
+            KEY_OPEN_TYPES,
+            KEY_VISIBILITY_SCOPES
+        )
         private const val LOCAL_PREFS = "rules_local"
         private const val KEY_INITIALIZED = "configuration_initialized"
         private const val MAX_RULES = 20_000
