@@ -84,7 +84,7 @@ object DiagnosticCollector {
                         "echo ===\$(basename \"\$d\")===; " +
                         "sed -n '1,40p' \"\$d/module.prop\" 2>/dev/null; done"
                 ))
-                addRecentLsposedLogs(zip, context)
+                addRecentLsposedLogs(zip)
                 zip.addText("collection-finished.txt", "finishedAt=${Instant.now()}\n")
             }
             output
@@ -94,7 +94,7 @@ object DiagnosticCollector {
         }
     }
 
-    private fun addRecentLsposedLogs(zip: ZipOutputStream, context: Context) {
+    private fun addRecentLsposedLogs(zip: ZipOutputStream) {
         val evidence = DiagnosticEvidence()
         val listing = root("find /data/adb/lspd/log -type f -mmin -1440 -name '*.log' -exec stat -c '%Y %n' {} \\;", maxBytes = 512 * 1024)
         zip.addCapture("lsposed/listing.txt", listing)
@@ -111,9 +111,7 @@ object DiagnosticCollector {
             zip.addCapture(source, capture)
             capture.bytes.toString(StandardCharsets.UTF_8).lineSequence().forEach { line -> evidence.accept(source, line) }
         }
-        val body = evidence.reportBody()
-        zip.addText("analysis/module-evidence.zh-CN.txt", localizedString(context, "zh-CN", com.yagay.ListCleaner.R.string.diagnostic_evidence_intro) + "\n\n" + body)
-        zip.addText("analysis/module-evidence.en.txt", localizedString(context, "en", com.yagay.ListCleaner.R.string.diagnostic_evidence_intro) + "\n\n" + body)
+        zip.addText("analysis/module-evidence.txt", evidence.report())
     }
 
     private fun moduleState(state: MainState): String = buildString {
