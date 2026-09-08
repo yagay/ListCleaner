@@ -3,39 +3,39 @@ package com.yagay.ListCleaner.domain
 import kotlinx.serialization.Serializable
 
 @Serializable
-enum class OpenPreset(val title: String, val description: String) {
-    BROWSER("网页链接", "http / https 链接"),
-    PDF("PDF", "application/pdf"),
-    WORD("Word", "DOC / DOCX"),
-    EXCEL("Excel", "XLS / XLSX"),
-    POWERPOINT("PowerPoint", "PPT / PPTX"),
-    EPUB("电子书", "EPUB"),
-    APK("Android 安装包", "APK"),
-    TORRENT("BT 种子", ".torrent"),
-    MARKDOWN("Markdown", "text/markdown"),
-    CSV("CSV", "text/csv"),
-    JSON("JSON", "application/json"),
-    XML("XML", "application/xml / text/xml"),
-    SVG("SVG", "image/svg+xml"),
-    GIF("GIF", "image/gif"),
-    IMAGE("图片", "image/*"),
-    VIDEO("视频", "video/*"),
-    AUDIO("音频", "audio/*"),
-    TEXT("文本", "text/*"),
-    ARCHIVE("压缩包", "ZIP / RAR / 7Z / TAR / GZIP"),
-    MAGNET("磁力链接", "magnet:"),
-    GEO("地图位置", "geo:"),
-    MAILTO("邮件链接", "mailto:"),
-    TEL("电话链接", "tel:"),
-    SMS("短信链接", "sms: / smsto:"),
-    CUSTOM_1("自定义 1", "用户定义"),
-    CUSTOM_2("自定义 2", "用户定义"),
-    CUSTOM_3("自定义 3", "用户定义"),
-    CUSTOM_4("自定义 4", "用户定义"),
-    CUSTOM_5("自定义 5", "用户定义"),
-    CUSTOM_6("自定义 6", "用户定义"),
-    CUSTOM_7("自定义 7", "用户定义"),
-    CUSTOM_8("自定义 8", "用户定义");
+enum class OpenPreset {
+    BROWSER,
+    PDF,
+    WORD,
+    EXCEL,
+    POWERPOINT,
+    EPUB,
+    APK,
+    TORRENT,
+    MARKDOWN,
+    CSV,
+    JSON,
+    XML,
+    SVG,
+    GIF,
+    IMAGE,
+    VIDEO,
+    AUDIO,
+    TEXT,
+    ARCHIVE,
+    MAGNET,
+    GEO,
+    MAILTO,
+    TEL,
+    SMS,
+    CUSTOM_1,
+    CUSTOM_2,
+    CUSTOM_3,
+    CUSTOM_4,
+    CUSTOM_5,
+    CUSTOM_6,
+    CUSTOM_7,
+    CUSTOM_8;
 
     val isCustom: Boolean get() = this in CUSTOM_SLOTS
 
@@ -52,10 +52,10 @@ data class DefaultOpenConfig(
     fun validated(): DefaultOpenConfig {
         require(preferred.size <= OpenPreset.entries.size)
         preferred.forEach { (preset, id) ->
-            val rule = requireNotNull(ComponentRule.fromId(id)) { "默认打开组件无效" }
-            require(rule.id == id) { "默认打开组件必须使用规范化类名" }
+            val rule = requireNotNull(ComponentRule.fromId(id)) { "invalid_default_open_component" }
+            require(rule.id == id) { "default_open_component_not_normalized" }
             require(if (preset == OpenPreset.BROWSER) rule.kind == IntentKind.BROWSER else rule.kind == IntentKind.OPEN) {
-                "默认打开组件分类不匹配"
+                "default_open_component_kind_mismatch"
             }
         }
         return this
