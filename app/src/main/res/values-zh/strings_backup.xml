@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="backup_exported">备份已导出</string>
+    <string name="backup_restored">备份已恢复</string>
+    <string name="backup_export_failed">导出失败</string>
+    <string name="backup_restore_failed">恢复失败</string>
+    <string name="backup_create_failed">无法创建备份文件</string>
+    <string name="backup_read_failed">无法读取备份</string>
+</resources>
