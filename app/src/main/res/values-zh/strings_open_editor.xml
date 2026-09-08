@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="custom_open_mime_summary">MIME %1$s</string>
+    <string name="custom_open_extension_summary">后缀 %1$s</string>
+    <string name="custom_open_add_title">添加 %1$s</string>
+    <string name="custom_open_edit_title">编辑 %1$s</string>
+</resources>
