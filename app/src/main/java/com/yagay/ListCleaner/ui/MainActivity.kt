@@ -23,7 +23,6 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -76,7 +75,7 @@ class MainActivity : ComponentActivity() {
         val collectingDiagnostics by vm.collectingDiagnostics.collectAsStateWithLifecycle()
         val exportMessage by vm.exportMessage.collectAsStateWithLifecycle()
         LaunchedEffect(exportMessage) {
-            exportMessage?.let { toast(it, true); vm.clearExportMessage() }
+            exportMessage?.let { toast(UiText.translate(it), true); vm.clearExportMessage() }
         }
         val keyboard = LocalSoftwareKeyboardController.current
         val closeSearch: () -> Unit = {
@@ -98,8 +97,8 @@ class MainActivity : ComponentActivity() {
                         val output = contentResolver.openOutputStream(uri) ?: error("无法创建备份文件")
                         output.bufferedWriter().use { it.write(vm.exportJson()) }
                     }
-                }.onSuccess { toast("备份已导出") }
-                    .onFailure { toast(it.message ?: "导出失败", true) }
+                }.onSuccess { toast(UiText.translate("备份已导出")) }
+                    .onFailure { toast(UiText.translate(it.message ?: "导出失败"), true) }
             }
         }
         val restore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -109,8 +108,8 @@ class MainActivity : ComponentActivity() {
                     withContext(Dispatchers.IO) {
                         vm.importJson(readLimitedText(uri, MainViewModel.MAX_BACKUP_CHARS))
                     }
-                }.onSuccess { toast("备份已恢复") }
-                    .onFailure { toast(it.message ?: "恢复失败", true) }
+                }.onSuccess { toast(UiText.translate("备份已恢复")) }
+                    .onFailure { toast(UiText.translate(it.message ?: "恢复失败"), true) }
             }
         }
         val diagnosticExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
@@ -167,5 +166,5 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun toast(message: String, long: Boolean = false) =
-        Toast.makeText(this, message, if (long) Toast.LENGTH_LONG else Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, UiText.translate(message), if (long) Toast.LENGTH_LONG else Toast.LENGTH_SHORT).show()
 }
