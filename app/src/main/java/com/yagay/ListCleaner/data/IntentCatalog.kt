@@ -8,6 +8,7 @@ import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.util.LruCache
 import androidx.core.graphics.drawable.toBitmap
+import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.ComponentIdentity
 import com.yagay.ListCleaner.domain.ComponentRule
@@ -37,11 +38,17 @@ class IntentCatalog(private val context: Context) {
                 @Suppress("DEPRECATION")
                 context.packageManager.getApplicationInfo(rule.packageName, 0).loadLabel(context.packageManager).toString()
             }.getOrDefault(rule.packageName)
-            ComponentCandidate(rule, label, rule.className.substringAfterLast('.'),
+            ComponentCandidate(
+                rule,
+                label,
+                rule.className.substringAfterLast('.'),
                 loadAppIcon(rule.packageName) { context.packageManager.getApplicationIcon(rule.packageName) },
-                evidence = listOf("已配置；等待重新确认匹配"), unavailable = true)
+                evidence = listOf(context.getString(R.string.catalog_configured_waiting)),
+                unavailable = true
+            )
         }
     }
+
     private val appIconCache = LruCache<String, Bitmap>(128)
     @Volatile var lastReport: String = "Not scanned"
         private set
@@ -87,7 +94,7 @@ class IntentCatalog(private val context: Context) {
         val result = merge(found)
         report.appendLine("finishedAt=${Instant.now()} unique=${result.size} failures=$failures")
         lastReport = report.toString()
-        if (failures > 0) scanWarning = "部分扫描失败（$failures 项）；成功结果已更新，未匹配的已配置项可在“已选规则”中管理"
+        if (failures > 0) scanWarning = context.getString(R.string.catalog_partial_scan_failed, failures)
         mutableCandidates.value = result
         result
     }
@@ -96,8 +103,8 @@ class IntentCatalog(private val context: Context) {
         try {
             val mime = context.contentResolver.getType(uri)
             val intent = Intent(Intent.ACTION_VIEW).setDataAndType(uri, mime)
-            require(intent.intentKind() == IntentKind.OPEN) { "无法确认文件类型，未归入打开方式" }
-            val label = "实际文件检查 scheme=${uri.scheme} mime=$mime"
+            require(intent.intentKind() == IntentKind.OPEN) { context.getString(R.string.catalog_file_type_unconfirmed) }
+            val label = "REAL_FILE scheme=${uri.scheme} mime=$mime"
             val result = query(Probe(intent, false, label), discovery = false)
             lastFileReport = buildString {
                 appendLine("at=${Instant.now()} $label flags=0x${result.flags.toString(16)} raw=${result.raw} kept=${result.candidates.size}")
@@ -129,13 +136,17 @@ class IntentCatalog(private val context: Context) {
             val targetUid = activity.applicationInfo?.uid ?: -1
             val restricted = FilterPolicy.catalogRestricted(activity.exported, targetUid, managerUid)
             val facts = buildList {
-                add("启用状态以系统查询为准；元数据 activityEnabled=${activity.enabled} appEnabled=${activity.applicationInfo?.enabled}")
+                add("SYSTEM_STATE activityEnabled=${activity.enabled} appEnabled=${activity.applicationInfo?.enabled}")
                 add("exported=${activity.exported} targetUid=$targetUid managerUid=$managerUid")
-                if (activity.targetActivity?.isNotBlank() == true) add("activityAlias=${activity.name} targetActivity=${activity.targetActivity} canonical=$canonicalClass")
-                if (restricted) add("非公开的其他应用组件；不放入普通目录")
+                if (activity.targetActivity?.isNotBlank() == true) {
+                    add("activityAlias=${activity.name} targetActivity=${activity.targetActivity} canonical=$canonicalClass")
+                }
+                if (restricted) add("RESTRICTED non-exported foreign component; excluded from ordinary catalog")
                 activity.permission?.takeIf { it.isNotBlank() }?.let { permission ->
-                    val granted = runCatching { context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED }.getOrNull()
-                    add("permission=$permission managerGranted=${granted ?: "unknown"}；不代表实际来源应用权限")
+                    val granted = runCatching {
+                        context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+                    }.getOrNull()
+                    add("permission=$permission managerGranted=${granted ?: "unknown"}; source-app permission not inferred")
                 }
             }
             ComponentCandidate(
@@ -143,10 +154,12 @@ class IntentCatalog(private val context: Context) {
                 runCatching { activity.applicationInfo.loadLabel(context.packageManager).toString() }.getOrDefault(activity.packageName),
                 runCatching { info.loadLabel(context.packageManager).toString() }.getOrDefault(activity.name.substringAfterLast('.')),
                 loadAppIcon(activity.packageName) {
-                    runCatching { activity.applicationInfo.loadIcon(context.packageManager) }.getOrNull() ?: context.packageManager.defaultActivityIcon
+                    runCatching { activity.applicationInfo.loadIcon(context.packageManager) }.getOrNull()
+                        ?: context.packageManager.defaultActivityIcon
                 },
                 evidence = listOf(probe.label + " flags=0x${flags.toString(16)}") + facts,
-                restricted = restricted, broadMatch = probe.broad
+                restricted = restricted,
+                broadMatch = probe.broad
             )
         }
         return QueryResult(candidates, raw.size, flags)
@@ -154,7 +167,8 @@ class IntentCatalog(private val context: Context) {
 
     private fun loadAppIcon(packageName: String, loader: () -> Drawable): Bitmap? {
         appIconCache.get(packageName)?.let { return it }
-        return runCatching { loader().toBitmap(width = 96, height = 96) }.getOrNull()?.also { appIconCache.put(packageName, it) }
+        return runCatching { loader().toBitmap(width = 96, height = 96) }.getOrNull()
+            ?.also { appIconCache.put(packageName, it) }
     }
 
     private fun probes(customDefinitions: Map<OpenPreset, CustomOpenDefinition>): List<Probe> = buildList {
@@ -177,48 +191,77 @@ class IntentCatalog(private val context: Context) {
             definition.mimeTypes.take(24).forEachIndexed { index, mime ->
                 val sample = "custom-$index.$fallbackExt"
                 for (scheme in listOf("content", "file")) {
-                    val uri = if (scheme == "content") "content://com.yagay.ListCleaner.placeholder/$sample" else "file:///storage/emulated/0/Download/$sample"
-                    add(Probe(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(uri), mime), false,
-                        "CUSTOM preset=${preset.name} VIEW scheme=$scheme mime=$mime sample=$sample"))
+                    val uri = if (scheme == "content") {
+                        "content://com.yagay.ListCleaner.placeholder/$sample"
+                    } else {
+                        "file:///storage/emulated/0/Download/$sample"
+                    }
+                    add(Probe(
+                        Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(uri), mime),
+                        false,
+                        "CUSTOM preset=${preset.name} VIEW scheme=$scheme mime=$mime sample=$sample"
+                    ))
                 }
             }
             definition.extensions.take(48).forEach { ext ->
                 val sample = "custom.$ext"
                 val uri = "content://com.yagay.ListCleaner.placeholder/$sample"
-                add(Probe(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(uri), "application/octet-stream"), false,
-                    "CUSTOM preset=${preset.name} VIEW scheme=content mime=application/octet-stream sample=$sample"))
+                add(Probe(
+                    Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(uri), "application/octet-stream"),
+                    false,
+                    "CUSTOM preset=${preset.name} VIEW scheme=content mime=application/octet-stream sample=$sample"
+                ))
             }
         }
 
         for (scheme in listOf("http", "https")) {
-            add(Probe(Intent(Intent.ACTION_VIEW, Uri.parse("$scheme://example.com")).addCategory(Intent.CATEGORY_BROWSABLE), false, "网页 scheme=$scheme"))
+            add(Probe(
+                Intent(Intent.ACTION_VIEW, Uri.parse("$scheme://example.com")).addCategory(Intent.CATEGORY_BROWSABLE),
+                false,
+                "BROWSER scheme=$scheme"
+            ))
         }
         listOf(
             "magnet" to "magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567",
-            "geo" to "geo:0,0?q=London", "mailto" to "mailto:test@example.com", "tel" to "tel:123456789",
-            "sms" to "sms:123456789", "smsto" to "smsto:123456789"
-        ).forEach { (scheme, value) -> add(Probe(Intent(Intent.ACTION_VIEW, Uri.parse(value)), false, "VIEW scheme=$scheme")) }
+            "geo" to "geo:0,0?q=London",
+            "mailto" to "mailto:test@example.com",
+            "tel" to "tel:123456789",
+            "sms" to "sms:123456789",
+            "smsto" to "smsto:123456789"
+        ).forEach { (scheme, value) ->
+            add(Probe(Intent(Intent.ACTION_VIEW, Uri.parse(value)), false, "VIEW scheme=$scheme"))
+        }
         add(Probe(Intent(Intent.ACTION_PROCESS_TEXT).setType("text/plain"), false, "PROCESS_TEXT mime=text/plain"))
         for (mime in listOf("*/*", "image/*", "video/*", "audio/*")) {
             for (action in listOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE)) {
-                add(Probe(Intent(action).setType(mime), true, "宽泛 ${action.substringAfterLast('.')} mime=$mime"))
+                add(Probe(Intent(action).setType(mime), true, "BROAD ${action.substringAfterLast('.')} mime=$mime"))
             }
             for (scheme in listOf("content", "file")) {
                 val uri = if (scheme == "content") "content://com.yagay.ListCleaner.placeholder/item" else "file:///item"
-                add(Probe(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(uri), mime), true, "宽泛 VIEW scheme=$scheme mime=$mime"))
+                add(Probe(
+                    Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(uri), mime),
+                    true,
+                    "BROAD VIEW scheme=$scheme mime=$mime"
+                ))
             }
         }
     }
 
     companion object {
         fun queryFlags(kind: IntentKind, discovery: Boolean): Int =
-            (if (discovery) PackageManager.MATCH_ALL else 0) or (if (kind == IntentKind.PROCESS_TEXT) 0 else PackageManager.MATCH_DEFAULT_ONLY)
+            (if (discovery) PackageManager.MATCH_ALL else 0) or
+                (if (kind == IntentKind.PROCESS_TEXT) 0 else PackageManager.MATCH_DEFAULT_ONLY)
 
         fun merge(items: List<ComponentCandidate>): List<ComponentCandidate> =
             items.groupBy { it.rule.id }.values.map { matches ->
                 val first = matches.firstOrNull { it.isCatalogCandidate } ?: matches.first()
-                first.copy(evidence = matches.flatMap { it.evidence }.distinct().sortedBy { !it.startsWith("实际文件检查") }.take(32),
-                    restricted = matches.all { it.restricted }, unavailable = matches.all { it.unavailable }, broadMatch = matches.all { it.broadMatch })
+                first.copy(
+                    evidence = matches.flatMap { it.evidence }.distinct()
+                        .sortedBy { !it.startsWith("REAL_FILE ") }.take(32),
+                    restricted = matches.all { it.restricted },
+                    unavailable = matches.all { it.unavailable },
+                    broadMatch = matches.all { it.broadMatch }
+                )
             }.sortedWith(compareBy({ it.rule.kind.ordinal }, { it.appLabel.lowercase() }, { it.rule.id }))
 
         private val FILE_TYPES = listOf(
