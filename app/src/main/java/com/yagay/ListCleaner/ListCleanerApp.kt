@@ -129,10 +129,7 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                             RuntimeStatus(
                                 needsDecision = true,
                                 recoveryCorrupt = true,
-                                message = getString(
-                                    R.string.runtime_recovery_corrupt,
-                                    failure.javaClass.simpleName
-                                )
+                                message = getString(R.string.runtime_recovery_corrupt)
                             )
                         )
                     }
