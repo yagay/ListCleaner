@@ -180,7 +180,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
             item(key = "app|$expansionKey") {
                 Row(
                     Modifier.fillMaxWidth()
-                        .clickable(onClickLabel = if (expanded) "折叠" else "展开", onClick = onExpand)
+                        .clickable(onClickLabel = UiText.translate(if (expanded) "折叠" else "展开"), onClick = onExpand)
                         .heightIn(min = 64.dp).padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -208,7 +208,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                     IconButton(onClick = onExpand) {
                         Icon(
                             if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                            if (expanded) "折叠" else "展开"
+                            UiText.translate(if (expanded) "折叠" else "展开")
                         )
                     }
                 }
@@ -247,12 +247,12 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             style = MaterialTheme.typography.labelSmall
                         )
                         Text(
-                            item.blocked ?: when (item.overrideState) {
+                            UiText.translate(item.blocked ?: when (item.overrideState) {
                                 0 -> if (item.enabled == true) "默认启用" else "默认关闭"
                                 1 -> "明确启用"
                                 2, 3, 4 -> "已禁用（来源未知）"
                                 else -> "状态未知"
-                            },
+                            }),
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
