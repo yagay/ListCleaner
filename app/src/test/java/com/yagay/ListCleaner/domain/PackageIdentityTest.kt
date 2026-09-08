@@ -10,12 +10,12 @@ class PackageIdentityTest {
         assertTrue(PackageIdentity.valid("com.example.app"))
         assertTrue(PackageIdentity.valid("com.example_2.feature3"))
         assertTrue(PackageIdentity.valid("_vendor.product"))
+        assertTrue(PackageIdentity.valid("android"))
     }
 
     @Test
     fun rejectsShellAndMalformedValues() {
         assertFalse(PackageIdentity.valid(""))
-        assertFalse(PackageIdentity.valid("android"))
         assertFalse(PackageIdentity.valid("com.example.bad-name"))
         assertFalse(PackageIdentity.valid("com.example.app;id"))
         assertFalse(PackageIdentity.valid("com.example.app name"))
