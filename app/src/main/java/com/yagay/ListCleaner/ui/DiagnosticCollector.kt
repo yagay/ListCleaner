@@ -29,8 +29,8 @@ object DiagnosticCollector {
         val output = File.createTempFile("ListCleaner-diagnostic-", ".zip", context.cacheDir)
         try {
             ZipOutputStream(BufferedOutputStream(FileOutputStream(output))).use { zip ->
-                zip.addText("README.zh-CN.txt", localizedReadme(context, "zh-CN"))
-                zip.addText("README.en.txt", localizedReadme(context, "en"))
+                zip.addText("README.zh-CN.txt", localizedString(context, "zh-CN", com.yagay.ListCleaner.R.string.diagnostic_readme))
+                zip.addText("README.en.txt", localizedString(context, "en", com.yagay.ListCleaner.R.string.diagnostic_readme))
                 zip.addText("app/module-state.txt", moduleState(state))
                 zip.addText("app/rules.txt", rules(state))
                 zip.addText("app/root-components.txt", buildString {
@@ -54,7 +54,7 @@ object DiagnosticCollector {
                     val bytes = (line + "\n").toByteArray(StandardCharsets.UTF_8)
                     candidateEvidence.append(bytes, bytes.size)
                 }
-                appendCandidateLine("UI snapshot; sample matches are not proof of real-file launchability.")
+                appendCandidateLine("note=ui_snapshot_sample_matches_not_proof_of_real_file_launchability")
                 state.candidates.forEach { candidate ->
                     appendCandidateLine("${candidate.rule.id} restricted=${candidate.restricted} broad=${candidate.broadMatch} unavailable=${candidate.unavailable}" +
                         " catalogEligible=${catalogVisible(candidate, candidate.rule in state.selected, state.uiFilter)}")
@@ -84,7 +84,7 @@ object DiagnosticCollector {
                         "echo ===\$(basename \"\$d\")===; " +
                         "sed -n '1,40p' \"\$d/module.prop\" 2>/dev/null; done"
                 ))
-                addRecentLsposedLogs(zip)
+                addRecentLsposedLogs(zip, context)
                 zip.addText("collection-finished.txt", "finishedAt=${Instant.now()}\n")
             }
             output
@@ -94,7 +94,7 @@ object DiagnosticCollector {
         }
     }
 
-    private fun addRecentLsposedLogs(zip: ZipOutputStream) {
+    private fun addRecentLsposedLogs(zip: ZipOutputStream, context: Context) {
         val evidence = DiagnosticEvidence()
         val listing = root("find /data/adb/lspd/log -type f -mmin -1440 -name '*.log' -exec stat -c '%Y %n' {} \\;", maxBytes = 512 * 1024)
         zip.addCapture("lsposed/listing.txt", listing)
@@ -111,7 +111,9 @@ object DiagnosticCollector {
             zip.addCapture(source, capture)
             capture.bytes.toString(StandardCharsets.UTF_8).lineSequence().forEach { line -> evidence.accept(source, line) }
         }
-        zip.addText("analysis/module-evidence.txt", evidence.report())
+        val body = evidence.reportBody()
+        zip.addText("analysis/module-evidence.zh-CN.txt", localizedString(context, "zh-CN", com.yagay.ListCleaner.R.string.diagnostic_evidence_intro) + "\n\n" + body)
+        zip.addText("analysis/module-evidence.en.txt", localizedString(context, "en", com.yagay.ListCleaner.R.string.diagnostic_evidence_intro) + "\n\n" + body)
     }
 
     private fun moduleState(state: MainState): String = buildString {
@@ -145,10 +147,10 @@ object DiagnosticCollector {
         appendLine("incremental=${Build.VERSION.INCREMENTAL}"); appendLine("fingerprint=${Build.FINGERPRINT}"); appendLine("supportedAbis=${Build.SUPPORTED_ABIS.joinToString()}")
     }
 
-    private fun localizedReadme(context: Context, localeTag: String): String {
+    private fun localizedString(context: Context, localeTag: String, resId: Int): String {
         val configuration = android.content.res.Configuration(context.resources.configuration)
         configuration.setLocale(java.util.Locale.forLanguageTag(localeTag))
-        return context.createConfigurationContext(configuration).getString(com.yagay.ListCleaner.R.string.diagnostic_readme)
+        return context.createConfigurationContext(configuration).getString(resId)
     }
 
     private fun root(command: String, maxBytes: Int = MAX_TEXT_BYTES): Capture {
