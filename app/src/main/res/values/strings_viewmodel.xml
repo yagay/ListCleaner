@@ -8,7 +8,7 @@
     <string name="file_preview_header">Detected type: %1$s · MIME=%2$s\n</string>
     <string name="file_preview_counts">Raw candidates %1$d → estimated final %2$d</string>
     <string name="file_preview_empty_restored"> (empty-list protection triggered; original system result restored)</string>
-    <string name="file_preview_disclaimer">. This preview does not simulate a source app's private menus or same-UID protection.</string>
+    <string name="file_preview_disclaimer">. This preview does not simulate a source app\'s private menus or same-UID protection.</string>
     <string name="file_preview_rank"> · priority #%1$d</string>
     <string name="file_preview_source"> · rule source: %1$s</string>
     <string name="file_preview_more">\n…%1$d more; see the diagnostic package for the complete candidate list</string>
