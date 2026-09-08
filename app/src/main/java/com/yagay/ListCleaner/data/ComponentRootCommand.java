@@ -8,11 +8,26 @@ import java.util.concurrent.atomic.AtomicReference;
 /** One explicit user action per invocation; bounded output/time, no persistent root daemon. */
 public final class ComponentRootCommand {
     private ComponentRootCommand() {}
-    public static final class RootAccessException extends IllegalStateException {
-        RootAccessException(String message) { super(message); }
+
+    public enum RootFailureReason {
+        UNAVAILABLE,
+        TIMEOUT,
+        DENIED
     }
-    private static final String ROOT_GUIDANCE =
-        "请打开 KernelSU / Magisk 等 Root 管理器，为“列表清理”开启超级用户权限，再返回重试。仅启用 LSPosed 模块不能代替 Root 授权。";
+
+    public static final class RootAccessException extends IllegalStateException {
+        public final RootFailureReason reason;
+
+        RootAccessException(RootFailureReason reason) {
+            super(reason.name());
+            this.reason = reason;
+        }
+
+        RootAccessException(RootFailureReason reason, Throwable cause) {
+            super(reason.name(), cause);
+            this.reason = reason;
+        }
+    }
 
     /** Read-only check for each explicit batch; do not cache authorization across actions. */
     public static void requireRoot() {
@@ -20,27 +35,31 @@ public final class ComponentRootCommand {
         try {
             result = run("test \"$(id -u)\" = 0");
         } catch (Exception failure) {
-            throw new RootAccessException("无法取得 Root 权限。" + ROOT_GUIDANCE);
+            throw new RootAccessException(RootFailureReason.UNAVAILABLE, failure);
         }
         verifyRoot(result);
     }
+
     static void verifyRoot(Result result) {
         if (result.timedOut) {
-            throw new RootAccessException("等待 Root 授权超时，尚未更改组件。" + ROOT_GUIDANCE);
+            throw new RootAccessException(RootFailureReason.TIMEOUT);
         }
         if (result.exitCode != 0) {
-            throw new RootAccessException("未获得 Root 权限，尚未更改组件。" + ROOT_GUIDANCE);
+            throw new RootAccessException(RootFailureReason.DENIED);
         }
     }
+
     public static final class Result {
         public final int exitCode;
         public final boolean timedOut;
         public final String output;
         Result(int code, boolean timeout, String text) { exitCode = code; timedOut = timeout; output = text; }
     }
+
     public static Result run(String script) throws Exception {
         return capture(new ProcessBuilder("su", "-c", script), 25);
     }
+
     public static Result capture(ProcessBuilder builder, int seconds) throws Exception {
         DiagnosticBuffer buffer = new DiagnosticBuffer(16 * 1024);
         AtomicReference<Exception> error = new AtomicReference<>();
