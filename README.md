@@ -4,7 +4,7 @@
 
 精简 Android 的分享、打开方式和文本处理菜单，让常用应用排在前面；也可以通过 Root 管理应用提供的磁贴、快捷方式创建入口和桌面小部件。
 
-[下载正式版](https://github.com/yagay/ListCleaner/releases/latest) · [反馈问题](https://github.com/yagay/ListCleaner/issues) · [Telegram 频道](https://t.me/LISTCLEANER)
+[下载正式版](https://github.com/yagay/ListCleaner/releases/latest) · [反馈问题](https://github.com/yagay/ListCleaner/issues) · [帮助翻译](docs/TRANSLATING.md) · [Telegram 频道](https://t.me/LISTCLEANER)
 
 ## Telegram 频道
 
@@ -105,6 +105,8 @@ bash ./gradlew :app:assembleDebug
 bash ./gradlew :app:testDebugUnitTest
 bash ./gradlew :app:assembleRelease
 ```
+
+本地化架构和社区翻译规则见 [本地化说明](docs/LOCALIZATION.md) 与 [帮助翻译](docs/TRANSLATING.md)。维护者的 Weblate 接入参数见 [Weblate 配置](docs/WEBLATE_SETUP.md)。
 
 签名配置及自动发布流程见 [Release 构建说明](docs/RELEASE.md)。不要提交私钥、签名密码或 `local.properties`。
 
