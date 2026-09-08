@@ -21,7 +21,7 @@ import kotlinx.serialization.json.Json
 data class RuntimeStatus(
     val ready: Boolean = false,
     val needsDecision: Boolean = false,
-    val message: String = "等待核实运行模块与配置",
+    val message: String = LocaleText.pick("等待核实运行模块与配置", "Waiting to verify the running module and configuration"),
     val digest: String = "",
     val recoveryCorrupt: Boolean = false,
     val queryHits: Long = 0,
@@ -34,7 +34,7 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
     lateinit var rules: RuleRepository; private set
     lateinit var catalog: IntentCatalog; private set
     val service = MutableStateFlow<XposedService?>(null)
-    val syncStatus = MutableStateFlow("等待连接")
+    val syncStatus = MutableStateFlow(LocaleText.pick("等待连接", "Waiting for connection"))
     val runtime = MutableStateFlow(RuntimeStatus())
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val syncMutex = Mutex()
@@ -66,9 +66,10 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
     }
 
     private fun publish(status: RuntimeStatus): Boolean {
-        runtime.value = status
-        syncStatus.value = status.message
-        return status.ready
+        val localized = status.copy(message = LocaleText.moduleMessage(status.message) ?: status.message)
+        runtime.value = localized
+        syncStatus.value = localized.message
+        return localized.ready
     }
 
     /** Serialized bootstrap/sync/probe, also used before every catalog query batch. */
