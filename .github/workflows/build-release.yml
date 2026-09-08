@@ -2,6 +2,11 @@ name: Build and Publish Release
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'RELEASE_NOTES.md'
   pull_request:
     paths:
       - 'app/**'
@@ -60,7 +65,7 @@ jobs:
     permissions:
       contents: write
       actions: write
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     defaults:
@@ -148,7 +153,7 @@ jobs:
           notes = Path('RELEASE_NOTES.md').read_text(encoding='utf-8').strip()
           if not notes:
               raise SystemExit('RELEASE_NOTES.md is empty')
-          expected_heading = f'列表清理 / List Cleaner {version}'
+          expected_heading = f'# 列表清理 / List Cleaner {version}'
           if notes.splitlines()[0].strip() != expected_heading:
               raise SystemExit(f'RELEASE_NOTES.md heading must be: {expected_heading}')
 
