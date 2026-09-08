@@ -1,0 +1,102 @@
+name: Complete Release Changelog
+
+on:
+  workflow_run:
+    workflows:
+      - Build and Publish Release
+    types:
+      - completed
+
+permissions:
+  contents: write
+
+jobs:
+  complete-changelog:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout full release history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Append complete changelog from previous release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          import tempfile
+
+          repo = os.environ['GITHUB_REPOSITORY']
+          release_sha = os.environ['RELEASE_SHA']
+
+          def run(*args):
+              return subprocess.check_output(args, text=True).strip()
+
+          releases = json.loads(run('gh', 'api', f'repos/{repo}/releases?per_page=100'))
+          published = [
+              r for r in releases
+              if not r.get('draft') and not r.get('prerelease') and r.get('published_at')
+          ]
+          published.sort(key=lambda r: r['published_at'], reverse=True)
+
+          current = next((r for r in published if r.get('target_commitish') == release_sha), None)
+          if current is None:
+              raise SystemExit(f'No published release targets workflow SHA {release_sha}')
+
+          previous = next((r for r in published if r['id'] != current['id']), None)
+          if previous is None:
+              print('No previous published release; keeping existing release notes unchanged.')
+              raise SystemExit(0)
+
+          current_tag = current['tag_name']
+          previous_tag = previous['tag_name']
+          body = current.get('body') or ''
+
+          marker = '## 完整变更 / Full changelog'
+          if marker in body:
+              body = body.split(marker, 1)[0].rstrip()
+
+          log = run(
+              'git', 'log', f'{previous_tag}..{release_sha}',
+              '--reverse', '--no-merges',
+              '--pretty=format:%H%x09%s'
+          )
+
+          entries = []
+          for line in log.splitlines():
+              if not line.strip():
+                  continue
+              sha, subject = line.split('\t', 1)
+              entries.append(
+                  f'- {subject} ([`{sha[:7]}`](https://github.com/{repo}/commit/{sha}))'
+              )
+
+          section = [
+              marker,
+              '',
+              f'范围 / Range: `{previous_tag}...{current_tag}`',
+              '',
+              *(entries or ['- No commits found in the release range.']),
+          ]
+          completed = body + '\n\n' + '\n'.join(section) + '\n'
+
+          with tempfile.NamedTemporaryFile('w', encoding='utf-8', delete=False) as fh:
+              fh.write(completed)
+              notes_path = fh.name
+
+          subprocess.check_call([
+              'gh', 'release', 'edit', current_tag,
+              '--repo', repo,
+              '--notes-file', notes_path,
+          ])
+          print(f'Updated {current_tag} with full changelog from {previous_tag}.')
+          PY
