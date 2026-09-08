@@ -3,6 +3,7 @@ package com.yagay.ListCleaner.ui
 import android.app.Application
 import android.graphics.Bitmap
 import android.net.Uri
+import android.util.Log
 import java.io.File
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Dashboard
@@ -259,7 +260,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                mutableFileCheckStatus.value = failure.message ?: app.getString(R.string.file_preview_failed)
+                Log.e(TAG, "File preview failed", failure)
+                mutableFileCheckStatus.value = app.getString(R.string.file_preview_failed)
             } finally {
                 mutableCheckingFile.value = false
             }
@@ -320,9 +322,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
+                Log.e(TAG, "Diagnostic export failed", failure)
                 mutableExportMessage.value = app.getString(
                     R.string.diagnostic_export_failed,
-                    failure.message ?: failure.javaClass.simpleName
+                    app.getString(R.string.diagnostic_create_failed)
                 )
             } finally {
                 report?.delete()
@@ -443,8 +446,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Throwable) {
+                Log.e(TAG, "Candidate scan failed", failure)
                 if (generation == refreshGeneration) {
-                    error.value = failure.message ?: app.getString(R.string.scan_failed)
+                    error.value = app.getString(R.string.scan_failed)
                 }
             } finally {
                 if (generation == refreshGeneration) loading.value = false
@@ -507,7 +511,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             HotReloadResult.Status.UNSUPPORTED -> app.getString(R.string.update_unsupported)
                             HotReloadResult.Status.FAILED -> app.getString(
                                 R.string.update_failed,
-                                result?.message() ?: app.getString(R.string.update_old_module_rejected)
+                                app.getString(R.string.update_old_module_rejected)
                             )
                             HotReloadResult.Status.PROCESS_DIED -> app.getString(R.string.update_process_died)
                             HotReloadResult.Status.IN_PROGRESS -> app.getString(R.string.update_in_progress)
@@ -517,10 +521,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     } catch (cancelled: CancellationException) {
                         throw cancelled
                     } catch (failure: Exception) {
+                        Log.e(TAG, "Hot reload request failed for ${target.processName}", failure)
                         messages += app.getString(
                             R.string.update_request_failed,
                             target.processName,
-                            failure.javaClass.simpleName
+                            app.getString(R.string.update_old_module_rejected)
                         )
                     }
                 }
@@ -531,9 +536,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
+                Log.e(TAG, "Hot update check failed", failure)
                 mutableUpdateMessage.value = app.getString(
                     R.string.update_check_failed,
-                    failure.message ?: failure.javaClass.simpleName
+                    app.getString(R.string.update_old_module_rejected)
                 )
             } finally {
                 mutableUpdating.value = false
@@ -561,9 +567,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (failure: Exception) {
-                    result = result.copy(
-                        error = failure.message ?: app.getString(R.string.module_status_read_failed)
-                    )
+                    Log.e(TAG, "Module status read failed", failure)
+                    result = result.copy(error = app.getString(R.string.module_status_read_failed))
                 }
             }
             result
@@ -794,8 +799,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
+                Log.e(TAG, "Scope request failed", failure)
                 moduleStatus.value = moduleStatus.value.copy(
-                    error = failure.message ?: app.getString(R.string.scope_request_failed)
+                    error = app.getString(R.string.scope_request_failed)
                 )
             } finally {
                 scopeRequestInFlight = false
@@ -806,6 +812,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     companion object {
         const val MAX_BACKUP_CHARS = RuleRepository.MAX_BACKUP_CHARS
+        private const val TAG = "ListCleaner.ViewModel"
     }
 }
 
