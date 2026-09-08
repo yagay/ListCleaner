@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_row_selection_summary">已选 %1$d/%2$d · %3$s</string>
+    <string name="app_row_unavailable_rules">含 %1$d 条当前不可用规则</string>
+    <string name="component_unavailable">当前未找到组件 · 可取消规则</string>
+    <string name="component_restricted">非公开组件 · 可取消已有规则</string>
+    <string name="app_icon_description">%1$s 图标</string>
+</resources>
