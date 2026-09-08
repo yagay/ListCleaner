@@ -1,9 +1,15 @@
 package com.yagay.ListCleaner.domain
 
+enum class OpenSelectionSource {
+    GENERIC,
+    TYPED,
+    GENERIC_AND_TYPED
+}
+
 data class OpenPreviewItem(
     val candidate: ComponentCandidate,
     val selected: Boolean,
-    val selectedBy: String?,
+    val selectedBy: OpenSelectionSource?,
     val included: Boolean,
     val rank: Int?
 )
@@ -57,16 +63,22 @@ fun previewOpenEffect(
             candidate = candidate,
             selected = inGeneric || inTyped,
             selectedBy = when {
-                inGeneric && inTyped -> "全部 + ${preset?.let(openTypes::titleFor) ?: "分类型"}"
-                inGeneric -> "全部"
-                inTyped -> preset?.let(openTypes::titleFor) ?: "分类型"
+                inGeneric && inTyped -> OpenSelectionSource.GENERIC_AND_TYPED
+                inGeneric -> OpenSelectionSource.GENERIC
+                inTyped -> OpenSelectionSource.TYPED
                 else -> null
             },
             included = candidate.rule.id in keptIds,
             rank = ranks[candidate.rule.packageName]
         )
-    }.sortedWith(compareBy<OpenPreviewItem>({ if (it.included) 0 else 1 }, { it.rank ?: Int.MAX_VALUE },
-        { it.candidate.appLabel.lowercase() }, { it.candidate.rule.id }))
+    }.sortedWith(
+        compareBy<OpenPreviewItem>(
+            { if (it.included) 0 else 1 },
+            { it.rank ?: Int.MAX_VALUE },
+            { it.candidate.appLabel.lowercase() },
+            { it.candidate.rule.id }
+        )
+    )
 
     return OpenEffectPreview(preset, raw.size, kept.size, restoredEmpty, items)
 }
