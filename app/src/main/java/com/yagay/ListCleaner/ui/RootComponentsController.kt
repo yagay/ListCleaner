@@ -1,5 +1,6 @@
 package com.yagay.ListCleaner.ui
 
+import android.util.Log
 import com.yagay.ListCleaner.ListCleanerApp
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.ComponentRootCommand
@@ -61,7 +62,8 @@ internal class RootComponentsController(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                mutableMessage.value = failure.message ?: app.getString(R.string.root_scan_failed)
+                Log.e(TAG, "Root component scan failed", failure)
+                mutableMessage.value = app.getString(R.string.root_scan_failed)
             } finally {
                 mutableBusy.value = false
             }
@@ -110,11 +112,12 @@ internal class RootComponentsController(
                     mutableMessage.value = message
                     mutableRootNotice.value = message
                 } catch (failure: Exception) {
+                    Log.e(TAG, "Root component mutation failed after $completed/${targets.size}", failure)
                     mutableMessage.value = app.getString(
                         R.string.root_batch_stopped,
                         completed,
                         targets.size,
-                        failure.message ?: app.getString(R.string.root_operation_not_allowed)
+                        app.getString(R.string.root_operation_not_allowed)
                     )
                 } finally {
                     if (operationStarted) refreshAfterMutation()
@@ -156,11 +159,12 @@ internal class RootComponentsController(
                     mutableMessage.value = message
                     mutableRootNotice.value = message
                 } catch (failure: Exception) {
+                    Log.e(TAG, "Root component inversion failed after $completed/${targets.size}", failure)
                     mutableMessage.value = app.getString(
                         R.string.root_invert_stopped,
                         completed,
                         targets.size,
-                        failure.message ?: app.getString(R.string.root_operation_not_allowed)
+                        app.getString(R.string.root_operation_not_allowed)
                     )
                 } finally {
                     if (operationStarted) refreshAfterMutation()
@@ -173,10 +177,15 @@ internal class RootComponentsController(
     private fun refreshAfterMutation() {
         runCatching { catalog.scan() }
             .onSuccess { mutableScan.value = it }
-            .onFailure {
+            .onFailure { failure ->
+                Log.e(TAG, "Post-mutation Root component scan failed", failure)
                 mutableScan.value = RootComponentScan(
                     warning = app.getString(R.string.root_post_scan_failed)
                 )
             }
+    }
+
+    private companion object {
+        const val TAG = "ListCleaner.Root"
     }
 }
