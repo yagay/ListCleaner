@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="state_saved_waiting_connection">Saved; waiting for connection</string>
+    <string name="candidate_configured_not_observed">Configured but not observed during this scan; this does not mean the app is uninstalled</string>
+
+    <string name="file_preview_checking">Checking the real file candidate list and rule effect; the file will not be opened…</string>
+    <string name="file_preview_generic_open">Generic open</string>
+    <string name="file_preview_header">Detected type: %1$s · MIME=%2$s\n</string>
+    <string name="file_preview_counts">Raw candidates %1$d → estimated final %2$d</string>
+    <string name="file_preview_empty_restored"> (empty-list protection triggered; original system result restored)</string>
+    <string name="file_preview_disclaimer">. This preview does not simulate a source app's private menus or same-UID protection.</string>
+    <string name="file_preview_rank"> · priority #%1$d</string>
+    <string name="file_preview_source"> · rule source: %1$s</string>
+    <string name="file_preview_more">\n…%1$d more; see the diagnostic package for the complete candidate list</string>
+    <string name="file_preview_failed">File inspection failed</string>
+    <string name="file_preview_source_generic">All</string>
+    <string name="file_preview_source_typed">Type-specific</string>
+    <string name="file_preview_source_generic_and_typed">All + type-specific</string>
+
+    <string name="diagnostic_create_failed">Could not create the diagnostic package</string>
+    <string name="diagnostic_exported">Diagnostic package exported</string>
+    <string name="diagnostic_export_failed">Export failed: %1$s; the destination file may be incomplete. Export again.</string>
+    <string name="scan_failed">Scan failed</string>
+
+    <string name="update_detecting_targets">Checking running targets…</string>
+    <string name="update_lsposed_disconnected">LSPosed is not connected</string>
+    <string name="update_target_reloading">%1$s: the framework is reloading; check again shortly</string>
+    <string name="update_target_too_old">%1$s: old version %2$d does not support hot reload for this module; fully restart the phone</string>
+    <string name="update_succeeded">Framework reports a successful update; verifying again</string>
+    <string name="update_unsupported">Framework does not support this; restart the phone</string>
+    <string name="update_failed">Update failed: %1$s; restart the phone</string>
+    <string name="update_old_module_rejected">old module rejected the request</string>
+    <string name="update_process_died">Target exited; waiting for it to start again</string>
+    <string name="update_in_progress">Framework is reloading; check again shortly</string>
+    <string name="update_timeout">Timed out; this does not mean the request was cancelled. Check again and do not submit duplicate requests.</string>
+    <string name="update_target_result">%1$s: %2$s</string>
+    <string name="update_request_failed">%1$s: update request failed (%2$s); continuing with other targets</string>
+    <string name="update_nothing_pending">No running target needs a hot update; verifying configuration</string>
+    <string name="update_check_failed">Update check failed: %1$s; no system process was restarted</string>
+
+    <string name="module_target_detection_unsupported">The current framework does not support running-target detection</string>
+    <string name="module_status_read_failed">Could not read LSPosed module status</string>
+    <string name="editing_requires_recovery">Complete remote configuration restore or reset first to avoid overwriting existing rules</string>
+
+    <string name="scope_lsposed_not_connected">LSPosed is not connected; enable the module first</string>
+    <string name="scope_service_changed_retry">The service connection changed; check again</string>
+    <string name="scope_granted_read_failed">Could not read the granted scope; no request was submitted</string>
+    <string name="scope_no_auto_host">No selector host is confirmed safe for automatic scope requests. Review detection details and check manually in LSPosed.</string>
+    <string name="scope_all_recommended_granted">All detected recommended scopes are already granted; no duplicate request is needed</string>
+    <string name="scope_service_changed_result">The service connection changed; check the authorization result again</string>
+    <string name="scope_request_timeout">Authorization timed out; the framework may still be processing the request. Check LSPosed before trying again.</string>
+    <string name="scope_result_unverified">The framework returned, but the authorization result cannot be verified yet. Check again.</string>
+    <string name="scope_still_missing">Scopes still missing: %1$s</string>
+    <string name="scope_granted_confirmed">Recommended scopes are confirmed granted. If a target is not loaded, restart the relevant selector; restart the device if necessary.</string>
+    <string name="scope_request_failed">Scope request failed</string>
+</resources>
