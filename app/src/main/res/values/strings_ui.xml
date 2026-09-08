@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search_apps_components_packages">Search apps, components, or package names</string>
+    <string name="close_search">Close search</string>
+    <string name="clear_search">Clear search</string>
+    <string name="restore_backup">Restore backup</string>
+    <string name="export_backup">Export backup</string>
+    <string name="view_filter">View</string>
+    <string name="select_all">Select all</string>
+    <string name="invert_selection">Invert selection</string>
+
+    <string name="module_lsposed_disconnected">LSPosed not connected</string>
+    <string name="module_old_running">An older module is still running / update not completed</string>
+    <string name="module_needs_attention">Module status needs attention</string>
+    <string name="module_loaded">Module loaded</string>
+    <string name="module_lsposed_connected">LSPosed connected</string>
+    <string name="module_system_confirmed">System confirmed the configuration</string>
+    <string name="module_check_status">Configuration needs checking; tap to view status</string>
+    <string name="module_view_status">View module status</string>
+
+    <string name="rules_view_unmatched">View selected rules with no current match</string>
+    <string name="no_matching_components">No matching components</string>
+    <string name="app_list_count">App list · %1$d</string>
+    <string name="app_list_count_type">App list · %1$d · %2$s</string>
+    <string name="rules_page_intro">This page manages Intent candidates for sharing, multi-file sharing, opening, browsers, and text processing. You can hide or keep components by rule, or change a component's display name in the system chooser. It does not modify the actual Intent, package name, component name, disable apps, or uninstall apps.</string>
+    <string name="rules_mode_hide_selected">Current mode: Hide selected. Once the rules are active, selected components are hidden from the corresponding candidate lists; deselect them to restore the default display.</string>
+    <string name="rules_mode_show_selected">Current mode: Show selected only. Once the rules are active, selected components remain in the corresponding category and other components are hidden.</string>
+    <string name="rules_mode_show_all">Current mode: Show all. System candidate-list cleaning is paused. Selections are saved but take effect after cleaning is resumed.</string>
+    <string name="rules_usage_help">Select an app to batch-select components shown under the current category and search conditions. Expand an app to select individual components, or tap the pencil to change a component's menu name for the current category. Names and selection rules are independent; save an empty name to restore the original. View only filters this page and does not change cleaning rules.</string>
+    <string name="rules_typed_help">Editing dedicated rules for “Open · %1$s”. Effective selections combine the generic OPEN rules from All with rules dedicated to the current type. Inherited items remain selected and show their source when expanded. Inherited items must be deselected under All; rules added for the current type affect only that MIME, scheme, or file-extension type.</string>
+    <string name="rules_inherited_from_all">Inherited from “Open · All”</string>
+    <string name="rules_dedicated_rule">%1$s dedicated rule</string>
+    <string name="rules_pause_confirmed">system has confirmed that filtering, ordering, and custom display names are paused; the configuration is retained</string>
+    <string name="rules_pause_pending">Paused locally; system application has not yet been confirmed</string>
+    <string name="rules_show_selected_empty">Categories with no selections temporarily show all candidates</string>
+    <string name="rules_refresh_incomplete">This refresh did not complete fully; see the status page for details</string>
+
+    <string name="dashboard_global_mode">Global cleaning mode</string>
+    <string name="dashboard_global_mode_help">Controls how the system chooser handles selected components.</string>
+    <string name="dashboard_switch">Switch</string>
+    <string name="dashboard_sync_status">Sync status</string>
+    <string name="dashboard_sync_help">Saving locally does not mean the system has applied the configuration. Use the configuration acknowledgement as the source of truth; Resolver-side behavior still needs real-device verification.</string>
+    <string name="dashboard_runtime_hits">Runtime capabilities and actual hits</string>
+    <string name="dashboard_ack_confirmed">system_server confirmed the current configuration</string>
+    <string name="dashboard_ack_missing">No acknowledgement for the current configuration yet</string>
+    <string name="dashboard_query_hits">Intent query hooks: %1$d</string>
+    <string name="dashboard_visibility_hits">App visibility compatibility filters: %1$d</string>
+    <string name="dashboard_ordering_hits">Ordering rewrites recorded by system processes: %1$d</string>
+    <string name="dashboard_hits_help">Query and app-visibility counts come from actual system_server execution. Ordering usually runs in a separate Resolver/Chooser process, so an ordering count of 0 alone does not prove ordering is broken. Diagnostic mode records Resolver-side ORDER_DELIVERED; verify the final menu on the device.</string>
+    <string name="dashboard_refresh_runtime">Refresh runtime status</string>
+    <string name="dashboard_data_backup">Data backup</string>
+    <string name="dashboard_restore_json">Restore from JSON</string>
+    <string name="dashboard_export_json">Export as JSON</string>
+    <string name="dashboard_module_status">Module status</string>
+    <string name="dashboard_app_visibility">App visibility list</string>
+    <string name="dashboard_app_visibility_help">Compatibility fallback for file managers whose own chooser lists bypass normal Resolver rules, such as ES File Explorer. For selected source apps, target packages from generic and typed OPEN rules can be hidden from package visibility. Share and text-processing rules do not contribute package hiding.</string>
+    <string name="dashboard_manage_app_visibility">Manage app visibility list (%1$d)</string>
+    <string name="dashboard_app_visibility_warning">Selections are saved immediately and only apply in Hide selected mode. This runs in android/system_server and hides the whole target package from the source app; it cannot hide only one Activity.</string>
+    <string name="dashboard_diagnostics">Diagnostics</string>
+    <string name="dashboard_scan_disclaimer">Scanning discovers manageable candidates and may not exactly match every live menu. Non-text categories keep empty-list protection; text processing may hide all candidates and cannot change hard-coded in-app menus.</string>
+    <string name="dashboard_inspecting_file">Inspecting file…</string>
+    <string name="dashboard_inspect_file">Preview final open targets with an actual file</string>
+    <string name="dashboard_collecting">Collecting…</string>
+    <string name="dashboard_export_diagnostics">Export diagnostic package</string>
+</resources>
