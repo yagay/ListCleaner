@@ -4,13 +4,13 @@ import kotlinx.serialization.Serializable
 
 /** Categories whose fully-selected app rows may contribute package-level visibility hiding. */
 @Serializable
-enum class VisibilityScope(val title: String) {
-    ALL("全部"),
-    SHARE("分享"),
-    SHARE_MULTIPLE("多文件分享"),
-    OPEN("打开方式"),
-    BROWSER("浏览器"),
-    PROCESS_TEXT("文本处理");
+enum class VisibilityScope {
+    ALL,
+    SHARE,
+    SHARE_MULTIPLE,
+    OPEN,
+    BROWSER,
+    PROCESS_TEXT;
 
     fun matches(kind: IntentKind): Boolean = this == ALL || name == kind.name
 
