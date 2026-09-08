@@ -11,6 +11,7 @@ import com.yagay.ListCleaner.domain.ModuleConfig
 import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.OpenTypeConfig
 import com.yagay.ListCleaner.domain.CustomOpenDefinition
+import com.yagay.ListCleaner.domain.PackageIdentity
 import com.yagay.ListCleaner.domain.VisibilityCompatConfig
 import com.yagay.ListCleaner.domain.VisibilityScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,12 +62,7 @@ class RuleRepository(context: Context) {
     }
 
     @Synchronized fun restoreRemote(config: ModuleConfig) {
-        config.validated()
-        replace(config.rules, config.mode != DisplayMode.SHOW_SELECTED, config.priorities, config.mode, config.openTypes)
-        setHiddenFromApps(config.hiddenFromApps)
-        setVisibilityScopes(config.visibilityCompat.scopes)
-        setDiagnosticMode(config.diagnostic)
-        markInitialized()
+        applyConfig(config, config.mode != DisplayMode.SHOW_SELECTED)
     }
 
     /** Legacy ModuleConfig fields remain deserializable, but new remote snapshots always use defaults. */
@@ -81,11 +77,7 @@ class RuleRepository(context: Context) {
     )
 
     @Synchronized fun setHiddenFromApps(packages: Set<String>) {
-        val self = "com.yagay.ListCleaner"
-        val valid = packages.asSequence().map(String::trim)
-            .filter { it.isNotEmpty() && it != "android" && it != self && it.length <= 255 && it.none { ch -> ch.isWhitespace() || ch.isISOControl() || ch == '|' } }
-            .take(2_001).toSet()
-        require(valid.size <= 2_000) { appContext.getString(R.string.repo_hidden_apps_too_many) }
+        val valid = normalizeHiddenApps(packages)
         if (valid == mutableHiddenFromApps.value) return
         mutableHiddenFromApps.value = valid
         prefs.edit().putStringSet(KEY_HIDDEN_FROM_APPS, valid).apply()
@@ -248,25 +240,18 @@ class RuleRepository(context: Context) {
         rules: Set<ComponentRule>, blacklist: Boolean, priorities: PriorityConfig = PriorityConfig(),
         displayMode: DisplayMode = DisplayMode.fromStored(null, blacklist), openTypes: OpenTypeConfig = OpenTypeConfig()
     ) {
-        require(rules.size <= MAX_RULES) { appContext.getString(R.string.repo_backup_too_many_rules) }
-        require(rules.all(ComponentRule::isValid)) { appContext.getString(R.string.repo_backup_invalid_component) }
-        priorities.validated()
-        openTypes.validated()
-        mutableRules.value = rules.mapNotNull { ComponentRule.fromId(it.id) }.toSet()
-        mutableMode.value = displayMode
-        mutablePriorities.value = priorities
-        mutableOpenTypes.value = openTypes.validated()
-        mutableVisibilityFullPackages.value = emptyMap()
-        prefs.edit()
-            .putStringSet(KEY_RULES, mutableRules.value.map(ComponentRule::id).toSet())
-            .putBoolean(KEY_BLACKLIST, blacklist)
-            .putString(KEY_DISPLAY_MODE, displayMode.name)
-            .putString(KEY_PRIORITIES, encodePriorities(priorities))
-            .putString(KEY_OPEN_TYPES, json.encodeToString(OpenTypeConfig.serializer(), mutableOpenTypes.value))
-            .remove(KEY_TILES)
-            .remove(KEY_DEFAULT_OPEN)
-            .apply()
-        mutableRevision.value++
+        applyConfig(
+            ModuleConfig(
+                rules = rules,
+                mode = displayMode,
+                priorities = priorities,
+                diagnostic = mutableDiagnostic.value,
+                hiddenFromApps = mutableHiddenFromApps.value,
+                openTypes = openTypes,
+                visibilityCompat = VisibilityCompatConfig(scopes = mutableVisibilityScopes.value)
+            ),
+            blacklist
+        )
     }
 
     @Synchronized fun exportJson(): String = json.encodeToString(
@@ -283,25 +268,87 @@ class RuleRepository(context: Context) {
         )
     )
 
-    fun importJson(content: String) {
+    @Synchronized fun importJson(content: String) {
         require(content.length <= MAX_BACKUP_CHARS) { appContext.getString(R.string.repo_backup_too_large) }
         val backup = json.decodeFromString(RuleBackup.serializer(), content)
         require(backup.version in 1..9) {
             appContext.getString(R.string.repo_backup_unsupported_version, backup.version)
         }
-        // Legacy tiles/defaultOpen are deliberately ignored: those features no longer have runtime consumers.
-        replace(
-            backup.rules,
-            backup.blacklist,
-            if (backup.version == 1) PriorityConfig() else backup.priorities,
-            if (backup.version >= 3) requireNotNull(backup.displayMode) {
-                appContext.getString(R.string.repo_backup_missing_display_mode)
-            } else DisplayMode.fromStored(null, backup.blacklist),
-            if (backup.version >= 7) backup.openTypes else OpenTypeConfig()
+        val displayMode = if (backup.version >= 3) requireNotNull(backup.displayMode) {
+            appContext.getString(R.string.repo_backup_missing_display_mode)
+        } else DisplayMode.fromStored(null, backup.blacklist)
+        applyConfig(
+            ModuleConfig(
+                rules = backup.rules,
+                mode = displayMode,
+                priorities = if (backup.version == 1) PriorityConfig() else backup.priorities,
+                diagnostic = mutableDiagnostic.value,
+                hiddenFromApps = if (backup.version >= 5) backup.hiddenFromApps else emptySet(),
+                openTypes = if (backup.version >= 7) backup.openTypes else OpenTypeConfig(),
+                visibilityCompat = VisibilityCompatConfig(
+                    scopes = if (backup.version >= 9) backup.visibilityScopes else emptySet()
+                )
+            ),
+            backup.blacklist
         )
-        setHiddenFromApps(if (backup.version >= 5) backup.hiddenFromApps else emptySet())
-        setVisibilityScopes(if (backup.version >= 9) backup.visibilityScopes else emptySet())
-        markInitialized()
+    }
+
+    /**
+     * Applies a complete persisted configuration as one SharedPreferences transaction and exposes
+     * exactly one revision. Derived full-package visibility targets are intentionally discarded and
+     * rebuilt from the current catalog after restore/import.
+     */
+    private fun applyConfig(config: ModuleConfig, legacyBlacklist: Boolean) {
+        require(config.rules.size <= MAX_RULES) { appContext.getString(R.string.repo_backup_too_many_rules) }
+        require(config.rules.all(ComponentRule::isValid)) { appContext.getString(R.string.repo_backup_invalid_component) }
+
+        val canonicalRules = config.rules.mapNotNull { ComponentRule.fromId(it.id) }.toSet()
+        val priorities = config.priorities.validated()
+        val openTypes = config.openTypes.validated()
+        val hiddenFromApps = normalizeHiddenApps(config.hiddenFromApps)
+        val visibilityScopes = config.visibilityCompat.scopes.toSet()
+        val prepared = config.copy(
+            rules = canonicalRules,
+            priorities = priorities,
+            hiddenFromApps = hiddenFromApps,
+            openTypes = openTypes,
+            visibilityCompat = VisibilityCompatConfig(scopes = visibilityScopes)
+        ).validated()
+
+        prefs.edit()
+            .putStringSet(KEY_RULES, prepared.rules.map(ComponentRule::id).toSet())
+            .putBoolean(KEY_BLACKLIST, legacyBlacklist)
+            .putString(KEY_DISPLAY_MODE, prepared.mode.name)
+            .putString(KEY_PRIORITIES, encodePriorities(prepared.priorities))
+            .putString(KEY_OPEN_TYPES, json.encodeToString(OpenTypeConfig.serializer(), prepared.openTypes))
+            .putBoolean(KEY_DIAGNOSTIC, prepared.diagnostic)
+            .putStringSet(KEY_HIDDEN_FROM_APPS, prepared.hiddenFromApps)
+            .putStringSet(KEY_VISIBILITY_SCOPES, visibilityScopes.map { it.name }.toSet())
+            .putBoolean(KEY_INITIALIZED, true)
+            .remove(KEY_TILES)
+            .remove(KEY_DEFAULT_OPEN)
+            .apply()
+
+        mutableRules.value = prepared.rules
+        mutableMode.value = prepared.mode
+        mutablePriorities.value = prepared.priorities
+        mutableOpenTypes.value = prepared.openTypes
+        mutableDiagnostic.value = prepared.diagnostic
+        mutableHiddenFromApps.value = prepared.hiddenFromApps
+        mutableVisibilityScopes.value = visibilityScopes
+        mutableVisibilityFullPackages.value = emptyMap()
+        mutableRevision.value++
+    }
+
+    private fun normalizeHiddenApps(packages: Set<String>): Set<String> {
+        val self = "com.yagay.ListCleaner"
+        val valid = packages.asSequence()
+            .map(String::trim)
+            .filter { it != "android" && it != self && PackageIdentity.valid(it) }
+            .take(2_001)
+            .toSet()
+        require(valid.size <= 2_000) { appContext.getString(R.string.repo_hidden_apps_too_many) }
+        return valid
     }
 
     private fun updateRules(next: Set<ComponentRule>) {

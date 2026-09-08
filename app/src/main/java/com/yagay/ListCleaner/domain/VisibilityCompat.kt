@@ -31,7 +31,7 @@ data class VisibilityCompatConfig(
         fullPackages.forEach { (scope, packages) ->
             require(scope != VisibilityScope.ALL) { "ALL is derived from concrete categories" }
             require(packages.size <= 20_000)
-            require(packages.all(::validPackageName))
+            require(packages.all(PackageIdentity::valid))
         }
         return this
     }
@@ -43,9 +43,6 @@ data class VisibilityCompatConfig(
         } else scopes.filter { it != VisibilityScope.ALL }
         return concrete.asSequence().flatMap { fullPackages[it].orEmpty().asSequence() }.toSet()
     }
-
-    private fun validPackageName(value: String): Boolean =
-        value.isNotBlank() && value.length <= 255 && value.none { it.isWhitespace() || it.isISOControl() || it == '|' }
 }
 
 /**

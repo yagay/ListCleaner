@@ -40,7 +40,7 @@ data class ModuleStatus(
     val extraScope: Set<String> get() = grantedScope - detection.hosts.map { it.packageName }.toSet()
     val resolverLoaded: Boolean get() = runningTargets.any { target ->
         RuntimeProtocol.current(target.state, target.version, BuildConfig.VERSION_CODE.toLong()) &&
-            detection.hosts.any { it.processName == target.processName }
+            detection.hosts.any { host -> host.packageName != "system" && host.processName == target.processName }
     }
     val outdated: Boolean get() = runningTargets.any {
         !RuntimeProtocol.current(it.state, it.version, BuildConfig.VERSION_CODE.toLong())
@@ -54,7 +54,12 @@ class ModuleRuntimeController(
 ) {
     private val scopeDetector = ResolverScopeDetector(app)
     private var statusGeneration = 0L
+    private var updateGeneration = 0L
+    private var scopeGeneration = 0L
     private var scopeRequestInFlight = false
+
+    @Volatile
+    private var cachedDetection: ScopeDetection? = null
 
     private val mutableStatus = MutableStateFlow(ModuleStatus())
     val status: StateFlow<ModuleStatus> = mutableStatus
@@ -65,10 +70,15 @@ class ModuleRuntimeController(
     private val mutableUpdateMessage = MutableStateFlow<String?>(null)
     val updateMessage: StateFlow<String?> = mutableUpdateMessage
 
-    suspend fun readStatus(session: ServiceSession? = app.currentSession()): ModuleStatus {
+    suspend fun readStatus(
+        session: ServiceSession? = app.currentSession(),
+        refreshDetection: Boolean = false
+    ): ModuleStatus {
         val generation = ++statusGeneration
         val status = withContext(Dispatchers.IO) {
-            val detection = scopeDetector.detect()
+            val detection = if (refreshDetection || cachedDetection == null) {
+                scopeDetector.detect().also { cachedDetection = it }
+            } else requireNotNull(cachedDetection)
             var result = ModuleStatus(connected = session != null, detection = detection)
             val service = session?.service
             if (service != null) {
@@ -100,28 +110,30 @@ class ModuleRuntimeController(
 
     fun refresh(sync: Boolean = true) {
         scope.launch {
-            readStatus()
+            readStatus(refreshDetection = true)
             if (sync) app.synchronize()
         }
     }
 
     fun applyUpdate(onFinished: () -> Unit) {
         if (mutableUpdating.value) return
+        val generation = ++updateGeneration
         mutableUpdating.value = true
         mutableUpdateMessage.value = app.getString(R.string.update_detecting_targets)
         scope.launch {
             val session = app.currentSession()
+            fun current(): Boolean = generation == updateGeneration && app.isCurrent(session)
             try {
                 val active = session ?: error(app.getString(R.string.update_lsposed_disconnected))
                 val bound = active.service
                 val targets = withContext(Dispatchers.IO) { bound.runningTargets }
-                if (!app.isCurrent(active)) return@launch
+                if (!current()) return@launch
                 val pending = targets.filter {
                     !RuntimeProtocol.current(it.state.name, it.loadedVersionCode, BuildConfig.VERSION_CODE.toLong())
                 }
                 val messages = mutableListOf<String>()
                 for (target in pending) {
-                    if (!app.isCurrent(active)) return@launch
+                    if (!current()) return@launch
                     try {
                         if (target.state == HookedTarget.State.RELOADING) {
                             messages += app.getString(R.string.update_target_reloading, target.processName)
@@ -138,7 +150,7 @@ class ModuleRuntimeController(
                         val result = withTimeoutOrNull(15_000) {
                             requestHotReload(bound, target)
                         }
-                        if (!app.isCurrent(active)) return@launch
+                        if (!current()) return@launch
                         val resultText = when (result?.status()) {
                             HotReloadResult.Status.SUCCEEDED -> app.getString(R.string.update_succeeded)
                             HotReloadResult.Status.UNSUPPORTED -> app.getString(R.string.update_unsupported)
@@ -155,7 +167,7 @@ class ModuleRuntimeController(
                         throw cancelled
                     } catch (failure: Exception) {
                         Log.e(TAG, "Hot reload request failed for ${target.processName}", failure)
-                        if (!app.isCurrent(active)) return@launch
+                        if (!current()) return@launch
                         messages += app.getString(
                             R.string.update_request_failed,
                             target.processName,
@@ -163,7 +175,7 @@ class ModuleRuntimeController(
                         )
                     }
                 }
-                if (!app.isCurrent(active)) return@launch
+                if (!current()) return@launch
                 mutableUpdateMessage.value = if (messages.isEmpty()) {
                     app.getString(R.string.update_nothing_pending)
                 } else messages.joinToString("\n")
@@ -172,36 +184,40 @@ class ModuleRuntimeController(
                 throw cancelled
             } catch (failure: Exception) {
                 Log.e(TAG, "Hot update check failed", failure)
-                if (session == null || app.isCurrent(session)) {
+                if (current()) {
                     mutableUpdateMessage.value = app.getString(
                         R.string.update_check_failed,
                         app.getString(R.string.update_old_module_rejected)
                     )
                 }
             } finally {
-                if (session != null && !app.isCurrent(session)) mutableUpdateMessage.value = null
-                mutableUpdating.value = false
+                if (generation == updateGeneration) {
+                    if (!app.isCurrent(session)) mutableUpdateMessage.value = null
+                    mutableUpdating.value = false
+                }
             }
         }
     }
 
     fun requestScope() {
         if (scopeRequestInFlight) return
+        val generation = ++scopeGeneration
         scopeRequestInFlight = true
         mutableStatus.value = mutableStatus.value.copy(requesting = true, message = null)
         scope.launch {
             val session = app.currentSession()
+            fun current(): Boolean = generation == scopeGeneration && app.isCurrent(session)
             try {
                 val active = session ?: error(app.getString(R.string.scope_lsposed_not_connected))
                 val service = active.service
-                val current = readStatus(active)
-                check(app.isCurrent(active)) { app.getString(R.string.scope_service_changed_retry) }
-                check(current.scopeKnown) { current.error ?: app.getString(R.string.scope_granted_read_failed) }
-                check(current.detection.recommended.isNotEmpty()) { app.getString(R.string.scope_no_auto_host) }
-                val missing = current.missingScope.toList()
+                val currentStatus = readStatus(active)
+                check(current()) { app.getString(R.string.scope_service_changed_retry) }
+                check(currentStatus.scopeKnown) { currentStatus.error ?: app.getString(R.string.scope_granted_read_failed) }
+                check(currentStatus.detection.recommended.isNotEmpty()) { app.getString(R.string.scope_no_auto_host) }
+                val missing = currentStatus.missingScope.toList()
                 if (missing.isEmpty()) {
-                    if (app.isCurrent(active)) {
-                        mutableStatus.value = current.copy(
+                    if (current()) {
+                        mutableStatus.value = currentStatus.copy(
                             requesting = true,
                             message = app.getString(R.string.scope_all_recommended_granted)
                         )
@@ -221,7 +237,7 @@ class ModuleRuntimeController(
                         })
                     }
                 }
-                check(app.isCurrent(active)) { app.getString(R.string.scope_service_changed_result) }
+                check(current()) { app.getString(R.string.scope_service_changed_result) }
                 val refreshed = readStatus(active)
                 val message = when {
                     approved == null -> app.getString(R.string.scope_request_timeout)
@@ -232,20 +248,22 @@ class ModuleRuntimeController(
                     )
                     else -> app.getString(R.string.scope_granted_confirmed)
                 }
-                if (app.isCurrent(active)) mutableStatus.value = refreshed.copy(message = message, requesting = true)
+                if (current()) mutableStatus.value = refreshed.copy(message = message, requesting = true)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
                 Log.e(TAG, "Scope request failed", failure)
-                if (session == null || app.isCurrent(session)) {
+                if (current()) {
                     mutableStatus.value = mutableStatus.value.copy(error = app.getString(R.string.scope_request_failed))
                 }
             } finally {
-                scopeRequestInFlight = false
-                if (session != null && app.isCurrent(session)) {
-                    mutableStatus.value = mutableStatus.value.copy(requesting = false)
-                } else {
-                    readStatus()
+                if (generation == scopeGeneration) {
+                    scopeRequestInFlight = false
+                    if (app.isCurrent(session)) {
+                        mutableStatus.value = mutableStatus.value.copy(requesting = false)
+                    } else {
+                        readStatus()
+                    }
                 }
             }
         }

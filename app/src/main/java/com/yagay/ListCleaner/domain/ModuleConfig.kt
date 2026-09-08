@@ -27,12 +27,9 @@ data class ModuleConfig(
         require(rules.size <= 20_000 && rules.all(ComponentRule::isValid))
         priorities.validated()
         require(managerAppId == -1 || ManagerIdentity.valid(managerAppId))
-        require(hiddenFromApps.size <= 2_000 && hiddenFromApps.all(::validPackageName))
+        require(hiddenFromApps.size <= 2_000 && hiddenFromApps.all(PackageIdentity::valid))
         openTypes.validated()
         visibilityCompat.validated()
         return this
     }
-
-    private fun validPackageName(value: String): Boolean =
-        value.isNotBlank() && value.length <= 255 && value.none { it.isWhitespace() || it.isISOControl() || it == '|' }
 }
