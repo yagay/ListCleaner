@@ -6,4 +6,5 @@
     <string name="backup_restore_failed">Restore failed</string>
     <string name="backup_create_failed">Unable to create backup file</string>
     <string name="backup_read_failed">Unable to read backup</string>
+    <string name="backup_too_large">Backup file is too large (maximum 2,000,000 characters)</string>
 </resources>
