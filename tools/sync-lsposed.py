@@ -24,7 +24,6 @@ def gh(token, *args, payload=None, missing_ok=False):
     if result.returncode:
         if missing_ok and '(HTTP 404)' in result.stderr:
             return None
-        # No credential or raw HTTP headers are included in errors.
         if '(HTTP 403)' in result.stderr:
             raise RuntimeError('GitHub denied access (403). Check token scope, expiry and organization policy.')
         raise RuntimeError(f'GitHub operation failed: {result.stderr.strip()}')
@@ -95,7 +94,6 @@ def find_release(token, tag):
 
 
 def asset_plan(assets, files, download):
-    """Check every existing asset before adding anything; never overwrite conflicts."""
     missing = []
     for path in files:
         matches = [a for a in assets if a['name'] == path.name]
@@ -153,18 +151,17 @@ def main():
             return destination / name
 
         missing = asset_plan(release['assets'] if release else [], files, download)
-        # Initialize/update the official repository documentation before creating a release tag.
-        for document in ('README.md', 'README.zh-CN.md', 'SUMMARY', 'SUMMARY.zh-CN'):
+        for document in ('README.md', 'README.en.md', 'SUMMARY', 'SUMMARY.en'):
             sync_document(target_token, document)
         metadata = api(target_token, TARGET)
-        description = 'List Cleaner · 列表清理'
+        description = '列表清理 · List Cleaner'
         if metadata.get('description') != description or metadata.get('homepage') != f'https://github.com/{SOURCE}':
             api(target_token, TARGET, method='PATCH', data={
                 'description': description, 'homepage': f'https://github.com/{SOURCE}'})
         body = (
             (source.get('body') or '')
-            + f'\n\nOriginal release / 原始发布: {source["html_url"]}\n'
-            + '\nRequirements / 使用要求: modern libxposed API 102; Android 12 or newer / Android 12 及以上。\n'
+            + f'\n\n原始发布 / Original release：{source["html_url"]}\n'
+            + '\n使用要求 / Requirements：modern libxposed API 102；Android 12 及以上 / Android 12 or newer.\n'
         )
         if release is None:
             release = api(target_token, TARGET, '/releases', 'POST', {
@@ -173,8 +170,6 @@ def main():
         if missing:
             gh(target_token, 'release', 'upload', official_tag, '--repo', TARGET,
                *[str(path) for path in missing])
-        # Publish after all uploads succeed. Editing a repaired public release also
-        # triggers the official indexer, unlike asset uploads alone.
         if release['draft'] or missing or release.get('body') != body or release.get('name') != version:
             release = api(target_token, TARGET, f'/releases/{release["id"]}', 'PATCH', {
                 'name': version, 'body': body, 'draft': False, 'prerelease': False,
