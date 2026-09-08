@@ -6,4 +6,5 @@
     <string name="backup_restore_failed">恢复失败</string>
     <string name="backup_create_failed">无法创建备份文件</string>
     <string name="backup_read_failed">无法读取备份</string>
+    <string name="backup_too_large">备份文件过大（最多 200 万字符）</string>
 </resources>
