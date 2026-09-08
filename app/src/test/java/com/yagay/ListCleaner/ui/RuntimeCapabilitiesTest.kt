@@ -1,6 +1,8 @@
 package com.yagay.ListCleaner.ui
 
 import com.yagay.ListCleaner.RuntimeStatus
+import com.yagay.ListCleaner.data.ResolverHost
+import com.yagay.ListCleaner.data.ScopeDetection
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -35,7 +37,9 @@ class RuntimeCapabilitiesTest {
             connected = true,
             scopeKnown = true,
             grantedScope = emptySet(),
-            detection = com.yagay.ListCleaner.data.ScopeDetection(recommended = setOf("system"))
+            detection = ScopeDetection(
+                hosts = listOf(ResolverHost("system", "PackageManagerService", "system", setOf("global")))
+            )
         )
         val runtime = RuntimeStatus(ready = true, queryHits = 9, orderingHits = 9, visibilityHits = 9)
 
