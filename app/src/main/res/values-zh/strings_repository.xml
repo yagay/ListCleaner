@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="repo_hidden_apps_too_many">隐藏应用列表数量过多</string>
+    <string name="repo_custom_slot_only">只能编辑自定义打开类型槽位</string>
+    <string name="repo_custom_type_not_configured">自定义类型尚未配置</string>
+    <string name="repo_invalid_component_id">无效的组件标识</string>
+    <string name="repo_component_id_not_normalized">组件标识必须使用规范化类名</string>
+    <string name="repo_invalid_component_rule">无效的组件规则</string>
+    <string name="repo_backup_too_many_rules">备份规则数量过多</string>
+    <string name="repo_backup_invalid_component">备份包含无效组件</string>
+    <string name="repo_backup_too_large">备份文件过大</string>
+    <string name="repo_backup_unsupported_version">不支持的备份版本：%1$d</string>
+    <string name="repo_backup_missing_display_mode">备份缺少显示模式</string>
+    <string name="repo_too_many_rules">规则数量过多</string>
+</resources>
