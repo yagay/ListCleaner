@@ -73,7 +73,6 @@ class RootComponentCatalog(private val context: Context) {
 
     @Suppress("DEPRECATION")
     fun scan(): RootComponentScan {
-        icons.evictAll()
         val errors = mutableListOf<String>()
         val items = CleanupKind.entries.flatMap { kind ->
             try {
@@ -85,6 +84,23 @@ class RootComponentCatalog(private val context: Context) {
             }
         }.sortedWith(compareBy({ it.owner.lowercase() }, { it.label.lowercase() }, { it.id }))
         return RootComponentScan(items, errors.joinToString("\n"), System.currentTimeMillis())
+    }
+
+    /** Refresh only components just mutated; avoids re-querying every tile/shortcut/widget provider. */
+    fun refreshItems(previous: RootComponentScan, targets: Collection<RootComponent>): RootComponentScan {
+        if (targets.isEmpty() || previous.items.isEmpty()) return previous
+        val targetIds = targets.mapTo(hashSetOf()) { it.id }
+        val refreshed = previous.items.map { item ->
+            if (item.id !in targetIds) item else readCurrent(item) ?: item
+        }
+        return previous.copy(items = refreshed, observedAt = System.currentTimeMillis())
+    }
+
+    private fun readCurrent(target: RootComponent): RootComponent? {
+        val info = query(target.kind).firstOrNull {
+            ComponentName(it.packageName, it.name) == target.component
+        } ?: return null
+        return read(target.kind, info)
     }
 
     private fun read(kind: CleanupKind, info: ComponentInfo): RootComponent {
