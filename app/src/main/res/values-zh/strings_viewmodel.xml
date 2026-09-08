@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="state_saved_waiting_connection">已保存，等待连接</string>
+    <string name="candidate_configured_not_observed">已配置，但本次未扫描到；不代表已卸载</string>
+
+    <string name="file_preview_checking">正在检查实际文件的候选和规则效果，不会打开文件…</string>
+    <string name="file_preview_generic_open">通用打开方式</string>
+    <string name="file_preview_header">识别类型：%1$s · MIME=%2$s\n</string>
+    <string name="file_preview_counts">原始候选 %1$d 个 → 预计最终 %2$d 个</string>
+    <string name="file_preview_empty_restored">（触发空列表保护，恢复系统原结果）</string>
+    <string name="file_preview_disclaimer">。此预览不模拟来源应用自身的私有菜单或同 UID 保护。</string>
+    <string name="file_preview_rank"> · 优先第 %1$d 位</string>
+    <string name="file_preview_source"> · 规则来源：%1$s</string>
+    <string name="file_preview_more">\n…另有 %1$d 项，完整候选见诊断包</string>
+    <string name="file_preview_failed">文件检查失败</string>
+    <string name="file_preview_source_generic">全部</string>
+    <string name="file_preview_source_typed">分类型</string>
+    <string name="file_preview_source_generic_and_typed">全部 + 分类型</string>
+
+    <string name="diagnostic_create_failed">无法创建诊断包</string>
+    <string name="diagnostic_exported">诊断包已导出</string>
+    <string name="diagnostic_export_failed">导出失败：%1$s；目标文件可能不完整，请重新导出</string>
+    <string name="scan_failed">扫描失败</string>
+
+    <string name="update_detecting_targets">正在检测运行目标…</string>
+    <string name="update_lsposed_disconnected">未连接 LSPosed</string>
+    <string name="update_target_reloading">%1$s：框架正在重载，请稍后重新检测</string>
+    <string name="update_target_too_old">%1$s：旧版本 %2$d 不支持本模块热重载，请完整重启手机</string>
+    <string name="update_succeeded">框架报告更新成功，正在重新核实</string>
+    <string name="update_unsupported">框架不支持，请重启手机</string>
+    <string name="update_failed">更新失败：%1$s；请重启手机</string>
+    <string name="update_old_module_rejected">旧模块拒绝</string>
+    <string name="update_process_died">目标已退出，等待重新启动</string>
+    <string name="update_in_progress">框架正在重载，请稍后重新检测</string>
+    <string name="update_timeout">等待超时，不代表已取消；请重新检测，勿重复请求</string>
+    <string name="update_target_result">%1$s：%2$s</string>
+    <string name="update_request_failed">%1$s：更新请求失败（%2$s）；继续检查其他目标</string>
+    <string name="update_nothing_pending">没有需要热更新的运行目标；正在核实配置</string>
+    <string name="update_check_failed">更新检查失败：%1$s；未重启任何系统进程</string>
+
+    <string name="module_target_detection_unsupported">当前框架不支持运行目标检测</string>
+    <string name="module_status_read_failed">无法读取 LSPosed 模块状态</string>
+    <string name="editing_requires_recovery">请先完成远程配置恢复或重置，避免覆盖原有规则</string>
+
+    <string name="scope_lsposed_not_connected">未连接 LSPosed，请先启用模块</string>
+    <string name="scope_service_changed_retry">服务连接已变化，请重新检查</string>
+    <string name="scope_granted_read_failed">无法读取已授权作用域，未提交申请</string>
+    <string name="scope_no_auto_host">未确认可自动申请的选择器宿主，请查看检测详情并在 LSPosed 中手动核查</string>
+    <string name="scope_all_recommended_granted">检测到的推荐作用域均已授权，无需重复申请</string>
+    <string name="scope_service_changed_result">服务连接已变化，请重新检查授权结果</string>
+    <string name="scope_request_timeout">等待授权超时，框架申请可能仍在处理；请先在 LSPosed 查看结果</string>
+    <string name="scope_result_unverified">框架已返回，暂时无法核实授权结果，请重新检查</string>
+    <string name="scope_still_missing">仍缺少作用域：%1$s</string>
+    <string name="scope_granted_confirmed">推荐作用域已确认授权；若目标尚未加载，请重新启动相关选择器，必要时重启设备</string>
+    <string name="scope_request_failed">申请作用域失败</string>
+</resources>
