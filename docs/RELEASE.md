@@ -1,34 +1,29 @@
-# Release 签名与发布
+# Release signing and publishing
 
-正式版本使用固定的 RSA-3072 / PKCS12 密钥，并启用 APK v2/v3 签名。
-仓库只保存公开证书的 SHA-256（`signing/release-certificate.sha256`），私钥和密码不提交。
+**English** | [简体中文](RELEASE.zh-CN.md)
 
-## GitHub 一次性配置
+Official releases use a fixed RSA-3072 / PKCS12 key and APK v2/v3 signing. The repository stores only the public certificate SHA-256 (`signing/release-certificate.sha256`); private keys and passwords are never committed.
 
-在仓库 Settings → Secrets and variables → Actions 新增 Repository secret：
+## One-time GitHub setup
 
-- 名称：`ANDROID_SIGNING_JSON`
-- 值：签名备份包中 `ANDROID_SIGNING_JSON.txt` 的全部内容。
+In repository Settings → Secrets and variables → Actions, add a Repository secret:
 
-该 JSON 包含 `keystore_base64`、`store_password`、`key_alias`、`key_password`。
-不要把 JSON、密钥或备份包提交到源码、Issue、Actions artifacts 或 Releases。
-请长期保管备份；不要重新生成密钥来替代已发布版本使用的密钥。
+- Name: `ANDROID_SIGNING_JSON`
+- Value: the complete contents of `ANDROID_SIGNING_JSON.txt` from the signing backup package.
 
-配置完成后，进入 Actions → Build and Publish Release → Run workflow，选择 `main`。
-也可以重跑此前因缺少 Secret 而失败的运行。工作流会执行 Release 编译、签名校验、
-对齐校验和包身份检查，再上传 APK、SHA256SUMS.txt、signature.txt 到 GitHub Releases。
-签名证书必须与仓库记录匹配。缺少 Secret 时只验证未签名的 Release 编译，随后停止；
-不会发布未签名包或使用 Debug 密钥代替。
+The JSON contains `keystore_base64`, `store_password`, `key_alias`, and `key_password`. Do not commit the JSON, key material, or backup package to source control, Issues, Actions artifacts, or Releases. Keep the backup permanently and do not replace the key used by published releases with a newly generated one.
 
-修改 `app/build.gradle.kts` 中的版本号、发布工作流或签名配置后也会触发发布流程。
-发布新版本前同时递增 `versionCode` 和 `versionName`。已存在的版本不会被覆盖。
-重复编译已发布版本时，APK 编译、签名校验和 Artifact 上传仍会完成，发布步骤会提示跳过，
-不会因同名 Release 导致整个工作流失败。到该次 Actions 运行的 `ListCleaner-release-版本号`
-Artifact 下载本次源码编译的 APK；已有 Release 附件仍对应原发布的源码。
+After setup, open Actions → Build and Publish Release → Run workflow and select `main`. You can also rerun a previous workflow that failed because the secret was missing. The workflow builds Release, verifies signing and alignment, validates package identity, then uploads the APK, `SHA256SUMS.txt`, and `signature.txt` to GitHub Releases.
 
-## 本地构建
+The signing certificate must match the certificate pinned in the repository. If the secret is missing, the workflow only verifies that unsigned Release compilation succeeds and then stops; it never publishes an unsigned APK or substitutes a Debug key.
 
-将备份中的 `keystore.properties` 放在项目根目录，把 `storeFile` 改为密钥的绝对路径：
+Changes to the version in `app/build.gradle.kts`, the release workflow, or signing configuration can also trigger the release pipeline. Increment both `versionCode` and `versionName` before publishing a new version. Existing versions are never overwritten.
+
+When rebuilding an already published version, APK compilation, signature verification, and artifact upload still complete, while the publishing step reports that the existing Release was skipped. A duplicate Release name does not make the whole workflow fail. Download the APK built from the current source from that Actions run's `ListCleaner-release-<version>` artifact; existing GitHub Release attachments continue to represent the originally published source.
+
+## Local builds
+
+Place the backed-up `keystore.properties` in the project root and set `storeFile` to the absolute path of the key:
 
 ```properties
 storeFile=/absolute/path/to/ListCleaner-release.p12
@@ -38,65 +33,46 @@ keyPassword=your-private-password
 storeType=PKCS12
 ```
 
-执行 `./gradlew :app:assembleRelease`，输出为 `app/build/outputs/apk/release/app-release.apk`。
-也支持同名用途的 `RELEASE_STORE_FILE`、`RELEASE_STORE_PASSWORD`、`RELEASE_KEY_ALIAS`、
-`RELEASE_KEY_PASSWORD`、`RELEASE_STORE_TYPE` 环境变量，环境变量优先。
-没有签名配置时正式构建报错。仅编译检查可显式传入 `-PallowUnsignedRelease=true`；
-得到的未签名包不能用于安装或发布。
+Run `./gradlew :app:assembleRelease`. Output is written to `app/build/outputs/apk/release/app-release.apk`.
 
-## 从 Debug 版迁移
+Equivalent environment variables are also supported: `RELEASE_STORE_FILE`, `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD`, and `RELEASE_STORE_TYPE`; environment variables take precedence. A normal Release build fails when signing configuration is missing. For compile-only checks, explicitly pass `-PallowUnsignedRelease=true`; the resulting unsigned APK must not be installed or published.
 
-新固定 Release 证书通常与旧 Debug 证书不同，因此首次切换可能无法直接覆盖安装。
-先在 App 内导出规则备份。后续始终使用同一 Release 签名即可正常覆盖升级。
+## Migrating from a Debug build
 
-## 同步到 LSPosed 官方仓库
+The fixed Release certificate normally differs from an older Debug certificate, so the first transition may not install as an in-place update. Export a rule backup from the app first. Future releases signed with the same Release key can then update each other normally.
 
-源码和构建继续保留在 `yagay/ListCleaner`，模块介绍与正式 APK 发布到
-`Xposed-Modules-Repo/com.yagay.ListCleaner`。
+## Synchronizing to the official LSPosed repository
 
-在**源码仓库** Settings → Secrets and variables → Actions 中添加 `LSPOSED_REPO_TOKEN`。
-令牌所属账号需要有官方模块仓库的写入权限。外部协作者可使用带 `public_repo` 权限的
-classic PAT；组织策略若禁止该令牌，需由组织管理员处理。令牌到期后更新同名 Secret，
-不要把令牌写入源码、日志或聊天。该凭据仅用于官方仓库同步，不替代 APK 签名配置。
+Source code and builds remain in `yagay/ListCleaner`. Module documentation and official APK releases are mirrored to `Xposed-Modules-Repo/com.yagay.ListCleaner`.
 
-`Sync LSPosed Release` 工作流在以下情况运行：
+In the **source repository**, add `LSPOSED_REPO_TOKEN` under Settings → Secrets and variables → Actions. The token owner must have write access to the official module repository. External collaborators can use a classic PAT with `public_repo` when allowed by organization policy. Update the same Secret when the token expires. Never place the token in source code, logs, or chat. This credential is only for official repository synchronization and does not replace APK signing configuration.
 
-- `Build and Publish Release` 在 main 上成功结束后（包括重复编译已发布版本）。
-- 手动在源码仓库发布 Release 后。
-- main 上修改同步脚本、工作流或 `docs/lsposed/` 介绍资料后。
-- 手动 Actions → Sync LSPosed Release → Run workflow，选择 main；`tag` 填 `v1.6.3`
-  可补发指定版本，留空同步最新正式版。
+The `Sync LSPosed Release` workflow runs when:
 
-同步下载源码仓库**已发布的** APK、校验文件及签名报告，核对 APK 实际包名、版本、
-SHA-256 和固定签名证书后，以 `版本码-版本名` 创建官方 Release，例如 `28-1.6.3`。
-更新说明来自原 Release，并附原始发布链接。不会把同版本重新编译的 Artifact 替换进去。
-官方仓库的 README、SUMMARY 和简介由 `docs/lsposed/` 及脚本统一维护。
+- `Build and Publish Release` completes successfully on `main`, including a rebuild of an already published version.
+- A Release is manually published in the source repository.
+- Synchronization scripts, workflows, or `docs/lsposed/` documentation change on `main`.
+- It is run manually from Actions → Sync LSPosed Release → Run workflow. Select `main`; set `tag` to a stable tag such as `v1.6.3` to repair a specific version, or leave it empty to synchronize the latest stable release.
 
-附件全部上传到草稿后才发布；失败后可重跑，已上传且相同的附件会跳过。
-相同版本若已有不同文件则停止并提示，不覆盖或删除旧附件。
-同步失败不影响自己仓库已发布的版本，也不需要重新生成签名密钥。
+The synchronizer downloads the **already published** APK, checksum file, and signature report from the source repository. It validates the APK package name, version, SHA-256, and pinned Release certificate, then creates an official Release named with `<versionCode>-<versionName>`, for example `28-1.6.3`.
 
-发布工作流使用 `GITHUB_TOKEN` 创建 Release 不会触发另一个普通 Release 事件工作流，
-因此这里同时使用 `workflow_run` 接续同步。同步只运行可信 main 分支的脚本，不运行 PR
-源码或下载 PR 构建产物，不向 PR 提供跨仓库令牌。
+Release notes originate from the source Release and include a link back to the original publication. A rebuilt artifact for the same version is never substituted for the published asset. The official repository README, localized README, SUMMARY files, and description are maintained from `docs/lsposed/` and the synchronization script.
 
-## 自动发布到 Telegram 频道
+All assets are uploaded to a draft before publication. A failed run can be retried; already uploaded identical assets are skipped. If the same version already contains a different file, synchronization stops instead of overwriting or deleting the existing asset. A synchronization failure does not affect the source repository's already published release and never requires regenerating the signing key.
 
-正式 Release 成功后，`Publish Telegram Release` 工作流会把对应的 Release APK 作为文件
-直接发布到 Telegram 频道，并在附件说明中包含版本号、Release 更新说明、GitHub Release
-链接和 LSPosed 官方仓库链接。
+A Release created by the publishing workflow with `GITHUB_TOKEN` does not trigger a normal secondary Release-event workflow, so `workflow_run` is also used to continue synchronization. Synchronization executes only trusted `main`-branch scripts; it does not run PR source or download PR build outputs, and no cross-repository token is exposed to PRs.
 
-首次使用时，在源码仓库 Settings → Secrets and variables → Actions 添加：
+## Automatic Telegram publishing
 
-- `TELEGRAM_BOT_TOKEN`：由 `@BotFather` 创建的 Bot Token。不要写入源码、日志或聊天。
-- `TELEGRAM_CHAT_ID`：可选。默认已经使用 `@LISTCLEANER`；只有以后更换频道时才需要配置。
+After an official Release succeeds, the `Publish Telegram Release` workflow posts the corresponding Release APK directly to the Telegram channel. The attachment caption includes the version, Release notes, GitHub Release link, and official LSPosed repository link.
 
-需要把 Bot 加入 `@LISTCLEANER` 频道并设为管理员，至少授予发布消息权限。
+For initial setup, add these values under source repository Settings → Secrets and variables → Actions:
 
-工作流在 `Build and Publish Release` 于 main 成功结束后自动运行，也支持手动运行。
-手动运行时可以填写 `v1.6.4` 这类稳定版本 Tag；留空则使用最新正式 Release。
+- `TELEGRAM_BOT_TOKEN`: Bot Token created with `@BotFather`. Never place it in source, logs, or chat.
+- `TELEGRAM_CHAT_ID`: optional. `@LISTCLEANER` is already the default; configure this only if the channel changes later.
 
-每次成功发送后，脚本会在对应 GitHub Release 中加入 `telegram-published.json` 标记附件，
-记录已发送的版本与 Telegram `message_id`。之后即使重新运行相同版本，也会检测该标记并
-跳过发送，避免重复发布。Telegram 临时故障只会让该独立工作流失败，不影响 GitHub Release、
-APK 签名结果或 LSPosed 官方仓库同步。
+Add the Bot to `@LISTCLEANER` as an administrator with at least permission to publish messages.
+
+The workflow runs automatically after `Build and Publish Release` completes successfully on `main`, and it can also be started manually. For a manual run, specify a stable tag such as `v1.6.4`, or leave it empty to use the latest stable Release.
+
+After a successful post, the script adds a `telegram-published.json` marker asset to the matching GitHub Release and records the sent version plus Telegram `message_id`. Later reruns of the same version detect this marker and skip duplicate publication. A temporary Telegram failure only fails this independent workflow; it does not affect the GitHub Release, APK signature result, or LSPosed synchronization.
