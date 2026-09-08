@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="priority_unselected">Not prioritized</string>
+    <string name="priority_selected">Prioritized</string>
+    <string name="priority_intro">Select apps to control their priority order. Custom display names are independent and do not require adding an app to the priority list.</string>
+    <string name="priority_drag_help">Long-press prioritized apps to drag and reorder; release to save. After expanding an app, you can also move it up or down. Tap the pencil on a component to change its menu display name for the current Intent category; leave it empty to restore the original name.</string>
+    <string name="priority_source_inherited">Current ordering source: inherited from Open · All</string>
+    <string name="priority_source_dedicated">Current ordering source: dedicated ordering for %1$s</string>
+    <string name="priority_source_none">Neither this type nor All has priority ordering</string>
+    <string name="priority_restore_inheritance">Restore inheritance from All</string>
+    <string name="priority_inheritance_help">Without dedicated ordering, this type inherits All directly. The first select, deselect, drag, or move operation in this type creates dedicated ordering based on the inherited order. Restoring inheritance makes it follow future changes to All again. Custom and built-in types use the same behavior.</string>
+    <string name="priority_general_help">Ordering and display names are saved per Intent category. The same component can use different names for Share, Open, and other categories. Renaming changes only chooser text, not the app name, Activity name, or actual target.</string>
+    <string name="priority_compat_disconnected">LSPosed is not connected. Changes can be saved but are not active yet.</string>
+    <string name="priority_compat_unknown_host">No resolver host is confirmed, so ordering capability is unknown on this device.</string>
+    <string name="priority_compat_vendor_path">A vendor-specific ordering path is not adapted. Ordering may work only when the AOSP path is used and pinning is not guaranteed.</string>
+    <string name="priority_compat_aosp">AOSP ordering paths are adapted. Diagnostic mode can confirm Resolver-side ORDER_DELIVERED.</string>
+    <string name="priority_process_text_note">Text candidates are ordered in query results; a source app may still reorder them itself.</string>
+    <string name="priority_hidden_saved">%1$d saved entries are temporarily hidden because they were cleaned or did not match this scan; ordering is retained.</string>
+    <string name="priority_limit_reached">This category has reached the 200-entry limit. Remove some prioritized apps before adding more.</string>
+    <string name="priority_rank">Priority #%1$d</string>
+    <string name="priority_rank_inherited">Priority #%1$d · inherited from All</string>
+    <string name="priority_not_prioritized">Not prioritized</string>
+    <string name="priority_app_summary">%1$s · %2$d components</string>
+    <string name="priority_move_up">Move up</string>
+    <string name="priority_move_down">Move down</string>
+    <string name="priority_rank_inherited_short">Priority #%1$d · inherited</string>
+    <string name="priority_empty_search">No matching apps</string>
+    <string name="priority_empty_selected">No prioritized apps to display</string>
+    <string name="priority_empty_unselected">No non-prioritized apps to display</string>
+    <string name="priority_empty_category">No sortable apps in this category</string>
+    <string name="priority_drag_target">Release to move to priority #%1$s</string>
+    <string name="component_shown_as">Shown as: %1$s</string>
+    <string name="component_edit_display_name">Edit display name</string>
+</resources>
