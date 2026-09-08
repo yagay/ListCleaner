@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search_apps_components_packages">搜索应用、组件或包名</string>
+    <string name="close_search">关闭搜索</string>
+    <string name="clear_search">清空搜索</string>
+    <string name="restore_backup">恢复备份</string>
+    <string name="export_backup">导出备份</string>
+    <string name="view_filter">查看</string>
+    <string name="select_all">全选</string>
+    <string name="invert_selection">反选</string>
+
+    <string name="module_lsposed_disconnected">LSPosed 未连接</string>
+    <string name="module_old_running">旧模块仍在运行／更新未完成</string>
+    <string name="module_needs_attention">模块状态需要处理</string>
+    <string name="module_loaded">检测到模块已加载</string>
+    <string name="module_lsposed_connected">LSPosed 已连接</string>
+    <string name="module_system_confirmed">系统已确认配置</string>
+    <string name="module_check_status">需要检查配置，点击查看状态</string>
+    <string name="module_view_status">查看模块状态</string>
+
+    <string name="rules_view_unmatched">查看未匹配的已选规则</string>
+    <string name="no_matching_components">没有匹配的组件</string>
+    <string name="app_list_count">应用列表 · %1$d</string>
+    <string name="app_list_count_type">应用列表 · %1$d · %2$s</string>
+    <string name="rules_page_intro">本页用于管理分享、多文件分享、打开方式、浏览器和文本处理等 Intent 候选入口：可按规则隐藏/保留组件，也可单独修改组件在系统候选菜单中的显示名称；不会修改实际 Intent、包名、组件名，也不会停用或卸载应用。</string>
+    <string name="rules_mode_hide_selected">当前为“隐藏选中”：规则生效后，勾选的组件从对应候选列表中隐藏；取消勾选恢复默认显示。</string>
+    <string name="rules_mode_show_selected">当前为“只显示选中”：规则生效后，对应分类保留勾选的组件，隐藏其他组件。</string>
+    <string name="rules_mode_show_all">当前为“全部显示”：暂停清理系统候选列表，勾选只保存配置，恢复清理模式后生效。</string>
+    <string name="rules_usage_help">勾选应用可批量选择当前分类及搜索条件下显示的组件；展开后可逐项选择，点铅笔可设置该组件在当前分类中的菜单显示名称。改名与是否勾选规则相互独立；留空保存恢复原名称。“查看”只筛选本页列表，不改变清理规则。</string>
+    <string name="rules_typed_help">当前正在编辑“打开方式 · %1$s”专用规则。有效勾选由“全部”中的 OPEN 通用规则与当前类型专用规则共同组成；继承自“全部”的项目会继续显示已勾选，并在展开项中标明来源。继承项不能在分类型里直接取消，需要回到“全部”取消；当前类型新增的规则只影响该 MIME / scheme / 文件后缀类型。</string>
+    <string name="rules_inherited_from_all">继承自“打开方式 · 全部”</string>
+    <string name="rules_dedicated_rule">%1$s 专用规则</string>
+    <string name="rules_pause_confirmed">system 已确认暂停过滤、排序和自定义显示名称；相关配置仍保留</string>
+    <string name="rules_pause_pending">本地已选择暂停，尚未确认系统已应用</string>
+    <string name="rules_show_selected_empty">未设置勾选的分类暂时显示全部</string>
+    <string name="rules_refresh_incomplete">本次刷新未完整完成，详情见状态页</string>
+
+    <string name="dashboard_global_mode">全局清理模式</string>
+    <string name="dashboard_global_mode_help">控制系统选择器如何处理已选组件。</string>
+    <string name="dashboard_switch">切换</string>
+    <string name="dashboard_sync_status">同步状态</string>
+    <string name="dashboard_sync_help">本地保存不等于系统生效；以配置确认状态为准，Resolver 侧效果仍需实际验证。</string>
+    <string name="dashboard_runtime_hits">运行能力与实际命中</string>
+    <string name="dashboard_ack_confirmed">system_server 已确认当前配置</string>
+    <string name="dashboard_ack_missing">尚未取得当前配置 ACK</string>
+    <string name="dashboard_query_hits">Intent 查询 Hook：%1$d 次</string>
+    <string name="dashboard_visibility_hits">应用可见性兼容过滤：%1$d 次</string>
+    <string name="dashboard_ordering_hits">system 进程记录到的排序改写：%1$d 次</string>
+    <string name="dashboard_hits_help">查询和应用可见性计数来自 system_server 的真实执行。排序通常在独立 Resolver/Chooser 进程执行，因此这里的排序计数为 0 不能单独判定排序失效；诊断模式会记录 Resolver 侧 ORDER_DELIVERED，实际菜单仍以设备复现为准。</string>
+    <string name="dashboard_refresh_runtime">刷新运行状态</string>
+    <string name="dashboard_data_backup">数据备份</string>
+    <string name="dashboard_restore_json">从 JSON 恢复</string>
+    <string name="dashboard_export_json">导出为 JSON</string>
+    <string name="dashboard_module_status">模块状态</string>
+    <string name="dashboard_app_visibility">应用隐藏列表</string>
+    <string name="dashboard_app_visibility_help">用于普通 Resolver 规则对某些文件管理器不起作用时的兼容方案，例如 ES 自己生成的打开方式列表。启用后，从指定来源应用可见的已安装应用列表中隐藏“打开方式”规则目标；只跟随 OPEN 通用规则和内置/自定义分类型 OPEN 规则，不会再因为分享或文本处理规则而隐藏目标包。</string>
+    <string name="dashboard_manage_app_visibility">管理应用隐藏列表（%1$d）</string>
+    <string name="dashboard_app_visibility_warning">勾选立即保存；仅在“隐藏选中”模式生效。实现位于 android/system_server，属于包级隐藏：命中后该目标包会整体对来源应用不可见，无法只隐藏其中一个 Activity。</string>
+    <string name="dashboard_diagnostics">诊断工具</string>
+    <string name="dashboard_scan_disclaimer">扫描只用于发现可管理组件，不保证等同于每次实际菜单。非文本分类保留空列表保护；文本允许隐藏全部候选，不处理应用硬编码菜单。</string>
+    <string name="dashboard_inspecting_file">正在检查文件…</string>
+    <string name="dashboard_inspect_file">用实际文件预览最终打开方式</string>
+    <string name="dashboard_collecting">正在收集</string>
+    <string name="dashboard_export_diagnostics">一键导出诊断包</string>
+</resources>
