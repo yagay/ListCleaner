@@ -55,6 +55,8 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
     private val json = Json { ignoreUnknownKeys = true }
     private var pendingRecovery: ModuleConfig? = null
     private var corruptRecovery = false
+    private var acknowledgedSessionGeneration = -1L
+    private var acknowledgedRevision = -1L
 
     override fun onCreate() {
         super.onCreate()
@@ -75,6 +77,8 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
 
     override fun onServiceBind(service: XposedService) {
         val session = sessionRegistry.bind(service)
+        acknowledgedSessionGeneration = -1L
+        acknowledgedRevision = -1L
         this.service.value = service
         serviceSession.value = session
     }
@@ -82,6 +86,8 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
     override fun onServiceDied(service: XposedService) {
         val cleared = sessionRegistry.clear(service) ?: return
         if (serviceSession.value?.generation == cleared.generation) {
+            acknowledgedSessionGeneration = -1L
+            acknowledgedRevision = -1L
             serviceSession.value = null
             this.service.value = null
             publish(RuntimeStatus(message = getString(R.string.runtime_connection_lost)))
@@ -173,20 +179,8 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                 check(bound.apiVersion >= 102) { getString(R.string.runtime_framework_api_required) }
                 val targets = bound.runningTargets
                 check(isCurrent(session)) { getString(R.string.runtime_connection_changed) }
-                val config = rules.remoteSnapshot()
-                val encoded = json.encodeToString(ModuleConfig.serializer(), config)
-                require(encoded.length <= RuleRepository.MAX_BACKUP_CHARS) {
-                    getString(R.string.runtime_config_transfer_too_large)
-                }
-                val digest = RuntimeProtocol.digest(encoded)
-                val canPause = config.mode == DisplayMode.SHOW_ALL && targets.isNotEmpty() && targets.all {
+                val canPauseTargets = targets.isNotEmpty() && targets.all {
                     RuntimeProtocol.supportsSafetyPause(it.state.name, it.loadedVersionCode)
-                }
-                if (canPause && prefs.getString(RuleRepository.KEY_CONFIG, null) != encoded) {
-                    check(prefs.edit().putString(RuleRepository.KEY_CONFIG, encoded).commit()) {
-                        getString(R.string.runtime_pause_write_failed)
-                    }
-                    publishFor(session, RuntimeStatus(message = getString(R.string.runtime_pause_submitted)))
                 }
                 val incompatible = targets.filter {
                     !RuntimeProtocol.current(
@@ -200,7 +194,7 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                         "${target.processName} ${target.state.name}/v${target.loadedVersionCode}"
                     }
                     val suffix = getString(
-                        if (canPause) R.string.runtime_incompatible_pause_pending
+                        if (canPauseTargets) R.string.runtime_incompatible_pause_pending
                         else R.string.runtime_incompatible_paused
                     )
                     getString(R.string.runtime_incompatible_targets, details, suffix)
@@ -208,10 +202,31 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                 check(targets.any { it.processName == "system" }) {
                     getString(R.string.runtime_system_target_missing)
                 }
+
+                val revision = rules.revision.value
+                if (runtime.value.ready && acknowledgedSessionGeneration == session.generation &&
+                    acknowledgedRevision == revision) {
+                    return@withLock true
+                }
+
+                val config = rules.remoteSnapshot()
+                val encoded = json.encodeToString(ModuleConfig.serializer(), config)
+                require(encoded.length <= RuleRepository.MAX_BACKUP_CHARS) {
+                    getString(R.string.runtime_config_transfer_too_large)
+                }
+                val digest = RuntimeProtocol.digest(encoded)
+                val canPause = config.mode == DisplayMode.SHOW_ALL && canPauseTargets
+                val remoteEncoded = prefs.getString(RuleRepository.KEY_CONFIG, null)
+                if (canPause && remoteEncoded != encoded) {
+                    check(prefs.edit().putString(RuleRepository.KEY_CONFIG, encoded).commit()) {
+                        getString(R.string.runtime_pause_write_failed)
+                    }
+                    publishFor(session, RuntimeStatus(message = getString(R.string.runtime_pause_submitted)))
+                }
                 if (runtime.value.digest != digest) {
                     publishFor(session, RuntimeStatus(message = getString(R.string.runtime_waiting_ack)))
                 }
-                if (prefs.getString(RuleRepository.KEY_CONFIG, null) != encoded) {
+                if (remoteEncoded != encoded) {
                     check(prefs.edit().putString(RuleRepository.KEY_CONFIG, encoded).commit()) {
                         getString(R.string.runtime_remote_write_failed)
                     }
@@ -249,8 +264,8 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                 }
                 check(isCurrent(session)) { getString(R.string.runtime_connection_changed) }
                 check(acknowledged) { getString(R.string.runtime_ack_missing) }
-                check(rules.remoteSnapshot() == config) { getString(R.string.runtime_config_changed) }
-                publishFor(
+                check(rules.revision.value == revision) { getString(R.string.runtime_config_changed) }
+                val published = publishFor(
                     session,
                     RuntimeStatus(
                         ready = true,
@@ -261,6 +276,11 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                         orderingHits = orderingHits
                     )
                 )
+                if (published) {
+                    acknowledgedSessionGeneration = session.generation
+                    acknowledgedRevision = revision
+                }
+                published
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
@@ -268,6 +288,8 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                 if (attemptSession != null && !isCurrent(attemptSession)) {
                     false
                 } else {
+                    acknowledgedSessionGeneration = -1L
+                    acknowledgedRevision = -1L
                     publish(RuntimeStatus(message = getString(R.string.runtime_validation_failed)))
                 }
             }
@@ -286,6 +308,8 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
             )
             pendingRecovery = null
             corruptRecovery = false
+            acknowledgedSessionGeneration = -1L
+            acknowledgedRevision = -1L
             publish(
                 RuntimeStatus(
                     message = getString(
