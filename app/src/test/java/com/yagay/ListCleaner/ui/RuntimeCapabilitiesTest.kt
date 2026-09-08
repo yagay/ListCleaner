@@ -5,6 +5,7 @@ import com.yagay.ListCleaner.RuntimeStatus
 import com.yagay.ListCleaner.data.ResolverHost
 import com.yagay.ListCleaner.data.ScopeDetection
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class RuntimeCapabilitiesTest {
@@ -103,5 +104,14 @@ class RuntimeCapabilitiesTest {
         assertEquals(CapabilityState.LOADED_UNOBSERVED, states[RuntimeCapability.FILTERING])
         assertEquals(CapabilityState.NOT_READY, states[RuntimeCapability.ORDERING])
         assertEquals(CapabilityState.LOADED_UNOBSERVED, states[RuntimeCapability.PACKAGE_VISIBILITY])
+    }
+
+    @Test
+    fun systemTargetAloneDoesNotCountAsResolverLoaded() {
+        val module = healthyModule().copy(
+            runningTargets = listOf(currentTarget("system"))
+        )
+
+        assertFalse(module.resolverLoaded)
     }
 }
