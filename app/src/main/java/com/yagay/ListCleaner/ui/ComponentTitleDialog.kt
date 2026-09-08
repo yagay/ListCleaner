@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -13,7 +14,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.ComponentCandidate
 
 @Composable
@@ -30,25 +34,43 @@ internal fun ComponentTitleDialog(
     val changed = trimmed != normalizedCurrent
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("自定义显示名称") },
+        title = { Text(stringResource(R.string.component_title_dialog_title)) },
         text = {
             Column {
-                Text("原名称：${item.activityLabel}", style = MaterialTheme.typography.bodyMedium)
-                Text("仅修改该组件在 ${item.rule.kind.shortTitle} 候选菜单中的显示文字，不会修改应用名、Intent、包名、组件名或实际启动目标。", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(item.rule.className, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(androidx.compose.ui.Modifier.height(12.dp))
+                Text(
+                    stringResource(R.string.component_title_original, item.activityLabel),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    stringResource(R.string.component_title_help, stringResource(item.rule.kind.titleRes())),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    item.rule.className,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
                     value = text,
                     onValueChange = { if (it.length <= 64 && it.none(Char::isISOControl)) text = it },
-                    label = { Text("菜单显示名称") },
-                    supportingText = { Text("${text.length}/64 · 留空保存恢复原名称 · “全部显示”模式下暂不应用自定义名称") },
+                    label = { Text(stringResource(R.string.component_title_field)) },
+                    supportingText = { Text(stringResource(R.string.component_title_support, text.length)) },
                     singleLine = true
                 )
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSave(trimmed.ifEmpty { null }); onDismiss() }, enabled = changed) { Text("保存") }
+            TextButton(
+                onClick = { onSave(trimmed.ifEmpty { null }); onDismiss() },
+                enabled = changed
+            ) {
+                Text(stringResource(R.string.common_save))
+            }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+        }
     )
 }
