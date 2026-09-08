@@ -1,14 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">List Cleaner</string>
-
-    <!--
-      Central locale overlay used by AppLanguage.
-      Additional languages can override this array in values-xx/strings.xml with entries:
-      source|||translation
-      Unsupported languages automatically fall back to the built-in English catalogue.
-    -->
-    <string-array name="locale_overrides">
-        <item>__placeholder__|||__placeholder__</item>
-    </string-array>
 </resources>
