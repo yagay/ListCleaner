@@ -1,5 +1,7 @@
 # 列表清理 / List Cleaner 1.6.8
 
+版本码 / Version code: 33
+
 ## 中文
 
 - 完成一轮完整性能优化，重点降低 system_server Hook 热路径中的反射和重复计算开销。
