@@ -2,11 +2,12 @@
 """Publish a verified GitHub Release APK to the List Cleaner Telegram channel.
 
 The bot token is read only from TELEGRAM_BOT_TOKEN. A marker asset stores the
-Release-body digest and Telegram message id. Identical reruns are skipped; when
-the same release notes change, the previous Telegram post is deleted first and
-then replaced with the refreshed APK post.
+Release-body/presentation digest and Telegram message id. Identical reruns are
+skipped; when release notes or the presentation format change, the previous
+Telegram post is deleted first and replaced with the refreshed APK post.
 """
 import hashlib
+import html
 import json
 import os
 from pathlib import Path
@@ -21,6 +22,8 @@ import uuid
 SOURCE = "yagay/ListCleaner"
 DEFAULT_CHAT_ID = "@LISTCLEANER"
 MARKER_NAME = "telegram-published-v2.json"
+PUBLISH_FORMAT_VERSION = "expandable-caption-v1"
+CAPTION_VISIBLE_LIMIT = 960
 
 
 def gh(*args):
@@ -50,41 +53,67 @@ def find_asset(release, name):
 
 
 def _compact(text, limit):
-    text = re.sub(r"\n{3,}", "\n\n", (text or "").replace("\r", "").strip())
+    text = re.sub(r"\s+", " ", (text or "").replace("\r", " ").strip())
     if len(text) <= limit:
         return text
-    return text[: limit - 1].rstrip() + "…"
+    return text[: limit - 1].rstrip(" ,，;；。.") + "…"
 
 
-def compact_notes(body, limit=620):
-    """Keep both languages visible; RELEASE_NOTES.md is Chinese first, English second."""
-    text = (body or "").replace("\r", "").strip()
-    marker = "\n## English\n"
-    if marker not in text:
-        return _compact(text, limit)
-    chinese, english = text.split(marker, 1)
-    chinese = re.sub(r"^#.*?\n+", "", chinese, count=1).strip()
-    chinese = re.sub(r"^## 中文\n+", "", chinese, count=1).strip()
-    english = english.strip()
-    zh = _compact(chinese, 350)
-    en = _compact(english, 230)
-    return f"中文\n{zh}\n\nEnglish\n{en}"
+def chinese_feature_bullets(body):
+    """Return every Chinese feature-summary bullet before English/full raw changelog."""
+    text = (body or "").replace("\r", "")
+    if "## 中文" in text:
+        text = text.split("## 中文", 1)[1]
+    for marker in ("\n---\n", "\n## English\n", "\n## 完整变更 / Full changelog\n"):
+        if marker in text:
+            text = text.split(marker, 1)[0]
+    bullets = []
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith("- "):
+            bullets.append(line[2:].strip())
+    return bullets
+
+
+def compact_feature_notes(body, budget):
+    """Keep all feature bullets represented within Telegram's one-caption limit."""
+    bullets = chinese_feature_bullets(body)
+    if not bullets:
+        text = re.sub(r"^#.*?\n+", "", (body or "").strip(), count=1)
+        return _compact(text, budget)
+
+    # Preserve every functional item by compacting each bullet rather than dropping later ones.
+    per_item = max(28, min(62, (budget - max(0, len(bullets) - 1)) // max(1, len(bullets)) - 2))
+    lines = [f"• {_compact(item, per_item)}" for item in bullets]
+    notes = "\n".join(lines)
+    if len(notes) <= budget:
+        return notes
+
+    # Last-resort rebalance for unusually large release summaries.
+    per_item = max(18, per_item - 8)
+    return "\n".join(f"• {_compact(item, per_item)}" for item in bullets)
 
 
 def make_caption(version, body, release_url):
-    notes = compact_notes(body)
-    parts = [f"📢 List Cleaner {version} 发布 / Release"]
-    if notes:
-        parts += ["", notes]
-    parts += [
-        "",
-        f"GitHub Release：{release_url}",
-        "LSPosed 官方仓库 / Official repository：https://github.com/Xposed-Modules-Repo/com.yagay.ListCleaner/releases",
-        "",
-        "#ListCleaner #LSPosed",
-    ]
-    caption = "\n".join(parts)
-    return caption[:900]
+    title = f"📢 <b>List Cleaner {html.escape(version)} 发布 / Release</b>"
+    footer = (
+        f'\n\n<a href="{html.escape(release_url, quote=True)}">GitHub Release · 完整原始变更</a>'
+        "\n#ListCleaner #LSPosed"
+    )
+
+    # Telegram document captions are limited; expandable formatting changes presentation,
+    # not the hard caption limit. Reserve room for title/footer and keep every feature item.
+    visible_overhead = len(re.sub(r"<[^>]+>", "", title + footer)) + 28
+    notes_budget = max(240, CAPTION_VISIBLE_LIMIT - visible_overhead)
+    notes = compact_feature_notes(body, notes_budget)
+    escaped_notes = html.escape(notes)
+    caption = (
+        title
+        + "\n\n<b>更新日志 / Changelog</b>"
+        + f"\n<blockquote expandable>{escaped_notes}</blockquote>"
+        + footer
+    )
+    return caption
 
 
 def telegram_call(token, method, fields):
@@ -151,7 +180,12 @@ def multipart(fields, file_field, filename, payload):
 
 
 def send_document(token, chat_id, apk, caption):
-    boundary, body = multipart({"chat_id": chat_id, "caption": caption}, "document", apk.name, apk.read_bytes())
+    fields = {
+        "chat_id": chat_id,
+        "caption": caption,
+        "parse_mode": "HTML",
+    }
+    boundary, body = multipart(fields, "document", apk.name, apk.read_bytes())
     request = urllib.request.Request(
         f"https://api.telegram.org/bot{token}/sendDocument",
         data=body,
@@ -202,7 +236,8 @@ def main():
         if tracked_notes and not release_body.strip().startswith(tracked_notes):
             raise ValueError("Published GitHub Release notes are not refreshed from RELEASE_NOTES.md yet")
 
-    body_sha256 = hashlib.sha256(release_body.encode("utf-8")).hexdigest()
+    presentation_material = PUBLISH_FORMAT_VERSION + "\0" + release_body
+    body_sha256 = hashlib.sha256(presentation_material.encode("utf-8")).hexdigest()
     marker_asset = find_asset(release, MARKER_NAME)
 
     with tempfile.TemporaryDirectory(prefix="listcleaner-telegram-") as directory:
@@ -216,7 +251,7 @@ def main():
             except (OSError, json.JSONDecodeError):
                 marker_data = {}
             if marker_data.get("body_sha256") == body_sha256:
-                print(f"Telegram already published for {tag} with the current Release notes; skipping duplicate send.")
+                print(f"Telegram already published for {tag} with the current Release notes and presentation; skipping duplicate send.")
                 return
 
         gh("release", "download", tag, "--repo", SOURCE, "--dir", str(directory), "--pattern", apk_name)
@@ -238,6 +273,7 @@ def main():
             "chat_id": chat_id,
             "message_id": message_id,
             "body_sha256": body_sha256,
+            "presentation": PUBLISH_FORMAT_VERSION,
         }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         gh("release", "upload", tag, "--repo", SOURCE, str(marker), "--clobber")
         print(f"Published {tag} to Telegram {chat_id}; message_id={message_id}; body_sha256={body_sha256}")
