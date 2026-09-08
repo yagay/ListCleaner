@@ -4,11 +4,19 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Source release tag (for example v1.6.5); empty means latest'
+        description: 'Source release tag (for example v1.6.8); empty means latest'
         required: false
         type: string
-  release:
-    types: [published]
+  workflow_run:
+    workflows:
+      - Complete Release Changelog
+    types:
+      - completed
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/telegram-republish'
 
 permissions:
   contents: write
@@ -21,6 +29,7 @@ jobs:
   publish:
     if: >-
       github.repository == 'yagay/ListCleaner' &&
+      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
       (github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -36,14 +45,29 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         run: |
           if [ -z "$TELEGRAM_BOT_TOKEN" ]; then
-            echo '::error::Add TELEGRAM_BOT_TOKEN to this repository Actions secrets. The bot must be an administrator of @LISTCLEANER with permission to post messages.'
+            echo '::error::Add TELEGRAM_BOT_TOKEN to this repository Actions secrets. The bot must be an administrator of @LISTCLEANER with permission to post and delete messages.'
             exit 1
           fi
+
+      - name: Resolve source tag
+        id: source
+        env:
+          INPUT_TAG: ${{ inputs.tag || '' }}
+        run: |
+          set -euo pipefail
+          tag="$INPUT_TAG"
+          if [ -z "$tag" ] && [ -f .github/telegram-republish ]; then
+            candidate="$(tr -d '[:space:]' < .github/telegram-republish)"
+            if [[ "$candidate" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              tag="$candidate"
+            fi
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Publish Release APK to Telegram channel
         env:
           GITHUB_TOKEN: ${{ github.token }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: '@LISTCLEANER'
-          SOURCE_TAG: ${{ inputs.tag || github.event.release.tag_name || '' }}
+          SOURCE_TAG: ${{ steps.source.outputs.tag }}
         run: python3 tools/publish-telegram.py
