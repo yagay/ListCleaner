@@ -4,6 +4,7 @@
     <string name="capability_filtering">候选列表过滤</string>
     <string name="capability_ordering">优先排序</string>
     <string name="capability_visibility">应用可见性</string>
+    <string name="capability_row">%1$s · %2$s</string>
     <string name="capability_observed">已观察到 · %1$d 次命中</string>
     <string name="capability_loaded_unobserved">已加载 · 尚未观察到命中</string>
     <string name="capability_missing_scope">缺少推荐作用域</string>
