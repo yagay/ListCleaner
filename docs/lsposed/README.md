@@ -1,6 +1,6 @@
 # 列表清理 · List Cleaner
 
-**简体中文** | [English](README.en.md)
+**简体中文** | [English](https://github.com/Xposed-Modules-Repo/com.yagay.ListCleaner/blob/main/README.en.md)
 
 精简 Android 分享、打开方式、浏览器和文本处理菜单，让常用应用优先显示；通过 Root 管理应用提供的磁贴、快捷方式创建入口和桌面小部件。
 
