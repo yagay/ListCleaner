@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="root_not_scanned">尚未扫描</string>
+    <string name="root_scan_failed">扫描失败</string>
+    <string name="root_kind_scan_failed">%1$s扫描失败：%2$s</string>
+    <string name="root_component_invalid">组件标识不受支持</string>
+    <string name="root_component_protected">核心系统/管理组件，仅展示</string>
+    <string name="root_state_read_failed">状态读取失败，请刷新</string>
+    <string name="root_owner_disabled">所属应用已停用；本功能不会启用整个应用</string>
+    <string name="root_operation_not_allowed">无法操作</string>
+    <string name="root_user_changed">用户身份已变化，请重新扫描</string>
+    <string name="root_component_missing">组件已消失或不再属于此分类，请刷新</string>
+    <string name="root_component_changed">组件状态已被其他操作改变，请刷新后重试</string>
+    <string name="root_already_target_state">系统已处于目标状态，未执行命令</string>
+    <string name="root_command_incomplete">Root 命令未完成：%1$s；请刷新核对实际状态</string>
+    <string name="root_operation_unconfirmed">操作未确认成功（退出码 %1$d，系统状态 %2$s）。请核对 Root 授权并刷新；不会自动重试。</string>
+    <string name="root_verified_enabled">已核验：组件已启用；不保证恢复原磁贴/小部件位置</string>
+    <string name="root_verified_disabled">已核验：组件已禁用；请重新打开目标选择器</string>
+
+    <string name="root_guidance">请打开 KernelSU / Magisk 等 Root 管理器，为“列表清理”开启超级用户权限，再返回重试。仅启用 LSPosed 模块不能代替 Root 授权。</string>
+    <string name="root_access_unavailable">无法取得 Root 权限。%1$s</string>
+    <string name="root_access_timeout">等待 Root 授权超时，尚未更改组件。%1$s</string>
+    <string name="root_access_denied">未获得 Root 权限，尚未更改组件。%1$s</string>
+
+    <string name="root_requesting_verify">正在请求 Root 并核验系统状态…</string>
+    <string name="root_requesting_invert">正在请求 Root 并反选组件…</string>
+    <string name="root_progress_enable">正在启用 %1$d/%2$d：%3$s</string>
+    <string name="root_progress_disable">正在禁用 %1$d/%2$d：%3$s</string>
+    <string name="root_progress_invert">正在反选 %1$d/%2$d：%3$s</string>
+    <string name="root_batch_enabled">已核验：%1$d 个组件已启用；请重新打开目标选择器</string>
+    <string name="root_batch_disabled">已核验：%1$d 个组件已禁用；请重新打开目标选择器</string>
+    <string name="root_batch_inverted">已核验：%1$d 个组件已反选；请重新打开目标选择器</string>
+    <string name="root_batch_stopped">已完成 %1$d/%2$d，操作已停止：%3$s。失败项请核对系统状态；剩余项未执行，已完成项不回滚。</string>
+    <string name="root_invert_stopped">已完成 %1$d/%2$d，反选已停止：%3$s。已完成项不回滚。</string>
+    <string name="root_post_scan_failed">操作后扫描失败，请刷新；不使用旧状态</string>
+
+    <string name="root_screen_title">组件清理 · Root</string>
+    <string name="root_permission_required">需要 Root 授权</string>
+    <string name="root_permission_ack">知道了</string>
+    <string name="root_screen_help">用于禁用或恢复已安装应用公开的快捷设置磁贴、桌面快捷方式和小部件。实际修改的是 Android 组件启用状态，仅在执行修改时请求 Root。</string>
+    <string name="root_filter_help">计数仅针对当前可见组件；应用勾选仅操作其中可更改的组件，保护/未知状态项跳过。全部视图不会因勾选隐藏应用。</string>
+    <string name="root_show_disabled_only">只看已禁用</string>
+    <string name="root_show_all">查看全部</string>
+    <string name="root_invert">反选</string>
+    <string name="root_enabled">已启用</string>
+    <string name="root_disabled">已禁用</string>
+    <string name="root_unknown_state">未知状态</string>
+    <string name="root_protected">受保护</string>
+    <string name="root_component_count">%1$d 个组件</string>
+    <string name="root_app_count">%1$d 个应用</string>
+    <string name="root_no_components">没有匹配的组件</string>
+</resources>
