@@ -2,6 +2,7 @@ package com.yagay.ListCleaner.ui
 
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -79,8 +80,12 @@ class MainActivity : ComponentActivity() {
                         val output = contentResolver.openOutputStream(uri) ?: error(getString(R.string.backup_create_failed))
                         output.bufferedWriter().use { it.write(vm.exportJson()) }
                     }
-                }.onSuccess { toast(getString(R.string.backup_exported)) }
-                    .onFailure { toast(it.message ?: getString(R.string.backup_export_failed), true) }
+                }.onSuccess {
+                    toast(getString(R.string.backup_exported))
+                }.onFailure { failure ->
+                    Log.e(TAG, "Backup export failed", failure)
+                    toast(getString(R.string.backup_export_failed), true)
+                }
             }
         }
         val restore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -90,8 +95,12 @@ class MainActivity : ComponentActivity() {
                     withContext(Dispatchers.IO) {
                         vm.importJson(readLimitedText(uri, MainViewModel.MAX_BACKUP_CHARS))
                     }
-                }.onSuccess { toast(getString(R.string.backup_restored)) }
-                    .onFailure { toast(it.message ?: getString(R.string.backup_restore_failed), true) }
+                }.onSuccess {
+                    toast(getString(R.string.backup_restored))
+                }.onFailure { failure ->
+                    Log.e(TAG, "Backup restore failed", failure)
+                    toast(getString(R.string.backup_restore_failed), true)
+                }
             }
         }
         val diagnosticExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
@@ -159,4 +168,8 @@ class MainActivity : ComponentActivity() {
 
     private fun toast(message: String, long: Boolean = false) =
         Toast.makeText(this, message, if (long) Toast.LENGTH_LONG else Toast.LENGTH_SHORT).show()
+
+    private companion object {
+        const val TAG = "ListCleaner.MainActivity"
+    }
 }
