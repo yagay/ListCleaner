@@ -11,8 +11,10 @@ public final class FilterPolicy {
         return callerUid >= 10_000;
     }
 
+    /** Candidate-preservation guard used by resolver filtering. Privileged/system callers are
+     * treated as protected so their framework-internal package-manager queries remain untouched. */
     public static boolean sameCaller(int callerUid, int targetUid) {
-        return callerUid >= 0 && callerUid == targetUid;
+        return callerUid >= 0 && (!ordinaryAppCaller(callerUid) || callerUid == targetUid);
     }
 
     /** Applies only AFTER a PM query without disabled-component match flags.
@@ -20,7 +22,8 @@ public final class FilterPolicy {
      * Never enables or launches an activity; non-exported foreign targets remain private.
      */
     public static boolean catalogRestricted(boolean exported, int targetUid, int managerUid) {
-        return !exported && !sameCaller(managerUid, targetUid);
+        boolean sameUid = managerUid >= 0 && managerUid == targetUid;
+        return !exported && !sameUid;
     }
 
     public static boolean restoreEmpty(String kind, int before, int after) {
