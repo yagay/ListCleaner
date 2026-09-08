@@ -1,44 +1,44 @@
-# List Cleaner
+# 列表清理 · List Cleaner
 
-**English** | [简体中文](README.zh-CN.md)
+**简体中文** | [English](README.en.md)
 
-Trim Android share, open-with, browser, and text-processing menus so frequently used apps appear first. With Root access, List Cleaner can also manage app-provided Quick Settings tiles, shortcut creation entries, and home-screen widgets.
+精简 Android 分享、打开方式、浏览器和文本处理菜单，让常用应用优先显示；通过 Root 管理应用提供的磁贴、快捷方式创建入口和桌面小部件。
 
-[Download module](https://github.com/Xposed-Modules-Repo/com.yagay.ListCleaner/releases/latest) · [Source and full documentation](https://github.com/yagay/ListCleaner) · [Report an issue](https://github.com/yagay/ListCleaner/issues) · [Telegram channel](https://t.me/LISTCLEANER)
+[下载模块](https://github.com/Xposed-Modules-Repo/com.yagay.ListCleaner/releases/latest) · [源码与完整说明](https://github.com/yagay/ListCleaner) · [问题反馈](https://github.com/yagay/ListCleaner/issues) · [Telegram 频道](https://t.me/LISTCLEANER)
 
-## Telegram channel
+## Telegram 频道
 
-Follow **@LISTCLEANER** for release updates, usage tips, and related announcements.
+关注 **@LISTCLEANER** 获取版本更新、使用提示和相关消息。
 
-[Join @LISTCLEANER on Telegram](https://t.me/LISTCLEANER)
+[加入 Telegram 频道 @LISTCLEANER](https://t.me/LISTCLEANER)
 
 <p align="center">
   <a href="https://t.me/LISTCLEANER">
-    <img src="https://raw.githubusercontent.com/yagay/ListCleaner/main/docs/telegram-channel.jpg" alt="List Cleaner Telegram channel QR code" width="360">
+    <img src="https://raw.githubusercontent.com/yagay/ListCleaner/main/docs/telegram-channel.jpg" alt="List Cleaner Telegram 频道二维码" width="360">
   </a>
 </p>
 
-## Requirements
+## 使用要求
 
-- Android 12 or newer.
-- **Rule filtering and ordering** require a framework that supports **modern libxposed API 102**. Enable the module, configure the recommended scope, and restart as instructed by the framework.
-- **Component management** additionally requires Root permission through KernelSU, Magisk, or another Root manager. Enabling the LSPosed module does not grant Root access.
+- Android 12 及以上。
+- **规则过滤和排序**需要支持 **modern libxposed API 102** 的框架。启用模块、配置推荐作用域，并按框架提示重启。
+- **组件管理**另外需要在 KernelSU、Magisk 等管理器授予 Root 权限。启用 LSPosed 模块不等于授予 Root。
 
-## Features
+## 功能
 
-- **Rule filtering:** configure Share, Multi-share, Open with, Browser, and Text processing independently. Search apps, expand components, and choose Hide selected, Show selected only, or Show all. If a category has no selected rules, everything is shown.
-- **Priority ordering:** save app order separately by category. Select an app to prioritize it, deselect it to return to normal alphabetical order, and use drag-and-drop or move-up/move-down controls.
-- **Component management:** manage standard `TileService`, `ACTION_CREATE_SHORTCUT` creation entries, and home-screen widgets. Selected means disabled; deselected means explicitly enabled. Root is checked before changes and Android state is read back afterward.
-- **Backup and diagnostics:** import/export JSON backups for rules and ordering, inspect module state, and export diagnostic logs.
+- **规则过滤**：分享、多文件分享、打开方式、浏览器、文本处理分别配置，支持搜索和按应用展开组件。可选择隐藏选中、只显示选中或全部显示；当前分类没有选中规则时显示全部。
+- **优先排序**：按分类保存应用顺序。勾选加入优先列表、取消后回到默认名称顺序；支持长按拖动和上移、下移。
+- **组件管理**：管理标准 TileService、ACTION_CREATE_SHORTCUT 创建入口及桌面小部件。勾选表示禁用，取消表示明确启用；操作前检查 Root 权限，执行后回读系统状态。
+- **备份与诊断**：导入、导出规则和排序 JSON 备份，查看模块状态并导出诊断日志。
 
-## Notes
+## 使用说明
 
-App selection on the Rules page only applies to components visible under the current category and search filter; it does not disable an entire app. The Components page changes actual Android component enabled state, so these two features have different effects.
+规则页的应用勾选只针对当前分类和搜索条件下显示的组件，不会禁用整个应用。组件页则实际修改系统组件启用状态，两者作用不同。
 
-Component operations apply only to the Android user where List Cleaner is installed. Disabling a component may affect already-added tiles or widgets, and re-enabling it does not guarantee restoration to its previous position. Uninstalling the module or clearing its data does not revert component disabled states, and rule backups do not include those states.
+组件操作只针对本应用所在的 Android 用户。禁用可能影响已添加的磁贴和小部件，重新启用不保证恢复原位置。卸载模块或清除数据不会撤销组件禁用状态，规则备份也不包含这些状态。
 
-OEM selectors, app-side reordering, or custom menus may not be supported. Shortcut management does not cover every dynamic, pinned, or private app shortcut, and built-in system tiles without standalone services are outside the managed scope.
+厂商定制选择器、应用自行重排或自建菜单可能不受支持。快捷方式管理不覆盖所有动态、固定快捷方式或应用私有项目；没有独立服务的系统内置磁贴不在管理范围内。
 
-Official releases use the same APK and fixed signing certificate as the source repository. Debug builds may use a different certificate; export your rules and review component state before uninstalling.
+正式版与作者仓库使用相同 APK 和固定签名。Debug 版本可能签名不同，卸载前请先导出规则并检查组件启用状态。
 
-When reporting a problem, include Android version, device model, framework version, and reproduction steps. Review app-list and log contents before sharing diagnostics.
+反馈问题时，请提供系统版本、设备型号、框架版本和复现步骤；分享诊断前请检查其中的应用列表和日志内容。
