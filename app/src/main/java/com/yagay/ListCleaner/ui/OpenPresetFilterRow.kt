@@ -9,13 +9,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.OpenTypeConfig
 
@@ -31,13 +34,13 @@ fun OpenPresetFilterRow(
     val presets = config.configuredPresets()
     LazyRow(modifier, contentPadding = PaddingValues(horizontal = 12.dp)) {
         item("all") {
-            OpenPresetTab("全部", selected == null) { onSelected(null) }
+            OpenPresetTab(stringResource(R.string.common_all), selected == null) { onSelected(null) }
         }
         items(presets, key = { it.name }) { preset ->
-            OpenPresetTab(config.titleFor(preset), selected == preset) { onSelected(preset) }
+            OpenPresetTab(config.localizedTitle(preset), selected == preset) { onSelected(preset) }
         }
         item("manage-custom") {
-            OpenPresetTab("+ 自定义", false, onManageCustom)
+            OpenPresetTab(stringResource(R.string.open_manage_custom), false, onManageCustom)
         }
     }
 }
