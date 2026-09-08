@@ -74,13 +74,18 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
         return status.ready
     }
 
+    private fun publishFor(bound: XposedService, status: RuntimeStatus): Boolean =
+        if (service.value === bound) publish(status) else false
+
     /** Serialized bootstrap/sync/probe, also used before every catalog query batch. */
     suspend fun synchronize(): Boolean = withContext(Dispatchers.IO) {
         syncMutex.withLock {
+            var attemptService: XposedService? = null
             try {
                 val bound = service.value ?: return@withLock publish(
                     RuntimeStatus(message = getString(R.string.runtime_lsposed_disconnected))
                 )
+                attemptService = bound
                 val prefs = bound.getRemotePreferences(RuleRepository.REMOTE_PREFS)
                 if (!rules.hasLocalConfiguration()) {
                     try {
@@ -109,10 +114,12 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                                 prefs.getBoolean(RuleRepository.KEY_DIAGNOSTIC, false)
                             ).validated()
                         } else null
+                        if (service.value !== bound) return@withLock false
                         if (remote != null) {
                             corruptRecovery = false
                             pendingRecovery = remote
-                            return@withLock publish(
+                            return@withLock publishFor(
+                                bound,
                                 RuntimeStatus(
                                     needsDecision = true,
                                     message = getString(R.string.runtime_recovery_available, remote.rules.size)
@@ -123,9 +130,11 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                     } catch (failure: Exception) {
                         if (failure is CancellationException) throw failure
                         Log.e(TAG, "Remote configuration recovery validation failed", failure)
+                        if (service.value !== bound) return@withLock false
                         pendingRecovery = null
                         corruptRecovery = true
-                        return@withLock publish(
+                        return@withLock publishFor(
+                            bound,
                             RuntimeStatus(
                                 needsDecision = true,
                                 recoveryCorrupt = true,
@@ -151,7 +160,7 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                     check(prefs.edit().putString(RuleRepository.KEY_CONFIG, encoded).commit()) {
                         getString(R.string.runtime_pause_write_failed)
                     }
-                    publish(RuntimeStatus(message = getString(R.string.runtime_pause_submitted)))
+                    publishFor(bound, RuntimeStatus(message = getString(R.string.runtime_pause_submitted)))
                 }
                 val incompatible = targets.filter {
                     !RuntimeProtocol.current(
@@ -174,7 +183,7 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                     getString(R.string.runtime_system_target_missing)
                 }
                 if (runtime.value.digest != digest) {
-                    publish(RuntimeStatus(message = getString(R.string.runtime_waiting_ack)))
+                    publishFor(bound, RuntimeStatus(message = getString(R.string.runtime_waiting_ack)))
                 }
                 if (prefs.getString(RuleRepository.KEY_CONFIG, null) != encoded) {
                     check(prefs.edit().putString(RuleRepository.KEY_CONFIG, encoded).commit()) {
@@ -214,7 +223,8 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                 check(service.value === bound) { getString(R.string.runtime_connection_changed) }
                 check(acknowledged) { getString(R.string.runtime_ack_missing) }
                 check(rules.remoteSnapshot() == config) { getString(R.string.runtime_config_changed) }
-                publish(
+                publishFor(
+                    bound,
                     RuntimeStatus(
                         ready = true,
                         message = getString(R.string.runtime_confirmed_hits),
@@ -228,7 +238,11 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                 throw cancelled
             } catch (failure: Exception) {
                 Log.e(TAG, "Runtime synchronization failed", failure)
-                publish(RuntimeStatus(message = getString(R.string.runtime_validation_failed)))
+                if (attemptService != null && service.value !== attemptService) {
+                    false
+                } else {
+                    publish(RuntimeStatus(message = getString(R.string.runtime_validation_failed)))
+                }
             }
         }
     }
