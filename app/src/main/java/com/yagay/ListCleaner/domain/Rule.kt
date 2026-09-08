@@ -47,10 +47,23 @@ data class ComponentCandidate(
     val broadMatch: Boolean = false
 ) {
     val isCatalogCandidate: Boolean get() = !unavailable && !restricted
+    val normalizedAppLabel: String by lazy(LazyThreadSafetyMode.NONE) { appLabel.lowercase() }
+    private val normalizedSearch: String by lazy(LazyThreadSafetyMode.NONE) {
+        buildString(appLabel.length + activityLabel.length + rule.packageName.length + rule.className.length + 3) {
+            append(appLabel.lowercase())
+            append('\u0000')
+            append(activityLabel.lowercase())
+            append('\u0000')
+            append(rule.packageName.lowercase())
+            append('\u0000')
+            append(rule.className.lowercase())
+        }
+    }
 
-    fun matchesQuery(query: String): Boolean = query.isBlank() ||
-        appLabel.contains(query, true) || activityLabel.contains(query, true) ||
-        rule.packageName.contains(query, true) || rule.className.contains(query, true)
+    fun matchesQuery(query: String): Boolean {
+        val needle = query.trim()
+        return needle.isEmpty() || normalizedSearch.contains(needle.lowercase())
+    }
 }
 
 @Serializable

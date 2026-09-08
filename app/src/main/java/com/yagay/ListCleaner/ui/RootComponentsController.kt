@@ -85,48 +85,46 @@ internal class RootComponentsController(
         mutableMessage.value = app.getString(R.string.root_requesting_verify)
         scope.launch {
             withContext(Dispatchers.IO) {
-                var completed = 0
-                var operationStarted = false
+                val completedTargets = mutableListOf<RootComponent>()
                 try {
                     catalog.requireRoot()
                     var result = ""
                     for (target in targets) {
                         coroutineContext.ensureActive()
-                        operationStarted = true
                         mutableMessage.value = app.getString(
                             if (enable) R.string.root_progress_enable else R.string.root_progress_disable,
-                            completed + 1,
+                            completedTargets.size + 1,
                             targets.size,
                             target.label
                         )
                         result = withContext(NonCancellable) { catalog.change(target, enable) }
-                        completed++
+                        completedTargets += target
                     }
                     mutableMessage.value = if (targets.size == 1) {
                         result
                     } else {
                         app.getString(
                             if (enable) R.string.root_batch_enabled else R.string.root_batch_disabled,
-                            completed
+                            completedTargets.size
                         )
                     }
                 } catch (cancelled: CancellationException) {
-                    Log.i(TAG, "Root component batch cancelled after $completed/${targets.size}")
+                    Log.i(TAG, "Root component batch cancelled after ${completedTargets.size}/${targets.size}")
                     throw cancelled
                 } catch (failure: ComponentRootCommand.RootAccessException) {
                     val message = rootAccessMessage(failure)
                     mutableMessage.value = message
                     mutableRootNotice.value = message
                 } catch (failure: Exception) {
-                    Log.e(TAG, "Root component mutation failed after $completed/${targets.size}", failure)
+                    Log.e(TAG, "Root component mutation failed after ${completedTargets.size}/${targets.size}", failure)
                     mutableMessage.value = app.getString(
                         R.string.root_batch_stopped,
-                        completed,
+                        completedTargets.size,
                         targets.size,
                         app.getString(R.string.root_operation_not_allowed)
                     )
                 } finally {
-                    if (operationStarted) refreshAfterMutation()
+                    if (completedTargets.isNotEmpty()) refreshAfterMutation(completedTargets)
                     mutableBusy.value = false
                 }
             }
@@ -144,53 +142,52 @@ internal class RootComponentsController(
         mutableMessage.value = app.getString(R.string.root_requesting_invert)
         scope.launch {
             withContext(Dispatchers.IO) {
-                var completed = 0
-                var operationStarted = false
+                val completedTargets = mutableListOf<RootComponent>()
                 try {
                     catalog.requireRoot()
                     for (target in targets) {
                         coroutineContext.ensureActive()
-                        operationStarted = true
                         mutableMessage.value = app.getString(
                             R.string.root_progress_invert,
-                            completed + 1,
+                            completedTargets.size + 1,
                             targets.size,
                             target.label
                         )
                         withContext(NonCancellable) { catalog.change(target, target.enabled == false) }
-                        completed++
+                        completedTargets += target
                     }
-                    mutableMessage.value = app.getString(R.string.root_batch_inverted, completed)
+                    mutableMessage.value = app.getString(R.string.root_batch_inverted, completedTargets.size)
                 } catch (cancelled: CancellationException) {
-                    Log.i(TAG, "Root component inversion cancelled after $completed/${targets.size}")
+                    Log.i(TAG, "Root component inversion cancelled after ${completedTargets.size}/${targets.size}")
                     throw cancelled
                 } catch (failure: ComponentRootCommand.RootAccessException) {
                     val message = rootAccessMessage(failure)
                     mutableMessage.value = message
                     mutableRootNotice.value = message
                 } catch (failure: Exception) {
-                    Log.e(TAG, "Root component inversion failed after $completed/${targets.size}", failure)
+                    Log.e(TAG, "Root component inversion failed after ${completedTargets.size}/${targets.size}", failure)
                     mutableMessage.value = app.getString(
                         R.string.root_invert_stopped,
-                        completed,
+                        completedTargets.size,
                         targets.size,
                         app.getString(R.string.root_operation_not_allowed)
                     )
                 } finally {
-                    if (operationStarted) refreshAfterMutation()
+                    if (completedTargets.isNotEmpty()) refreshAfterMutation(completedTargets)
                     mutableBusy.value = false
                 }
             }
         }
     }
 
-    private fun refreshAfterMutation() {
-        runCatching { catalog.scan() }
+    private fun refreshAfterMutation(targets: List<RootComponent>) {
+        runCatching { catalog.refreshItems(mutableScan.value, targets) }
             .onSuccess { mutableScan.value = it }
             .onFailure { failure ->
-                Log.e(TAG, "Post-mutation Root component scan failed", failure)
-                mutableScan.value = RootComponentScan(
-                    warning = app.getString(R.string.root_post_scan_failed)
+                Log.e(TAG, "Post-mutation Root component refresh failed", failure)
+                mutableScan.value = mutableScan.value.copy(
+                    warning = app.getString(R.string.root_post_scan_failed),
+                    observedAt = System.currentTimeMillis()
                 )
             }
     }

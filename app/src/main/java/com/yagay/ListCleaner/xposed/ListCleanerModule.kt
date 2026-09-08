@@ -39,6 +39,7 @@ import com.yagay.ListCleaner.domain.VisibilityLayout
 import com.yagay.ListCleaner.domain.VisibilitySignature
 import kotlinx.serialization.json.Json
 import java.lang.reflect.Constructor
+import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
@@ -74,6 +75,9 @@ class ListCleanerModule : XposedModule() {
     }
 
     private data class ListResult(val values: List<*>, val rebuild: (List<*>) -> Any?)
+    private data class MethodAccessor(val method: Method?)
+    private data class PackageNameAccessor(val getter: Method?, val field: Field?)
+    private data class ParceledListAccessor(val getList: Method, val constructor: Constructor<*>)
 
     @Volatile
     private var snapshot = RuleSnapshot(emptySet(), DisplayMode.HIDE_SELECTED, PriorityConfig(), DefaultOpenConfig(), OpenTypeConfig(), false)
@@ -93,6 +97,10 @@ class ListCleanerModule : XposedModule() {
     private val queryHits = AtomicLong()
     private val visibilityHits = AtomicLong()
     private val orderingHits = AtomicLong()
+    private val packagesForUidCache = ConcurrentHashMap<Class<*>, MethodAccessor>()
+    private val packageNameAccessorCache = ConcurrentHashMap<Class<*>, PackageNameAccessor>()
+    private val callerPackageFieldsCache = ConcurrentHashMap<Class<*>, List<Field>>()
+    private val parceledListAccessorCache = ConcurrentHashMap<Class<*>, ParceledListAccessor>()
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
@@ -207,7 +215,7 @@ class ListCleanerModule : XposedModule() {
     @Synchronized private fun pollPreferences() {
         val now = SystemClock.elapsedRealtime()
         if (now < nextPreferencePoll) return
-        nextPreferencePoll = now + 2_000
+        nextPreferencePoll = now + if (listenerRegistered) 10_000 else 2_000
         refreshRulesSafely("query poll")
     }
 
@@ -325,44 +333,49 @@ class ListCleanerModule : XposedModule() {
     private fun packageNamesFromCallerSetting(value: Any?): Set<String> {
         if (value == null) return emptySet()
         packageNameFromState(value)?.let { return setOf(it) }
-        val classes = generateSequence(value.javaClass as Class<*>?) { it.superclass }.toList()
         val result = linkedSetOf<String>()
-        classes.asSequence().flatMap { it.declaredFields.asSequence() }
-            .filter { field ->
-                val name = field.name.lowercase()
-                "package" in name || "packages" in name
-            }.take(12).forEach { field ->
-                runCatching {
-                    field.isAccessible = true
-                    when (val nested = field.get(value)) {
-                        is Array<*> -> nested.asSequence()
-                        is Collection<*> -> nested.asSequence()
-                        is Map<*, *> -> nested.values.asSequence()
-                        else -> emptySequence()
-                    }.mapNotNull(::packageNameFromState).forEach(result::add)
-                }
+        callerPackageFields(value.javaClass).forEach { field ->
+            runCatching {
+                when (val nested = field.get(value)) {
+                    is Array<*> -> nested.asSequence()
+                    is Collection<*> -> nested.asSequence()
+                    is Map<*, *> -> nested.values.asSequence()
+                    else -> emptySequence()
+                }.mapNotNull(::packageNameFromState).forEach(result::add)
             }
+        }
         return result
     }
 
-    private fun hasGetPackagesForUid(clazz: Class<*>): Boolean =
-        generateSequence(clazz as Class<*>?) { it.superclass }.any { current ->
-            current.declaredMethods.any { method ->
-                method.name == "getPackagesForUid" && method.parameterTypes.size == 1 &&
-                    method.parameterTypes[0] == Int::class.javaPrimitiveType
+    private fun callerPackageFields(clazz: Class<*>): List<Field> = callerPackageFieldsCache.computeIfAbsent(clazz) {
+        generateSequence(clazz as Class<*>?) { it.superclass }
+            .flatMap { it.declaredFields.asSequence() }
+            .filter { field ->
+                val name = field.name.lowercase()
+                "package" in name || "packages" in name
             }
-        }
+            .take(12)
+            .onEach { it.isAccessible = true }
+            .toList()
+    }
+
+    private fun packagesForUidMethod(clazz: Class<*>): Method? = packagesForUidCache.computeIfAbsent(clazz) {
+        MethodAccessor(
+            generateSequence(clazz as Class<*>?) { it.superclass }
+                .flatMap { it.declaredMethods.asSequence() }
+                .firstOrNull { candidate ->
+                    candidate.name == "getPackagesForUid" && candidate.parameterTypes.size == 1 &&
+                        candidate.parameterTypes[0] == Int::class.javaPrimitiveType
+                }?.apply { isAccessible = true }
+        )
+    }.method
+
+    private fun hasGetPackagesForUid(clazz: Class<*>): Boolean = packagesForUidMethod(clazz) != null
 
     private fun packagesForUid(computer: Any, uid: Int): Set<String> {
-        val method = generateSequence(computer.javaClass as Class<*>?) { it.superclass }
-            .flatMap { it.declaredMethods.asSequence() }
-            .firstOrNull { candidate ->
-                candidate.name == "getPackagesForUid" && candidate.parameterTypes.size == 1 &&
-                    candidate.parameterTypes[0] == Int::class.javaPrimitiveType
-            } ?: return emptySet()
+        val method = packagesForUidMethod(computer.javaClass) ?: return emptySet()
         val identity = Binder.clearCallingIdentity()
         return try {
-            method.isAccessible = true
             when (val result = method.invoke(computer, uid)) {
                 is Array<*> -> result.filterIsInstance<String>().toSet()
                 is Collection<*> -> result.filterIsInstance<String>().toSet()
@@ -376,26 +389,28 @@ class ListCleanerModule : XposedModule() {
         }
     }
 
-    private fun packageNameFromState(value: Any?): String? {
-        if (value == null || value is Number || value is Boolean || value is ClassLoader) return null
-        if (value is String) return value.takeIf(::looksLikePackageName)
-
-        val classes = generateSequence(value.javaClass as Class<*>?) { it.superclass }.toList()
-        val getter = classes.asSequence().flatMap { it.declaredMethods.asSequence() }
+    private fun packageNameAccessor(clazz: Class<*>): PackageNameAccessor = packageNameAccessorCache.computeIfAbsent(clazz) {
+        val classes = generateSequence(clazz as Class<*>?) { it.superclass }.toList()
+        val getter = classes.asSequence().flatMap { current -> current.declaredMethods.asSequence() }
             .firstOrNull { method ->
                 method.parameterTypes.isEmpty() && method.returnType == String::class.java &&
                     method.name in setOf("getPackageName", "getName")
-            }
-        runCatching {
-            getter?.isAccessible = true
-            (getter?.invoke(value) as? String)?.takeIf(::looksLikePackageName)
-        }.getOrNull()?.let { return it }
-
-        val field = classes.asSequence().flatMap { it.declaredFields.asSequence() }
+            }?.apply { isAccessible = true }
+        val field = classes.asSequence().flatMap { current -> current.declaredFields.asSequence() }
             .firstOrNull { it.type == String::class.java && it.name in setOf("mName", "name", "packageName", "mPackageName") }
+            ?.apply { isAccessible = true }
+        PackageNameAccessor(getter, field)
+    }
+
+    private fun packageNameFromState(value: Any?): String? {
+        if (value == null || value is Number || value is Boolean || value is ClassLoader) return null
+        if (value is String) return value.takeIf(::looksLikePackageName)
+        val accessor = packageNameAccessor(value.javaClass)
+        runCatching {
+            (accessor.getter?.invoke(value) as? String)?.takeIf(::looksLikePackageName)
+        }.getOrNull()?.let { return it }
         return runCatching {
-            field?.isAccessible = true
-            (field?.get(value) as? String)?.takeIf(::looksLikePackageName)
+            (accessor.field?.get(value) as? String)?.takeIf(::looksLikePackageName)
         }.getOrNull()
     }
 
@@ -819,13 +834,13 @@ class ListCleanerModule : XposedModule() {
     }
 
     private fun extractParceledListSlice(original: Any): ListResult? {
-        val values = runCatching {
-            original.javaClass.getMethod("getList").invoke(original) as? List<*>
-        }.getOrNull() ?: return null
-        val constructor: Constructor<*> = runCatching {
-            original.javaClass.getDeclaredConstructor(List::class.java).apply { isAccessible = true }
-        }.getOrNull() ?: return null
-        return ListResult(values) { constructor.newInstance(it) }
+        val accessor = parceledListAccessorCache.computeIfAbsent(original.javaClass) { clazz ->
+            val getList = clazz.getMethod("getList").apply { isAccessible = true }
+            val constructor = clazz.getDeclaredConstructor(List::class.java).apply { isAccessible = true }
+            ParceledListAccessor(getList, constructor)
+        }
+        val values = runCatching { accessor.getList.invoke(original) as? List<*> }.getOrNull() ?: return null
+        return ListResult(values) { accessor.constructor.newInstance(it) }
     }
 
     @Synchronized private fun initializePreferences() {

@@ -49,7 +49,10 @@ class IntentCatalog(private val context: Context) {
         }
     }
 
-    private val appIconCache = LruCache<String, Bitmap>(128)
+    private val appIconCache = LruCache<String, Bitmap>(192)
+    @Volatile private var cachedDefinitionFingerprint: String? = null
+    @Volatile private var invalidated = true
+    @Volatile private var cacheHitsSinceLastScan = 0L
     @Volatile var lastReport: String = "Not scanned"
         private set
     @Volatile var lastFileReport: String = "No real-file probe"
@@ -60,11 +63,33 @@ class IntentCatalog(private val context: Context) {
     private data class Probe(val intent: Intent, val broad: Boolean, val label: String)
     private data class QueryResult(val candidates: List<ComponentCandidate>, val raw: Int, val flags: Int = 0)
 
-    suspend fun scan(customDefinitions: Map<OpenPreset, CustomOpenDefinition> = emptyMap()): List<ComponentCandidate> = withContext(Dispatchers.IO) {
-        appIconCache.evictAll()
+    /** Mark candidate discovery stale while keeping reusable app icons in memory. */
+    fun invalidate(packageName: String? = null) {
+        invalidated = true
+        packageName?.let(appIconCache::remove)
+    }
+
+    suspend fun scan(
+        customDefinitions: Map<OpenPreset, CustomOpenDefinition> = emptyMap(),
+        force: Boolean = false
+    ): List<ComponentCandidate> = withContext(Dispatchers.IO) {
+        val fingerprint = customDefinitions.entries
+            .sortedBy { it.key.ordinal }
+            .joinToString("|") { (preset, definition) -> "$preset=$definition" }
+        val cached = mutableCandidates.value
+        if (!force && !invalidated && cached.isNotEmpty() && fingerprint == cachedDefinitionFingerprint) {
+            cacheHitsSinceLastScan++
+            return@withContext cached
+        }
+
+        val previousCacheHits = cacheHitsSinceLastScan
+        cacheHitsSinceLastScan = 0L
         val found = mutableListOf<ComponentCandidate>()
         val known = mutableSetOf<String>()
-        val report = StringBuilder("startedAt=${Instant.now()}\nmanagerUid=${android.os.Process.myUid()}\ncustomOpenTypes=${customDefinitions.size}\n")
+        val report = StringBuilder(
+            "startedAt=${Instant.now()}\nmanagerUid=${android.os.Process.myUid()}\n" +
+                "customOpenTypes=${customDefinitions.size}\ncacheHitsSincePreviousScan=$previousCacheHits\n"
+        )
         for (scheme in listOf("http", "https")) {
             val web = Intent(Intent.ACTION_VIEW, Uri.parse("$scheme://example.com")).addCategory(Intent.CATEGORY_BROWSABLE)
             runCatching {
@@ -91,14 +116,14 @@ class IntentCatalog(private val context: Context) {
                 report.appendLine("${probe.label} ERROR=${failure.javaClass.name}")
             }
         }
-        // PackageManager queries are blocking. Cancellation can arrive while the final query is
-        // running, so check once more before publishing shared catalog state.
         currentCoroutineContext().ensureActive()
         val result = merge(found)
         report.appendLine("finishedAt=${Instant.now()} unique=${result.size} failures=$failures")
         lastReport = report.toString()
         if (failures > 0) scanWarning = context.getString(R.string.catalog_partial_scan_failed, failures)
         mutableCandidates.value = result
+        cachedDefinitionFingerprint = fingerprint
+        invalidated = false
         result
     }
 
