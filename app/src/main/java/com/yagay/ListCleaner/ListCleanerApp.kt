@@ -5,18 +5,26 @@ import android.content.Intent
 import android.util.Log
 import com.yagay.ListCleaner.data.IntentCatalog
 import com.yagay.ListCleaner.data.RuleRepository
-import com.yagay.ListCleaner.domain.ModuleConfig
 import com.yagay.ListCleaner.domain.DisplayMode
+import com.yagay.ListCleaner.domain.ModuleConfig
 import com.yagay.ListCleaner.domain.PriorityConfig
 import com.yagay.ListCleaner.domain.RuntimeProtocol
 import com.yagay.ListCleaner.domain.deriveFullySelectedPackages
+import com.yagay.ListCleaner.runtime.ServiceSession
+import com.yagay.ListCleaner.runtime.ServiceSessionRegistry
 import io.github.libxposed.service.XposedService
 import io.github.libxposed.service.XposedServiceHelper
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 
 data class RuntimeStatus(
@@ -34,9 +42,14 @@ data class RuntimeStatus(
 class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
     lateinit var rules: RuleRepository; private set
     lateinit var catalog: IntentCatalog; private set
+
+    private val sessionRegistry = ServiceSessionRegistry()
+    val serviceSession = MutableStateFlow<ServiceSession?>(null)
+    /** Compatibility surface for existing UI code. New async work should capture [serviceSession]. */
     val service = MutableStateFlow<XposedService?>(null)
     val syncStatus = MutableStateFlow("")
     val runtime = MutableStateFlow(RuntimeStatus())
+
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val syncMutex = Mutex()
     private val json = Json { ignoreUnknownKeys = true }
@@ -56,17 +69,28 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
             }.collect(rules::setVisibilityFullPackages)
         }
         applicationScope.launch {
-            combine(rules.revision, service) { _, _ -> Unit }.collect { synchronize() }
+            combine(rules.revision, serviceSession) { _, _ -> Unit }.collect { synchronize() }
         }
     }
 
-    override fun onServiceBind(service: XposedService) { this.service.value = service }
+    override fun onServiceBind(service: XposedService) {
+        val session = sessionRegistry.bind(service)
+        this.service.value = service
+        serviceSession.value = session
+    }
+
     override fun onServiceDied(service: XposedService) {
-        if (this.service.value === service) {
+        val cleared = sessionRegistry.clear(service) ?: return
+        if (serviceSession.value?.generation == cleared.generation) {
+            serviceSession.value = null
             this.service.value = null
             publish(RuntimeStatus(message = getString(R.string.runtime_connection_lost)))
         }
     }
+
+    fun currentSession(): ServiceSession? = sessionRegistry.snapshot()
+
+    fun isCurrent(session: ServiceSession?): Boolean = sessionRegistry.isCurrent(session)
 
     private fun publish(status: RuntimeStatus): Boolean {
         runtime.value = status
@@ -74,18 +98,19 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
         return status.ready
     }
 
-    private fun publishFor(bound: XposedService, status: RuntimeStatus): Boolean =
-        if (service.value === bound) publish(status) else false
+    private fun publishFor(session: ServiceSession, status: RuntimeStatus): Boolean =
+        if (isCurrent(session)) publish(status) else false
 
     /** Serialized bootstrap/sync/probe, also used before every catalog query batch. */
     suspend fun synchronize(): Boolean = withContext(Dispatchers.IO) {
         syncMutex.withLock {
-            var attemptService: XposedService? = null
+            var attemptSession: ServiceSession? = null
             try {
-                val bound = service.value ?: return@withLock publish(
+                val session = currentSession() ?: return@withLock publish(
                     RuntimeStatus(message = getString(R.string.runtime_lsposed_disconnected))
                 )
-                attemptService = bound
+                attemptSession = session
+                val bound = session.service
                 val prefs = bound.getRemotePreferences(RuleRepository.REMOTE_PREFS)
                 if (!rules.hasLocalConfiguration()) {
                     try {
@@ -114,12 +139,12 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                                 prefs.getBoolean(RuleRepository.KEY_DIAGNOSTIC, false)
                             ).validated()
                         } else null
-                        if (service.value !== bound) return@withLock false
+                        if (!isCurrent(session)) return@withLock false
                         if (remote != null) {
                             corruptRecovery = false
                             pendingRecovery = remote
                             return@withLock publishFor(
-                                bound,
+                                session,
                                 RuntimeStatus(
                                     needsDecision = true,
                                     message = getString(R.string.runtime_recovery_available, remote.rules.size)
@@ -130,11 +155,11 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                     } catch (failure: Exception) {
                         if (failure is CancellationException) throw failure
                         Log.e(TAG, "Remote configuration recovery validation failed", failure)
-                        if (service.value !== bound) return@withLock false
+                        if (!isCurrent(session)) return@withLock false
                         pendingRecovery = null
                         corruptRecovery = true
                         return@withLock publishFor(
-                            bound,
+                            session,
                             RuntimeStatus(
                                 needsDecision = true,
                                 recoveryCorrupt = true,
@@ -147,6 +172,7 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                 corruptRecovery = false
                 check(bound.apiVersion >= 102) { getString(R.string.runtime_framework_api_required) }
                 val targets = bound.runningTargets
+                check(isCurrent(session)) { getString(R.string.runtime_connection_changed) }
                 val config = rules.remoteSnapshot()
                 val encoded = json.encodeToString(ModuleConfig.serializer(), config)
                 require(encoded.length <= RuleRepository.MAX_BACKUP_CHARS) {
@@ -160,7 +186,7 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                     check(prefs.edit().putString(RuleRepository.KEY_CONFIG, encoded).commit()) {
                         getString(R.string.runtime_pause_write_failed)
                     }
-                    publishFor(bound, RuntimeStatus(message = getString(R.string.runtime_pause_submitted)))
+                    publishFor(session, RuntimeStatus(message = getString(R.string.runtime_pause_submitted)))
                 }
                 val incompatible = targets.filter {
                     !RuntimeProtocol.current(
@@ -183,7 +209,7 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                     getString(R.string.runtime_system_target_missing)
                 }
                 if (runtime.value.digest != digest) {
-                    publishFor(bound, RuntimeStatus(message = getString(R.string.runtime_waiting_ack)))
+                    publishFor(session, RuntimeStatus(message = getString(R.string.runtime_waiting_ack)))
                 }
                 if (prefs.getString(RuleRepository.KEY_CONFIG, null) != encoded) {
                     check(prefs.edit().putString(RuleRepository.KEY_CONFIG, encoded).commit()) {
@@ -196,6 +222,7 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                 var visibilityHits = 0L
                 var orderingHits = 0L
                 repeat(4) {
+                    if (!isCurrent(session)) return@withLock false
                     if (!acknowledged) {
                         @Suppress("DEPRECATION")
                         val results = packageManager.queryIntentActivities(
@@ -220,11 +247,11 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                         if (!acknowledged) delay(150)
                     }
                 }
-                check(service.value === bound) { getString(R.string.runtime_connection_changed) }
+                check(isCurrent(session)) { getString(R.string.runtime_connection_changed) }
                 check(acknowledged) { getString(R.string.runtime_ack_missing) }
                 check(rules.remoteSnapshot() == config) { getString(R.string.runtime_config_changed) }
                 publishFor(
-                    bound,
+                    session,
                     RuntimeStatus(
                         ready = true,
                         message = getString(R.string.runtime_confirmed_hits),
@@ -238,7 +265,7 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                 throw cancelled
             } catch (failure: Exception) {
                 Log.e(TAG, "Runtime synchronization failed", failure)
-                if (attemptService != null && service.value !== attemptService) {
+                if (attemptSession != null && !isCurrent(attemptSession)) {
                     false
                 } else {
                     publish(RuntimeStatus(message = getString(R.string.runtime_validation_failed)))
