@@ -3,21 +3,85 @@ from pathlib import Path
 import re
 import sys
 
-ROOT = Path(__file__).resolve().parents[1] / "app" / "src" / "main" / "java"
-CJK = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
+PROJECT = Path(__file__).resolve().parents[1]
+JAVA_ROOT = PROJECT / "app" / "src" / "main" / "java"
+MANIFEST = PROJECT / "app" / "src" / "main" / "AndroidManifest.xml"
 
+CJK = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
+LATIN_TEXT = r'"(?:[^"\\]|\\.)*[A-Za-z](?:[^"\\]|\\.)*"'
+
+# These patterns intentionally target only APIs/properties that directly expose text
+# to users. Technical literals such as package names, MIME types, Intent actions,
+# diagnostic field names and protocol tokens are not rejected.
+USER_VISIBLE_PATTERNS = (
+    ("Compose Text literal", re.compile(rf"\b(?:Text|BasicText)\s*\(\s*({LATIN_TEXT})", re.MULTILINE)),
+    ("contentDescription literal", re.compile(rf"\bcontentDescription\s*=\s*({LATIN_TEXT})", re.MULTILINE)),
+    ("toast helper literal", re.compile(rf"\btoast\s*\(\s*({LATIN_TEXT})", re.MULTILINE)),
+    ("Snackbar literal", re.compile(rf"\bshowSnackbar\s*\(\s*({LATIN_TEXT})", re.MULTILINE)),
+    ("setText literal", re.compile(rf"\bsetText\s*\(\s*({LATIN_TEXT})", re.MULTILINE)),
+    ("setTitle literal", re.compile(rf"\bsetTitle\s*\(\s*({LATIN_TEXT})", re.MULTILINE)),
+    ("setMessage literal", re.compile(rf"\bsetMessage\s*\(\s*({LATIN_TEXT})", re.MULTILINE)),
+)
+
+IGNORE_MARKER = "localization:ignore"
 violations = []
-for path in sorted(ROOT.rglob("*")):
+
+
+def line_number(text: str, offset: int) -> int:
+    return text.count("\n", 0, offset) + 1
+
+
+def ignored(text: str, offset: int) -> bool:
+    start = text.rfind("\n", 0, offset) + 1
+    end = text.find("\n", offset)
+    if end < 0:
+        end = len(text)
+    current = text[start:end]
+    previous_start = text.rfind("\n", 0, max(0, start - 1)) + 1
+    previous = text[previous_start:max(0, start - 1)]
+    return IGNORE_MARKER in current or IGNORE_MARKER in previous
+
+
+for path in sorted(JAVA_ROOT.rglob("*")):
     if path.suffix not in {".kt", ".java"}:
         continue
-    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-        if CJK.search(line):
-            violations.append((path.relative_to(ROOT.parents[3]), number, line.strip()))
+    text = path.read_text(encoding="utf-8")
+    relative = path.relative_to(PROJECT)
+
+    # Chinese/Japanese/Korean ideographs must never live directly in production
+    # Java/Kotlin. This broad check also protects non-Compose user-visible paths.
+    for number, line in enumerate(text.splitlines(), 1):
+        if CJK.search(line) and IGNORE_MARKER not in line:
+            violations.append((relative, number, "CJK source text", line.strip()))
+
+    # English source text is allowed for technical/internal data, so only flag
+    # literals passed directly to known user-facing UI APIs.
+    for label, pattern in USER_VISIBLE_PATTERNS:
+        for match in pattern.finditer(text):
+            if ignored(text, match.start()):
+                continue
+            number = line_number(text, match.start())
+            line = text.splitlines()[number - 1].strip()
+            violations.append((relative, number, label, line))
+
+if MANIFEST.is_file():
+    text = MANIFEST.read_text(encoding="utf-8")
+    # Android component labels/titles must reference resources. Resource, theme,
+    # class and permission attributes are intentionally outside this check.
+    for match in re.finditer(r'android:(label|title|description)\s*=\s*"([^"]+)"', text):
+        value = match.group(2).strip()
+        if value.startswith("@"):
+            continue
+        number = line_number(text, match.start())
+        violations.append((MANIFEST.relative_to(PROJECT), number,
+                           f"Manifest android:{match.group(1)} literal", value))
 
 if violations:
-    print("CJK text found in production Java/Kotlin source. User-visible language must live in Android resources; internal diagnostics should use stable language-neutral tokens.")
-    for path, number, line in violations:
-        print(f"{path}:{number}: {line}")
+    print("Localization source check failed. User-visible text must live in Android string resources.")
+    print(f"Use stringResource(R.string.*) in Compose or Context.getString(R.string.*) elsewhere. "
+          f"Only stable machine/internal text may use // {IGNORE_MARKER} when a false positive is unavoidable.")
+    for path, number, label, line in violations:
+        print(f"{path}:{number}: [{label}] {line}")
     sys.exit(1)
 
-print("Localization source check passed: no CJK text in app/src/main/java.")
+print("Localization source check passed: no CJK source text or hardcoded high-risk user-visible literals found.")
