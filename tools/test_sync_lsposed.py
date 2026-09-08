@@ -2,6 +2,7 @@ import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 spec = importlib.util.spec_from_file_location('sync_lsposed', Path(__file__).with_name('sync-lsposed.py'))
 sync = importlib.util.module_from_spec(spec)
@@ -61,6 +62,18 @@ class ReleaseVerificationTest(unittest.TestCase):
             legacy = dict(existing)
             legacy.pop('digest')
             self.assertEqual([], sync.asset_plan([legacy], [apk], lambda _: apk))
+
+    def test_bilingual_document_sections_match(self):
+        chinese = '<!-- section:intro -->\n<!-- section:features -->'
+        english = '<!-- section:intro -->\n<!-- section:features -->'
+        self.assertEqual(sync.document_sections(chinese), sync.document_sections(english))
+        self.assertNotEqual(
+            sync.document_sections(chinese),
+            sync.document_sections('<!-- section:intro -->\n<!-- section:usage -->')
+        )
+
+    def test_repository_bilingual_docs_are_in_sync(self):
+        sync.verify_bilingual_docs()
 
 
 if __name__ == '__main__':
