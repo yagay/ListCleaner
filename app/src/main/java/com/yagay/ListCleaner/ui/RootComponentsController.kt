@@ -11,10 +11,12 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.coroutineContext
 
 /** Owns Root component scanning/mutation state so MainViewModel can focus on resolver rules and module state. */
 internal class RootComponentsController(
@@ -82,13 +84,14 @@ internal class RootComponentsController(
         mutableBusy.value = true
         mutableMessage.value = app.getString(R.string.root_requesting_verify)
         scope.launch {
-            withContext(NonCancellable + Dispatchers.IO) {
+            withContext(Dispatchers.IO) {
                 var completed = 0
                 var operationStarted = false
                 try {
                     catalog.requireRoot()
                     var result = ""
                     for (target in targets) {
+                        coroutineContext.ensureActive()
                         operationStarted = true
                         mutableMessage.value = app.getString(
                             if (enable) R.string.root_progress_enable else R.string.root_progress_disable,
@@ -96,7 +99,7 @@ internal class RootComponentsController(
                             targets.size,
                             target.label
                         )
-                        result = catalog.change(target, enable)
+                        result = withContext(NonCancellable) { catalog.change(target, enable) }
                         completed++
                     }
                     mutableMessage.value = if (targets.size == 1) {
@@ -107,6 +110,9 @@ internal class RootComponentsController(
                             completed
                         )
                     }
+                } catch (cancelled: CancellationException) {
+                    Log.i(TAG, "Root component batch cancelled after $completed/${targets.size}")
+                    throw cancelled
                 } catch (failure: ComponentRootCommand.RootAccessException) {
                     val message = rootAccessMessage(failure)
                     mutableMessage.value = message
@@ -137,12 +143,13 @@ internal class RootComponentsController(
         mutableBusy.value = true
         mutableMessage.value = app.getString(R.string.root_requesting_invert)
         scope.launch {
-            withContext(NonCancellable + Dispatchers.IO) {
+            withContext(Dispatchers.IO) {
                 var completed = 0
                 var operationStarted = false
                 try {
                     catalog.requireRoot()
                     for (target in targets) {
+                        coroutineContext.ensureActive()
                         operationStarted = true
                         mutableMessage.value = app.getString(
                             R.string.root_progress_invert,
@@ -150,10 +157,13 @@ internal class RootComponentsController(
                             targets.size,
                             target.label
                         )
-                        catalog.change(target, target.enabled == false)
+                        withContext(NonCancellable) { catalog.change(target, target.enabled == false) }
                         completed++
                     }
                     mutableMessage.value = app.getString(R.string.root_batch_inverted, completed)
+                } catch (cancelled: CancellationException) {
+                    Log.i(TAG, "Root component inversion cancelled after $completed/${targets.size}")
+                    throw cancelled
                 } catch (failure: ComponentRootCommand.RootAccessException) {
                     val message = rootAccessMessage(failure)
                     mutableMessage.value = message
