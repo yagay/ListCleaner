@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.ComponentInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.util.Log
 import androidx.core.graphics.drawable.toBitmap
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.ComponentStatePolicy
@@ -78,7 +79,8 @@ class RootComponentCatalog(private val context: Context) {
             try {
                 query(kind).distinctBy { ComponentName(it.packageName, it.name) }.map { info -> read(kind, info) }
             } catch (failure: Exception) {
-                errors += context.getString(R.string.root_kind_scan_failed, kindTitle(kind), failure.javaClass.simpleName)
+                Log.e(TAG, "${kind.name} component scan failed", failure)
+                errors += context.getString(R.string.root_kind_scan_failed, kindTitle(kind))
                 emptyList()
             }
         }.sortedWith(compareBy({ it.owner.lowercase() }, { it.label.lowercase() }, { it.id }))
@@ -128,10 +130,8 @@ class RootComponentCatalog(private val context: Context) {
             ComponentRootCommand.run(script)
         } catch (failure: Exception) {
             lastOperation += " error=${failure.javaClass.name}"
-            throw IllegalStateException(
-                context.getString(R.string.root_command_incomplete, failure.javaClass.simpleName),
-                failure
-            )
+            Log.e(TAG, "Root component command failed for ${target.id}", failure)
+            throw IllegalStateException(context.getString(R.string.root_command_incomplete), failure)
         }
         val expected = if (enable) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED
         var observed: Int? = null
@@ -143,7 +143,7 @@ class RootComponentCatalog(private val context: Context) {
         }
         lastOperation = "at=${System.currentTimeMillis()} component=${target.id} requestedEnabled=$enable " +
             "exit=${result.exitCode} timeout=${result.timedOut} observed=$observed\n${result.output}"
-        android.util.Log.i("ListCleaner", "COMPONENT_STATE ${target.id} exit=${result.exitCode} observed=$observed")
+        Log.i(TAG, "COMPONENT_STATE ${target.id} exit=${result.exitCode} observed=$observed")
         check(!result.timedOut && result.exitCode == 0 && observed == expected) {
             context.getString(
                 R.string.root_operation_unconfirmed,
@@ -152,5 +152,9 @@ class RootComponentCatalog(private val context: Context) {
             )
         }
         return context.getString(if (enable) R.string.root_verified_enabled else R.string.root_verified_disabled)
+    }
+
+    private companion object {
+        const val TAG = "ListCleaner.RootCatalog"
     }
 }
