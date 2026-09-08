@@ -102,7 +102,7 @@ internal fun AppScopePickerDialog(
             topBar = {
                 TopAppBar(
                     title = { Text("应用隐藏列表") },
-                    navigationIcon = { IconButton(onClick = dismiss) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "返回") } },
+                    navigationIcon = { IconButton(onClick = dismiss) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, UiText.translate("返回")) } },
                 )
             },
         ) { padding ->
