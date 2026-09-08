@@ -2,4 +2,5 @@
 <resources>
     <string name="app_name">列表清理</string>
     <string name="diagnostic_readme" translatable="true">ListCleaner 诊断包\n此诊断包以只读方式生成，不会执行改变系统状态的命令。\n\n内容：\n- app/：模块状态、LSPosed 作用域、运行目标、当前规则和分类 OPEN 配置\n- device/：Android 与构建信息\n- logcat/：模块、框架和选择器日志，Activity 事件、崩溃和日志缓冲区状态\n- lsposed/：24 小时内修改的最新 12 个 LSPosed 日志，每个最多保留 4 MiB\n- root/：Root 状态和已安装模块元数据\n\nlogcat 和 LSPosed 日志可能包含包名、路径或用户活动，分享前请检查。\nListCleaner 运行时消息只记录文件扩展名和识别类型，不记录完整文件名或 URI。\n大型数据流会保留开头和最新结尾，并明确标记被省略的字节。\n每个条目的存储有上限（通常为 8 MiB）；已经被覆盖的启动日志无法恢复。\n模块还会通过 API 102 log(int, String, String) 向框架日志写入生命周期和限频诊断消息。模块不会记录完整 Intent 或 extras。</string>
+    <string name="diagnostic_evidence_intro" translatable="true">这些是历史观察结果，不代表当前实时健康状态。\n缺少证据表示“未知”；计数是去重后的事件次数，不是当前活动 Hook 数量。\n请结合来源时间戳和 PID 判断；旧启动记录、截断和限频都可能导致事件缺失。\n下方机器字段和原始 Evidence 区域故意保持语言无关，便于检索、比较和自动分析。</string>
 </resources>
