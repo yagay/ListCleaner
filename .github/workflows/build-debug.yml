@@ -5,8 +5,12 @@ on:
     branches: [main]
     paths:
       - 'app/**'
+      - 'README.md'
+      - 'README.en.md'
+      - 'docs/**'
       - 'tools/check-source-localization.py'
       - 'tools/check-translation-resources.py'
+      - 'tools/check-bilingual-parity.py'
       - 'gradle/**'
       - '*.gradle.kts'
       - 'gradle.properties'
@@ -16,8 +20,12 @@ on:
   pull_request:
     paths:
       - 'app/**'
+      - 'README.md'
+      - 'README.en.md'
+      - 'docs/**'
       - 'tools/check-source-localization.py'
       - 'tools/check-translation-resources.py'
+      - 'tools/check-bilingual-parity.py'
       - '.github/workflows/build-debug.yml'
 
 permissions:
@@ -46,6 +54,9 @@ jobs:
       - name: Check translation resources
         run: python3 tools/check-translation-resources.py
 
+      - name: Check bilingual parity
+        run: python3 tools/check-bilingual-parity.py
+
       - name: Set up Java 17
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
@@ -66,7 +77,6 @@ jobs:
           sdk_manager="${ANDROID_HOME}/cmdline-tools/23.0/bin/sdkmanager"
           "$sdk_manager" --list --channel=3 > sdk-packages.log 2>&1
           "$sdk_manager" --channel=3 "platforms;android-37.0" "build-tools;36.0.0" "platform-tools" 2>&1 | tee sdk-install.log
-          # Verify installed files instead of parsing version-dependent CLI tables.
           test -s "${ANDROID_HOME}/platforms/android-37.0/android.jar"
           test -x "${ANDROID_HOME}/build-tools/36.0.0/aapt2"
 
