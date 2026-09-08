@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.util.Log
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.IntentKind
 
@@ -39,17 +40,13 @@ class ResolverScopeDetector(private val context: Context) {
         val warnings = mutableListOf<String>()
         val installed = KNOWN_PACKAGES.filter { packageName ->
             try {
-                // This set means installed, not enabled or confirmed as a Resolver host.
                 pm.getApplicationInfo(packageName, 0)
                 true
             } catch (_: PackageManager.NameNotFoundException) {
                 false
             } catch (failure: Exception) {
-                warnings += context.getString(
-                    R.string.scope_detection_failed,
-                    packageName,
-                    failure.message ?: failure.javaClass.simpleName
-                )
+                Log.e(TAG, "Installed-host detection failed for $packageName", failure)
+                warnings += context.getString(R.string.scope_detection_failed, packageName)
                 false
             }
         }.toSet()
@@ -76,13 +73,9 @@ class ResolverScopeDetector(private val context: Context) {
                 val info = pm.resolveActivity(intent, flags)?.activityInfo ?: return@mapNotNull null
                 val system = info.applicationInfo.flags and
                     (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
-                // A framework package is not itself evidence of a Resolver. Check the
-                // component (including aliases) before recommending the android scope.
                 val activityName = info.targetActivity ?: info.name
                 val resolver = info.packageName == "com.android.intentresolver" ||
                     activityName.endsWith("ResolverActivity") || activityName.endsWith("ChooserActivity")
-                // resolveActivity already applied dynamic component/app state for this user.
-                // A false manifest default does not mean the resolved component is disabled.
                 if (!system || !resolver) return@mapNotNull null
                 ResolverHost(
                     info.packageName,
@@ -91,18 +84,13 @@ class ResolverScopeDetector(private val context: Context) {
                     setOf(scenario)
                 )
             } catch (failure: Exception) {
-                warnings += context.getString(
-                    R.string.scope_detection_failed,
-                    scenario,
-                    failure.message ?: failure.javaClass.simpleName
-                )
+                Log.e(TAG, "Resolver probe failed for $scenario", failure)
+                warnings += context.getString(R.string.scope_detection_failed, scenario)
                 null
             }
         }.groupBy { it.packageName to it.className }.values.map { entries ->
             entries.first().copy(scenarios = entries.flatMap { it.scenarios }.toSet())
         }
-        // Modern LSPosed exposes system_server as the virtual `system` scope. It is not an
-        // installed APK and therefore cannot be discovered through PackageManager.
         val systemHost = ResolverHost(
             "system",
             "PackageManagerService",
@@ -115,5 +103,6 @@ class ResolverScopeDetector(private val context: Context) {
     companion object {
         val KNOWN_PACKAGES = setOf("android", "com.android.intentresolver", "com.android.systemui")
         val FRAMEWORK_UI_PROCESSES = setOf("android:ui", "system:ui")
+        private const val TAG = "ListCleaner.Scope"
     }
 }
