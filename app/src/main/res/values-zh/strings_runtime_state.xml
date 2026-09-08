@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runtime_waiting_verify">等待核实运行模块与配置</string>
+    <string name="runtime_waiting_connection">等待连接</string>
+    <string name="runtime_connection_lost">连接已断开；暂停扫描，保留当前列表</string>
+    <string name="runtime_lsposed_disconnected">未连接 LSPosed；暂停扫描，保留当前列表</string>
+    <string name="runtime_remote_config_too_large">远程配置过大</string>
+    <string name="runtime_legacy_rules_corrupt">远程旧规则损坏，请先从 JSON 备份恢复</string>
+    <string name="runtime_recovery_available">本地配置缺失，远程配置仍存在（%1$d 条规则）。请先选择恢复或重置；尚未覆盖远程配置。</string>
+    <string name="runtime_recovery_corrupt">远程配置无法读取或校验（%1$s）。未覆盖原配置；可导入备份，或确认重置。</string>
+    <string name="runtime_framework_api_required">框架需要 API 102；暂停同步和扫描</string>
+    <string name="runtime_config_transfer_too_large">配置超过传输上限，请减少规则后重试；未写入远程</string>
+    <string name="runtime_pause_write_failed">暂停配置写入失败</string>
+    <string name="runtime_pause_submitted">暂停配置已提交，尚未确认所有运行目标已应用</string>
+    <string name="runtime_incompatible_targets">旧模块或异常运行状态：%1$s；请尝试热更新，旧版本不支持时完整重启手机。%2$s</string>
+    <string name="runtime_incompatible_pause_pending">已提交兼容的暂停配置，但未确认生效；扫描仍暂停。</string>
+    <string name="runtime_incompatible_paused">暂停同步和扫描。</string>
+    <string name="runtime_system_target_missing">未检测到 system 中的模块；请检查作用域并重启，暂不扫描</string>
+    <string name="runtime_waiting_ack">本地配置已保存，等待系统 Hook 确认新配置</string>
+    <string name="runtime_remote_write_failed">远程配置写入失败</string>
+    <string name="runtime_connection_changed">连接已变化，请重试</string>
+    <string name="runtime_ack_missing">配置已写入，但系统 Hook 未确认接收；暂停扫描，请重试或重启</string>
+    <string name="runtime_config_changed">配置在确认期间发生变化，正在重新同步</string>
+    <string name="runtime_confirmed_hits">系统 Hook 已确认配置；可在状态页查看过滤、应用可见性和排序的实际命中次数</string>
+    <string name="runtime_validation_failed">运行状态验证失败，保留当前列表</string>
+    <string name="runtime_recovered_waiting">已恢复本地配置，等待系统确认</string>
+    <string name="runtime_reset_waiting">本地已重置并选择暂停，等待系统确认</string>
+</resources>
