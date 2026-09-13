@@ -4,6 +4,7 @@ import android.util.Log
 import com.yagay.ListCleaner.ListCleanerApp
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.ComponentRootCommand
+import com.yagay.ListCleaner.data.PersistentComponentStore
 import com.yagay.ListCleaner.data.RootComponent
 import com.yagay.ListCleaner.data.RootComponentCatalog
 import com.yagay.ListCleaner.data.RootComponentScan
@@ -24,6 +25,7 @@ internal class RootComponentsController(
     private val scope: CoroutineScope
 ) {
     private val catalog = RootComponentCatalog(app)
+    private val persistentComponents = PersistentComponentStore(app)
 
     private val mutableScan = MutableStateFlow(
         RootComponentScan(warning = app.getString(R.string.root_not_scanned))
@@ -60,7 +62,12 @@ internal class RootComponentsController(
         mutableBusy.value = true
         scope.launch {
             try {
-                mutableScan.value = withContext(Dispatchers.IO) { catalog.scan() }
+                mutableScan.value = withContext(Dispatchers.IO) {
+                    // Retry the remote mirror whenever this screen is opened/refreshed. The local
+                    // desired state remains authoritative if the Xposed service was temporarily down.
+                    persistentComponents.syncRemote()
+                    catalog.scan()
+                }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
@@ -98,6 +105,9 @@ internal class RootComponentsController(
                             target.label
                         )
                         result = withContext(NonCancellable) { catalog.change(target, enable) }
+                        // Persist only after Android confirms the requested state. This makes the
+                        // checkbox a durable policy instead of a one-shot `pm disable` command.
+                        persistentComponents.setDisabled(target, disabled = !enable)
                         completedTargets += target
                     }
                     mutableMessage.value = if (targets.size == 1) {
@@ -153,7 +163,9 @@ internal class RootComponentsController(
                             targets.size,
                             target.label
                         )
-                        withContext(NonCancellable) { catalog.change(target, target.enabled == false) }
+                        val enable = target.enabled == false
+                        withContext(NonCancellable) { catalog.change(target, enable) }
+                        persistentComponents.setDisabled(target, disabled = !enable)
                         completedTargets += target
                     }
                     mutableMessage.value = app.getString(R.string.root_batch_inverted, completedTargets.size)
