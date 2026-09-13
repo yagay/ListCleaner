@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.util.Log
 import com.yagay.ListCleaner.ListCleanerApp
+import com.yagay.ListCleaner.domain.ComponentStatePolicy
 
 /**
  * Persists the user's desired disabled state separately from Android's current component override.
