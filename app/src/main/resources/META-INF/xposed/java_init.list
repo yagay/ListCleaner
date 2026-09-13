@@ -1,1 +1,2 @@
 com.yagay.ListCleaner.xposed.ListCleanerModule
+com.yagay.ListCleaner.xposed.ComponentStateGuardModule
