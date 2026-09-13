@@ -118,7 +118,13 @@ else:
             errors.append("RELEASE_NOTES.md has no release-note bullets")
 
 telegram = (ROOT / "tools/publish-telegram.py").read_text(encoding="utf-8")
-for required in ('marker = "\\n## English\\n"', 'return f"中文\\n{zh}\\n\\nEnglish\\n{en}"', 'Path("RELEASE_NOTES.md")'):
+# The current publisher keeps the complete bilingual Release body, trims only the optional full
+# changelog suffix, and renders the resulting summary in one expandable blockquote.
+for required in (
+    'summary = feature_summary(body)',
+    'html.escape(summary)',
+    'Path("RELEASE_NOTES.md")',
+):
     if required not in telegram:
         errors.append(f"Telegram publisher no longer preserves bilingual release notes: {required}")
 
