@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Source release tag (for example v1.6.8); empty means latest'
+        description: 'Source release tag (for example v1.6.9); empty means latest'
         required: false
         type: string
   workflow_run:
@@ -52,16 +52,26 @@ jobs:
       - name: Resolve source tag
         id: source
         env:
+          EVENT_NAME: ${{ github.event_name }}
           INPUT_TAG: ${{ inputs.tag || '' }}
         run: |
           set -euo pipefail
           tag="$INPUT_TAG"
-          if [ -z "$tag" ] && [ -f .github/telegram-republish ]; then
+
+          # .github/telegram-republish is a manual republish control only.
+          # Automatic workflow_run publishing must follow the latest completed Release,
+          # otherwise a stale republish marker can force an older version forever.
+          if [ "$EVENT_NAME" = "push" ] && [ -f .github/telegram-republish ]; then
             candidate="$(tr -d '[:space:]' < .github/telegram-republish)"
             if [[ "$candidate" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
               tag="$candidate"
+            else
+              echo '::error::.github/telegram-republish must contain a stable tag such as v1.6.9'
+              exit 1
             fi
           fi
+
+          echo "Resolved Telegram source tag: ${tag:-latest} (event=$EVENT_NAME)"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Publish Release APK to Telegram channel
