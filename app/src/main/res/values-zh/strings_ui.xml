@@ -28,7 +28,7 @@
     <string name="rules_mode_hide_selected">当前为“隐藏选中”：规则生效后，勾选的组件从对应候选列表中隐藏；取消勾选恢复默认显示。</string>
     <string name="rules_mode_show_selected">当前为“只显示选中”：规则生效后，对应分类保留勾选的组件，隐藏其他组件。</string>
     <string name="rules_mode_show_all">当前为“全部显示”：暂停清理系统候选列表，勾选只保存配置，恢复清理模式后生效。</string>
-    <string name="rules_usage_help">“应用”可紧凑切换全部、用户应用或系统应用，只缩小当前显示和批量操作范围。应用或子项向右滑可加锁、向左滑可解锁；未锁定时不显示锁图标，锁定后才显示。锁定项跳过全选/反选，但仍可手动修改且不参与排序。“全部”下的“已锁定”会汇总各分类中的锁定项目。</string>
+    <string name="rules_usage_help">“应用”可紧凑切换全部、用户应用或系统应用，只缩小当前显示和批量操作范围。应用或子项向右滑加锁、向左滑解锁；未锁定不显示锁图标，锁定后才显示状态图标。整体锁保护整个应用，部分锁只保护对应子项；锁定项跳过全选/反选等批量操作，但仍可手动修改。锁不参与排序，也不改变已选/半选/未选状态；“全部 → 已锁定”会汇总各分类中的锁定项目。</string>
     <string name="rules_typed_help">当前正在编辑“打开方式 · %1$s”专用规则。有效勾选由“全部”中的 OPEN 通用规则与当前类型专用规则共同组成；继承自“全部”的项目会继续显示已勾选，并在展开项中标明来源。继承项不能在分类型里直接取消，需要回到“全部”取消；当前类型新增的规则只影响该 MIME / scheme / 文件后缀类型。</string>
     <string name="rules_inherited_from_all">继承自“打开方式 · 全部”</string>
     <string name="rules_dedicated_rule">%1$s 专用规则</string>
