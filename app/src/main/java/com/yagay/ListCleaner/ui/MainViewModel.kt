@@ -540,19 +540,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (editable.isNotEmpty()) app.rules.invertOpenTypeSelected(preset, editable)
     }
 
-    fun selectRules(rules: Collection<ComponentRule>, lockScope: String) {
+    fun selectRules(
+        rules: Collection<ComponentRule>,
+        filter: IntentKind?,
+        preset: OpenPreset?
+    ) {
         if (!canEdit() || rules.isEmpty()) return
-        val editable = rules.distinct().filterNot {
-            bulkLocks.isProtected(lockScope, it.packageName, it.id)
-        }
+        val editable = rules.distinct().filterNot { isRuleBulkProtected(filter, preset, it) }
         if (editable.isNotEmpty()) app.rules.setSelected(editable, true)
     }
 
-    fun invertRules(rules: Collection<ComponentRule>, lockScope: String) {
+    fun invertRules(
+        rules: Collection<ComponentRule>,
+        filter: IntentKind?,
+        preset: OpenPreset?
+    ) {
         if (!canEdit() || rules.isEmpty()) return
-        val editable = rules.distinct().filterNot {
-            bulkLocks.isProtected(lockScope, it.packageName, it.id)
-        }
+        val editable = rules.distinct().filterNot { isRuleBulkProtected(filter, preset, it) }
         if (editable.isNotEmpty()) app.rules.invertSelected(editable)
     }
 
@@ -577,6 +581,102 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     internal fun setBulkItemLocked(scope: String, itemId: String, locked: Boolean) =
         bulkLocks.setItemLocked(scope, itemId, locked)
+
+    private fun ruleScopes(filter: IntentKind?, preset: OpenPreset?, rule: ComponentRule): List<String> =
+        if (filter != null) {
+            listOf(ruleBulkLockScope(filter, preset))
+        } else {
+            listOf(
+                ruleBulkLockScope(null, null),
+                ruleBulkLockScope(rule.kind, null)
+            ).distinct()
+        }
+
+    internal fun ruleBulkLockState(
+        filter: IntentKind?,
+        preset: OpenPreset?,
+        appId: String,
+        rules: Collection<ComponentRule>
+    ): BulkLockState {
+        val distinct = rules.distinctBy { it.id }
+        if (distinct.isEmpty()) return BulkLockState.NONE
+        val protectedCount = distinct.count { rule ->
+            ruleScopes(filter, preset, rule).any { scope ->
+                bulkLocks.isProtected(scope, appId, rule.id)
+            }
+        }
+        return when {
+            protectedCount == 0 -> BulkLockState.NONE
+            protectedCount == distinct.size -> BulkLockState.FULL
+            else -> BulkLockState.PARTIAL
+        }
+    }
+
+    internal fun isRuleBulkProtected(
+        filter: IntentKind?,
+        preset: OpenPreset?,
+        rule: ComponentRule
+    ): Boolean = ruleScopes(filter, preset, rule).any { scope ->
+        bulkLocks.isProtected(scope, rule.packageName, rule.id)
+    }
+
+    internal fun isRuleAppLocked(
+        filter: IntentKind?,
+        preset: OpenPreset?,
+        appId: String,
+        rules: Collection<ComponentRule>
+    ): Boolean {
+        if (filter != null) return bulkLocks.isAppLocked(ruleBulkLockScope(filter, preset), appId)
+        return rules.distinctBy { it.kind }.all { rule ->
+            bulkLocks.isAppLocked(ruleBulkLockScope(rule.kind, null), appId)
+        } && rules.isNotEmpty()
+    }
+
+    internal fun setRuleAppLocked(
+        filter: IntentKind?,
+        preset: OpenPreset?,
+        appId: String,
+        rules: Collection<ComponentRule>,
+        locked: Boolean
+    ) {
+        val distinct = rules.distinctBy { it.id }
+        if (filter != null) {
+            bulkLocks.setAppLocked(
+                ruleBulkLockScope(filter, preset),
+                appId,
+                distinct.map { it.id },
+                locked
+            )
+            return
+        }
+        // The All page is an aggregate view. Apply the direction to each real category and clear
+        // the legacy ALL scope so filtering and bulk protection stay consistent.
+        bulkLocks.setAppLocked(
+            ruleBulkLockScope(null, null),
+            appId,
+            distinct.map { it.id },
+            false
+        )
+        distinct.groupBy { it.kind }.forEach { (kind, scopedRules) ->
+            bulkLocks.setAppLocked(
+                ruleBulkLockScope(kind, null),
+                appId,
+                scopedRules.map { it.id },
+                locked
+            )
+        }
+    }
+
+    internal fun setRuleItemLocked(
+        filter: IntentKind?,
+        preset: OpenPreset?,
+        rule: ComponentRule,
+        locked: Boolean
+    ) {
+        val scope = if (filter != null) ruleBulkLockScope(filter, preset)
+        else ruleBulkLockScope(rule.kind, null)
+        bulkLocks.setItemLocked(scope, rule.id, locked)
+    }
 
     internal fun toggleBulkAppLock(scope: String, appId: String, itemIds: Collection<String>) =
         bulkLocks.toggleApp(scope, appId, itemIds)
