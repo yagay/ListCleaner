@@ -680,4 +680,4 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 }
 
 internal fun catalogVisible(item: ComponentCandidate, selected: Boolean, uiFilter: UiFilter): Boolean =
-    item.isCatalogCandidate || (selected && uiFilter == UiFilter.SHOW_SELECTED)
+    item.isCatalogCandidate || (selected && (uiFilter == UiFilter.SHOW_SELECTED || uiFilter == UiFilter.LOCKED))
