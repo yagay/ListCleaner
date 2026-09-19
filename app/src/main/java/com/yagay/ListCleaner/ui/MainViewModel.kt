@@ -176,16 +176,95 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun changeComponent(target: RootComponent, enable: Boolean) = rootComponents.change(target, enable)
     fun changeComponents(targets: List<RootComponent>, enable: Boolean) = rootComponents.change(targets, enable)
     fun invertComponents(targets: List<RootComponent>) = rootComponents.invert(targets)
-    fun changeComponentsBulk(scope: String, targets: List<RootComponent>, enable: Boolean) {
-        val editable = targets.filterNot {
-            bulkLocks.isProtected(scope, componentBulkLockAppId(it), it.id)
+
+    private fun componentScopes(kind: CleanupKind?, item: RootComponent): List<String> =
+        if (kind != null) {
+            listOf(componentBulkLockScope(kind))
+        } else {
+            listOf(
+                componentBulkLockScope(null),
+                componentBulkLockScope(item.kind)
+            ).distinct()
         }
+
+    internal fun isComponentBulkProtected(kind: CleanupKind?, item: RootComponent): Boolean =
+        componentScopes(kind, item).any { scope ->
+            bulkLocks.isProtected(scope, componentBulkLockAppId(item), item.id)
+        }
+
+    internal fun componentBulkLockState(
+        kind: CleanupKind?,
+        appId: String,
+        items: Collection<RootComponent>
+    ): BulkLockState {
+        val distinct = items.distinctBy { it.id }
+        if (distinct.isEmpty()) return BulkLockState.NONE
+        val protectedCount = distinct.count { item ->
+            componentScopes(kind, item).any { scope ->
+                bulkLocks.isProtected(scope, appId, item.id)
+            }
+        }
+        return when {
+            protectedCount == 0 -> BulkLockState.NONE
+            protectedCount == distinct.size -> BulkLockState.FULL
+            else -> BulkLockState.PARTIAL
+        }
+    }
+
+    internal fun isComponentAppLockedForItem(kind: CleanupKind?, item: RootComponent): Boolean =
+        componentScopes(kind, item).any { scope ->
+            bulkLocks.isAppLocked(scope, componentBulkLockAppId(item))
+        }
+
+    internal fun setComponentAppLocked(
+        kind: CleanupKind?,
+        appId: String,
+        items: Collection<RootComponent>,
+        locked: Boolean
+    ) {
+        val distinct = items.distinctBy { it.id }
+        if (kind != null) {
+            bulkLocks.setAppLocked(
+                componentBulkLockScope(kind),
+                appId,
+                distinct.map { it.id },
+                locked
+            )
+            return
+        }
+        bulkLocks.setAppLocked(
+            componentBulkLockScope(null),
+            appId,
+            distinct.map { it.id },
+            false
+        )
+        distinct.groupBy { it.kind }.forEach { (entryKind, scopedItems) ->
+            bulkLocks.setAppLocked(
+                componentBulkLockScope(entryKind),
+                appId,
+                scopedItems.map { it.id },
+                locked
+            )
+        }
+    }
+
+    internal fun setComponentItemLocked(
+        kind: CleanupKind?,
+        item: RootComponent,
+        locked: Boolean
+    ) {
+        val scope = if (kind != null) componentBulkLockScope(kind)
+        else componentBulkLockScope(item.kind)
+        bulkLocks.setItemLocked(scope, item.id, locked)
+    }
+
+    fun changeComponentsBulk(kind: CleanupKind?, targets: List<RootComponent>, enable: Boolean) {
+        val editable = targets.filterNot { isComponentBulkProtected(kind, it) }
         if (editable.isNotEmpty()) rootComponents.change(editable, enable)
     }
-    fun invertComponentsBulk(scope: String, targets: List<RootComponent>) {
-        val editable = targets.filterNot {
-            bulkLocks.isProtected(scope, componentBulkLockAppId(it), it.id)
-        }
+
+    fun invertComponentsBulk(kind: CleanupKind?, targets: List<RootComponent>) {
+        val editable = targets.filterNot { isComponentBulkProtected(kind, it) }
         if (editable.isNotEmpty()) rootComponents.invert(editable)
     }
 
