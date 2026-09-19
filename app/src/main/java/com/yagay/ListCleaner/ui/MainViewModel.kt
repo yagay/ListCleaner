@@ -543,15 +543,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (editable.isNotEmpty()) app.rules.invertSelected(editable)
     }
 
-    fun bulkLockState(scope: String, appId: String, itemIds: Collection<String>): BulkLockState =
+    internal fun bulkLockState(scope: String, appId: String, itemIds: Collection<String>): BulkLockState =
         bulkLocks.state(scope, appId, itemIds)
 
-    fun isBulkItemLocked(scope: String, itemId: String): Boolean =
+    internal fun isBulkItemLocked(scope: String, itemId: String): Boolean =
         bulkLocks.isItemLocked(scope, itemId)
 
-    fun toggleBulkAppLock(scope: String, appId: String) = bulkLocks.toggleApp(scope, appId)
+    internal fun toggleBulkAppLock(scope: String, appId: String) = bulkLocks.toggleApp(scope, appId)
 
-    fun toggleBulkItemLock(scope: String, itemId: String) = bulkLocks.toggleItem(scope, itemId)
+    internal fun toggleBulkItemLock(scope: String, itemId: String) = bulkLocks.toggleItem(scope, itemId)
 
     fun setDisplayMode(value: DisplayMode) { if (canEdit()) app.rules.setDisplayMode(value) }
     fun setFilter(value: IntentKind?) { filter.value = value }
