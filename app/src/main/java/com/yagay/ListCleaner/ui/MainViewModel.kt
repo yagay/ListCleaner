@@ -670,9 +670,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (filter != null) {
             listOf(ruleBulkLockScope(filter, preset))
         } else {
-            listOf(
-                ruleBulkLockScope(null, null),
-                ruleBulkLockScope(rule.kind, null)
+            (
+                listOf(
+                    ruleBulkLockScope(null, null),
+                    ruleBulkLockScope(rule.kind, null)
+                ) + bulkLocks.scopesStartingWith("rules:${rule.kind.name}:")
             ).distinct()
         }
 
@@ -741,21 +743,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             )
             return
         }
-        // The All page is an aggregate view. Apply the direction to each real category and clear
-        // the legacy ALL scope so filtering and bulk protection stay consistent.
-        bulkLocks.setAppLocked(
-            ruleBulkLockScope(null, null),
-            appId,
-            distinct.map { it.id },
-            false
-        )
+        // The All page is an aggregate view. Unlock removes locks from every stored scope for
+        // the represented categories, including typed Open scopes. Locking creates the normal
+        // category-level app locks while preserving any more specific locks.
+        val allIds = distinct.map { it.id }
+        bulkLocks.setAppLocked(ruleBulkLockScope(null, null), appId, allIds, false)
         distinct.groupBy { it.kind }.forEach { (kind, scopedRules) ->
-            bulkLocks.setAppLocked(
-                ruleBulkLockScope(kind, null),
-                appId,
-                scopedRules.map { it.id },
-                locked
-            )
+            val defaultScope = ruleBulkLockScope(kind, null)
+            val storedScopes = bulkLocks.scopesStartingWith("rules:${kind.name}:")
+            if (!locked) {
+                (storedScopes + defaultScope).forEach { scope ->
+                    bulkLocks.setAppLocked(scope, appId, allIds, false)
+                }
+            } else {
+                bulkLocks.setAppLocked(
+                    defaultScope,
+                    appId,
+                    scopedRules.map { it.id },
+                    true
+                )
+            }
         }
     }
 
@@ -769,9 +776,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             bulkLocks.setItemLocked(ruleBulkLockScope(filter, preset), rule.id, locked)
             return
         }
-        // Migrate any lock created by the old All-page behavior into the real category scope.
+        // The All page aggregates category and typed scopes. Left swipe clears the item from all
+        // of them; right swipe migrates any old ALL lock to the normal category scope.
         bulkLocks.setItemLocked(ruleBulkLockScope(null, null), rule.id, false)
-        bulkLocks.setItemLocked(ruleBulkLockScope(rule.kind, null), rule.id, locked)
+        val defaultScope = ruleBulkLockScope(rule.kind, null)
+        if (!locked) {
+            (bulkLocks.scopesStartingWith("rules:${rule.kind.name}:") + defaultScope).forEach { scope ->
+                bulkLocks.setItemLocked(scope, rule.id, false)
+            }
+        } else {
+            bulkLocks.setItemLocked(defaultScope, rule.id, true)
+        }
     }
 
     internal fun toggleBulkAppLock(scope: String, appId: String, itemIds: Collection<String>) =
