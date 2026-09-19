@@ -36,6 +36,8 @@ An application-row selection applies to the components currently shown for the a
 
 Each page can independently apply a **bulk-operation lock**. A full lock protects an entire app from Select All/Invert-style operations, while a partial lock protects only selected child entries. Locked entries remain manually editable. Lock state never participates in ordering and does not change Selected / Partially selected / Unselected calculations; the Locked filter shows apps with either full or partial protection.
 
+Rules, Ordering, and Components all use the same compact **Apps: All / User apps / System apps** dropdown, which can be combined with the existing View filter. App type only controls what is currently shown and what bulk actions target; it **never participates in ordering or changes selection, lock, or Root state**. Updated preinstalled system apps remain classified as system apps.
+
 Rules alter returned candidate lists. They do not uninstall applications or change component enabled state. The scan catalog is a configuration aid and does not imply that every file exposes the same candidates.
 
 ### Ordering: put frequently used apps first
@@ -43,7 +45,7 @@ Rules alter returned candidate lists. They do not uninstall applications or chan
 Each of the five categories stores its own app priority order.
 
 - Select an app to add it to the priority list and place it at the configured position; deselect it to return it to the default alphabetical group.
-- Prioritized apps follow the saved order; other apps are sorted by name. The list can be filtered to all, prioritized, non-prioritized, or locked apps. Locks only protect bulk select/invert actions; they never move apps or rewrite the saved priority order.
+- Prioritized apps follow the saved order; other apps are sorted by name. The list can be filtered to all, prioritized, non-prioritized, or locked apps, then narrowed to user or system apps. Neither app-type filtering nor locks move apps or rewrite the saved priority order.
 - **Long-press a prioritized app to drag it.** The list auto-scrolls near its edges and saves when released. Move-up and move-down controls are also available after expansion.
 - During search, only matching prioritized apps are rearranged; hidden configuration retains its position. Candidates hidden by rules do not appear in the current ordering list, but their saved priority is retained.
 
@@ -51,7 +53,7 @@ The module applies priority ordering at supported system query and chooser order
 
 ### Components: manage tiles, shortcuts, and widgets
 
-The Components page reads actual system state and supports search and disabled-state filtering.
+The Components page reads actual system state and supports search, disabled-state filtering, and separate user/system app views for bulk management.
 
 | Category | Supported scope |
 | --- | --- |
