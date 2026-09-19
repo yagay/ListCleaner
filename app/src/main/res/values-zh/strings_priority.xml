@@ -2,7 +2,7 @@
 <resources>
     <string name="priority_unselected">未优先</string>
     <string name="priority_selected">已优先</string>
-    <string name="priority_intro">勾选控制应用的优先顺序。锁图标只保护批量选择/反选，不改变已保存顺序，锁定应用仍可手动修改；自定义显示名称与排序独立。</string>
+    <string name="priority_intro">“应用”可筛选用户应用或系统应用，只缩小当前列表，不改变已保存顺序。勾选控制优先顺序；锁图标只保护批量选择/反选，锁定应用仍可手动修改。</string>
     <string name="priority_drag_help">长按已优先应用可拖动排序，松手保存；展开后也可上移、下移。展开组件后点铅笔可修改该组件在当前 Intent 分类中的菜单显示名称，留空保存恢复原名称。</string>
     <string name="priority_source_inherited">当前排序来源：继承“打开方式 · 全部”</string>
     <string name="priority_source_dedicated">当前排序来源：%1$s 专用排序</string>
