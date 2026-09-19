@@ -38,7 +38,7 @@
     <string name="root_permission_required">需要 Root 授权</string>
     <string name="root_permission_ack">知道了</string>
     <string name="root_screen_help">用于禁用或恢复应用提供的快捷设置磁贴、快捷方式创建入口和小部件。组件发现优先使用 Android 子系统注册表；注册表不可用、调用异常或运行中的 Hook 版本较旧时会自动降级到安全扫描，不因发现失败让组件页崩溃。Root 负责真实修改组件状态；期望禁用状态会持久保存，并通过 LSPosed/system_server 再次过滤发现结果，在开机、解锁及应用更新后自动校正。</string>
-    <string name="root_filter_help">“应用”可筛选全部、用户应用或系统应用，计数和批量操作只针对当前可见范围。应用或子项向右滑加锁、向左滑解锁；未锁定不显示锁图标，锁定后才显示。“全部”下的“已锁定”会汇总磁贴、快捷方式和小部件分类中的锁定项目；核心受保护系统组件仍仅展示。</string>
+    <string name="root_filter_help">“应用”可筛选全部、用户应用或系统应用，计数和批量操作只针对当前可见范围。应用或子项向右滑加锁、向左滑解锁；未锁定不显示锁图标，锁定后才显示状态图标。整体锁保护整个应用，部分锁只保护对应子项；“全部 → 已锁定”会汇总磁贴、快捷方式和小部件分类中的锁定项目。锁只跳过批量操作，仍可手动修改，不改变 Root 真实禁用状态，也不参与排序；核心受保护系统组件仍仅展示。</string>
     <string name="root_selection_semantics">勾选＝组件真实已禁用。当前状态仍直接回读 Android，同时保存期望禁用策略；若系统在启动或更新后恢复组件，会继续过滤发现结果并自动重新禁用。</string>
     <string name="root_change_semantics">勾选立即禁用，取消勾选立即明确启用，不再弹窗确认。禁用会影响正在使用此组件的功能；启用不是恢复原默认状态。</string>
     <string name="root_kind_all_help">优先使用 Android 各子系统的正式注册表：标准 TileService、LauncherApps 快捷方式配置 Activity + 旧创建入口、AppWidgetManager Provider + Manifest 补充；不会禁用整个应用。</string>
