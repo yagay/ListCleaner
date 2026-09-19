@@ -24,6 +24,7 @@ internal fun UiFilter.titleRes(): Int = when (this) {
     UiFilter.ALL -> R.string.common_all
     UiFilter.HIDE_SELECTED -> R.string.filter_unselected_rules
     UiFilter.SHOW_SELECTED -> R.string.filter_selected_rules
+    UiFilter.LOCKED -> R.string.filter_locked
 }
 
 @StringRes
