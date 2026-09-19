@@ -11,6 +11,7 @@ import android.graphics.Bitmap
 import android.os.Process
 import android.util.Log
 import androidx.core.graphics.drawable.toBitmap
+import com.yagay.ListCleaner.ListCleanerApp
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.AppType
 import com.yagay.ListCleaner.domain.ComponentStatePolicy
@@ -158,20 +159,32 @@ class RootComponentCatalog(private val context: Context) {
 
     @Suppress("DEPRECATION")
     private fun queryRegisteredWidgets(): List<DiscoveredComponent> {
-        val manager = AppWidgetManager.getInstance(context)
-        val providers = runCatching {
-            manager.getInstalledProvidersForProfile(Process.myUserHandle())
-        }.onFailure {
-            Log.w(TAG, "AppWidgetManager provider discovery unavailable", it)
-        }.getOrDefault(emptyList())
-
-        return providers.mapNotNull { providerInfo ->
-            val component = providerInfo.provider ?: return@mapNotNull null
-            val info = runCatching {
-                pm.getReceiverInfo(component, flags)
-            }.getOrNull() ?: return@mapNotNull null
-            DiscoveredComponent(info, setOf(ComponentDiscoverySource.APP_WIDGET_MANAGER))
+        val runtimeProtocol = (context.applicationContext as? ListCleanerApp)
+            ?.runtime?.value?.componentDiscoveryProtocol ?: 0
+        if (runtimeProtocol < SAFE_COMPONENT_DISCOVERY_PROTOCOL) {
+            Log.i(
+                TAG,
+                "AppWidgetManager discovery deferred: runtime protocol=$runtimeProtocol " +
+                    "required=$SAFE_COMPONENT_DISCOVERY_PROTOCOL; using manifest fallback"
+            )
+            return emptyList()
         }
+
+        return runCatching {
+            val manager = AppWidgetManager.getInstance(context)
+            manager.getInstalledProvidersForProfile(Process.myUserHandle()).mapNotNull { providerInfo ->
+                val component = providerInfo.provider ?: return@mapNotNull null
+                val info = runCatching {
+                    pm.getReceiverInfo(component, flags)
+                }.getOrNull() ?: return@mapNotNull null
+                DiscoveredComponent(
+                    info,
+                    setOf(ComponentDiscoverySource.APP_WIDGET_MANAGER)
+                )
+            }
+        }.onFailure {
+            Log.w(TAG, "AppWidgetManager provider discovery unavailable; using manifest fallback", it)
+        }.getOrDefault(emptyList())
     }
 
     private fun query(kind: CleanupKind): List<DiscoveredComponent> = when (kind) {
@@ -356,6 +369,7 @@ class RootComponentCatalog(private val context: Context) {
         const val PER_USER_RANGE = 100_000
         const val BIND_QUICK_SETTINGS_TILE = "android.permission.BIND_QUICK_SETTINGS_TILE"
         const val APP_WIDGET_PROVIDER_META_DATA = "android.appwidget.provider"
+        const val SAFE_COMPONENT_DISCOVERY_PROTOCOL = 2
 
     }
 }
