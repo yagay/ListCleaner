@@ -2,6 +2,7 @@ package com.yagay.ListCleaner.data
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
@@ -40,9 +41,7 @@ class IntentCatalog(private val context: Context) {
                 @Suppress("DEPRECATION")
                 context.packageManager.getApplicationInfo(rule.packageName, 0)
             }.getOrNull()
-            val label = appInfo?.let {
-                runCatching { it.loadLabel(context.packageManager).toString() }.getOrNull()
-            } ?: rule.packageName
+            val label = appInfo?.let(::loadAppLabel) ?: rule.packageName
             ComponentCandidate(
                 rule,
                 label,
@@ -56,6 +55,7 @@ class IntentCatalog(private val context: Context) {
     }
 
     private val appIconCache = LruCache<String, Bitmap>(192)
+    private val appLabelCache = LruCache<String, String>(256)
     @Volatile private var cachedDefinitionFingerprint: String? = null
     @Volatile private var invalidated = true
     @Volatile private var cacheHitsSinceLastScan = 0L
@@ -72,7 +72,10 @@ class IntentCatalog(private val context: Context) {
     /** Mark candidate discovery stale while keeping reusable app icons in memory. */
     fun invalidate(packageName: String? = null) {
         invalidated = true
-        packageName?.let(appIconCache::remove)
+        packageName?.let {
+            appIconCache.remove(it)
+            appLabelCache.remove(it)
+        }
     }
 
     suspend fun scan(
@@ -185,7 +188,7 @@ class IntentCatalog(private val context: Context) {
             }
             ComponentCandidate(
                 rule,
-                runCatching { activity.applicationInfo.loadLabel(context.packageManager).toString() }.getOrDefault(activity.packageName),
+                loadAppLabel(activity.applicationInfo),
                 runCatching { info.loadLabel(context.packageManager).toString() }.getOrDefault(activity.name.substringAfterLast('.')),
                 loadAppIcon(activity.packageName) {
                     runCatching { activity.applicationInfo.loadIcon(context.packageManager) }.getOrNull()
@@ -198,6 +201,14 @@ class IntentCatalog(private val context: Context) {
             )
         }
         return QueryResult(candidates, raw.size, flags)
+    }
+
+    private fun loadAppLabel(applicationInfo: ApplicationInfo): String {
+        val packageName = applicationInfo.packageName
+        appLabelCache.get(packageName)?.let { return it }
+        return runCatching {
+            applicationInfo.loadLabel(context.packageManager).toString()
+        }.getOrDefault(packageName).also { appLabelCache.put(packageName, it) }
     }
 
     private fun loadAppIcon(packageName: String, loader: () -> Drawable): Bitmap? {
