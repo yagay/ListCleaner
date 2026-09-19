@@ -254,9 +254,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         item: RootComponent,
         locked: Boolean
     ) {
-        val scope = if (kind != null) componentBulkLockScope(kind)
-        else componentBulkLockScope(item.kind)
-        bulkLocks.setItemLocked(scope, item.id, locked)
+        if (kind != null) {
+            bulkLocks.setItemLocked(componentBulkLockScope(kind), item.id, locked)
+            return
+        }
+        // Migrate old All-page item locks so a left swipe can always unlock them.
+        bulkLocks.setItemLocked(componentBulkLockScope(null), item.id, false)
+        bulkLocks.setItemLocked(componentBulkLockScope(item.kind), item.id, locked)
     }
 
     fun changeComponentsBulk(kind: CleanupKind?, targets: List<RootComponent>, enable: Boolean) {
@@ -761,9 +765,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         rule: ComponentRule,
         locked: Boolean
     ) {
-        val scope = if (filter != null) ruleBulkLockScope(filter, preset)
-        else ruleBulkLockScope(rule.kind, null)
-        bulkLocks.setItemLocked(scope, rule.id, locked)
+        if (filter != null) {
+            bulkLocks.setItemLocked(ruleBulkLockScope(filter, preset), rule.id, locked)
+            return
+        }
+        // Migrate any lock created by the old All-page behavior into the real category scope.
+        bulkLocks.setItemLocked(ruleBulkLockScope(null, null), rule.id, false)
+        bulkLocks.setItemLocked(ruleBulkLockScope(rule.kind, null), rule.id, locked)
     }
 
     internal fun toggleBulkAppLock(scope: String, appId: String, itemIds: Collection<String>) =
