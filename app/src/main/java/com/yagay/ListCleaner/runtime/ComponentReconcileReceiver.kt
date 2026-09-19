@@ -24,7 +24,9 @@ class ComponentReconcileReceiver : BroadcastReceiver() {
             Intent.ACTION_MY_PACKAGE_REPLACED -> "manager_replaced"
             Intent.ACTION_PACKAGE_ADDED -> "package_added"
             Intent.ACTION_PACKAGE_REPLACED -> "package_replaced"
-            Intent.ACTION_PACKAGE_REMOVED -> "package_removed"
+            // Removal only invalidates discovery caches. There is nothing to re-disable while the
+            // package is absent; a reinstall/update will schedule reconciliation on add/replace.
+            Intent.ACTION_PACKAGE_REMOVED -> return
             else -> return
         }
         Log.i(TAG, "SCHEDULE reason=$reason package=${packageName ?: "none"}")
