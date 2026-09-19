@@ -37,6 +37,7 @@ data class RuntimeStatus(
     val queryHits: Long = 0,
     val visibilityHits: Long = 0,
     val orderingHits: Long = 0,
+    val componentDiscoveryProtocol: Int = 0,
     val observedAtMillis: Long = System.currentTimeMillis()
 )
 
@@ -245,6 +246,7 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                 var queryHits = 0L
                 var visibilityHits = 0L
                 var orderingHits = 0L
+                var componentDiscoveryProtocol = 0
                 repeat(4) {
                     if (!isCurrent(session)) return@withLock false
                     if (!acknowledged) {
@@ -267,6 +269,8 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                                 visibilityHits = parts[3].toLongOrNull() ?: 0L
                                 orderingHits = parts[4].toLongOrNull() ?: 0L
                             }
+                            componentDiscoveryProtocol =
+                                parts.getOrNull(5)?.toIntOrNull() ?: 0
                         }
                         if (!acknowledged) delay(150)
                     }
@@ -282,7 +286,8 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                         digest = digest,
                         queryHits = queryHits,
                         visibilityHits = visibilityHits,
-                        orderingHits = orderingHits
+                        orderingHits = orderingHits,
+                        componentDiscoveryProtocol = componentDiscoveryProtocol
                     )
                 )
                 if (published) {
