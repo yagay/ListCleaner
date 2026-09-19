@@ -15,6 +15,8 @@ import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -67,6 +69,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     var kind by rememberSaveable { mutableStateOf(state.filter ?: IntentKind.SHARE) }
     var openPreset by rememberSaveable { mutableStateOf<OpenPreset?>(null) }
     var viewFilter by rememberSaveable { mutableStateOf(UiFilter.ALL) }
+    val bulkLockRevision by vm.bulkLockRevision.collectAsState()
     var expandedKey by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(kind) { if (kind != IntentKind.OPEN) openPreset = null }
     LaunchedEffect(state.openTypesExplicit.customDefinitions, openPreset) {
@@ -88,7 +91,8 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     } else {
         state.priorities.apps[kind].orEmpty()
     }
-    val groups = remember(scopedCandidates, state.selected, typedSelected, state.displayMode, kind, openPreset, rankedRaw, state.query, viewFilter) {
+    val lockScope = priorityBulkLockScope(kind, openPreset)
+    val baseGroups = remember(scopedCandidates, state.selected, typedSelected, state.displayMode, kind, openPreset, rankedRaw, state.query, viewFilter) {
         priorityAppGroups(
             scopedCandidates,
             state.selected,
@@ -97,12 +101,18 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
             rankedRaw,
             state.query,
             when (viewFilter) {
-                UiFilter.ALL -> PriorityListFilter.ALL
+                UiFilter.ALL, UiFilter.LOCKED -> PriorityListFilter.ALL
                 UiFilter.HIDE_SELECTED -> PriorityListFilter.UNSELECTED
                 UiFilter.SHOW_SELECTED -> PriorityListFilter.SELECTED
             },
             typedSelected
         )
+    }
+    val groups = if (viewFilter == UiFilter.LOCKED) {
+        bulkLockRevision
+        baseGroups.filter { vm.bulkLockState(lockScope, it.packageName, emptyList()) != BulkLockState.NONE }
+    } else {
+        baseGroups
     }
     val moveTargets = groups.filter { it.rank != null }.sortedBy { it.rank }.map { it.packageName }
     val visibleSaved = priorityCandidates(scopedCandidates, state.selected, state.displayMode, kind, typedSelected)
@@ -184,21 +194,22 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                         UiFilter.ALL -> R.string.common_all
                                         UiFilter.HIDE_SELECTED -> R.string.priority_unselected
                                         UiFilter.SHOW_SELECTED -> R.string.priority_selected
+                                        UiFilter.LOCKED -> R.string.filter_locked
                                     }
                                 )
                             },
                             onSelectAll = {
                                 if (kind == IntentKind.OPEN && openPreset != null) {
-                                    vm.selectOpenTypePriorityApps(openPreset!!, groups.map { it.packageName })
+                                    vm.selectOpenTypePriorityApps(openPreset!!, groups.map { it.packageName }, lockScope)
                                 } else {
-                                    vm.selectPriorityApps(kind, groups.map { it.packageName })
+                                    vm.selectPriorityApps(kind, groups.map { it.packageName }, lockScope)
                                 }
                             },
                             onInvert = {
                                 if (kind == IntentKind.OPEN && openPreset != null) {
-                                    vm.invertOpenTypePriorityApps(openPreset!!, groups.map { it.packageName })
+                                    vm.invertOpenTypePriorityApps(openPreset!!, groups.map { it.packageName }, lockScope)
                                 } else {
-                                    vm.invertPriorityApps(kind, groups.map { it.packageName })
+                                    vm.invertPriorityApps(kind, groups.map { it.packageName }, lockScope)
                                 }
                             }
                         )
@@ -346,6 +357,15 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                        val lockState = vm.bulkLockState(lockScope, packageName, emptyList())
+                        IconButton(onClick = { vm.toggleBulkAppLock(lockScope, packageName) }) {
+                            Icon(
+                                if (lockState == BulkLockState.NONE) Icons.Rounded.LockOpen else Icons.Rounded.Lock,
+                                contentDescription = stringResource(
+                                    if (lockState == BulkLockState.NONE) R.string.bulk_lock_none else R.string.bulk_lock_full
+                                )
+                            )
+                        }
                         IconButton(onClick = onExpand) {
                             Icon(
                                 if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
@@ -409,6 +429,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     state.query.isNotBlank() -> R.string.priority_empty_search
                                     viewFilter == UiFilter.SHOW_SELECTED -> R.string.priority_empty_selected
                                     viewFilter == UiFilter.HIDE_SELECTED -> R.string.priority_empty_unselected
+                                    viewFilter == UiFilter.LOCKED -> R.string.no_matching_components
                                     else -> R.string.priority_empty_category
                                 }
                             )
