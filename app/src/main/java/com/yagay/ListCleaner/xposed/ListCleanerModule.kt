@@ -664,7 +664,7 @@ class ListCleanerModule : XposedModule() {
                             uid = callerUid
                         }
                     }
-                    nonLocalizedLabel = "${BuildConfig.VERSION_CODE}:${applied.digest}:${queryHits.get()}:${visibilityHits.get()}:${orderingHits.get()}"
+                    nonLocalizedLabel = "${BuildConfig.VERSION_CODE}:${applied.digest}:${queryHits.get()}:${visibilityHits.get()}:${orderingHits.get()}:$COMPONENT_DISCOVERY_PROTOCOL"
                 }
                 record("CONFIG_ACK version=${BuildConfig.VERSION_CODE} digest=${applied.digest} queryHits=${queryHits.get()} visibilityHits=${visibilityHits.get()} orderHits=${orderingHits.get()} callerUid=$callerUid")
                 return result.rebuild(listOf(ack))
@@ -932,6 +932,7 @@ class ListCleanerModule : XposedModule() {
         const val SYSTEM_SCOPE_PACKAGE = "system"
         const val SYSTEM_UI_PACKAGE = "com.android.systemui"
         const val PER_USER_RANGE = 100_000
+        const val COMPONENT_DISCOVERY_PROTOCOL = 2
         const val VISIBILITY_HOOK_ID = "ic-system-package-visibility"
         const val MANAGER_PACKAGE = "com.yagay.ListCleaner"
         val SYSTEM_VISIBILITY_CLASSES = listOf(
