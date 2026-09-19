@@ -34,19 +34,34 @@ class IntentCatalog(private val context: Context) {
     private val mutableCandidates = MutableStateFlow<List<ComponentCandidate>>(emptyList())
     val candidates: StateFlow<List<ComponentCandidate>> = mutableCandidates.asStateFlow()
 
-    suspend fun completeConfigured(items: List<ComponentCandidate>, selected: Set<ComponentRule>): List<ComponentCandidate> = withContext(Dispatchers.IO) {
-        val known = items.map { it.rule.id }.toSet()
-        items + selected.filter { it.id !in known }.map { rule ->
-            val appInfo = runCatching {
-                @Suppress("DEPRECATION")
-                context.packageManager.getApplicationInfo(rule.packageName, 0)
-            }.getOrNull()
-            val label = appInfo?.let(::loadAppLabel) ?: rule.packageName
+    suspend fun completeConfigured(
+        items: List<ComponentCandidate>,
+        selected: Set<ComponentRule>
+    ): List<ComponentCandidate> = withContext(Dispatchers.IO) {
+        val known = items.mapTo(hashSetOf()) { it.rule.id }
+        val missing = selected.filter { it.id !in known }
+        if (missing.isEmpty()) return@withContext items
+
+        val appInfoByPackage = missing.asSequence()
+            .map { it.packageName }
+            .distinct()
+            .associateWith { packageName ->
+                runCatching {
+                    @Suppress("DEPRECATION")
+                    context.packageManager.getApplicationInfo(packageName, 0)
+                }.getOrNull()
+            }
+
+        items + missing.map { rule ->
+            val appInfo = appInfoByPackage[rule.packageName]
             ComponentCandidate(
-                rule,
-                label,
-                rule.className.substringAfterLast('.'),
-                loadAppIcon(rule.packageName) { context.packageManager.getApplicationIcon(rule.packageName) },
+                rule = rule,
+                appLabel = appInfo?.let(::loadAppLabel) ?: rule.packageName,
+                activityLabel = rule.className.substringAfterLast('.'),
+                appIcon = loadAppIcon(rule.packageName) {
+                    appInfo?.loadIcon(context.packageManager)
+                        ?: context.packageManager.getApplicationIcon(rule.packageName)
+                },
                 appType = appInfo?.listCleanerAppType() ?: AppType.USER,
                 evidence = listOf(context.getString(R.string.catalog_configured_waiting)),
                 unavailable = true
