@@ -161,7 +161,13 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                             vm.setGroupSelected(group, selected)
                         }
                     },
-                    { vm.toggleBulkAppLock(lockScope, group.packageName) }
+                    {
+                        vm.toggleBulkAppLock(
+                            lockScope,
+                            group.packageName,
+                            lockItemIdsByPackage[group.packageName].orEmpty()
+                        )
+                    }
                 )
             }
             if (expanded) {
@@ -183,7 +189,8 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                         component.rule in activeSelected,
                         state.priorities.titles[component.rule.id],
                         selectionNote = sourceNote,
-                        locked = vm.isBulkItemLocked(lockScope, component.rule.id),
+                        locked = vm.isBulkProtected(lockScope, group.packageName, component.rule.id),
+                        lockToggleEnabled = !vm.isBulkAppLocked(lockScope, group.packageName),
                         onToggle = {
                             if (openPreset != null && state.filter == IntentKind.OPEN) vm.toggleOpenType(openPreset!!, component.rule)
                             else vm.toggle(component.rule)
