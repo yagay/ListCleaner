@@ -53,27 +53,40 @@ internal class BulkLockStore(context: Context) {
     }
 
     @Synchronized
-    fun toggleApp(scope: String, appId: String, itemIds: Collection<String>) {
+    fun setAppLocked(scope: String, appId: String, itemIds: Collection<String>, locked: Boolean) {
         val current = entries().toMutableSet()
         val app = appKey(scope, appId)
         val ids = itemIds.distinct()
-        val fullyLocked = app in current ||
-            (ids.isNotEmpty() && ids.all { itemKey(scope, it) in current })
-        if (fullyLocked) {
+        if (locked) {
+            current.add(app)
+        } else {
             current.remove(app)
             ids.forEach { current.remove(itemKey(scope, it)) }
-        } else {
-            current.add(app)
         }
         persist(current)
     }
 
     @Synchronized
-    fun toggleItem(scope: String, itemId: String) {
+    fun setItemLocked(scope: String, itemId: String, locked: Boolean) {
         val current = entries().toMutableSet()
         val key = itemKey(scope, itemId)
-        if (!current.add(key)) current.remove(key)
+        if (locked) current.add(key) else current.remove(key)
         persist(current)
+    }
+
+    @Synchronized
+    fun toggleApp(scope: String, appId: String, itemIds: Collection<String>) {
+        val current = entries()
+        val app = appKey(scope, appId)
+        val ids = itemIds.distinct()
+        val fullyLocked = app in current ||
+            (ids.isNotEmpty() && ids.all { itemKey(scope, it) in current })
+        setAppLocked(scope, appId, ids, !fullyLocked)
+    }
+
+    @Synchronized
+    fun toggleItem(scope: String, itemId: String) {
+        setItemLocked(scope, itemId, !isItemLocked(scope, itemId))
     }
 
     private fun persist(next: Set<String>) {
