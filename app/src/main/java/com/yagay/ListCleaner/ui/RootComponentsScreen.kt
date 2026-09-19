@@ -67,9 +67,11 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
     LaunchedEffect(Unit) { vm.refreshComponents() }
 
     val lockScope = componentBulkLockScope(kind)
-    val baseVisible = scan.items.filter {
-        (kind == null || it.kind == kind) &&
-            (when (viewFilter) {
+    val scopeItems = scan.items.filter { kind == null || it.kind == kind }
+    val lockItemIdsByApp = scopeItems.groupBy(::componentBulkLockAppId)
+        .mapValues { (_, items) -> items.map { it.id } }
+    val baseVisible = scopeItems.filter {
+        (when (viewFilter) {
                 UiFilter.ALL, UiFilter.LOCKED -> true
                 UiFilter.SHOW_SELECTED -> it.enabled == false
                 UiFilter.HIDE_SELECTED -> it.enabled == true
@@ -85,7 +87,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
     val groups = if (viewFilter == UiFilter.LOCKED) {
         bulkLockRevision
         baseGroups.filter { (appKey, items) ->
-            vm.bulkLockState(lockScope, appKey, items.map { it.id }) != BulkLockState.NONE
+            vm.bulkLockState(lockScope, appKey, lockItemIdsByApp[appKey].orEmpty()) != BulkLockState.NONE
         }
     } else {
         baseGroups
@@ -232,7 +234,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             )
                         }
                     }
-                    val lockState = vm.bulkLockState(lockScope, appKey, components.map { it.id })
+                    val lockState = vm.bulkLockState(lockScope, appKey, lockItemIdsByApp[appKey].orEmpty())
                     IconButton(onClick = { vm.toggleBulkAppLock(lockScope, appKey) }) {
                         Icon(
                             if (lockState == BulkLockState.NONE) Icons.Rounded.LockOpen else Icons.Rounded.Lock,
