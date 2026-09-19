@@ -38,6 +38,7 @@ import androidx.compose.ui.zIndex
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.AppTypeFilter
 import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.PriorityListFilter
 import com.yagay.ListCleaner.domain.matchesOpenPreset
@@ -69,6 +70,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     var kind by rememberSaveable { mutableStateOf(state.filter ?: IntentKind.SHARE) }
     var openPreset by rememberSaveable { mutableStateOf<OpenPreset?>(null) }
     var viewFilter by rememberSaveable { mutableStateOf(UiFilter.ALL) }
+    var appTypeFilter by rememberSaveable { mutableStateOf(AppTypeFilter.ALL) }
     val bulkLockRevision by vm.bulkLockRevision.collectAsState()
     var expandedKey by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(kind) { if (kind != IntentKind.OPEN) openPreset = null }
@@ -108,12 +110,13 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
             typedSelected
         )
     }
-    val groups = if (viewFilter == UiFilter.LOCKED) {
+    val lockFilteredGroups = if (viewFilter == UiFilter.LOCKED) {
         bulkLockRevision
         baseGroups.filter { vm.bulkLockState(lockScope, it.packageName, emptyList()) != BulkLockState.NONE }
     } else {
         baseGroups
     }
+    val groups = lockFilteredGroups.filter { appTypeFilter.matches(it.appType) }
     val moveTargets = groups.filter { it.rank != null }.sortedBy { it.rank }.map { it.packageName }
     val visibleSaved = priorityCandidates(scopedCandidates, state.selected, state.displayMode, kind, typedSelected)
         .map { it.rule.packageName }.toSet()
@@ -128,7 +131,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     val density = LocalDensity.current
     val edge = with(density) { 56.dp.toPx() }
     val speed = with(density) { 640.dp.toPx() }
-    LaunchedEffect(kind, openPreset, viewFilter, state.query, rankedRaw, moveTargets) { dragState.cancel() }
+    LaunchedEffect(kind, openPreset, viewFilter, appTypeFilter, state.query, rankedRaw, moveTargets) { dragState.cancel() }
     DisposableEffect(dragState) { onDispose { dragState.cancel() } }
     LaunchedEffect(drag?.packageName) {
         if (dragState.session != null) {
@@ -148,7 +151,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
-            Modifier.fillMaxSize().pointerInput(kind, openPreset, viewFilter, state.query) {
+            Modifier.fillMaxSize().pointerInput(kind, openPreset, viewFilter, appTypeFilter, state.query) {
                 detectDragGesturesAfterLongPress(
                     onDragStart = { position ->
                         if (dragState.start(position.y, kind.name, currentVisible, currentSaved)) {
@@ -187,6 +190,8 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                             state.copy(filter = kind, uiFilter = viewFilter),
                             onFilter = { entry -> if (entry != null) { kind = entry; expandedKey = null } },
                             onUiFilter = { viewFilter = it },
+                            appTypeFilter = appTypeFilter,
+                            onAppTypeFilter = { appTypeFilter = it },
                             includeAllKinds = false,
                             viewTitle = {
                                 stringResource(
