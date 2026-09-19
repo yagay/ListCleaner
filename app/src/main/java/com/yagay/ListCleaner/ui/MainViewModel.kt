@@ -632,6 +632,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         } && rules.isNotEmpty()
     }
 
+    internal fun isRuleAppLockedForRule(
+        filter: IntentKind?,
+        preset: OpenPreset?,
+        rule: ComponentRule
+    ): Boolean = ruleScopes(filter, preset, rule).any { scope ->
+        bulkLocks.isAppLocked(scope, rule.packageName)
+    }
+
     internal fun setRuleAppLocked(
         filter: IntentKind?,
         preset: OpenPreset?,
