@@ -29,6 +29,10 @@
 
     <string name="filter_unselected_rules">未选规则</string>
     <string name="filter_selected_rules">已选规则</string>
+    <string name="filter_locked">已锁定</string>
+    <string name="bulk_lock_none">未锁定（会受批量操作影响）</string>
+    <string name="bulk_lock_partial">部分锁定（部分项目不受批量操作影响）</string>
+    <string name="bulk_lock_full">已锁定（不受批量操作影响）</string>
 
     <string name="intent_share">分享</string>
     <string name="intent_share_multiple">多文件分享</string>
