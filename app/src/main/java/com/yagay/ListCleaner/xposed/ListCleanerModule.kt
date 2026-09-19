@@ -664,9 +664,9 @@ class ListCleanerModule : XposedModule() {
                             uid = callerUid
                         }
                     }
-                    nonLocalizedLabel = "${BuildConfig.VERSION_CODE}:${applied.digest}:${queryHits.get()}:${visibilityHits.get()}:${orderingHits.get()}:$COMPONENT_DISCOVERY_PROTOCOL"
+                    nonLocalizedLabel = "${BuildConfig.HOOK_COMPAT_VERSION_CODE}:${applied.digest}:${queryHits.get()}:${visibilityHits.get()}:${orderingHits.get()}:$COMPONENT_DISCOVERY_PROTOCOL"
                 }
-                record("CONFIG_ACK version=${BuildConfig.VERSION_CODE} digest=${applied.digest} queryHits=${queryHits.get()} visibilityHits=${visibilityHits.get()} orderHits=${orderingHits.get()} callerUid=$callerUid")
+                record("CONFIG_ACK moduleVersion=${BuildConfig.VERSION_CODE} hookCompat=${BuildConfig.HOOK_COMPAT_VERSION_CODE} digest=${applied.digest} queryHits=${queryHits.get()} visibilityHits=${visibilityHits.get()} orderHits=${orderingHits.get()} callerUid=$callerUid")
                 return result.rebuild(listOf(ack))
             }
             return original

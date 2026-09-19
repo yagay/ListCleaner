@@ -188,12 +188,18 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                 val targets = bound.runningTargets
                 check(isCurrent(session)) { getString(R.string.runtime_connection_changed) }
                 val canPauseTargets = rules.displayMode.value == DisplayMode.SHOW_ALL && targets.isNotEmpty() && targets.all {
-                    RuntimeProtocol.supportsSafetyPause(it.state.name, it.loadedVersionCode)
-                }
-                val incompatible = targets.filter {
-                    !RuntimeProtocol.current(
+                    RuntimeProtocol.supportsSafetyPause(
                         it.state.name,
                         it.loadedVersionCode,
+                        BuildConfig.HOOK_COMPAT_VERSION_CODE,
+                        BuildConfig.VERSION_CODE.toLong()
+                    )
+                }
+                val incompatible = targets.filter {
+                    !RuntimeProtocol.hookCompatible(
+                        it.state.name,
+                        it.loadedVersionCode,
+                        BuildConfig.HOOK_COMPAT_VERSION_CODE,
                         BuildConfig.VERSION_CODE.toLong()
                     )
                 }
@@ -224,7 +230,12 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                 }
                 val digest = RuntimeProtocol.digest(encoded)
                 val canPause = config.mode == DisplayMode.SHOW_ALL && targets.isNotEmpty() && targets.all {
-                    RuntimeProtocol.supportsSafetyPause(it.state.name, it.loadedVersionCode)
+                    RuntimeProtocol.supportsSafetyPause(
+                        it.state.name,
+                        it.loadedVersionCode,
+                        BuildConfig.HOOK_COMPAT_VERSION_CODE,
+                        BuildConfig.VERSION_CODE.toLong()
+                    )
                 }
                 val remoteEncoded = prefs.getString(RuleRepository.KEY_CONFIG, null)
                 if (canPause && remoteEncoded != encoded) {
@@ -255,7 +266,7 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                             Intent(RuntimeProtocol.ACTION).setPackage(packageName),
                             0
                         )
-                        val prefix = "${BuildConfig.VERSION_CODE}:$digest"
+                        val prefix = "${BuildConfig.HOOK_COMPAT_VERSION_CODE}:$digest"
                         results.firstOrNull { info ->
                             info.activityInfo?.packageName == packageName &&
                                 info.activityInfo?.name == RuntimeProtocol.COMPONENT &&

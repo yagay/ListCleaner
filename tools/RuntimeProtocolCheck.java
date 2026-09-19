@@ -7,23 +7,16 @@ public final class RuntimeProtocolCheck {
         if (!condition) throw new AssertionError("check " + checks);
     }
     public static void main(String[] args) {
-        check(RuntimeProtocol.supportsSafetyPause("STALE", 19));
-        check(RuntimeProtocol.supportsSafetyPause("UP_TO_DATE", 20));
-        check(!RuntimeProtocol.supportsSafetyPause("STALE", 18));
-        check(RuntimeProtocol.supportsSafetyPause("STALE", 21));
-        check(RuntimeProtocol.supportsSafetyPause("STALE", 22));
-        check(RuntimeProtocol.supportsSafetyPause("STALE", 23));
-        check(RuntimeProtocol.supportsSafetyPause("STALE", 24));
-        check(!RuntimeProtocol.supportsSafetyPause("STALE", 25));
-        check(!RuntimeProtocol.supportsSafetyPause("RELOADING", 19));
-        check(!RuntimeProtocol.supportsSafetyPause("FAILED", 19));
-        check(RuntimeProtocol.current("UP_TO_DATE", 19, 19));
-        check(!RuntimeProtocol.current("STALE", 19, 19));
-        check(!RuntimeProtocol.current("UP_TO_DATE", 17, 19));
-        check(!RuntimeProtocol.current("UP_TO_DATE", 20, 19));
-        check(!RuntimeProtocol.current("RELOADING", 19, 19));
-        check(!RuntimeProtocol.current("FAILED", 19, 19));
-        check(!RuntimeProtocol.current(null, 19, 19));
+        check(RuntimeProtocol.hookCompatible("UP_TO_DATE", 19, 19, 19));
+        check(RuntimeProtocol.hookCompatible("STALE", 19, 19, 20));
+        check(RuntimeProtocol.hookCompatible("STALE", 20, 19, 20));
+        check(!RuntimeProtocol.hookCompatible("STALE", 18, 19, 20));
+        check(!RuntimeProtocol.hookCompatible("STALE", 21, 19, 20));
+        check(!RuntimeProtocol.hookCompatible("RELOADING", 19, 19, 20));
+        check(!RuntimeProtocol.hookCompatible("FAILED", 19, 19, 20));
+        check(!RuntimeProtocol.hookCompatible(null, 19, 19, 20));
+        check(RuntimeProtocol.supportsSafetyPause("STALE", 19, 19, 20));
+        check(!RuntimeProtocol.supportsSafetyPause("STALE", 18, 19, 20));
         check(RuntimeProtocol.digest("").equals("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"));
         check(RuntimeProtocol.digest("abc").equals("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"));
         check(RuntimeProtocol.digest("规则").length() == 64);

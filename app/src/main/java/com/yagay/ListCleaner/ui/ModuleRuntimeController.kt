@@ -39,11 +39,21 @@ data class ModuleStatus(
     val missingScope: Set<String> get() = detection.recommended - grantedScope
     val extraScope: Set<String> get() = grantedScope - detection.hosts.map { it.packageName }.toSet()
     val resolverLoaded: Boolean get() = runningTargets.any { target ->
-        RuntimeProtocol.current(target.state, target.version, BuildConfig.VERSION_CODE.toLong()) &&
+        RuntimeProtocol.hookCompatible(
+            target.state,
+            target.version,
+            BuildConfig.HOOK_COMPAT_VERSION_CODE,
+            BuildConfig.VERSION_CODE.toLong()
+        ) &&
             detection.hosts.any { host -> host.packageName != "system" && host.processName == target.processName }
     }
     val outdated: Boolean get() = runningTargets.any {
-        !RuntimeProtocol.current(it.state, it.version, BuildConfig.VERSION_CODE.toLong())
+        !RuntimeProtocol.hookCompatible(
+            it.state,
+            it.version,
+            BuildConfig.HOOK_COMPAT_VERSION_CODE,
+            BuildConfig.VERSION_CODE.toLong()
+        )
     }
 }
 
@@ -129,7 +139,12 @@ class ModuleRuntimeController(
                 val targets = withContext(Dispatchers.IO) { bound.runningTargets }
                 if (!current()) return@launch
                 val pending = targets.filter {
-                    !RuntimeProtocol.current(it.state.name, it.loadedVersionCode, BuildConfig.VERSION_CODE.toLong())
+                    !RuntimeProtocol.hookCompatible(
+                        it.state.name,
+                        it.loadedVersionCode,
+                        BuildConfig.HOOK_COMPAT_VERSION_CODE,
+                        BuildConfig.VERSION_CODE.toLong()
+                    )
                 }
                 val messages = mutableListOf<String>()
                 for (target in pending) {

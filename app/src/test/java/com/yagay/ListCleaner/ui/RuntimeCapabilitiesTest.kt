@@ -78,7 +78,7 @@ class RuntimeCapabilitiesTest {
         val staleResolver = RunningTargetStatus(
             "com.android.intentresolver",
             "STALE",
-            BuildConfig.VERSION_CODE.toLong() - 1
+            BuildConfig.HOOK_COMPAT_VERSION_CODE - 1
         )
         val module = healthyModule().copy(
             runningTargets = listOf(currentTarget("system"), staleResolver)
@@ -89,6 +89,23 @@ class RuntimeCapabilitiesTest {
         assertEquals(CapabilityState.OBSERVED, states[RuntimeCapability.FILTERING])
         assertEquals(CapabilityState.OUTDATED, states[RuntimeCapability.ORDERING])
         assertEquals(CapabilityState.OBSERVED, states[RuntimeCapability.PACKAGE_VISIBILITY])
+    }
+
+    @Test
+    fun uiOnlyUpdateKeepsStaleResolverCompatible() {
+        val staleResolver = RunningTargetStatus(
+            "com.android.intentresolver",
+            "STALE",
+            BuildConfig.HOOK_COMPAT_VERSION_CODE
+        )
+        val module = healthyModule().copy(
+            runningTargets = listOf(currentTarget("system"), staleResolver)
+        )
+        val runtime = RuntimeStatus(ready = true, orderingHits = 1)
+        val states = runtimeCapabilities(module, runtime).associate { it.capability to it.state }
+
+        assertFalse(module.outdated)
+        assertEquals(CapabilityState.OBSERVED, states[RuntimeCapability.ORDERING])
     }
 
     @Test

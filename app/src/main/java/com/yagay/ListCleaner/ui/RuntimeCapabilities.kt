@@ -58,7 +58,12 @@ fun runtimeCapabilities(module: ModuleStatus, runtime: RuntimeStatus): List<Capa
 
         val relevantTargets = module.runningTargets.filter { it.processName in requiredProcesses }
         if (relevantTargets.any {
-                !RuntimeProtocol.current(it.state, it.version, BuildConfig.VERSION_CODE.toLong())
+                !RuntimeProtocol.hookCompatible(
+                    it.state,
+                    it.version,
+                    BuildConfig.HOOK_COMPAT_VERSION_CODE,
+                    BuildConfig.VERSION_CODE.toLong()
+                )
             }) {
             return CapabilityState.OUTDATED
         }
