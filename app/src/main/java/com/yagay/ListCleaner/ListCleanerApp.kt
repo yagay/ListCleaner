@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Intent
 import android.util.Log
 import com.yagay.ListCleaner.data.IntentCatalog
+import com.yagay.ListCleaner.data.PersistentComponentStore
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.ModuleConfig
@@ -81,6 +82,12 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
         acknowledgedRevision = -1L
         this.service.value = service
         serviceSession.value = session
+        applicationScope.launch {
+            // Keep the framework-owned discovery/guard policy synchronized after every service
+            // reconnect. Root disable remains authoritative; this only refreshes the secondary
+            // LSPosed protection snapshot.
+            PersistentComponentStore(this@ListCleanerApp).syncRemote()
+        }
     }
 
     override fun onServiceDied(service: XposedService) {
