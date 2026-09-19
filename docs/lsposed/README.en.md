@@ -31,16 +31,17 @@ Follow **@LISTCLEANER** for release updates, usage tips, and related news.
 ## Features
 
 - **Rule filtering**: Configure Share, Multiple Share, Open With, Browser, and Text Processing separately. Supports app search and per-app component expansion. Choose Hide selected, Show only selected, or Show all; when a category has no selected rules, everything is shown.
-- **Priority ordering**: Save a separate app order for each category. Selecting an app adds it to the priority list, while deselecting returns it to the default name order. Supports long-press drag-and-drop as well as move up/down controls.
-- **Component management**: Manage standard TileService entries, ACTION_CREATE_SHORTCUT creation entries, and home-screen widgets. Selected means disabled, and deselected means explicitly enabled. Root permission is checked before changes, and the actual system state is read back afterward.
-- **Backup and diagnostics**: Import and export JSON backups for rules and ordering, view module status, and export diagnostic logs.
+- **Bulk-operation locks**: Rules, Ordering, and Components share the same lock behavior. Fully or partially locked entries are skipped by Select All/Invert-style operations but remain manually editable. The Locked filter shows them directly; lock state never participates in ordering or changes selected/partial/unselected state.
+- **Priority ordering**: Save a separate app order for each category. Selecting an app adds it to the priority list, while deselecting returns it to the default name order. Supports long-press drag-and-drop as well as move up/down controls. Locks never rewrite the saved order.
+- **Component management**: Manage standard TileService entries, ACTION_CREATE_SHORTCUT creation entries, and home-screen widgets. Root performs the real disable; List Cleaner also persists the disabled policy, filters discovery through LSPosed/system_server, and automatically reconciles restored component state after boot, unlock, and app updates.
+- **Backup and diagnostics**: Import and export JSON backups for rules and ordering, view module status, and export diagnostic logs, including persistent component policy, discovery filtering, and boot-reconcile results.
 
 <!-- section:usage -->
 ## Usage Notes
 
-Selections on the Rules page apply only to the components shown for the current category and search conditions; they do not disable the entire app. The Components page changes the actual enabled state of Android components, so the two features serve different purposes.
+Selections on the Rules page apply only to the components shown for the current category and search conditions; they do not disable the entire app. The Components page changes the actual enabled state of Android components, so the two features serve different purposes. The lock icon only protects bulk actions: locked entries are skipped by Select All/Invert but remain manually editable, and each page stores its lock state independently.
 
-Component operations affect only the Android user where List Cleaner is installed. Disabling a component can affect tiles or widgets that are already added, and re-enabling it does not guarantee that its previous position will be restored. Uninstalling the module or clearing app data does not revert disabled component states, and rule backups do not include those states.
+Component operations affect only the Android user where List Cleaner is installed. Real Root disable remains authoritative; the persistent disabled policy is also used by LSPosed discovery filtering and automatic boot reconciliation. Delayed checks run after startup/unlock, a second settled-startup pass follows, and app install/update events trigger another check. Disabling a component can affect tiles or widgets that are already added, and re-enabling it does not guarantee that its previous position will be restored. Uninstalling the module or clearing app data does not revert disabled component states, and rule backups do not include those states.
 
 Vendor-customized choosers, apps that reorder candidates themselves, or custom in-app menus may not be supported. Shortcut management does not cover every dynamic, pinned, or private shortcut, and built-in system tiles without a standalone service are outside the managed scope.
 
