@@ -209,23 +209,24 @@ internal fun Modifier.bulkLockSwipe(
 ): Modifier {
     val threshold = with(LocalDensity.current) { 56.dp.toPx() }
     return pointerInput(enabled, threshold, onLock, onUnlock) {
-        if (!enabled) return@pointerInput
-        var totalDrag = 0f
-        detectHorizontalDragGestures(
-            onDragStart = { totalDrag = 0f },
-            onHorizontalDrag = { change, amount ->
-                totalDrag += amount
-                change.consume()
-            },
-            onDragCancel = { totalDrag = 0f },
-            onDragEnd = {
-                when {
-                    totalDrag >= threshold -> onLock()
-                    totalDrag <= -threshold -> onUnlock()
+        if (enabled) {
+            var totalDrag = 0f
+            detectHorizontalDragGestures(
+                onDragStart = { totalDrag = 0f },
+                onHorizontalDrag = { change, amount ->
+                    totalDrag += amount
+                    change.consume()
+                },
+                onDragCancel = { totalDrag = 0f },
+                onDragEnd = {
+                    when {
+                        totalDrag >= threshold -> onLock()
+                        totalDrag <= -threshold -> onUnlock()
+                    }
+                    totalDrag = 0f
                 }
-                totalDrag = 0f
-            }
-        )
+            )
+        }
     }
 }
 
