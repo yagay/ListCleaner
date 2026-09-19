@@ -203,21 +203,36 @@ class RootComponentCatalog(private val context: Context) {
         return RootComponentScan(items, errors.joinToString("\n"), System.currentTimeMillis())
     }
 
-    /** Refresh only components just mutated; avoids re-querying every tile/shortcut/widget provider. */
+    /**
+     * Refresh only components just mutated.
+     *
+     * Discovery is performed once per affected category instead of once per target. This matters
+     * for bulk operations where AppWidgetManager/LauncherApps enumeration can otherwise be repeated
+     * dozens of times.
+     */
     fun refreshItems(previous: RootComponentScan, targets: Collection<RootComponent>): RootComponentScan {
         if (targets.isEmpty() || previous.items.isEmpty()) return previous
+
         val targetIds = targets.mapTo(hashSetOf()) { it.id }
+        val discoveredByKind = targets.asSequence()
+            .map { it.kind }
+            .distinct()
+            .associateWith { kind ->
+                query(kind).associateBy { componentKey(it.info) }
+            }
+        val appEnabledCache = mutableMapOf<String, Boolean?>()
+
         val refreshed = previous.items.map { item ->
-            if (item.id !in targetIds) item else readCurrent(item) ?: item
+            if (item.id !in targetIds) {
+                item
+            } else {
+                discoveredByKind[item.kind]
+                    ?.get(item.component)
+                    ?.let { read(item.kind, it, appEnabledCache) }
+                    ?: item
+            }
         }
         return previous.copy(items = refreshed, observedAt = System.currentTimeMillis())
-    }
-
-    private fun readCurrent(target: RootComponent): RootComponent? {
-        val discovered = query(target.kind).firstOrNull {
-            componentKey(it.info) == target.component
-        } ?: return null
-        return read(target.kind, discovered)
     }
 
     private fun read(
