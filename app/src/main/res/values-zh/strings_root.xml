@@ -41,10 +41,10 @@
     <string name="root_filter_help">“应用”可筛选全部、用户应用或系统应用，计数和批量操作只针对当前可见范围。应用或子项向右滑加锁、向左滑解锁；未锁定不显示锁图标，锁定后才显示。“全部”下的“已锁定”会汇总磁贴、快捷方式和小部件分类中的锁定项目；核心受保护系统组件仍仅展示。</string>
     <string name="root_selection_semantics">勾选＝组件真实已禁用。当前状态仍直接回读 Android，同时保存期望禁用策略；若系统在启动或更新后恢复组件，会继续过滤发现结果并自动重新禁用。</string>
     <string name="root_change_semantics">勾选立即禁用，取消勾选立即明确启用，不再弹窗确认。禁用会影响正在使用此组件的功能；启用不是恢复原默认状态。</string>
-    <string name="root_kind_all_help">仅管理标准磁贴服务、快捷方式创建入口及小部件接收器；不是禁用整个应用。</string>
+    <string name="root_kind_all_help">优先使用 Android 各子系统的正式注册表：标准 TileService、LauncherApps 快捷方式配置 Activity + 旧创建入口、AppWidgetManager Provider + Manifest 补充；不会禁用整个应用。</string>
     <string name="root_kind_tile_help">仅列出标准 TileService。Wi-Fi、蓝牙等没有独立服务的系统内置磁贴不支持；核心系统组件仅展示。</string>
-    <string name="root_kind_shortcut_help">标准快捷方式创建 Activity；不含动态快捷方式或 ShortX 私有项目。禁用后可能影响其他使用该 Activity 的入口。</string>
-    <string name="root_kind_widget_help">带小部件声明的接收器。禁用可能使已放置的小部件失效；启用不保证恢复原布局。</string>
+    <string name="root_kind_shortcut_help">列出 LauncherApps 返回的快捷方式配置 Activity，并合并旧式快捷方式创建 Activity；不包含需要 Launcher 主机权限的动态/固定快捷方式实例或应用私有项目。禁用后可能影响其他使用该 Activity 的入口。</string>
+    <string name="root_kind_widget_help">优先读取 AppWidgetManager 的 Provider 注册表，并合并 Manifest 小部件接收器作为兼容补充。禁用可能使已放置的小部件失效；启用不保证恢复原布局。</string>
     <string name="root_summary">应用列表 · %1$d · %2$d 个组件</string>
     <string name="root_show_disabled_only">只看已禁用</string>
     <string name="root_show_all">查看全部</string>
