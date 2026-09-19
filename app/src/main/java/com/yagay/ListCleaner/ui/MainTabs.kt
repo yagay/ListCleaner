@@ -21,6 +21,7 @@ import com.yagay.ListCleaner.BuildConfig
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.AppTypeFilter
 import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.matchesOpenPreset
 
@@ -30,6 +31,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
     val bulkLockRevision by vm.bulkLockRevision.collectAsState()
     var editingTitle by remember { mutableStateOf<com.yagay.ListCleaner.domain.ComponentCandidate?>(null) }
     var showCustomTypes by rememberSaveable { mutableStateOf(false) }
+    var appTypeFilter by rememberSaveable { mutableStateOf(AppTypeFilter.ALL) }
     editingTitle?.let { item ->
         ComponentTitleDialog(
             item,
@@ -78,7 +80,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
     } else {
         state.groups
     }
-    val shownGroups = if (state.uiFilter == UiFilter.LOCKED) {
+    val lockFilteredGroups = if (state.uiFilter == UiFilter.LOCKED) {
         bulkLockRevision
         baseShownGroups.filter { group ->
             vm.bulkLockState(lockScope, group.packageName, lockItemIdsByPackage[group.packageName].orEmpty()) != BulkLockState.NONE
@@ -86,6 +88,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
     } else {
         baseShownGroups
     }
+    val shownGroups = lockFilteredGroups.filter { appTypeFilter.matches(it.appType) }
     val activeSelected = if (openPreset != null && state.filter == IntentKind.OPEN) typedSelected else state.selected
     val visibleRules = shownGroups.flatMap { it.components }.map { it.rule }.distinct()
 
@@ -101,6 +104,8 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                         state,
                         vm::setFilter,
                         vm::setUiFilter,
+                        appTypeFilter = appTypeFilter,
+                        onAppTypeFilter = { appTypeFilter = it },
                         onSelectAll = {
                             if (openPreset != null && state.filter == IntentKind.OPEN) {
                                 vm.selectOpenTypeRules(openPreset!!, visibleRules, lockScope)
