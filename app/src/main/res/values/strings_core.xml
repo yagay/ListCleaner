@@ -33,6 +33,8 @@
     <string name="filter_unselected_rules">Unselected rules</string>
     <string name="filter_selected_rules">Selected rules</string>
     <string name="filter_locked">Locked</string>
+    <string name="filter_user_apps">User apps</string>
+    <string name="filter_system_apps">System apps</string>
     <string name="bulk_lock_none">Not protected from bulk actions</string>
     <string name="bulk_lock_partial">Partially protected from bulk actions</string>
     <string name="bulk_lock_full">Protected from bulk actions</string>
