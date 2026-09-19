@@ -215,7 +215,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             mutableFileCheckStatus.value = app.getString(R.string.file_preview_checking)
             try {
-                check(app.synchronize()) { app.runtime.value.message }
+                // File inspection is a local PackageManager/catalog operation. Runtime readiness
+                // only determines whether the current rules are already active in hooked processes.
                 val mime = app.contentResolver.getType(uri)
                 val found = app.catalog.inspectFile(uri)
                 val config = app.rules.remoteSnapshot()
@@ -229,7 +230,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     uri.scheme,
                     uri.lastPathSegment ?: uri.path
                 )
-                check(app.synchronize()) { app.runtime.value.message }
                 mutableFileCheckStatus.value = buildString {
                     val typeTitle = preview.preset?.let { openPresetTitle(config.openTypes, it) }
                         ?: app.getString(R.string.file_preview_generic_open)
@@ -419,8 +419,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     init {
         viewModelScope.launch {
             app.serviceSession.collectLatest { session ->
-                moduleRuntime.readStatus(session)
+                val status = moduleRuntime.readStatus(session)
                 refresh()
+                // Updating the APK does not restart system_server/Resolver. Try the supported
+                // hot-update path automatically, but never make local catalog availability depend
+                // on whether every running Xposed entry can reload in place.
+                if (session != null && status.outdated) {
+                    moduleRuntime.applyUpdate(::refresh)
+                }
             }
         }
     }
@@ -451,12 +457,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val configured = app.rules.rules.value +
                     app.rules.openTypes.value.rules.values.flatten().mapNotNull(ComponentRule::fromId)
                 candidates.value = app.catalog.completeConfigured(candidates.value, configured)
-                check(app.synchronize()) { app.runtime.value.message }
-                val session = app.currentSession()
-                val result = app.catalog.scan(app.rules.openTypes.value.customDefinitions, force = forceCatalog)
-                check(app.isCurrent(session)) { app.getString(R.string.runtime_connection_changed) }
-                check(app.synchronize()) { app.runtime.value.message }
-                if (generation == refreshGeneration && app.isCurrent(session)) {
+
+                // Candidate discovery belongs to the manager app and must stay usable even when
+                // system_server/Resolver still has the previous module version after an APK update.
+                // Runtime synchronization continues independently through ListCleanerApp and the
+                // status controller; it gates system-side effect, not local list visibility.
+                val result = app.catalog.scan(
+                    app.rules.openTypes.value.customDefinitions,
+                    force = forceCatalog
+                )
+                if (generation == refreshGeneration) {
                     val updatedConfigured = app.rules.rules.value +
                         app.rules.openTypes.value.rules.values.flatten().mapNotNull(ComponentRule::fromId)
                     candidates.value = app.catalog.completeConfigured(result, updatedConfigured)
