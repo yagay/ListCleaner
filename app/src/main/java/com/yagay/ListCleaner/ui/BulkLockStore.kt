@@ -33,6 +33,11 @@ internal class BulkLockStore(context: Context) {
 
     fun isAppLocked(scope: String, appId: String): Boolean = appKey(scope, appId) in entries()
 
+    fun scopesStartingWith(prefix: String): Set<String> =
+        entries().mapNotNullTo(linkedSetOf()) { entry ->
+            entry.substringBefore(SEPARATOR).takeIf { it.startsWith(prefix) }
+        }
+
     fun isItemLocked(scope: String, itemId: String): Boolean = itemKey(scope, itemId) in entries()
 
     fun isProtected(scope: String, appId: String, itemId: String): Boolean {
