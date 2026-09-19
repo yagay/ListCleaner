@@ -55,6 +55,16 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
     val typedSelected = openPreset?.let { state.openTypes.selectedRules(it) }.orEmpty()
     val explicitTypedSelected = openPreset?.let { state.openTypesExplicit.selectedRules(it) }.orEmpty()
     val lockScope = ruleBulkLockScope(state.filter, openPreset)
+    val lockScopeCandidates = if (state.filter == IntentKind.OPEN && openPreset != null) {
+        state.candidates.filter {
+            it.rule.kind == IntentKind.OPEN &&
+                it.matchesOpenPreset(openPreset!!, state.openTypesExplicit.customDefinitions)
+        }
+    } else {
+        state.candidates.filter { state.filter == null || it.rule.kind == state.filter }
+    }
+    val lockItemIdsByPackage = lockScopeCandidates.groupBy { it.rule.packageName }
+        .mapValues { (_, items) -> items.map { it.rule.id } }
     val baseShownGroups = if (state.filter == IntentKind.OPEN && openPreset != null) {
         groupCandidates(
             state.candidates.filter { it.matchesOpenPreset(openPreset!!, state.openTypesExplicit.customDefinitions) },
@@ -69,7 +79,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
     val shownGroups = if (state.uiFilter == UiFilter.LOCKED) {
         bulkLockRevision
         baseShownGroups.filter { group ->
-            vm.bulkLockState(lockScope, group.packageName, group.components.map { it.rule.id }) != BulkLockState.NONE
+            vm.bulkLockState(lockScope, group.packageName, lockItemIdsByPackage[group.packageName].orEmpty()) != BulkLockState.NONE
         }
     } else {
         baseShownGroups
@@ -140,7 +150,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                     group,
                     activeSelected,
                     expanded,
-                    vm.bulkLockState(lockScope, group.packageName, group.components.map { it.rule.id }),
+                    vm.bulkLockState(lockScope, group.packageName, lockItemIdsByPackage[group.packageName].orEmpty()),
                     { vm.toggleExpandedApp(key) },
                     { selected ->
                         if (openPreset != null && state.filter == IntentKind.OPEN) {
