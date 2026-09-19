@@ -19,6 +19,7 @@ import com.yagay.ListCleaner.data.RootComponent
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.ComponentRule
+import com.yagay.ListCleaner.domain.AppType
 import com.yagay.ListCleaner.domain.CustomOpenDefinition
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
@@ -82,6 +83,7 @@ data class AppGroup(
     val packageName: String,
     val appLabel: String,
     val appIcon: Bitmap?,
+    val appType: AppType,
     val components: List<ComponentCandidate>
 )
 
@@ -101,6 +103,7 @@ private fun baseAppGroups(candidates: List<ComponentCandidate>): List<AppGroup> 
             first.rule.packageName,
             first.appLabel,
             first.appIcon,
+            first.appType,
             all.sortedBy { it.rule.kind.ordinal }
         )
     }
