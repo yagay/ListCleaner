@@ -28,6 +28,7 @@ import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.OpenSelectionSource
 import com.yagay.ListCleaner.domain.OpenTypeConfig
 import com.yagay.ListCleaner.domain.PriorityConfig
+import com.yagay.ListCleaner.domain.matchesOpenPreset
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -666,15 +667,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     internal fun setBulkItemLocked(scope: String, itemId: String, locked: Boolean) =
         bulkLocks.setItemLocked(scope, itemId, locked)
 
-    private fun ruleScopes(filter: IntentKind?, preset: OpenPreset?, rule: ComponentRule): List<String> =
-        if (filter != null) {
-            listOf(ruleBulkLockScope(filter, preset))
-        } else {
-            listOf(
-                ruleBulkLockScope(null, null),
-                ruleBulkLockScope(rule.kind, null)
-            ).distinct()
+    private fun ruleScopes(filter: IntentKind?, preset: OpenPreset?, rule: ComponentRule): List<String> {
+        if (filter != null) return listOf(ruleBulkLockScope(filter, preset))
+
+        val scopes = linkedSetOf(
+            ruleBulkLockScope(null, null),
+            ruleBulkLockScope(rule.kind, null)
+        )
+        if (rule.kind == IntentKind.OPEN) {
+            val candidate = candidates.value.firstOrNull { it.rule.id == rule.id }
+            if (candidate != null) {
+                val openTypes = app.rules.openTypes.value
+                openTypes.configuredPresets().forEach { typedPreset ->
+                    if (candidate.matchesOpenPreset(typedPreset, openTypes.customDefinitions)) {
+                        scopes += ruleBulkLockScope(IntentKind.OPEN, typedPreset)
+                    }
+                }
+            }
         }
+        return scopes.toList()
+    }
 
     internal fun ruleBulkLockState(
         filter: IntentKind?,
@@ -741,20 +753,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             )
             return
         }
-        // The All page is an aggregate view. Apply the direction to each real category and clear
-        // the legacy ALL scope so filtering and bulk protection stay consistent.
-        bulkLocks.setAppLocked(
-            ruleBulkLockScope(null, null),
-            appId,
-            distinct.map { it.id },
-            false
-        )
+        // The All page is an aggregate view. Right swipe creates normal category-level locks.
+        // Left swipe clears every exact scope represented by these rules, including typed Open
+        // scopes, so a lock created on PDF/Image/etc. cannot be bypassed from All.
+        val ids = distinct.map { it.id }
+        if (!locked) {
+            distinct.flatMap { ruleScopes(null, null, it) }.distinct().forEach { scope ->
+                bulkLocks.setAppLocked(scope, appId, ids, false)
+            }
+            return
+        }
+
+        bulkLocks.setAppLocked(ruleBulkLockScope(null, null), appId, ids, false)
         distinct.groupBy { it.kind }.forEach { (kind, scopedRules) ->
             bulkLocks.setAppLocked(
                 ruleBulkLockScope(kind, null),
                 appId,
                 scopedRules.map { it.id },
-                locked
+                true
             )
         }
     }
@@ -769,9 +785,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             bulkLocks.setItemLocked(ruleBulkLockScope(filter, preset), rule.id, locked)
             return
         }
-        // Migrate any lock created by the old All-page behavior into the real category scope.
+        // All aggregates every exact scope for this candidate. Unlock clears typed Open locks
+        // too; locking from All still creates the normal category-level lock.
+        if (!locked) {
+            ruleScopes(null, null, rule).forEach { scope ->
+                bulkLocks.setItemLocked(scope, rule.id, false)
+            }
+            return
+        }
         bulkLocks.setItemLocked(ruleBulkLockScope(null, null), rule.id, false)
-        bulkLocks.setItemLocked(ruleBulkLockScope(rule.kind, null), rule.id, locked)
+        bulkLocks.setItemLocked(ruleBulkLockScope(rule.kind, null), rule.id, true)
     }
 
     internal fun toggleBulkAppLock(scope: String, appId: String, itemIds: Collection<String>) =
