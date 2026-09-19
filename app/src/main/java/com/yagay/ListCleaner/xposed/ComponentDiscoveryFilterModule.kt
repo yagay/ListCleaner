@@ -286,8 +286,7 @@ class ComponentDiscoveryFilterModule : XposedModule() {
         val filtered = result.values.filter { value ->
             val info = value as? AppWidgetProviderInfo ?: return@filter true
             val provider = info.provider ?: return@filter true
-            val profileUser = runCatching { info.profile?.identifier }.getOrNull()
-            val userId = profileUser ?: fallbackUserId ?: return@filter true
+            val userId = fallbackUserId ?: return@filter true
             val protected = PersistentComponentState.key(userId, provider) in protectedComponents
             if (protected) {
                 removed++
