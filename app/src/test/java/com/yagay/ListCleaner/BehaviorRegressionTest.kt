@@ -3,6 +3,7 @@ package com.yagay.ListCleaner
 import com.yagay.ListCleaner.data.readBackupText
 import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.ComponentRule
+import com.yagay.ListCleaner.domain.ComponentStatePolicy
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.RuleBackup
 import com.yagay.ListCleaner.ui.groupCandidates
@@ -170,6 +171,25 @@ class BehaviorRegressionTest {
         assertThrows(IllegalArgumentException::class.java) {
             StringReader("abcde").use { it.readBackupText(4) }
         }
+    }
+
+    @Test fun componentStatePolicyBuildsReusableSafeCommandLine() {
+        val line = ComponentStatePolicy.commandLine(
+            "com.example",
+            "com.example.Outer\$Tile",
+            0,
+            false
+        )
+        assertEquals(
+            "/system/bin/pm disable --user 0 'com.example/com.example.Outer\$Tile'",
+            line
+        )
+        assertTrue(ComponentStatePolicy.command(
+            "com.example",
+            "com.example.Tile",
+            0,
+            true
+        ).endsWith("exec /system/bin/pm enable --user 0 'com.example/com.example.Tile'"))
     }
 
     @Test fun existingBackupWithoutExplicitVersionRetainsWhitelist() {
