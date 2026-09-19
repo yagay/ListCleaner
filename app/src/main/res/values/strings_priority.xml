@@ -2,7 +2,7 @@
 <resources>
     <string name="priority_unselected">Not prioritized</string>
     <string name="priority_selected">Prioritized</string>
-    <string name="priority_intro">Use Apps to narrow the list to user or system apps without changing saved order. Select apps to control priority. Swipe right to lock an app from bulk select/invert and swipe left to unlock it. Unlocked rows show no lock icon; locked apps remain manually editable and their saved order is unchanged.</string>
+    <string name="priority_intro">Use Apps to narrow the list to user or system apps without changing saved order. Select apps to control priority. Swipe right to lock an app and swipe left to unlock it. Unlocked rows show no lock icon; the icon appears only after locking. Locks only protect bulk select/invert actions, remain manually editable, and never participate in or rewrite the saved order.</string>
     <string name="priority_drag_help">Long-press prioritized apps to drag and reorder; release to save. After expanding an app, you can also move it up or down. Tap the pencil on a component to change its menu display name for the current Intent category; leave it empty to restore the original name.</string>
     <string name="priority_source_inherited">Current ordering source: inherited from Open · All</string>
     <string name="priority_source_dedicated">Current ordering source: dedicated ordering for %1$s</string>
