@@ -15,6 +15,8 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -38,8 +40,10 @@ internal fun AppRow(
     group: AppGroup,
     selected: Set<com.yagay.ListCleaner.domain.ComponentRule>,
     expanded: Boolean,
+    lockState: BulkLockState,
     onExpand: () -> Unit,
-    onSelect: (Boolean) -> Unit
+    onSelect: (Boolean) -> Unit,
+    onToggleLock: () -> Unit
 ) {
     val selectedCount = group.components.count { it.rule in selected }
     val selectionState = when {
@@ -84,6 +88,21 @@ internal fun AppRow(
                 )
             }
         }
+        val lockDescription = stringResource(
+            when (lockState) {
+                BulkLockState.NONE -> R.string.bulk_lock_none
+                BulkLockState.PARTIAL -> R.string.bulk_lock_partial
+                BulkLockState.FULL -> R.string.bulk_lock_full
+            }
+        )
+        IconButton(onClick = onToggleLock) {
+            Icon(
+                if (lockState == BulkLockState.NONE) Icons.Rounded.LockOpen else Icons.Rounded.Lock,
+                lockDescription,
+                tint = if (lockState == BulkLockState.PARTIAL) MaterialTheme.colorScheme.tertiary
+                else LocalContentColor.current
+            )
+        }
         IconButton(onClick = onExpand) {
             Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, expandLabel)
         }
@@ -97,7 +116,9 @@ internal fun ComponentRow(
     checked: Boolean,
     customTitle: String?,
     selectionNote: String? = null,
+    locked: Boolean = false,
     onToggle: () -> Unit,
+    onToggleLock: () -> Unit,
     onEditTitle: () -> Unit
 ) {
     Row(
@@ -158,6 +179,12 @@ internal fun ComponentRow(
             } else if (item.restricted) {
                 Text(stringResource(R.string.component_restricted), style = MaterialTheme.typography.labelSmall)
             }
+        }
+        IconButton(onClick = onToggleLock) {
+            Icon(
+                if (locked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
+                contentDescription = stringResource(if (locked) R.string.bulk_lock_full else R.string.bulk_lock_none)
+            )
         }
         IconButton(onClick = onEditTitle) {
             Icon(Icons.Rounded.Edit, contentDescription = stringResource(R.string.component_edit_display_name))
