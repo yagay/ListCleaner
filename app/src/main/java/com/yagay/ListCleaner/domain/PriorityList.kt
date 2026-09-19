@@ -5,7 +5,8 @@ enum class PriorityListFilter { ALL, UNSELECTED, SELECTED }
 data class PriorityAppGroup(
     val packageName: String,
     val components: List<ComponentCandidate>,
-    val rank: Int?
+    val rank: Int?,
+    val appType: AppType
 )
 
 /** Priority apps lead in saved order; remaining apps use their default alphabetic order. */
@@ -22,7 +23,7 @@ fun priorityAppGroups(
             filter == PriorityListFilter.UNSELECTED && rank != null) return@mapNotNull null
         val matching = components.filter { it.matchesQuery(query) }
             .sortedWith(compareBy({ it.activityLabel.lowercase() }, { it.rule.id }))
-        if (matching.isEmpty()) null else PriorityAppGroup(pkg, matching, rank)
+        if (matching.isEmpty()) null else PriorityAppGroup(pkg, matching, rank, matching.first().appType)
     }
     return groups.sortedWith(compareBy<PriorityAppGroup>({ it.rank ?: Int.MAX_VALUE },
         { it.components.first().appLabel.lowercase() }, { it.packageName }))
