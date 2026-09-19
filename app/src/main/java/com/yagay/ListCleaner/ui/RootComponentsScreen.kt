@@ -237,7 +237,15 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                         }
                     }
                     val lockState = vm.bulkLockState(lockScope, appKey, lockItemIdsByApp[appKey].orEmpty())
-                    IconButton(onClick = { vm.toggleBulkAppLock(lockScope, appKey) }) {
+                    IconButton(
+                        onClick = {
+                            vm.toggleBulkAppLock(
+                                lockScope,
+                                appKey,
+                                lockItemIdsByApp[appKey].orEmpty()
+                            )
+                        }
+                    ) {
                         Icon(
                             if (lockState == BulkLockState.NONE) Icons.Rounded.LockOpen else Icons.Rounded.Lock,
                             contentDescription = stringResource(
@@ -301,8 +309,12 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
-                    val itemLocked = vm.isBulkItemLocked(lockScope, item.id)
-                    IconButton(onClick = { vm.toggleBulkItemLock(lockScope, item.id) }) {
+                    val appLocked = vm.isBulkAppLocked(lockScope, appKey)
+                    val itemLocked = vm.isBulkProtected(lockScope, appKey, item.id)
+                    IconButton(
+                        onClick = { vm.toggleBulkItemLock(lockScope, item.id) },
+                        enabled = !appLocked
+                    ) {
                         Icon(
                             if (itemLocked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
                             contentDescription = stringResource(
