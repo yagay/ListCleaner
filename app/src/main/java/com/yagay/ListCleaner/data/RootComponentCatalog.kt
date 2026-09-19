@@ -129,22 +129,24 @@ class RootComponentCatalog(private val context: Context) {
             }
 
     @Suppress("DEPRECATION")
-    private fun queryShortcutConfigActivities(): List<DiscoveredComponent> {
-        val launcherApps = context.getSystemService(LauncherApps::class.java) ?: return emptyList()
-        val activities = runCatching {
+    private fun queryShortcutConfigActivities(): List<DiscoveredComponent> =
+        runCatching {
+            val launcherApps = context.getSystemService(LauncherApps::class.java)
+                ?: return@runCatching emptyList()
             launcherApps.getShortcutConfigActivityList(null, Process.myUserHandle())
+                .mapNotNull { launcherInfo ->
+                    val info = runCatching {
+                        pm.getActivityInfo(launcherInfo.componentName, flags)
+                    }.getOrNull() ?: return@mapNotNull null
+                    if (!info.exported) return@mapNotNull null
+                    DiscoveredComponent(
+                        info,
+                        setOf(ComponentDiscoverySource.LAUNCHER_APPS)
+                    )
+                }
         }.onFailure {
-            Log.w(TAG, "LauncherApps shortcut config discovery unavailable", it)
+            Log.w(TAG, "LauncherApps shortcut discovery unavailable; using legacy fallback", it)
         }.getOrDefault(emptyList())
-
-        return activities.mapNotNull { launcherInfo ->
-            val info = runCatching {
-                pm.getActivityInfo(launcherInfo.componentName, flags)
-            }.getOrNull() ?: return@mapNotNull null
-            if (!info.exported) return@mapNotNull null
-            DiscoveredComponent(info, setOf(ComponentDiscoverySource.LAUNCHER_APPS))
-        }
-    }
 
     @Suppress("DEPRECATION")
     private fun queryManifestWidgets(): List<DiscoveredComponent> =
