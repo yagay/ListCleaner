@@ -41,6 +41,7 @@ data class ComponentCandidate(
     val appLabel: String,
     val activityLabel: String,
     val appIcon: Bitmap? = null,
+    val appType: AppType = AppType.USER,
     val evidence: List<String> = emptyList(),
     val restricted: Boolean = false,
     val unavailable: Boolean = false,
