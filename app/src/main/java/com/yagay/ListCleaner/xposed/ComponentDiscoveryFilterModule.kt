@@ -277,32 +277,32 @@ class ComponentDiscoveryFilterModule : XposedModule() {
 
         val original = chain.proceed()
         if (protectedComponents.isEmpty()) return@Hooker original
-        val result = extractListResult(original) ?: return@Hooker original
 
-        val fallbackUserId = chain.args.filterIsInstance<Int>().getOrNull(1)
-            ?: chain.args.filterIsInstance<Int>().lastOrNull()
+        runCatching {
+            val result = extractListResult(original) ?: return@runCatching original
+            val fallbackUserId = chain.args.filterIsInstance<Int>().getOrNull(1)
+                ?: chain.args.filterIsInstance<Int>().lastOrNull()
 
-        var removed = 0
-        val filtered = result.values.filter { value ->
-            val info = value as? AppWidgetProviderInfo ?: return@filter true
-            val provider = info.provider ?: return@filter true
-            val userId = fallbackUserId ?: return@filter true
-            val protected = PersistentComponentState.key(userId, provider) in protectedComponents
-            if (protected) {
-                removed++
-                record(
-                    "WIDGET_PROVIDER_FILTERED user=$userId callerUid=$callerUid " +
-                        "component=${provider.flattenToShortString()}"
-                )
+            var removed = 0
+            val filtered = result.values.filter { value ->
+                val info = value as? AppWidgetProviderInfo ?: return@filter true
+                val provider = info.provider ?: return@filter true
+                val userId = fallbackUserId ?: return@filter true
+                val protected = PersistentComponentState.key(userId, provider) in protectedComponents
+                if (protected) {
+                    removed++
+                    record(
+                        "WIDGET_PROVIDER_FILTERED user=$userId callerUid=$callerUid " +
+                            "component=${provider.flattenToShortString()}"
+                    )
+                }
+                !protected
             }
-            !protected
-        }
 
-        if (removed == 0) return@Hooker original
-        runCatching { result.rebuild(filtered) }.getOrElse {
-            record("WIDGET_REBUILD_FAILED error=${it.javaClass.name}")
-            original
-        }
+            if (removed == 0) original else result.rebuild(filtered)
+        }.onFailure {
+            record("WIDGET_FILTER_FAILED callerUid=$callerUid error=${it.javaClass.name}")
+        }.getOrElse { original }
     }
 
     private fun extractListResult(original: Any?): ListResult? = when {
@@ -315,16 +315,37 @@ class ComponentDiscoveryFilterModule : XposedModule() {
     }
 
     private fun extractParceledListSlice(original: Any): ListResult? {
-        val accessor = parceledListAccessorCache.computeIfAbsent(original.javaClass) { clazz ->
-            val getList = clazz.getMethod("getList").apply { isAccessible = true }
-            val constructor = clazz.getDeclaredConstructor(List::class.java).apply { isAccessible = true }
-            ParceledListAccessor(getList, constructor)
-        }
+        val accessor = runCatching {
+            parceledListAccessorCache.computeIfAbsent(original.javaClass) { clazz ->
+                val getList = clazz.methods.firstOrNull {
+                    it.name == "getList" && it.parameterCount == 0
+                }?.apply { isAccessible = true }
+                    ?: throw NoSuchMethodException("${clazz.name}#getList()")
+                val constructor = clazz.declaredConstructors.firstOrNull { ctor ->
+                    ctor.parameterTypes.size == 1 &&
+                        List::class.java.isAssignableFrom(ctor.parameterTypes[0])
+                }?.apply { isAccessible = true }
+                    ?: throw NoSuchMethodException("${clazz.name}(List)")
+                ParceledListAccessor(getList, constructor)
+            }
+        }.onFailure {
+            record("PARCELED_LIST_ACCESSOR_UNAVAILABLE class=${original.javaClass.name} error=${it.javaClass.name}")
+        }.getOrNull() ?: return null
+
         val values = runCatching {
             @Suppress("UNCHECKED_CAST")
             accessor.getList.invoke(original) as? List<*>
+        }.onFailure {
+            record("PARCELED_LIST_READ_FAILED class=${original.javaClass.name} error=${it.javaClass.name}")
         }.getOrNull() ?: return null
-        return ListResult(values) { accessor.constructor.newInstance(it) }
+
+        return ListResult(values) { filtered ->
+            runCatching {
+                accessor.constructor.newInstance(filtered)
+            }.onFailure {
+                record("PARCELED_LIST_REBUILD_FAILED class=${original.javaClass.name} error=${it.javaClass.name}")
+            }.getOrElse { original }
+        }
     }
 
     private fun record(message: String) {
