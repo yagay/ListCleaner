@@ -117,6 +117,7 @@ internal fun ComponentRow(
     customTitle: String?,
     selectionNote: String? = null,
     locked: Boolean = false,
+    lockToggleEnabled: Boolean = true,
     onToggle: () -> Unit,
     onToggleLock: () -> Unit,
     onEditTitle: () -> Unit
@@ -180,7 +181,7 @@ internal fun ComponentRow(
                 Text(stringResource(R.string.component_restricted), style = MaterialTheme.typography.labelSmall)
             }
         }
-        IconButton(onClick = onToggleLock) {
+        IconButton(onClick = onToggleLock, enabled = lockToggleEnabled) {
             Icon(
                 if (locked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
                 contentDescription = stringResource(if (locked) R.string.bulk_lock_full else R.string.bulk_lock_none)
