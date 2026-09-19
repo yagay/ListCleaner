@@ -65,9 +65,9 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
     } else {
         state.candidates.filter { state.filter == null || it.rule.kind == state.filter }
     }
-    val lockItemIdsByPackage = remember(lockScopeCandidates, bulkLockRevision) {
+    val lockRulesByPackage = remember(lockScopeCandidates, bulkLockRevision) {
         lockScopeCandidates.groupBy { it.rule.packageName }
-            .mapValues { (_, items) -> items.map { it.rule.id } }
+            .mapValues { (_, items) -> items.map { it.rule } }
     }
     val baseShownGroups = if (state.filter == IntentKind.OPEN && openPreset != null) {
         groupCandidates(
@@ -87,7 +87,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                 state.filter,
                 openPreset,
                 group.packageName,
-                group.components.map { it.rule }
+                lockRulesByPackage[group.packageName].orEmpty()
             ) != BulkLockState.NONE
         }
     } else {
@@ -166,7 +166,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                         state.filter,
                         openPreset,
                         group.packageName,
-                        group.components.map { it.rule }
+                        lockRulesByPackage[group.packageName].orEmpty()
                     ),
                     { vm.toggleExpandedApp(key) },
                     { selected ->
@@ -181,7 +181,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                             state.filter,
                             openPreset,
                             group.packageName,
-                            group.components.map { it.rule },
+                            lockRulesByPackage[group.packageName].orEmpty(),
                             true
                         )
                     },
@@ -190,7 +190,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                             state.filter,
                             openPreset,
                             group.packageName,
-                            group.components.map { it.rule },
+                            lockRulesByPackage[group.packageName].orEmpty(),
                             false
                         )
                     }
