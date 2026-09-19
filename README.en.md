@@ -24,7 +24,7 @@ Package name: `com.yagay.ListCleaner`. Chinese environments display “列表清
 
 ### Rules: control which apps appear in menus
 
-Manage candidates separately for Share, multi-file Share, Open with, Browser, and Text processing. Search apps, expand their components, and filter by all, selected, or unselected entries.
+Manage candidates separately for Share, multi-file Share, Open with, Browser, and Text processing. Search apps, expand their components, and filter by all, selected, unselected, or locked entries.
 
 | Display mode | Effect |
 | --- | --- |
@@ -34,6 +34,8 @@ Manage candidates separately for Share, multi-file Share, Open with, Browser, an
 
 An application-row selection applies to the components currently shown for the active category and search, not to the whole application. Expanding an app allows individual components to be selected. Clearing one category does not clear other categories. Configured entries that cannot currently be scanned can still be removed from selected rules.
 
+Each page can independently apply a **bulk-operation lock**. A full lock protects an entire app from Select All/Invert-style operations, while a partial lock protects only selected child entries. Locked entries remain manually editable. Lock state never participates in ordering and does not change Selected / Partially selected / Unselected calculations; the Locked filter shows apps with either full or partial protection.
+
 Rules alter returned candidate lists. They do not uninstall applications or change component enabled state. The scan catalog is a configuration aid and does not imply that every file exposes the same candidates.
 
 ### Ordering: put frequently used apps first
@@ -41,7 +43,7 @@ Rules alter returned candidate lists. They do not uninstall applications or chan
 Each of the five categories stores its own app priority order.
 
 - Select an app to add it to the priority list and place it at the configured position; deselect it to return it to the default alphabetical group.
-- Prioritized apps follow the saved order; other apps are sorted by name. The list can be filtered to all, prioritized, or non-prioritized apps.
+- Prioritized apps follow the saved order; other apps are sorted by name. The list can be filtered to all, prioritized, non-prioritized, or locked apps. Locks only protect bulk select/invert actions; they never move apps or rewrite the saved priority order.
 - **Long-press a prioritized app to drag it.** The list auto-scrolls near its edges and saves when released. Move-up and move-down controls are also available after expansion.
 - During search, only matching prioritized apps are rearranged; hidden configuration retains its position. Candidates hidden by rules do not appear in the current ordering list, but their saved priority is retained.
 
@@ -58,6 +60,12 @@ The Components page reads actual system state and supports search and disabled-s
 | Widgets | Standard home-screen widget receivers declaring widget metadata |
 
 **Selected means disabled; unselected means explicitly enabled.** It does not restore a previous default state. Root is checked before an operation and system state is read back afterwards. Missing Root permission or authorization timeout produces an error instead of a false successful state.
+
+The Components page also supports bulk-operation locks and a Locked filter. These locks only protect Select All/Invert-style operations and are **not the same as the Root component-disabled state**; individual entries remain manually editable.
+
+Real Root disable remains the primary component-management mechanism. List Cleaner also persists the desired disabled policy and adds a second LSPosed/system_server discovery filter. If Android or vendor services temporarily restore a component during startup, protected tiles, shortcut entries, and widget providers are still removed from discovery results. Queries made by List Cleaner itself bypass this filtering so those components remain manageable.
+
+After boot, List Cleaner automatically reconciles persistent disabled state. Delayed checks run after `BOOT_COMPLETED` and user unlock, followed by another settled-startup pass; app install/update events also trigger reconciliation. Only components that should be disabled but are no longer actually `DISABLED` are repaired, so already-correct entries do not receive redundant Root commands.
 
 Component operations apply only to the Android user running List Cleaner. Core system components, SystemUI, List Cleaner itself, and components belonging to an application that is disabled as a whole are displayed but cannot be changed.
 
@@ -77,7 +85,7 @@ Disabling a component can affect places where it is already used, including exis
 4. To change app ordering, select and drag frequently used apps on the Ordering page.
 5. To manage tiles, shortcuts, or widgets, open Components and grant Root in your Root manager. Return to List Cleaner and retry after authorization.
 
-Component management is independent of rule display modes and does not require a SystemUI hook. System/vendor caches can require closing and reopening a menu; some devices require restarting the affected process or the system.
+Component management is independent of rule display modes. Root performs the real component disable, while the LSPosed system_server layer provides restore protection and discovery filtering; third-party apps do not need to be added to the module scope. System/vendor caches can still require closing and reopening a menu.
 
 ## FAQ
 
