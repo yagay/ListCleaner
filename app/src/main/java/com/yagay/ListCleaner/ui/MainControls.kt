@@ -3,6 +3,8 @@ package com.yagay.ListCleaner.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -39,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.AppTypeFilter
 
 @Composable
 internal fun CompactSearchField(query: String, onQueryChange: (String) -> Unit) {
@@ -135,12 +138,15 @@ internal fun ListControls(
     state: MainState,
     onFilter: (IntentKind?) -> Unit,
     onUiFilter: (UiFilter) -> Unit,
+    appTypeFilter: AppTypeFilter = AppTypeFilter.ALL,
+    onAppTypeFilter: (AppTypeFilter) -> Unit = {},
     includeAllKinds: Boolean = true,
     viewTitle: @Composable (UiFilter) -> String = { stringResource(it.titleRes()) },
     onSelectAll: (() -> Unit)? = null,
     onInvert: (() -> Unit)? = null
 ) {
     var menu by remember { mutableStateOf(false) }
+    var appTypeMenu by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
         LazyRow(contentPadding = PaddingValues(horizontal = 12.dp)) {
             items((if (includeAllKinds) listOf<IntentKind?>(null) else emptyList()) + IntentKind.entries) { kind ->
@@ -161,14 +167,46 @@ internal fun ListControls(
             }
         }
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(stringResource(R.string.view_filter), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Box {
-                TextButton(onClick = { menu = true }) {
-                    Text(viewTitle(state.uiFilter))
-                    Icon(Icons.Rounded.ExpandMore, null, Modifier.size(18.dp))
+                TextButton(
+                    onClick = { appTypeMenu = true },
+                    contentPadding = PaddingValues(horizontal = 6.dp)
+                ) {
+                    Text(
+                        stringResource(
+                            R.string.compact_filter_format,
+                            stringResource(R.string.app_type_filter),
+                            stringResource(appTypeFilter.titleRes())
+                        )
+                    )
+                    Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
+                }
+                DropdownMenu(expanded = appTypeMenu, onDismissRequest = { appTypeMenu = false }) {
+                    AppTypeFilter.entries.forEach { mode ->
+                        DropdownMenuItem(
+                            text = { Text(stringResource(mode.titleRes())) },
+                            leadingIcon = { if (mode == appTypeFilter) Icon(Icons.Rounded.Check, null) },
+                            onClick = { appTypeMenu = false; onAppTypeFilter(mode) }
+                        )
+                    }
+                }
+            }
+            Box {
+                TextButton(
+                    onClick = { menu = true },
+                    contentPadding = PaddingValues(horizontal = 6.dp)
+                ) {
+                    Text(
+                        stringResource(
+                            R.string.compact_filter_format,
+                            stringResource(R.string.view_filter),
+                            viewTitle(state.uiFilter)
+                        )
+                    )
+                    Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
                 }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     UiFilter.entries.forEach { mode ->
@@ -180,13 +218,14 @@ internal fun ListControls(
                     }
                 }
             }
-            if (onSelectAll != null || onInvert != null) {
-                Spacer(Modifier.weight(1f))
-                onSelectAll?.let { action ->
-                    TextButton(onClick = action) { Text(stringResource(R.string.select_all)) }
+            onSelectAll?.let { action ->
+                TextButton(onClick = action, contentPadding = PaddingValues(horizontal = 6.dp)) {
+                    Text(stringResource(R.string.select_all))
                 }
-                onInvert?.let { action ->
-                    TextButton(onClick = action) { Text(stringResource(R.string.invert_selection)) }
+            }
+            onInvert?.let { action ->
+                TextButton(onClick = action, contentPadding = PaddingValues(horizontal = 6.dp)) {
+                    Text(stringResource(R.string.invert_selection))
                 }
             }
         }
