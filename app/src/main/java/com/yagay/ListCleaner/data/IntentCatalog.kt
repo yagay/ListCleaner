@@ -14,6 +14,8 @@ import com.yagay.ListCleaner.domain.ComponentIdentity
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.OpenPreset
+import com.yagay.ListCleaner.domain.AppType
+import com.yagay.ListCleaner.domain.listCleanerAppType
 import com.yagay.ListCleaner.domain.CustomOpenDefinition
 import com.yagay.ListCleaner.domain.intentKind
 import com.yagay.ListCleaner.domain.FilterPolicy
@@ -34,15 +36,19 @@ class IntentCatalog(private val context: Context) {
     suspend fun completeConfigured(items: List<ComponentCandidate>, selected: Set<ComponentRule>): List<ComponentCandidate> = withContext(Dispatchers.IO) {
         val known = items.map { it.rule.id }.toSet()
         items + selected.filter { it.id !in known }.map { rule ->
-            val label = runCatching {
+            val appInfo = runCatching {
                 @Suppress("DEPRECATION")
-                context.packageManager.getApplicationInfo(rule.packageName, 0).loadLabel(context.packageManager).toString()
-            }.getOrDefault(rule.packageName)
+                context.packageManager.getApplicationInfo(rule.packageName, 0)
+            }.getOrNull()
+            val label = appInfo?.let {
+                runCatching { it.loadLabel(context.packageManager).toString() }.getOrNull()
+            } ?: rule.packageName
             ComponentCandidate(
                 rule,
                 label,
                 rule.className.substringAfterLast('.'),
                 loadAppIcon(rule.packageName) { context.packageManager.getApplicationIcon(rule.packageName) },
+                appType = appInfo?.listCleanerAppType() ?: AppType.USER,
                 evidence = listOf(context.getString(R.string.catalog_configured_waiting)),
                 unavailable = true
             )
@@ -185,6 +191,7 @@ class IntentCatalog(private val context: Context) {
                     runCatching { activity.applicationInfo.loadIcon(context.packageManager) }.getOrNull()
                         ?: context.packageManager.defaultActivityIcon
                 },
+                appType = activity.applicationInfo?.listCleanerAppType() ?: AppType.USER,
                 evidence = listOf(probe.label + " flags=0x${flags.toString(16)}") + facts,
                 restricted = restricted,
                 broadMatch = probe.broad
