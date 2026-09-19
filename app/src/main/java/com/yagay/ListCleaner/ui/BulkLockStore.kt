@@ -27,7 +27,11 @@ internal class BulkLockStore(context: Context) {
     private val mutableRevision = MutableStateFlow(0L)
     val revision: StateFlow<Long> = mutableRevision.asStateFlow()
 
-    private fun entries(): Set<String> = prefs.getStringSet(KEY_ENTRIES, emptySet()).orEmpty().toSet()
+    @Volatile
+    private var cachedEntries: Set<String> =
+        prefs.getStringSet(KEY_ENTRIES, emptySet()).orEmpty().toSet()
+
+    private fun entries(): Set<String> = cachedEntries
     private fun appKey(scope: String, appId: String) = listOf(scope, "app", appId).joinToString(SEPARATOR)
     private fun itemKey(scope: String, itemId: String) = listOf(scope, "item", itemId).joinToString(SEPARATOR)
 
@@ -90,7 +94,9 @@ internal class BulkLockStore(context: Context) {
     }
 
     private fun persist(next: Set<String>) {
-        prefs.edit().putStringSet(KEY_ENTRIES, next).apply()
+        val snapshot = next.toSet()
+        cachedEntries = snapshot
+        prefs.edit().putStringSet(KEY_ENTRIES, snapshot).apply()
         mutableRevision.value++
     }
 
