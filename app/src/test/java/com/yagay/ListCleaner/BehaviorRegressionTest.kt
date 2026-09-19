@@ -5,6 +5,8 @@ import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.ComponentStatePolicy
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.AppType
+import com.yagay.ListCleaner.domain.AppTypeFilter
 import com.yagay.ListCleaner.domain.RuleBackup
 import com.yagay.ListCleaner.ui.groupCandidates
 import com.yagay.ListCleaner.ui.UiFilter
@@ -171,6 +173,15 @@ class BehaviorRegressionTest {
         assertThrows(IllegalArgumentException::class.java) {
             StringReader("abcde").use { it.readBackupText(4) }
         }
+    }
+
+    @Test fun appTypeFilterSeparatesUserAndSystemAppsWithoutOrderingSemantics() {
+        assertTrue(AppTypeFilter.ALL.matches(AppType.USER))
+        assertTrue(AppTypeFilter.ALL.matches(AppType.SYSTEM))
+        assertTrue(AppTypeFilter.USER.matches(AppType.USER))
+        assertFalse(AppTypeFilter.USER.matches(AppType.SYSTEM))
+        assertTrue(AppTypeFilter.SYSTEM.matches(AppType.SYSTEM))
+        assertFalse(AppTypeFilter.SYSTEM.matches(AppType.USER))
     }
 
     @Test fun componentStatePolicyBuildsReusableSafeCommandLine() {
