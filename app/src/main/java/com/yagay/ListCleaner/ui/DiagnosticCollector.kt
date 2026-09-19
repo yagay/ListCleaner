@@ -40,8 +40,17 @@ object DiagnosticCollector {
                     appendLine("observedAtMillis=${components?.observedAt ?: 0}")
                     appendLine("warning=${components?.warning ?: "not_scanned"}")
                     appendLine("count=${components?.items?.size ?: 0} limit=2000")
+                    val sourceCounts = components?.items.orEmpty()
+                        .flatMap { it.discoverySources }
+                        .groupingBy { it.name }
+                        .eachCount()
+                        .toSortedMap()
+                    appendLine("discoverySources=${sourceCounts.entries.joinToString { "${it.key}=${it.value}" }}")
                     components?.items?.take(2000)?.forEach {
-                        appendLine("${it.id} override=${it.overrideState} enabled=${it.enabled} appEnabled=${it.applicationEnabled} blocked=${it.blocked}")
+                        appendLine(
+                            "${it.id} sources=${it.discoverySources.map { source -> source.name }.sorted().joinToString("+")} " +
+                                "override=${it.overrideState} enabled=${it.enabled} appEnabled=${it.applicationEnabled} blocked=${it.blocked}"
+                        )
                     }
                     appendLine("lastOperation:")
                     appendLine(componentOperation)
