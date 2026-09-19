@@ -11,6 +11,11 @@ import com.yagay.ListCleaner.domain.ComponentStatePolicy
  * Some apps call PackageManager#setComponentEnabledSetting during startup and would otherwise
  * overwrite a Root `pm disable` performed by ListCleaner.
  */
+data class PersistentComponentRef(
+    val user: Int,
+    val component: ComponentName
+)
+
 object PersistentComponentState {
     const val REMOTE_KEY = "root_disabled_components_v1"
     const val LOCAL_PREFS = "root_component_state"
@@ -23,14 +28,17 @@ object PersistentComponentState {
     fun key(user: Int, packageName: String, className: String): String =
         "$user|$packageName|$className"
 
-    fun isValid(key: String): Boolean {
+    fun parse(key: String): PersistentComponentRef? {
         val parts = key.split('|', limit = 3)
-        if (parts.size != 3) return false
-        val user = parts[0].toIntOrNull() ?: return false
+        if (parts.size != 3) return null
+        val user = parts[0].toIntOrNull() ?: return null
         val packageName = parts[1]
         val className = parts[2]
-        return user >= 0 && ComponentStatePolicy.valid(packageName, className, user)
+        if (!ComponentStatePolicy.valid(packageName, className, user)) return null
+        return PersistentComponentRef(user, ComponentName(packageName, className))
     }
+
+    fun isValid(key: String): Boolean = parse(key) != null
 
     fun sanitize(values: Collection<String>): Set<String> = values.asSequence()
         .filter(::isValid)
