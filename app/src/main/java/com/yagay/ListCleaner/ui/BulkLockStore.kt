@@ -35,13 +35,16 @@ internal class BulkLockStore(context: Context) {
 
     fun isItemLocked(scope: String, itemId: String): Boolean = itemKey(scope, itemId) in entries()
 
-    fun isProtected(scope: String, appId: String, itemId: String): Boolean =
-        isAppLocked(scope, appId) || isItemLocked(scope, itemId)
+    fun isProtected(scope: String, appId: String, itemId: String): Boolean {
+        val current = entries()
+        return appKey(scope, appId) in current || itemKey(scope, itemId) in current
+    }
 
     fun state(scope: String, appId: String, itemIds: Collection<String>): BulkLockState {
-        if (isAppLocked(scope, appId)) return BulkLockState.FULL
+        val current = entries()
+        if (appKey(scope, appId) in current) return BulkLockState.FULL
         val ids = itemIds.distinct()
-        val lockedCount = ids.count { isItemLocked(scope, it) }
+        val lockedCount = ids.count { itemKey(scope, it) in current }
         return when {
             lockedCount == 0 -> BulkLockState.NONE
             ids.isNotEmpty() && lockedCount == ids.size -> BulkLockState.FULL
@@ -50,19 +53,30 @@ internal class BulkLockStore(context: Context) {
     }
 
     @Synchronized
-    fun toggleApp(scope: String, appId: String) {
-        toggle(appKey(scope, appId))
+    fun toggleApp(scope: String, appId: String, itemIds: Collection<String>) {
+        val current = entries().toMutableSet()
+        val app = appKey(scope, appId)
+        val ids = itemIds.distinct()
+        val fullyLocked = app in current ||
+            (ids.isNotEmpty() && ids.all { itemKey(scope, it) in current })
+        if (fullyLocked) {
+            current.remove(app)
+            ids.forEach { current.remove(itemKey(scope, it)) }
+        } else {
+            current.add(app)
+        }
+        persist(current)
     }
 
     @Synchronized
     fun toggleItem(scope: String, itemId: String) {
-        toggle(itemKey(scope, itemId))
+        val current = entries().toMutableSet()
+        val key = itemKey(scope, itemId)
+        if (!current.add(key)) current.remove(key)
+        persist(current)
     }
 
-    private fun toggle(key: String) {
-        val next = entries().toMutableSet().apply {
-            if (!add(key)) remove(key)
-        }
+    private fun persist(next: Set<String>) {
         prefs.edit().putStringSet(KEY_ENTRIES, next).apply()
         mutableRevision.value++
     }
