@@ -63,8 +63,10 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
     } else {
         state.candidates.filter { state.filter == null || it.rule.kind == state.filter }
     }
-    val lockItemIdsByPackage = lockScopeCandidates.groupBy { it.rule.packageName }
-        .mapValues { (_, items) -> items.map { it.rule.id } }
+    val lockItemIdsByPackage = remember(lockScopeCandidates, bulkLockRevision) {
+        lockScopeCandidates.groupBy { it.rule.packageName }
+            .mapValues { (_, items) -> items.map { it.rule.id } }
+    }
     val baseShownGroups = if (state.filter == IntentKind.OPEN && openPreset != null) {
         groupCandidates(
             state.candidates.filter { it.matchesOpenPreset(openPreset!!, state.openTypesExplicit.customDefinitions) },
