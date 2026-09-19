@@ -3,6 +3,8 @@ package com.yagay.ListCleaner.ui
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -16,6 +18,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.data.RootComponent
+import com.yagay.ListCleaner.domain.AppTypeFilter
 
 private fun componentAppSelectionRank(items: List<RootComponent>): Int {
     val editable = items.filter { it.blocked == null && it.enabled != null }
@@ -61,17 +65,20 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
 
     var kind by remember { mutableStateOf<CleanupKind?>(null) }
     val bulkLockRevision by vm.bulkLockRevision.collectAsState()
-    var viewFilter by remember { mutableStateOf(UiFilter.ALL) }
+    var viewFilter by rememberSaveable { mutableStateOf(UiFilter.ALL) }
+    var appTypeFilter by rememberSaveable { mutableStateOf(AppTypeFilter.ALL) }
     var filterMenu by remember { mutableStateOf(false) }
+    var appTypeMenu by remember { mutableStateOf(false) }
     var expandedAppKey by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { vm.refreshComponents() }
 
     val lockScope = componentBulkLockScope(kind)
-    val scopeItems = scan.items.filter { kind == null || it.kind == kind }
-    val lockItemIdsByApp = remember(scopeItems, bulkLockRevision) {
-        scopeItems.groupBy(::componentBulkLockAppId)
+    val kindItems = scan.items.filter { kind == null || it.kind == kind }
+    val lockItemIdsByApp = remember(kindItems, bulkLockRevision) {
+        kindItems.groupBy(::componentBulkLockAppId)
             .mapValues { (_, items) -> items.map { it.id } }
     }
+    val scopeItems = kindItems.filter { appTypeFilter.matches(it.appType) }
     val baseVisible = scopeItems.filter {
         (when (viewFilter) {
                 UiFilter.ALL, UiFilter.LOCKED -> true
@@ -123,12 +130,47 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             }
                         }
                     }
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(R.string.view_filter), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Box {
-                            TextButton(onClick = { filterMenu = true }) {
-                                Text(stringResource(viewFilter.titleRes()))
-                                Icon(Icons.Rounded.ExpandMore, null, Modifier.size(18.dp))
+                            TextButton(
+                                onClick = { appTypeMenu = true },
+                                contentPadding = PaddingValues(horizontal = 6.dp)
+                            ) {
+                                Text(
+                                    stringResource(
+                                        R.string.compact_filter_format,
+                                        stringResource(R.string.app_type_filter),
+                                        stringResource(appTypeFilter.titleRes())
+                                    )
+                                )
+                                Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
+                            }
+                            DropdownMenu(expanded = appTypeMenu, onDismissRequest = { appTypeMenu = false }) {
+                                AppTypeFilter.entries.forEach { filter ->
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(filter.titleRes())) },
+                                        leadingIcon = { if (appTypeFilter == filter) Icon(Icons.Rounded.Check, null) },
+                                        onClick = { appTypeFilter = filter; appTypeMenu = false }
+                                    )
+                                }
+                            }
+                        }
+                        Box {
+                            TextButton(
+                                onClick = { filterMenu = true },
+                                contentPadding = PaddingValues(horizontal = 6.dp)
+                            ) {
+                                Text(
+                                    stringResource(
+                                        R.string.compact_filter_format,
+                                        stringResource(R.string.view_filter),
+                                        stringResource(viewFilter.titleRes())
+                                    )
+                                )
+                                Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
                             }
                             DropdownMenu(expanded = filterMenu, onDismissRequest = { filterMenu = false }) {
                                 UiFilter.entries.forEach { filter ->
@@ -140,14 +182,15 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                                 }
                             }
                         }
-                        Spacer(Modifier.weight(1f))
                         TextButton(
                             onClick = { vm.changeComponentsBulk(lockScope, visible, enable = false) },
-                            enabled = !busy && visible.any { it.blocked == null && it.enabled == true }
+                            enabled = !busy && visible.any { it.blocked == null && it.enabled == true },
+                            contentPadding = PaddingValues(horizontal = 6.dp)
                         ) { Text(stringResource(R.string.select_all)) }
                         TextButton(
                             onClick = { vm.invertComponentsBulk(lockScope, visible) },
-                            enabled = !busy && visible.any { it.blocked == null && it.enabled != null }
+                            enabled = !busy && visible.any { it.blocked == null && it.enabled != null },
+                            contentPadding = PaddingValues(horizontal = 6.dp)
                         ) { Text(stringResource(R.string.invert_selection)) }
                     }
                     if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
