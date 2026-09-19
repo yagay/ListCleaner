@@ -5,6 +5,7 @@ import android.os.Build
 import android.os.SystemClock
 import com.yagay.ListCleaner.BuildConfig
 import com.yagay.ListCleaner.ListCleanerApp
+import com.yagay.ListCleaner.data.ComponentReconcileState
 import com.yagay.ListCleaner.data.PersistentComponentStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runInterruptible
@@ -58,6 +59,7 @@ object DiagnosticCollector {
                         keys.forEach(::appendLine)
                     }
                 )
+                zip.addText("app/component-reconcile.txt", ComponentReconcileState.snapshot(app))
                 val candidateEvidence = DiagnosticBuffer(MAX_TEXT_BYTES)
                 fun appendCandidateLine(line: String) {
                     val bytes = (line + "\n").toByteArray(StandardCharsets.UTF_8)
@@ -75,7 +77,7 @@ object DiagnosticCollector {
                 zip.addCapture("root/root-status.txt", root("id; getenforce; command -v su; echo KERNEL=$(uname -a)"))
                 zip.addCapture("logcat/ListCleaner.txt", root(
                     "logcat -d -v threadtime -b all ListCleaner:V ListCleaner.Diagnostic:V " +
-                    "ListCleaner.ComponentGuard:V ListCleaner.DiscoveryFilter:V " +
+                    "ListCleaner.ComponentGuard:V ListCleaner.DiscoveryFilter:V ListCleaner.BootReconcile:V " +
                     "AndroidRuntime:E PackageManager:V PackageManagerService:V ActivityTaskManager:I " +
                         "LSPosedFramework:V LSPosedService:V ResolverActivity:V ChooserActivity:V " +
                         "ResolverListAdapter:V ResolverListController:V '*:S'"
