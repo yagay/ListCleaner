@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,7 +17,6 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -25,6 +25,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.state.ToggleableState
@@ -43,7 +45,8 @@ internal fun AppRow(
     lockState: BulkLockState,
     onExpand: () -> Unit,
     onSelect: (Boolean) -> Unit,
-    onToggleLock: () -> Unit
+    onLock: () -> Unit,
+    onUnlock: () -> Unit
 ) {
     val selectedCount = group.components.count { it.rule in selected }
     val selectionState = when {
@@ -58,6 +61,7 @@ internal fun AppRow(
     }
     Row(
         modifier = Modifier.fillMaxWidth()
+            .bulkLockSwipe(onLock = onLock, onUnlock = onUnlock)
             .clickable(onClickLabel = expandLabel, onClick = onExpand)
             .heightIn(min = 64.dp)
             .padding(horizontal = 8.dp, vertical = 4.dp),
@@ -88,17 +92,14 @@ internal fun AppRow(
                 )
             }
         }
-        val lockDescription = stringResource(
-            when (lockState) {
-                BulkLockState.NONE -> R.string.bulk_lock_none
-                BulkLockState.PARTIAL -> R.string.bulk_lock_partial
-                BulkLockState.FULL -> R.string.bulk_lock_full
-            }
-        )
-        IconButton(onClick = onToggleLock) {
+        if (lockState != BulkLockState.NONE) {
             Icon(
-                if (lockState == BulkLockState.NONE) Icons.Rounded.LockOpen else Icons.Rounded.Lock,
-                lockDescription,
+                Icons.Rounded.Lock,
+                contentDescription = stringResource(
+                    if (lockState == BulkLockState.PARTIAL) R.string.bulk_lock_partial
+                    else R.string.bulk_lock_full
+                ),
+                modifier = Modifier.padding(horizontal = 8.dp).size(20.dp),
                 tint = if (lockState == BulkLockState.PARTIAL) MaterialTheme.colorScheme.tertiary
                 else LocalContentColor.current
             )
@@ -119,11 +120,17 @@ internal fun ComponentRow(
     locked: Boolean = false,
     lockToggleEnabled: Boolean = true,
     onToggle: () -> Unit,
-    onToggleLock: () -> Unit,
+    onLock: () -> Unit,
+    onUnlock: () -> Unit,
     onEditTitle: () -> Unit
 ) {
     Row(
         Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
+            .bulkLockSwipe(
+                enabled = lockToggleEnabled,
+                onLock = onLock,
+                onUnlock = onUnlock
+            )
             .toggleable(value = checked, role = Role.Checkbox, onValueChange = { onToggle() })
             .heightIn(min = 48.dp).padding(start = 24.dp, end = 16.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -181,15 +188,44 @@ internal fun ComponentRow(
                 Text(stringResource(R.string.component_restricted), style = MaterialTheme.typography.labelSmall)
             }
         }
-        IconButton(onClick = onToggleLock, enabled = lockToggleEnabled) {
+        if (locked) {
             Icon(
-                if (locked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
-                contentDescription = stringResource(if (locked) R.string.bulk_lock_full else R.string.bulk_lock_none)
+                Icons.Rounded.Lock,
+                contentDescription = stringResource(R.string.bulk_lock_full),
+                modifier = Modifier.padding(horizontal = 8.dp).size(18.dp)
             )
         }
         IconButton(onClick = onEditTitle) {
             Icon(Icons.Rounded.Edit, contentDescription = stringResource(R.string.component_edit_display_name))
         }
+    }
+}
+
+@Composable
+internal fun Modifier.bulkLockSwipe(
+    enabled: Boolean = true,
+    onLock: () -> Unit,
+    onUnlock: () -> Unit
+): Modifier {
+    val threshold = with(LocalDensity.current) { 56.dp.toPx() }
+    return pointerInput(enabled, threshold, onLock, onUnlock) {
+        if (!enabled) return@pointerInput
+        var totalDrag = 0f
+        detectHorizontalDragGestures(
+            onDragStart = { totalDrag = 0f },
+            onHorizontalDrag = { change, amount ->
+                totalDrag += amount
+                change.consume()
+            },
+            onDragCancel = { totalDrag = 0f },
+            onDragEnd = {
+                when {
+                    totalDrag >= threshold -> onLock()
+                    totalDrag <= -threshold -> onUnlock()
+                }
+                totalDrag = 0f
+            }
+        )
     }
 }
 
