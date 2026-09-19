@@ -4,8 +4,9 @@
 
 ## 中文
 
-- 修复组件禁用状态不能稳定保持的问题，持久化期望的组件状态，并增加状态校验与保护，避免组件被系统或后续刷新意外恢复。
-- 修复组件状态校验器的注册与导入问题，进一步提高磁贴、快捷方式、小部件等 Root 组件管理的可靠性。
+- 新增批量操作锁：规则、排序和组件页统一支持整体/部分锁定，“已锁定”可单独筛选；锁定项跳过全选/反选等批量操作，但仍可手动修改，且锁定不参与排序、不改变已选/半选/未选状态。
+- 强化 Root 组件持久保护：保留真实 `pm disable`，持久保存期望禁用状态，并加入 LSPosed/system_server 发现过滤，防止磁贴、快捷方式和小部件在系统临时恢复组件时重新出现在发现列表。
+- 新增开机/解锁/应用更新自动校正：启动后进行延迟检查和稳定后复查，只对实际已恢复的受保护组件重新执行 Root 禁用，同时记录校正结果到诊断包。
 - 修复多入口 LSPosed/libxposed 模块不支持热重载时仍尝试热重载的问题，改为使用兼容的更新路径，降低模块运行时异常风险。
 - 完善 Release 发布链路：自动补全完整 changelog，并确保 LSPosed 同步在完整发布说明生成后执行。
 - 改进 Telegram 发布流程，包括单条消息发布、可展开 changelog、链接处理、旧发布消息替换以及中英文检查一致性。
@@ -17,8 +18,9 @@
 
 ## English
 
-- Fixed disabled component states not remaining persistent. Desired component states are now stored and guarded with validation to reduce unintended restoration after refreshes or system-side changes.
-- Fixed component-state validator registration/import issues to improve the reliability of Root component management for tiles, shortcuts, widgets, and related entries.
+- Added bulk-operation locks across Rules, Ordering, and Components. Full/partial locks can be filtered with Locked; protected entries skip Select All/Invert-style operations but remain manually editable, and locks never participate in ordering or alter selected/partial/unselected state.
+- Strengthened persistent Root component protection: real `pm disable` remains in place, desired disabled state is persisted, and an LSPosed/system_server discovery filter keeps protected tiles, shortcut entries, and widgets out of discovery results even if Android temporarily restores their components.
+- Added automatic reconciliation after boot, unlock, and app updates. A delayed pass plus a settled-startup recheck only re-disables protected components whose real state was restored, and reconciliation results are included in diagnostics.
 - Fixed unsupported hot reload attempts for multi-entry LSPosed/libxposed modules by using a compatible update path, reducing runtime failure risk.
 - Improved the Release pipeline with automatic complete changelog generation and ensured LSPosed synchronization happens after the finalized release notes are available.
 - Improved Telegram publishing with single-message releases, expandable changelogs, corrected links, stale-post replacement, and aligned bilingual validation.
