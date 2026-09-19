@@ -83,7 +83,12 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
     val lockFilteredGroups = if (state.uiFilter == UiFilter.LOCKED) {
         bulkLockRevision
         baseShownGroups.filter { group ->
-            vm.bulkLockState(lockScope, group.packageName, lockItemIdsByPackage[group.packageName].orEmpty()) != BulkLockState.NONE
+            vm.ruleBulkLockState(
+                state.filter,
+                openPreset,
+                group.packageName,
+                group.components.map { it.rule }
+            ) != BulkLockState.NONE
         }
     } else {
         baseShownGroups
@@ -110,14 +115,14 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                             if (openPreset != null && state.filter == IntentKind.OPEN) {
                                 vm.selectOpenTypeRules(openPreset!!, visibleRules, lockScope)
                             } else {
-                                vm.selectRules(visibleRules, lockScope)
+                                vm.selectRules(visibleRules, state.filter, openPreset)
                             }
                         },
                         onInvert = {
                             if (openPreset != null && state.filter == IntentKind.OPEN) {
                                 vm.invertOpenTypeRules(openPreset!!, visibleRules, lockScope)
                             } else {
-                                vm.invertRules(visibleRules, lockScope)
+                                vm.invertRules(visibleRules, state.filter, openPreset)
                             }
                         }
                     )
@@ -157,7 +162,12 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                     group,
                     activeSelected,
                     expanded,
-                    vm.bulkLockState(lockScope, group.packageName, lockItemIdsByPackage[group.packageName].orEmpty()),
+                    vm.ruleBulkLockState(
+                        state.filter,
+                        openPreset,
+                        group.packageName,
+                        group.components.map { it.rule }
+                    ),
                     { vm.toggleExpandedApp(key) },
                     { selected ->
                         if (openPreset != null && state.filter == IntentKind.OPEN) {
@@ -167,10 +177,21 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                         }
                     },
                     {
-                        vm.toggleBulkAppLock(
-                            lockScope,
+                        vm.setRuleAppLocked(
+                            state.filter,
+                            openPreset,
                             group.packageName,
-                            lockItemIdsByPackage[group.packageName].orEmpty()
+                            group.components.map { it.rule },
+                            true
+                        )
+                    },
+                    {
+                        vm.setRuleAppLocked(
+                            state.filter,
+                            openPreset,
+                            group.packageName,
+                            group.components.map { it.rule },
+                            false
                         )
                     }
                 )
@@ -194,13 +215,14 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                         component.rule in activeSelected,
                         state.priorities.titles[component.rule.id],
                         selectionNote = sourceNote,
-                        locked = vm.isBulkProtected(lockScope, group.packageName, component.rule.id),
-                        lockToggleEnabled = !vm.isBulkAppLocked(lockScope, group.packageName),
+                        locked = vm.isRuleBulkProtected(state.filter, openPreset, component.rule),
+                        lockToggleEnabled = !vm.isRuleAppLockedForRule(state.filter, openPreset, component.rule),
                         onToggle = {
                             if (openPreset != null && state.filter == IntentKind.OPEN) vm.toggleOpenType(openPreset!!, component.rule)
                             else vm.toggle(component.rule)
                         },
-                        onToggleLock = { vm.toggleBulkItemLock(lockScope, component.rule.id) },
+                        onLock = { vm.setRuleItemLocked(state.filter, openPreset, component.rule, true) },
+                        onUnlock = { vm.setRuleItemLocked(state.filter, openPreset, component.rule, false) },
                         onEditTitle = { editingTitle = component }
                     )
                 }
