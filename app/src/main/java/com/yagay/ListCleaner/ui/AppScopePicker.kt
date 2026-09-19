@@ -1,6 +1,5 @@
 package com.yagay.ListCleaner.ui
 
-import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.util.LruCache
@@ -28,6 +27,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.ListCleanerApp
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.VisibilityScope
+import com.yagay.ListCleaner.domain.AppType
+import com.yagay.ListCleaner.domain.listCleanerAppType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -56,8 +57,7 @@ private fun loadScopeApps(pm: PackageManager, selfPackage: String): List<ScopeAp
             ScopeAppEntry(
                 packageName = info.packageName,
                 label = runCatching { pm.getApplicationLabel(info).toString() }.getOrDefault(info.packageName),
-                system = (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0 ||
-                    (info.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0,
+                system = info.listCleanerAppType() == AppType.SYSTEM,
             )
         }
         .distinctBy { it.packageName }
