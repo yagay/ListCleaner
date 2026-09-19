@@ -12,6 +12,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -58,26 +60,37 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
     }
 
     var kind by remember { mutableStateOf<CleanupKind?>(null) }
+    val bulkLockRevision by vm.bulkLockRevision.collectAsState()
     var viewFilter by remember { mutableStateOf(UiFilter.ALL) }
     var filterMenu by remember { mutableStateOf(false) }
     var expandedAppKey by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { vm.refreshComponents() }
 
-    val visible = scan.items.filter {
+    val lockScope = componentBulkLockScope(kind)
+    val baseVisible = scan.items.filter {
         (kind == null || it.kind == kind) &&
             (when (viewFilter) {
-                UiFilter.ALL -> true
+                UiFilter.ALL, UiFilter.LOCKED -> true
                 UiFilter.SHOW_SELECTED -> it.enabled == false
                 UiFilter.HIDE_SELECTED -> it.enabled == true
             }) &&
             (state.query.isBlank() || listOf(it.label, it.owner, it.component.flattenToString()).any { text -> text.contains(state.query, true) })
     }
-    val groups = visible.groupBy { "${it.user}|${it.component.packageName}" }.entries
+    val baseGroups = baseVisible.groupBy { "${it.user}|${it.component.packageName}" }.entries
         .sortedWith(
             compareBy<Map.Entry<String, List<RootComponent>>> { componentAppSelectionRank(it.value) }
                 .thenBy { it.value.first().owner.lowercase() }
                 .thenBy { it.key }
         )
+    val groups = if (viewFilter == UiFilter.LOCKED) {
+        bulkLockRevision
+        baseGroups.filter { (appKey, items) ->
+            vm.bulkLockState(lockScope, appKey, items.map { it.id }) != BulkLockState.NONE
+        }
+    } else {
+        baseGroups
+    }
+    val visible = groups.flatMap { it.value }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item(key = "title") {
@@ -125,11 +138,11 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                         }
                         Spacer(Modifier.weight(1f))
                         TextButton(
-                            onClick = { vm.changeComponents(visible, enable = false) },
+                            onClick = { vm.changeComponentsBulk(lockScope, visible, enable = false) },
                             enabled = !busy && visible.any { it.blocked == null && it.enabled == true }
                         ) { Text(stringResource(R.string.select_all)) }
                         TextButton(
-                            onClick = { vm.invertComponents(visible) },
+                            onClick = { vm.invertComponentsBulk(lockScope, visible) },
                             enabled = !busy && visible.any { it.blocked == null && it.enabled != null }
                         ) { Text(stringResource(R.string.invert_selection)) }
                     }
@@ -219,6 +232,21 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             )
                         }
                     }
+                    val lockState = vm.bulkLockState(lockScope, appKey, components.map { it.id })
+                    IconButton(onClick = { vm.toggleBulkAppLock(lockScope, appKey) }) {
+                        Icon(
+                            if (lockState == BulkLockState.NONE) Icons.Rounded.LockOpen else Icons.Rounded.Lock,
+                            contentDescription = stringResource(
+                                when (lockState) {
+                                    BulkLockState.NONE -> R.string.bulk_lock_none
+                                    BulkLockState.PARTIAL -> R.string.bulk_lock_partial
+                                    BulkLockState.FULL -> R.string.bulk_lock_full
+                                }
+                            ),
+                            tint = if (lockState == BulkLockState.PARTIAL) MaterialTheme.colorScheme.tertiary
+                            else LocalContentColor.current
+                        )
+                    }
                     IconButton(onClick = onExpand) {
                         Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, expandLabel)
                     }
@@ -267,6 +295,15 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                                 }
                             ),
                             style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    val itemLocked = vm.isBulkItemLocked(lockScope, item.id)
+                    IconButton(onClick = { vm.toggleBulkItemLock(lockScope, item.id) }) {
+                        Icon(
+                            if (itemLocked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
+                            contentDescription = stringResource(
+                                if (itemLocked) R.string.bulk_lock_full else R.string.bulk_lock_none
+                            )
                         )
                     }
                 }
