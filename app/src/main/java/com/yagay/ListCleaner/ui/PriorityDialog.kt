@@ -92,7 +92,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
         state.priorities.apps[kind].orEmpty()
     }
     val lockScope = priorityBulkLockScope(kind, openPreset)
-    val baseGroups = remember(scopedCandidates, state.selected, typedSelected, state.displayMode, kind, openPreset, rankedRaw, state.query, viewFilter) {
+    val baseGroups = remember(scopedCandidates, state.selected, typedSelected, state.displayMode, kind, openPreset, rankedRaw, state.query, viewFilter, bulkLockRevision) {
         priorityAppGroups(
             scopedCandidates,
             state.selected,
