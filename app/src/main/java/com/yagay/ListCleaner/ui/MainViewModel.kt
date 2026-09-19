@@ -549,7 +549,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     internal fun isBulkItemLocked(scope: String, itemId: String): Boolean =
         bulkLocks.isItemLocked(scope, itemId)
 
-    internal fun toggleBulkAppLock(scope: String, appId: String) = bulkLocks.toggleApp(scope, appId)
+    internal fun isBulkAppLocked(scope: String, appId: String): Boolean =
+        bulkLocks.isAppLocked(scope, appId)
+
+    internal fun isBulkProtected(scope: String, appId: String, itemId: String): Boolean =
+        bulkLocks.isProtected(scope, appId, itemId)
+
+    internal fun toggleBulkAppLock(scope: String, appId: String, itemIds: Collection<String>) =
+        bulkLocks.toggleApp(scope, appId, itemIds)
 
     internal fun toggleBulkItemLock(scope: String, itemId: String) = bulkLocks.toggleItem(scope, itemId)
 
