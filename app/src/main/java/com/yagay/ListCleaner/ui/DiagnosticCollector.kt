@@ -144,7 +144,7 @@ object DiagnosticCollector {
         appendLine("systemConfigAcknowledged=${state.runtime.ready}"); appendLine("statusSource=last_observed_no_sync_before_export")
         appendLine("runtimeObservedAtMillis=${state.runtime.observedAtMillis}"); appendLine("runtimeObservationAgeMillis=${System.currentTimeMillis() - state.runtime.observedAtMillis}")
         appendLine("configDigest=${state.runtime.digest}"); appendLine("queryHits=${state.runtime.queryHits}"); appendLine("visibilityHits=${state.runtime.visibilityHits}")
-        appendLine("orderingHits=${state.runtime.orderingHits}"); appendLine("recoveryDecisionRequired=${state.runtime.needsDecision}"); appendLine("runtimeMessage=${state.runtime.message}")
+        appendLine("orderingHits=${state.runtime.orderingHits}"); appendLine("componentDiscoveryProtocol=${state.runtime.componentDiscoveryProtocol}"); appendLine("recoveryDecisionRequired=${state.runtime.needsDecision}"); appendLine("runtimeMessage=${state.runtime.message}")
         appendLine("uiFilter=${state.uiFilter} category=${state.filter}"); appendLine("searchActive=${state.query.isNotBlank()} candidates=${state.candidates.size} visibleGroups=${state.groups.size}")
         state.module.runningTargets.forEach { appendLine("target=${it.processName}|${it.state}|version=${it.version}") }
         state.module.detection.hosts.forEach { appendLine("host=${it.packageName}|${it.className}|${it.processName}|${it.scenarios.sorted().joinToString()}") }
