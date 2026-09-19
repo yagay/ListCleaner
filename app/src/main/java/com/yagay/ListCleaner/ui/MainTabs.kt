@@ -27,6 +27,7 @@ import com.yagay.ListCleaner.domain.matchesOpenPreset
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RulesTab(state: MainState, vm: MainViewModel) {
+    val bulkLockRevision by vm.bulkLockRevision.collectAsState()
     var editingTitle by remember { mutableStateOf<com.yagay.ListCleaner.domain.ComponentCandidate?>(null) }
     var showCustomTypes by rememberSaveable { mutableStateOf(false) }
     editingTitle?.let { item ->
@@ -53,7 +54,8 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
 
     val typedSelected = openPreset?.let { state.openTypes.selectedRules(it) }.orEmpty()
     val explicitTypedSelected = openPreset?.let { state.openTypesExplicit.selectedRules(it) }.orEmpty()
-    val shownGroups = if (state.filter == IntentKind.OPEN && openPreset != null) {
+    val lockScope = ruleBulkLockScope(state.filter, openPreset)
+    val baseShownGroups = if (state.filter == IntentKind.OPEN && openPreset != null) {
         groupCandidates(
             state.candidates.filter { it.matchesOpenPreset(openPreset!!, state.openTypesExplicit.customDefinitions) },
             typedSelected,
@@ -63,6 +65,14 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
         )
     } else {
         state.groups
+    }
+    val shownGroups = if (state.uiFilter == UiFilter.LOCKED) {
+        bulkLockRevision
+        baseShownGroups.filter { group ->
+            vm.bulkLockState(lockScope, group.packageName, group.components.map { it.rule.id }) != BulkLockState.NONE
+        }
+    } else {
+        baseShownGroups
     }
     val activeSelected = if (openPreset != null && state.filter == IntentKind.OPEN) typedSelected else state.selected
     val visibleRules = shownGroups.flatMap { it.components }.map { it.rule }.distinct()
@@ -81,16 +91,16 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                         vm::setUiFilter,
                         onSelectAll = {
                             if (openPreset != null && state.filter == IntentKind.OPEN) {
-                                vm.selectOpenTypeRules(openPreset!!, visibleRules)
+                                vm.selectOpenTypeRules(openPreset!!, visibleRules, lockScope)
                             } else {
-                                vm.selectRules(visibleRules)
+                                vm.selectRules(visibleRules, lockScope)
                             }
                         },
                         onInvert = {
                             if (openPreset != null && state.filter == IntentKind.OPEN) {
-                                vm.invertOpenTypeRules(openPreset!!, visibleRules)
+                                vm.invertOpenTypeRules(openPreset!!, visibleRules, lockScope)
                             } else {
-                                vm.invertRules(visibleRules)
+                                vm.invertRules(visibleRules, lockScope)
                             }
                         }
                     )
@@ -130,6 +140,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                     group,
                     activeSelected,
                     expanded,
+                    vm.bulkLockState(lockScope, group.packageName, group.components.map { it.rule.id }),
                     { vm.toggleExpandedApp(key) },
                     { selected ->
                         if (openPreset != null && state.filter == IntentKind.OPEN) {
@@ -137,7 +148,8 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                         } else {
                             vm.setGroupSelected(group, selected)
                         }
-                    }
+                    },
+                    { vm.toggleBulkAppLock(lockScope, group.packageName) }
                 )
             }
             if (expanded) {
@@ -159,10 +171,12 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                         component.rule in activeSelected,
                         state.priorities.titles[component.rule.id],
                         selectionNote = sourceNote,
+                        locked = vm.isBulkItemLocked(lockScope, component.rule.id),
                         onToggle = {
                             if (openPreset != null && state.filter == IntentKind.OPEN) vm.toggleOpenType(openPreset!!, component.rule)
                             else vm.toggle(component.rule)
                         },
+                        onToggleLock = { vm.toggleBulkItemLock(lockScope, component.rule.id) },
                         onEditTitle = { editingTitle = component }
                     )
                 }
