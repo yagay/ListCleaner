@@ -16,7 +16,6 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -321,6 +320,10 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                     val expandLabel = stringResource(if (expanded) R.string.common_collapse else R.string.common_expand)
                     Row(
                         Modifier.fillMaxWidth()
+                            .bulkLockSwipe(
+                                onLock = { vm.setBulkAppLocked(lockScope, packageName, emptyList(), true) },
+                                onUnlock = { vm.setBulkAppLocked(lockScope, packageName, emptyList(), false) }
+                            )
                             .alpha(if (drag?.packageName == packageName) 0.3f else 1f)
                             .drawWithContent {
                                 drawContent()
@@ -363,12 +366,11 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                             )
                         }
                         val lockState = vm.bulkLockState(lockScope, packageName, emptyList())
-                        IconButton(onClick = { vm.toggleBulkAppLock(lockScope, packageName, emptyList()) }) {
+                        if (lockState != BulkLockState.NONE) {
                             Icon(
-                                if (lockState == BulkLockState.NONE) Icons.Rounded.LockOpen else Icons.Rounded.Lock,
-                                contentDescription = stringResource(
-                                    if (lockState == BulkLockState.NONE) R.string.bulk_lock_none else R.string.bulk_lock_full
-                                )
+                                Icons.Rounded.Lock,
+                                contentDescription = stringResource(R.string.bulk_lock_full),
+                                modifier = Modifier.padding(horizontal = 8.dp).size(20.dp)
                             )
                         }
                         IconButton(onClick = onExpand) {
