@@ -17,10 +17,13 @@ public final class ComponentStatePolicy {
             pkg.matches("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+") &&
             cls.matches("[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)+");
     }
-    public static String command(String pkg, String cls, int user, boolean enable) {
+    public static String commandLine(String pkg, String cls, int user, boolean enable) {
         if (!valid(pkg, cls, user)) throw new IllegalArgumentException("Invalid component identity");
         // Always a fully-qualified component, never a package-wide enable/disable.
-        return "test \"$(id -u)\" = 0 || exit 77\nexec /system/bin/pm " +
-            (enable ? "enable" : "disable") + " --user " + user + " '" + pkg + "/" + cls + "'";
+        return "/system/bin/pm " + (enable ? "enable" : "disable") +
+            " --user " + user + " '" + pkg + "/" + cls + "'";
+    }
+    public static String command(String pkg, String cls, int user, boolean enable) {
+        return "test \"$(id -u)\" = 0 || exit 77\nexec " + commandLine(pkg, cls, user, enable);
     }
 }
