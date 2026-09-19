@@ -1,1 +1,1 @@
-Trim share, open-with, browser, and text-processing candidate lists, prioritize frequently used apps, and manage tiles, shortcut creation entries, and home-screen widgets with Root. Requires modern libxposed API 102 and Android 12 or newer.
+Trim share, open-with, browser, and text-processing candidate lists with priority ordering and bulk-operation locks; manage tiles, shortcut creation entries, and home-screen widgets using real Root disable plus LSPosed discovery filtering and automatic boot reconciliation. Requires modern libxposed API 102 and Android 12 or newer.
