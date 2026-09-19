@@ -358,7 +358,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                             )
                         }
                         val lockState = vm.bulkLockState(lockScope, packageName, emptyList())
-                        IconButton(onClick = { vm.toggleBulkAppLock(lockScope, packageName) }) {
+                        IconButton(onClick = { vm.toggleBulkAppLock(lockScope, packageName, emptyList()) }) {
                             Icon(
                                 if (lockState == BulkLockState.NONE) Icons.Rounded.LockOpen else Icons.Rounded.Lock,
                                 contentDescription = stringResource(
