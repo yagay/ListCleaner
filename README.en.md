@@ -58,8 +58,8 @@ The Components page reads actual system state and supports search, disabled-stat
 | Category | Supported scope |
 | --- | --- |
 | Tiles | Standard app-provided `TileService` components; system built-in tiles such as Wi-Fi or Bluetooth without an independent service are excluded |
-| Shortcuts | Standard `ACTION_CREATE_SHORTCUT` creation entries; not every dynamic, pinned, or private shortcut is included |
-| Widgets | Standard home-screen widget receivers declaring widget metadata |
+| Shortcuts | Shortcut configuration activities from Android `LauncherApps` plus legacy `ACTION_CREATE_SHORTCUT` entries; dynamic/pinned shortcut instances requiring launcher-host access and private entries are not included |
+| Widgets | Providers from the Android `AppWidgetManager` registry, merged with manifest widget receivers as a compatibility fallback |
 
 **Selected means disabled; unselected means explicitly enabled.** It does not restore a previous default state. Root is checked before an operation and system state is read back afterwards. Missing Root permission or authorization timeout produces an error instead of a false successful state.
 
