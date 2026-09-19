@@ -68,8 +68,10 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
 
     val lockScope = componentBulkLockScope(kind)
     val scopeItems = scan.items.filter { kind == null || it.kind == kind }
-    val lockItemIdsByApp = scopeItems.groupBy(::componentBulkLockAppId)
-        .mapValues { (_, items) -> items.map { it.id } }
+    val lockItemIdsByApp = remember(scopeItems, bulkLockRevision) {
+        scopeItems.groupBy(::componentBulkLockAppId)
+            .mapValues { (_, items) -> items.map { it.id } }
+    }
     val baseVisible = scopeItems.filter {
         (when (viewFilter) {
                 UiFilter.ALL, UiFilter.LOCKED -> true
