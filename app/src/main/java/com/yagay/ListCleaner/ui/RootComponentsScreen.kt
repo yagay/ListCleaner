@@ -15,7 +15,6 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -72,11 +71,9 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
     var expandedAppKey by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { vm.refreshComponents() }
 
-    val lockScope = componentBulkLockScope(kind)
     val kindItems = scan.items.filter { kind == null || it.kind == kind }
-    val lockItemIdsByApp = remember(kindItems, bulkLockRevision) {
+    val lockItemsByApp = remember(kindItems, bulkLockRevision) {
         kindItems.groupBy(::componentBulkLockAppId)
-            .mapValues { (_, items) -> items.map { it.id } }
     }
     val scopeItems = kindItems.filter { appTypeFilter.matches(it.appType) }
     val baseVisible = scopeItems.filter {
@@ -95,8 +92,8 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
         )
     val groups = if (viewFilter == UiFilter.LOCKED) {
         bulkLockRevision
-        baseGroups.filter { (appKey, items) ->
-            vm.bulkLockState(lockScope, appKey, lockItemIdsByApp[appKey].orEmpty()) != BulkLockState.NONE
+        baseGroups.filter { (appKey, _) ->
+            vm.componentBulkLockState(kind, appKey, lockItemsByApp[appKey].orEmpty()) != BulkLockState.NONE
         }
     } else {
         baseGroups
@@ -183,12 +180,12 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             }
                         }
                         TextButton(
-                            onClick = { vm.changeComponentsBulk(lockScope, visible, enable = false) },
+                            onClick = { vm.changeComponentsBulk(kind, visible, enable = false) },
                             enabled = !busy && visible.any { it.blocked == null && it.enabled == true },
                             contentPadding = PaddingValues(horizontal = 6.dp)
                         ) { Text(stringResource(R.string.select_all)) }
                         TextButton(
-                            onClick = { vm.invertComponentsBulk(lockScope, visible) },
+                            onClick = { vm.invertComponentsBulk(kind, visible) },
                             enabled = !busy && visible.any { it.blocked == null && it.enabled != null },
                             contentPadding = PaddingValues(horizontal = 6.dp)
                         ) { Text(stringResource(R.string.invert_selection)) }
@@ -249,6 +246,24 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                     .map { stringResource(it.titleRes()) }
                 Row(
                     Modifier.fillMaxWidth()
+                        .bulkLockSwipe(
+                            onLock = {
+                                vm.setComponentAppLocked(
+                                    kind,
+                                    appKey,
+                                    lockItemsByApp[appKey].orEmpty(),
+                                    true
+                                )
+                            },
+                            onUnlock = {
+                                vm.setComponentAppLocked(
+                                    kind,
+                                    appKey,
+                                    lockItemsByApp[appKey].orEmpty(),
+                                    false
+                                )
+                            }
+                        )
                         .clickable(onClickLabel = expandLabel, onClick = onExpand)
                         .heightIn(min = 64.dp).padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -279,25 +294,19 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             )
                         }
                     }
-                    val lockState = vm.bulkLockState(lockScope, appKey, lockItemIdsByApp[appKey].orEmpty())
-                    IconButton(
-                        onClick = {
-                            vm.toggleBulkAppLock(
-                                lockScope,
-                                appKey,
-                                lockItemIdsByApp[appKey].orEmpty()
-                            )
-                        }
-                    ) {
+                    val lockState = vm.componentBulkLockState(
+                        kind,
+                        appKey,
+                        lockItemsByApp[appKey].orEmpty()
+                    )
+                    if (lockState != BulkLockState.NONE) {
                         Icon(
-                            if (lockState == BulkLockState.NONE) Icons.Rounded.LockOpen else Icons.Rounded.Lock,
+                            Icons.Rounded.Lock,
                             contentDescription = stringResource(
-                                when (lockState) {
-                                    BulkLockState.NONE -> R.string.bulk_lock_none
-                                    BulkLockState.PARTIAL -> R.string.bulk_lock_partial
-                                    BulkLockState.FULL -> R.string.bulk_lock_full
-                                }
+                                if (lockState == BulkLockState.PARTIAL) R.string.bulk_lock_partial
+                                else R.string.bulk_lock_full
                             ),
+                            modifier = Modifier.padding(horizontal = 8.dp).size(20.dp),
                             tint = if (lockState == BulkLockState.PARTIAL) MaterialTheme.colorScheme.tertiary
                             else LocalContentColor.current
                         )
@@ -314,6 +323,11 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                 Row(
                     Modifier.fillMaxWidth()
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
+                        .bulkLockSwipe(
+                            enabled = !vm.isComponentAppLockedForItem(kind, item),
+                            onLock = { vm.setComponentItemLocked(kind, item, true) },
+                            onUnlock = { vm.setComponentItemLocked(kind, item, false) }
+                        )
                         .toggleable(
                             value = item.enabled == false,
                             enabled = editable,
@@ -352,17 +366,12 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
-                    val appLocked = vm.isBulkAppLocked(lockScope, appKey)
-                    val itemLocked = vm.isBulkProtected(lockScope, appKey, item.id)
-                    IconButton(
-                        onClick = { vm.toggleBulkItemLock(lockScope, item.id) },
-                        enabled = !appLocked
-                    ) {
+                    val itemLocked = vm.isComponentBulkProtected(kind, item)
+                    if (itemLocked) {
                         Icon(
-                            if (itemLocked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
-                            contentDescription = stringResource(
-                                if (itemLocked) R.string.bulk_lock_full else R.string.bulk_lock_none
-                            )
+                            Icons.Rounded.Lock,
+                            contentDescription = stringResource(R.string.bulk_lock_full),
+                            modifier = Modifier.padding(horizontal = 8.dp).size(18.dp)
                         )
                     }
                 }
