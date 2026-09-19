@@ -6,6 +6,7 @@ import androidx.compose.ui.res.stringResource
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.domain.DisplayMode
+import com.yagay.ListCleaner.domain.AppTypeFilter
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.OpenTypeConfig
@@ -17,6 +18,13 @@ internal fun Destination.labelRes(): Int = when (this) {
     Destination.PRIORITY -> R.string.nav_priority
     Destination.TILES -> R.string.nav_components
     Destination.DASHBOARD -> R.string.nav_status
+}
+
+@StringRes
+internal fun AppTypeFilter.titleRes(): Int = when (this) {
+    AppTypeFilter.ALL -> R.string.common_all
+    AppTypeFilter.USER -> R.string.filter_user_apps
+    AppTypeFilter.SYSTEM -> R.string.filter_system_apps
 }
 
 @StringRes
