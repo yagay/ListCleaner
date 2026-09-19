@@ -50,7 +50,8 @@ enum class Destination(val icon: androidx.compose.ui.graphics.vector.ImageVector
 enum class UiFilter {
     ALL,
     HIDE_SELECTED,
-    SHOW_SELECTED
+    SHOW_SELECTED,
+    LOCKED
 }
 
 data class MainState(
@@ -117,6 +118,7 @@ private fun filterAppGroups(
             UiFilter.ALL -> true
             UiFilter.HIDE_SELECTED -> !isSelected
             UiFilter.SHOW_SELECTED -> isSelected
+            UiFilter.LOCKED -> true
         }
         catalogVisible(it, isSelected, uiFilter) && matchesUiFilter &&
             (filter == null || it.rule.kind == filter) && it.matchesQuery(query)
@@ -156,6 +158,7 @@ fun retainConfiguredCandidates(
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as ListCleanerApp
+    private val bulkLocks = BulkLockStore(app)
     private val rootComponents = RootComponentsController(app, viewModelScope)
     private val moduleRuntime = ModuleRuntimeController(app, viewModelScope)
 
@@ -163,12 +166,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val componentBusy = rootComponents.busy
     val componentMessage = rootComponents.message
     val componentRootNotice = rootComponents.rootNotice
+    val bulkLockRevision: StateFlow<Long> = bulkLocks.revision
 
     fun dismissComponentRootNotice() = rootComponents.dismissRootNotice()
     fun refreshComponents() = rootComponents.refresh()
     fun changeComponent(target: RootComponent, enable: Boolean) = rootComponents.change(target, enable)
     fun changeComponents(targets: List<RootComponent>, enable: Boolean) = rootComponents.change(targets, enable)
     fun invertComponents(targets: List<RootComponent>) = rootComponents.invert(targets)
+    fun changeComponentsBulk(scope: String, targets: List<RootComponent>, enable: Boolean) {
+        val editable = targets.filterNot {
+            bulkLocks.isProtected(scope, componentBulkLockAppId(it), it.id)
+        }
+        if (editable.isNotEmpty()) rootComponents.change(editable, enable)
+    }
+    fun invertComponentsBulk(scope: String, targets: List<RootComponent>) {
+        val editable = targets.filterNot {
+            bulkLocks.isProtected(scope, componentBulkLockAppId(it), it.id)
+        }
+        if (editable.isNotEmpty()) rootComponents.invert(editable)
+    }
 
     val updating: StateFlow<Boolean> = moduleRuntime.updating
     val updateMessage: StateFlow<String?> = moduleRuntime.updateMessage
@@ -495,25 +511,47 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (editable.isNotEmpty()) app.rules.setOpenTypeSelected(preset, editable, selected)
     }
 
-    fun selectOpenTypeRules(preset: OpenPreset, rules: Collection<ComponentRule>) {
+    fun selectOpenTypeRules(preset: OpenPreset, rules: Collection<ComponentRule>, lockScope: String) {
         if (!canEdit() || rules.isEmpty()) return
-        val editable = rules.distinct().filterNot { it in genericOpenSelected() }
+        val editable = rules.distinct()
+            .filterNot { it in genericOpenSelected() }
+            .filterNot { bulkLocks.isProtected(lockScope, it.packageName, it.id) }
         if (editable.isNotEmpty()) app.rules.setOpenTypeSelected(preset, editable, true)
     }
 
-    fun invertOpenTypeRules(preset: OpenPreset, rules: Collection<ComponentRule>) {
+    fun invertOpenTypeRules(preset: OpenPreset, rules: Collection<ComponentRule>, lockScope: String) {
         if (!canEdit() || rules.isEmpty()) return
-        val editable = rules.distinct().filterNot { it in genericOpenSelected() }
+        val editable = rules.distinct()
+            .filterNot { it in genericOpenSelected() }
+            .filterNot { bulkLocks.isProtected(lockScope, it.packageName, it.id) }
         if (editable.isNotEmpty()) app.rules.invertOpenTypeSelected(preset, editable)
     }
 
-    fun selectRules(rules: Collection<ComponentRule>) {
-        if (canEdit() && rules.isNotEmpty()) app.rules.setSelected(rules.distinct(), true)
+    fun selectRules(rules: Collection<ComponentRule>, lockScope: String) {
+        if (!canEdit() || rules.isEmpty()) return
+        val editable = rules.distinct().filterNot {
+            bulkLocks.isProtected(lockScope, it.packageName, it.id)
+        }
+        if (editable.isNotEmpty()) app.rules.setSelected(editable, true)
     }
 
-    fun invertRules(rules: Collection<ComponentRule>) {
-        if (canEdit() && rules.isNotEmpty()) app.rules.invertSelected(rules)
+    fun invertRules(rules: Collection<ComponentRule>, lockScope: String) {
+        if (!canEdit() || rules.isEmpty()) return
+        val editable = rules.distinct().filterNot {
+            bulkLocks.isProtected(lockScope, it.packageName, it.id)
+        }
+        if (editable.isNotEmpty()) app.rules.invertSelected(editable)
     }
+
+    fun bulkLockState(scope: String, appId: String, itemIds: Collection<String>): BulkLockState =
+        bulkLocks.state(scope, appId, itemIds)
+
+    fun isBulkItemLocked(scope: String, itemId: String): Boolean =
+        bulkLocks.isItemLocked(scope, itemId)
+
+    fun toggleBulkAppLock(scope: String, appId: String) = bulkLocks.toggleApp(scope, appId)
+
+    fun toggleBulkItemLock(scope: String, itemId: String) = bulkLocks.toggleItem(scope, itemId)
 
     fun setDisplayMode(value: DisplayMode) { if (canEdit()) app.rules.setDisplayMode(value) }
     fun setFilter(value: IntentKind?) { filter.value = value }
@@ -527,16 +565,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (canEdit()) app.rules.setComponentTitle(ruleId, title)
     }
 
-    fun selectPriorityApps(kind: IntentKind, packageNames: Collection<String>) {
+    fun selectPriorityApps(kind: IntentKind, packageNames: Collection<String>, lockScope: String) {
         if (!canEdit()) return
         val current = app.rules.priorities.value.apps[kind].orEmpty()
-        val next = (current + packageNames.distinct().filter { it !in current }).take(200)
+        val editable = packageNames.distinct().filterNot { bulkLocks.isAppLocked(lockScope, it) }
+        val next = (current + editable.filter { it !in current }).take(200)
         if (next != current) app.rules.setPriority(kind, next)
     }
 
-    fun invertPriorityApps(kind: IntentKind, packageNames: Collection<String>) {
+    fun invertPriorityApps(kind: IntentKind, packageNames: Collection<String>, lockScope: String) {
         if (!canEdit()) return
-        val visible = packageNames.distinct()
+        val visible = packageNames.distinct().filterNot { bulkLocks.isAppLocked(lockScope, it) }
         if (visible.isEmpty()) return
         val current = app.rules.priorities.value.apps[kind].orEmpty()
         val next = (current.filterNot { it in visible.toSet() } + visible.filter { it !in current }).take(200)
@@ -577,16 +616,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (updated != current) app.rules.setPriority(kind, updated)
     }
 
-    fun selectOpenTypePriorityApps(preset: OpenPreset, packageNames: Collection<String>) {
+    fun selectOpenTypePriorityApps(preset: OpenPreset, packageNames: Collection<String>, lockScope: String) {
         if (!canEdit()) return
         val current = openTypePriorityBase(preset)
-        val next = (current + packageNames.distinct().filter { it !in current }).take(200)
+        val editable = packageNames.distinct().filterNot { bulkLocks.isAppLocked(lockScope, it) }
+        val next = (current + editable.filter { it !in current }).take(200)
         if (next != current) app.rules.setOpenTypePriority(preset, next)
     }
 
-    fun invertOpenTypePriorityApps(preset: OpenPreset, packageNames: Collection<String>) {
+    fun invertOpenTypePriorityApps(preset: OpenPreset, packageNames: Collection<String>, lockScope: String) {
         if (!canEdit()) return
-        val visible = packageNames.distinct()
+        val visible = packageNames.distinct().filterNot { bulkLocks.isAppLocked(lockScope, it) }
         if (visible.isEmpty()) return
         val current = openTypePriorityBase(preset)
         val next = (current.filterNot { it in visible.toSet() } + visible.filter { it !in current }).take(200)
