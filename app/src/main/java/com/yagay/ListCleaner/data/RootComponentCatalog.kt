@@ -242,7 +242,9 @@ class RootComponentCatalog(private val context: Context) {
         val blocked = when {
             !ComponentStatePolicy.valid(component.packageName, component.className, user) ->
                 context.getString(R.string.root_component_invalid)
-            info.packageName in PROTECTED_PACKAGES ||
+            info.packageName == context.packageName ||
+                info.packageName == "android" ||
+                info.packageName == "com.android.systemui" ||
                 info.applicationInfo.uid % PER_USER_RANGE < Process.FIRST_APPLICATION_UID ->
                 context.getString(R.string.root_component_protected)
             raw == null || enabled == null || appEnabled == null ->
@@ -340,10 +342,5 @@ class RootComponentCatalog(private val context: Context) {
         const val BIND_QUICK_SETTINGS_TILE = "android.permission.BIND_QUICK_SETTINGS_TILE"
         const val APP_WIDGET_PROVIDER_META_DATA = "android.appwidget.provider"
 
-        val PROTECTED_PACKAGES = setOf(
-            "com.yagay.ListCleaner",
-            "android",
-            "com.android.systemui"
-        )
     }
 }
