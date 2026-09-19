@@ -34,7 +34,7 @@ Manage candidates separately for Share, multi-file Share, Open with, Browser, an
 
 An application-row selection applies to the components currently shown for the active category and search, not to the whole application. Expanding an app allows individual components to be selected. Clearing one category does not clear other categories. Configured entries that cannot currently be scanned can still be removed from selected rules.
 
-Each page can independently apply a **bulk-operation lock**. A full lock protects an entire app from Select All/Invert-style operations, while a partial lock protects only selected child entries. Locked entries remain manually editable. Lock state never participates in ordering and does not change Selected / Partially selected / Unselected calculations; the Locked filter shows apps with either full or partial protection.
+Each page can independently apply a **bulk-operation lock**. **Swipe right to lock and swipe left to unlock** an app or child entry. Unlocked rows show no lock icon; the icon appears only after locking. A full lock protects an entire app from Select All/Invert-style operations, while a partial lock protects only selected child entries. Locked entries remain manually editable. Lock state never participates in ordering or changes Selected / Partially selected / Unselected calculations; Locked under All aggregates locks from the individual categories.
 
 Rules, Ordering, and Components all use the same compact **Apps: All / User apps / System apps** dropdown, which can be combined with the existing View filter. App type only controls what is currently shown and what bulk actions target; it **never participates in ordering or changes selection, lock, or Root state**. Updated preinstalled system apps remain classified as system apps.
 
@@ -63,7 +63,7 @@ The Components page reads actual system state and supports search, disabled-stat
 
 **Selected means disabled; unselected means explicitly enabled.** It does not restore a previous default state. Root is checked before an operation and system state is read back afterwards. Missing Root permission or authorization timeout produces an error instead of a false successful state.
 
-The Components page also supports bulk-operation locks and a Locked filter. These locks only protect Select All/Invert-style operations and are **not the same as the Root component-disabled state**; individual entries remain manually editable.
+The Components page also supports bulk-operation locks and a Locked filter. Swipe right to lock and left to unlock; the lock icon is shown only after locking, and All aggregates locks from Tile, Shortcut, and Widget categories. These locks only protect Select All/Invert-style operations and are **not the same as the Root component-disabled state**; individual entries remain manually editable.
 
 Real Root disable remains the primary component-management mechanism. List Cleaner also persists the desired disabled policy and adds a second LSPosed/system_server discovery filter. If Android or vendor services temporarily restore a component during startup, protected tiles, shortcut entries, and widget providers are still removed from discovery results. Queries made by List Cleaner itself bypass this filtering so those components remain manageable.
 
