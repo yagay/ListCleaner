@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Publish one Telegram release message with download links and expandable notes."""
+import base64
 import hashlib
 import html
 import json
@@ -136,11 +137,27 @@ def main():
         raise ValueError("Release APK has no browser_download_url")
 
     release_body = release.get("body", "")
-    tracked_notes_path = Path("RELEASE_NOTES.md")
-    if tracked_notes_path.is_file():
-        tracked_notes = tracked_notes_path.read_text(encoding="utf-8").strip()
-        if tracked_notes and not release_body.strip().startswith(tracked_notes):
-            raise ValueError("Published GitHub Release notes are not refreshed from RELEASE_NOTES.md yet")
+    target_ref = str(release.get("target_commitish") or "").strip()
+    tracked_notes = ""
+    if target_ref:
+        encoded_ref = urllib.parse.quote(target_ref, safe="")
+        try:
+            payload = json.loads(gh("api", f"repos/{SOURCE}/contents/RELEASE_NOTES.md?ref={encoded_ref}"))
+            encoded = str(payload.get("content") or "").replace("\\n", "")
+            if encoded:
+                tracked_notes = base64.b64decode(encoded).decode("utf-8").strip()
+        except (ValueError, UnicodeDecodeError, json.JSONDecodeError, RuntimeError):
+            tracked_notes = ""
+
+    if not tracked_notes:
+        tracked_notes_path = Path("RELEASE_NOTES.md")
+        if tracked_notes_path.is_file():
+            tracked_notes = tracked_notes_path.read_text(encoding="utf-8").strip()
+
+    if tracked_notes and not release_body.strip().startswith(tracked_notes):
+        raise ValueError(
+            "Published GitHub Release notes are not refreshed from the release commit's RELEASE_NOTES.md yet"
+        )
 
     presentation_material = PUBLISH_FORMAT_VERSION + "\0" + release_body
     body_sha256 = hashlib.sha256(presentation_material.encode("utf-8")).hexdigest()
