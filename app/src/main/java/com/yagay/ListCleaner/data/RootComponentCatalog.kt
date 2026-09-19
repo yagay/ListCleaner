@@ -10,6 +10,8 @@ import android.util.Log
 import androidx.core.graphics.drawable.toBitmap
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.ComponentStatePolicy
+import com.yagay.ListCleaner.domain.AppType
+import com.yagay.ListCleaner.domain.listCleanerAppType
 import kotlinx.coroutines.delay
 
 enum class CleanupKind(val action: String) {
@@ -21,6 +23,7 @@ enum class CleanupKind(val action: String) {
 data class RootComponent(
     val kind: CleanupKind, val component: ComponentName, val user: Int,
     val label: String, val owner: String, val icon: Bitmap?,
+    val appType: AppType,
     val overrideState: Int?, val enabled: Boolean?, val applicationEnabled: Boolean?,
     val blocked: String? = null
 ) {
@@ -124,6 +127,7 @@ class RootComponentCatalog(private val context: Context) {
             runCatching { info.applicationInfo.loadLabel(pm).toString() }.getOrDefault(info.packageName),
             icons.get(info.packageName) ?: runCatching { info.applicationInfo.loadIcon(pm).toBitmap(96, 96) }
                 .getOrNull()?.also { icons.put(info.packageName, it) },
+            info.applicationInfo.listCleanerAppType(),
             raw, enabled, appEnabled, blocked
         )
     }
