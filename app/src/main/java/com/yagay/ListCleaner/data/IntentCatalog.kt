@@ -288,10 +288,16 @@ class IntentCatalog(private val context: Context) {
         val webHosts = linkedSetOf("example.com").apply { addAll(browserHosts) }
         for (host in webHosts) {
             for (scheme in listOf("http", "https")) {
+                // Use a real root path instead of an empty path. Many App Link handlers
+                // (GitHub is a common example) constrain VIEW filters with pathPattern="/.*"
+                // or an equivalent path matcher, so "$scheme://$host" does not enumerate them.
+                // Runtime filtering still uses the actual incoming URL; this only improves
+                // discovery of handlers available for the configured host.
                 add(Probe(
-                    Intent(Intent.ACTION_VIEW, Uri.parse("$scheme://$host")).addCategory(Intent.CATEGORY_BROWSABLE),
+                    Intent(Intent.ACTION_VIEW, Uri.parse("$scheme://$host/"))
+                        .addCategory(Intent.CATEGORY_BROWSABLE),
                     false,
-                    "BROWSER scheme=$scheme host=$host"
+                    "BROWSER scheme=$scheme host=$host path=/"
                 ))
             }
         }
