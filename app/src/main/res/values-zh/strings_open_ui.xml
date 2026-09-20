@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="open_type_filter">类型</string>\n    <string name="open_manage_custom">+ 自定义</string>
+    <string name="open_type_filter">类型</string>
+    <string name="open_manage_custom">管理类型</string>
     <string name="custom_open_title">自定义打开方式类型</string>
     <string name="custom_open_help">最多 8 个自定义类型。每个类型可以按 MIME 和文件后缀识别，并拥有自己的规则与排序；未设置专用规则/排序时仍继承“打开方式 · 全部”。删除类型会同时清理该类型的专用规则和排序。</string>
     <string name="custom_open_not_configured">未配置</string>
