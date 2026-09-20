@@ -29,7 +29,31 @@ internal class BulkLockStore(context: Context) {
 
     @Volatile
     private var cachedEntries: Set<String> =
-        prefs.getStringSet(KEY_ENTRIES, emptySet()).orEmpty().toSet()
+        migrateLegacyDeepLinkLocks(prefs.getStringSet(KEY_ENTRIES, emptySet()).orEmpty().toSet()).also { migrated ->
+            if (migrated != prefs.getStringSet(KEY_ENTRIES, emptySet()).orEmpty().toSet()) {
+                prefs.edit().putStringSet(KEY_ENTRIES, migrated).apply()
+            }
+        }
+
+    private fun migrateLegacyDeepLinkLocks(source: Set<String>): Set<String> {
+        var changed = false
+        val migrated = source.mapTo(linkedSetOf()) { entry ->
+            if (!entry.startsWith("rules:BROWSER:HOST:") || "$SEPARATORitem$SEPARATOR" !in entry) {
+                entry
+            } else {
+                val marker = "$SEPARATORitem$SEPARATOR"
+                val index = entry.indexOf(marker)
+                val prefix = entry.substring(0, index + marker.length)
+                val id = entry.substring(index + marker.length)
+                val parsed = com.yagay.ListCleaner.domain.ComponentRule.fromId(id)
+                if (parsed?.kind == IntentKind.BROWSER) {
+                    changed = true
+                    prefix + parsed.copy(kind = IntentKind.DEEP_LINK).id
+                } else entry
+            }
+        }
+        return if (changed) migrated else source
+    }
 
     private fun entries(): Set<String> = cachedEntries
     private fun appKey(scope: String, appId: String) = listOf(scope, "app", appId).joinToString(SEPARATOR)
