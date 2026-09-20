@@ -103,9 +103,14 @@ fun BrowserHostFilterMenu(
                     .width(280.dp)
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 singleLine = true,
-                textStyle = MaterialTheme.typography.bodySmall,
-                leadingIcon = { Icon(Icons.Rounded.Search, null, Modifier.size(18.dp)) },
-                placeholder = { Text(stringResource(R.string.browser_domain_search)) }
+                textStyle = MaterialTheme.typography.bodyLarge,
+                leadingIcon = { Icon(Icons.Rounded.Search, null, Modifier.size(24.dp)) },
+                placeholder = {
+                    Text(
+                        stringResource(R.string.browser_domain_search),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
             )
             if (visibleHosts.isEmpty()) {
                 Text(
