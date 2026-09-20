@@ -145,7 +145,10 @@ internal fun ComponentRow(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    stringResource(item.rule.kind.titleRes()),
+                    stringResource(
+                        if (item.rule.kind == IntentKind.BROWSER) R.string.component_kind_deep_link
+                        else item.rule.kind.titleRes()
+                    ),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
