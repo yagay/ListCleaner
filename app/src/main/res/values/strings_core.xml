@@ -43,7 +43,7 @@
     <string name="intent_share">Share</string>
     <string name="intent_share_multiple">Share multiple</string>
     <string name="intent_open">Open</string>
-    <string name="intent_browser">Browser</string>
+    <string name="intent_browser">Deep links</string>
     <string name="intent_process_text">Text processing</string>
 
     <!-- Display modes -->
