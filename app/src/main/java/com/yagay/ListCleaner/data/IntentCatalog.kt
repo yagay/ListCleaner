@@ -20,6 +20,7 @@ import com.yagay.ListCleaner.domain.listCleanerAppType
 import com.yagay.ListCleaner.domain.CustomOpenDefinition
 import com.yagay.ListCleaner.domain.intentKind
 import com.yagay.ListCleaner.domain.FilterPolicy
+import com.yagay.ListCleaner.domain.normalizeBrowserHost
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -95,11 +96,14 @@ class IntentCatalog(private val context: Context) {
 
     suspend fun scan(
         customDefinitions: Map<OpenPreset, CustomOpenDefinition> = emptyMap(),
+        browserHosts: Set<String> = emptySet(),
         force: Boolean = false
     ): List<ComponentCandidate> = withContext(Dispatchers.IO) {
+        val normalizedBrowserHosts = browserHosts.mapNotNull(::normalizeBrowserHost).toSortedSet()
         val fingerprint = customDefinitions.entries
             .sortedBy { it.key.ordinal }
-            .joinToString("|") { (preset, definition) -> "$preset=$definition" }
+            .joinToString("|") { (preset, definition) -> "$preset=$definition" } +
+            "|browserHosts=" + normalizedBrowserHosts.joinToString(",")
         val cached = mutableCandidates.value
         if (!force && !invalidated && cached.isNotEmpty() && fingerprint == cachedDefinitionFingerprint) {
             cacheHitsSinceLastScan++
@@ -112,7 +116,7 @@ class IntentCatalog(private val context: Context) {
         val known = mutableSetOf<String>()
         val report = StringBuilder(
             "startedAt=${Instant.now()}\nmanagerUid=${android.os.Process.myUid()}\n" +
-                "customOpenTypes=${customDefinitions.size}\ncacheHitsSincePreviousScan=$previousCacheHits\n"
+                "customOpenTypes=${customDefinitions.size}\nbrowserHosts=${normalizedBrowserHosts.joinToString(",")}\ncacheHitsSincePreviousScan=$previousCacheHits\n"
         )
         for (scheme in listOf("http", "https")) {
             val web = Intent(Intent.ACTION_VIEW, Uri.parse("$scheme://example.com")).addCategory(Intent.CATEGORY_BROWSABLE)
@@ -126,7 +130,7 @@ class IntentCatalog(private val context: Context) {
         }
         var failures = 0
         scanWarning = null
-        for (probe in probes(customDefinitions)) {
+        for (probe in probes(customDefinitions, normalizedBrowserHosts)) {
             currentCoroutineContext().ensureActive()
             try {
                 val result = query(probe)
@@ -212,7 +216,10 @@ class IntentCatalog(private val context: Context) {
                 appType = activity.applicationInfo?.listCleanerAppType() ?: AppType.USER,
                 evidence = listOf(probe.label + " flags=0x${flags.toString(16)}") + facts,
                 restricted = restricted,
-                broadMatch = probe.broad
+                broadMatch = probe.broad,
+                browserHosts = if (kind == IntentKind.BROWSER) {
+                    setOfNotNull(normalizeBrowserHost(probe.intent.data?.host))
+                } else emptySet()
             )
         }
         return QueryResult(candidates, raw.size, flags)
@@ -232,7 +239,10 @@ class IntentCatalog(private val context: Context) {
             ?.also { appIconCache.put(packageName, it) }
     }
 
-    private fun probes(customDefinitions: Map<OpenPreset, CustomOpenDefinition>): List<Probe> = buildList {
+    private fun probes(
+        customDefinitions: Map<OpenPreset, CustomOpenDefinition>,
+        browserHosts: Set<String>
+    ): List<Probe> = buildList {
         for ((mime, file) in FILE_TYPES) {
             for (action in listOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE)) {
                 add(Probe(Intent(action).setType(mime), false, "${action.substringAfterLast('.')} mime=$mime"))
@@ -275,12 +285,15 @@ class IntentCatalog(private val context: Context) {
             }
         }
 
-        for (scheme in listOf("http", "https")) {
-            add(Probe(
-                Intent(Intent.ACTION_VIEW, Uri.parse("$scheme://example.com")).addCategory(Intent.CATEGORY_BROWSABLE),
-                false,
-                "BROWSER scheme=$scheme"
-            ))
+        val webHosts = linkedSetOf("example.com").apply { addAll(browserHosts) }
+        for (host in webHosts) {
+            for (scheme in listOf("http", "https")) {
+                add(Probe(
+                    Intent(Intent.ACTION_VIEW, Uri.parse("$scheme://$host")).addCategory(Intent.CATEGORY_BROWSABLE),
+                    false,
+                    "BROWSER scheme=$scheme host=$host"
+                ))
+            }
         }
         listOf(
             "magnet" to "magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567",
@@ -321,7 +334,8 @@ class IntentCatalog(private val context: Context) {
                         .sortedBy { !it.startsWith("REAL_FILE ") }.take(32),
                     restricted = matches.all { it.restricted },
                     unavailable = matches.all { it.unavailable },
-                    broadMatch = matches.all { it.broadMatch }
+                    broadMatch = matches.all { it.broadMatch },
+                    browserHosts = matches.flatMap { it.browserHosts }.toSet()
                 )
             }.sortedWith(compareBy({ it.rule.kind.ordinal }, { it.appLabel.lowercase() }, { it.rule.id }))
 
