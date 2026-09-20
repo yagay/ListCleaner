@@ -2,14 +2,14 @@
 <resources>
     <string name="browser_domain_filter">域名</string>
     <string name="browser_hosts_manage">管理域名</string>
-    <string name="browser_hosts_title">浏览器域名规则</string>
+    <string name="browser_hosts_title">深度链接域名规则</string>
     <string name="browser_hosts_help">优先自动发现 Android App Link 域名，也可手动添加 github.com 这类域名。手动添加或创建专用规则/排序后才会持久保存；删除已配置域名时也会删除该域名的专用规则和排序。</string>
     <string name="browser_host_input">域名</string>
     <string name="browser_host_example">github.com</string>
     <string name="browser_host_invalid">请输入有效域名，例如 github.com。</string>
     <string name="browser_hosts_empty">还没有域名专用规则。</string>
-    <string name="rules_browser_inherited">继承自“浏览器 · 全部”</string>
+    <string name="rules_browser_inherited">继承自“深度链接 · 全部”</string>
     <string name="rules_browser_dedicated">%1$s 专用规则</string>
-    <string name="priority_browser_source_inherited">当前排序来源：继承“浏览器 · 全部”</string>
-    <string name="priority_browser_inheritance_help">没有专用排序时直接继承“浏览器 · 全部”；第一次在当前域名里勾选、取消、拖动或上下移动，会以继承顺序为基础创建专用排序。恢复继承后会重新跟随“浏览器 · 全部”的后续变化。</string>
+    <string name="priority_browser_source_inherited">当前排序来源：继承“深度链接 · 全部”</string>
+    <string name="priority_browser_inheritance_help">没有专用排序时直接继承“深度链接 · 全部”；第一次在当前域名里勾选、取消、拖动或上下移动，会以继承顺序为基础创建专用排序。恢复继承后会重新跟随“深度链接 · 全部”的后续变化。</string>
 </resources>
