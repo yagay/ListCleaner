@@ -56,10 +56,34 @@ class MainActivity : ComponentActivity() {
     private fun ListCleanerScreen(vm: MainViewModel = viewModel()) {
         val state by vm.state.collectAsStateWithLifecycle()
         var searchExpanded by rememberSaveable { mutableStateOf(false) }
+        var restartPromptDismissed by rememberSaveable { mutableStateOf(false) }
         val collectingDiagnostics by vm.collectingDiagnostics.collectAsStateWithLifecycle()
         val exportMessage by vm.exportMessage.collectAsStateWithLifecycle()
         LaunchedEffect(exportMessage) {
             exportMessage?.let { toast(it, true); vm.clearExportMessage() }
+        }
+        LaunchedEffect(state.module.outdated) {
+            if (!state.module.outdated) restartPromptDismissed = false
+        }
+        if (state.module.outdated && !restartPromptDismissed) {
+            AlertDialog(
+                onDismissRequest = { restartPromptDismissed = true },
+                title = { Text(stringResource(R.string.restart_required_title)) },
+                text = { Text(stringResource(R.string.restart_required_message)) },
+                confirmButton = {
+                    TextButton(onClick = { restartPromptDismissed = true }) {
+                        Text(stringResource(R.string.common_ok))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        restartPromptDismissed = true
+                        vm.setDestination(Destination.DASHBOARD)
+                    }) {
+                        Text(stringResource(R.string.restart_required_open_status))
+                    }
+                }
+            )
         }
         val keyboard = LocalSoftwareKeyboardController.current
         val closeSearch: () -> Unit = {

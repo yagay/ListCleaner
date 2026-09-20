@@ -525,11 +525,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             app.serviceSession.collectLatest { session ->
                 val status = moduleRuntime.readStatus(session)
                 refresh()
-                // Updating the APK does not restart system_server/Resolver. Try the supported
-                // hot-update path automatically, but never make local catalog availability depend
-                // on whether every running Xposed entry can reload in place.
+                // Never hot-reload automatically during app startup. A hook-generation mismatch
+                // may require a full device restart; the manager UI must remain available so it can
+                // explain that state instead of touching old hooked processes before the first frame.
                 if (session != null && status.outdated) {
-                    moduleRuntime.applyUpdate(::refresh)
+                    Log.i(TAG, "Older hook generation is still running; waiting for user action or reboot")
                 }
             }
         }

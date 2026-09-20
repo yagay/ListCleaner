@@ -203,7 +203,7 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                         BuildConfig.VERSION_CODE.toLong()
                     )
                 }
-                check(incompatible.isEmpty()) {
+                if (incompatible.isNotEmpty()) {
                     val details = incompatible.joinToString { target ->
                         "${target.processName} ${target.state.name}/v${target.loadedVersionCode}"
                     }
@@ -211,7 +211,16 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                         if (canPauseTargets) R.string.runtime_incompatible_pause_pending
                         else R.string.runtime_incompatible_paused
                     )
-                    getString(R.string.runtime_incompatible_targets, details, suffix)
+                    return@withLock publishFor(
+                        session,
+                        RuntimeStatus(
+                            message = getString(
+                                R.string.runtime_incompatible_targets,
+                                details,
+                                suffix
+                            )
+                        )
+                    )
                 }
                 check(targets.any { it.processName == "system" }) {
                     getString(R.string.runtime_system_target_missing)
