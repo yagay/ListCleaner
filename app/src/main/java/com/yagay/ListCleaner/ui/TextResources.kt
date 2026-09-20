@@ -48,6 +48,7 @@ internal fun IntentKind.titleRes(): Int = when (this) {
     IntentKind.SHARE_MULTIPLE -> R.string.intent_share_multiple
     IntentKind.OPEN -> R.string.intent_open
     IntentKind.BROWSER -> R.string.intent_browser
+    IntentKind.DEEP_LINK -> R.string.intent_deep_link
     IntentKind.PROCESS_TEXT -> R.string.intent_process_text
 }
 
@@ -58,6 +59,7 @@ internal fun VisibilityScope.titleRes(): Int = when (this) {
     VisibilityScope.SHARE_MULTIPLE -> R.string.intent_share_multiple
     VisibilityScope.OPEN -> R.string.intent_open
     VisibilityScope.BROWSER -> R.string.intent_browser
+    VisibilityScope.DEEP_LINK -> R.string.intent_deep_link
     VisibilityScope.PROCESS_TEXT -> R.string.intent_process_text
 }
 
