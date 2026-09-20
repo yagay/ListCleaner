@@ -245,6 +245,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     IntentKind.DEEP_LINK -> BrowserHostFilterMenu(
                                         selected = browserHost,
                                         config = state.browserLinks,
+                                        availableHosts = state.browserAvailableHosts,
                                         onSelected = { browserHost = it },
                                         onManage = { showBrowserHosts = true }
                                     )
