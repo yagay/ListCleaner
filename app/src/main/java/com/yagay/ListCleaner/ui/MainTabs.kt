@@ -115,12 +115,20 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
     val lockFilteredGroups = if (state.uiFilter == UiFilter.LOCKED) {
         bulkLockRevision
         baseShownGroups.filter { group ->
-            vm.ruleBulkLockState(
-                state.filter,
-                openPreset,
-                group.packageName,
-                lockRulesByPackage[group.packageName].orEmpty()
-            ) != BulkLockState.NONE
+            if (browserScoped) {
+                vm.bulkLockState(
+                    lockScope,
+                    group.packageName,
+                    lockRulesByPackage[group.packageName].orEmpty().map { it.id }
+                ) != BulkLockState.NONE
+            } else {
+                vm.ruleBulkLockState(
+                    state.filter,
+                    openPreset,
+                    group.packageName,
+                    lockRulesByPackage[group.packageName].orEmpty()
+                ) != BulkLockState.NONE
+            }
         }
     } else {
         baseShownGroups
