@@ -12,4 +12,6 @@
     <string name="rules_browser_dedicated">%1$s 专用规则</string>
     <string name="priority_browser_source_inherited">当前排序来源：继承“深度链接 · 全部”</string>
     <string name="priority_browser_inheritance_help">没有专用排序时直接继承“深度链接 · 全部”；第一次在当前域名里勾选、取消、拖动或上下移动，会以继承顺序为基础创建专用排序。恢复继承后会重新跟随“深度链接 · 全部”的后续变化。</string>
+    <string name="browser_domain_search">搜索域名</string>
+    <string name="browser_domain_search_empty">没有匹配的域名</string>
 </resources>
