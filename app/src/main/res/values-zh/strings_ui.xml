@@ -10,6 +10,7 @@
     <string name="compact_filter_format">%1$s：%2$s</string>
     <string name="selection_actions">选择</string>
     <string name="select_all">全选</string>
+    <string name="select_none">全不选</string>
     <string name="invert_selection">反选</string>
 
     <string name="module_lsposed_disconnected">LSPosed 未连接</string>
