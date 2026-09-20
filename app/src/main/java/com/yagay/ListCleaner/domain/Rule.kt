@@ -11,6 +11,7 @@ enum class IntentKind(val action: String) {
     SHARE_MULTIPLE(Intent.ACTION_SEND_MULTIPLE),
     OPEN(Intent.ACTION_VIEW),
     BROWSER(Intent.ACTION_VIEW),
+    DEEP_LINK(Intent.ACTION_VIEW),
     PROCESS_TEXT(Intent.ACTION_PROCESS_TEXT)
 }
 
