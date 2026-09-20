@@ -1,5 +1,6 @@
 package com.yagay.ListCleaner.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
@@ -120,28 +121,35 @@ fun BrowserHostFilterMenu(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
-                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 26.dp) {
-                    visibleHosts.forEach { host ->
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    host,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            },
-                            modifier = Modifier.heightIn(min = 26.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                            leadingIcon = {
-                                if (selected == host) {
-                                    Icon(Icons.Rounded.Check, null, Modifier.size(16.dp))
-                                }
-                            },
-                            onClick = {
+                visibleHosts.forEach { host ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(28.dp)
+                            .clickable {
                                 hostQuery = ""
                                 expanded = false
                                 onSelected(host)
                             }
+                            .padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier.width(24.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            if (selected == host) {
+                                Icon(
+                                    Icons.Rounded.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            host,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
