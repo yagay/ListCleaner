@@ -39,7 +39,7 @@
     <string name="intent_share">分享</string>
     <string name="intent_share_multiple">多文件分享</string>
     <string name="intent_open">打开方式</string>
-    <string name="intent_browser">深度链接</string>
+    <string name="intent_browser">浏览器</string>
     <string name="intent_process_text">文本处理</string>
 
     <string name="display_hide_selected">隐藏选中</string>
