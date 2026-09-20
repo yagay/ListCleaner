@@ -20,6 +20,7 @@ data class ModuleConfig(
     /** Source-compatibility only. Never serialized or consumed by current runtime behavior. */
     @Transient val defaultOpen: DefaultOpenConfig = DefaultOpenConfig(),
     val openTypes: OpenTypeConfig = OpenTypeConfig(),
+    val browserLinks: BrowserLinkConfig = BrowserLinkConfig(),
     /** Empty by default. Only explicitly selected categories contribute fully-selected package targets. */
     val visibilityCompat: VisibilityCompatConfig = VisibilityCompatConfig()
 ) {
@@ -29,6 +30,7 @@ data class ModuleConfig(
         require(managerAppId == -1 || ManagerIdentity.valid(managerAppId))
         require(hiddenFromApps.size <= 2_000 && hiddenFromApps.all(PackageIdentity::valid))
         openTypes.validated()
+        browserLinks.validated()
         visibilityCompat.validated()
         return this
     }
