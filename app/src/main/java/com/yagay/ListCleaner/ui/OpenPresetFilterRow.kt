@@ -1,63 +1,92 @@
 package com.yagay.ListCleaner.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.OpenTypeConfig
 
-/** Secondary OPEN-type tabs using the same visual language as the primary IntentKind tabs. */
+/** Compact OPEN-type selector shown inside the shared top filter row. */
 @Composable
-fun OpenPresetFilterRow(
+fun OpenPresetFilterMenu(
     selected: OpenPreset?,
     config: OpenTypeConfig,
     onSelected: (OpenPreset?) -> Unit,
-    onManageCustom: () -> Unit,
-    modifier: Modifier = Modifier
+    onManageCustom: () -> Unit
 ) {
-    val presets = config.configuredPresets()
-    LazyRow(modifier, contentPadding = PaddingValues(horizontal = 12.dp)) {
-        item("all") {
-            OpenPresetTab(stringResource(R.string.common_all), selected == null) { onSelected(null) }
-        }
-        items(presets, key = { it.name }) { preset ->
-            OpenPresetTab(config.localizedTitle(preset), selected == preset) { onSelected(preset) }
-        }
-        item("manage-custom") {
-            OpenPresetTab(stringResource(R.string.open_manage_custom), false, onManageCustom)
-        }
-    }
-}
+    var expanded by remember { mutableStateOf(false) }
+    val selectedTitle = selected?.let(config::localizedTitle) ?: stringResource(R.string.common_all)
 
-@Composable
-private fun OpenPresetTab(title: String, selected: Boolean, onClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        TextButton(onClick = onClick) {
+    Box {
+        TextButton(
+            onClick = { expanded = true },
+            contentPadding = PaddingValues(horizontal = 6.dp)
+        ) {
             Text(
-                title,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                stringResource(
+                    R.string.compact_filter_format,
+                    stringResource(R.string.open_type_filter),
+                    selectedTitle
+                ),
+                modifier = Modifier.widthIn(max = 150.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Icon(Icons.Rounded.ExpandMore, null)
+        }
+
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.common_all)) },
+                leadingIcon = { if (selected == null) Icon(Icons.Rounded.Check, null) },
+                onClick = {
+                    expanded = false
+                    onSelected(null)
+                }
+            )
+            config.configuredPresets().forEach { preset ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            config.localizedTitle(preset),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    leadingIcon = { if (selected == preset) Icon(Icons.Rounded.Check, null) },
+                    onClick = {
+                        expanded = false
+                        onSelected(preset)
+                    }
+                )
+            }
+            HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.open_manage_custom)) },
+                onClick = {
+                    expanded = false
+                    onManageCustom()
+                }
             )
         }
-        Box(
-            Modifier.height(2.dp).width(24.dp)
-                .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
-        )
     }
 }
