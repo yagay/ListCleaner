@@ -26,12 +26,37 @@ data class ModuleConfig(
 ) {
     fun validated(): ModuleConfig {
         require(rules.size <= 20_000 && rules.all(ComponentRule::isValid))
-        priorities.validated()
+        val cleanPriorities = priorities.validated()
         require(managerAppId == -1 || ManagerIdentity.valid(managerAppId))
         require(hiddenFromApps.size <= 2_000 && hiddenFromApps.all(PackageIdentity::valid))
-        openTypes.validated()
-        browserLinks.validated()
-        visibilityCompat.validated()
-        return this
+
+        val legacyDomainIds = browserLinks.rules.values.flatten().mapNotNull { id ->
+            val parsed = ComponentRule.fromId(id) ?: return@mapNotNull null
+            if (parsed.kind == IntentKind.BROWSER) parsed.id to parsed.copy(kind = IntentKind.DEEP_LINK).id
+            else null
+        }.toMap()
+        val migratedTitles = cleanPriorities.titles.toMutableMap()
+        legacyDomainIds.forEach { (oldId, newId) ->
+            migratedTitles[oldId]?.let { title ->
+                if (newId !in migratedTitles) migratedTitles[newId] = title
+            }
+        }
+        val migratedPriorities = if (migratedTitles == cleanPriorities.titles) cleanPriorities
+        else cleanPriorities.copy(titles = migratedTitles).validated()
+
+        val cleanOpenTypes = openTypes.validated()
+        val cleanBrowserLinks = browserLinks.validated()
+        val cleanVisibilityCompat = visibilityCompat.validated()
+        return if (
+            migratedPriorities == priorities &&
+            cleanOpenTypes == openTypes &&
+            cleanBrowserLinks == browserLinks &&
+            cleanVisibilityCompat == visibilityCompat
+        ) this else copy(
+            priorities = migratedPriorities,
+            openTypes = cleanOpenTypes,
+            browserLinks = cleanBrowserLinks,
+            visibilityCompat = cleanVisibilityCompat
+        )
     }
 }

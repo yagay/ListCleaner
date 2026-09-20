@@ -12,14 +12,15 @@ class BrowserLinkConfigTest {
         assertNull(normalizeBrowserHost("bad host"))
     }
 
-    @Test fun hostRulesRequireBrowserComponents() {
-        val browser = ComponentRule(IntentKind.BROWSER, "com.example", "com.example.Browser")
+    @Test fun oldBrowserDomainRulesMigrateToDeepLinks() {
+        val oldBrowser = ComponentRule(IntentKind.BROWSER, "com.example", "com.example.Target")
+        val deepLink = oldBrowser.copy(kind = IntentKind.DEEP_LINK)
         val config = BrowserLinkConfig(
             hosts = setOf("github.com"),
-            rules = mapOf("github.com" to setOf(browser.id)),
+            rules = mapOf("github.com" to setOf(oldBrowser.id)),
             priorities = mapOf("github.com" to listOf("com.example"))
         ).validated()
-        assertTrue(browser in config.selectedRules("GITHUB.COM"))
+        assertTrue(deepLink in config.selectedRules("GITHUB.COM"))
         assertEquals(listOf("com.example"), config.priority("https://github.com/test"))
     }
 }

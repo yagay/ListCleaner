@@ -28,7 +28,7 @@ check(signingValues.all { it == null } || hasReleaseSigning) {
 // Hook compatibility is intentionally independent from the APK release version.
 // Keep this value unchanged for UI/resources/manager-only releases. Bump it to the
 // current versionCode only when xposed/** or a contract used by hooked processes changes.
-val hookCompatVersionCode = 38
+val hookCompatVersionCode = 39
 
 android {
     namespace = "com.yagay.ListCleaner"
@@ -40,8 +40,8 @@ android {
         applicationId = "com.yagay.ListCleaner"
         minSdk = 31
         targetSdk = 37
-        versionCode = 38
-        versionName = "1.6.13"
+        versionCode = 39
+        versionName = "1.6.14"
         buildConfigField("long", "HOOK_COMPAT_VERSION_CODE", "${hookCompatVersionCode}L")
     }
     buildFeatures { compose = true; buildConfig = true }

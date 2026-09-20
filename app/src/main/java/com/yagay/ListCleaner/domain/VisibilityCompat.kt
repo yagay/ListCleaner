@@ -10,6 +10,7 @@ enum class VisibilityScope {
     SHARE_MULTIPLE,
     OPEN,
     BROWSER,
+    DEEP_LINK,
     PROCESS_TEXT;
 
     fun matches(kind: IntentKind): Boolean = this == ALL || name == kind.name
