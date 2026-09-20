@@ -21,6 +21,7 @@ import com.yagay.ListCleaner.domain.CustomOpenDefinition
 import com.yagay.ListCleaner.domain.intentKind
 import com.yagay.ListCleaner.domain.FilterPolicy
 import com.yagay.ListCleaner.domain.normalizeBrowserHost
+import com.yagay.ListCleaner.domain.webTargetKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -179,12 +180,13 @@ class IntentCatalog(private val context: Context) {
 
     @Suppress("DEPRECATION")
     private fun query(probe: Probe, discovery: Boolean = true): QueryResult {
-        val kind = probe.intent.intentKind() ?: return QueryResult(emptyList(), 0)
-        val flags = queryFlags(kind, discovery)
+        val intentKind = probe.intent.intentKind() ?: return QueryResult(emptyList(), 0)
+        val flags = queryFlags(intentKind, discovery)
         check(flags and (PackageManager.MATCH_DISABLED_COMPONENTS or PackageManager.MATCH_DISABLED_UNTIL_USED_COMPONENTS) == 0)
         val raw = context.packageManager.queryIntentActivities(probe.intent, flags)
         val candidates = raw.mapNotNull { info ->
             val activity = info.activityInfo ?: return@mapNotNull null
+            val kind = if (intentKind == IntentKind.BROWSER) info.webTargetKind() else intentKind
             val canonicalClass = ComponentIdentity.canonicalClassName(activity.packageName, activity.name, activity.targetActivity)
             val rule = ComponentRule(kind, activity.packageName, canonicalClass)
             if (!rule.isValid()) return@mapNotNull null
@@ -217,7 +219,7 @@ class IntentCatalog(private val context: Context) {
                 evidence = listOf(probe.label + " flags=0x${flags.toString(16)}") + facts,
                 restricted = restricted,
                 broadMatch = probe.broad,
-                browserHosts = if (kind == IntentKind.BROWSER) {
+                browserHosts = if (kind == IntentKind.DEEP_LINK) {
                     setOfNotNull(normalizeBrowserHost(probe.intent.data?.host))
                 } else emptySet()
             )
@@ -330,7 +332,8 @@ class IntentCatalog(private val context: Context) {
     companion object {
         fun queryFlags(kind: IntentKind, discovery: Boolean): Int =
             (if (discovery) PackageManager.MATCH_ALL else 0) or
-                (if (kind == IntentKind.PROCESS_TEXT) 0 else PackageManager.MATCH_DEFAULT_ONLY)
+                (if (kind == IntentKind.PROCESS_TEXT) 0 else PackageManager.MATCH_DEFAULT_ONLY) or
+                (if (kind == IntentKind.BROWSER || kind == IntentKind.DEEP_LINK) PackageManager.GET_RESOLVED_FILTER else 0)
 
         fun merge(items: List<ComponentCandidate>): List<ComponentCandidate> =
             items.groupBy { it.rule.id }.values.map { matches ->
