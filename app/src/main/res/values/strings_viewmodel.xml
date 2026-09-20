@@ -22,6 +22,10 @@
     <string name="diagnostic_export_failed">Export failed: %1$s; the destination file may be incomplete. Export again.</string>
     <string name="scan_failed">Scan failed</string>
 
+    <string name="restart_required_title">Restart required</string>
+    <string name="restart_required_message">An older List Cleaner hook is still running in system processes. The app can stay open and local rules can still be managed, but the new hook behavior will not be fully active until you fully restart the phone.</string>
+    <string name="restart_required_open_status">Module status</string>
+
     <string name="update_detecting_targets">Checking running targets…</string>
     <string name="update_lsposed_disconnected">LSPosed is not connected</string>
     <string name="update_target_reloading">%1$s: the framework is reloading; check again shortly</string>
