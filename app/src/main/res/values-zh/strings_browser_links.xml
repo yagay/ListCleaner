@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="browser_hosts_manage">+ 域名</string>
+    <string name="browser_domain_filter">域名</string>\n    <string name="browser_hosts_manage">+ 域名</string>
     <string name="browser_hosts_title">浏览器域名规则</string>
     <string name="browser_hosts_help">可添加 github.com 这类域名。每个域名先继承“浏览器 · 全部”的规则，再单独增加隐藏应用和排序。删除域名时也会删除该域名的专用规则和排序。</string>
     <string name="browser_host_input">域名</string>

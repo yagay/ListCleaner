@@ -155,6 +155,23 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                         vm::setUiFilter,
                         appTypeFilter = appTypeFilter,
                         onAppTypeFilter = { appTypeFilter = it },
+                        extraFilter = {
+                            when (state.filter) {
+                                IntentKind.OPEN -> OpenPresetFilterMenu(
+                                    selected = openPreset,
+                                    config = state.openTypesExplicit,
+                                    onSelected = { openPreset = it },
+                                    onManageCustom = { showCustomTypes = true }
+                                )
+                                IntentKind.BROWSER -> BrowserHostFilterMenu(
+                                    selected = browserHost,
+                                    config = state.browserLinks,
+                                    onSelected = { browserHost = it },
+                                    onManage = { showBrowserHosts = true }
+                                )
+                                else -> Unit
+                            }
+                        },
                         onSelectAll = {
                             when {
                                 openPreset != null && state.filter == IntentKind.OPEN ->
@@ -174,22 +191,6 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                             }
                         }
                     )
-                    if (state.filter == IntentKind.OPEN) {
-                        OpenPresetFilterRow(
-                            selected = openPreset,
-                            config = state.openTypesExplicit,
-                            onSelected = { openPreset = it },
-                            onManageCustom = { showCustomTypes = true }
-                        )
-                    }
-                    if (state.filter == IntentKind.BROWSER) {
-                        BrowserHostFilterRow(
-                            selected = browserHost,
-                            config = state.browserLinks,
-                            onSelected = { browserHost = it },
-                            onManage = { showBrowserHosts = true }
-                        )
-                    }
                 }
             }
         }

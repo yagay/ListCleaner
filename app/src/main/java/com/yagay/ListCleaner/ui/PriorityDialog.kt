@@ -234,6 +234,23 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     }
                                 )
                             },
+                            extraFilter = {
+                                when (kind) {
+                                    IntentKind.OPEN -> OpenPresetFilterMenu(
+                                        selected = openPreset,
+                                        config = state.openTypesExplicit,
+                                        onSelected = { openPreset = it },
+                                        onManageCustom = { showCustomTypes = true }
+                                    )
+                                    IntentKind.BROWSER -> BrowserHostFilterMenu(
+                                        selected = browserHost,
+                                        config = state.browserLinks,
+                                        onSelected = { browserHost = it },
+                                        onManage = { showBrowserHosts = true }
+                                    )
+                                    else -> Unit
+                                }
+                            },
                             onSelectAll = {
                                 when {
                                     kind == IntentKind.OPEN && openPreset != null ->
@@ -253,22 +270,6 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 }
                             }
                         )
-                        if (kind == IntentKind.OPEN) {
-                            OpenPresetFilterRow(
-                                selected = openPreset,
-                                config = state.openTypesExplicit,
-                                onSelected = { openPreset = it },
-                                onManageCustom = { showCustomTypes = true }
-                            )
-                        }
-                        if (kind == IntentKind.BROWSER) {
-                            BrowserHostFilterRow(
-                                selected = browserHost,
-                                config = state.browserLinks,
-                                onSelected = { browserHost = it },
-                                onManage = { showBrowserHosts = true }
-                            )
-                        }
                     }
                 }
             }

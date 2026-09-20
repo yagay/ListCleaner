@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="open_manage_custom">+ Custom</string>
+    <string name="open_type_filter">Type</string>\n    <string name="open_manage_custom">+ Custom</string>
     <string name="custom_open_title">Custom open types</string>
     <string name="custom_open_help">Up to 8 custom types are supported. Each type can be identified by MIME type and file extension and has its own rules and ordering. If no dedicated rule or ordering is configured, it inherits from Open · All. Deleting a type also removes its dedicated rules and ordering.</string>
     <string name="custom_open_not_configured">Not configured</string>

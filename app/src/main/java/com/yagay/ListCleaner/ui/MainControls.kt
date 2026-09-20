@@ -142,11 +142,13 @@ internal fun ListControls(
     onAppTypeFilter: (AppTypeFilter) -> Unit = {},
     includeAllKinds: Boolean = true,
     viewTitle: @Composable (UiFilter) -> String = { stringResource(it.titleRes()) },
+    extraFilter: (@Composable () -> Unit)? = null,
     onSelectAll: (() -> Unit)? = null,
     onInvert: (() -> Unit)? = null
 ) {
     var menu by remember { mutableStateOf(false) }
     var appTypeMenu by remember { mutableStateOf(false) }
+    var selectionMenu by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
         LazyRow(contentPadding = PaddingValues(horizontal = 12.dp)) {
             items((if (includeAllKinds) listOf<IntentKind?>(null) else emptyList()) + IntentKind.entries) { kind ->
@@ -218,14 +220,39 @@ internal fun ListControls(
                     }
                 }
             }
-            onSelectAll?.let { action ->
-                TextButton(onClick = action, contentPadding = PaddingValues(horizontal = 6.dp)) {
-                    Text(stringResource(R.string.select_all))
-                }
-            }
-            onInvert?.let { action ->
-                TextButton(onClick = action, contentPadding = PaddingValues(horizontal = 6.dp)) {
-                    Text(stringResource(R.string.invert_selection))
+            extraFilter?.invoke()
+            if (onSelectAll != null || onInvert != null) {
+                Box {
+                    TextButton(
+                        onClick = { selectionMenu = true },
+                        contentPadding = PaddingValues(horizontal = 6.dp)
+                    ) {
+                        Text(stringResource(R.string.common_more))
+                        Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
+                    }
+                    DropdownMenu(
+                        expanded = selectionMenu,
+                        onDismissRequest = { selectionMenu = false }
+                    ) {
+                        onSelectAll?.let { action ->
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.select_all)) },
+                                onClick = {
+                                    selectionMenu = false
+                                    action()
+                                }
+                            )
+                        }
+                        onInvert?.let { action ->
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.invert_selection)) },
+                                onClick = {
+                                    selectionMenu = false
+                                    action()
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
