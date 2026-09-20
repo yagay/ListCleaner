@@ -81,7 +81,7 @@ data class RuleBackup(
     /** Source-compatibility only. Not written to new backups. */
     @Transient val defaultOpen: DefaultOpenConfig = DefaultOpenConfig(),
     val openTypes: OpenTypeConfig = OpenTypeConfig(),
-    val browserLinks: BrowserLinkConfig = BrowserLinkConfig(),
     /** User choice only; derived full-package targets are rebuilt from current catalog/rules. */
-    val visibilityScopes: Set<VisibilityScope> = emptySet()
+    val visibilityScopes: Set<VisibilityScope> = emptySet(),
+    val browserLinks: BrowserLinkConfig = BrowserLinkConfig()
 )
