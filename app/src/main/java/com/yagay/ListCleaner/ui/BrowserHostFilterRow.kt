@@ -90,7 +90,7 @@ fun BrowserHostDialog(
                         modifier = Modifier.weight(1f),
                         singleLine = true,
                         label = { Text(stringResource(R.string.browser_host_input)) },
-                        placeholder = { Text("github.com") },
+                        placeholder = { Text(stringResource(R.string.browser_host_example)) },
                         isError = input.isNotBlank() && normalized == null
                     )
                     Spacer(Modifier.width(8.dp))
