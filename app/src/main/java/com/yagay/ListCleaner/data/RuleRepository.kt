@@ -194,7 +194,7 @@ class RuleRepository(context: Context) {
     @Synchronized fun setBrowserHostSelected(host: String, rules: Collection<ComponentRule>, selected: Boolean) {
         val normalized = requireNotNull(normalizeBrowserHost(host)) { "invalid_browser_host" }
         require(normalized in mutableBrowserLinks.value.hosts) { "browser_host_not_configured" }
-        val ids = rules.filter { it.kind == IntentKind.BROWSER && it.isValid() }
+        val ids = rules.filter { it.kind == IntentKind.DEEP_LINK && it.isValid() }
             .map { requireNotNull(ComponentRule.fromId(it.id)).id }.toSet()
         if (ids.isEmpty()) return
         val map = mutableBrowserLinks.value.rules.toMutableMap()
@@ -207,14 +207,14 @@ class RuleRepository(context: Context) {
 
     @Synchronized fun toggleBrowserHost(host: String, rule: ComponentRule) {
         val normalized = requireNotNull(normalizeBrowserHost(host)) { "invalid_browser_host" }
-        require(rule.kind == IntentKind.BROWSER && rule.isValid())
+        require(rule.kind == IntentKind.DEEP_LINK && rule.isValid())
         setBrowserHostSelected(normalized, listOf(rule), rule.id !in mutableBrowserLinks.value.rules[normalized].orEmpty())
     }
 
     @Synchronized fun invertBrowserHostSelected(host: String, rules: Collection<ComponentRule>) {
         val normalized = requireNotNull(normalizeBrowserHost(host)) { "invalid_browser_host" }
         require(normalized in mutableBrowserLinks.value.hosts) { "browser_host_not_configured" }
-        val valid = rules.filter { it.kind == IntentKind.BROWSER && it.isValid() }
+        val valid = rules.filter { it.kind == IntentKind.DEEP_LINK && it.isValid() }
             .map { requireNotNull(ComponentRule.fromId(it.id)).id }.distinct()
         if (valid.isEmpty()) return
         val map = mutableBrowserLinks.value.rules.toMutableMap()
@@ -329,7 +329,7 @@ class RuleRepository(context: Context) {
     @Synchronized fun exportJson(): String = json.encodeToString(
         RuleBackup.serializer(),
         RuleBackup(
-            version = 10,
+            version = 11,
             blacklist = mutableMode.value != DisplayMode.SHOW_SELECTED,
             rules = mutableRules.value,
             priorities = mutablePriorities.value,
@@ -344,7 +344,7 @@ class RuleRepository(context: Context) {
     @Synchronized fun importJson(content: String) {
         require(content.length <= MAX_BACKUP_CHARS) { appContext.getString(R.string.repo_backup_too_large) }
         val backup = json.decodeFromString(RuleBackup.serializer(), content)
-        require(backup.version in 1..10) {
+        require(backup.version in 1..11) {
             appContext.getString(R.string.repo_backup_unsupported_version, backup.version)
         }
         val displayMode = if (backup.version >= 3) requireNotNull(backup.displayMode) {
