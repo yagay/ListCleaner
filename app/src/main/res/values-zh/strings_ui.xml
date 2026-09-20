@@ -8,6 +8,7 @@
     <string name="view_filter">查看</string>
     <string name="app_type_filter">应用</string>
     <string name="compact_filter_format">%1$s：%2$s</string>
+    <string name="selection_actions">选择</string>
     <string name="select_all">全选</string>
     <string name="invert_selection">反选</string>
 
