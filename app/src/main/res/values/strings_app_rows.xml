@@ -5,4 +5,5 @@
     <string name="component_unavailable">Component not currently found · rule can be removed</string>
     <string name="component_restricted">Non-public component · existing rule can be removed</string>
     <string name="app_icon_description">%1$s icon</string>
+    <string name="component_kind_deep_link">Deep link</string>
 </resources>
