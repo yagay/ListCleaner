@@ -13,8 +13,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.yagay.ListCleaner.R
@@ -32,6 +35,12 @@ fun BrowserHostFilterMenu(
 ) {
     var expanded by remember { mutableStateOf(false) }
     var hostQuery by remember { mutableStateOf("") }
+    var anchorWidthPx by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
+    val menuWidth = 296.dp
+    val menuHorizontalOffset = with(density) {
+        ((anchorWidthPx.toDp() - menuWidth) / 2)
+    }
     val menuScroll = rememberScrollState()
     val selectedTitle = selected ?: stringResource(R.string.common_all)
     val visibleHosts = remember(availableHosts, hostQuery) {
@@ -45,6 +54,7 @@ fun BrowserHostFilterMenu(
     Box {
         TextButton(
             onClick = { expanded = true },
+            modifier = Modifier.onSizeChanged { anchorWidthPx = it.width },
             contentPadding = PaddingValues(horizontal = 6.dp)
         ) {
             Text(
@@ -62,7 +72,10 @@ fun BrowserHostFilterMenu(
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { hostQuery = ""; expanded = false },
-            modifier = Modifier.heightIn(max = 420.dp),
+            modifier = Modifier
+                .width(menuWidth)
+                .heightIn(max = 420.dp),
+            offset = DpOffset(menuHorizontalOffset, 0.dp),
             scrollState = menuScroll
         ) {
             DropdownMenuItem(
