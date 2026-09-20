@@ -826,47 +826,67 @@ class ListCleanerModule : XposedModule() {
         fileNameOrPath: String?,
         browserHost: String?
     ): List<*>? {
-        if (values.isEmpty()) { diagnostic("SKIP $layer $kind empty_input"); return null }
+        if (values.isEmpty()) {
+            diagnostic("SKIP $layer $kind empty_input")
+            return null
+        }
         val current = snapshot
         if (current.displayMode == DisplayMode.SHOW_ALL) {
             diagnostic("NO_CHANGE $layer $kind size=${values.size} reason=show_all")
             return null
         }
+
         var changed = false
+        var anySelection = false
         val preset = matchOpenPreset(kind, mimeType, scheme, fileNameOrPath)
-        val typedIds = if (kind == IntentKind.OPEN && preset != null) current.openTypes.rules[preset].orEmpty() else emptySet()
+        val typedIds = if (kind == IntentKind.OPEN && preset != null) {
+            current.openTypes.rules[preset].orEmpty()
+        } else emptySet()
         val normalizedHost = if (kind == IntentKind.BROWSER) normalizeBrowserHost(browserHost) else null
-        val browserIds = normalizedHost?.let { current.browserLinks.rules[it].orEmpty() }.orEmpty()
-        val hasSelection = current.hasSelection(kind) || typedIds.isNotEmpty() || browserIds.isNotEmpty()
-        val filtered = if (!hasSelection && current.displayMode != DisplayMode.SHOW_SELECTED) {
-            values
-        } else {
-            values.filter { value ->
-                val info = value as? ResolveInfo ?: return@filter true
-                val activity = info.activityInfo ?: return@filter true
-                if (FilterPolicy.sameCaller(callerUid, activity.applicationInfo?.uid ?: -1)) {
-                    diagnostic("KEEP_SAME_APP $layer $kind ${activity.packageName}/${activity.name} callerUid=$callerUid", detail = true)
-                    return@filter true
-                }
-                val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
-                    activity.packageName, activity.name, activity.targetActivity
-                )
-                val candidateId = "${kind.name}|${activity.packageName}|$canonicalClass"
-                val selected = candidateId in current.configured || candidateId in typedIds || candidateId in browserIds
+        val deepLinkIds = normalizedHost?.let { current.browserLinks.rules[it].orEmpty() }.orEmpty()
+
+        val filtered = values.filter { value ->
+            val info = value as? ResolveInfo ?: return@filter true
+            val activity = info.activityInfo ?: return@filter true
+            val effectiveKind = candidateKind(kind, info)
+            if (FilterPolicy.sameCaller(callerUid, activity.applicationInfo?.uid ?: -1)) {
                 diagnostic(
-                    "CANDIDATE $layer $kind preset=$preset host=$normalizedHost ${activity.packageName}/${activity.name} target=${activity.targetActivity} canonical=$canonicalClass selected=$selected match=${if (selected) "component" else "none"}",
+                    "KEEP_SAME_APP $layer $effectiveKind ${activity.packageName}/${activity.name} callerUid=$callerUid",
                     detail = true
                 )
-                current.displayMode.includes(selected, hasSelection).also {
-                    if (!it) changed = true
-                }
+                return@filter true
+            }
+
+            val scopedTypedIds = if (effectiveKind == IntentKind.OPEN) typedIds else emptySet()
+            val scopedDeepIds = if (effectiveKind == IntentKind.DEEP_LINK) deepLinkIds else emptySet()
+            val hasSelection = current.hasSelection(effectiveKind) ||
+                scopedTypedIds.isNotEmpty() || scopedDeepIds.isNotEmpty()
+            anySelection = anySelection || hasSelection
+            if (!hasSelection && current.displayMode != DisplayMode.SHOW_SELECTED) return@filter true
+
+            val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
+                activity.packageName, activity.name, activity.targetActivity
+            )
+            val candidateId = "${effectiveKind.name}|${activity.packageName}|$canonicalClass"
+            val selected = candidateId in current.configured ||
+                candidateId in scopedTypedIds || candidateId in scopedDeepIds
+            diagnostic(
+                "CANDIDATE $layer $effectiveKind preset=$preset host=$normalizedHost " +
+                    "${activity.packageName}/${activity.name} target=${activity.targetActivity} " +
+                    "canonical=$canonicalClass selected=$selected",
+                detail = true
+            )
+            current.displayMode.includes(selected, hasSelection).also {
+                if (!it) changed = true
             }
         }
+
         if (FilterPolicy.restoreEmpty(kind.name, values.size, filtered.size)) {
             diagnostic("RESTORE_ALL $layer $kind before=${values.size} filtered=0")
             Log.w(TAG, "Refusing to empty $kind resolver; keeping Android result")
             return null
         }
+
         val ordered = if (kind == IntentKind.PROCESS_TEXT) runCatching {
             orderItems(filtered, kind, current, "text_query", preset = preset, browserHost = normalizedHost)
         }.getOrElse {
@@ -874,29 +894,37 @@ class ListCleanerModule : XposedModule() {
             filtered
         } else filtered
         if (ordered !== filtered) changed = true
-        val (titled, titleCount) = runCatching { applyCustomTitles(kind, ordered, current) }.getOrElse { failure ->
+
+        val (titled, titleCount) = runCatching {
+            applyCustomTitles(kind, ordered, current)
+        }.getOrElse { failure ->
             diagnostic("TITLE_FAILED kind=$kind error=${failure.javaClass.name}")
             ordered to 0
         }
         if (titleCount > 0) changed = true
         if (!changed) {
-            diagnostic("NO_CHANGE $layer $kind size=${values.size} hasSelection=$hasSelection preset=$preset")
+            diagnostic("NO_CHANGE $layer $kind size=${values.size} hasSelection=$anySelection preset=$preset")
             return null
         }
         diagnostic("$layer $kind preset=$preset: ${values.size} -> ${titled.size}")
         return titled
     }
 
-    private fun applyCustomTitles(kind: IntentKind, values: List<*>, current: RuleSnapshot): Pair<List<*>, Int> {
+    private fun applyCustomTitles(
+        kind: IntentKind,
+        values: List<*>,
+        current: RuleSnapshot
+    ): Pair<List<*>, Int> {
         if (current.priorities.titles.isEmpty()) return values to 0
         var replaced = 0
         val result = values.map { value ->
             val info = value as? ResolveInfo ?: return@map value
             val activity = info.activityInfo ?: return@map value
+            val effectiveKind = candidateKind(kind, info)
             val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
                 activity.packageName, activity.name, activity.targetActivity
             )
-            val key = "${kind.name}|${activity.packageName}|$canonicalClass"
+            val key = "${effectiveKind.name}|${activity.packageName}|$canonicalClass"
             val title = current.priorities.titles[key] ?: return@map value
             replaced++
             ResolveInfo(info).apply { nonLocalizedLabel = title }
