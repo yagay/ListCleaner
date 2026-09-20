@@ -144,6 +144,7 @@ internal fun ListControls(
     viewTitle: @Composable (UiFilter) -> String = { stringResource(it.titleRes()) },
     extraFilter: (@Composable () -> Unit)? = null,
     onSelectAll: (() -> Unit)? = null,
+    onSelectNone: (() -> Unit)? = null,
     onInvert: (() -> Unit)? = null
 ) {
     var menu by remember { mutableStateOf(false) }
@@ -221,7 +222,7 @@ internal fun ListControls(
                 }
             }
             extraFilter?.invoke()
-            if (onSelectAll != null || onInvert != null) {
+            if (onSelectAll != null || onSelectNone != null || onInvert != null) {
                 Box {
                     TextButton(
                         onClick = { selectionMenu = true },
@@ -237,6 +238,15 @@ internal fun ListControls(
                         onSelectAll?.let { action ->
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.select_all)) },
+                                onClick = {
+                                    selectionMenu = false
+                                    action()
+                                }
+                            )
+                        }
+                        onSelectNone?.let { action ->
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.select_none)) },
                                 onClick = {
                                     selectionMenu = false
                                     action()
