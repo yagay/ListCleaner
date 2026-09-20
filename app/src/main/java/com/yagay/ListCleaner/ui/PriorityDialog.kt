@@ -41,6 +41,7 @@ import com.yagay.ListCleaner.domain.AppTypeFilter
 import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.PriorityListFilter
 import com.yagay.ListCleaner.domain.matchesOpenPreset
+import com.yagay.ListCleaner.domain.matchesBrowserHost
 import com.yagay.ListCleaner.domain.priorityAppGroups
 import com.yagay.ListCleaner.domain.priorityCandidates
 import kotlin.math.roundToInt
@@ -50,6 +51,7 @@ import kotlin.math.roundToInt
 fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     var editingTitle by remember { mutableStateOf<ComponentCandidate?>(null) }
     var showCustomTypes by rememberSaveable { mutableStateOf(false) }
+    var showBrowserHosts by rememberSaveable { mutableStateOf(false) }
     editingTitle?.let { item ->
         ComponentTitleDialog(
             item,
@@ -65,35 +67,63 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
             onDismiss = { showCustomTypes = false }
         )
     }
+    if (showBrowserHosts) {
+        BrowserHostDialog(
+            config = state.browserLinks,
+            onSave = vm::setBrowserHosts,
+            onDismiss = { showBrowserHosts = false }
+        )
+    }
 
     var kind by rememberSaveable { mutableStateOf(state.filter ?: IntentKind.SHARE) }
     var openPreset by rememberSaveable { mutableStateOf<OpenPreset?>(null) }
+    var browserHost by rememberSaveable { mutableStateOf<String?>(null) }
     var viewFilter by rememberSaveable { mutableStateOf(UiFilter.ALL) }
     var appTypeFilter by rememberSaveable { mutableStateOf(AppTypeFilter.ALL) }
     val bulkLockRevision by vm.bulkLockRevision.collectAsState()
     var expandedKey by rememberSaveable { mutableStateOf<String?>(null) }
-    LaunchedEffect(kind) { if (kind != IntentKind.OPEN) openPreset = null }
+    LaunchedEffect(kind) {
+        if (kind != IntentKind.OPEN) openPreset = null
+        if (kind != IntentKind.BROWSER) browserHost = null
+    }
     LaunchedEffect(state.openTypesExplicit.customDefinitions, openPreset) {
         if (openPreset?.isCustom == true && openPreset !in state.openTypesExplicit.customDefinitions) openPreset = null
     }
+    LaunchedEffect(state.browserLinks.hosts, browserHost) {
+        if (browserHost != null && browserHost !in state.browserLinks.hosts) browserHost = null
+    }
 
     val typedSelected = openPreset?.let { state.openTypes.selectedRules(it) }.orEmpty()
-    val scopedCandidates = if (kind == IntentKind.OPEN && openPreset != null) {
-        state.candidates.filter { it.matchesOpenPreset(openPreset!!, state.openTypesExplicit.customDefinitions) }
-    } else {
-        state.candidates
+    val explicitBrowserSelected = browserHost?.let { state.browserLinks.selectedRules(it) }.orEmpty()
+    val genericBrowserSelected = state.selected.filterTo(linkedSetOf()) { it.kind == IntentKind.BROWSER }
+    val browserSelected = genericBrowserSelected + explicitBrowserSelected
+    val browserScoped = kind == IntentKind.BROWSER && browserHost != null
+    val scopedCandidates = when {
+        kind == IntentKind.OPEN && openPreset != null ->
+            state.candidates.filter { it.matchesOpenPreset(openPreset!!, state.openTypesExplicit.customDefinitions) }
+        browserScoped -> state.candidates.filter {
+            it.rule.kind == IntentKind.BROWSER &&
+                (it.matchesBrowserHost(browserHost!!) || it.rule in browserSelected)
+        }
+        else -> state.candidates
     }
     val explicitTypedPriority = openPreset?.let { state.openTypesExplicit.priorities[it].orEmpty() }.orEmpty()
     val genericOpenPriority = state.priorities.apps[IntentKind.OPEN].orEmpty()
     val inheritsOpenPriority = kind == IntentKind.OPEN && openPreset != null && explicitTypedPriority.isEmpty() && genericOpenPriority.isNotEmpty()
     val hasExplicitOpenPriority = kind == IntentKind.OPEN && openPreset != null && explicitTypedPriority.isNotEmpty()
-    val rankedRaw = if (kind == IntentKind.OPEN && openPreset != null) {
-        state.openTypes.priorities[openPreset].orEmpty()
-    } else {
-        state.priorities.apps[kind].orEmpty()
+    val explicitBrowserPriority = browserHost?.let { state.browserLinks.priorities[it].orEmpty() }.orEmpty()
+    val genericBrowserPriority = state.priorities.apps[IntentKind.BROWSER].orEmpty()
+    val inheritsBrowserPriority = browserScoped && explicitBrowserPriority.isEmpty() && genericBrowserPriority.isNotEmpty()
+    val hasExplicitBrowserPriority = browserScoped && explicitBrowserPriority.isNotEmpty()
+    val rankedRaw = when {
+        kind == IntentKind.OPEN && openPreset != null -> state.openTypes.priorities[openPreset].orEmpty()
+        browserScoped && explicitBrowserPriority.isNotEmpty() -> explicitBrowserPriority
+        browserScoped -> genericBrowserPriority
+        else -> state.priorities.apps[kind].orEmpty()
     }
-    val lockScope = priorityBulkLockScope(kind, openPreset)
-    val baseGroups = remember(scopedCandidates, state.selected, typedSelected, state.displayMode, kind, openPreset, rankedRaw, state.query, viewFilter, bulkLockRevision) {
+    val lockScope = if (browserScoped) browserPriorityBulkLockScope(browserHost!!) else priorityBulkLockScope(kind, openPreset)
+    val scopedExtraSelected = if (browserScoped) explicitBrowserSelected else typedSelected
+    val baseGroups = remember(scopedCandidates, state.selected, scopedExtraSelected, state.displayMode, kind, openPreset, browserHost, rankedRaw, state.query, viewFilter, bulkLockRevision) {
         priorityAppGroups(
             scopedCandidates,
             state.selected,
@@ -106,7 +136,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                 UiFilter.HIDE_SELECTED -> PriorityListFilter.UNSELECTED
                 UiFilter.SHOW_SELECTED -> PriorityListFilter.SELECTED
             },
-            typedSelected
+            scopedExtraSelected
         )
     }
     val lockFilteredGroups = if (viewFilter == UiFilter.LOCKED) {
@@ -117,7 +147,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     }
     val groups = lockFilteredGroups.filter { appTypeFilter.matches(it.appType) }
     val moveTargets = groups.filter { it.rank != null }.sortedBy { it.rank }.map { it.packageName }
-    val visibleSaved = priorityCandidates(scopedCandidates, state.selected, state.displayMode, kind, typedSelected)
+    val visibleSaved = priorityCandidates(scopedCandidates, state.selected, state.displayMode, kind, scopedExtraSelected)
         .map { it.rule.packageName }.toSet()
     val hiddenSavedCount = rankedRaw.count { it !in visibleSaved }
 
@@ -130,7 +160,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     val density = LocalDensity.current
     val edge = with(density) { 56.dp.toPx() }
     val speed = with(density) { 640.dp.toPx() }
-    LaunchedEffect(kind, openPreset, viewFilter, appTypeFilter, state.query, rankedRaw, moveTargets) { dragState.cancel() }
+    LaunchedEffect(kind, openPreset, browserHost, viewFilter, appTypeFilter, state.query, rankedRaw, moveTargets) { dragState.cancel() }
     DisposableEffect(dragState) { onDispose { dragState.cancel() } }
     LaunchedEffect(drag?.packageName) {
         if (dragState.session != null) {
@@ -150,7 +180,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
-            Modifier.fillMaxSize().pointerInput(kind, openPreset, viewFilter, appTypeFilter, state.query) {
+            Modifier.fillMaxSize().pointerInput(kind, openPreset, browserHost, viewFilter, appTypeFilter, state.query) {
                 detectDragGesturesAfterLongPress(
                     onDragStart = { position ->
                         if (dragState.start(position.y, kind.name, currentVisible, currentSaved)) {
@@ -166,10 +196,12 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                     onDragCancel = { dragState.cancel() },
                     onDragEnd = {
                         dragState.finish()?.let { finished ->
-                            if (kind == IntentKind.OPEN && openPreset != null) {
-                                vm.moveOpenTypePriorityTo(openPreset!!, finished.packageName, finished.target, finished.visible, finished.saved)
-                            } else {
-                                vm.movePriorityTo(kind, finished.packageName, finished.target, finished.visible, finished.saved)
+                            when {
+                                kind == IntentKind.OPEN && openPreset != null ->
+                                    vm.moveOpenTypePriorityTo(openPreset!!, finished.packageName, finished.target, finished.visible, finished.saved)
+                                browserScoped ->
+                                    vm.moveBrowserHostPriorityTo(browserHost!!, finished.packageName, finished.target, finished.visible, finished.saved)
+                                else -> vm.movePriorityTo(kind, finished.packageName, finished.target, finished.visible, finished.saved)
                             }
                         }
                     }
@@ -203,17 +235,21 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 )
                             },
                             onSelectAll = {
-                                if (kind == IntentKind.OPEN && openPreset != null) {
-                                    vm.selectOpenTypePriorityApps(openPreset!!, groups.map { it.packageName }, lockScope)
-                                } else {
-                                    vm.selectPriorityApps(kind, groups.map { it.packageName }, lockScope)
+                                when {
+                                    kind == IntentKind.OPEN && openPreset != null ->
+                                        vm.selectOpenTypePriorityApps(openPreset!!, groups.map { it.packageName }, lockScope)
+                                    browserScoped ->
+                                        vm.selectBrowserHostPriorityApps(browserHost!!, groups.map { it.packageName }, lockScope)
+                                    else -> vm.selectPriorityApps(kind, groups.map { it.packageName }, lockScope)
                                 }
                             },
                             onInvert = {
-                                if (kind == IntentKind.OPEN && openPreset != null) {
-                                    vm.invertOpenTypePriorityApps(openPreset!!, groups.map { it.packageName }, lockScope)
-                                } else {
-                                    vm.invertPriorityApps(kind, groups.map { it.packageName }, lockScope)
+                                when {
+                                    kind == IntentKind.OPEN && openPreset != null ->
+                                        vm.invertOpenTypePriorityApps(openPreset!!, groups.map { it.packageName }, lockScope)
+                                    browserScoped ->
+                                        vm.invertBrowserHostPriorityApps(browserHost!!, groups.map { it.packageName }, lockScope)
+                                    else -> vm.invertPriorityApps(kind, groups.map { it.packageName }, lockScope)
                                 }
                             }
                         )
@@ -225,12 +261,24 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 onManageCustom = { showCustomTypes = true }
                             )
                         }
+                        if (kind == IntentKind.BROWSER) {
+                            BrowserHostFilterRow(
+                                selected = browserHost,
+                                config = state.browserLinks,
+                                onSelected = { browserHost = it },
+                                onManage = { showBrowserHosts = true }
+                            )
+                        }
                     }
                 }
             }
             item(key = "summary") {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    val presetTitle = if (openPreset != null) state.openTypes.localizedTitle(openPreset!!) else null
+                    val presetTitle = when {
+                        openPreset != null -> state.openTypes.localizedTitle(openPreset!!)
+                        browserHost != null -> browserHost
+                        else -> null
+                    }
                     Text(
                         if (presetTitle == null) stringResource(R.string.app_list_count, groups.size)
                         else stringResource(R.string.app_list_count_type, groups.size, presetTitle),
@@ -266,6 +314,29 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                         }
                         Text(
                             stringResource(R.string.priority_inheritance_help),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else if (browserScoped) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                when {
+                                    inheritsBrowserPriority -> stringResource(R.string.priority_browser_source_inherited)
+                                    hasExplicitBrowserPriority -> stringResource(R.string.priority_source_dedicated, browserHost!!)
+                                    else -> stringResource(R.string.priority_source_none)
+                                },
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (inheritsBrowserPriority) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (hasExplicitBrowserPriority) {
+                                TextButton(onClick = { vm.resetBrowserHostPriority(browserHost!!) }) {
+                                    Text(stringResource(R.string.priority_restore_inheritance))
+                                }
+                            }
+                        }
+                        Text(
+                            stringResource(R.string.priority_browser_inheritance_help),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -311,7 +382,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
 
             groups.forEach { group ->
                 val packageName = group.packageName
-                val key = "${kind.name}|${openPreset?.name ?: "ALL"}|$packageName"
+                val key = "${kind.name}|${openPreset?.name ?: browserHost ?: "ALL"}|$packageName"
                 val expanded = expandedKey == key
                 val onExpand = { expandedKey = if (expanded) null else key }
                 val first = group.components.first()
@@ -341,12 +412,17 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                             checked = group.rank != null,
                             enabled = group.rank != null || rankedRaw.size < 200,
                             onCheckedChange = { checked ->
-                                if (kind == IntentKind.OPEN && openPreset != null) {
-                                    if (checked) vm.pinOpenTypeApp(openPreset!!, packageName) else vm.removeOpenTypePriority(openPreset!!, packageName)
-                                } else if (checked) {
-                                    vm.pinApp(kind, packageName)
-                                } else {
-                                    vm.removePriority(kind, packageName)
+                                when {
+                                    kind == IntentKind.OPEN && openPreset != null -> {
+                                        if (checked) vm.pinOpenTypeApp(openPreset!!, packageName)
+                                        else vm.removeOpenTypePriority(openPreset!!, packageName)
+                                    }
+                                    browserScoped -> {
+                                        if (checked) vm.pinBrowserHostApp(browserHost!!, packageName)
+                                        else vm.removeBrowserHostPriority(browserHost!!, packageName)
+                                    }
+                                    checked -> vm.pinApp(kind, packageName)
+                                    else -> vm.removePriority(kind, packageName)
                                 }
                             }
                         )
@@ -355,7 +431,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                             Text(first.appLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
                             val rankText = group.rank?.let {
                                 stringResource(
-                                    if (inheritsOpenPriority) R.string.priority_rank_inherited else R.string.priority_rank,
+                                    if (inheritsOpenPriority || inheritsBrowserPriority) R.string.priority_rank_inherited else R.string.priority_rank,
                                     it
                                 )
                             } ?: stringResource(R.string.priority_not_prioritized)
@@ -400,8 +476,13 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 )
                                 TextButton(
                                     onClick = {
-                                        if (kind == IntentKind.OPEN && openPreset != null) vm.moveOpenTypePriority(openPreset!!, packageName, -1, moveTargets)
-                                        else vm.movePriority(kind, packageName, -1, moveTargets)
+                                        when {
+                                            kind == IntentKind.OPEN && openPreset != null ->
+                                                vm.moveOpenTypePriority(openPreset!!, packageName, -1, moveTargets)
+                                            browserScoped ->
+                                                vm.moveBrowserHostPriority(browserHost!!, packageName, -1, moveTargets)
+                                            else -> vm.movePriority(kind, packageName, -1, moveTargets)
+                                        }
                                     },
                                     enabled = index > 0
                                 ) {
@@ -410,8 +491,13 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 }
                                 TextButton(
                                     onClick = {
-                                        if (kind == IntentKind.OPEN && openPreset != null) vm.moveOpenTypePriority(openPreset!!, packageName, 1, moveTargets)
-                                        else vm.movePriority(kind, packageName, 1, moveTargets)
+                                        when {
+                                            kind == IntentKind.OPEN && openPreset != null ->
+                                                vm.moveOpenTypePriority(openPreset!!, packageName, 1, moveTargets)
+                                            browserScoped ->
+                                                vm.moveBrowserHostPriority(browserHost!!, packageName, 1, moveTargets)
+                                            else -> vm.movePriority(kind, packageName, 1, moveTargets)
+                                        }
                                     },
                                     enabled = index >= 0 && index < moveTargets.lastIndex
                                 ) {
