@@ -11,7 +11,7 @@ fun ResolveInfo.webTargetKind(): IntentKind {
     val resolvedFilter = filter
     val authorityCount = runCatching { resolvedFilter?.countDataAuthorities() ?: -1 }.getOrDefault(-1)
     val hasWebScheme = resolvedFilter?.let(::hasHttpScheme) ?: false
-    return classifyWebTarget(handleAllWebDataURI, authorityCount, resolvedFilter != null, hasWebScheme)
+    return classifyWebTarget(handlesAllWebUrlsCompat(), authorityCount, resolvedFilter != null, hasWebScheme)
 }
 
 internal fun classifyWebTarget(
@@ -25,6 +25,11 @@ internal fun classifyWebTarget(
     filterKnown && hasWebScheme -> IntentKind.BROWSER
     else -> IntentKind.DEEP_LINK
 }
+
+private fun ResolveInfo.handlesAllWebUrlsCompat(): Boolean = runCatching {
+    val field = ResolveInfo::class.java.getDeclaredField("handleAllWebDataURI").apply { isAccessible = true }
+    field.getBoolean(this)
+}.getOrDefault(false)
 
 private fun hasHttpScheme(filter: IntentFilter): Boolean {
     for (index in 0 until filter.countDataSchemes()) {
