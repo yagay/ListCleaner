@@ -20,9 +20,9 @@ data class ModuleConfig(
     /** Source-compatibility only. Never serialized or consumed by current runtime behavior. */
     @Transient val defaultOpen: DefaultOpenConfig = DefaultOpenConfig(),
     val openTypes: OpenTypeConfig = OpenTypeConfig(),
-    val browserLinks: BrowserLinkConfig = BrowserLinkConfig(),
     /** Empty by default. Only explicitly selected categories contribute fully-selected package targets. */
-    val visibilityCompat: VisibilityCompatConfig = VisibilityCompatConfig()
+    val visibilityCompat: VisibilityCompatConfig = VisibilityCompatConfig(),
+    val browserLinks: BrowserLinkConfig = BrowserLinkConfig()
 ) {
     fun validated(): ModuleConfig {
         require(rules.size <= 20_000 && rules.all(ComponentRule::isValid))
