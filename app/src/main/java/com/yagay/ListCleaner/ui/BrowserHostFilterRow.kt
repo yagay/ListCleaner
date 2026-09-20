@@ -1,9 +1,7 @@
 package com.yagay.ListCleaner.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
@@ -13,9 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
@@ -79,45 +75,6 @@ fun BrowserHostFilterMenu(
                 }
             )
         }
-    }
-}
-
-/** Secondary BROWSER host tabs using the same visual language as OPEN typed tabs. */
-@Composable
-fun BrowserHostFilterRow(
-    selected: String?,
-    config: BrowserLinkConfig,
-    onSelected: (String?) -> Unit,
-    onManage: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    LazyRow(modifier, contentPadding = PaddingValues(horizontal = 12.dp)) {
-        item("all") {
-            BrowserHostTab(stringResource(R.string.common_all), selected == null) { onSelected(null) }
-        }
-        items(config.hosts.sorted(), key = { it }) { host ->
-            BrowserHostTab(host, selected == host) { onSelected(host) }
-        }
-        item("manage") {
-            BrowserHostTab(stringResource(R.string.browser_hosts_manage), false, onManage)
-        }
-    }
-}
-
-@Composable
-private fun BrowserHostTab(title: String, selected: Boolean, onClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        TextButton(onClick = onClick) {
-            Text(
-                title,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Box(
-            Modifier.height(2.dp).width(24.dp)
-                .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
-        )
     }
 }
 
