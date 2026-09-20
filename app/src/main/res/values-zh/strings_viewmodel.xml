@@ -22,6 +22,10 @@
     <string name="diagnostic_export_failed">导出失败：%1$s；目标文件可能不完整，请重新导出</string>
     <string name="scan_failed">扫描失败</string>
 
+    <string name="restart_required_title">需要重启手机</string>
+    <string name="restart_required_message">检测到旧版 List Cleaner Hook 仍在系统进程中运行。应用本身可以正常进入，也可以继续管理本地规则，但新的 Hook 功能需要完整重启手机后才能完全生效。</string>
+    <string name="restart_required_open_status">模块状态</string>
+
     <string name="update_detecting_targets">正在检测运行目标…</string>
     <string name="update_lsposed_disconnected">未连接 LSPosed</string>
     <string name="update_target_reloading">%1$s：框架正在重载，请稍后重新检测</string>
