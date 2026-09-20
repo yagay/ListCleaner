@@ -91,7 +91,8 @@ jobs:
               publish=true
             fi
           elif [[ "$EVENT_NAME" == "push" ]]; then
-            if git diff --name-only HEAD^ HEAD | grep -Fxq 'RELEASE_NOTES.md'; then
+            changed_files="$(git diff --name-only HEAD^ HEAD)"
+            if grep -Fxq 'app/build.gradle.kts' <<< "$changed_files" || grep -Fxq 'RELEASE_NOTES.md' <<< "$changed_files"; then
               publish=true
             fi
           fi
