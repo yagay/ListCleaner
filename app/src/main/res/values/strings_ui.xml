@@ -10,6 +10,7 @@
     <string name="compact_filter_format">%1$s: %2$s</string>
     <string name="selection_actions">Select</string>
     <string name="select_all">Select all</string>
+    <string name="select_none">Select none</string>
     <string name="invert_selection">Invert selection</string>
 
     <string name="module_lsposed_disconnected">LSPosed not connected</string>
