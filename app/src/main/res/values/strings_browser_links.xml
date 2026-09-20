@@ -4,6 +4,7 @@
     <string name="browser_hosts_title">Browser domain rules</string>
     <string name="browser_hosts_help">Add domains such as github.com. Each domain inherits Browser · All rules, then can add its own hidden apps and ordering. Removing a domain also removes its dedicated rules and ordering.</string>
     <string name="browser_host_input">Domain</string>
+    <string name="browser_host_example">github.com</string>
     <string name="browser_host_invalid">Enter a valid host such as github.com.</string>
     <string name="browser_hosts_empty">No domain-specific rules yet.</string>
     <string name="rules_browser_inherited">Inherited from “Browser · All”</string>
