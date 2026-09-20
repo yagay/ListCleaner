@@ -511,7 +511,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             openTypes = effectiveOpenTypes(rawOpenTypes, content.selected, priorityConfig),
             openTypesExplicit = rawOpenTypes,
             browserLinks = browserLinks,
-            browserAvailableHosts = browserLinks.hosts + discoveredHosts,
+            browserAvailableHosts = availableDeepLinkHosts(
+                browserLinks.hosts,
+                discoveredHosts,
+                content.candidates
+            ),
             uiFilter = content.uiFilter
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainState())
@@ -1143,6 +1147,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         const val MAX_BACKUP_CHARS = RuleRepository.MAX_BACKUP_CHARS
         private const val TAG = "ListCleaner.ViewModel"
     }
+}
+
+internal fun availableDeepLinkHosts(
+    configuredHosts: Set<String>,
+    discoveredHosts: Set<String>,
+    candidates: List<ComponentCandidate>
+): Set<String> {
+    val normalizedDiscovered = discoveredHosts.mapNotNull(::normalizeBrowserHost).toSet()
+    val matched = candidates.asSequence()
+        .filter { it.rule.kind == IntentKind.DEEP_LINK && it.isCatalogCandidate }
+        .flatMap { it.browserHosts.asSequence() }
+        .mapNotNull(::normalizeBrowserHost)
+        .filter { it in normalizedDiscovered }
+        .toSet()
+    return configuredHosts.mapNotNull(::normalizeBrowserHost).toSet() + matched
 }
 
 internal fun catalogVisible(item: ComponentCandidate, selected: Boolean, uiFilter: UiFilter): Boolean =
