@@ -45,6 +45,25 @@ class ModuleConfigTest {
         assertEquals(DefaultOpenConfig(), decoded.defaultOpen)
     }
 
+    @Test fun legacyDomainRulesAndTitlesMigrateWithoutDeletingBrowserTitle() {
+        val browserRule = ComponentRule(IntentKind.BROWSER, "com.example", "com.example.Target")
+        val deepLinkRule = browserRule.copy(kind = IntentKind.DEEP_LINK)
+        val config = ModuleConfig(
+            rules = setOf(browserRule),
+            mode = DisplayMode.HIDE_SELECTED,
+            priorities = PriorityConfig(titles = mapOf(browserRule.id to "Target")),
+            diagnostic = false,
+            browserLinks = BrowserLinkConfig(
+                hosts = setOf("example.com"),
+                rules = mapOf("example.com" to setOf(browserRule.id))
+            )
+        ).validated()
+
+        assertTrue(deepLinkRule in config.browserLinks.selectedRules("example.com"))
+        assertEquals("Target", config.priorities.titles[browserRule.id])
+        assertEquals("Target", config.priorities.titles[deepLinkRule.id])
+    }
+
     @Test fun relativeNamesMatchExpandedRuleIds() {
         assertEquals(ComponentRule(IntentKind.OPEN, "com.example", "com.example.Open").id,
             ComponentRule(IntentKind.OPEN, "com.example", ".Open").id)
