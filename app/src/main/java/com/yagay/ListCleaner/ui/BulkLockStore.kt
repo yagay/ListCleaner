@@ -38,10 +38,10 @@ internal class BulkLockStore(context: Context) {
     private fun migrateLegacyDeepLinkLocks(source: Set<String>): Set<String> {
         var changed = false
         val migrated = source.mapTo(linkedSetOf()) { entry ->
-            if (!entry.startsWith("rules:BROWSER:HOST:") || "$SEPARATORitem$SEPARATOR" !in entry) {
+            if (!entry.startsWith("rules:BROWSER:HOST:") || "${SEPARATOR}item${SEPARATOR}" !in entry) {
                 entry
             } else {
-                val marker = "$SEPARATORitem$SEPARATOR"
+                val marker = "${SEPARATOR}item${SEPARATOR}"
                 val index = entry.indexOf(marker)
                 val prefix = entry.substring(0, index + marker.length)
                 val id = entry.substring(index + marker.length)
