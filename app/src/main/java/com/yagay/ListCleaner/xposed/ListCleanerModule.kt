@@ -36,6 +36,7 @@ import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
 import com.yagay.ListCleaner.domain.ModuleConfig
 import com.yagay.ListCleaner.domain.FilterPolicy
 import com.yagay.ListCleaner.domain.intentKind
+import com.yagay.ListCleaner.domain.webTargetKind
 import com.yagay.ListCleaner.domain.ManagerIdentity
 import com.yagay.ListCleaner.domain.VisibilityLayout
 import com.yagay.ListCleaner.domain.VisibilitySignature
@@ -519,7 +520,7 @@ class ListCleanerModule : XposedModule() {
     ): List<String> {
         val typed = if (kind == IntentKind.OPEN && preset != null) current.openTypes.priorities[preset].orEmpty() else emptyList()
         if (typed.isNotEmpty()) return typed
-        val hostPriority = if (kind == IntentKind.BROWSER && browserHost != null) {
+        val hostPriority = if (kind == IntentKind.DEEP_LINK && browserHost != null) {
             current.browserLinks.priority(browserHost)
         } else emptyList()
         return if (hostPriority.isNotEmpty()) hostPriority else current.priorities.apps[kind].orEmpty()
