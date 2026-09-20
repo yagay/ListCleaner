@@ -1,6 +1,7 @@
 package com.yagay.ListCleaner.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -24,10 +25,12 @@ import com.yagay.ListCleaner.domain.normalizeBrowserHost
 fun BrowserHostFilterMenu(
     selected: String?,
     config: BrowserLinkConfig,
+    availableHosts: Set<String> = config.hosts,
     onSelected: (String?) -> Unit,
     onManage: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val menuScroll = rememberScrollState()
     val selectedTitle = selected ?: stringResource(R.string.common_all)
 
     Box {
@@ -47,7 +50,12 @@ fun BrowserHostFilterMenu(
             )
             Icon(Icons.Rounded.ExpandMore, null)
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.heightIn(max = 420.dp),
+            scrollState = menuScroll
+        ) {
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.common_all)) },
                 leadingIcon = { if (selected == null) Icon(Icons.Rounded.Check, null) },
@@ -56,7 +64,15 @@ fun BrowserHostFilterMenu(
                     onSelected(null)
                 }
             )
-            config.hosts.sorted().forEach { host ->
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.browser_hosts_manage)) },
+                onClick = {
+                    expanded = false
+                    onManage()
+                }
+            )
+            HorizontalDivider()
+            availableHosts.sorted().forEach { host ->
                 DropdownMenuItem(
                     text = { Text(host, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     leadingIcon = { if (selected == host) Icon(Icons.Rounded.Check, null) },
@@ -66,14 +82,6 @@ fun BrowserHostFilterMenu(
                     }
                 )
             }
-            HorizontalDivider()
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.browser_hosts_manage)) },
-                onClick = {
-                    expanded = false
-                    onManage()
-                }
-            )
         }
     }
 }
