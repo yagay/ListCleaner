@@ -260,6 +260,15 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     else -> vm.selectPriorityApps(kind, groups.map { it.packageName }, lockScope)
                                 }
                             },
+                            onSelectNone = {
+                                when {
+                                    kind == IntentKind.OPEN && openPreset != null ->
+                                        vm.deselectOpenTypePriorityApps(openPreset!!, groups.map { it.packageName }, lockScope)
+                                    deepLinkScoped ->
+                                        vm.deselectBrowserHostPriorityApps(browserHost!!, groups.map { it.packageName }, lockScope)
+                                    else -> vm.deselectPriorityApps(kind, groups.map { it.packageName }, lockScope)
+                                }
+                            },
                             onInvert = {
                                 when {
                                     kind == IntentKind.OPEN && openPreset != null ->
