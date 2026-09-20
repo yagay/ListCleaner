@@ -34,7 +34,7 @@ fun OpenPresetFilterMenu(
     onManageCustom: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val selectedTitle = selected?.let(config::localizedTitle) ?: stringResource(R.string.common_all)
+    val selectedTitle = if (selected == null) stringResource(R.string.common_all) else config.localizedTitle(selected)
 
     Box {
         TextButton(

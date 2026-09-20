@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="browser_hosts_manage">+ Domains</string>
+    <string name="browser_domain_filter">Domain</string>\n    <string name="browser_hosts_manage">+ Domains</string>
     <string name="browser_hosts_title">Browser domain rules</string>
     <string name="browser_hosts_help">Add domains such as github.com. Each domain inherits Browser · All rules, then can add its own hidden apps and ordering. Removing a domain also removes its dedicated rules and ordering.</string>
     <string name="browser_host_input">Domain</string>

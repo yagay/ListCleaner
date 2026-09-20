@@ -6,7 +6,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,11 +16,71 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.BrowserLinkConfig
 import com.yagay.ListCleaner.domain.normalizeBrowserHost
+
+/** Compact BROWSER-domain selector shown inside the shared top filter row. */
+@Composable
+fun BrowserHostFilterMenu(
+    selected: String?,
+    config: BrowserLinkConfig,
+    onSelected: (String?) -> Unit,
+    onManage: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedTitle = selected ?: stringResource(R.string.common_all)
+
+    Box {
+        TextButton(
+            onClick = { expanded = true },
+            contentPadding = PaddingValues(horizontal = 6.dp)
+        ) {
+            Text(
+                stringResource(
+                    R.string.compact_filter_format,
+                    stringResource(R.string.browser_domain_filter),
+                    selectedTitle
+                ),
+                modifier = Modifier.widthIn(max = 170.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Icon(Icons.Rounded.ExpandMore, null)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.common_all)) },
+                leadingIcon = { if (selected == null) Icon(Icons.Rounded.Check, null) },
+                onClick = {
+                    expanded = false
+                    onSelected(null)
+                }
+            )
+            config.hosts.sorted().forEach { host ->
+                DropdownMenuItem(
+                    text = { Text(host, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    leadingIcon = { if (selected == host) Icon(Icons.Rounded.Check, null) },
+                    onClick = {
+                        expanded = false
+                        onSelected(host)
+                    }
+                )
+            }
+            HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.browser_hosts_manage)) },
+                onClick = {
+                    expanded = false
+                    onManage()
+                }
+            )
+        }
+    }
+}
 
 /** Secondary BROWSER host tabs using the same visual language as OPEN typed tabs. */
 @Composable
