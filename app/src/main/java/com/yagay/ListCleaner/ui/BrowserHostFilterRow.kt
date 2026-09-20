@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,8 +31,16 @@ fun BrowserHostFilterMenu(
     onManage: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var hostQuery by remember { mutableStateOf("") }
     val menuScroll = rememberScrollState()
     val selectedTitle = selected ?: stringResource(R.string.common_all)
+    val visibleHosts = remember(availableHosts, hostQuery) {
+        val query = hostQuery.trim()
+        availableHosts.asSequence()
+            .filter { query.isEmpty() || it.contains(query, ignoreCase = true) }
+            .sorted()
+            .toList()
+    }
 
     Box {
         TextButton(
@@ -52,7 +61,7 @@ fun BrowserHostFilterMenu(
         }
         DropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false },
+            onDismissRequest = { hostQuery = ""; expanded = false },
             modifier = Modifier.heightIn(max = 420.dp),
             scrollState = menuScroll
         ) {
@@ -60,6 +69,7 @@ fun BrowserHostFilterMenu(
                 text = { Text(stringResource(R.string.common_all)) },
                 leadingIcon = { if (selected == null) Icon(Icons.Rounded.Check, null) },
                 onClick = {
+                    hostQuery = ""
                     expanded = false
                     onSelected(null)
                 }
@@ -67,20 +77,57 @@ fun BrowserHostFilterMenu(
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.browser_hosts_manage)) },
                 onClick = {
+                    hostQuery = ""
                     expanded = false
                     onManage()
                 }
             )
             HorizontalDivider()
-            availableHosts.sorted().forEach { host ->
-                DropdownMenuItem(
-                    text = { Text(host, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    leadingIcon = { if (selected == host) Icon(Icons.Rounded.Check, null) },
-                    onClick = {
-                        expanded = false
-                        onSelected(host)
-                    }
+            OutlinedTextField(
+                value = hostQuery,
+                onValueChange = { hostQuery = it },
+                modifier = Modifier
+                    .width(280.dp)
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodySmall,
+                leadingIcon = { Icon(Icons.Rounded.Search, null, Modifier.size(18.dp)) },
+                placeholder = { Text(stringResource(R.string.browser_domain_search)) }
+            )
+            if (visibleHosts.isEmpty()) {
+                Text(
+                    stringResource(R.string.browser_domain_search_empty),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            } else {
+                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 26.dp) {
+                    visibleHosts.forEach { host ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    host,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            },
+                            modifier = Modifier.heightIn(min = 26.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                            leadingIcon = {
+                                if (selected == host) {
+                                    Icon(Icons.Rounded.Check, null, Modifier.size(16.dp))
+                                }
+                            },
+                            onClick = {
+                                hostQuery = ""
+                                expanded = false
+                                onSelected(host)
+                            }
+                        )
+                    }
+                }
             }
         }
     }
