@@ -142,6 +142,7 @@ internal fun ListControls(
     onAppTypeFilter: (AppTypeFilter) -> Unit = {},
     includeAllKinds: Boolean = true,
     viewTitle: @Composable (UiFilter) -> String = { stringResource(it.titleRes()) },
+    extraFilter: (@Composable () -> Unit)? = null,
     onSelectAll: (() -> Unit)? = null,
     onInvert: (() -> Unit)? = null
 ) {
@@ -218,6 +219,7 @@ internal fun ListControls(
                     }
                 }
             }
+            extraFilter?.invoke()
             onSelectAll?.let { action ->
                 TextButton(onClick = action, contentPadding = PaddingValues(horizontal = 6.dp)) {
                     Text(stringResource(R.string.select_all))
