@@ -25,7 +25,7 @@
     <string name="no_matching_components">No matching components</string>
     <string name="app_list_count">App list · %1$d</string>
     <string name="app_list_count_type">App list · %1$d · %2$s</string>
-    <string name="rules_page_intro">This page manages Intent candidates for sharing, multi-file sharing, opening, browsers, and text processing. You can hide or keep components by rule, or change a component\'s display name in the system chooser. It does not modify the actual Intent, package name, component name, disable apps, or uninstall apps.</string>
+    <string name="rules_page_intro">This page manages Intent candidates for sharing, multi-file sharing, opening, deep links, and text processing. You can hide or keep components by rule, or change a component\'s display name in the system chooser. It does not modify the actual Intent, package name, component name, disable apps, or uninstall apps.</string>
     <string name="rules_mode_hide_selected">Current mode: Hide selected. Once the rules are active, selected components are hidden from the corresponding candidate lists; deselect them to restore the default display.</string>
     <string name="rules_mode_show_selected">Current mode: Show selected only. Once the rules are active, selected components remain in the corresponding category and other components are hidden.</string>
     <string name="rules_mode_show_all">Current mode: Show all. System candidate-list cleaning is paused. Selections are saved but take effect after cleaning is resumed.</string>
