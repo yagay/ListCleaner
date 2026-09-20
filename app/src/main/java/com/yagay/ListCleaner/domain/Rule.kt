@@ -45,7 +45,8 @@ data class ComponentCandidate(
     val evidence: List<String> = emptyList(),
     val restricted: Boolean = false,
     val unavailable: Boolean = false,
-    val broadMatch: Boolean = false
+    val broadMatch: Boolean = false,
+    val browserHosts: Set<String> = emptySet()
 ) {
     val isCatalogCandidate: Boolean get() = !unavailable && !restricted
     val normalizedAppLabel: String by lazy(LazyThreadSafetyMode.NONE) { appLabel.lowercase() }
@@ -80,6 +81,7 @@ data class RuleBackup(
     /** Source-compatibility only. Not written to new backups. */
     @Transient val defaultOpen: DefaultOpenConfig = DefaultOpenConfig(),
     val openTypes: OpenTypeConfig = OpenTypeConfig(),
+    val browserLinks: BrowserLinkConfig = BrowserLinkConfig(),
     /** User choice only; derived full-package targets are rebuilt from current catalog/rules. */
     val visibilityScopes: Set<VisibilityScope> = emptySet()
 )
