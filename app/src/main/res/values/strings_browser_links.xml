@@ -2,14 +2,14 @@
 <resources>
     <string name="browser_domain_filter">Domain</string>
     <string name="browser_hosts_manage">Manage domains</string>
-    <string name="browser_hosts_title">Deep-link domain rules</string>
+    <string name="browser_hosts_title">Browser domain rules</string>
     <string name="browser_hosts_help">Android App Link domains are discovered automatically when available; you can also add domains such as github.com manually. A domain becomes persistent when you add it or create a dedicated rule/order. Removing a configured domain also removes its dedicated rules and ordering.</string>
     <string name="browser_host_input">Domain</string>
     <string name="browser_host_example">github.com</string>
     <string name="browser_host_invalid">Enter a valid host such as github.com.</string>
     <string name="browser_hosts_empty">No domain-specific rules yet.</string>
-    <string name="rules_browser_inherited">Inherited from “Deep links · All”</string>
+    <string name="rules_browser_inherited">Inherited from “Browser · All”</string>
     <string name="rules_browser_dedicated">%1$s dedicated rule</string>
-    <string name="priority_browser_source_inherited">Current ordering source: inherited from Deep links · All</string>
-    <string name="priority_browser_inheritance_help">Without dedicated ordering, this domain inherits Deep links · All directly. The first select, deselect, drag, or move operation creates dedicated ordering from the inherited order. Restoring inheritance follows future Deep links · All changes again.</string>
+    <string name="priority_browser_source_inherited">Current ordering source: inherited from Browser · All</string>
+    <string name="priority_browser_inheritance_help">Without dedicated ordering, this domain inherits Browser · All directly. The first select, deselect, drag, or move operation creates dedicated ordering from the inherited order. Restoring inheritance follows future Browser · All changes again.</string>
 </resources>
