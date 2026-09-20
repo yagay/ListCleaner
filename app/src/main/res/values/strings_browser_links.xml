@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="browser_hosts_manage">+ Domains</string>
+    <string name="browser_hosts_title">Browser domain rules</string>
+    <string name="browser_hosts_help">Add domains such as github.com. Each domain inherits Browser · All rules, then can add its own hidden apps and ordering. Removing a domain also removes its dedicated rules and ordering.</string>
+    <string name="browser_host_input">Domain</string>
+    <string name="browser_host_example">github.com</string>
+    <string name="browser_host_invalid">Enter a valid host such as github.com.</string>
+    <string name="browser_hosts_empty">No domain-specific rules yet.</string>
+    <string name="rules_browser_inherited">Inherited from “Browser · All”</string>
+    <string name="rules_browser_dedicated">%1$s dedicated rule</string>
+    <string name="priority_browser_source_inherited">Current ordering source: inherited from Browser · All</string>
+    <string name="priority_browser_inheritance_help">Without dedicated ordering, this domain inherits Browser · All directly. The first select, deselect, drag, or move operation creates dedicated ordering from the inherited order. Restoring inheritance follows future Browser · All changes again.</string>
+</resources>

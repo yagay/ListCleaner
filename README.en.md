@@ -24,7 +24,7 @@ Package name: `com.yagay.ListCleaner`. Chinese environments display “列表清
 
 ### Rules: control which apps appear in menus
 
-Manage candidates separately for Share, multi-file Share, Open with, Browser, and Text processing. Search apps, expand their components, and filter by all, selected, unselected, or locked entries.
+Manage candidates separately for Share, multi-file Share, Open with, Browser, and Text processing. Browser can also add hosts such as github.com directly below the Browser category; each host inherits Browser · All and can add extra App Link filtering for that domain. Search apps, expand their components, and filter by all, selected, unselected, or locked entries.
 
 | Display mode | Effect |
 | --- | --- |
@@ -42,7 +42,7 @@ Rules alter returned candidate lists. They do not uninstall applications or chan
 
 ### Ordering: put frequently used apps first
 
-Each of the five categories stores its own app priority order.
+Each of the five categories stores its own app priority order. Browser domains can also keep dedicated priority order and inherit Browser · All when no dedicated order exists.
 
 - Select an app to add it to the priority list and place it at the configured position; deselect it to return it to the default alphabetical group.
 - Prioritized apps follow the saved order; other apps are sorted by name. The list can be filtered to all, prioritized, non-prioritized, or locked apps, then narrowed to user or system apps. Neither app-type filtering nor locks move apps or rewrite the saved priority order.
@@ -79,7 +79,7 @@ Disabling a component can affect places where it is already used, including exis
 
 ### Backup and diagnostics
 
-- Import and export JSON rule backups containing rules, display modes, and priority ordering, compatible with backup formats v1–v9.
+- Import and export JSON rule backups containing rules, display modes, and priority ordering, compatible with backup formats v1–v10.
 - Rule backups **do not save or restore actual Root component enabled states**. Legacy tile configuration remains readable for compatibility but is not automatically converted into component-disable operations.
 - The Status page shows module connection, scope, and configuration synchronization state. A diagnostic ZIP can be exported to troubleshoot filtering, ordering, and Root operations. Diagnostics can contain application lists and logs; review them before sharing.
 

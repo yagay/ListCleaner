@@ -22,6 +22,8 @@ import com.yagay.ListCleaner.domain.PriorityConfig
 import com.yagay.ListCleaner.domain.DefaultOpenConfig
 import com.yagay.ListCleaner.domain.OpenTypeConfig
 import com.yagay.ListCleaner.domain.OpenPreset
+import com.yagay.ListCleaner.domain.BrowserLinkConfig
+import com.yagay.ListCleaner.domain.normalizeBrowserHost
 import com.yagay.ListCleaner.domain.VisibilityCompatConfig
 import com.yagay.ListCleaner.domain.matchOpenPreset
 import com.yagay.ListCleaner.domain.prioritizeApps
@@ -56,6 +58,7 @@ class ListCleanerModule : XposedModule() {
         val priorities: PriorityConfig,
         val defaultOpen: DefaultOpenConfig,
         val openTypes: OpenTypeConfig,
+        val browserLinks: BrowserLinkConfig,
         val diagnostic: Boolean,
         val managerAppId: Int = -1,
         val digest: String = "",
@@ -80,7 +83,10 @@ class ListCleanerModule : XposedModule() {
     private data class ParceledListAccessor(val getList: Method, val constructor: Constructor<*>)
 
     @Volatile
-    private var snapshot = RuleSnapshot(emptySet(), DisplayMode.HIDE_SELECTED, PriorityConfig(), DefaultOpenConfig(), OpenTypeConfig(), false)
+    private var snapshot = RuleSnapshot(
+        emptySet(), DisplayMode.HIDE_SELECTED, PriorityConfig(), DefaultOpenConfig(),
+        OpenTypeConfig(), BrowserLinkConfig(), false
+    )
     private var lastEncodedConfig: String? = null
     @Volatile private var listenerRegistered = false
     private var processName = ""
@@ -249,7 +255,13 @@ class ListCleanerModule : XposedModule() {
                 record("CLASS_UNAVAILABLE class=$className error=${it.javaClass.name}")
                 return@forEach
             }
-            runCatching { clazz.methods.filter(::isQueryIntentActivitiesMethod) }.getOrElse {
+            runCatching {
+                generateSequence(clazz as Class<*>?) { it.superclass }
+                    .flatMap { it.declaredMethods.asSequence() }
+                    .filter(::isQueryIntentActivitiesMethod)
+                    .distinctBy(Method::toGenericString)
+                    .toList()
+            }.getOrElse {
                 record("METHOD_DISCOVERY_FAILED class=$className error=${it.javaClass.name}")
                 emptyList()
             }.forEach { method ->
@@ -499,14 +511,30 @@ class ListCleanerModule : XposedModule() {
         return matchOpenPreset(kind, mime, data?.scheme, data?.lastPathSegment ?: data?.path)
     }
 
-    private fun effectivePriorities(kind: IntentKind, preset: OpenPreset?, current: RuleSnapshot): List<String> {
+    private fun effectivePriorities(
+        kind: IntentKind,
+        preset: OpenPreset?,
+        browserHost: String?,
+        current: RuleSnapshot
+    ): List<String> {
         val typed = if (kind == IntentKind.OPEN && preset != null) current.openTypes.priorities[preset].orEmpty() else emptyList()
-        return if (typed.isNotEmpty()) typed else current.priorities.apps[kind].orEmpty()
+        if (typed.isNotEmpty()) return typed
+        val hostPriority = if (kind == IntentKind.BROWSER && browserHost != null) {
+            current.browserLinks.priority(browserHost)
+        } else emptyList()
+        return if (hostPriority.isNotEmpty()) hostPriority else current.priorities.apps[kind].orEmpty()
+    }
+
+    private fun adapterBrowserHost(receiver: Any, kind: IntentKind): String? {
+        if (kind != IntentKind.BROWSER) return null
+        val intent = OrderingAccess.targetIntent(receiver) as? Intent ?: return null
+        val effective = intent.selector ?: intent
+        return normalizeBrowserHost(effective.data?.host)
     }
 
     private fun orderItems(items: List<*>, kind: IntentKind, current: RuleSnapshot, stage: String,
-        fixedPackages: Set<String> = emptySet(), preset: OpenPreset? = null): List<*> {
-        val priorities = effectivePriorities(kind, preset, current)
+        fixedPackages: Set<String> = emptySet(), preset: OpenPreset? = null, browserHost: String? = null): List<*> {
+        val priorities = effectivePriorities(kind, preset, browserHost, current)
         if (priorities.isEmpty() || items.size < 2) return items
         val infos = items.map { item ->
             requireNotNull(item)
@@ -540,13 +568,14 @@ class ListCleanerModule : XposedModule() {
                 return@runCatching null
             }
             val preset = adapterOpenPreset(receiver, kind)
-            val priorities = effectivePriorities(kind, preset, current)
+            val browserHost = adapterBrowserHost(receiver, kind)
+            val priorities = effectivePriorities(kind, preset, browserHost, current)
             if (priorities.isEmpty()) {
                 diagnostic("ORDER_SKIP kind=$kind reason=no_priorities")
                 return@runCatching null
             }
             val items = chain.args[0] as? List<*> ?: return@runCatching null
-            val ordered = orderItems(items, kind, current, "ranked", preset = preset)
+            val ordered = orderItems(items, kind, current, "ranked", preset = preset, browserHost = browserHost)
             if (ordered === items) null else chain.args.toTypedArray().also { it[0] = ordered }
         }.getOrElse {
             diagnostic("ORDER_FAILED error=${it.javaClass.name}")
@@ -574,6 +603,7 @@ class ListCleanerModule : XposedModule() {
             }
             val kind = adapterKind(receiver) ?: return@runCatching
             val preset = adapterOpenPreset(receiver, kind)
+            val browserHost = adapterBrowserHost(receiver, kind)
             val items = OrderingAccess.field(receiver, "mSortedList")
             if (items == null || items.javaClass != java.util.ArrayList::class.java) {
                 diagnostic("ORDER_SKIP stage=alpha reason=unsupported_backing_list")
@@ -586,7 +616,7 @@ class ListCleanerModule : XposedModule() {
                 val info = OrderingAccess.call(requireNotNull(target), "getResolveInfo") as ResolveInfo
                 info.activityInfo.packageName
             }.toSet()
-            val ordered = orderItems(list, kind, snapshot, "alpha", fixed, preset)
+            val ordered = orderItems(list, kind, snapshot, "alpha", fixed, preset, browserHost)
             if (ordered !== list) {
                 ordered.forEachIndexed { index, item -> list[index] = item }
                 orderingHits.incrementAndGet()
@@ -600,6 +630,7 @@ class ListCleanerModule : XposedModule() {
         val key = "${method.declaringClass.name}#${method.toGenericString()}@$layer"
         if (!installedMethods.add(key)) return false
         return runCatching {
+            method.isAccessible = true
             hook(method).setId("$HOOK_ID-${layer.name.lowercase()}").intercept(queryHooker(layer))
             record("HOOK_INSTALLED layer=$layer method=${method.toGenericString()}")
             true
@@ -718,7 +749,7 @@ class ListCleanerModule : XposedModule() {
         val data = intent.data
         val replacement = transform(
             kind, extracted.values, layer, callerUid, resolvedType,
-            data?.scheme, data?.lastPathSegment ?: data?.path
+            data?.scheme, data?.lastPathSegment ?: data?.path, data?.host
         ) ?: return original
         return runCatching { extracted.rebuild(replacement) }.getOrElse {
             Log.e(TAG, "Failed to rebuild ${original?.javaClass?.name}; keeping original", it)
@@ -747,7 +778,8 @@ class ListCleanerModule : XposedModule() {
         callerUid: Int,
         mimeType: String?,
         scheme: String?,
-        fileNameOrPath: String?
+        fileNameOrPath: String?,
+        browserHost: String?
     ): List<*>? {
         if (values.isEmpty()) { diagnostic("SKIP $layer $kind empty_input"); return null }
         val current = snapshot
@@ -758,7 +790,9 @@ class ListCleanerModule : XposedModule() {
         var changed = false
         val preset = matchOpenPreset(kind, mimeType, scheme, fileNameOrPath)
         val typedIds = if (kind == IntentKind.OPEN && preset != null) current.openTypes.rules[preset].orEmpty() else emptySet()
-        val hasSelection = current.hasSelection(kind) || typedIds.isNotEmpty()
+        val normalizedHost = if (kind == IntentKind.BROWSER) normalizeBrowserHost(browserHost) else null
+        val browserIds = normalizedHost?.let { current.browserLinks.rules[it].orEmpty() }.orEmpty()
+        val hasSelection = current.hasSelection(kind) || typedIds.isNotEmpty() || browserIds.isNotEmpty()
         val filtered = if (!hasSelection && current.displayMode != DisplayMode.SHOW_SELECTED) {
             values
         } else {
@@ -773,9 +807,9 @@ class ListCleanerModule : XposedModule() {
                     activity.packageName, activity.name, activity.targetActivity
                 )
                 val candidateId = "${kind.name}|${activity.packageName}|$canonicalClass"
-                val selected = candidateId in current.configured || candidateId in typedIds
+                val selected = candidateId in current.configured || candidateId in typedIds || candidateId in browserIds
                 diagnostic(
-                    "CANDIDATE $layer $kind preset=$preset ${activity.packageName}/${activity.name} target=${activity.targetActivity} canonical=$canonicalClass selected=$selected match=${if (selected) "component" else "none"}",
+                    "CANDIDATE $layer $kind preset=$preset host=$normalizedHost ${activity.packageName}/${activity.name} target=${activity.targetActivity} canonical=$canonicalClass selected=$selected match=${if (selected) "component" else "none"}",
                     detail = true
                 )
                 current.displayMode.includes(selected, hasSelection).also {
@@ -789,7 +823,7 @@ class ListCleanerModule : XposedModule() {
             return null
         }
         val ordered = if (kind == IntentKind.PROCESS_TEXT) runCatching {
-            orderItems(filtered, kind, current, "text_query", preset = preset)
+            orderItems(filtered, kind, current, "text_query", preset = preset, browserHost = normalizedHost)
         }.getOrElse {
             diagnostic("ORDER_FAILED stage=text_query error=${it.javaClass.name}")
             filtered
@@ -861,11 +895,11 @@ class ListCleanerModule : XposedModule() {
                 if (snapshot.digest == digest) return@runCatching
                 val config = Json { ignoreUnknownKeys = true }.decodeFromString(ModuleConfig.serializer(), encoded).validated()
                 snapshot = RuleSnapshot(config.rules.map { it.id }.toSet(), config.mode,
-                    config.priorities, config.defaultOpen, config.openTypes, config.diagnostic, config.managerAppId, digest,
-                    config.hiddenFromApps, config.visibilityCompat)
+                    config.priorities, config.defaultOpen, config.openTypes, config.browserLinks, config.diagnostic,
+                    config.managerAppId, digest, config.hiddenFromApps, config.visibilityCompat)
                 lastEncodedConfig = encoded
                 record("MANAGER_IDENTITY appId=${config.managerAppId} source=remote_config")
-                record("RULES_READ reason=$reason count=${snapshot.configured.size} mode=${config.mode} diagnostic=${config.diagnostic} atomic=true priorities=${config.priorities.apps.mapValues { it.value.size }} typedRules=${config.openTypes.rules.mapValues { it.value.size }} typedPriorities=${config.openTypes.priorities.mapValues { it.value.size }} titles=${config.priorities.titles.size} hiddenFromApps=${config.hiddenFromApps.size} visibilityScopes=${config.visibilityCompat.scopes.map { it.name }.sorted()} visibilityTargets=${snapshot.allSelectedPackages.size} digest=$digest")
+                record("RULES_READ reason=$reason count=${snapshot.configured.size} mode=${config.mode} diagnostic=${config.diagnostic} atomic=true priorities=${config.priorities.apps.mapValues { it.value.size }} typedRules=${config.openTypes.rules.mapValues { it.value.size }} typedPriorities=${config.openTypes.priorities.mapValues { it.value.size }} browserHosts=${config.browserLinks.hosts.size} browserRules=${config.browserLinks.rules.mapValues { it.value.size }} titles=${config.priorities.titles.size} hiddenFromApps=${config.hiddenFromApps.size} visibilityScopes=${config.visibilityCompat.scopes.map { it.name }.sorted()} visibilityTargets=${snapshot.allSelectedPackages.size} digest=$digest")
                 return@runCatching
             }
             val rules = preferences.getStringSet(RuleRepository.KEY_RULES, emptySet()).orEmpty().toSet()
@@ -881,7 +915,8 @@ class ListCleanerModule : XposedModule() {
             }.getOrDefault(PriorityConfig())
             snapshot = RuleSnapshot(
                 configured = rules, displayMode = mode, priorities = priorities,
-                defaultOpen = DefaultOpenConfig(), openTypes = OpenTypeConfig(), diagnostic = preferences.getBoolean(RuleRepository.KEY_DIAGNOSTIC, false)
+                defaultOpen = DefaultOpenConfig(), openTypes = OpenTypeConfig(), browserLinks = BrowserLinkConfig(),
+                diagnostic = preferences.getBoolean(RuleRepository.KEY_DIAGNOSTIC, false)
             )
             lastEncodedConfig = null
             record("RULES_READ reason=$reason count=${rules.size} mode=$mode diagnostic=${snapshot.diagnostic}")
@@ -916,7 +951,7 @@ class ListCleanerModule : XposedModule() {
     }
 
     private fun isQueryIntentActivitiesMethod(method: Method): Boolean =
-        method.name in setOf("queryIntentActivities", "queryIntentActivitiesAsUser") &&
+        method.name in setOf("queryIntentActivities", "queryIntentActivitiesAsUser", "queryIntentActivitiesInternal") &&
             method.parameterTypes.any { Intent::class.java.isAssignableFrom(it) } &&
             (List::class.java.isAssignableFrom(method.returnType) ||
                 method.returnType.name == "android.content.pm.ParceledListSlice")
@@ -942,7 +977,9 @@ class ListCleanerModule : XposedModule() {
         val SYSTEM_QUERY_CLASSES = listOf(
             "com.android.server.pm.PackageManagerService\$IPackageManagerImpl",
             "com.android.server.pm.IPackageManagerImpl",
-            "com.android.server.pm.PackageManagerService"
+            "com.android.server.pm.PackageManagerService",
+            "com.android.server.pm.ComputerEngine",
+            "com.android.server.pm.ComputerLocked"
         )
     }
 }

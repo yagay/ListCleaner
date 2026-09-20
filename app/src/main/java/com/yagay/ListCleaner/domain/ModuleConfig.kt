@@ -21,7 +21,8 @@ data class ModuleConfig(
     @Transient val defaultOpen: DefaultOpenConfig = DefaultOpenConfig(),
     val openTypes: OpenTypeConfig = OpenTypeConfig(),
     /** Empty by default. Only explicitly selected categories contribute fully-selected package targets. */
-    val visibilityCompat: VisibilityCompatConfig = VisibilityCompatConfig()
+    val visibilityCompat: VisibilityCompatConfig = VisibilityCompatConfig(),
+    val browserLinks: BrowserLinkConfig = BrowserLinkConfig()
 ) {
     fun validated(): ModuleConfig {
         require(rules.size <= 20_000 && rules.all(ComponentRule::isValid))
@@ -29,6 +30,7 @@ data class ModuleConfig(
         require(managerAppId == -1 || ManagerIdentity.valid(managerAppId))
         require(hiddenFromApps.size <= 2_000 && hiddenFromApps.all(PackageIdentity::valid))
         openTypes.validated()
+        browserLinks.validated()
         visibilityCompat.validated()
         return this
     }

@@ -118,3 +118,10 @@ internal fun componentBulkLockScope(kind: CleanupKind?): String =
 
 internal fun componentBulkLockAppId(item: RootComponent): String =
     "${item.user}|${item.component.packageName}"
+
+
+internal fun browserRuleBulkLockScope(host: String): String =
+    "rules:BROWSER:HOST:" + (com.yagay.ListCleaner.domain.normalizeBrowserHost(host) ?: host)
+
+internal fun browserPriorityBulkLockScope(host: String): String =
+    "priority:BROWSER:HOST:" + (com.yagay.ListCleaner.domain.normalizeBrowserHost(host) ?: host)
