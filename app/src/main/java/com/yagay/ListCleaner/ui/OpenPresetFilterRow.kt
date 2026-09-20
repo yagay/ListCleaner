@@ -1,7 +1,9 @@
 package com.yagay.ListCleaner.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
@@ -34,6 +36,7 @@ fun OpenPresetFilterMenu(
     onManageCustom: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val menuScroll = rememberScrollState()
     val selectedTitle = if (selected == null) stringResource(R.string.common_all) else config.localizedTitle(selected)
 
     Box {
@@ -54,7 +57,12 @@ fun OpenPresetFilterMenu(
             Icon(Icons.Rounded.ExpandMore, null)
         }
 
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.heightIn(max = 420.dp),
+            scrollState = menuScroll
+        ) {
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.common_all)) },
                 leadingIcon = { if (selected == null) Icon(Icons.Rounded.Check, null) },
@@ -63,6 +71,14 @@ fun OpenPresetFilterMenu(
                     onSelected(null)
                 }
             )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.open_manage_custom)) },
+                onClick = {
+                    expanded = false
+                    onManageCustom()
+                }
+            )
+            HorizontalDivider()
             config.configuredPresets().forEach { preset ->
                 DropdownMenuItem(
                     text = {
@@ -79,14 +95,6 @@ fun OpenPresetFilterMenu(
                     }
                 )
             }
-            HorizontalDivider()
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.open_manage_custom)) },
-                onClick = {
-                    expanded = false
-                    onManageCustom()
-                }
-            )
         }
     }
 }

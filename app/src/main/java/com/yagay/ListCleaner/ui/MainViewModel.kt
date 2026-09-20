@@ -16,6 +16,7 @@ import com.yagay.ListCleaner.ListCleanerApp
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.RuntimeStatus
 import com.yagay.ListCleaner.data.CleanupKind
+import com.yagay.ListCleaner.data.BrowserLinkDiscovery
 import com.yagay.ListCleaner.data.RootComponent
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.ComponentCandidate
@@ -78,6 +79,7 @@ data class MainState(
     /** Raw persisted per-type config used to distinguish inherited values from explicit values. */
     val openTypesExplicit: OpenTypeConfig = OpenTypeConfig(),
     val browserLinks: BrowserLinkConfig = BrowserLinkConfig(),
+    val browserAvailableHosts: Set<String> = emptySet(),
     val hiddenFromApps: Set<String> = emptySet(),
     val groups: List<AppGroup> = emptyList(),
     val destination: Destination = Destination.RULES,
@@ -169,6 +171,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as ListCleanerApp
     private val bulkLocks = BulkLockStore(app)
     private val rootComponents = RootComponentsController(app, viewModelScope)
+    private val browserLinkDiscovery = BrowserLinkDiscovery()
     private val moduleRuntime = ModuleRuntimeController(app, viewModelScope)
 
     val componentScan = rootComponents.scan
@@ -282,6 +285,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val updateMessage: StateFlow<String?> = moduleRuntime.updateMessage
 
     private val candidates = MutableStateFlow<List<ComponentCandidate>>(emptyList())
+    private val discoveredBrowserHosts = MutableStateFlow<Set<String>>(emptySet())
     private val mutableFileCheckStatus = MutableStateFlow<String?>(null)
     val fileCheckStatus: StateFlow<String?> = mutableFileCheckStatus
     private val mutableCheckingFile = MutableStateFlow(false)
@@ -477,6 +481,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         app.rules.hiddenFromApps,
         app.rules.openTypes,
         app.rules.browserLinks,
+        discoveredBrowserHosts,
         query
     ) { values ->
         @Suppress("UNCHECKED_CAST")
@@ -484,6 +489,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val priorityConfig = values[6] as PriorityConfig
         val rawOpenTypes = values[12] as OpenTypeConfig
         val browserLinks = values[13] as BrowserLinkConfig
+        @Suppress("UNCHECKED_CAST")
+        val discoveredHosts = values[14] as Set<String>
         MainState(
             module = values[0] as ModuleStatus,
             loading = values[1] as Boolean,
@@ -493,7 +500,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             runtime = values[4] as RuntimeStatus,
             displayMode = values[5] as DisplayMode,
             filter = content.filter,
-            query = values[14] as String,
+            query = values[15] as String,
             priorities = priorityConfig,
             groups = content.groups,
             diagnosticMode = values[7] as Boolean,
@@ -504,6 +511,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             openTypes = effectiveOpenTypes(rawOpenTypes, content.selected, priorityConfig),
             openTypesExplicit = rawOpenTypes,
             browserLinks = browserLinks,
+            browserAvailableHosts = browserLinks.hosts + discoveredHosts,
             uiFilter = content.uiFilter
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainState())
@@ -555,9 +563,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // system_server/Resolver still has the previous module version after an APK update.
                 // Runtime synchronization continues independently through ListCleanerApp and the
                 // status controller; it gates system-side effect, not local list visibility.
+                val autoHosts = browserLinkDiscovery.discover(forceCatalog)
+                if (generation == refreshGeneration) discoveredBrowserHosts.value = autoHosts
                 val result = app.catalog.scan(
                     app.rules.openTypes.value.customDefinitions,
-                    app.rules.browserLinks.value.hosts,
+                    app.rules.browserLinks.value.hosts + autoHosts,
                     force = forceCatalog
                 )
                 if (generation == refreshGeneration) {
@@ -619,6 +629,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refresh()
     }
 
+    private fun ensureBrowserHostConfigured(host: String): String? {
+        val normalized = normalizeBrowserHost(host) ?: return null
+        val current = app.rules.browserLinks.value
+        if (normalized in current.hosts) return normalized
+        if (current.hosts.size >= BrowserLinkConfig.MAX_HOSTS) return null
+        app.rules.setBrowserHosts(current.hosts + normalized)
+        return normalized
+    }
+
     fun toggle(rule: ComponentRule) { if (canEdit()) app.rules.toggle(rule) }
 
     fun setGroupSelected(group: AppGroup, selected: Boolean) {
@@ -636,13 +655,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun toggleBrowserHost(host: String, rule: ComponentRule) {
-        if (canEdit() && rule !in genericBrowserSelected()) app.rules.toggleBrowserHost(host, rule)
+        if (!canEdit() || rule in genericBrowserSelected()) return
+        val normalized = ensureBrowserHostConfigured(host) ?: return
+        app.rules.toggleBrowserHost(normalized, rule)
     }
 
     fun setBrowserHostGroupSelected(host: String, group: AppGroup, selected: Boolean) {
         if (!canEdit()) return
         val editable = group.components.map { it.rule }.filterNot { it in genericBrowserSelected() }
-        if (editable.isNotEmpty()) app.rules.setBrowserHostSelected(host, editable, selected)
+        if (editable.isEmpty()) return
+        val normalized = ensureBrowserHostConfigured(host) ?: return
+        app.rules.setBrowserHostSelected(normalized, editable, selected)
     }
 
     fun selectBrowserHostRules(host: String, rules: Collection<ComponentRule>, lockScope: String) {
@@ -650,7 +673,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val editable = rules.distinct()
             .filterNot { it in genericBrowserSelected() }
             .filterNot { bulkLocks.isProtected(lockScope, it.packageName, it.id) }
-        if (editable.isNotEmpty()) app.rules.setBrowserHostSelected(host, editable, true)
+        if (editable.isNotEmpty()) {
+            val normalized = ensureBrowserHostConfigured(host) ?: return
+            app.rules.setBrowserHostSelected(normalized, editable, true)
+        }
     }
 
     fun invertBrowserHostRules(host: String, rules: Collection<ComponentRule>, lockScope: String) {
@@ -658,7 +684,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val editable = rules.distinct()
             .filterNot { it in genericBrowserSelected() }
             .filterNot { bulkLocks.isProtected(lockScope, it.packageName, it.id) }
-        if (editable.isNotEmpty()) app.rules.invertBrowserHostSelected(host, editable)
+        if (editable.isNotEmpty()) {
+            val normalized = ensureBrowserHostConfigured(host) ?: return
+            app.rules.invertBrowserHostSelected(normalized, editable)
+        }
     }
 
     fun selectOpenTypeRules(preset: OpenPreset, rules: Collection<ComponentRule>, lockScope: String) {
@@ -922,7 +951,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val current = browserHostPriorityBase(host)
         val editable = packageNames.distinct().filterNot { bulkLocks.isAppLocked(lockScope, it) }
         val next = (current + editable.filter { it !in current }).take(200)
-        if (next != current) app.rules.setBrowserHostPriority(host, next)
+        if (next != current) {
+            val normalized = ensureBrowserHostConfigured(host) ?: return
+            app.rules.setBrowserHostPriority(normalized, next)
+        }
     }
 
     fun invertBrowserHostPriorityApps(host: String, packageNames: Collection<String>, lockScope: String) {
@@ -931,27 +963,39 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (visible.isEmpty()) return
         val current = browserHostPriorityBase(host)
         val next = (current.filterNot { it in visible.toSet() } + visible.filter { it !in current }).take(200)
-        if (next != current) app.rules.setBrowserHostPriority(host, next)
+        if (next != current) {
+            val normalized = ensureBrowserHostConfigured(host) ?: return
+            app.rules.setBrowserHostPriority(normalized, next)
+        }
     }
 
     fun pinBrowserHostApp(host: String, packageName: String) {
         if (!canEdit()) return
         val current = browserHostPriorityBase(host)
-        if (packageName !in current && current.size < 200) app.rules.setBrowserHostPriority(host, current + packageName)
+        if (packageName !in current && current.size < 200) {
+            val normalized = ensureBrowserHostConfigured(host) ?: return
+            app.rules.setBrowserHostPriority(normalized, current + packageName)
+        }
     }
 
     fun removeBrowserHostPriority(host: String, packageName: String) {
         if (!canEdit()) return
         val current = browserHostPriorityBase(host)
         val next = current - packageName
-        if (next != current) app.rules.setBrowserHostPriority(host, next)
+        if (next != current) {
+            val normalized = ensureBrowserHostConfigured(host) ?: return
+            app.rules.setBrowserHostPriority(normalized, next)
+        }
     }
 
     fun moveBrowserHostPriority(host: String, packageName: String, offset: Int, visible: List<String>) {
         if (!canEdit()) return
         val current = browserHostPriorityBase(host)
         val updated = com.yagay.ListCleaner.domain.moveVisiblePriority(current, visible, packageName, offset)
-        if (updated != current) app.rules.setBrowserHostPriority(host, updated)
+        if (updated != current) {
+            val normalized = ensureBrowserHostConfigured(host) ?: return
+            app.rules.setBrowserHostPriority(normalized, updated)
+        }
     }
 
     fun moveBrowserHostPriorityTo(
@@ -965,11 +1009,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val current = browserHostPriorityBase(host)
         if (current != expected) return
         val updated = com.yagay.ListCleaner.domain.moveVisiblePriorityTo(current, visible, packageName, target)
-        if (updated != current) app.rules.setBrowserHostPriority(host, updated)
+        if (updated != current) {
+            val normalized = ensureBrowserHostConfigured(host) ?: return
+            app.rules.setBrowserHostPriority(normalized, updated)
+        }
     }
 
     fun resetBrowserHostPriority(host: String) {
-        if (canEdit()) app.rules.setBrowserHostPriority(host, emptyList())
+        if (!canEdit()) return
+        val normalized = normalizeBrowserHost(host) ?: return
+        if (normalized !in app.rules.browserLinks.value.hosts) return
+        app.rules.setBrowserHostPriority(normalized, emptyList())
     }
 
     fun selectOpenTypePriorityApps(preset: OpenPreset, packageNames: Collection<String>, lockScope: String) {

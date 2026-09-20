@@ -66,8 +66,8 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
     LaunchedEffect(state.openTypesExplicit.customDefinitions, openPreset) {
         if (openPreset?.isCustom == true && openPreset !in state.openTypesExplicit.customDefinitions) openPreset = null
     }
-    LaunchedEffect(state.browserLinks.hosts, browserHost) {
-        if (browserHost != null && browserHost !in state.browserLinks.hosts) browserHost = null
+    LaunchedEffect(state.browserAvailableHosts, browserHost) {
+        if (browserHost != null && browserHost !in state.browserAvailableHosts) browserHost = null
     }
 
     val typedSelected = openPreset?.let { state.openTypes.selectedRules(it) }.orEmpty()
@@ -166,6 +166,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                                 IntentKind.BROWSER -> BrowserHostFilterMenu(
                                     selected = browserHost,
                                     config = state.browserLinks,
+                                    availableHosts = state.browserAvailableHosts,
                                     onSelected = { browserHost = it },
                                     onManage = { showBrowserHosts = true }
                                 )

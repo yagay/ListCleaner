@@ -7,13 +7,6 @@ on:
       - main
     paths:
       - 'RELEASE_NOTES.md'
-  pull_request:
-    paths:
-      - 'app/**'
-      - '*.gradle.kts'
-      - 'RELEASE_NOTES.md'
-      - '.github/workflows/build-release.yml'
-      - 'tools/prepare-release-signing.py'
 
 permissions:
   contents: read
