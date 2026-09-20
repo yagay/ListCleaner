@@ -29,9 +29,15 @@ data class ModuleConfig(
         priorities.validated()
         require(managerAppId == -1 || ManagerIdentity.valid(managerAppId))
         require(hiddenFromApps.size <= 2_000 && hiddenFromApps.all(PackageIdentity::valid))
-        openTypes.validated()
-        browserLinks.validated()
-        visibilityCompat.validated()
-        return this
+        val cleanOpenTypes = openTypes.validated()
+        val cleanBrowserLinks = browserLinks.validated()
+        val cleanVisibilityCompat = visibilityCompat.validated()
+        return if (cleanOpenTypes == openTypes && cleanBrowserLinks == browserLinks &&
+            cleanVisibilityCompat == visibilityCompat) this
+        else copy(
+            openTypes = cleanOpenTypes,
+            browserLinks = cleanBrowserLinks,
+            visibilityCompat = cleanVisibilityCompat
+        )
     }
 }
