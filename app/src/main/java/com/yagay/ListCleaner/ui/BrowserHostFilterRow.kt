@@ -109,8 +109,7 @@ fun BrowserHostFilterMenu(
                                 Text(
                                     host,
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    style = MaterialTheme.typography.bodySmall
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             },
                             modifier = Modifier.heightIn(min = 26.dp),
