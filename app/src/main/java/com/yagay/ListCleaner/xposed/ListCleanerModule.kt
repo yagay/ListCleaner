@@ -526,6 +526,20 @@ class ListCleanerModule : XposedModule() {
         return if (hostPriority.isNotEmpty()) hostPriority else current.priorities.apps[kind].orEmpty()
     }
 
+    private fun candidateKind(baseKind: IntentKind, info: ResolveInfo): IntentKind =
+        if (baseKind == IntentKind.BROWSER) info.webTargetKind() else baseKind
+
+    private fun hasEffectivePriorities(
+        kind: IntentKind,
+        preset: OpenPreset?,
+        browserHost: String?,
+        current: RuleSnapshot
+    ): Boolean {
+        if (kind != IntentKind.BROWSER) return effectivePriorities(kind, preset, browserHost, current).isNotEmpty()
+        return current.priorities.apps[IntentKind.BROWSER].orEmpty().isNotEmpty() ||
+            effectivePriorities(IntentKind.DEEP_LINK, null, browserHost, current).isNotEmpty()
+    }
+
     private fun adapterBrowserHost(receiver: Any, kind: IntentKind): String? {
         if (kind != IntentKind.BROWSER) return null
         val intent = OrderingAccess.targetIntent(receiver) as? Intent ?: return null
@@ -533,10 +547,16 @@ class ListCleanerModule : XposedModule() {
         return normalizeBrowserHost(effective.data?.host)
     }
 
-    private fun orderItems(items: List<*>, kind: IntentKind, current: RuleSnapshot, stage: String,
-        fixedPackages: Set<String> = emptySet(), preset: OpenPreset? = null, browserHost: String? = null): List<*> {
-        val priorities = effectivePriorities(kind, preset, browserHost, current)
-        if (priorities.isEmpty() || items.size < 2) return items
+    private fun orderItems(
+        items: List<*>,
+        kind: IntentKind,
+        current: RuleSnapshot,
+        stage: String,
+        fixedPackages: Set<String> = emptySet(),
+        preset: OpenPreset? = null,
+        browserHost: String? = null
+    ): List<*> {
+        if (items.size < 2) return items
         val infos = items.map { item ->
             requireNotNull(item)
             if (item is ResolveInfo) item else if (stage == "alpha")
@@ -544,14 +564,39 @@ class ListCleanerModule : XposedModule() {
             else item.javaClass.getMethod("getResolveInfoAt", Int::class.javaPrimitiveType)
                 .invoke(item, 0) as ResolveInfo
         }
-        val movable = items.indices.filter { infos[it].activityInfo.packageName !in fixedPackages }
-        val sorted = prioritizeApps(movable, priorities,
-            { requireNotNull(infos[it].activityInfo).packageName },
-            { requireNotNull(infos[it].activityInfo.applicationInfo).uid / PER_USER_RANGE })
         val positions = items.indices.toMutableList()
-        movable.forEachIndexed { index, position -> positions[position] = sorted[index] }
+
+        fun reorderSubset(targetKind: IntentKind, priorities: List<String>) {
+            if (priorities.isEmpty()) return
+            val movable = items.indices.filter { index ->
+                candidateKind(kind, infos[index]) == targetKind &&
+                    infos[index].activityInfo.packageName !in fixedPackages
+            }
+            if (movable.size < 2) return
+            val sorted = prioritizeApps(
+                movable,
+                priorities,
+                { index -> requireNotNull(infos[index].activityInfo).packageName },
+                { index -> requireNotNull(infos[index].activityInfo.applicationInfo).uid / PER_USER_RANGE }
+            )
+            movable.forEachIndexed { orderIndex, position -> positions[position] = sorted[orderIndex] }
+        }
+
+        if (kind == IntentKind.BROWSER) {
+            reorderSubset(IntentKind.BROWSER, current.priorities.apps[IntentKind.BROWSER].orEmpty())
+            reorderSubset(
+                IntentKind.DEEP_LINK,
+                effectivePriorities(IntentKind.DEEP_LINK, null, browserHost, current)
+            )
+        } else {
+            reorderSubset(kind, effectivePriorities(kind, preset, browserHost, current))
+        }
+
         val changed = positions != items.indices.toList()
-        diagnostic("ORDER_RESULT stage=$stage kind=$kind count=${items.size} matched=${infos.count { it.activityInfo.packageName in priorities }} changed=$changed digest=${current.digest}")
+        diagnostic(
+            "ORDER_RESULT stage=" + stage + " kind=" + kind + " count=" + items.size +
+                " changed=" + changed + " digest=" + current.digest
+        )
         return if (changed) positions.map { items[it] } else items
     }
 
@@ -570,8 +615,7 @@ class ListCleanerModule : XposedModule() {
             }
             val preset = adapterOpenPreset(receiver, kind)
             val browserHost = adapterBrowserHost(receiver, kind)
-            val priorities = effectivePriorities(kind, preset, browserHost, current)
-            if (priorities.isEmpty()) {
+            if (!hasEffectivePriorities(kind, preset, browserHost, current)) {
                 diagnostic("ORDER_SKIP kind=$kind reason=no_priorities")
                 return@runCatching null
             }
