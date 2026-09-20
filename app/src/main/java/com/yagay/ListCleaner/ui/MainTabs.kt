@@ -182,6 +182,15 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                                 else -> vm.selectRules(visibleRules, state.filter, openPreset)
                             }
                         },
+                        onSelectNone = {
+                            when {
+                                openPreset != null && state.filter == IntentKind.OPEN ->
+                                    vm.deselectOpenTypeRules(openPreset!!, visibleRules, lockScope)
+                                deepLinkScoped ->
+                                    vm.deselectBrowserHostRules(browserHost!!, visibleRules, lockScope)
+                                else -> vm.deselectRules(visibleRules, state.filter, openPreset)
+                            }
+                        },
                         onInvert = {
                             when {
                                 openPreset != null && state.filter == IntentKind.OPEN ->
