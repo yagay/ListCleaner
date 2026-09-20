@@ -3,8 +3,8 @@ package com.yagay.ListCleaner.domain
 import kotlinx.serialization.Serializable
 
 /**
- * Per-domain browser rules. Generic BROWSER rules remain the fallback and are inherited by every
- * configured host; host rules only add extra filtering/ordering for that exact web host.
+ * Per-domain Deep Link rules. The serialized field name is kept for backup compatibility.
+ * Generic DEEP_LINK rules remain the fallback and are inherited by every configured host.
  */
 @Serializable
 data class BrowserLinkConfig(
@@ -20,11 +20,15 @@ data class BrowserLinkConfig(
         val cleanRules = rules.map { (rawHost, ids) ->
             val host = requireNotNull(normalizeBrowserHost(rawHost)) { "invalid_browser_rule_host" }
             require(host in cleanHosts) { "browser_rule_host_not_configured" }
-            require(ids.size <= 2_000 && ids.all { id ->
-                val parsed = ComponentRule.fromId(id)
-                parsed != null && parsed.id == id && parsed.kind == IntentKind.BROWSER
-            }) { "invalid_browser_host_rules" }
-            host to ids.toSet()
+            val migrated = ids.map { id ->
+                val parsed = requireNotNull(ComponentRule.fromId(id)) { "invalid_browser_host_rules" }
+                require(parsed.id == id && parsed.kind in setOf(IntentKind.BROWSER, IntentKind.DEEP_LINK)) {
+                    "invalid_browser_host_rules"
+                }
+                if (parsed.kind == IntentKind.BROWSER) parsed.copy(kind = IntentKind.DEEP_LINK).id else parsed.id
+            }.toSet()
+            require(migrated.size <= 2_000) { "invalid_browser_host_rules" }
+            host to migrated
         }.toMap()
 
         val cleanPriorities = priorities.map { (rawHost, packages) ->
@@ -69,5 +73,5 @@ fun normalizeBrowserHost(value: String?): String? {
 
 fun ComponentCandidate.matchesBrowserHost(host: String): Boolean {
     val normalized = normalizeBrowserHost(host) ?: return false
-    return rule.kind == IntentKind.BROWSER && normalized in browserHosts
+    return rule.kind == IntentKind.DEEP_LINK && normalized in browserHosts
 }
