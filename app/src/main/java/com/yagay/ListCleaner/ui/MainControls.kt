@@ -227,7 +227,7 @@ internal fun ListControls(
                         onClick = { selectionMenu = true },
                         contentPadding = PaddingValues(horizontal = 6.dp)
                     ) {
-                        Text(stringResource(R.string.common_more))
+                        Text(stringResource(R.string.selection_actions))
                         Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
                     }
                     DropdownMenu(
