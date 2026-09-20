@@ -39,7 +39,6 @@ data class ModuleConfig(
         legacyDomainIds.forEach { (oldId, newId) ->
             migratedTitles[oldId]?.let { title ->
                 if (newId !in migratedTitles) migratedTitles[newId] = title
-                migratedTitles.remove(oldId)
             }
         }
         val migratedPriorities = if (migratedTitles == cleanPriorities.titles) cleanPriorities
