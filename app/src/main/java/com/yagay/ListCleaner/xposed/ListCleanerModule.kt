@@ -255,7 +255,13 @@ class ListCleanerModule : XposedModule() {
                 record("CLASS_UNAVAILABLE class=$className error=${it.javaClass.name}")
                 return@forEach
             }
-            runCatching { clazz.methods.filter(::isQueryIntentActivitiesMethod) }.getOrElse {
+            runCatching {
+                generateSequence(clazz as Class<*>?) { it.superclass }
+                    .flatMap { it.declaredMethods.asSequence() }
+                    .filter(::isQueryIntentActivitiesMethod)
+                    .distinctBy(Method::toGenericString)
+                    .toList()
+            }.getOrElse {
                 record("METHOD_DISCOVERY_FAILED class=$className error=${it.javaClass.name}")
                 emptyList()
             }.forEach { method ->
@@ -624,6 +630,7 @@ class ListCleanerModule : XposedModule() {
         val key = "${method.declaringClass.name}#${method.toGenericString()}@$layer"
         if (!installedMethods.add(key)) return false
         return runCatching {
+            method.isAccessible = true
             hook(method).setId("$HOOK_ID-${layer.name.lowercase()}").intercept(queryHooker(layer))
             record("HOOK_INSTALLED layer=$layer method=${method.toGenericString()}")
             true
