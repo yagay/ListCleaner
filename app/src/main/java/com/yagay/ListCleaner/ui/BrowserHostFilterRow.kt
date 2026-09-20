@@ -79,30 +79,54 @@ fun BrowserHostFilterMenu(
             offset = DpOffset(menuHorizontalOffset, 0.dp),
             scrollState = menuScroll
         ) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.common_all)) },
-                leadingIcon = { if (selected == null) Icon(Icons.Rounded.Check, null) },
-                onClick = {
-                    hostQuery = ""
-                    expanded = false
-                    onSelected(null)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(28.dp)
+                    .clickable {
+                        hostQuery = ""
+                        expanded = false
+                        onSelected(null)
+                    }
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier.width(24.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    if (selected == null) {
+                        Icon(
+                            Icons.Rounded.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.browser_hosts_manage)) },
-                onClick = {
-                    hostQuery = ""
-                    expanded = false
-                    onManage()
-                }
-            )
+                Text(stringResource(R.string.common_all))
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(28.dp)
+                    .clickable {
+                        hostQuery = ""
+                        expanded = false
+                        onManage()
+                    }
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Spacer(Modifier.width(24.dp))
+                Text(stringResource(R.string.browser_hosts_manage))
+            }
             HorizontalDivider()
             OutlinedTextField(
                 value = hostQuery,
                 onValueChange = { hostQuery = it },
                 modifier = Modifier
                     .width(280.dp)
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyLarge,
                 leadingIcon = { Icon(Icons.Rounded.Search, null, Modifier.size(24.dp)) },
@@ -116,7 +140,7 @@ fun BrowserHostFilterMenu(
             if (visibleHosts.isEmpty()) {
                 Text(
                     stringResource(R.string.browser_domain_search_empty),
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 3.dp),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
