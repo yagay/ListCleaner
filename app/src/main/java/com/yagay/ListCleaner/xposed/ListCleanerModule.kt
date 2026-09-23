@@ -996,102 +996,332 @@ class ListCleanerModule : XposedModule() {
             .getOrNull()
     }
 
-    private fun processQuery(chain: XposedInterface.Chain, original: Any?, layer: Layer, callerUid: Int): Any? {
-        val outerIntent = chain.args.firstOrNull { it is Intent } as? Intent
-        val intent = outerIntent?.selector ?: outerIntent
-        if (layer == Layer.SYSTEM && outerIntent?.action == RuntimeProtocol.ACTION &&
-            outerIntent.`package` == RuntimeProtocol.PACKAGE && outerIntent.selector == null) {
-            val expectedDigest = outerIntent
-                .getStringExtra(RuntimeProtocol.EXTRA_EXPECTED_DIGEST)
-                ?.takeIf { it.length == 64 && it.all { ch -> ch.isDigit() || ch in 'a'..'f' } }
-            val verifiedManagerAppId =
-                verifiedManagerAppIdForProbe(
-                    chain,
-                    callerUid
-                )
-            refreshRulesSafely(
-                reason = "manager probe",
-                expectedDigest = expectedDigest,
-                fallbackManagerAppId =
-                    verifiedManagerAppId,
-            )
-            val applied = snapshot
-            val digestMatches = expectedDigest == null || applied.digest == expectedDigest
-            if (
-                ManagerIdentity.matches(callerUid, applied.managerAppId) &&
-                applied.digest.isNotEmpty() &&
-                digestMatches
-            ) {
-                val result = extractListResult(original) ?: return original
-                val ack = ResolveInfo().apply {
-                    activityInfo = ActivityInfo().apply {
-                        packageName = RuntimeProtocol.PACKAGE
-                        name = RuntimeProtocol.COMPONENT
-                        applicationInfo = ApplicationInfo().apply {
-                            packageName = RuntimeProtocol.PACKAGE
-                            uid = callerUid
-                        }
-                    }
-                    nonLocalizedLabel = "${BuildConfig.HOOK_COMPAT_VERSION_CODE}:${applied.digest}:${queryHits.get()}:${visibilityHits.get()}:${orderingHits.get()}:$COMPONENT_DISCOVERY_PROTOCOL"
+    private fun handleRuntimeProbe(
+        chain: XposedInterface.Chain,
+        original: Any?,
+        callerUid: Int,
+        intent: Intent,
+    ): Any? {
+        val protocol = intent.getIntExtra(RuntimeProtocol.EXTRA_PROTOCOL_VERSION, 1)
+        val operation = intent.getStringExtra(RuntimeProtocol.EXTRA_OPERATION)
+        val expectedDigest = intent
+            .getStringExtra(RuntimeProtocol.EXTRA_EXPECTED_DIGEST)
+            ?.takeIf(RuntimeProtocol::validDigest)
+
+        if (operation == RuntimeProtocol.OP_CHUNK) {
+            if (protocol != RuntimeProtocol.VERSION) {
+                record("CONFIG_PUSH_REJECT stage=chunk uid=$callerUid reason=protocol protocol=$protocol")
+                return original
+            }
+            appendRuntimeChunk(intent, callerUid)
+            return original
+        }
+
+        val verifiedManagerAppId = verifiedManagerAppIdForProbe(chain, callerUid)
+            ?: return original
+
+        when (operation) {
+            RuntimeProtocol.OP_BEGIN -> {
+                if (protocol == RuntimeProtocol.VERSION) {
+                    beginRuntimeTransfer(intent, callerUid, verifiedManagerAppId)
+                } else {
+                    record("CONFIG_PUSH_REJECT stage=begin uid=$callerUid reason=protocol protocol=$protocol")
                 }
-                record("CONFIG_ACK moduleVersion=${BuildConfig.VERSION_CODE} hookCompat=${BuildConfig.HOOK_COMPAT_VERSION_CODE} digest=${applied.digest} queryHits=${queryHits.get()} visibilityHits=${visibilityHits.get()} orderHits=${orderingHits.get()} callerUid=$callerUid")
-                return result.rebuild(listOf(ack))
+                return original
+            }
+            RuntimeProtocol.OP_COMMIT -> {
+                if (protocol != RuntimeProtocol.VERSION ||
+                    !commitRuntimeTransfer(intent, callerUid, verifiedManagerAppId)
+                ) {
+                    return original
+                }
+            }
+            null -> Unit
+            else -> {
+                record("CONFIG_PUSH_REJECT stage=operation uid=$callerUid operation=$operation")
+                return original
+            }
+        }
+
+        val applied = snapshot
+        val digestMatches = expectedDigest == null || applied.digest == expectedDigest
+        if (
+            ManagerIdentity.matches(callerUid, applied.managerAppId) &&
+            applied.digest.isNotEmpty() &&
+            digestMatches
+        ) {
+            val result = extractListResult(original) ?: return original
+            val ack = ResolveInfo().apply {
+                activityInfo = ActivityInfo().apply {
+                    packageName = RuntimeProtocol.PACKAGE
+                    name = RuntimeProtocol.COMPONENT
+                    applicationInfo = ApplicationInfo().apply {
+                        packageName = RuntimeProtocol.PACKAGE
+                        uid = callerUid
+                    }
+                }
+                nonLocalizedLabel =
+                    "${BuildConfig.HOOK_COMPAT_VERSION_CODE}:${applied.digest}:" +
+                        "${queryHits.get()}:${visibilityHits.get()}:${orderingHits.get()}:" +
+                        "$COMPONENT_DISCOVERY_PROTOCOL:${RuntimeProtocol.VERSION}:$appliedRuntimeRevision"
             }
             record(
-                "CONFIG_ACK_SKIP callerUid=$callerUid managerAppId=${applied.managerAppId} " +
-                    "expected=${expectedDigest ?: "none"} actual=${applied.digest.ifEmpty { "none" }} " +
-                    "identityMatch=${ManagerIdentity.matches(callerUid, applied.managerAppId)}"
+                "CONFIG_ACK moduleVersion=${BuildConfig.VERSION_CODE} " +
+                    "hookCompat=${BuildConfig.HOOK_COMPAT_VERSION_CODE} digest=${applied.digest} " +
+                    "queryHits=${queryHits.get()} visibilityHits=${visibilityHits.get()} " +
+                    "orderHits=${orderingHits.get()} callerUid=$callerUid " +
+                    "runtimeProtocol=${RuntimeProtocol.VERSION} revision=$appliedRuntimeRevision"
             )
-            return original
+            return result.rebuild(listOf(ack))
         }
-        if (layer == Layer.SYSTEM && !FilterPolicy.ordinaryAppCaller(callerUid)) {
-            diagnostic("FILTER_SKIP reason=privileged_caller uid=$callerUid")
-            return original
+
+        record(
+            "CONFIG_ACK_SKIP callerUid=$callerUid managerAppId=${applied.managerAppId} " +
+                "expected=${expectedDigest ?: "none"} actual=${applied.digest.ifEmpty { "none" }} " +
+                "identityMatch=${ManagerIdentity.matches(callerUid, applied.managerAppId)}"
+        )
+        return original
+    }
+
+    private fun annotateResolverPolicy(
+        kind: IntentKind,
+        values: List<*>,
+        mimeType: String?,
+        scheme: String?,
+        fileNameOrPath: String?,
+        browserHost: String?,
+    ): List<*>? {
+        if (values.isEmpty()) return null
+        val current = snapshot
+        if (current.digest.isEmpty()) return null
+
+        val preset = matchOpenPreset(kind, mimeType, scheme, fileNameOrPath)
+        val typedIds = if (kind == IntentKind.OPEN && preset != null) {
+            current.openTypes.rules[preset].orEmpty()
+        } else {
+            emptySet()
         }
+        val normalizedHost = if (kind == IntentKind.BROWSER) {
+            normalizeBrowserHost(browserHost)
+        } else {
+            null
+        }
+        val deepLinkIds = normalizedHost?.let {
+            current.browserLinks.rules[it].orEmpty()
+        }.orEmpty()
+
+        val policies = values.map { value ->
+            val info = value as? ResolveInfo
+                ?: return@map ResolverPolicy(true, Int.MAX_VALUE, null)
+            val activity = info.activityInfo
+                ?: return@map ResolverPolicy(true, Int.MAX_VALUE, null)
+            if (current.displayMode == DisplayMode.SHOW_ALL) {
+                return@map ResolverPolicy(true, Int.MAX_VALUE, null)
+            }
+
+            val effectiveKind = candidateKind(kind, info)
+            val scopedTypedIds = if (effectiveKind == IntentKind.OPEN) typedIds else emptySet()
+            val scopedDeepIds = if (effectiveKind == IntentKind.DEEP_LINK) deepLinkIds else emptySet()
+            val hasSelection = current.hasSelection(effectiveKind) ||
+                scopedTypedIds.isNotEmpty() ||
+                scopedDeepIds.isNotEmpty()
+            val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
+                activity.packageName,
+                activity.name,
+                activity.targetActivity,
+            )
+            val candidateId = "${effectiveKind.name}|${activity.packageName}|$canonicalClass"
+            val selected = candidateId in current.configured ||
+                candidateId in scopedTypedIds ||
+                candidateId in scopedDeepIds
+            val include = current.displayMode.includes(selected, hasSelection)
+
+            val priorities = effectivePriorities(
+                effectiveKind,
+                if (effectiveKind == IntentKind.OPEN) preset else null,
+                if (effectiveKind == IntentKind.DEEP_LINK) normalizedHost else null,
+                current,
+            )
+            val priorityIndex = priorities.indexOf(activity.packageName)
+            val title = current.priorities.titles[candidateId]
+            ResolverPolicy(
+                include = include,
+                rank = if (priorityIndex >= 0) priorityIndex else Int.MAX_VALUE,
+                title = title,
+            )
+        }
+
+        val resolveCount = values.count { it is ResolveInfo && it.activityInfo != null }
+        if (resolveCount == 0) return null
+        val includedCount = policies.count { it.include }
+        val restoreAll = FilterPolicy.restoreEmpty(kind.name, values.size, includedCount)
+
+        val annotated = values.mapIndexed { index, value ->
+            val info = value as? ResolveInfo ?: return@mapIndexed value
+            val activity = info.activityInfo ?: return@mapIndexed value
+            val policy = if (restoreAll) {
+                ResolverPolicy(true, Int.MAX_VALUE, null)
+            } else {
+                policies[index]
+            }
+            ResolveInfo(info).apply {
+                activityInfo = ActivityInfo(activity).apply {
+                    metaData = Bundle(activity.metaData ?: Bundle()).apply {
+                        putString(RuntimeProtocol.META_POLICY_DIGEST, current.digest)
+                        putBoolean(RuntimeProtocol.META_INCLUDE, policy.include)
+                        if (policy.rank == Int.MAX_VALUE) {
+                            remove(RuntimeProtocol.META_PRIORITY_RANK)
+                        } else {
+                            putInt(RuntimeProtocol.META_PRIORITY_RANK, policy.rank)
+                        }
+                    }
+                }
+                policy.title?.let { nonLocalizedLabel = it }
+            }
+        }
+
+        diagnostic(
+            "RESOLVER_POLICY_METADATA kind=$kind count=${values.size} included=$includedCount " +
+                "restoreAll=$restoreAll digest=${current.digest}"
+        )
+        return annotated
+    }
+
+    private fun processQuery(
+        chain: XposedInterface.Chain,
+        original: Any?,
+        layer: Layer,
+        callerUid: Int,
+    ): Any? {
+        val outerIntent = chain.args.firstOrNull { it is Intent } as? Intent
+        val intent = outerIntent?.selector ?: outerIntent
+        if (
+            layer == Layer.SYSTEM &&
+            outerIntent?.action == RuntimeProtocol.ACTION &&
+            outerIntent.`package` == RuntimeProtocol.PACKAGE &&
+            outerIntent.selector == null
+        ) {
+            return handleRuntimeProbe(chain, original, callerUid, outerIntent)
+        }
+
         val moduleAppId = snapshot.managerAppId
         if (layer == Layer.SYSTEM && !ManagerIdentity.valid(moduleAppId)) {
             diagnostic("FILTER_PAUSED reason=manager_identity_unknown open_module_app_to_sync")
             return original
         }
         if (ManagerIdentity.matches(callerUid, moduleAppId)) {
-            if (tracedActions.add("manager_bypass")) record("MANAGER_QUERY_BYPASS uid=$callerUid")
+            if (tracedActions.add("manager_bypass")) {
+                record("MANAGER_QUERY_BYPASS uid=$callerUid")
+            }
             return original
         }
+
         val intentIndex = chain.args.indexOfFirst { it is Intent }
-        val systemResolvedType = if (layer == Layer.SYSTEM) chain.args.getOrNull(intentIndex + 1) as? String else null
-        val resolvedType = intent?.let { resolveQueryMime(chain, it, layer, systemResolvedType) }
+        val systemResolvedType =
+            if (layer == Layer.SYSTEM) chain.args.getOrNull(intentIndex + 1) as? String else null
+        val resolvedType = intent?.let {
+            resolveQueryMime(chain, it, layer, systemResolvedType)
+        }
         val kind = intent?.intentKind(resolvedType)
         val explicit = intent?.component != null || intent?.`package` != null ||
             outerIntent?.component != null || outerIntent?.`package` != null
+        val privilegedSystem =
+            layer == Layer.SYSTEM && !FilterPolicy.ordinaryAppCaller(callerUid)
+
         if (intent != null && kind != null) {
-            queryHits.incrementAndGet()
+            if (!privilegedSystem) queryHits.incrementAndGet()
             val traceKey = "$layer|$kind|$callerUid"
-            if (!explicit && (callerUid >= 10_000 || layer == Layer.RESOLVER) && snapshot.diagnostic &&
-                tracedActions.size < 128 && tracedActions.add(traceKey)) {
-                diagnostic("FIRST_QUERY_STACK layer=$layer kind=$kind callerUid=$callerUid action=${intent.action} " +
-                    Throwable().stackTrace.take(14).joinToString(" <- ") { "${it.className}.${it.methodName}" })
+            if (
+                !explicit &&
+                (callerUid >= 10_000 || layer == Layer.RESOLVER) &&
+                snapshot.diagnostic &&
+                tracedActions.size < 128 &&
+                tracedActions.add(traceKey)
+            ) {
+                diagnostic(
+                    "FIRST_QUERY_STACK layer=$layer kind=$kind callerUid=$callerUid action=${intent.action} " +
+                        Throwable().stackTrace.take(14).joinToString(" <- ") {
+                            "${it.className}.${it.methodName}"
+                        }
+                )
             }
-            diagnostic("QUERY layer=$layer kind=$kind action=${intent.action} mime=$resolvedType " +
-                "scheme=${intent.data?.scheme} ext=${safeExtension(intent.data?.lastPathSegment ?: intent.data?.path)} " +
-                "component=${intent.component?.flattenToShortString()} package=${intent.`package`} callerUid=$callerUid " +
-                "result=${original?.javaClass?.name} rules=${snapshot.configured.size} mode=${snapshot.displayMode}")
+            diagnostic(
+                "QUERY layer=$layer kind=$kind action=${intent.action} mime=$resolvedType " +
+                    "scheme=${intent.data?.scheme} " +
+                    "ext=${safeExtension(intent.data?.lastPathSegment ?: intent.data?.path)} " +
+                    "component=${intent.component?.flattenToShortString()} package=${intent.`package`} " +
+                    "callerUid=$callerUid result=${original?.javaClass?.name} " +
+                    "rules=${snapshot.configured.size} mode=${snapshot.displayMode}"
+            )
         }
         if (intent == null || explicit) {
             if (kind != null) diagnostic("SKIP explicit_component_or_package")
             return original
         }
         if (kind == null) {
-            if (intent.action == Intent.ACTION_VIEW) diagnostic("SKIP_UNCLASSIFIED scheme=${intent.data?.scheme} mime=$resolvedType")
+            if (intent.action == Intent.ACTION_VIEW) {
+                diagnostic("SKIP_UNCLASSIFIED scheme=${intent.data?.scheme} mime=$resolvedType")
+            }
             return original
         }
+
         val extracted = extractListResult(original) ?: run {
             diagnostic("skip $layer ${intent.action}: unsupported result ${original?.javaClass?.name}")
             return original
         }
         val data = intent.data
+
+        if (privilegedSystem) {
+            val annotated = annotateResolverPolicy(
+                kind = kind,
+                values = extracted.values,
+                mimeType = resolvedType,
+                scheme = data?.scheme,
+                fileNameOrPath = data?.lastPathSegment ?: data?.path,
+                browserHost = data?.host,
+            ) ?: return original
+            return runCatching { extracted.rebuild(annotated) }.getOrElse {
+                diagnostic("RESOLVER_POLICY_REBUILD_FAILED error=${it.javaClass.name}")
+                original
+            }
+        }
+
+        if (layer == Layer.RESOLVER && hasResolverPolicyMetadata(extracted.values, "query")) {
+            val filtered = extracted.values.filter { value ->
+                val info = value as? ResolveInfo ?: return@filter true
+                val meta = info.activityInfo?.metaData ?: return@filter true
+                if (!RuntimeProtocol.validDigest(meta.getString(RuntimeProtocol.META_POLICY_DIGEST))) {
+                    return@filter true
+                }
+                meta.getBoolean(RuntimeProtocol.META_INCLUDE, true)
+            }
+            val ordered = if (kind == IntentKind.PROCESS_TEXT) {
+                orderItemsFromMetadata(filtered, kind, "query")
+            } else {
+                filtered
+            }
+            if (filtered.size != extracted.values.size || ordered !== filtered) {
+                diagnostic(
+                    "RESOLVER_POLICY_APPLIED kind=$kind before=${extracted.values.size} " +
+                        "after=${ordered.size}"
+                )
+                return runCatching { extracted.rebuild(ordered) }.getOrElse {
+                    diagnostic("RESOLVER_POLICY_REBUILD_FAILED error=${it.javaClass.name}")
+                    original
+                }
+            }
+            return original
+        }
+
         val replacement = transform(
-            kind, extracted.values, layer, callerUid, resolvedType,
-            data?.scheme, data?.lastPathSegment ?: data?.path, data?.host
+            kind,
+            extracted.values,
+            layer,
+            callerUid,
+            resolvedType,
+            data?.scheme,
+            data?.lastPathSegment ?: data?.path,
+            data?.host,
         ) ?: return original
         return runCatching { extracted.rebuild(replacement) }.getOrElse {
             Log.e(TAG, "Failed to rebuild ${original?.javaClass?.name}; keeping original", it)
