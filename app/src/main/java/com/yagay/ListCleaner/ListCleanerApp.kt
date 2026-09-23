@@ -272,7 +272,12 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                     if (!acknowledged) {
                         @Suppress("DEPRECATION")
                         val results = packageManager.queryIntentActivities(
-                            Intent(RuntimeProtocol.ACTION).setPackage(packageName),
+                            Intent(RuntimeProtocol.ACTION)
+                                .setPackage(packageName)
+                                .putExtra(
+                                    RuntimeProtocol.EXTRA_EXPECTED_DIGEST,
+                                    digest
+                                ),
                             0
                         )
                         val prefix = "${BuildConfig.HOOK_COMPAT_VERSION_CODE}:$digest"
