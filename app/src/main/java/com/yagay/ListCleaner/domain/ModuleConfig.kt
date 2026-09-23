@@ -10,7 +10,8 @@ data class ModuleConfig(
     val mode: DisplayMode,
     val priorities: PriorityConfig,
     val diagnostic: Boolean,
-    // Supplied by our own app via framework-owned remote preferences, never by an Intent extra.
+    // Supplied only by our manager app. Runtime Probe v2 carries the serialized config after
+    // system_server verifies the Binder caller UID belongs to com.yagay.ListCleaner.
     val managerAppId: Int = -1,
     /** Source-compatibility only. Never serialized or consumed by current runtime behavior. */
     @Transient val tiles: TileConfig = TileConfig(),
