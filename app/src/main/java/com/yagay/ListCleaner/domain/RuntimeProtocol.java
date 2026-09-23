@@ -8,6 +8,12 @@ public final class RuntimeProtocol {
     public static final String ACTION = "com.yagay.ListCleaner.action.RUNTIME_PROBE_V1";
     public static final String PACKAGE = "com.yagay.ListCleaner";
     public static final String COMPONENT = PACKAGE + ".RuntimeProbe";
+    /**
+     * Optional manager -> hook hint. New hooks use it only to detect stale
+     * RemotePreferences snapshots and force a one-shot fresh read.
+     */
+    public static final String EXTRA_EXPECTED_DIGEST =
+            PACKAGE + ".extra.EXPECTED_CONFIG_DIGEST";
     private RuntimeProtocol() {}
 
     public static String digest(String config) {
