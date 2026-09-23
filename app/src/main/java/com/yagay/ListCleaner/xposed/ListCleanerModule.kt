@@ -967,7 +967,20 @@ class ListCleanerModule : XposedModule() {
         queryInProgress.set(true)
         try {
             if (layer == Layer.SYSTEM) pollPreferences()
-            val original = chain.proceed()
+            val original = if (layer == Layer.RESOLVER) {
+                val intentIndex = chain.args.indexOfFirst { it is Intent }
+                if (intentIndex >= 0) {
+                    val replacement = chain.args.toTypedArray()
+                    replacement[intentIndex] = Intent(chain.args[intentIndex] as Intent).apply {
+                        putExtra(RuntimeProtocol.EXTRA_RESOLVER_REQUEST, true)
+                    }
+                    chain.proceed(replacement)
+                } else {
+                    chain.proceed()
+                }
+            } else {
+                chain.proceed()
+            }
             try {
                 processQuery(chain, original, layer, callerUid)
             } catch (failure: Throwable) {
@@ -1227,6 +1240,9 @@ class ListCleanerModule : XposedModule() {
             outerIntent?.component != null || outerIntent?.`package` != null
         val privilegedSystem =
             layer == Layer.SYSTEM && !FilterPolicy.ordinaryAppCaller(callerUid)
+        val resolverSystemRequest =
+            privilegedSystem &&
+                outerIntent?.getBooleanExtra(RuntimeProtocol.EXTRA_RESOLVER_REQUEST, false) == true
 
         if (intent != null && kind != null) {
             if (!privilegedSystem) queryHits.incrementAndGet()
@@ -1272,6 +1288,10 @@ class ListCleanerModule : XposedModule() {
         val data = intent.data
 
         if (privilegedSystem) {
+            if (!resolverSystemRequest) {
+                diagnostic("FILTER_SKIP reason=privileged_caller uid=$callerUid")
+                return original
+            }
             val annotated = annotateResolverPolicy(
                 kind = kind,
                 values = extracted.values,
