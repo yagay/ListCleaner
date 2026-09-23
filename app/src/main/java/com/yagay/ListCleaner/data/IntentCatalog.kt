@@ -258,6 +258,119 @@ class IntentCatalog(private val context: Context) {
         return QueryResult(candidates, raw.size, flags)
     }
 
+    @Suppress("DEPRECATION")
+    private fun declaredDeepLinkCandidates(
+        handlersByHost: Map<String, Set<DeclaredDeepLinkHandler>>
+    ): List<ComponentCandidate> {
+        if (handlersByHost.isEmpty()) return emptyList()
+        val managerUid = android.os.Process.myUid()
+        val result = mutableListOf<ComponentCandidate>()
+
+        handlersByHost.toSortedMap().forEach { (rawHost, handlers) ->
+            val host = normalizeBrowserHost(rawHost) ?: return@forEach
+            handlers.forEach handlerLoop@ { handler ->
+                val component = ComponentName(handler.packageName, handler.className)
+                val activity = runCatching {
+                    context.packageManager.getActivityInfo(component, 0)
+                }.getOrNull() ?: return@handlerLoop
+                val applicationInfo = activity.applicationInfo ?: return@handlerLoop
+
+                if (!activity.enabled || !applicationInfo.enabled) return@handlerLoop
+
+                val canonicalClass = ComponentIdentity.canonicalClassName(
+                    activity.packageName,
+                    activity.name,
+                    activity.targetActivity
+                )
+                val rule = ComponentRule(
+                    IntentKind.DEEP_LINK,
+                    activity.packageName,
+                    canonicalClass
+                )
+                if (!rule.isValid()) return@handlerLoop
+
+                val targetUid = applicationInfo.uid
+                val restricted = FilterPolicy.catalogRestricted(
+                    activity.exported,
+                    targetUid,
+                    managerUid
+                )
+                val evidence = buildList {
+                    add("DECLARED_APP_LINK host=$host source=package_resolver")
+                    add(
+                        "SYSTEM_STATE activityEnabled=${activity.enabled} " +
+                            "appEnabled=${applicationInfo.enabled}"
+                    )
+                    add(
+                        "exported=${activity.exported} targetUid=$targetUid " +
+                            "managerUid=$managerUid"
+                    )
+                    if (activity.targetActivity?.isNotBlank() == true) {
+                        add(
+                            "activityAlias=${activity.name} " +
+                                "targetActivity=${activity.targetActivity} canonical=$canonicalClass"
+                        )
+                    }
+                    if (restricted) {
+                        add("RESTRICTED non-exported foreign component; excluded from ordinary catalog")
+                    }
+                }
+
+                result += ComponentCandidate(
+                    rule = rule,
+                    appLabel = loadAppLabel(applicationInfo),
+                    activityLabel = runCatching {
+                        activity.loadLabel(context.packageManager).toString()
+                    }.getOrDefault(activity.name.substringAfterLast('.')),
+                    appIcon = loadAppIcon(activity.packageName) {
+                        runCatching { applicationInfo.loadIcon(context.packageManager) }.getOrNull()
+                            ?: context.packageManager.defaultActivityIcon
+                    },
+                    appType = applicationInfo.listCleanerAppType(),
+                    evidence = evidence,
+                    restricted = restricted,
+                    broadMatch = false,
+                    browserHosts = setOf(host)
+                )
+            }
+        }
+        return result
+    }
+
+    private fun appLinkFallbackProbes(
+        discovery: BrowserLinkDiscoveryResult
+    ): List<Probe> {
+        if (discovery.packagesByHost.isEmpty()) return emptyList()
+
+        val declaredPackagesByHost = discovery.declaredHandlersByHost
+            .mapValues { (_, handlers) -> handlers.mapTo(hashSetOf()) { it.packageName } }
+
+        return buildList {
+            var pairCount = 0
+            discovery.packagesByHost.toSortedMap().forEach hostLoop@ { (rawHost, packages) ->
+                val host = normalizeBrowserHost(rawHost) ?: return@hostLoop
+                packages.sorted().forEach packageLoop@ { packageName ->
+                    if (pairCount >= MAX_APP_LINK_FALLBACK_PAIRS) return@packageLoop
+                    if (packageName in declaredPackagesByHost[host].orEmpty()) return@packageLoop
+                    pairCount++
+
+                    APP_LINK_FALLBACK_PATHS.forEach { path ->
+                        val uri = Uri.parse("https://$host$path")
+                        add(
+                            Probe(
+                                Intent(Intent.ACTION_VIEW, uri)
+                                    .addCategory(Intent.CATEGORY_BROWSABLE)
+                                    .setPackage(packageName),
+                                false,
+                                "APP_LINK_FALLBACK host=$host package=$packageName path=$path"
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     private fun loadAppLabel(applicationInfo: ApplicationInfo): String {
         val packageName = applicationInfo.packageName
         appLabelCache.get(packageName)?.let { return it }
