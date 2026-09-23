@@ -434,24 +434,166 @@ class ListCleanerModule : XposedModule() {
         }
         val owner = candidates.firstOrNull { value ->
             hasGetPackagesForUid(value.javaClass) &&
-                MANAGER_PACKAGE in packagesForUid(
-                    value,
-                    callerUid
-                )
+                MANAGER_PACKAGE in packagesForUid(value, callerUid)
         }
         if (owner == null) {
-            record(
-                "CONFIG_PROBE_IDENTITY uid=$callerUid verified=false"
-            )
+            record("CONFIG_PROBE_IDENTITY uid=$callerUid verified=false")
             return null
         }
         val appId = callerUid % PER_USER_RANGE
-        return appId.takeIf(ManagerIdentity::valid)
-            ?.also {
-                record(
-                    "CONFIG_PROBE_IDENTITY uid=$callerUid appId=$it verified=true"
-                )
+        return appId.takeIf(ManagerIdentity::valid)?.also {
+            if (tracedActions.add("config_identity:$callerUid")) {
+                record("CONFIG_PROBE_IDENTITY uid=$callerUid appId=$it verified=true")
             }
+        }
+    }
+
+    @Synchronized
+    private fun beginRuntimeTransfer(
+        intent: Intent,
+        callerUid: Int,
+        managerAppId: Int,
+    ): Boolean {
+        val transferId = intent.getStringExtra(RuntimeProtocol.EXTRA_TRANSFER_ID)
+        val digest = intent.getStringExtra(RuntimeProtocol.EXTRA_EXPECTED_DIGEST)
+        val revision = intent.getLongExtra(RuntimeProtocol.EXTRA_REVISION, -1L)
+        val totalChunks = intent.getIntExtra(RuntimeProtocol.EXTRA_TOTAL_CHUNKS, -1)
+        val totalChars = intent.getIntExtra(RuntimeProtocol.EXTRA_TOTAL_CHARS, -1)
+        if (
+            !RuntimeProtocol.validTransferId(transferId) ||
+            !RuntimeProtocol.validDigest(digest) ||
+            revision < 0L ||
+            totalChunks !in 1..RuntimeProtocol.MAX_CONFIG_CHUNKS ||
+            totalChars !in 1..RuleRepository.MAX_BACKUP_CHARS
+        ) {
+            record(
+                "CONFIG_PUSH_REJECT stage=begin uid=$callerUid transfer=${transferId ?: "none"} " +
+                    "chunks=$totalChunks chars=$totalChars revision=$revision"
+            )
+            return false
+        }
+
+        incomingTransfer = RuntimeTransfer(
+            callerUid = callerUid,
+            managerAppId = managerAppId,
+            id = requireNotNull(transferId),
+            digest = requireNotNull(digest),
+            revision = revision,
+            totalChunks = totalChunks,
+            totalChars = totalChars,
+            startedAt = SystemClock.elapsedRealtime(),
+            chunks = arrayOfNulls(totalChunks),
+        )
+        record(
+            "CONFIG_PUSH_BEGIN uid=$callerUid transfer=$transferId chunks=$totalChunks " +
+                "chars=$totalChars revision=$revision digest=$digest"
+        )
+        return true
+    }
+
+    @Synchronized
+    private fun appendRuntimeChunk(
+        intent: Intent,
+        callerUid: Int,
+    ): Boolean {
+        val transfer = incomingTransfer ?: return false
+        if (
+            transfer.callerUid != callerUid ||
+            SystemClock.elapsedRealtime() - transfer.startedAt > CONFIG_TRANSFER_TIMEOUT_MS
+        ) {
+            incomingTransfer = null
+            record("CONFIG_PUSH_REJECT stage=chunk uid=$callerUid reason=owner_or_timeout")
+            return false
+        }
+        val transferId = intent.getStringExtra(RuntimeProtocol.EXTRA_TRANSFER_ID)
+        val index = intent.getIntExtra(RuntimeProtocol.EXTRA_CHUNK_INDEX, -1)
+        val chunk = intent.getStringExtra(RuntimeProtocol.EXTRA_CONFIG_CHUNK)
+        if (
+            transferId != transfer.id ||
+            index !in transfer.chunks.indices ||
+            chunk == null ||
+            chunk.length > RuntimeProtocol.CONFIG_CHUNK_CHARS
+        ) {
+            record(
+                "CONFIG_PUSH_REJECT stage=chunk uid=$callerUid transfer=${transferId ?: "none"} index=$index"
+            )
+            return false
+        }
+        transfer.chunks[index] = chunk
+        return true
+    }
+
+    @Synchronized
+    private fun commitRuntimeTransfer(
+        intent: Intent,
+        callerUid: Int,
+        managerAppId: Int,
+    ): Boolean {
+        val transfer = incomingTransfer ?: return false
+        incomingTransfer = null
+
+        val transferId = intent.getStringExtra(RuntimeProtocol.EXTRA_TRANSFER_ID)
+        val expectedDigest = intent.getStringExtra(RuntimeProtocol.EXTRA_EXPECTED_DIGEST)
+        val revision = intent.getLongExtra(RuntimeProtocol.EXTRA_REVISION, -1L)
+        if (
+            transfer.callerUid != callerUid ||
+            transfer.managerAppId != managerAppId ||
+            transferId != transfer.id ||
+            expectedDigest != transfer.digest ||
+            revision != transfer.revision ||
+            SystemClock.elapsedRealtime() - transfer.startedAt > CONFIG_TRANSFER_TIMEOUT_MS ||
+            transfer.chunks.any { it == null }
+        ) {
+            record(
+                "CONFIG_PUSH_REJECT stage=commit uid=$callerUid transfer=${transferId ?: "none"} " +
+                    "revision=$revision reason=metadata_or_chunks"
+            )
+            return false
+        }
+
+        val encoded = buildString(transfer.totalChars) {
+            transfer.chunks.forEach { append(requireNotNull(it)) }
+        }
+        if (encoded.length != transfer.totalChars) {
+            record(
+                "CONFIG_PUSH_REJECT stage=commit uid=$callerUid transfer=${transfer.id} " +
+                    "reason=length expected=${transfer.totalChars} actual=${encoded.length}"
+            )
+            return false
+        }
+        val actualDigest = RuntimeProtocol.digest(encoded)
+        if (actualDigest != transfer.digest) {
+            record(
+                "CONFIG_PUSH_REJECT stage=commit uid=$callerUid transfer=${transfer.id} " +
+                    "reason=digest expected=${transfer.digest} actual=$actualDigest"
+            )
+            return false
+        }
+
+        val applied = runCatching {
+            applyAtomicConfig(
+                encoded = encoded,
+                reason = "runtime push",
+                source = "probe-v2",
+                expectedDigest = actualDigest,
+                expectedManagerAppId = managerAppId,
+            )
+        }.onFailure {
+            record(
+                "CONFIG_PUSH_REJECT stage=commit uid=$callerUid transfer=${transfer.id} " +
+                    "reason=${it.javaClass.name}"
+            )
+        }.getOrDefault(false)
+
+        if (applied) {
+            runtimeTransportActive = true
+            appliedRuntimeRevision = transfer.revision
+            record(
+                "CONFIG_PUSH_APPLIED uid=$callerUid transfer=${transfer.id} revision=${transfer.revision} " +
+                    "digest=$actualDigest rules=${snapshot.configured.size}"
+            )
+        }
+        return applied
     }
 
     private fun packageNameAccessor(clazz: Class<*>): PackageNameAccessor = packageNameAccessorCache.computeIfAbsent(clazz) {
