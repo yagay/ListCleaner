@@ -1571,8 +1571,6 @@ class ListCleanerModule : XposedModule() {
         sourcePreferences: SharedPreferences,
         reason: String,
         source: String,
-        managerAppId: Int = -1,
-        digest: String = "",
     ): Boolean {
         val hasMirror =
             sourcePreferences.contains(
@@ -1658,8 +1656,8 @@ class ListCleanerModule : XposedModule() {
                     RuleRepository.KEY_DIAGNOSTIC,
                     false
                 ),
-            managerAppId = managerAppId,
-            digest = digest,
+            managerAppId = -1,
+            digest = "",
             hiddenFromApps = hiddenFromApps,
             visibilityCompat =
                 VisibilityCompatConfig(
@@ -1669,8 +1667,8 @@ class ListCleanerModule : XposedModule() {
         lastEncodedConfig = null
         record(
             "RULES_READ reason=$reason source=$source count=${rules.size} " +
-                "mode=$mode diagnostic=${snapshot.diagnostic} atomic=false compatMirror=true " +
-                "managerAppId=$managerAppId digest=${digest.ifEmpty { "none" }} " +
+                "mode=$mode diagnostic=${snapshot.diagnostic} atomic=false legacy=true " +
+                "managerAppId=-1 digest=none " +
                 "typedRules=${openTypes.rules.mapValues { it.value.size }} " +
                 "browserHosts=${browserLinks.hosts.size} hiddenFromApps=${hiddenFromApps.size}"
         )
