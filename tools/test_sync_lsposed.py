@@ -45,6 +45,26 @@ class ReleaseVerificationTest(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     sync.verify_checksum(apk, checks)
 
+    def test_exact_uploaded_asset_requires_one_uploaded_asset_with_id(self):
+        release = {
+            'assets': [
+                {'id': 1, 'name': 'app.apk', 'state': 'uploaded'},
+                {'id': 2, 'name': 'other.txt', 'state': 'uploaded'},
+            ]
+        }
+        self.assertEqual(1, sync.exact_uploaded_asset(release, 'app.apk')['id'])
+        for invalid in [
+            {'assets': []},
+            {'assets': [{'id': 1, 'name': 'app.apk', 'state': 'starter'}]},
+            {'assets': [{'name': 'app.apk', 'state': 'uploaded'}]},
+            {'assets': [
+                {'id': 1, 'name': 'app.apk', 'state': 'uploaded'},
+                {'id': 2, 'name': 'app.apk', 'state': 'uploaded'},
+            ]},
+        ]:
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                sync.exact_uploaded_asset(invalid, 'app.apk')
+
     def test_retry_only_uploads_missing_assets_and_never_overwrites(self):
         with tempfile.TemporaryDirectory() as tmp:
             apk = Path(tmp) / 'app.apk'

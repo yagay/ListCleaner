@@ -36,6 +36,44 @@ def api(token, repo, path='', method='GET', data=None, missing_ok=False):
     return None if result is None else (json.loads(result) if result.strip() else {})
 
 
+def exact_uploaded_asset(release, name):
+    matches = [asset for asset in release.get('assets', [])
+               if asset.get('name') == name and asset.get('state') == 'uploaded']
+    if len(matches) != 1 or not matches[0].get('id'):
+        raise ValueError(f'Release is missing one complete asset: {name}')
+    return matches[0]
+
+
+def download_release_asset(token, repo, asset, destination):
+    destination = Path(destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    env = dict(os.environ, GH_TOKEN=token, GH_PROMPT_DISABLED='1')
+    command = [
+        'gh', 'api', f'repos/{repo}/releases/assets/{asset["id"]}',
+        '-H', 'Accept: application/octet-stream',
+    ]
+    with destination.open('wb') as stream:
+        result = subprocess.run(
+            command,
+            stdout=stream,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env,
+            timeout=180,
+        )
+    if result.returncode:
+        destination.unlink(missing_ok=True)
+        if '(HTTP 403)' in result.stderr:
+            raise RuntimeError(
+                'GitHub denied asset download (403). Check token scope, expiry and organization policy.'
+            )
+        raise RuntimeError(f'GitHub asset download failed: {result.stderr.strip()}')
+    if not destination.is_file() or destination.stat().st_size == 0:
+        destination.unlink(missing_ok=True)
+        raise RuntimeError(f'GitHub asset download returned an empty file: {asset.get("name", "unknown")}')
+    return destination
+
+
 def checked_tag(value):
     if value and not re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+', value):
         raise ValueError('Source tag must be a stable version such as v1.6.3')
@@ -120,7 +158,7 @@ def asset_plan(assets, files, download):
             raise ValueError(f'Incomplete or duplicate official asset: {path.name}')
         asset = matches[0]
         expected = 'sha256:' + digest(path)
-        actual = asset.get('digest') or ('sha256:' + digest(download(path.name)))
+        actual = asset.get('digest') or ('sha256:' + digest(download(asset)))
         if actual != expected:
             raise ValueError(f'Official asset differs: {path.name}; refusing to overwrite this version')
     return missing
@@ -139,14 +177,17 @@ def main():
         raise ValueError('Only published stable releases can be synchronized')
     apk_name = f'ListCleaner-{tag[1:]}-release.apk'
     names = [apk_name, 'SHA256SUMS.txt', 'signature.txt']
-    for name in names:
-        if sum(a['name'] == name and a['state'] == 'uploaded' for a in source['assets']) != 1:
-            raise ValueError(f'Source release is missing a complete asset: {name}')
+    source_assets = {name: exact_uploaded_asset(source, name) for name in names}
 
     with tempfile.TemporaryDirectory(prefix='lsposed-sync-') as directory:
         directory = Path(directory)
-        gh(source_token, 'release', 'download', tag, '--repo', SOURCE, '--dir', str(directory),
-           '--pattern', apk_name, '--pattern', 'SHA256SUMS.txt', '--pattern', 'signature.txt')
+        for name in names:
+            download_release_asset(
+                source_token,
+                SOURCE,
+                source_assets[name],
+                directory / name,
+            )
         apk = directory / apk_name
         verify_checksum(apk, directory / 'SHA256SUMS.txt')
         build_tools = Path(os.environ['ANDROID_HOME']) / 'build-tools/36.0.0'
@@ -160,12 +201,9 @@ def main():
         files = [directory / name for name in names]
         release = find_release(target_token, official_tag)
 
-        def download(name):
-            destination = directory / 'existing'
-            destination.mkdir(exist_ok=True)
-            gh(target_token, 'release', 'download', official_tag, '--repo', TARGET,
-               '--pattern', name, '--dir', str(destination))
-            return destination / name
+        def download(asset):
+            destination = directory / 'existing' / asset['name']
+            return download_release_asset(target_token, TARGET, asset, destination)
 
         missing = asset_plan(release['assets'] if release else [], files, download)
         for document in ('README.md', 'README.en.md', 'SUMMARY', 'SUMMARY.en'):
