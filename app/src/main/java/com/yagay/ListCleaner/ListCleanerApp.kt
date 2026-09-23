@@ -8,6 +8,8 @@ import com.yagay.ListCleaner.data.PersistentComponentStore
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.ModuleConfig
+import com.yagay.ListCleaner.domain.OpenTypeConfig
+import com.yagay.ListCleaner.domain.BrowserLinkConfig
 import com.yagay.ListCleaner.domain.PriorityConfig
 import com.yagay.ListCleaner.domain.RuntimeProtocol
 import com.yagay.ListCleaner.domain.deriveFullySelectedPackages
@@ -247,19 +249,35 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                     )
                 }
                 val remoteEncoded = prefs.getString(RuleRepository.KEY_CONFIG, null)
-                if (canPause && remoteEncoded != encoded) {
-                    check(prefs.edit().putString(RuleRepository.KEY_CONFIG, encoded).commit()) {
-                        getString(R.string.runtime_pause_write_failed)
+                if (remoteEncoded != encoded) {
+                    check(
+                        writeRemoteSnapshot(
+                            prefs = prefs,
+                            config = config,
+                            encoded = encoded,
+                        )
+                    ) {
+                        getString(
+                            if (canPause) {
+                                R.string.runtime_pause_write_failed
+                            } else {
+                                R.string.runtime_remote_write_failed
+                            }
+                        )
                     }
-                    publishFor(session, RuntimeStatus(message = getString(R.string.runtime_pause_submitted)))
+                    if (canPause) {
+                        publishFor(
+                            session,
+                            RuntimeStatus(
+                                message = getString(
+                                    R.string.runtime_pause_submitted
+                                )
+                            )
+                        )
+                    }
                 }
                 if (runtime.value.digest != digest) {
                     publishFor(session, RuntimeStatus(message = getString(R.string.runtime_waiting_ack)))
-                }
-                if (remoteEncoded != encoded) {
-                    check(prefs.edit().putString(RuleRepository.KEY_CONFIG, encoded).commit()) {
-                        getString(R.string.runtime_remote_write_failed)
-                    }
                 }
 
                 var acknowledged = false
@@ -334,6 +352,70 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
             }
         }
     }
+
+    private fun writeRemoteSnapshot(
+        prefs: android.content.SharedPreferences,
+        config: ModuleConfig,
+        encoded: String,
+    ): Boolean =
+        prefs.edit()
+            // Atomic config is authoritative for modern frameworks.
+            .putString(
+                RuleRepository.KEY_CONFIG,
+                encoded
+            )
+            // Mirror the existing keys in the same transaction. This is a
+            // compatibility fallback for framework implementations whose
+            // RemotePreferences object can temporarily miss a newly-created
+            // key while still propagating updates to established keys.
+            .putStringSet(
+                RuleRepository.KEY_RULES,
+                config.rules.map { it.id }.toSet()
+            )
+            .putString(
+                RuleRepository.KEY_DISPLAY_MODE,
+                config.mode.name
+            )
+            .putBoolean(
+                RuleRepository.KEY_BLACKLIST,
+                config.mode != DisplayMode.SHOW_SELECTED
+            )
+            .putString(
+                RuleRepository.KEY_PRIORITIES,
+                json.encodeToString(
+                    PriorityConfig.serializer(),
+                    config.priorities
+                )
+            )
+            .putBoolean(
+                RuleRepository.KEY_DIAGNOSTIC,
+                config.diagnostic
+            )
+            .putStringSet(
+                RuleRepository.KEY_HIDDEN_FROM_APPS,
+                config.hiddenFromApps
+            )
+            .putString(
+                RuleRepository.KEY_OPEN_TYPES,
+                json.encodeToString(
+                    OpenTypeConfig.serializer(),
+                    config.openTypes
+                )
+            )
+            .putString(
+                RuleRepository.KEY_BROWSER_LINKS,
+                json.encodeToString(
+                    BrowserLinkConfig.serializer(),
+                    config.browserLinks
+                )
+            )
+            .putStringSet(
+                RuleRepository.KEY_VISIBILITY_SCOPES,
+                config.visibilityCompat.scopes
+                    .map { it.name }
+                    .toSet()
+            )
+            .commit()
 
     suspend fun resolveRecovery(restore: Boolean) {
         syncMutex.withLock {
