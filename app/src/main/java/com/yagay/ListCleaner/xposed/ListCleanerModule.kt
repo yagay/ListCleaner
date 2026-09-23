@@ -11,6 +11,7 @@ import com.yagay.ListCleaner.domain.RuntimeProtocol
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.HotReloadedParam
 import android.os.Binder
+import android.os.Bundle
 import android.os.Looper
 import android.os.SystemClock
 import android.os.Process
@@ -83,6 +84,22 @@ class ListCleanerModule : XposedModule() {
     private data class MethodAccessor(val method: Method?)
     private data class PackageNameAccessor(val getter: Method?, val field: Field?)
     private data class ParceledListAccessor(val getList: Method, val constructor: Constructor<*>)
+    private data class RuntimeTransfer(
+        val callerUid: Int,
+        val managerAppId: Int,
+        val id: String,
+        val digest: String,
+        val revision: Long,
+        val totalChunks: Int,
+        val totalChars: Int,
+        val startedAt: Long,
+        val chunks: Array<String?>,
+    )
+    private data class ResolverPolicy(
+        val include: Boolean,
+        val rank: Int,
+        val title: String?,
+    )
 
     @Volatile
     private var snapshot = RuleSnapshot(
@@ -90,6 +107,9 @@ class ListCleanerModule : XposedModule() {
         OpenTypeConfig(), BrowserLinkConfig(), false
     )
     private var lastEncodedConfig: String? = null
+    @Volatile private var runtimeTransportActive = false
+    @Volatile private var appliedRuntimeRevision = -1L
+    private var incomingTransfer: RuntimeTransfer? = null
     @Volatile private var listenerRegistered = false
     private var processName = ""
     private var systemServer = false
