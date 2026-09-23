@@ -94,7 +94,7 @@ class BrowserLinkDiscovery {
             safePackages.forEach { append(' ').append(it) }
             append("; do printf '\\n")
             append(PACKAGE_MARKER)
-            append("%s\\n' \"\\$p\"; dumpsys package \"\\$p\" 2>/dev/null | sed '/^$/q'; done")
+            append("%s\\n' \"\$p\"; dumpsys package \"\$p\" 2>/dev/null | sed '/^$/q'; done")
         }
         return runReadOnlyCommand(script, RESOLVER_OUTPUT_BYTES, RESOLVER_TIMEOUT_SECONDS)
     }
