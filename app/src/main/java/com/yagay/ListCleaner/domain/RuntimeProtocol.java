@@ -37,6 +37,9 @@ public final class RuntimeProtocol {
             PACKAGE + ".extra.CONFIG_CHUNK_INDEX";
     public static final String EXTRA_CONFIG_CHUNK =
             PACKAGE + ".extra.CONFIG_CHUNK";
+    /** Set only by the hooked Resolver client on PackageManager query copies. */
+    public static final String EXTRA_RESOLVER_REQUEST =
+            PACKAGE + ".extra.RESOLVER_POLICY_REQUEST";
 
     public static final String OP_BEGIN = "begin";
     public static final String OP_CHUNK = "chunk";
