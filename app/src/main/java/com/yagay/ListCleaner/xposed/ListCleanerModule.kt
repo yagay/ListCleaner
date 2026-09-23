@@ -727,9 +727,20 @@ class ListCleanerModule : XposedModule() {
         val intent = outerIntent?.selector ?: outerIntent
         if (layer == Layer.SYSTEM && outerIntent?.action == RuntimeProtocol.ACTION &&
             outerIntent.`package` == RuntimeProtocol.PACKAGE && outerIntent.selector == null) {
-            refreshRulesSafely("manager probe")
+            val expectedDigest = outerIntent
+                .getStringExtra(RuntimeProtocol.EXTRA_EXPECTED_DIGEST)
+                ?.takeIf { it.length == 64 && it.all { ch -> ch.isDigit() || ch in 'a'..'f' } }
+            refreshRulesSafely(
+                reason = "manager probe",
+                expectedDigest = expectedDigest
+            )
             val applied = snapshot
-            if (ManagerIdentity.matches(callerUid, applied.managerAppId) && applied.digest.isNotEmpty()) {
+            val digestMatches = expectedDigest == null || applied.digest == expectedDigest
+            if (
+                ManagerIdentity.matches(callerUid, applied.managerAppId) &&
+                applied.digest.isNotEmpty() &&
+                digestMatches
+            ) {
                 val result = extractListResult(original) ?: return original
                 val ack = ResolveInfo().apply {
                     activityInfo = ActivityInfo().apply {
@@ -745,6 +756,11 @@ class ListCleanerModule : XposedModule() {
                 record("CONFIG_ACK moduleVersion=${BuildConfig.VERSION_CODE} hookCompat=${BuildConfig.HOOK_COMPAT_VERSION_CODE} digest=${applied.digest} queryHits=${queryHits.get()} visibilityHits=${visibilityHits.get()} orderHits=${orderingHits.get()} callerUid=$callerUid")
                 return result.rebuild(listOf(ack))
             }
+            record(
+                "CONFIG_ACK_SKIP callerUid=$callerUid managerAppId=${applied.managerAppId} " +
+                    "expected=${expectedDigest ?: "none"} actual=${applied.digest.ifEmpty { "none" }} " +
+                    "identityMatch=${ManagerIdentity.matches(callerUid, applied.managerAppId)}"
+            )
             return original
         }
         if (layer == Layer.SYSTEM && !FilterPolicy.ordinaryAppCaller(callerUid)) {
@@ -959,43 +975,212 @@ class ListCleanerModule : XposedModule() {
         refreshRulesSafely("init")
     }
 
-    @Synchronized private fun refreshRulesSafely(reason: String) {
+    private fun applyAtomicConfig(
+        encoded: String,
+        reason: String,
+        source: String,
+        expectedDigest: String?,
+    ): Boolean {
+        require(encoded.length <= RuleRepository.MAX_BACKUP_CHARS) {
+            "Config too large"
+        }
+        val digest = RuntimeProtocol.digest(encoded)
+        if (
+            !expectedDigest.isNullOrBlank() &&
+            digest != expectedDigest
+        ) {
+            record(
+                "REMOTE_CONFIG_STALE reason=$reason source=$source " +
+                    "expected=$expectedDigest actual=$digest length=${encoded.length}"
+            )
+            return false
+        }
+        if (
+            lastEncodedConfig == encoded &&
+            snapshot.digest == digest
+        ) {
+            if (reason == "manager probe") {
+                record(
+                    "REMOTE_CONFIG_MATCH reason=$reason source=$source digest=$digest"
+                )
+            }
+            return true
+        }
+
+        val config = Json {
+            ignoreUnknownKeys = true
+        }.decodeFromString(
+            ModuleConfig.serializer(),
+            encoded
+        ).validated()
+
+        snapshot = RuleSnapshot(
+            configured = config.rules.map { it.id }.toSet(),
+            displayMode = config.mode,
+            priorities = config.priorities,
+            defaultOpen = config.defaultOpen,
+            openTypes = config.openTypes,
+            browserLinks = config.browserLinks,
+            diagnostic = config.diagnostic,
+            managerAppId = config.managerAppId,
+            digest = digest,
+            hiddenFromApps = config.hiddenFromApps,
+            visibilityCompat = config.visibilityCompat,
+        )
+        lastEncodedConfig = encoded
+
+        record(
+            "MANAGER_IDENTITY appId=${config.managerAppId} source=remote_config_$source"
+        )
+        record(
+            "RULES_READ reason=$reason source=$source count=${snapshot.configured.size} " +
+                "mode=${config.mode} diagnostic=${config.diagnostic} atomic=true " +
+                "priorities=${config.priorities.apps.mapValues { it.value.size }} " +
+                "typedRules=${config.openTypes.rules.mapValues { it.value.size }} " +
+                "typedPriorities=${config.openTypes.priorities.mapValues { it.value.size }} " +
+                "browserHosts=${config.browserLinks.hosts.size} " +
+                "browserRules=${config.browserLinks.rules.mapValues { it.value.size }} " +
+                "titles=${config.priorities.titles.size} hiddenFromApps=${config.hiddenFromApps.size} " +
+                "visibilityScopes=${config.visibilityCompat.scopes.map { it.name }.sorted()} " +
+                "visibilityTargets=${snapshot.allSelectedPackages.size} digest=$digest"
+        )
+        return true
+    }
+
+    @Synchronized private fun refreshRulesSafely(
+        reason: String,
+        expectedDigest: String? = null,
+    ) {
         runCatching {
-            preferences.getString(RuleRepository.KEY_CONFIG, null)?.let { encoded ->
-                if (lastEncodedConfig == encoded) return@runCatching
-                require(encoded.length <= RuleRepository.MAX_BACKUP_CHARS) { "Config too large" }
-                val digest = RuntimeProtocol.digest(encoded)
-                if (snapshot.digest == digest) return@runCatching
-                val config = Json { ignoreUnknownKeys = true }.decodeFromString(ModuleConfig.serializer(), encoded).validated()
-                snapshot = RuleSnapshot(config.rules.map { it.id }.toSet(), config.mode,
-                    config.priorities, config.defaultOpen, config.openTypes, config.browserLinks, config.diagnostic,
-                    config.managerAppId, digest, config.hiddenFromApps, config.visibilityCompat)
-                lastEncodedConfig = encoded
-                record("MANAGER_IDENTITY appId=${config.managerAppId} source=remote_config")
-                record("RULES_READ reason=$reason count=${snapshot.configured.size} mode=${config.mode} diagnostic=${config.diagnostic} atomic=true priorities=${config.priorities.apps.mapValues { it.value.size }} typedRules=${config.openTypes.rules.mapValues { it.value.size }} typedPriorities=${config.openTypes.priorities.mapValues { it.value.size }} browserHosts=${config.browserLinks.hosts.size} browserRules=${config.browserLinks.rules.mapValues { it.value.size }} titles=${config.priorities.titles.size} hiddenFromApps=${config.hiddenFromApps.size} visibilityScopes=${config.visibilityCompat.scopes.map { it.name }.sorted()} visibilityTargets=${snapshot.allSelectedPackages.size} digest=$digest")
+            if (
+                !expectedDigest.isNullOrBlank() &&
+                snapshot.digest == expectedDigest
+            ) {
+                record(
+                    "REMOTE_CONFIG_MATCH reason=$reason source=snapshot digest=$expectedDigest"
+                )
                 return@runCatching
             }
-            val rules = preferences.getStringSet(RuleRepository.KEY_RULES, emptySet()).orEmpty().toSet()
+
+            val cached = preferences
+            val cachedEncoded =
+                cached.getString(
+                    RuleRepository.KEY_CONFIG,
+                    null
+                )
+
+            if (
+                cachedEncoded != null &&
+                applyAtomicConfig(
+                    encoded = cachedEncoded,
+                    reason = reason,
+                    source = "cached",
+                    expectedDigest = expectedDigest,
+                )
+            ) {
+                return@runCatching
+            }
+
+            if (!expectedDigest.isNullOrBlank()) {
+                val cachedDigest =
+                    cachedEncoded?.let(
+                        RuntimeProtocol::digest
+                    )
+                val fresh = getRemotePreferences(
+                    RuleRepository.REMOTE_PREFS
+                )
+                val freshEncoded =
+                    fresh.getString(
+                        RuleRepository.KEY_CONFIG,
+                        null
+                    )
+                val freshDigest =
+                    freshEncoded?.let(
+                        RuntimeProtocol::digest
+                    )
+
+                record(
+                    "REMOTE_CONFIG_REFRESH reason=$reason " +
+                        "cachedPresent=${cachedEncoded != null} freshPresent=${freshEncoded != null} " +
+                        "expected=$expectedDigest cachedDigest=${cachedDigest ?: "none"} " +
+                        "freshDigest=${freshDigest ?: "none"} sameInstance=${fresh === cached}"
+                )
+
+                if (
+                    freshEncoded != null &&
+                    applyAtomicConfig(
+                        encoded = freshEncoded,
+                        reason = reason,
+                        source = "fresh",
+                        expectedDigest = expectedDigest,
+                    )
+                ) {
+                    return@runCatching
+                }
+
+                // A manager probe is authoritative. Never replace the current
+                // snapshot with legacy/empty keys when no matching atomic
+                // config is visible yet; keep the last known-good rules and
+                // simply withhold ACK so the manager can retry.
+                record(
+                    "REMOTE_CONFIG_REFRESH_MISS reason=$reason expected=$expectedDigest " +
+                        "current=${snapshot.digest.ifEmpty { "none" }} keepSnapshot=true"
+                )
+                return@runCatching
+            }
+
+            val rules =
+                cached.getStringSet(
+                    RuleRepository.KEY_RULES,
+                    emptySet()
+                ).orEmpty().toSet()
             val mode = DisplayMode.fromStored(
-                preferences.getString(RuleRepository.KEY_DISPLAY_MODE, null),
-                preferences.getBoolean(RuleRepository.KEY_BLACKLIST, true)
+                cached.getString(
+                    RuleRepository.KEY_DISPLAY_MODE,
+                    null
+                ),
+                cached.getBoolean(
+                    RuleRepository.KEY_BLACKLIST,
+                    true
+                )
             )
             val priorities = runCatching {
                 Json.decodeFromString(
                     PriorityConfig.serializer(),
-                    preferences.getString(RuleRepository.KEY_PRIORITIES, null) ?: "{}"
+                    cached.getString(
+                        RuleRepository.KEY_PRIORITIES,
+                        null
+                    ) ?: "{}"
                 ).validated()
             }.getOrDefault(PriorityConfig())
+
             snapshot = RuleSnapshot(
-                configured = rules, displayMode = mode, priorities = priorities,
-                defaultOpen = DefaultOpenConfig(), openTypes = OpenTypeConfig(), browserLinks = BrowserLinkConfig(),
-                diagnostic = preferences.getBoolean(RuleRepository.KEY_DIAGNOSTIC, false)
+                configured = rules,
+                displayMode = mode,
+                priorities = priorities,
+                defaultOpen = DefaultOpenConfig(),
+                openTypes = OpenTypeConfig(),
+                browserLinks = BrowserLinkConfig(),
+                diagnostic = cached.getBoolean(
+                    RuleRepository.KEY_DIAGNOSTIC,
+                    false
+                )
             )
             lastEncodedConfig = null
-            record("RULES_READ reason=$reason count=${rules.size} mode=$mode diagnostic=${snapshot.diagnostic}")
+            record(
+                "RULES_READ reason=$reason source=legacy count=${rules.size} " +
+                    "mode=$mode diagnostic=${snapshot.diagnostic}"
+            )
         }.onFailure {
-            record("RULES_READ_FAILED error=${it.javaClass.name}")
-            Log.e(TAG, "Rules refresh failed; keeping previous snapshot", it)
+            record(
+                "RULES_READ_FAILED reason=$reason error=${it.javaClass.name} " +
+                    "message=${it.message?.take(160) ?: "none"}"
+            )
+            Log.e(
+                TAG,
+                "Rules refresh failed; keeping previous snapshot",
+                it
+            )
         }
     }
 
