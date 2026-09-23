@@ -40,6 +40,7 @@ import com.yagay.ListCleaner.domain.webTargetKind
 import com.yagay.ListCleaner.domain.ManagerIdentity
 import com.yagay.ListCleaner.domain.VisibilityLayout
 import com.yagay.ListCleaner.domain.VisibilitySignature
+import com.yagay.ListCleaner.domain.VisibilityScope
 import kotlinx.serialization.json.Json
 import java.lang.reflect.Constructor
 import java.lang.reflect.Field
@@ -402,6 +403,37 @@ class ListCleanerModule : XposedModule() {
         }
     }
 
+    private fun verifiedManagerAppIdForProbe(
+        chain: XposedInterface.Chain,
+        callerUid: Int,
+    ): Int? {
+        if (callerUid < 0) return null
+        val candidates = buildList {
+            chain.thisObject?.let(::add)
+            chain.args.filterNotNull().forEach(::add)
+        }
+        val owner = candidates.firstOrNull { value ->
+            hasGetPackagesForUid(value.javaClass) &&
+                MANAGER_PACKAGE in packagesForUid(
+                    value,
+                    callerUid
+                )
+        }
+        if (owner == null) {
+            record(
+                "CONFIG_PROBE_IDENTITY uid=$callerUid verified=false"
+            )
+            return null
+        }
+        val appId = callerUid % PER_USER_RANGE
+        return appId.takeIf(ManagerIdentity::valid)
+            ?.also {
+                record(
+                    "CONFIG_PROBE_IDENTITY uid=$callerUid appId=$it verified=true"
+                )
+            }
+    }
+
     private fun packageNameAccessor(clazz: Class<*>): PackageNameAccessor = packageNameAccessorCache.computeIfAbsent(clazz) {
         val classes = generateSequence(clazz as Class<*>?) { it.superclass }.toList()
         val getter = classes.asSequence().flatMap { current -> current.declaredMethods.asSequence() }
@@ -730,9 +762,16 @@ class ListCleanerModule : XposedModule() {
             val expectedDigest = outerIntent
                 .getStringExtra(RuntimeProtocol.EXTRA_EXPECTED_DIGEST)
                 ?.takeIf { it.length == 64 && it.all { ch -> ch.isDigit() || ch in 'a'..'f' } }
+            val verifiedManagerAppId =
+                verifiedManagerAppIdForProbe(
+                    chain,
+                    callerUid
+                )
             refreshRulesSafely(
                 reason = "manager probe",
-                expectedDigest = expectedDigest
+                expectedDigest = expectedDigest,
+                fallbackManagerAppId =
+                    verifiedManagerAppId,
             )
             val applied = snapshot
             val digestMatches = expectedDigest == null || applied.digest == expectedDigest
@@ -1047,9 +1086,120 @@ class ListCleanerModule : XposedModule() {
         return true
     }
 
+    private fun applyLegacyConfig(
+        sourcePreferences: SharedPreferences,
+        reason: String,
+        source: String,
+        managerAppId: Int = -1,
+        digest: String = "",
+    ): Boolean {
+        val hasMirror =
+            sourcePreferences.contains(
+                RuleRepository.KEY_DISPLAY_MODE
+            ) ||
+                sourcePreferences.contains(
+                    RuleRepository.KEY_RULES
+                ) ||
+                sourcePreferences.contains(
+                    RuleRepository.KEY_PRIORITIES
+                )
+        if (!hasMirror) return false
+
+        val rules =
+            sourcePreferences.getStringSet(
+                RuleRepository.KEY_RULES,
+                emptySet()
+            ).orEmpty().toSet()
+        val mode = DisplayMode.fromStored(
+            sourcePreferences.getString(
+                RuleRepository.KEY_DISPLAY_MODE,
+                null
+            ),
+            sourcePreferences.getBoolean(
+                RuleRepository.KEY_BLACKLIST,
+                true
+            )
+        )
+        val json = Json {
+            ignoreUnknownKeys = true
+        }
+        val priorities = runCatching {
+            json.decodeFromString(
+                PriorityConfig.serializer(),
+                sourcePreferences.getString(
+                    RuleRepository.KEY_PRIORITIES,
+                    null
+                ) ?: "{}"
+            ).validated()
+        }.getOrDefault(PriorityConfig())
+        val openTypes = runCatching {
+            json.decodeFromString(
+                OpenTypeConfig.serializer(),
+                sourcePreferences.getString(
+                    RuleRepository.KEY_OPEN_TYPES,
+                    null
+                ) ?: "{}"
+            ).validated()
+        }.getOrDefault(OpenTypeConfig())
+        val browserLinks = runCatching {
+            json.decodeFromString(
+                BrowserLinkConfig.serializer(),
+                sourcePreferences.getString(
+                    RuleRepository.KEY_BROWSER_LINKS,
+                    null
+                ) ?: "{}"
+            ).validated()
+        }.getOrDefault(BrowserLinkConfig())
+        val hiddenFromApps =
+            sourcePreferences.getStringSet(
+                RuleRepository.KEY_HIDDEN_FROM_APPS,
+                emptySet()
+            ).orEmpty().toSet()
+        val visibilityScopes =
+            sourcePreferences.getStringSet(
+                RuleRepository.KEY_VISIBILITY_SCOPES,
+                emptySet()
+            ).orEmpty().mapNotNull { name ->
+                runCatching {
+                    VisibilityScope.valueOf(name)
+                }.getOrNull()
+            }.toSet()
+
+        snapshot = RuleSnapshot(
+            configured = rules,
+            displayMode = mode,
+            priorities = priorities,
+            defaultOpen = DefaultOpenConfig(),
+            openTypes = openTypes,
+            browserLinks = browserLinks,
+            diagnostic =
+                sourcePreferences.getBoolean(
+                    RuleRepository.KEY_DIAGNOSTIC,
+                    false
+                ),
+            managerAppId = managerAppId,
+            digest = digest,
+            hiddenFromApps = hiddenFromApps,
+            visibilityCompat =
+                VisibilityCompatConfig(
+                    scopes = visibilityScopes
+                ).validated(),
+        )
+        lastEncodedConfig = null
+        record(
+            "RULES_READ reason=$reason source=$source count=${rules.size} " +
+                "mode=$mode diagnostic=${snapshot.diagnostic} atomic=false compatMirror=true " +
+                "managerAppId=$managerAppId digest=${digest.ifEmpty { "none" }} " +
+                "typedRules=${openTypes.rules.mapValues { it.value.size }} " +
+                "browserHosts=${browserLinks.hosts.size} hiddenFromApps=${hiddenFromApps.size}"
+        )
+        return true
+    }
+
     @Synchronized private fun refreshRulesSafely(
         reason: String,
         expectedDigest: String? = null,
+        fallbackManagerAppId: Int? = null,
     ) {
         runCatching {
             if (
@@ -1118,8 +1268,46 @@ class ListCleanerModule : XposedModule() {
                     return@runCatching
                 }
 
+                if (
+                    fallbackManagerAppId != null &&
+                    ManagerIdentity.valid(
+                        fallbackManagerAppId
+                    )
+                ) {
+                    val mirrorSource =
+                        if (
+                            fresh.contains(
+                                RuleRepository.KEY_DISPLAY_MODE
+                            ) ||
+                            fresh.contains(
+                                RuleRepository.KEY_RULES
+                            )
+                        ) {
+                            fresh
+                        } else {
+                            cached
+                        }
+                    if (
+                        applyLegacyConfig(
+                            sourcePreferences =
+                                mirrorSource,
+                            reason = reason,
+                            source = "verified-mirror",
+                            managerAppId =
+                                fallbackManagerAppId,
+                            digest = expectedDigest,
+                        )
+                    ) {
+                        record(
+                            "REMOTE_CONFIG_MIRROR_RECOVERY expected=$expectedDigest " +
+                                "managerAppId=$fallbackManagerAppId"
+                        )
+                        return@runCatching
+                    }
+                }
+
                 // A manager probe is authoritative. Never replace the current
-                // snapshot with legacy/empty keys when no matching atomic
+                // snapshot with unrelated legacy/empty keys when no matching
                 // config is visible yet; keep the last known-good rules and
                 // simply withhold ACK so the manager can retry.
                 record(
@@ -1129,47 +1317,10 @@ class ListCleanerModule : XposedModule() {
                 return@runCatching
             }
 
-            val rules =
-                cached.getStringSet(
-                    RuleRepository.KEY_RULES,
-                    emptySet()
-                ).orEmpty().toSet()
-            val mode = DisplayMode.fromStored(
-                cached.getString(
-                    RuleRepository.KEY_DISPLAY_MODE,
-                    null
-                ),
-                cached.getBoolean(
-                    RuleRepository.KEY_BLACKLIST,
-                    true
-                )
-            )
-            val priorities = runCatching {
-                Json.decodeFromString(
-                    PriorityConfig.serializer(),
-                    cached.getString(
-                        RuleRepository.KEY_PRIORITIES,
-                        null
-                    ) ?: "{}"
-                ).validated()
-            }.getOrDefault(PriorityConfig())
-
-            snapshot = RuleSnapshot(
-                configured = rules,
-                displayMode = mode,
-                priorities = priorities,
-                defaultOpen = DefaultOpenConfig(),
-                openTypes = OpenTypeConfig(),
-                browserLinks = BrowserLinkConfig(),
-                diagnostic = cached.getBoolean(
-                    RuleRepository.KEY_DIAGNOSTIC,
-                    false
-                )
-            )
-            lastEncodedConfig = null
-            record(
-                "RULES_READ reason=$reason source=legacy count=${rules.size} " +
-                    "mode=$mode diagnostic=${snapshot.diagnostic}"
+            applyLegacyConfig(
+                sourcePreferences = cached,
+                reason = reason,
+                source = "legacy",
             )
         }.onFailure {
             record(
