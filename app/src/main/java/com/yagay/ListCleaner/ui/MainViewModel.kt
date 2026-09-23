@@ -567,11 +567,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // system_server/Resolver still has the previous module version after an APK update.
                 // Runtime synchronization continues independently through ListCleanerApp and the
                 // status controller; it gates system-side effect, not local list visibility.
-                val autoHosts = browserLinkDiscovery.discover(forceCatalog)
+                val browserDiscovery = browserLinkDiscovery.discoverDetailed(forceCatalog)
+                val autoHosts = browserDiscovery.hosts
                 if (generation == refreshGeneration) discoveredBrowserHosts.value = autoHosts
                 val result = app.catalog.scan(
                     app.rules.openTypes.value.customDefinitions,
                     app.rules.browserLinks.value.hosts + autoHosts,
+                    browserDiscovery = browserDiscovery,
                     force = forceCatalog
                 )
                 if (generation == refreshGeneration) {
