@@ -966,7 +966,7 @@ class ListCleanerModule : XposedModule() {
         val callerUid = if (layer == Layer.SYSTEM) Binder.getCallingUid() else -1
         queryInProgress.set(true)
         try {
-            pollPreferences()
+            if (layer == Layer.SYSTEM) pollPreferences()
             val original = chain.proceed()
             try {
                 processQuery(chain, original, layer, callerUid)
@@ -1491,29 +1491,29 @@ class ListCleanerModule : XposedModule() {
         reason: String,
         source: String,
         expectedDigest: String?,
+        expectedManagerAppId: Int? = null,
     ): Boolean {
         require(encoded.length <= RuleRepository.MAX_BACKUP_CHARS) {
             "Config too large"
         }
         val digest = RuntimeProtocol.digest(encoded)
-        if (
-            !expectedDigest.isNullOrBlank() &&
-            digest != expectedDigest
-        ) {
+        if (!expectedDigest.isNullOrBlank() && digest != expectedDigest) {
             record(
                 "REMOTE_CONFIG_STALE reason=$reason source=$source " +
                     "expected=$expectedDigest actual=$digest length=${encoded.length}"
             )
             return false
         }
-        if (
-            lastEncodedConfig == encoded &&
-            snapshot.digest == digest
-        ) {
-            if (reason == "manager probe") {
+        if (lastEncodedConfig == encoded && snapshot.digest == digest) {
+            if (
+                expectedManagerAppId != null &&
+                snapshot.managerAppId != expectedManagerAppId
+            ) {
                 record(
-                    "REMOTE_CONFIG_MATCH reason=$reason source=$source digest=$digest"
+                    "CONFIG_IDENTITY_REJECT source=$source expectedAppId=$expectedManagerAppId " +
+                        "actualAppId=${snapshot.managerAppId}"
                 )
+                return false
             }
             return true
         }
@@ -1522,8 +1522,19 @@ class ListCleanerModule : XposedModule() {
             ignoreUnknownKeys = true
         }.decodeFromString(
             ModuleConfig.serializer(),
-            encoded
+            encoded,
         ).validated()
+
+        if (
+            expectedManagerAppId != null &&
+            config.managerAppId != expectedManagerAppId
+        ) {
+            record(
+                "CONFIG_IDENTITY_REJECT source=$source expectedAppId=$expectedManagerAppId " +
+                    "actualAppId=${config.managerAppId}"
+            )
+            return false
+        }
 
         snapshot = RuleSnapshot(
             configured = config.rules.map { it.id }.toSet(),
@@ -1540,9 +1551,7 @@ class ListCleanerModule : XposedModule() {
         )
         lastEncodedConfig = encoded
 
-        record(
-            "MANAGER_IDENTITY appId=${config.managerAppId} source=remote_config_$source"
-        )
+        record("MANAGER_IDENTITY appId=${config.managerAppId} source=$source")
         record(
             "RULES_READ reason=$reason source=$source count=${snapshot.configured.size} " +
                 "mode=${config.mode} diagnostic=${config.diagnostic} atomic=true " +
@@ -1668,126 +1677,40 @@ class ListCleanerModule : XposedModule() {
         return true
     }
 
-    @Synchronized private fun refreshRulesSafely(
-        reason: String,
-        expectedDigest: String? = null,
-        fallbackManagerAppId: Int? = null,
-    ) {
+    @Synchronized
+    private fun refreshRulesSafely(reason: String) {
         runCatching {
+            val cached = preferences
+            val cachedEncoded = cached.getString(RuleRepository.KEY_CONFIG, null)
+            val cachedDigest = cachedEncoded?.let(RuntimeProtocol::digest)
+
+            // Once Probe v2 has applied a verified config, RemotePreferences is only persistent
+            // storage. A stale framework cache must never roll the running snapshot backwards.
             if (
-                !expectedDigest.isNullOrBlank() &&
-                snapshot.digest == expectedDigest
+                runtimeTransportActive &&
+                cachedDigest != snapshot.digest
             ) {
                 record(
-                    "REMOTE_CONFIG_MATCH reason=$reason source=snapshot digest=$expectedDigest"
+                    "REMOTE_CONFIG_IGNORED reason=$reason runtimeAuthoritative=true " +
+                        "current=${snapshot.digest.ifEmpty { "none" }} " +
+                        "remote=${cachedDigest ?: "none"}"
                 )
                 return@runCatching
             }
-
-            val cached = preferences
-            val cachedEncoded =
-                cached.getString(
-                    RuleRepository.KEY_CONFIG,
-                    null
-                )
 
             if (
                 cachedEncoded != null &&
                 applyAtomicConfig(
                     encoded = cachedEncoded,
                     reason = reason,
-                    source = "cached",
-                    expectedDigest = expectedDigest,
+                    source = "remote-preferences",
+                    expectedDigest = null,
                 )
             ) {
                 return@runCatching
             }
 
-            if (!expectedDigest.isNullOrBlank()) {
-                val cachedDigest =
-                    cachedEncoded?.let(
-                        RuntimeProtocol::digest
-                    )
-                val fresh = getRemotePreferences(
-                    RuleRepository.REMOTE_PREFS
-                )
-                val freshEncoded =
-                    fresh.getString(
-                        RuleRepository.KEY_CONFIG,
-                        null
-                    )
-                val freshDigest =
-                    freshEncoded?.let(
-                        RuntimeProtocol::digest
-                    )
-
-                record(
-                    "REMOTE_CONFIG_REFRESH reason=$reason " +
-                        "cachedPresent=${cachedEncoded != null} freshPresent=${freshEncoded != null} " +
-                        "expected=$expectedDigest cachedDigest=${cachedDigest ?: "none"} " +
-                        "freshDigest=${freshDigest ?: "none"} sameInstance=${fresh === cached}"
-                )
-
-                if (
-                    freshEncoded != null &&
-                    applyAtomicConfig(
-                        encoded = freshEncoded,
-                        reason = reason,
-                        source = "fresh",
-                        expectedDigest = expectedDigest,
-                    )
-                ) {
-                    return@runCatching
-                }
-
-                if (
-                    fallbackManagerAppId != null &&
-                    ManagerIdentity.valid(
-                        fallbackManagerAppId
-                    )
-                ) {
-                    val mirrorSource =
-                        if (
-                            fresh.contains(
-                                RuleRepository.KEY_DISPLAY_MODE
-                            ) ||
-                            fresh.contains(
-                                RuleRepository.KEY_RULES
-                            )
-                        ) {
-                            fresh
-                        } else {
-                            cached
-                        }
-                    if (
-                        applyLegacyConfig(
-                            sourcePreferences =
-                                mirrorSource,
-                            reason = reason,
-                            source = "verified-mirror",
-                            managerAppId =
-                                fallbackManagerAppId,
-                            digest = expectedDigest,
-                        )
-                    ) {
-                        record(
-                            "REMOTE_CONFIG_MIRROR_RECOVERY expected=$expectedDigest " +
-                                "managerAppId=$fallbackManagerAppId"
-                        )
-                        return@runCatching
-                    }
-                }
-
-                // A manager probe is authoritative. Never replace the current
-                // snapshot with unrelated legacy/empty keys when no matching
-                // config is visible yet; keep the last known-good rules and
-                // simply withhold ACK so the manager can retry.
-                record(
-                    "REMOTE_CONFIG_REFRESH_MISS reason=$reason expected=$expectedDigest " +
-                        "current=${snapshot.digest.ifEmpty { "none" }} keepSnapshot=true"
-                )
-                return@runCatching
-            }
+            if (runtimeTransportActive) return@runCatching
 
             applyLegacyConfig(
                 sourcePreferences = cached,
@@ -1802,7 +1725,7 @@ class ListCleanerModule : XposedModule() {
             Log.e(
                 TAG,
                 "Rules refresh failed; keeping previous snapshot",
-                it
+                it,
             )
         }
     }
@@ -1849,6 +1772,7 @@ class ListCleanerModule : XposedModule() {
         const val SYSTEM_UI_PACKAGE = "com.android.systemui"
         const val PER_USER_RANGE = 100_000
         const val COMPONENT_DISCOVERY_PROTOCOL = 2
+        const val CONFIG_TRANSFER_TIMEOUT_MS = 10_000L
         const val VISIBILITY_HOOK_ID = "ic-system-package-visibility"
         const val MANAGER_PACKAGE = "com.yagay.ListCleaner"
         val SYSTEM_VISIBILITY_CLASSES = listOf(
