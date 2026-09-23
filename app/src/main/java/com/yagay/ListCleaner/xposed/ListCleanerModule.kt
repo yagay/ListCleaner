@@ -741,6 +741,75 @@ class ListCleanerModule : XposedModule() {
         return normalizeBrowserHost(effective.data?.host)
     }
 
+    private fun resolveInfoForOrder(item: Any?, stage: String): ResolveInfo {
+        requireNotNull(item)
+        return if (item is ResolveInfo) item else if (stage == "alpha") {
+            OrderingAccess.call(item, "getResolveInfo") as ResolveInfo
+        } else {
+            item.javaClass.getMethod("getResolveInfoAt", Int::class.javaPrimitiveType)
+                .invoke(item, 0) as ResolveInfo
+        }
+    }
+
+    private fun resolverMetadataDigest(info: ResolveInfo): String? =
+        info.activityInfo?.metaData
+            ?.getString(RuntimeProtocol.META_POLICY_DIGEST)
+            ?.takeIf(RuntimeProtocol::validDigest)
+
+    private fun hasResolverPolicyMetadata(items: List<*>, stage: String): Boolean =
+        items.asSequence().mapNotNull { item ->
+            runCatching { resolveInfoForOrder(item, stage) }.getOrNull()
+        }.any { resolverMetadataDigest(it) != null }
+
+    private fun orderItemsFromMetadata(
+        items: List<*>,
+        kind: IntentKind,
+        stage: String,
+        fixedPackages: Set<String> = emptySet(),
+    ): List<*> {
+        if (items.size < 2) return items
+        val infos = items.map { resolveInfoForOrder(it, stage) }
+        val positions = items.indices.toMutableList()
+
+        fun reorderSubset(targetKind: IntentKind) {
+            val movable = items.indices.filter { index ->
+                candidateKind(kind, infos[index]) == targetKind &&
+                    infos[index].activityInfo.packageName !in fixedPackages
+            }
+            if (movable.size < 2) return
+            movable.groupBy { index ->
+                requireNotNull(infos[index].activityInfo.applicationInfo).uid / PER_USER_RANGE
+            }.values.forEach { profilePositions ->
+                val sorted = profilePositions.sortedBy { index ->
+                    val meta = infos[index].activityInfo.metaData
+                    if (meta?.containsKey(RuntimeProtocol.META_PRIORITY_RANK) == true) {
+                        meta.getInt(RuntimeProtocol.META_PRIORITY_RANK, Int.MAX_VALUE)
+                    } else {
+                        Int.MAX_VALUE
+                    }
+                }
+                profilePositions.forEachIndexed { orderIndex, position ->
+                    positions[position] = sorted[orderIndex]
+                }
+            }
+        }
+
+        if (kind == IntentKind.BROWSER) {
+            reorderSubset(IntentKind.BROWSER)
+            reorderSubset(IntentKind.DEEP_LINK)
+        } else {
+            reorderSubset(kind)
+        }
+
+        val changed = positions != items.indices.toList()
+        val digest = infos.asSequence().mapNotNull(::resolverMetadataDigest).firstOrNull()
+        diagnostic(
+            "ORDER_RESULT stage=$stage kind=$kind count=${items.size} changed=$changed " +
+                "source=system_metadata digest=${digest ?: "none"}"
+        )
+        return if (changed) positions.map { items[it] } else items
+    }
+
     private fun orderItems(
         items: List<*>,
         kind: IntentKind,
@@ -751,13 +820,7 @@ class ListCleanerModule : XposedModule() {
         browserHost: String? = null
     ): List<*> {
         if (items.size < 2) return items
-        val infos = items.map { item ->
-            requireNotNull(item)
-            if (item is ResolveInfo) item else if (stage == "alpha")
-                OrderingAccess.call(item, "getResolveInfo") as ResolveInfo
-            else item.javaClass.getMethod("getResolveInfoAt", Int::class.javaPrimitiveType)
-                .invoke(item, 0) as ResolveInfo
-        }
+        val infos = items.map { resolveInfoForOrder(it, stage) }
         val positions = items.indices.toMutableList()
 
         fun reorderSubset(targetKind: IntentKind, priorities: List<String>) {
@@ -795,26 +858,38 @@ class ListCleanerModule : XposedModule() {
     }
 
     private fun orderHooker() = XposedInterface.Hooker { chain ->
-        pollPreferences()
         val replacement = runCatching {
-            val current = snapshot
-            if (current.displayMode == DisplayMode.SHOW_ALL) {
-                diagnostic("ORDER_SKIP reason=show_all")
-                return@runCatching null
-            }
             val receiver = chain.thisObject ?: return@runCatching null
             val kind = adapterKind(receiver) ?: run {
                 diagnostic("ORDER_SKIP reason=unclassified_intent")
                 return@runCatching null
             }
-            val preset = adapterOpenPreset(receiver, kind)
-            val browserHost = adapterBrowserHost(receiver, kind)
-            if (!hasEffectivePriorities(kind, preset, browserHost, current)) {
-                diagnostic("ORDER_SKIP kind=$kind reason=no_priorities")
-                return@runCatching null
-            }
             val items = chain.args[0] as? List<*> ?: return@runCatching null
-            val ordered = orderItems(items, kind, current, "ranked", preset = preset, browserHost = browserHost)
+
+            val ordered = if (hasResolverPolicyMetadata(items, "ranked")) {
+                orderItemsFromMetadata(items, kind, "ranked")
+            } else {
+                pollPreferences()
+                val current = snapshot
+                if (current.displayMode == DisplayMode.SHOW_ALL) {
+                    diagnostic("ORDER_SKIP reason=show_all")
+                    return@runCatching null
+                }
+                val preset = adapterOpenPreset(receiver, kind)
+                val browserHost = adapterBrowserHost(receiver, kind)
+                if (!hasEffectivePriorities(kind, preset, browserHost, current)) {
+                    diagnostic("ORDER_SKIP kind=$kind reason=no_priorities")
+                    return@runCatching null
+                }
+                orderItems(
+                    items,
+                    kind,
+                    current,
+                    "ranked",
+                    preset = preset,
+                    browserHost = browserHost,
+                )
+            }
             if (ordered === items) null else chain.args.toTypedArray().also { it[0] = ordered }
         }.getOrElse {
             diagnostic("ORDER_FAILED error=${it.javaClass.name}")
@@ -835,14 +910,7 @@ class ListCleanerModule : XposedModule() {
                 diagnostic("ORDER_SKIP stage=alpha reason=not_main_thread")
                 return@runCatching
             }
-            pollPreferences()
-            if (snapshot.displayMode == DisplayMode.SHOW_ALL) {
-                diagnostic("ORDER_SKIP stage=alpha reason=show_all")
-                return@runCatching
-            }
             val kind = adapterKind(receiver) ?: return@runCatching
-            val preset = adapterOpenPreset(receiver, kind)
-            val browserHost = adapterBrowserHost(receiver, kind)
             val items = OrderingAccess.field(receiver, "mSortedList")
             if (items == null || items.javaClass != java.util.ArrayList::class.java) {
                 diagnostic("ORDER_SKIP stage=alpha reason=unsupported_backing_list")
@@ -855,7 +923,19 @@ class ListCleanerModule : XposedModule() {
                 val info = OrderingAccess.call(requireNotNull(target), "getResolveInfo") as ResolveInfo
                 info.activityInfo.packageName
             }.toSet()
-            val ordered = orderItems(list, kind, snapshot, "alpha", fixed, preset, browserHost)
+
+            val ordered = if (hasResolverPolicyMetadata(list, "alpha")) {
+                orderItemsFromMetadata(list, kind, "alpha", fixed)
+            } else {
+                pollPreferences()
+                if (snapshot.displayMode == DisplayMode.SHOW_ALL) {
+                    diagnostic("ORDER_SKIP stage=alpha reason=show_all")
+                    return@runCatching
+                }
+                val preset = adapterOpenPreset(receiver, kind)
+                val browserHost = adapterBrowserHost(receiver, kind)
+                orderItems(list, kind, snapshot, "alpha", fixed, preset, browserHost)
+            }
             if (ordered !== list) {
                 ordered.forEachIndexed { index, item -> list[index] = item }
                 orderingHits.incrementAndGet()
