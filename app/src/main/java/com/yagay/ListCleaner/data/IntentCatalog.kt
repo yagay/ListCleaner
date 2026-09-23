@@ -1,5 +1,6 @@
 package com.yagay.ListCleaner.data
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
@@ -98,13 +99,28 @@ class IntentCatalog(private val context: Context) {
     suspend fun scan(
         customDefinitions: Map<OpenPreset, CustomOpenDefinition> = emptyMap(),
         browserHosts: Set<String> = emptySet(),
+        browserDiscovery: BrowserLinkDiscoveryResult = BrowserLinkDiscoveryResult(),
         force: Boolean = false
     ): List<ComponentCandidate> = withContext(Dispatchers.IO) {
         val normalizedBrowserHosts = browserHosts.mapNotNull(::normalizeBrowserHost).toSortedSet()
+        val discoveryFingerprint = browserDiscovery.declaredHandlersByHost.entries
+            .sortedBy { it.key }
+            .joinToString(";") { (host, handlers) ->
+                host + "=" + handlers
+                    .sortedWith(compareBy({ it.packageName }, { it.className }))
+                    .joinToString(",") { it.packageName + "/" + it.className }
+            }
+        val packageFingerprint = browserDiscovery.packagesByHost.entries
+            .sortedBy { it.key }
+            .joinToString(";") { (host, packages) ->
+                host + "=" + packages.sorted().joinToString(",")
+            }
         val fingerprint = customDefinitions.entries
             .sortedBy { it.key.ordinal }
             .joinToString("|") { (preset, definition) -> "$preset=$definition" } +
-            "|browserHosts=" + normalizedBrowserHosts.joinToString(",")
+            "|browserHosts=" + normalizedBrowserHosts.joinToString(",") +
+            "|declaredHandlers=" + discoveryFingerprint +
+            "|declaredPackages=" + packageFingerprint
         val cached = mutableCandidates.value
         if (!force && !invalidated && cached.isNotEmpty() && fingerprint == cachedDefinitionFingerprint) {
             cacheHitsSinceLastScan++
@@ -117,8 +133,21 @@ class IntentCatalog(private val context: Context) {
         val known = mutableSetOf<String>()
         val report = StringBuilder(
             "startedAt=${Instant.now()}\nmanagerUid=${android.os.Process.myUid()}\n" +
-                "customOpenTypes=${customDefinitions.size}\nbrowserHosts=${normalizedBrowserHosts.joinToString(",")}\ncacheHitsSincePreviousScan=$previousCacheHits\n"
+                "customOpenTypes=${customDefinitions.size}\nbrowserHosts=${normalizedBrowserHosts.joinToString(",")}\n" +
+                "declaredDeepLinkHosts=${browserDiscovery.declaredHandlersByHost.size}\n" +
+                "declaredPackageHosts=${browserDiscovery.packagesByHost.size}\n" +
+                "cacheHitsSincePreviousScan=$previousCacheHits\n"
         )
+
+        val declaredCandidates = declaredDeepLinkCandidates(browserDiscovery.declaredHandlersByHost)
+        if (declaredCandidates.isNotEmpty()) {
+            found += declaredCandidates
+            declaredCandidates.forEach { known += it.rule.id }
+            report.appendLine(
+                "declaredDeepLinks candidates=${declaredCandidates.size} " +
+                    "uniqueRules=${declaredCandidates.map { it.rule.id }.distinct().size}"
+            )
+        }
         for (scheme in listOf("http", "https")) {
             val web = Intent(Intent.ACTION_VIEW, Uri.parse("$scheme://example.com")).addCategory(Intent.CATEGORY_BROWSABLE)
             runCatching {
@@ -131,7 +160,9 @@ class IntentCatalog(private val context: Context) {
         }
         var failures = 0
         scanWarning = null
-        for (probe in probes(customDefinitions, normalizedBrowserHosts)) {
+        val allProbes = probes(customDefinitions, normalizedBrowserHosts) +
+            appLinkFallbackProbes(browserDiscovery)
+        for (probe in allProbes) {
             currentCoroutineContext().ensureActive()
             try {
                 val result = query(probe)
@@ -347,6 +378,16 @@ class IntentCatalog(private val context: Context) {
                     browserHosts = matches.flatMap { it.browserHosts }.toSet()
                 )
             }.sortedWith(compareBy({ it.rule.kind.ordinal }, { it.appLabel.lowercase() }, { it.rule.id }))
+
+        private const val MAX_APP_LINK_FALLBACK_PAIRS = 256
+        private val APP_LINK_FALLBACK_PATHS = listOf(
+            "/",
+            "/a",
+            "/a/b",
+            "/a/b/issues/1",
+            "/issues/1",
+            "/pull/1"
+        )
 
         private val FILE_TYPES = listOf(
             "text/plain" to "sample.txt", "text/html" to "sample.html",
