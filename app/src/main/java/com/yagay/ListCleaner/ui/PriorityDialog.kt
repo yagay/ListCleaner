@@ -289,8 +289,8 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
             item(key = "summary") {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                     val presetTitle = when {
-                        openPreset != null -> state.openTypes.localizedTitle(typedOpenPreset)
-                        browserHost != null -> browserHost
+                        typedOpenPreset != null -> state.openTypes.localizedTitle(typedOpenPreset)
+                        deepLinkHost != null -> deepLinkHost
                         else -> null
                     }
                     Text(
