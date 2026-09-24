@@ -66,6 +66,7 @@ internal class RootComponentsController(
                     // Retry the remote mirror whenever this screen is opened/refreshed. The local
                     // desired state remains authoritative if the Xposed service was temporarily down.
                     persistentComponents.syncRemote()
+                    app.synchronize()
                     catalog.scan()
                 }
             } catch (cancelled: CancellationException) {
