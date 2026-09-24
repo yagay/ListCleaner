@@ -12,6 +12,9 @@
 - 修正 `ComponentReconcileJobService` 的取消与替换 Job 生命周期，避免旧 Job 在被停止后错误结束新的 Job。
 - 收紧组件重协调广播接收器为非导出。
 - 修正 GitHub Actions：Release PR 校验现在真正有 `pull_request` 触发器；Debug PR 也会在 Gradle/wrapper 配置变化时编译。
+- 重构高风险大文件：候选分组与历史候选逻辑移出 `MainViewModel`，优先级编辑移入独立 `PriorityEditorController`，Xposed 运行时快照与组件策略也拆成独立模型。
+- 规则页和优先级页不再使用 `openPreset!!` / `browserHost!!`，改为基于当前分类捕获稳定作用域值，降低状态切换时的空指针风险。
+- 删除已无运行时用途的 `TileConfig` / `TilePolicy` 和 forced-default transient 配置外壳；旧备份/配置中的这些字段仍会作为未知字段安全忽略。
 - 本次修改涉及 Xposed 运行时合同，Hook compatibility 提升到 43。
 
 ---
@@ -26,4 +29,7 @@
 - Fixed `ComponentReconcileJobService` cancellation/replacement lifecycle so a stopped stale job cannot finish or remove its replacement.
 - Restricted the reconcile broadcast receiver from external export.
 - Fixed GitHub Actions so release validation actually runs for pull requests and debug PR builds also cover Gradle/wrapper changes.
+- Split high-risk large files: candidate grouping/history logic moved out of `MainViewModel`, priority editing moved into `PriorityEditorController`, and Xposed runtime snapshots/component policy now live in dedicated models.
+- Removed `openPreset!!` / `browserHost!!` assertions from the rules and priority Compose screens by capturing stable scope values for the current category.
+- Removed obsolete `TileConfig` / `TilePolicy` and forced-default transient compatibility shells; legacy JSON fields remain safely ignored as unknown fields.
 - This release changes Xposed runtime behavior, so hook compatibility is bumped to 43.
