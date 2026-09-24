@@ -64,6 +64,25 @@ class ModuleConfigTest {
         assertEquals("Target", config.priorities.titles[deepLinkRule.id])
     }
 
+    @Test fun runtimeComponentPolicyRoundTrip() {
+        val config = ModuleConfig(
+            emptySet(), DisplayMode.HIDE_SELECTED, PriorityConfig(), false, 10715,
+            rootDisabledComponents = setOf("0|com.example|com.example.Tile")
+        )
+        val encoded = Json.encodeToString(ModuleConfig.serializer(), config)
+        val decoded = Json.decodeFromString(ModuleConfig.serializer(), encoded).validated()
+        assertEquals(config.rootDisabledComponents, decoded.rootDisabledComponents)
+    }
+
+    @Test fun malformedRuntimeComponentPolicyIsRejected() {
+        assertThrows(IllegalArgumentException::class.java) {
+            ModuleConfig(
+                emptySet(), DisplayMode.HIDE_SELECTED, PriorityConfig(), false,
+                rootDisabledComponents = setOf("bad-key")
+            ).validated()
+        }
+    }
+
     @Test fun relativeNamesMatchExpandedRuleIds() {
         assertEquals(ComponentRule(IntentKind.OPEN, "com.example", "com.example.Open").id,
             ComponentRule(IntentKind.OPEN, "com.example", ".Open").id)
