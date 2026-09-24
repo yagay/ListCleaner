@@ -20,6 +20,10 @@ on:
   pull_request:
     paths:
       - 'app/**'
+      - 'gradle/**'
+      - '*.gradle.kts'
+      - 'gradle.properties'
+      - 'gradlew'
       - 'README.md'
       - 'README.en.md'
       - 'docs/**'
