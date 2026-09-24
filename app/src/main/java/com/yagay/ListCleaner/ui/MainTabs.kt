@@ -70,21 +70,24 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
         if (browserHost != null && browserHost !in state.browserAvailableHosts) browserHost = null
     }
 
-    val typedSelected = openPreset?.let { state.openTypes.selectedRules(it) }.orEmpty()
-    val explicitTypedSelected = openPreset?.let { state.openTypesExplicit.selectedRules(it) }.orEmpty()
-    val explicitDeepLinkSelected = browserHost?.let { state.browserLinks.selectedRules(it) }.orEmpty()
+    val typedOpenPreset = openPreset.takeIf { state.filter == IntentKind.OPEN }
+    val deepLinkHost = browserHost.takeIf { state.filter == IntentKind.DEEP_LINK }
+
+    val typedSelected = typedOpenPreset?.let { state.openTypes.selectedRules(it) }.orEmpty()
+    val explicitTypedSelected = typedOpenPreset?.let { state.openTypesExplicit.selectedRules(it) }.orEmpty()
+    val explicitDeepLinkSelected = deepLinkHost?.let { state.browserLinks.selectedRules(it) }.orEmpty()
     val genericDeepLinkSelected = state.selected.filterTo(linkedSetOf()) { it.kind == IntentKind.DEEP_LINK }
     val deepLinkSelected = genericDeepLinkSelected + explicitDeepLinkSelected
-    val deepLinkScoped = state.filter == IntentKind.DEEP_LINK && browserHost != null
-    val lockScope = if (deepLinkScoped) browserRuleBulkLockScope(browserHost!!) else ruleBulkLockScope(state.filter, openPreset)
+    val deepLinkScoped = deepLinkHost != null
+    val lockScope = deepLinkHost?.let(::browserRuleBulkLockScope) ?: ruleBulkLockScope(state.filter, openPreset)
     val lockScopeCandidates = when {
-        state.filter == IntentKind.OPEN && openPreset != null -> state.candidates.filter {
+        typedOpenPreset != null -> state.candidates.filter {
             it.rule.kind == IntentKind.OPEN &&
-                it.matchesOpenPreset(openPreset!!, state.openTypesExplicit.customDefinitions)
+                it.matchesOpenPreset(typedOpenPreset, state.openTypesExplicit.customDefinitions)
         }
-        deepLinkScoped -> state.candidates.filter {
+        deepLinkHost != null -> state.candidates.filter {
             it.rule.kind == IntentKind.DEEP_LINK &&
-                (it.matchesBrowserHost(browserHost!!) || it.rule in deepLinkSelected)
+                (it.matchesBrowserHost(deepLinkHost) || it.rule in deepLinkSelected)
         }
         else -> state.candidates.filter { state.filter == null || it.rule.kind == state.filter }
     }
@@ -93,17 +96,17 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
             .mapValues { (_, items) -> items.map { it.rule } }
     }
     val baseShownGroups = when {
-        state.filter == IntentKind.OPEN && openPreset != null -> groupCandidates(
-            state.candidates.filter { it.matchesOpenPreset(openPreset!!, state.openTypesExplicit.customDefinitions) },
+        typedOpenPreset != null -> groupCandidates(
+            state.candidates.filter { it.matchesOpenPreset(typedOpenPreset, state.openTypesExplicit.customDefinitions) },
             typedSelected,
             IntentKind.OPEN,
             state.query,
             state.uiFilter
         )
-        deepLinkScoped -> groupCandidates(
+        deepLinkHost != null -> groupCandidates(
             state.candidates.filter {
                 it.rule.kind == IntentKind.DEEP_LINK &&
-                    (it.matchesBrowserHost(browserHost!!) || it.rule in deepLinkSelected)
+                    (it.matchesBrowserHost(deepLinkHost) || it.rule in deepLinkSelected)
             },
             deepLinkSelected,
             IntentKind.DEEP_LINK,
@@ -135,8 +138,8 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
     }
     val shownGroups = lockFilteredGroups.filter { appTypeFilter.matches(it.appType) }
     val activeSelected = when {
-        openPreset != null && state.filter == IntentKind.OPEN -> typedSelected
-        deepLinkScoped -> deepLinkSelected
+        typedOpenPreset != null -> typedSelected
+        deepLinkHost != null -> deepLinkSelected
         else -> state.selected
     }
     val visibleRules = shownGroups.flatMap { it.components }.map { it.rule }.distinct()
@@ -175,28 +178,28 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                         },
                         onSelectAll = {
                             when {
-                                openPreset != null && state.filter == IntentKind.OPEN ->
-                                    vm.selectOpenTypeRules(openPreset!!, visibleRules, lockScope)
-                                deepLinkScoped ->
-                                    vm.selectBrowserHostRules(browserHost!!, visibleRules, lockScope)
+                                typedOpenPreset != null ->
+                                    vm.selectOpenTypeRules(typedOpenPreset, visibleRules, lockScope)
+                                deepLinkHost != null ->
+                                    vm.selectBrowserHostRules(deepLinkHost, visibleRules, lockScope)
                                 else -> vm.selectRules(visibleRules, state.filter, openPreset)
                             }
                         },
                         onSelectNone = {
                             when {
-                                openPreset != null && state.filter == IntentKind.OPEN ->
-                                    vm.deselectOpenTypeRules(openPreset!!, visibleRules, lockScope)
-                                deepLinkScoped ->
-                                    vm.deselectBrowserHostRules(browserHost!!, visibleRules, lockScope)
+                                typedOpenPreset != null ->
+                                    vm.deselectOpenTypeRules(typedOpenPreset, visibleRules, lockScope)
+                                deepLinkHost != null ->
+                                    vm.deselectBrowserHostRules(deepLinkHost, visibleRules, lockScope)
                                 else -> vm.deselectRules(visibleRules, state.filter, openPreset)
                             }
                         },
                         onInvert = {
                             when {
-                                openPreset != null && state.filter == IntentKind.OPEN ->
-                                    vm.invertOpenTypeRules(openPreset!!, visibleRules, lockScope)
-                                deepLinkScoped ->
-                                    vm.invertBrowserHostRules(browserHost!!, visibleRules, lockScope)
+                                typedOpenPreset != null ->
+                                    vm.invertOpenTypeRules(typedOpenPreset, visibleRules, lockScope)
+                                deepLinkHost != null ->
+                                    vm.invertBrowserHostRules(deepLinkHost, visibleRules, lockScope)
                                 else -> vm.invertRules(visibleRules, state.filter, openPreset)
                             }
                         }
@@ -242,10 +245,10 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                     { vm.toggleExpandedApp(key) },
                     { selected ->
                         when {
-                            openPreset != null && state.filter == IntentKind.OPEN ->
-                                vm.setOpenTypeGroupSelected(openPreset!!, group, selected)
-                            deepLinkScoped ->
-                                vm.setBrowserHostGroupSelected(browserHost!!, group, selected)
+                            typedOpenPreset != null ->
+                                vm.setOpenTypeGroupSelected(typedOpenPreset, group, selected)
+                            deepLinkHost != null ->
+                                vm.setBrowserHostGroupSelected(deepLinkHost, group, selected)
                             else -> vm.setGroupSelected(group, selected)
                         }
                     },
@@ -282,19 +285,19 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
             if (expanded) {
                 items(group.components, key = { "component|${it.rule.id}" }, contentType = { "component" }) { component ->
                     val sourceNote = when {
-                        openPreset != null && state.filter == IntentKind.OPEN && component.rule in activeSelected -> when {
+                        typedOpenPreset != null && component.rule in activeSelected -> when {
                             component.rule in state.selected -> stringResource(R.string.rules_inherited_from_all)
                             component.rule in explicitTypedSelected -> stringResource(
                                 R.string.rules_dedicated_rule,
-                                state.openTypes.localizedTitle(openPreset!!)
+                                state.openTypes.localizedTitle(typedOpenPreset)
                             )
                             else -> null
                         }
-                        deepLinkScoped && component.rule in activeSelected -> when {
+                        deepLinkHost != null && component.rule in activeSelected -> when {
                             component.rule in genericDeepLinkSelected -> stringResource(R.string.rules_browser_inherited)
                             component.rule in explicitDeepLinkSelected -> stringResource(
                                 R.string.rules_browser_dedicated,
-                                browserHost!!
+                                deepLinkHost
                             )
                             else -> null
                         }
@@ -313,9 +316,9 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                         } else !vm.isRuleAppLockedForRule(state.filter, openPreset, component.rule),
                         onToggle = {
                             when {
-                                openPreset != null && state.filter == IntentKind.OPEN ->
-                                    vm.toggleOpenType(openPreset!!, component.rule)
-                                deepLinkScoped -> vm.toggleBrowserHost(browserHost!!, component.rule)
+                                typedOpenPreset != null ->
+                                    vm.toggleOpenType(typedOpenPreset, component.rule)
+                                deepLinkHost != null -> vm.toggleBrowserHost(deepLinkHost, component.rule)
                                 else -> vm.toggle(component.rule)
                             }
                         },
