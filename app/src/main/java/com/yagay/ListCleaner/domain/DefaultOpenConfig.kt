@@ -46,24 +46,6 @@ enum class OpenPreset {
     }
 }
 
-/** Deprecated backup compatibility only. Runtime no longer applies a forced default handler. */
-@Serializable
-data class DefaultOpenConfig(
-    val preferred: Map<OpenPreset, String> = emptyMap()
-) {
-    fun validated(): DefaultOpenConfig {
-        require(preferred.size <= OpenPreset.entries.size)
-        preferred.forEach { (preset, id) ->
-            val rule = requireNotNull(ComponentRule.fromId(id)) { "invalid_default_open_component" }
-            require(rule.id == id) { "default_open_component_not_normalized" }
-            require(if (preset == OpenPreset.BROWSER) rule.kind == IntentKind.BROWSER else rule.kind == IntentKind.OPEN) {
-                "default_open_component_kind_mismatch"
-            }
-        }
-        return this
-    }
-}
-
 fun matchOpenPreset(
     kind: IntentKind,
     mimeType: String?,
