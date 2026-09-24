@@ -26,26 +26,7 @@ class ModuleConfigTest {
             Json.encodeToString(ModuleConfig.serializer(), config)).validated())
     }
 
-    @Test fun legacyRuntimeFieldsAreNotSerialized() {
-        val config = ModuleConfig(
-            emptySet(), DisplayMode.HIDE_SELECTED, PriorityConfig(), false,
-            tiles = TileConfig(enabled = true, hidden = setOf("pkg/.Tile")),
-            defaultOpen = DefaultOpenConfig(mapOf(
-                OpenPreset.PDF to ComponentRule(IntentKind.OPEN, "com.example", "com.example.Reader").id
-            ))
-        )
-        val encoded = Json.encodeToString(ModuleConfig.serializer(), config)
-        assertFalse(encoded.contains("tiles"))
-        assertFalse(encoded.contains("defaultOpen"))
-        val decoded = Json { ignoreUnknownKeys = true }.decodeFromString(
-            ModuleConfig.serializer(),
-            encoded.dropLast(1) + ",\"tiles\":{\"enabled\":true,\"hidden\":[]},\"defaultOpen\":{\"preferred\":{}}}"
-        )
-        assertEquals(TileConfig(), decoded.tiles)
-        assertEquals(DefaultOpenConfig(), decoded.defaultOpen)
-    }
-
-    @Test fun legacyDomainRulesAndTitlesMigrateWithoutDeletingBrowserTitle() {
+    @Test fun removedLegacyRuntimeFieldsAreIgnored() {\n        val encoded = """{"rules":[],"mode":"HIDE_SELECTED","priorities":{},"diagnostic":false,"tiles":{"enabled":true,"hidden":[]},"defaultOpen":{"preferred":{}}}"""\n        val decoded = Json { ignoreUnknownKeys = true }.decodeFromString(\n            ModuleConfig.serializer(), encoded\n        ).validated()\n        assertEquals(DisplayMode.HIDE_SELECTED, decoded.mode)\n        assertTrue(decoded.rules.isEmpty())\n    }\n    @Test fun legacyDomainRulesAndTitlesMigrateWithoutDeletingBrowserTitle() {
         val browserRule = ComponentRule(IntentKind.BROWSER, "com.example", "com.example.Target")
         val deepLinkRule = browserRule.copy(kind = IntentKind.DEEP_LINK)
         val config = ModuleConfig(
