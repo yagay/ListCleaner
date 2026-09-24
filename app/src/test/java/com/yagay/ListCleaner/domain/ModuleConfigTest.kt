@@ -74,6 +74,14 @@ class ModuleConfigTest {
         assertEquals(config.rootDisabledComponents, decoded.rootDisabledComponents)
     }
 
+    @Test fun legacyRuntimeConfigKeepsRootPolicyUnspecified() {
+        val encoded = """{"rules":[],"mode":"HIDE_SELECTED","priorities":{},"diagnostic":false}"""
+        val decoded = Json { ignoreUnknownKeys = true }.decodeFromString(
+            ModuleConfig.serializer(), encoded
+        ).validated()
+        assertNull(decoded.rootDisabledComponents)
+    }
+
     @Test fun malformedRuntimeComponentPolicyIsRejected() {
         assertThrows(IllegalArgumentException::class.java) {
             ModuleConfig(
