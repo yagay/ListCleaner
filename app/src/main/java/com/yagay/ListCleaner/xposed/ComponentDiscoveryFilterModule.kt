@@ -107,7 +107,7 @@ class ComponentDiscoveryFilterModule : XposedModule() {
                     .decodeFromString(ModuleConfig.serializer(), encoded)
                     .validated()
             }
-            protectedComponents = if (config != null) {
+            protectedComponents = if (config?.rootDisabledComponents != null) {
                 PersistentComponentState.sanitize(config.rootDisabledComponents)
             } else {
                 PersistentComponentState.sanitize(
