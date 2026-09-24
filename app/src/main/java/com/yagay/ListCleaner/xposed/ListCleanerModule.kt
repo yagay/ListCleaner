@@ -21,7 +21,6 @@ import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.PriorityConfig
-import com.yagay.ListCleaner.domain.DefaultOpenConfig
 import com.yagay.ListCleaner.domain.OpenTypeConfig
 import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.BrowserLinkConfig
@@ -29,7 +28,6 @@ import com.yagay.ListCleaner.domain.normalizeBrowserHost
 import com.yagay.ListCleaner.domain.VisibilityCompatConfig
 import com.yagay.ListCleaner.domain.matchOpenPreset
 import com.yagay.ListCleaner.domain.prioritizeApps
-import com.yagay.ListCleaner.domain.selectedKinds
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
@@ -56,31 +54,6 @@ import java.util.concurrent.atomic.AtomicLong
  * Third-party apps do not need LSPosed scope. Real package/component state is never changed.
  */
 class ListCleanerModule : XposedModule() {
-    private data class RuleSnapshot(
-        val configured: Set<String>,
-        val displayMode: DisplayMode,
-        val priorities: PriorityConfig,
-        val defaultOpen: DefaultOpenConfig,
-        val openTypes: OpenTypeConfig,
-        val browserLinks: BrowserLinkConfig,
-        val diagnostic: Boolean,
-        val managerAppId: Int = -1,
-        val digest: String = "",
-        val hiddenFromApps: Set<String> = emptySet(),
-        val visibilityCompat: VisibilityCompatConfig = VisibilityCompatConfig()
-    ) {
-        val selectedKinds: Set<IntentKind> = selectedKinds(configured)
-        private val selectedPackages: Map<IntentKind, Set<String>> = configured.mapNotNull { id ->
-            val parts = id.split('|', limit = 3)
-            val kind = parts.getOrNull(0)?.let { runCatching { IntentKind.valueOf(it) }.getOrNull() } ?: return@mapNotNull null
-            val packageName = parts.getOrNull(1)?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-            kind to packageName
-        }.groupBy({ it.first }, { it.second }).mapValues { (_, packages) -> packages.toSet() }
-        val allSelectedPackages: Set<String> = visibilityCompat.activePackages()
-        fun hasSelection(kind: IntentKind): Boolean = kind in selectedKinds
-        fun hasPackageSelection(kind: IntentKind, packageName: String): Boolean = packageName in selectedPackages[kind].orEmpty()
-    }
-
     private data class ListResult(val values: List<*>, val rebuild: (List<*>) -> Any?)
     private data class MethodAccessor(val method: Method?)
     private data class PackageNameAccessor(val getter: Method?, val field: Field?)
@@ -103,9 +76,13 @@ class ListCleanerModule : XposedModule() {
     )
 
     @Volatile
-    private var snapshot = RuleSnapshot(
-        emptySet(), DisplayMode.HIDE_SELECTED, PriorityConfig(), DefaultOpenConfig(),
-        OpenTypeConfig(), BrowserLinkConfig(), false
+    private var snapshot = RuntimeRuleSnapshot(
+        configured = emptySet(),
+        displayMode = DisplayMode.HIDE_SELECTED,
+        priorities = PriorityConfig(),
+        openTypes = OpenTypeConfig(),
+        browserLinks = BrowserLinkConfig(),
+        diagnostic = false,
     )
     private var lastEncodedConfig: String? = null
     @Volatile private var runtimeTransportActive = false
@@ -714,7 +691,7 @@ class ListCleanerModule : XposedModule() {
         kind: IntentKind,
         preset: OpenPreset?,
         browserHost: String?,
-        current: RuleSnapshot
+        current: RuntimeRuleSnapshot
     ): List<String> {
         val typed = if (kind == IntentKind.OPEN && preset != null) current.openTypes.priorities[preset].orEmpty() else emptyList()
         if (typed.isNotEmpty()) return typed
@@ -731,7 +708,7 @@ class ListCleanerModule : XposedModule() {
         kind: IntentKind,
         preset: OpenPreset?,
         browserHost: String?,
-        current: RuleSnapshot
+        current: RuntimeRuleSnapshot
     ): Boolean {
         if (kind != IntentKind.BROWSER) return effectivePriorities(kind, preset, browserHost, current).isNotEmpty()
         return current.priorities.apps[IntentKind.BROWSER].orEmpty().isNotEmpty() ||
@@ -817,7 +794,7 @@ class ListCleanerModule : XposedModule() {
     private fun orderItems(
         items: List<*>,
         kind: IntentKind,
-        current: RuleSnapshot,
+        current: RuntimeRuleSnapshot,
         stage: String,
         fixedPackages: Set<String> = emptySet(),
         preset: OpenPreset? = null,
@@ -1359,7 +1336,7 @@ class ListCleanerModule : XposedModule() {
         return extension.takeIf { it.length in 1..16 && it.all { ch -> ch.isLetterOrDigit() } }
     }
 
-    private fun isSelectedCandidate(kind: IntentKind, activity: ActivityInfo, current: RuleSnapshot, layer: Layer): Boolean {
+    private fun isSelectedCandidate(kind: IntentKind, activity: ActivityInfo, current: RuntimeRuleSnapshot, layer: Layer): Boolean {
         val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
             activity.packageName, activity.name, activity.targetActivity
         )
@@ -1464,7 +1441,7 @@ class ListCleanerModule : XposedModule() {
     private fun applyCustomTitles(
         kind: IntentKind,
         values: List<*>,
-        current: RuleSnapshot
+        current: RuntimeRuleSnapshot
     ): Pair<List<*>, Int> {
         if (current.priorities.titles.isEmpty()) return values to 0
         var replaced = 0
@@ -1560,11 +1537,10 @@ class ListCleanerModule : XposedModule() {
             return false
         }
 
-        snapshot = RuleSnapshot(
+        snapshot = RuntimeRuleSnapshot(
             configured = config.rules.map { it.id }.toSet(),
             displayMode = config.mode,
             priorities = config.priorities,
-            defaultOpen = config.defaultOpen,
             openTypes = config.openTypes,
             browserLinks = config.browserLinks,
             diagnostic = config.diagnostic,
@@ -1676,11 +1652,10 @@ class ListCleanerModule : XposedModule() {
                 }.getOrNull()
             }.toSet()
 
-        snapshot = RuleSnapshot(
+        snapshot = RuntimeRuleSnapshot(
             configured = rules,
             displayMode = mode,
             priorities = priorities,
-            defaultOpen = DefaultOpenConfig(),
             openTypes = openTypes,
             browserLinks = browserLinks,
             diagnostic =
