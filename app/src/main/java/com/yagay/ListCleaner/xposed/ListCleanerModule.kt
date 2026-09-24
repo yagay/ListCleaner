@@ -241,6 +241,9 @@ class ListCleanerModule : XposedModule() {
     }
 
     @Synchronized private fun pollPreferences() {
+        // Probe v2 owns the live snapshot once a verified runtime config has been applied.
+        // Avoid SharedPreferences reads and config hashing on PackageManager/Resolver hot paths.
+        if (runtimeTransportActive) return
         val now = SystemClock.elapsedRealtime()
         if (now < nextPreferencePoll) return
         nextPreferencePoll = now + if (listenerRegistered) 10_000 else 2_000
@@ -1021,6 +1024,9 @@ class ListCleanerModule : XposedModule() {
             .getStringExtra(RuntimeProtocol.EXTRA_EXPECTED_DIGEST)
             ?.takeIf(RuntimeProtocol::validDigest)
 
+        val verifiedManagerAppId = verifiedManagerAppIdForProbe(chain, callerUid)
+            ?: return original
+
         if (operation == RuntimeProtocol.OP_CHUNK) {
             if (protocol != RuntimeProtocol.VERSION) {
                 record("CONFIG_PUSH_REJECT stage=chunk uid=$callerUid reason=protocol protocol=$protocol")
@@ -1029,9 +1035,6 @@ class ListCleanerModule : XposedModule() {
             appendRuntimeChunk(intent, callerUid)
             return original
         }
-
-        val verifiedManagerAppId = verifiedManagerAppIdForProbe(chain, callerUid)
-            ?: return original
 
         when (operation) {
             RuntimeProtocol.OP_BEGIN -> {
@@ -1570,6 +1573,11 @@ class ListCleanerModule : XposedModule() {
             visibilityCompat = config.visibilityCompat,
         )
         lastEncodedConfig = encoded
+        RuntimeComponentPolicy.publish(
+            managerAppId = config.managerAppId,
+            protectedComponents = config.rootDisabledComponents,
+            digest = digest,
+        )
 
         record("MANAGER_IDENTITY appId=${config.managerAppId} source=$source")
         record(
@@ -1580,6 +1588,7 @@ class ListCleanerModule : XposedModule() {
                 "typedPriorities=${config.openTypes.priorities.mapValues { it.value.size }} " +
                 "browserHosts=${config.browserLinks.hosts.size} " +
                 "browserRules=${config.browserLinks.rules.mapValues { it.value.size }} " +
+                "rootProtected=${config.rootDisabledComponents.size} " +
                 "titles=${config.priorities.titles.size} hiddenFromApps=${config.hiddenFromApps.size} " +
                 "visibilityScopes=${config.visibilityCompat.scopes.map { it.name }.sorted()} " +
                 "visibilityTargets=${snapshot.allSelectedPackages.size} digest=$digest"
