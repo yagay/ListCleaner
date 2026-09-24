@@ -11,6 +11,7 @@ import android.util.Log
 import com.yagay.ListCleaner.data.ComponentStateReconciler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -24,8 +25,7 @@ class ComponentReconcileJobService : JobService() {
 
     override fun onStartJob(params: JobParameters): Boolean {
         val reason = params.extras.getString(EXTRA_REASON, "scheduled")
-        activeJobs[params.jobId]?.cancel()
-        activeJobs[params.jobId] = scope.launch {
+        val job = scope.launch(start = CoroutineStart.LAZY) {
             try {
                 ComponentStateReconciler.reconcile(applicationContext, reason)
                 if (reason == "boot_completed" || reason == "user_unlocked") {
@@ -43,11 +43,14 @@ class ComponentReconcileJobService : JobService() {
                 }
             }
         }
+        activeJobs.put(params.jobId, job)?.cancel()
+        job.start()
         return true
     }
 
     override fun onStopJob(params: JobParameters): Boolean {
-        activeJobs.remove(params.jobId)?.cancel()
+        val job = activeJobs.remove(params.jobId) ?: return false
+        job.cancel()
         return true
     }
 
