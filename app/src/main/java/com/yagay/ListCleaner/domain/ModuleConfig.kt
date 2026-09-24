@@ -29,14 +29,15 @@ data class ModuleConfig(
      * system_server guard/discovery hooks do not depend on RemotePreferences cache freshness.
      * RuleRepository deliberately does not restore this field into rule backups.
      */
-    val rootDisabledComponents: Set<String> = emptySet()
+    val rootDisabledComponents: Set<String>? = null
 ) {
     fun validated(): ModuleConfig {
         require(rules.size <= 20_000 && rules.all(ComponentRule::isValid))
         val cleanPriorities = priorities.validated()
         require(managerAppId == -1 || ManagerIdentity.valid(managerAppId))
         require(hiddenFromApps.size <= 2_000 && hiddenFromApps.all(PackageIdentity::valid))
-        require(rootDisabledComponents.size <= 20_000 && rootDisabledComponents.all(::validRootComponentKey))
+        require(rootDisabledComponents == null ||
+            (rootDisabledComponents.size <= 20_000 && rootDisabledComponents.all(::validRootComponentKey)))
 
         val legacyDomainIds = browserLinks.rules.values.flatten().mapNotNull { id ->
             val parsed = ComponentRule.fromId(id) ?: return@mapNotNull null
