@@ -204,7 +204,9 @@ class ComponentStateGuardModule : XposedModule() {
         if (newState != PackageManager.COMPONENT_ENABLED_STATE_DEFAULT &&
             newState != PackageManager.COMPONENT_ENABLED_STATE_ENABLED) return false
         val key = PersistentComponentState.key(userId, component)
-        return key in protectedComponents
+        val runtime = RuntimeComponentPolicy.snapshot()
+        val protected = if (runtime.authoritative) runtime.protectedComponents else protectedComponents
+        return key in protected
     }
 
     private fun record(message: String) {
