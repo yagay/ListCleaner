@@ -10,6 +10,7 @@ import android.os.PersistableBundle
 import android.util.Log
 import com.yagay.ListCleaner.data.ComponentStateReconciler
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -30,11 +31,14 @@ class ComponentReconcileJobService : JobService() {
                 if (reason == "boot_completed" || reason == "user_unlocked") {
                     schedule(applicationContext, "${reason}_settled", settled = true)
                 }
+            } catch (cancelled: CancellationException) {
+                Log.i(TAG, "RECONCILE_JOB_CANCELLED reason=$reason")
+                throw cancelled
             } catch (failure: Throwable) {
                 Log.e(TAG, "RECONCILE_JOB_FAILED reason=$reason", failure)
             } finally {
-                activeJobs.remove(params.jobId)
-                jobFinished(params, false)
+                val current = activeJobs.remove(params.jobId)
+                if (current?.isCancelled != true) jobFinished(params, false)
             }
         }
         return true
