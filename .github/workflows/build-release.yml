@@ -1,6 +1,14 @@
 name: Build and Publish Release
 
 on:
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'gradle/**'
+      - '*.gradle.kts'
+      - 'gradle.properties'
+      - 'gradlew'
+      - '.github/workflows/build-release.yml'
   workflow_dispatch:
     inputs:
       publish:
