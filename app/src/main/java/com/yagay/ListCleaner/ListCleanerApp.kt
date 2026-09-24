@@ -244,7 +244,9 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                     return@withLock true
                 }
 
-                val config = rules.remoteSnapshot()
+                val config = rules.remoteSnapshot().copy(
+                    rootDisabledComponents = PersistentComponentStore(this@ListCleanerApp).disabledKeys()
+                ).validated()
                 val encoded = json.encodeToString(ModuleConfig.serializer(), config)
                 require(encoded.length <= RuleRepository.MAX_BACKUP_CHARS) {
                     getString(R.string.runtime_config_transfer_too_large)
