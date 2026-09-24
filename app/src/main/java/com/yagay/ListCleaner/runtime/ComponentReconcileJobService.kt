@@ -37,8 +37,10 @@ class ComponentReconcileJobService : JobService() {
             } catch (failure: Throwable) {
                 Log.e(TAG, "RECONCILE_JOB_FAILED reason=$reason", failure)
             } finally {
-                val current = activeJobs.remove(params.jobId)
-                if (current?.isCancelled != true) jobFinished(params, false)
+                val currentJob = coroutineContext[Job]
+                if (currentJob != null && activeJobs.remove(params.jobId, currentJob)) {
+                    jobFinished(params, false)
+                }
             }
         }
         return true
