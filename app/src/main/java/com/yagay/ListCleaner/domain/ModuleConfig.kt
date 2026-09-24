@@ -23,13 +23,20 @@ data class ModuleConfig(
     val openTypes: OpenTypeConfig = OpenTypeConfig(),
     /** Empty by default. Only explicitly selected categories contribute fully-selected package targets. */
     val visibilityCompat: VisibilityCompatConfig = VisibilityCompatConfig(),
-    val browserLinks: BrowserLinkConfig = BrowserLinkConfig()
+    val browserLinks: BrowserLinkConfig = BrowserLinkConfig(),
+    /**
+     * Runtime-only component protection snapshot. It is carried in the atomic config so the
+     * system_server guard/discovery hooks do not depend on RemotePreferences cache freshness.
+     * RuleRepository deliberately does not restore this field into rule backups.
+     */
+    val rootDisabledComponents: Set<String> = emptySet()
 ) {
     fun validated(): ModuleConfig {
         require(rules.size <= 20_000 && rules.all(ComponentRule::isValid))
         val cleanPriorities = priorities.validated()
         require(managerAppId == -1 || ManagerIdentity.valid(managerAppId))
         require(hiddenFromApps.size <= 2_000 && hiddenFromApps.all(PackageIdentity::valid))
+        require(rootDisabledComponents.size <= 20_000 && rootDisabledComponents.all(::validRootComponentKey))
 
         val legacyDomainIds = browserLinks.rules.values.flatten().mapNotNull { id ->
             val parsed = ComponentRule.fromId(id) ?: return@mapNotNull null
@@ -60,4 +67,11 @@ data class ModuleConfig(
             visibilityCompat = cleanVisibilityCompat
         )
     }
+}
+
+private fun validRootComponentKey(value: String): Boolean {
+    val parts = value.split('|', limit = 3)
+    if (parts.size != 3) return false
+    val user = parts[0].toIntOrNull() ?: return false
+    return ComponentStatePolicy.valid(parts[1], parts[2], user)
 }
