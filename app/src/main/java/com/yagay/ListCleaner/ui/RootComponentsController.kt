@@ -134,7 +134,10 @@ internal class RootComponentsController(
                         app.getString(R.string.root_operation_not_allowed)
                     )
                 } finally {
-                    if (completedTargets.isNotEmpty()) refreshAfterMutation(completedTargets)
+                    if (completedTargets.isNotEmpty()) {
+                        withContext(NonCancellable) { app.synchronize() }
+                        refreshAfterMutation(completedTargets)
+                    }
                     mutableBusy.value = false
                 }
             }
@@ -185,7 +188,10 @@ internal class RootComponentsController(
                         app.getString(R.string.root_operation_not_allowed)
                     )
                 } finally {
-                    if (completedTargets.isNotEmpty()) refreshAfterMutation(completedTargets)
+                    if (completedTargets.isNotEmpty()) {
+                        withContext(NonCancellable) { app.synchronize() }
+                        refreshAfterMutation(completedTargets)
+                    }
                     mutableBusy.value = false
                 }
             }
