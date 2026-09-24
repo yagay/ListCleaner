@@ -26,7 +26,15 @@ class ModuleConfigTest {
             Json.encodeToString(ModuleConfig.serializer(), config)).validated())
     }
 
-    @Test fun removedLegacyRuntimeFieldsAreIgnored() {\n        val encoded = """{"rules":[],"mode":"HIDE_SELECTED","priorities":{},"diagnostic":false,"tiles":{"enabled":true,"hidden":[]},"defaultOpen":{"preferred":{}}}"""\n        val decoded = Json { ignoreUnknownKeys = true }.decodeFromString(\n            ModuleConfig.serializer(), encoded\n        ).validated()\n        assertEquals(DisplayMode.HIDE_SELECTED, decoded.mode)\n        assertTrue(decoded.rules.isEmpty())\n    }\n    @Test fun legacyDomainRulesAndTitlesMigrateWithoutDeletingBrowserTitle() {
+    @Test fun removedLegacyRuntimeFieldsAreIgnored() {
+        val encoded = """{"rules":[],"mode":"HIDE_SELECTED","priorities":{},"diagnostic":false,"tiles":{"enabled":true,"hidden":[]},"defaultOpen":{"preferred":{}}}"""
+        val decoded = Json { ignoreUnknownKeys = true }.decodeFromString(
+            ModuleConfig.serializer(), encoded
+        ).validated()
+        assertEquals(DisplayMode.HIDE_SELECTED, decoded.mode)
+        assertTrue(decoded.rules.isEmpty())
+    }
+    @Test fun legacyDomainRulesAndTitlesMigrateWithoutDeletingBrowserTitle() {
         val browserRule = ComponentRule(IntentKind.BROWSER, "com.example", "com.example.Target")
         val deepLinkRule = browserRule.copy(kind = IntentKind.DEEP_LINK)
         val config = ModuleConfig(
