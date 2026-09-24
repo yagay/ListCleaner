@@ -239,11 +239,6 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                 }
 
                 val revision = rules.revision.value
-                if (runtime.value.ready && acknowledgedSessionGeneration == session.generation &&
-                    acknowledgedRevision == revision) {
-                    return@withLock true
-                }
-
                 val config = rules.remoteSnapshot().copy(
                     rootDisabledComponents = PersistentComponentStore(this@ListCleanerApp).disabledKeys()
                 ).validated()
@@ -252,6 +247,11 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                     getString(R.string.runtime_config_transfer_too_large)
                 }
                 val digest = RuntimeProtocol.digest(encoded)
+                if (runtime.value.ready && runtime.value.digest == digest &&
+                    acknowledgedSessionGeneration == session.generation &&
+                    acknowledgedRevision == revision) {
+                    return@withLock true
+                }
                 val canPause = config.mode == DisplayMode.SHOW_ALL && targets.isNotEmpty() && targets.all {
                     RuntimeProtocol.supportsSafetyPause(
                         it.state.name,
