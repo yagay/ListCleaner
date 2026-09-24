@@ -21,16 +21,22 @@ import java.util.concurrent.TimeUnit
  */
 class BrowserLinkDiscovery {
     @Volatile private var cached = BrowserLinkDiscoveryResult()
-    @Volatile private var lastScanMillis: Long = 0L
+    @Volatile private var cacheValid = false
+    @Volatile private var lastSuccessfulScanMillis: Long = 0L
+    @Volatile private var lastAttemptMillis: Long = 0L
 
     suspend fun discover(force: Boolean = false): Set<String> = discoverDetailed(force).hosts
 
     suspend fun discoverDetailed(force: Boolean = false): BrowserLinkDiscoveryResult =
         withContext(Dispatchers.IO) {
             val now = System.currentTimeMillis()
-            if (!force && cached.hosts.isNotEmpty() && now - lastScanMillis < CACHE_MILLIS) {
+            if (!force && cacheValid && now - lastSuccessfulScanMillis < CACHE_MILLIS) {
                 return@withContext cached
             }
+            if (!force && now - lastAttemptMillis < FAILURE_BACKOFF_MILLIS) {
+                return@withContext cached
+            }
+            lastAttemptMillis = now
 
             val appLinksOutput = runCatching { runReadOnlyCommand("pm get-app-links --user cur") }
                 .onFailure {
@@ -76,8 +82,9 @@ class BrowserLinkDiscovery {
                 }
             }
 
-            if (result.hosts.isNotEmpty()) cached = result
-            lastScanMillis = now
+            cached = result
+            cacheValid = true
+            lastSuccessfulScanMillis = System.currentTimeMillis()
             cached
         }
 
@@ -147,6 +154,7 @@ class BrowserLinkDiscovery {
     private companion object {
         const val TAG = "ListCleaner.AppLinks"
         const val CACHE_MILLIS = 5 * 60 * 1000L
+        const val FAILURE_BACKOFF_MILLIS = 45 * 1000L
         const val COMMAND_TIMEOUT_SECONDS = 20L
         const val RESOLVER_TIMEOUT_SECONDS = 35L
         const val MAX_OUTPUT_BYTES = 2 * 1024 * 1024
