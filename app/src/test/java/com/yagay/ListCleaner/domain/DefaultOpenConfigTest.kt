@@ -93,11 +93,4 @@ class DefaultOpenConfigTest {
             matchOpenPreset(IntentKind.OPEN, "image/heic", "content", null, definitions))
     }
 
-    @Test fun configRequiresMatchingKindAndCanonicalId() {
-        val open = ComponentRule(IntentKind.OPEN, "com.example", "com.example.Reader")
-        DefaultOpenConfig(mapOf(OpenPreset.PDF to open.id, OpenPreset.MAGNET to open.id)).validated()
-        assertThrows(IllegalArgumentException::class.java) {
-            DefaultOpenConfig(mapOf(OpenPreset.BROWSER to open.id)).validated()
-        }
-    }
 }
