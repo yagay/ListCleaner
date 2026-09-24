@@ -16,6 +16,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.os.Process
 import android.util.Log
+import com.yagay.ListCleaner.data.PersistentComponentState
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
@@ -1575,7 +1576,9 @@ class ListCleanerModule : XposedModule() {
         lastEncodedConfig = encoded
         RuntimeComponentPolicy.publish(
             managerAppId = config.managerAppId,
-            protectedComponents = config.rootDisabledComponents,
+            protectedComponents = config.rootDisabledComponents ?: PersistentComponentState.sanitize(
+                preferences.getStringSet(PersistentComponentState.REMOTE_KEY, emptySet()).orEmpty()
+            ),
             digest = digest,
         )
 
@@ -1588,7 +1591,7 @@ class ListCleanerModule : XposedModule() {
                 "typedPriorities=${config.openTypes.priorities.mapValues { it.value.size }} " +
                 "browserHosts=${config.browserLinks.hosts.size} " +
                 "browserRules=${config.browserLinks.rules.mapValues { it.value.size }} " +
-                "rootProtected=${config.rootDisabledComponents.size} " +
+                "rootProtected=${config.rootDisabledComponents?.size ?: -1} " +
                 "titles=${config.priorities.titles.size} hiddenFromApps=${config.hiddenFromApps.size} " +
                 "visibilityScopes=${config.visibilityCompat.scopes.map { it.name }.sorted()} " +
                 "visibilityTargets=${snapshot.allSelectedPackages.size} digest=$digest"
