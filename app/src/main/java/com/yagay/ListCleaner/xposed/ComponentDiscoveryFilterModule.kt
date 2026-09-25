@@ -101,23 +101,35 @@ class ComponentDiscoveryFilterModule : XposedModule() {
     @Synchronized
     private fun refreshPolicy(reason: String) {
         runCatching {
-            protectedComponents = PersistentComponentState.sanitize(
-                preferences.getStringSet(PersistentComponentState.REMOTE_KEY, emptySet()).orEmpty()
-            )
-            managerAppId = preferences.getString(RuleRepository.KEY_CONFIG, null)?.let { encoded ->
-                if (encoded.length > RuleRepository.MAX_BACKUP_CHARS) return@let -1
+            val config = preferences.getString(RuleRepository.KEY_CONFIG, null)?.let { encoded ->
+                if (encoded.length > RuleRepository.MAX_BACKUP_CHARS) return@let null
                 Json { ignoreUnknownKeys = true }
                     .decodeFromString(ModuleConfig.serializer(), encoded)
                     .validated()
-                    .managerAppId
-            } ?: -1
+            }
+            protectedComponents = if (config?.rootDisabledComponents != null) {
+                PersistentComponentState.sanitize(config.rootDisabledComponents)
+            } else {
+                PersistentComponentState.sanitize(
+                    preferences.getStringSet(PersistentComponentState.REMOTE_KEY, emptySet()).orEmpty()
+                )
+            }
+            managerAppId = config?.managerAppId ?: -1
             record(
                 "POLICY_READ reason=$reason protected=${protectedComponents.size} " +
-                    "managerAppId=$managerAppId"
+                    "managerAppId=$managerAppId runtimeAuthoritative=${RuntimeComponentPolicy.snapshot().authoritative}"
             )
         }.onFailure {
             Log.e(TAG, "Unable to refresh discovery policy; keeping previous snapshot", it)
         }
+    }
+
+    private fun effectivePolicy(): RuntimeComponentPolicySnapshot {
+        val runtime = RuntimeComponentPolicy.snapshot()
+        return if (runtime.authoritative) runtime else RuntimeComponentPolicySnapshot(
+            managerAppId = managerAppId,
+            protectedComponents = protectedComponents,
+        )
     }
 
     private fun installPackageManagerDiscoveryHooks(classLoader: ClassLoader) {
@@ -173,12 +185,13 @@ class ComponentDiscoveryFilterModule : XposedModule() {
             ?: return@Hooker chain.proceed()
 
         val callerUid = Binder.getCallingUid()
-        if (ManagerIdentity.matches(callerUid, managerAppId)) {
+        val policy = effectivePolicy()
+        if (ManagerIdentity.matches(callerUid, policy.managerAppId)) {
             return@Hooker chain.proceed()
         }
 
         val original = chain.proceed()
-        filterResolveResult(original, surface, queryUserId(chain))
+        filterResolveResult(original, surface, queryUserId(chain), policy.protectedComponents)
     }
 
     private fun surfaceFor(methodName: String, intent: Intent): Surface? {
@@ -201,7 +214,12 @@ class ComponentDiscoveryFilterModule : XposedModule() {
         return indices.lastOrNull()?.let { chain.args.getOrNull(it) as? Int }
     }
 
-    private fun filterResolveResult(original: Any?, surface: Surface, fallbackUserId: Int?): Any? {
+    private fun filterResolveResult(
+        original: Any?,
+        surface: Surface,
+        fallbackUserId: Int?,
+        protectedComponents: Set<String>,
+    ): Any? {
         if (protectedComponents.isEmpty()) return original
         val result = extractListResult(original) ?: return original
         var removed = 0
@@ -271,11 +289,13 @@ class ComponentDiscoveryFilterModule : XposedModule() {
 
     private fun widgetProviderHooker() = XposedInterface.Hooker { chain ->
         val callerUid = Binder.getCallingUid()
-        if (ManagerIdentity.matches(callerUid, managerAppId)) {
+        val policy = effectivePolicy()
+        if (ManagerIdentity.matches(callerUid, policy.managerAppId)) {
             return@Hooker chain.proceed()
         }
 
         val original = chain.proceed()
+        val protectedComponents = policy.protectedComponents
         if (protectedComponents.isEmpty()) return@Hooker original
 
         runCatching {

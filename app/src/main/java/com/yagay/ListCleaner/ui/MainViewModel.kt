@@ -1,7 +1,6 @@
 package com.yagay.ListCleaner.ui
 
 import android.app.Application
-import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Log
 import java.io.File
@@ -21,7 +20,6 @@ import com.yagay.ListCleaner.data.RootComponent
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.ComponentRule
-import com.yagay.ListCleaner.domain.AppType
 import com.yagay.ListCleaner.domain.BrowserLinkConfig
 import com.yagay.ListCleaner.domain.CustomOpenDefinition
 import com.yagay.ListCleaner.domain.DisplayMode
@@ -87,92 +85,18 @@ data class MainState(
     val runtime: RuntimeStatus = RuntimeStatus()
 )
 
-data class AppGroup(
-    val packageName: String,
-    val appLabel: String,
-    val appIcon: Bitmap?,
-    val appType: AppType,
-    val components: List<ComponentCandidate>
-)
-
-private fun appSelectionRank(group: AppGroup, selected: Set<ComponentRule>): Int {
-    val selectedCount = group.components.count { it.rule in selected }
-    return when {
-        group.components.isNotEmpty() && selectedCount == group.components.size -> 0
-        selectedCount > 0 -> 1
-        else -> 2
-    }
-}
-
-private fun baseAppGroups(candidates: List<ComponentCandidate>): List<AppGroup> =
-    candidates.groupBy { it.rule.packageName }.map { (_, all) ->
-        val first = all.first()
-        AppGroup(
-            first.rule.packageName,
-            first.appLabel,
-            first.appIcon,
-            first.appType,
-            all.sortedBy { it.rule.kind.ordinal }
-        )
-    }
-
-private fun filterAppGroups(
-    groups: List<AppGroup>,
-    selected: Set<ComponentRule>,
-    filter: IntentKind?,
-    query: String,
-    uiFilter: UiFilter
-): List<AppGroup> = groups.mapNotNull { group ->
-    val matching = group.components.filter {
-        val isSelected = it.rule in selected
-        val matchesUiFilter = when (uiFilter) {
-            UiFilter.ALL -> true
-            UiFilter.HIDE_SELECTED -> !isSelected
-            UiFilter.SHOW_SELECTED -> isSelected
-            UiFilter.LOCKED -> true
-        }
-        catalogVisible(it, isSelected, uiFilter) && matchesUiFilter &&
-            (filter == null || it.rule.kind == filter) && it.matchesQuery(query)
-    }
-    if (matching.isEmpty()) null else group.copy(components = matching)
-}.sortedWith(
-    compareBy<AppGroup> { appSelectionRank(it, selected) }
-        .thenBy { it.components.firstOrNull()?.normalizedAppLabel ?: it.appLabel.lowercase() }
-        .thenBy { it.packageName }
-)
-
-fun groupCandidates(
-    candidates: List<ComponentCandidate>,
-    selected: Set<ComponentRule>,
-    filter: IntentKind?,
-    query: String,
-    uiFilter: UiFilter
-): List<AppGroup> = filterAppGroups(baseAppGroups(candidates), selected, filter, query, uiFilter)
-
-fun retainConfiguredCandidates(
-    items: List<ComponentCandidate>,
-    selected: Set<ComponentRule>,
-    unavailableEvidence: String = "Configured but not observed during this scan; this does not mean the app is uninstalled"
-): List<ComponentCandidate> {
-    val kept = items.filter { !it.unavailable || it.rule in selected }
-    val ids = kept.map { it.rule.id }.toSet()
-    return kept + selected.filter { it.id !in ids }.map { rule ->
-        ComponentCandidate(
-            rule,
-            rule.packageName,
-            rule.className.substringAfterLast('.'),
-            evidence = listOf(unavailableEvidence),
-            unavailable = true
-        )
-    }
-}
-
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as ListCleanerApp
     private val bulkLocks = BulkLockStore(app)
     private val rootComponents = RootComponentsController(app, viewModelScope)
     private val browserLinkDiscovery = BrowserLinkDiscovery()
     private val moduleRuntime = ModuleRuntimeController(app, viewModelScope)
+    private val priorityEditor = PriorityEditorController(
+        rules = app.rules,
+        bulkLocks = bulkLocks,
+        canEdit = ::canEdit,
+        ensureBrowserHostConfigured = ::ensureBrowserHostConfigured,
+    )
 
     val componentScan = rootComponents.scan
     val componentBusy = rootComponents.busy
@@ -616,18 +540,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun genericDeepLinkSelected(): Set<ComponentRule> =
         app.rules.rules.value.filterTo(linkedSetOf()) { it.kind == IntentKind.DEEP_LINK }
 
-    private fun deepLinkHostPriorityBase(host: String): List<String> {
-        val normalized = normalizeBrowserHost(host) ?: return emptyList()
-        val explicit = app.rules.browserLinks.value.priorities[normalized].orEmpty()
-        return if (explicit.isNotEmpty()) explicit
-        else app.rules.priorities.value.apps[IntentKind.DEEP_LINK].orEmpty()
-    }
-
-    private fun openTypePriorityBase(preset: OpenPreset): List<String> {
-        val explicit = app.rules.openTypes.value.priorities[preset].orEmpty()
-        return if (explicit.isNotEmpty()) explicit
-        else app.rules.priorities.value.apps[IntentKind.OPEN].orEmpty()
-    }
 
     fun setBrowserHosts(hosts: Set<String>) {
         if (!canEdit()) return
@@ -931,217 +843,71 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (canEdit()) app.rules.setComponentTitle(ruleId, title)
     }
 
-    fun selectPriorityApps(kind: IntentKind, packageNames: Collection<String>, lockScope: String) {
-        if (!canEdit()) return
-        val current = app.rules.priorities.value.apps[kind].orEmpty()
-        val editable = packageNames.distinct().filterNot { bulkLocks.isAppLocked(lockScope, it) }
-        val next = (current + editable.filter { it !in current }).take(200)
-        if (next != current) app.rules.setPriority(kind, next)
-    }
+    fun selectPriorityApps(kind: IntentKind, packageNames: Collection<String>, lockScope: String) =
+        priorityEditor.selectApps(kind, packageNames, lockScope)
 
-    fun deselectPriorityApps(kind: IntentKind, packageNames: Collection<String>, lockScope: String) {
-        if (!canEdit()) return
-        val editable = packageNames.distinct().filterNot { bulkLocks.isAppLocked(lockScope, it) }.toSet()
-        if (editable.isEmpty()) return
-        val current = app.rules.priorities.value.apps[kind].orEmpty()
-        val next = current.filterNot { it in editable }
-        if (next != current) app.rules.setPriority(kind, next)
-    }
+    fun deselectPriorityApps(kind: IntentKind, packageNames: Collection<String>, lockScope: String) =
+        priorityEditor.deselectApps(kind, packageNames, lockScope)
 
-    fun invertPriorityApps(kind: IntentKind, packageNames: Collection<String>, lockScope: String) {
-        if (!canEdit()) return
-        val visible = packageNames.distinct().filterNot { bulkLocks.isAppLocked(lockScope, it) }
-        if (visible.isEmpty()) return
-        val current = app.rules.priorities.value.apps[kind].orEmpty()
-        val next = (current.filterNot { it in visible.toSet() } + visible.filter { it !in current }).take(200)
-        if (next != current) app.rules.setPriority(kind, next)
-    }
+    fun invertPriorityApps(kind: IntentKind, packageNames: Collection<String>, lockScope: String) =
+        priorityEditor.invertApps(kind, packageNames, lockScope)
 
-    fun pinApp(kind: IntentKind, packageName: String) {
-        if (!canEdit()) return
-        val current = app.rules.priorities.value.apps[kind].orEmpty()
-        if (packageName !in current && current.size < 200) app.rules.setPriority(kind, current + packageName)
-    }
-
-    fun removePriority(kind: IntentKind, packageName: String) {
-        if (canEdit()) app.rules.setPriority(kind, app.rules.priorities.value.apps[kind].orEmpty() - packageName)
-    }
-
-    fun movePriority(kind: IntentKind, packageName: String, offset: Int, visible: List<String>) {
-        if (!canEdit()) return
-        app.rules.setPriority(
-            kind,
-            com.yagay.ListCleaner.domain.moveVisiblePriority(
-                app.rules.priorities.value.apps[kind].orEmpty(), visible, packageName, offset
-            )
-        )
-    }
+    fun pinApp(kind: IntentKind, packageName: String) = priorityEditor.pin(kind, packageName)
+    fun removePriority(kind: IntentKind, packageName: String) = priorityEditor.remove(kind, packageName)
+    fun movePriority(kind: IntentKind, packageName: String, offset: Int, visible: List<String>) =
+        priorityEditor.move(kind, packageName, offset, visible)
 
     fun movePriorityTo(
-        kind: IntentKind,
-        packageName: String,
-        target: String,
-        visible: List<String>,
-        expected: List<String>
-    ) {
-        if (!canEdit()) return
-        val current = app.rules.priorities.value.apps[kind].orEmpty()
-        if (current != expected) return
-        val updated = com.yagay.ListCleaner.domain.moveVisiblePriorityTo(current, visible, packageName, target)
-        if (updated != current) app.rules.setPriority(kind, updated)
-    }
+        kind: IntentKind, packageName: String, target: String, visible: List<String>, expected: List<String>
+    ) = priorityEditor.moveTo(kind, packageName, target, visible, expected)
 
-    fun selectBrowserHostPriorityApps(host: String, packageNames: Collection<String>, lockScope: String) {
-        if (!canEdit()) return
-        val current = deepLinkHostPriorityBase(host)
-        val editable = packageNames.distinct().filterNot { bulkLocks.isAppLocked(lockScope, it) }
-        val next = (current + editable.filter { it !in current }).take(200)
-        if (next != current) {
-            val normalized = ensureBrowserHostConfigured(host) ?: return
-            app.rules.setBrowserHostPriority(normalized, next)
-        }
-    }
+    fun selectBrowserHostPriorityApps(host: String, packageNames: Collection<String>, lockScope: String) =
+        priorityEditor.selectBrowserHost(host, packageNames, lockScope)
 
-    fun deselectBrowserHostPriorityApps(host: String, packageNames: Collection<String>, lockScope: String) {
-        if (!canEdit()) return
-        val editable = packageNames.distinct().filterNot { bulkLocks.isAppLocked(lockScope, it) }.toSet()
-        if (editable.isEmpty()) return
-        val current = deepLinkHostPriorityBase(host)
-        val next = current.filterNot { it in editable }
-        if (next != current) {
-            val normalized = ensureBrowserHostConfigured(host) ?: return
-            app.rules.setBrowserHostPriority(normalized, next)
-        }
-    }
+    fun deselectBrowserHostPriorityApps(host: String, packageNames: Collection<String>, lockScope: String) =
+        priorityEditor.deselectBrowserHost(host, packageNames, lockScope)
 
-    fun invertBrowserHostPriorityApps(host: String, packageNames: Collection<String>, lockScope: String) {
-        if (!canEdit()) return
-        val visible = packageNames.distinct().filterNot { bulkLocks.isAppLocked(lockScope, it) }
-        if (visible.isEmpty()) return
-        val current = deepLinkHostPriorityBase(host)
-        val next = (current.filterNot { it in visible.toSet() } + visible.filter { it !in current }).take(200)
-        if (next != current) {
-            val normalized = ensureBrowserHostConfigured(host) ?: return
-            app.rules.setBrowserHostPriority(normalized, next)
-        }
-    }
+    fun invertBrowserHostPriorityApps(host: String, packageNames: Collection<String>, lockScope: String) =
+        priorityEditor.invertBrowserHost(host, packageNames, lockScope)
 
-    fun pinBrowserHostApp(host: String, packageName: String) {
-        if (!canEdit()) return
-        val current = deepLinkHostPriorityBase(host)
-        if (packageName !in current && current.size < 200) {
-            val normalized = ensureBrowserHostConfigured(host) ?: return
-            app.rules.setBrowserHostPriority(normalized, current + packageName)
-        }
-    }
+    fun pinBrowserHostApp(host: String, packageName: String) =
+        priorityEditor.pinBrowserHost(host, packageName)
 
-    fun removeBrowserHostPriority(host: String, packageName: String) {
-        if (!canEdit()) return
-        val current = deepLinkHostPriorityBase(host)
-        val next = current - packageName
-        if (next != current) {
-            val normalized = ensureBrowserHostConfigured(host) ?: return
-            app.rules.setBrowserHostPriority(normalized, next)
-        }
-    }
+    fun removeBrowserHostPriority(host: String, packageName: String) =
+        priorityEditor.removeBrowserHost(host, packageName)
 
-    fun moveBrowserHostPriority(host: String, packageName: String, offset: Int, visible: List<String>) {
-        if (!canEdit()) return
-        val current = deepLinkHostPriorityBase(host)
-        val updated = com.yagay.ListCleaner.domain.moveVisiblePriority(current, visible, packageName, offset)
-        if (updated != current) {
-            val normalized = ensureBrowserHostConfigured(host) ?: return
-            app.rules.setBrowserHostPriority(normalized, updated)
-        }
-    }
+    fun moveBrowserHostPriority(host: String, packageName: String, offset: Int, visible: List<String>) =
+        priorityEditor.moveBrowserHost(host, packageName, offset, visible)
 
     fun moveBrowserHostPriorityTo(
-        host: String,
-        packageName: String,
-        target: String,
-        visible: List<String>,
-        expected: List<String>
-    ) {
-        if (!canEdit()) return
-        val current = deepLinkHostPriorityBase(host)
-        if (current != expected) return
-        val updated = com.yagay.ListCleaner.domain.moveVisiblePriorityTo(current, visible, packageName, target)
-        if (updated != current) {
-            val normalized = ensureBrowserHostConfigured(host) ?: return
-            app.rules.setBrowserHostPriority(normalized, updated)
-        }
-    }
+        host: String, packageName: String, target: String, visible: List<String>, expected: List<String>
+    ) = priorityEditor.moveBrowserHostTo(host, packageName, target, visible, expected)
 
-    fun resetBrowserHostPriority(host: String) {
-        if (!canEdit()) return
-        val normalized = normalizeBrowserHost(host) ?: return
-        if (normalized !in app.rules.browserLinks.value.hosts) return
-        app.rules.setBrowserHostPriority(normalized, emptyList())
-    }
+    fun resetBrowserHostPriority(host: String) = priorityEditor.resetBrowserHost(host)
 
-    fun selectOpenTypePriorityApps(preset: OpenPreset, packageNames: Collection<String>, lockScope: String) {
-        if (!canEdit()) return
-        val current = openTypePriorityBase(preset)
-        val editable = packageNames.distinct().filterNot { bulkLocks.isAppLocked(lockScope, it) }
-        val next = (current + editable.filter { it !in current }).take(200)
-        if (next != current) app.rules.setOpenTypePriority(preset, next)
-    }
+    fun selectOpenTypePriorityApps(preset: OpenPreset, packageNames: Collection<String>, lockScope: String) =
+        priorityEditor.selectOpenType(preset, packageNames, lockScope)
 
-    fun deselectOpenTypePriorityApps(preset: OpenPreset, packageNames: Collection<String>, lockScope: String) {
-        if (!canEdit()) return
-        val editable = packageNames.distinct().filterNot { bulkLocks.isAppLocked(lockScope, it) }.toSet()
-        if (editable.isEmpty()) return
-        val current = openTypePriorityBase(preset)
-        val next = current.filterNot { it in editable }
-        if (next != current) app.rules.setOpenTypePriority(preset, next)
-    }
+    fun deselectOpenTypePriorityApps(preset: OpenPreset, packageNames: Collection<String>, lockScope: String) =
+        priorityEditor.deselectOpenType(preset, packageNames, lockScope)
 
-    fun invertOpenTypePriorityApps(preset: OpenPreset, packageNames: Collection<String>, lockScope: String) {
-        if (!canEdit()) return
-        val visible = packageNames.distinct().filterNot { bulkLocks.isAppLocked(lockScope, it) }
-        if (visible.isEmpty()) return
-        val current = openTypePriorityBase(preset)
-        val next = (current.filterNot { it in visible.toSet() } + visible.filter { it !in current }).take(200)
-        if (next != current) app.rules.setOpenTypePriority(preset, next)
-    }
+    fun invertOpenTypePriorityApps(preset: OpenPreset, packageNames: Collection<String>, lockScope: String) =
+        priorityEditor.invertOpenType(preset, packageNames, lockScope)
 
-    fun pinOpenTypeApp(preset: OpenPreset, packageName: String) {
-        if (!canEdit()) return
-        val current = openTypePriorityBase(preset)
-        if (packageName !in current && current.size < 200) app.rules.setOpenTypePriority(preset, current + packageName)
-    }
+    fun pinOpenTypeApp(preset: OpenPreset, packageName: String) =
+        priorityEditor.pinOpenType(preset, packageName)
 
-    fun removeOpenTypePriority(preset: OpenPreset, packageName: String) {
-        if (!canEdit()) return
-        val current = openTypePriorityBase(preset)
-        val next = current - packageName
-        if (next != current) app.rules.setOpenTypePriority(preset, next)
-    }
+    fun removeOpenTypePriority(preset: OpenPreset, packageName: String) =
+        priorityEditor.removeOpenType(preset, packageName)
 
-    fun moveOpenTypePriority(preset: OpenPreset, packageName: String, offset: Int, visible: List<String>) {
-        if (!canEdit()) return
-        val current = openTypePriorityBase(preset)
-        val updated = com.yagay.ListCleaner.domain.moveVisiblePriority(current, visible, packageName, offset)
-        if (updated != current) app.rules.setOpenTypePriority(preset, updated)
-    }
+    fun moveOpenTypePriority(preset: OpenPreset, packageName: String, offset: Int, visible: List<String>) =
+        priorityEditor.moveOpenType(preset, packageName, offset, visible)
 
     fun moveOpenTypePriorityTo(
-        preset: OpenPreset,
-        packageName: String,
-        target: String,
-        visible: List<String>,
-        expected: List<String>
-    ) {
-        if (!canEdit()) return
-        val current = openTypePriorityBase(preset)
-        if (current != expected) return
-        val updated = com.yagay.ListCleaner.domain.moveVisiblePriorityTo(current, visible, packageName, target)
-        if (updated != current) app.rules.setOpenTypePriority(preset, updated)
-    }
+        preset: OpenPreset, packageName: String, target: String, visible: List<String>, expected: List<String>
+    ) = priorityEditor.moveOpenTypeTo(preset, packageName, target, visible, expected)
 
-    fun resetOpenTypePriority(preset: OpenPreset) {
-        if (canEdit()) app.rules.setOpenTypePriority(preset, emptyList())
-    }
+    fun resetOpenTypePriority(preset: OpenPreset) = priorityEditor.resetOpenType(preset)
 
     fun requestScope() = moduleRuntime.requestScope()
 
@@ -1151,20 +917,3 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 }
 
-internal fun availableDeepLinkHosts(
-    configuredHosts: Set<String>,
-    discoveredHosts: Set<String>,
-    candidates: List<ComponentCandidate>
-): Set<String> {
-    val normalizedDiscovered = discoveredHosts.mapNotNull(::normalizeBrowserHost).toSet()
-    val matched = candidates.asSequence()
-        .filter { it.rule.kind == IntentKind.DEEP_LINK && it.isCatalogCandidate }
-        .flatMap { it.browserHosts.asSequence() }
-        .mapNotNull(::normalizeBrowserHost)
-        .filter { it in normalizedDiscovered }
-        .toSet()
-    return configuredHosts.mapNotNull(::normalizeBrowserHost).toSet() + matched
-}
-
-internal fun catalogVisible(item: ComponentCandidate, selected: Boolean, uiFilter: UiFilter): Boolean =
-    item.isCatalogCandidate || (selected && (uiFilter == UiFilter.SHOW_SELECTED || uiFilter == UiFilter.LOCKED))

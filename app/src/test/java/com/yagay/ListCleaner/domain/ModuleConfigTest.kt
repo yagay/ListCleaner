@@ -26,25 +26,14 @@ class ModuleConfigTest {
             Json.encodeToString(ModuleConfig.serializer(), config)).validated())
     }
 
-    @Test fun legacyRuntimeFieldsAreNotSerialized() {
-        val config = ModuleConfig(
-            emptySet(), DisplayMode.HIDE_SELECTED, PriorityConfig(), false,
-            tiles = TileConfig(enabled = true, hidden = setOf("pkg/.Tile")),
-            defaultOpen = DefaultOpenConfig(mapOf(
-                OpenPreset.PDF to ComponentRule(IntentKind.OPEN, "com.example", "com.example.Reader").id
-            ))
-        )
-        val encoded = Json.encodeToString(ModuleConfig.serializer(), config)
-        assertFalse(encoded.contains("tiles"))
-        assertFalse(encoded.contains("defaultOpen"))
+    @Test fun removedLegacyRuntimeFieldsAreIgnored() {
+        val encoded = """{"rules":[],"mode":"HIDE_SELECTED","priorities":{},"diagnostic":false,"tiles":{"enabled":true,"hidden":[]},"defaultOpen":{"preferred":{}}}"""
         val decoded = Json { ignoreUnknownKeys = true }.decodeFromString(
-            ModuleConfig.serializer(),
-            encoded.dropLast(1) + ",\"tiles\":{\"enabled\":true,\"hidden\":[]},\"defaultOpen\":{\"preferred\":{}}}"
-        )
-        assertEquals(TileConfig(), decoded.tiles)
-        assertEquals(DefaultOpenConfig(), decoded.defaultOpen)
+            ModuleConfig.serializer(), encoded
+        ).validated()
+        assertEquals(DisplayMode.HIDE_SELECTED, decoded.mode)
+        assertTrue(decoded.rules.isEmpty())
     }
-
     @Test fun legacyDomainRulesAndTitlesMigrateWithoutDeletingBrowserTitle() {
         val browserRule = ComponentRule(IntentKind.BROWSER, "com.example", "com.example.Target")
         val deepLinkRule = browserRule.copy(kind = IntentKind.DEEP_LINK)
@@ -62,6 +51,33 @@ class ModuleConfigTest {
         assertTrue(deepLinkRule in config.browserLinks.selectedRules("example.com"))
         assertEquals("Target", config.priorities.titles[browserRule.id])
         assertEquals("Target", config.priorities.titles[deepLinkRule.id])
+    }
+
+    @Test fun runtimeComponentPolicyRoundTrip() {
+        val config = ModuleConfig(
+            emptySet(), DisplayMode.HIDE_SELECTED, PriorityConfig(), false, 10715,
+            rootDisabledComponents = setOf("0|com.example|com.example.Tile")
+        )
+        val encoded = Json.encodeToString(ModuleConfig.serializer(), config)
+        val decoded = Json.decodeFromString(ModuleConfig.serializer(), encoded).validated()
+        assertEquals(config.rootDisabledComponents, decoded.rootDisabledComponents)
+    }
+
+    @Test fun legacyRuntimeConfigKeepsRootPolicyUnspecified() {
+        val encoded = """{"rules":[],"mode":"HIDE_SELECTED","priorities":{},"diagnostic":false}"""
+        val decoded = Json { ignoreUnknownKeys = true }.decodeFromString(
+            ModuleConfig.serializer(), encoded
+        ).validated()
+        assertNull(decoded.rootDisabledComponents)
+    }
+
+    @Test fun malformedRuntimeComponentPolicyIsRejected() {
+        assertThrows(IllegalArgumentException::class.java) {
+            ModuleConfig(
+                emptySet(), DisplayMode.HIDE_SELECTED, PriorityConfig(), false,
+                rootDisabledComponents = setOf("bad-key")
+            ).validated()
+        }
     }
 
     @Test fun relativeNamesMatchExpandedRuleIds() {

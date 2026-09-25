@@ -1,6 +1,14 @@
 name: Build and Publish Release
 
 on:
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'gradle/**'
+      - '*.gradle.kts'
+      - 'gradle.properties'
+      - 'gradlew'
+      - '.github/workflows/build-release.yml'
   workflow_dispatch:
     inputs:
       publish:
@@ -20,7 +28,8 @@ permissions:
 
 concurrency:
   group: release-${{ github.repository }}-${{ github.ref }}
-  cancel-in-progress: false
+  # PR validation should keep only the newest commit; main publication must never be cancelled.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   validate-release:

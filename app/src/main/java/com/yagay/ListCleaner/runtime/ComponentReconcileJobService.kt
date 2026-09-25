@@ -10,6 +10,8 @@ import android.os.PersistableBundle
 import android.util.Log
 import com.yagay.ListCleaner.data.ComponentStateReconciler
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -23,25 +25,32 @@ class ComponentReconcileJobService : JobService() {
 
     override fun onStartJob(params: JobParameters): Boolean {
         val reason = params.extras.getString(EXTRA_REASON, "scheduled")
-        activeJobs[params.jobId]?.cancel()
-        activeJobs[params.jobId] = scope.launch {
+        val job = scope.launch(start = CoroutineStart.LAZY) {
             try {
                 ComponentStateReconciler.reconcile(applicationContext, reason)
                 if (reason == "boot_completed" || reason == "user_unlocked") {
                     schedule(applicationContext, "${reason}_settled", settled = true)
                 }
+            } catch (cancelled: CancellationException) {
+                Log.i(TAG, "RECONCILE_JOB_CANCELLED reason=$reason")
+                throw cancelled
             } catch (failure: Throwable) {
                 Log.e(TAG, "RECONCILE_JOB_FAILED reason=$reason", failure)
             } finally {
-                activeJobs.remove(params.jobId)
-                jobFinished(params, false)
+                val currentJob = coroutineContext[Job]
+                if (currentJob != null && activeJobs.remove(params.jobId, currentJob)) {
+                    jobFinished(params, false)
+                }
             }
         }
+        activeJobs.put(params.jobId, job)?.cancel()
+        job.start()
         return true
     }
 
     override fun onStopJob(params: JobParameters): Boolean {
-        activeJobs.remove(params.jobId)?.cancel()
+        val job = activeJobs.remove(params.jobId) ?: return false
+        job.cancel()
         return true
     }
 

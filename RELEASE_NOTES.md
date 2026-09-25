@@ -1,27 +1,35 @@
-# 列表清理 / List Cleaner 1.6.17
+# 列表清理 / List Cleaner 1.6.18
 
-版本码 / Version code: 42
+版本码 / Version code: 43
 
 ## 中文
 
-- 新增 Runtime Probe v2：运行中的规则更新不再依赖 RemotePreferences 是否及时刷新。管理端会在需要时把真实的 `ModuleConfig` 分块传入已运行的 `system_server` Hook；RemotePreferences 继续只负责持久化、冷启动恢复和官方 LSPosed 的快速同步路径。
-- `system_server` 会先验证 Binder 调用 UID 确实属于 `com.yagay.ListCleaner`，再重组配置、重新计算 SHA-256、校验 `managerAppId` 并完整解析配置。只有实际收到并应用的配置 digest 与期望值一致时才返回 Runtime ACK。
-- 删除 1.6.16 的 legacy mirror digest 回退，不再允许用管理端传入的 expected digest 给旧配置“标记成功”；运行时推送失败时继续保留最后一份有效规则。
-- Probe v2 使用分块传输，并加入 transfer ID、调用 UID 绑定、大小/分块数量限制、10 秒超时、完整性与 digest 校验，避免 Binder 大事务和半套配置被应用。
-- 一旦 Probe v2 成功应用配置，当前进程内的 Hook 快照成为运行时权威来源；即使 Vector / 部分 libxposed API 102 实现继续返回 stale RemotePreferences，也不会再把新规则回滚成旧规则。
-- Resolver 过滤和优先排序优先使用 `system_server` 在 `ResolveInfo` 副本中附带的 include/rank/digest 元数据，因此过滤、排序和自定义标题使用同一份运行时规则，避免 system_server 已更新而 Resolver 仍停留在旧配置。
-- 官方 LSPosed 仍保留原有低开销路径：如果 RemotePreferences 变更监听已经让 Hook 获得最新配置，首次 Runtime ACK 即成功，不需要额外传输。
-- 本次修改涉及 Xposed 运行时和 Runtime Probe 合同，Hook compatibility 提升到 42。升级后需要让 system_server / 相关 Hook 进程加载新的 Hook 代数。
+- Root 磁贴、快捷方式和小组件的持久保护状态现在与主规则一起进入 Runtime Probe 原子配置；`ComponentStateGuardModule` 与 `ComponentDiscoveryFilterModule` 优先使用同一份 system_server 进程内权威快照，不再依赖 RemotePreferences 是否及时刷新。
+- Runtime Probe 的 BEGIN、CHUNK、COMMIT 全部先验证管理器 UID；非管理器调用不能中断正在进行的配置分块传输。
+- Probe v2 成功后停止在 PackageManager / Resolver 查询热路径轮询 RemotePreferences，减少查询时的配置读取和 SHA-256 计算。
+- Root 组件批量操作完成后只进行一次运行时同步，同时 digest 会包含 Root 保护集合，因此即使普通规则 revision 未变化也能正确更新 Hook。
+- App Link 自动发现现在会缓存“成功但为空”的扫描结果，并对失败增加短时间退避，避免每次刷新重复启动 root shell 和 `dumpsys package`。
+- 修正 `ComponentReconcileJobService` 的取消与替换 Job 生命周期，避免旧 Job 在被停止后错误结束新的 Job。
+- 收紧组件重协调广播接收器为非导出。
+- 修正 GitHub Actions：Release PR 校验现在真正有 `pull_request` 触发器；Debug PR 也会在 Gradle/wrapper 配置变化时编译。
+- 重构高风险大文件：候选分组与历史候选逻辑移出 `MainViewModel`，优先级编辑移入独立 `PriorityEditorController`，Xposed 运行时快照与组件策略也拆成独立模型。
+- 规则页和优先级页不再使用 `openPreset!!` / `browserHost!!`，改为基于当前分类捕获稳定作用域值，降低状态切换时的空指针风险。
+- 删除已无运行时用途的 `TileConfig` / `TilePolicy` 和 forced-default transient 配置外壳；旧备份/配置中的这些字段仍会作为未知字段安全忽略。
+- 本次修改涉及 Xposed 运行时合同，Hook compatibility 提升到 43。
 
 ---
 
 ## English
 
-- Added Runtime Probe v2 so live rule updates no longer depend on when a framework refreshes RemotePreferences. When needed, the manager transfers the actual serialized `ModuleConfig` in chunks to the already-running `system_server` hook. RemotePreferences remains the persistence/cold-start store and the fast path when official LSPosed propagates changes normally.
-- `system_server` now verifies that the Binder caller UID belongs to `com.yagay.ListCleaner`, reassembles the payload, recomputes SHA-256, validates `managerAppId`, and fully decodes the configuration. Runtime ACK is returned only for the digest of the configuration that was actually received and applied.
-- Removed the 1.6.16 legacy-mirror digest fallback. An expected digest supplied by the manager can no longer make stale legacy data appear successfully applied; failed transfers keep the last known-good rules.
-- Probe v2 uses chunked transport with transfer IDs, caller-UID ownership, size/chunk limits, a 10-second timeout, completeness checks, and digest verification to avoid oversized Binder transactions and partial configuration application.
-- After a verified Probe v2 update, the in-process hook snapshot becomes authoritative for the running process. Stale RemotePreferences returned by Vector or another libxposed API 102 implementation cannot roll the live policy back.
-- Resolver filtering and priority ordering now prefer include/rank/digest metadata attached to copied `ResolveInfo` results by `system_server`, keeping filtering, ordering, and custom titles on the same live policy instead of maintaining an independently stale Resolver snapshot.
-- Official LSPosed keeps the low-overhead path: if its RemotePreferences listener has already delivered the latest configuration, the first Runtime ACK succeeds and no configuration transfer is needed.
-- This release changes Xposed runtime behavior and the Runtime Probe contract, so hook compatibility is bumped to 42. After updating, system_server and the relevant hooked processes must load the new hook generation.
+- Root tile, shortcut, and widget protection is now carried in the same atomic Runtime Probe configuration as resolver rules. `ComponentStateGuardModule` and `ComponentDiscoveryFilterModule` prefer the shared authoritative in-process system_server snapshot instead of depending on RemotePreferences cache freshness.
+- Runtime Probe now verifies the manager UID before BEGIN, CHUNK, and COMMIT operations, preventing non-manager callers from disrupting an in-flight chunk transfer.
+- After Probe v2 becomes authoritative, PackageManager/Resolver hot paths stop polling RemotePreferences, reducing configuration reads and SHA-256 work during resolver queries.
+- Root component batches perform one runtime synchronization after mutation, and the runtime digest includes the protected component set so hook state updates even when the normal rule revision is unchanged.
+- App Link discovery now caches successful empty scans and backs off briefly after failures, avoiding repeated root shell and `dumpsys package` work on every refresh.
+- Fixed `ComponentReconcileJobService` cancellation/replacement lifecycle so a stopped stale job cannot finish or remove its replacement.
+- Restricted the reconcile broadcast receiver from external export.
+- Fixed GitHub Actions so release validation actually runs for pull requests and debug PR builds also cover Gradle/wrapper changes.
+- Split high-risk large files: candidate grouping/history logic moved out of `MainViewModel`, priority editing moved into `PriorityEditorController`, and Xposed runtime snapshots/component policy now live in dedicated models.
+- Removed `openPreset!!` / `browserHost!!` assertions from the rules and priority Compose screens by capturing stable scope values for the current category.
+- Removed obsolete `TileConfig` / `TilePolicy` and forced-default transient compatibility shells; legacy JSON fields remain safely ignored as unknown fields.
+- This release changes Xposed runtime behavior, so hook compatibility is bumped to 43.
