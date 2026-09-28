@@ -4,15 +4,12 @@ import re
 import sys
 
 PROJECT = Path(__file__).resolve().parents[1]
-JAVA_ROOT = PROJECT / "app" / "src" / "main" / "java"
+JAVA_ROOT = PROJECT / "feature" / "src" / "main" / "java"
 MANIFEST = PROJECT / "app" / "src" / "main" / "AndroidManifest.xml"
 
 CJK = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
 LATIN_TEXT = r'"(?:[^"\\]|\\.)*[A-Za-z](?:[^"\\]|\\.)*"'
 
-# These patterns intentionally target only APIs/properties that directly expose text
-# to users. Technical literals such as package names, MIME types, Intent actions,
-# diagnostic field names and protocol tokens are not rejected.
 USER_VISIBLE_PATTERNS = (
     ("Compose Text literal", re.compile(rf"\b(?:Text|BasicText)\s*\(\s*({LATIN_TEXT})", re.MULTILINE)),
     ("contentDescription literal", re.compile(rf"\bcontentDescription\s*=\s*({LATIN_TEXT})", re.MULTILINE)),
@@ -23,9 +20,6 @@ USER_VISIBLE_PATTERNS = (
     ("setMessage literal", re.compile(rf"\bsetMessage\s*\(\s*({LATIN_TEXT})", re.MULTILINE)),
 )
 
-# Developer/runtime exception details are useful in Log.e and diagnostics, but must not
-# become user-facing text. Keep the check deliberately focused on known UI sinks so
-# developer-only reports such as IntentCatalog ERROR=<ExceptionClass> remain allowed.
 EXCEPTION_UI_PATTERNS = (
     ("exception message in toast", re.compile(r"\btoast\s*\([^\n]*(?:failure|it)\.(?:message|localizedMessage)")),
     ("exception message in visible state", re.compile(
@@ -70,14 +64,10 @@ for path in sorted(JAVA_ROOT.rglob("*")):
     text = path.read_text(encoding="utf-8")
     relative = path.relative_to(PROJECT)
 
-    # Chinese/Japanese/Korean ideographs must never live directly in production
-    # Java/Kotlin. This broad check also protects non-Compose user-visible paths.
     for number, line in enumerate(text.splitlines(), 1):
         if CJK.search(line) and IGNORE_MARKER not in line:
             violations.append((relative, number, "CJK source text", line.strip()))
 
-    # English source text is allowed for technical/internal data, so only flag
-    # literals passed directly to known user-facing UI APIs.
     for label, pattern in USER_VISIBLE_PATTERNS + EXCEPTION_UI_PATTERNS:
         for match in pattern.finditer(text):
             if ignored(text, match.start()):
@@ -88,8 +78,6 @@ for path in sorted(JAVA_ROOT.rglob("*")):
 
 if MANIFEST.is_file():
     text = MANIFEST.read_text(encoding="utf-8")
-    # Android component labels/titles must reference resources. Resource, theme,
-    # class and permission attributes are intentionally outside this check.
     for match in re.finditer(r'android:(label|title|description)\s*=\s*"([^"]+)"', text):
         value = match.group(2).strip()
         if value.startswith("@"):
