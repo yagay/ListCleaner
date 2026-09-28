@@ -8,9 +8,15 @@ import kotlinx.serialization.Serializable
 enum class IntentKind(val action: String) {
     SHARE(Intent.ACTION_SEND),
     SHARE_MULTIPLE(Intent.ACTION_SEND_MULTIPLE),
+    SEND_TO(Intent.ACTION_SENDTO),
     OPEN(Intent.ACTION_VIEW),
     BROWSER(Intent.ACTION_VIEW),
     DEEP_LINK(Intent.ACTION_VIEW),
+    DIAL(Intent.ACTION_DIAL),
+    GET_CONTENT(Intent.ACTION_GET_CONTENT),
+    CAPTURE_IMAGE("android.media.action.IMAGE_CAPTURE"),
+    CAPTURE_VIDEO("android.media.action.VIDEO_CAPTURE"),
+    RECORD_AUDIO("android.provider.MediaStore.RECORD_SOUND"),
     PROCESS_TEXT(Intent.ACTION_PROCESS_TEXT)
 }
 
