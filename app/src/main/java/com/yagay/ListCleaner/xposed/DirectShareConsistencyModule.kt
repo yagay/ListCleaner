@@ -12,7 +12,7 @@ import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.ModuleConfig
 import com.yagay.ListCleaner.domain.SyntheticEntryKeys
-import com.yagay.ListCleaner.domain.directShareVisibleIndices
+import com.yagay.ListCleaner.domain.directShareFilteredIndices
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
@@ -130,27 +130,19 @@ class DirectShareConsistencyModule : XposedModule() {
             ?: return@Hooker chain.proceed()
 
         val parsed = targets.map(::parseDirectShareTarget)
-        var keptIndices = directShareVisibleIndices(parsed.map { it.packageName }, visibleSharePackages)
-
         val policy = effectivePolicy()
         val selected = policy.entryRules.asSequence().mapNotNull(ComponentRule::fromId)
             .filter { it.kind == IntentKind.DIRECT_SHARE }
             .mapTo(linkedSetOf()) { it.id }
-        if (policy.displayMode != DisplayMode.SHOW_ALL && selected.isNotEmpty()) {
-            keptIndices = keptIndices.filter { index ->
-                val rule = parsed[index].rule ?: return@filter true
-                policy.displayMode.includes(rule.id in selected, true)
-            }
-        }
-
         val priorities = policy.entryPriorities[IntentKind.DIRECT_SHARE].orEmpty()
-        if (priorities.isNotEmpty() && keptIndices.size > 1) {
-            val rank = priorities.distinct().withIndex().associate { (index, packageName) -> packageName to index }
-            keptIndices = keptIndices.sortedWith(
-                compareBy<Int> { index -> rank[parsed[index].packageName] ?: Int.MAX_VALUE }
-                    .thenBy { it }
-            )
-        }
+        val keptIndices = directShareFilteredIndices(
+            targetPackages = parsed.map { it.packageName },
+            ruleIds = parsed.map { it.rule?.id },
+            visibleSharePackages = visibleSharePackages,
+            selectedRuleIds = selected,
+            displayMode = policy.displayMode,
+            priorities = priorities,
+        )
 
         if (keptIndices.size == targets.size && keptIndices.indices.all { keptIndices[it] == it }) {
             return@Hooker chain.proceed()
@@ -186,7 +178,7 @@ class DirectShareConsistencyModule : XposedModule() {
             ComponentRule(
                 IntentKind.DIRECT_SHARE,
                 shortcutPackage,
-                SyntheticEntryKeys.directShareClass(target?.className ?: shortcut.activity?.className, shortcutId),
+                SyntheticEntryKeys.directShareClass(target?.className ?: shortcut?.activity?.className, shortcutId),
             ).takeIf(ComponentRule::isValid)
         } else null
         return ParsedTarget(packageName, rule)
