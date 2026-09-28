@@ -1,6 +1,7 @@
 package com.yagay.ListCleaner.xposed
 
 import com.yagay.ListCleaner.domain.DisplayMode
+import com.yagay.ListCleaner.domain.IntentKind
 
 /**
  * Process-local authoritative component/entry policy shared by the List Cleaner Xposed entries.
@@ -16,6 +17,7 @@ internal data class RuntimeComponentPolicySnapshot(
     val protectedComponents: Set<String> = emptySet(),
     val displayMode: DisplayMode = DisplayMode.HIDE_SELECTED,
     val entryRules: Set<String> = emptySet(),
+    val entryPriorities: Map<IntentKind, List<String>> = emptyMap(),
     val digest: String = "",
 )
 
@@ -35,11 +37,16 @@ internal object RuntimeComponentPolicy {
     }
 
     /** Resolver snapshot construction publishes non-destructive entry rules from the same config. */
-    fun publishEntryRules(displayMode: DisplayMode, entryRules: Set<String>) {
+    fun publishEntryRules(
+        displayMode: DisplayMode,
+        entryRules: Set<String>,
+        entryPriorities: Map<IntentKind, List<String>>,
+    ) {
         val current = value
         value = current.copy(
             displayMode = displayMode,
             entryRules = entryRules.toSet(),
+            entryPriorities = entryPriorities.mapValues { it.value.toList() },
         )
     }
 
