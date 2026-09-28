@@ -10,6 +10,14 @@ class FilterPolicyTest {
         assertTrue(FilterPolicy.sameCaller(0, 10123))
     }
 
+    @Test fun packageManagerFilteringOnlyAllowsOrdinaryApplicationCallers() {
+        assertFalse(FilterPolicy.ordinaryAppCaller(0))
+        assertFalse(FilterPolicy.ordinaryAppCaller(1000))
+        assertFalse(FilterPolicy.ordinaryAppCaller(9999))
+        assertTrue(FilterPolicy.ordinaryAppCaller(10000))
+        assertTrue(FilterPolicy.ordinaryAppCaller(10123))
+    }
+
     @Test fun ordinaryAppsOnlyPreserveTheirOwnUid() {
         assertTrue(FilterPolicy.sameCaller(10123, 10123))
         assertFalse(FilterPolicy.sameCaller(10123, 10124))
