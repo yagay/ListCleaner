@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="entry_help_title">Entry explanation</string>
     <string name="entry_rules_general_help">Rules clean candidate entries shown by Android or apps. In Hide selected mode, checking an entry hides it; in Show selected only mode, checked entries are kept. Rules do not set defaults, uninstall apps, or disable components. Real component enable/disable is handled separately on the Root Components page.</string>
     <string name="entry_advanced_safety_note">Advanced entries only filter candidate discovery where the caller is an ordinary app. System and privileged UID queries are left unchanged for safety. Selecting an item does not grant or revoke permissions, enable or disable the service, or make another item the system default.</string>
 
