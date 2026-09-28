@@ -6,7 +6,6 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
-// Private local configuration or CI environment; no private key is tracked.
 val releaseKeyProperties = Properties().apply {
     val propertiesFile = rootProject.file("keystore.properties")
     if (propertiesFile.isFile) propertiesFile.inputStream().use { load(it) }
@@ -25,11 +24,8 @@ check(signingValues.all { it == null } || hasReleaseSigning) {
     "Incomplete Release signing configuration. See docs/RELEASE.md."
 }
 
-// Hook compatibility is intentionally independent from the APK release name.
-// Keep this value unchanged for UI/resources/manager-only releases. When xposed/** or a contract
-// used by hooked processes changes, advance both hookCompatVersionCode and versionCode so the
-// manager can detect an older hook generation that still needs a framework restart.
-val hookCompatVersionCode = 44
+// New system_server entry hooks require a new hook generation. This test branch is Debug-only.
+val hookCompatVersionCode = 45
 
 android {
     namespace = "com.yagay.ListCleaner"
@@ -41,14 +37,14 @@ android {
         applicationId = "com.yagay.ListCleaner"
         minSdk = 31
         targetSdk = 37
-        versionCode = 44
-        versionName = "1.6.19"
+        versionCode = 45
+        versionName = "1.6.20"
         buildConfigField("long", "HOOK_COMPAT_VERSION_CODE", "${hookCompatVersionCode}L")
     }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     packaging.resources.merges += "META-INF/xposed/*"
-    
+
     sourceSets {
         getByName("main") {
             resources.srcDirs("src/main/resources")
@@ -79,7 +75,6 @@ android {
     }
 }
 
-// An unsigned build is allowed only when explicitly requested for CI validation.
 val validateReleaseKey = tasks.register("validateReleaseKey") {
     val unsignedValidation = providers.gradleProperty("allowUnsignedRelease").orNull == "true"
     doLast {

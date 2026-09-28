@@ -39,21 +39,44 @@
     <string name="bulk_lock_partial">Partially protected from bulk actions</string>
     <string name="bulk_lock_full">Protected from bulk actions</string>
 
+    <!-- Entry groups -->
+    <string name="entry_group_share">Share</string>
+    <string name="entry_group_open">Open</string>
+    <string name="entry_group_desktop">Desktop</string>
+    <string name="entry_group_advanced">Advanced</string>
+
     <!-- Intent kinds -->
     <string name="intent_share">Share</string>
     <string name="intent_share_multiple">Share multiple</string>
+    <string name="intent_direct_share">Direct Share</string>
     <string name="intent_send_to">Send to</string>
     <string name="intent_open">Open</string>
     <string name="intent_browser">Browser</string>
     <string name="intent_deep_link">Deep links</string>
     <string name="intent_dial">Dial</string>
     <string name="intent_get_content">Choose content</string>
+    <string name="intent_open_document">Open document</string>
+    <string name="intent_create_document">Save / create document</string>
     <string name="intent_capture_image">Take photo</string>
     <string name="intent_capture_video">Record video</string>
     <string name="intent_record_audio">Record audio</string>
     <string name="intent_process_text">Text processing</string>
-    <string name="intent_launcher_shortcut">Long-press shortcuts</string>
+    <string name="intent_home">Home app</string>
+    <string name="intent_assistant">Assistant</string>
+    <string name="intent_launcher_shortcut">Long-press shortcut apps</string>
+    <string name="intent_shortcut_item">Shortcut items</string>
     <string name="intent_document_provider">Storage locations</string>
+    <string name="intent_input_method">Keyboards</string>
+    <string name="intent_autofill">Autofill services</string>
+    <string name="intent_credential_provider">Password &amp; credential managers</string>
+    <string name="intent_notification_listener">Notification access</string>
+    <string name="intent_accessibility">Accessibility services</string>
+    <string name="intent_vpn">VPN services</string>
+    <string name="intent_print">Print services</string>
+    <string name="intent_wallpaper">Live wallpapers</string>
+    <string name="intent_dream">Screensavers</string>
+    <string name="intent_nfc_hce">NFC card emulation</string>
+    <string name="intent_call_screening">Call screening</string>
 
     <!-- Display modes -->
     <string name="display_hide_selected">Hide selected</string>

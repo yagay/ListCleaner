@@ -7,6 +7,7 @@ import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.OpenTypeConfig
 import com.yagay.ListCleaner.domain.PriorityConfig
 import com.yagay.ListCleaner.domain.VisibilityCompatConfig
+import com.yagay.ListCleaner.domain.isSpecialEntrySurface
 import com.yagay.ListCleaner.domain.selectedKinds
 
 internal data class RuntimeRuleSnapshot(
@@ -25,13 +26,12 @@ internal data class RuntimeRuleSnapshot(
     val allSelectedPackages: Set<String> = visibilityCompat.activePackages()
 
     init {
-        val specialKinds = setOf(IntentKind.LAUNCHER_SHORTCUT, IntentKind.DOCUMENT_PROVIDER)
         RuntimeComponentPolicy.publishEntryRules(
             displayMode = displayMode,
             entryRules = configured.filterTo(linkedSetOf()) { id ->
-                ComponentRule.fromId(id)?.kind in specialKinds
+                ComponentRule.fromId(id)?.kind?.isSpecialEntrySurface() == true
             },
-            entryPriorities = priorities.apps.filterKeys { it in specialKinds },
+            entryPriorities = priorities.apps.filterKeys { it.isSpecialEntrySurface() },
         )
     }
 

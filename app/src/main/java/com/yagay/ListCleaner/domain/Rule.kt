@@ -8,20 +8,38 @@ import kotlinx.serialization.Serializable
 enum class IntentKind(val action: String) {
     SHARE(Intent.ACTION_SEND),
     SHARE_MULTIPLE(Intent.ACTION_SEND_MULTIPLE),
+    DIRECT_SHARE("com.yagay.ListCleaner.action.DIRECT_SHARE"),
     SEND_TO(Intent.ACTION_SENDTO),
     OPEN(Intent.ACTION_VIEW),
     BROWSER(Intent.ACTION_VIEW),
     DEEP_LINK(Intent.ACTION_VIEW),
     DIAL(Intent.ACTION_DIAL),
     GET_CONTENT(Intent.ACTION_GET_CONTENT),
+    OPEN_DOCUMENT(Intent.ACTION_OPEN_DOCUMENT),
+    CREATE_DOCUMENT(Intent.ACTION_CREATE_DOCUMENT),
     CAPTURE_IMAGE("android.media.action.IMAGE_CAPTURE"),
     CAPTURE_VIDEO("android.media.action.VIDEO_CAPTURE"),
     RECORD_AUDIO("android.provider.MediaStore.RECORD_SOUND"),
     PROCESS_TEXT(Intent.ACTION_PROCESS_TEXT),
-    /** Launcher long-press/static/dynamic shortcut surface. Discovered synthetically, not by Intent resolution. */
+    HOME(Intent.ACTION_MAIN),
+    ASSISTANT(Intent.ACTION_ASSIST),
+    /** Launcher Activity surface used for app-level long-press shortcut cleanup. */
     LAUNCHER_SHORTCUT("com.yagay.ListCleaner.action.LAUNCHER_SHORTCUT"),
-    /** Storage Access Framework DocumentsProvider surface. Discovered via queryIntentContentProviders. */
-    DOCUMENT_PROVIDER("android.content.action.DOCUMENTS_PROVIDER")
+    /** Individual manifest/dynamic/pinned shortcut observed from ShortcutService. */
+    SHORTCUT_ITEM("com.yagay.ListCleaner.action.SHORTCUT_ITEM"),
+    /** Storage Access Framework DocumentsProvider surface. */
+    DOCUMENT_PROVIDER("android.content.action.DOCUMENTS_PROVIDER"),
+    INPUT_METHOD("android.view.InputMethod"),
+    AUTOFILL("android.service.autofill.AutofillService"),
+    CREDENTIAL_PROVIDER("android.service.credentials.CredentialProviderService"),
+    NOTIFICATION_LISTENER("android.service.notification.NotificationListenerService"),
+    ACCESSIBILITY("android.accessibilityservice.AccessibilityService"),
+    VPN("android.net.VpnService"),
+    PRINT("android.printservice.PrintService"),
+    WALLPAPER("android.service.wallpaper.WallpaperService"),
+    DREAM("android.service.dreams.DreamService"),
+    NFC_HCE("android.nfc.cardemulation.action.HOST_APDU_SERVICE"),
+    CALL_SCREENING("android.telecom.CallScreeningService")
 }
 
 @Serializable
