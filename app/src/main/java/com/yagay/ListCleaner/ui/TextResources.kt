@@ -75,8 +75,6 @@ internal fun VisibilityScope.titleRes(): Int = when (this) {
     VisibilityScope.CAPTURE_VIDEO -> R.string.intent_capture_video
     VisibilityScope.RECORD_AUDIO -> R.string.intent_record_audio
     VisibilityScope.PROCESS_TEXT -> R.string.intent_process_text
-    VisibilityScope.LAUNCHER_SHORTCUT -> R.string.intent_launcher_shortcut
-    VisibilityScope.DOCUMENT_PROVIDER -> R.string.intent_document_provider
 }
 
 @StringRes
