@@ -602,8 +602,12 @@ private fun ComponentInfoRow(item: ComponentCandidate, customTitle: String?, onE
                 overflow = TextOverflow.Ellipsis
             )
         }
-        IconButton(onClick = onEditTitle) {
-            Icon(Icons.Rounded.Edit, stringResource(R.string.component_edit_display_name))
+        if (item.rule.kind != IntentKind.LAUNCHER_SHORTCUT &&
+            item.rule.kind != IntentKind.DOCUMENT_PROVIDER
+        ) {
+            IconButton(onClick = onEditTitle) {
+                Icon(Icons.Rounded.Edit, stringResource(R.string.component_edit_display_name))
+            }
         }
     }
 }
