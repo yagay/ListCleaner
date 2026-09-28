@@ -1,31 +1,49 @@
 package com.yagay.ListCleaner.xposed
 
 import android.content.ComponentName
+import android.content.SharedPreferences
 import android.content.pm.ResolveInfo
+import android.content.pm.ShortcutInfo
 import android.os.Process
 import android.util.Log
+import com.yagay.ListCleaner.data.RuleRepository
+import com.yagay.ListCleaner.domain.ComponentRule
+import com.yagay.ListCleaner.domain.DisplayMode
+import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.ModuleConfig
+import com.yagay.ListCleaner.domain.SyntheticEntryKeys
 import com.yagay.ListCleaner.domain.directShareVisibleIndices
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
+import kotlinx.serialization.json.Json
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Keeps Android's Direct Share row consistent with the ordinary Share resolver below it.
- *
- * Android 11+ builds Direct Share from Sharing Shortcuts (and may use App Prediction before the
- * final chooser handoff), so filtering queryIntentActivities alone is not sufficient. Instead of
- * reading private shortcut/contact data, this hook only removes Direct Share targets whose owning
- * package is no longer present in the already-filtered Share app list.
+ * Keeps Android's Direct Share row consistent with the ordinary Share resolver and applies
+ * per-conversation rules in the Chooser process. system_server only observes Direct Share targets.
  */
 class DirectShareConsistencyModule : XposedModule() {
-    @Volatile
-    private var processName = ""
+    private data class ParsedTarget(
+        val packageName: String?,
+        val rule: ComponentRule?,
+    )
 
+    @Volatile private var processName = ""
+    @Volatile private var fallbackMode = DisplayMode.HIDE_SELECTED
+    @Volatile private var fallbackRules: Set<String> = emptySet()
+    @Volatile private var fallbackPriorities: List<String> = emptyList()
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
+
+    private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        getRemotePreferences(RuleRepository.REMOTE_PREFS)
+    }
+    private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == null || key == RuleRepository.KEY_CONFIG) refreshFallback("preference changed")
+    }
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
         processName = param.processName
@@ -35,10 +53,39 @@ class DirectShareConsistencyModule : XposedModule() {
     override fun onHotReloading(param: HotReloadingParam): Boolean = false
 
     override fun onPackageReady(param: PackageReadyParam) {
-        if (param.packageName != FRAMEWORK_PACKAGE && param.packageName != INTENT_RESOLVER_PACKAGE) {
-            return
-        }
+        if (param.packageName != FRAMEWORK_PACKAGE && param.packageName != INTENT_RESOLVER_PACKAGE) return
+        initializePreferences()
         installChooserHooks(param.classLoader)
+    }
+
+    private fun initializePreferences() {
+        runCatching { preferences.registerOnSharedPreferenceChangeListener(preferenceListener) }
+        refreshFallback("init")
+    }
+
+    @Synchronized
+    private fun refreshFallback(reason: String) {
+        runCatching {
+            val encoded = preferences.getString(RuleRepository.KEY_CONFIG, null) ?: return@runCatching
+            if (encoded.length > RuleRepository.MAX_BACKUP_CHARS) return@runCatching
+            val config = Json { ignoreUnknownKeys = true }
+                .decodeFromString(ModuleConfig.serializer(), encoded).validated()
+            fallbackMode = config.mode
+            fallbackRules = config.rules.filter { it.kind == IntentKind.DIRECT_SHARE }
+                .mapTo(linkedSetOf()) { it.id }
+            fallbackPriorities = config.priorities.apps[IntentKind.DIRECT_SHARE].orEmpty()
+            record("POLICY_READ reason=$reason rules=${fallbackRules.size}")
+        }.onFailure { Log.w(TAG, "Unable to refresh Direct Share policy", it) }
+    }
+
+    private fun effectivePolicy(): RuntimeComponentPolicySnapshot {
+        val runtime = RuntimeComponentPolicy.snapshot()
+        return if (runtime.authoritative) runtime else RuntimeComponentPolicySnapshot(
+            displayMode = fallbackMode,
+            entryRules = fallbackRules,
+            entryPriorities = if (fallbackPriorities.isEmpty()) emptyMap()
+            else mapOf(IntentKind.DIRECT_SHARE to fallbackPriorities),
+        )
     }
 
     private fun installChooserHooks(classLoader: ClassLoader) {
@@ -82,9 +129,32 @@ class DirectShareConsistencyModule : XposedModule() {
         val visibleSharePackages = visibleSharePackages(receiver, chain.args)
             ?: return@Hooker chain.proceed()
 
-        val targetPackages = targets.map(::directShareTargetPackage)
-        val keptIndices = directShareVisibleIndices(targetPackages, visibleSharePackages)
-        if (keptIndices.size == targets.size) return@Hooker chain.proceed()
+        val parsed = targets.map(::parseDirectShareTarget)
+        var keptIndices = directShareVisibleIndices(parsed.map { it.packageName }, visibleSharePackages)
+
+        val policy = effectivePolicy()
+        val selected = policy.entryRules.asSequence().mapNotNull(ComponentRule::fromId)
+            .filter { it.kind == IntentKind.DIRECT_SHARE }
+            .mapTo(linkedSetOf()) { it.id }
+        if (policy.displayMode != DisplayMode.SHOW_ALL && selected.isNotEmpty()) {
+            keptIndices = keptIndices.filter { index ->
+                val rule = parsed[index].rule ?: return@filter true
+                policy.displayMode.includes(rule.id in selected, true)
+            }
+        }
+
+        val priorities = policy.entryPriorities[IntentKind.DIRECT_SHARE].orEmpty()
+        if (priorities.isNotEmpty() && keptIndices.size > 1) {
+            val rank = priorities.distinct().withIndex().associate { (index, packageName) -> packageName to index }
+            keptIndices = keptIndices.sortedWith(
+                compareBy<Int> { index -> rank[parsed[index].packageName] ?: Int.MAX_VALUE }
+                    .thenBy { it }
+            )
+        }
+
+        if (keptIndices.size == targets.size && keptIndices.indices.all { keptIndices[it] == it }) {
+            return@Hooker chain.proceed()
+        }
 
         val replacement = chain.args.toTypedArray()
         replacement[0] = keptIndices.map { targets[it] }
@@ -96,10 +166,37 @@ class DirectShareConsistencyModule : XposedModule() {
 
         record(
             "FILTER before=${targets.size} after=${keptIndices.size} " +
-                "visibleApps=${visibleSharePackages.size} removed=${targets.size - keptIndices.size}"
+                "visibleApps=${visibleSharePackages.size} selected=${selected.size} priorities=${priorities.size}"
         )
         chain.proceed(replacement)
     }
+
+    private fun parseDirectShareTarget(value: Any?): ParsedTarget {
+        if (value == null) return ParsedTarget(null, null)
+        val shortcut = runCatching {
+            findNoArgMethod(value.javaClass, "getShortcutInfo")?.invoke(value) as? ShortcutInfo
+        }.getOrNull()
+        val target = runCatching {
+            findNoArgMethod(value.javaClass, "getTargetComponent")?.invoke(value) as? ComponentName
+        }.getOrNull()
+        val packageName = target?.packageName ?: shortcut?.`package`
+        val shortcutId = shortcut?.id?.takeIf { it.isNotBlank() }
+        val shortcutPackage = shortcut?.`package`?.takeIf { it.isNotBlank() }
+        val rule = if (shortcutId != null && shortcutPackage != null) {
+            ComponentRule(
+                IntentKind.DIRECT_SHARE,
+                shortcutPackage,
+                SyntheticEntryKeys.directShareClass(target?.className ?: shortcut.activity?.className, shortcutId),
+            ).takeIf(ComponentRule::isValid)
+        } else null
+        return ParsedTarget(packageName, rule)
+    }
+
+    private fun findNoArgMethod(clazz: Class<*>, name: String): Method? =
+        generateSequence(clazz as Class<*>?) { it.superclass }
+            .flatMap { it.declaredMethods.asSequence() }
+            .firstOrNull { it.name == name && it.parameterCount == 0 }
+            ?.apply { isAccessible = true }
 
     /**
      * Current Android passes ChooserListAdapter as arg1. Older implementations passed the resolved
@@ -107,9 +204,7 @@ class DirectShareConsistencyModule : XposedModule() {
      */
     private fun visibleSharePackages(receiver: Any, args: List<Any?>): Set<String>? {
         val second = args.getOrNull(1)
-        if (second is List<*>) {
-            return second.mapNotNull(::displayTargetPackage).toSet()
-        }
+        if (second is List<*>) return second.mapNotNull(::displayTargetPackage).toSet()
 
         val adapter = second?.takeIf { it.javaClass.name.contains("ChooserListAdapter") }
             ?: args.drop(1).firstOrNull { it?.javaClass?.name?.contains("ChooserListAdapter") == true }
@@ -150,18 +245,6 @@ class DirectShareConsistencyModule : XposedModule() {
                 it.name == "getResolvedComponentName" && it.parameterCount == 0
             } ?: value.javaClass.declaredMethods.firstOrNull {
                 it.name == "getResolvedComponentName" && it.parameterCount == 0
-            }?.apply { isAccessible = true }
-            (method?.invoke(value) as? ComponentName)?.packageName
-        }.getOrNull()
-    }
-
-    private fun directShareTargetPackage(value: Any?): String? {
-        if (value == null) return null
-        return runCatching {
-            val method = value.javaClass.methods.firstOrNull {
-                it.name == "getTargetComponent" && it.parameterCount == 0
-            } ?: value.javaClass.declaredMethods.firstOrNull {
-                it.name == "getTargetComponent" && it.parameterCount == 0
             }?.apply { isAccessible = true }
             (method?.invoke(value) as? ComponentName)?.packageName
         }.getOrNull()
