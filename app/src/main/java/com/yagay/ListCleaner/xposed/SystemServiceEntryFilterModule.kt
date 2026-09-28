@@ -9,6 +9,7 @@ import android.util.Log
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.DisplayMode
+import com.yagay.ListCleaner.domain.FilterPolicy
 import com.yagay.ListCleaner.domain.ManagerIdentity
 import com.yagay.ListCleaner.domain.ModuleConfig
 import com.yagay.ListCleaner.domain.SYSTEM_SERVICE_ENTRY_DEFINITIONS
@@ -116,8 +117,11 @@ class SystemServiceEntryFilterModule : XposedModule() {
         val definition = SYSTEM_SERVICE_ENTRY_DEFINITIONS.firstOrNull { it.action == effective.action }
             ?: return@Hooker chain.proceed()
 
+        val callerUid = Binder.getCallingUid()
+        if (!FilterPolicy.ordinaryAppCaller(callerUid)) return@Hooker chain.proceed()
+
         val policy = effectivePolicy()
-        if (ManagerIdentity.matches(Binder.getCallingUid(), policy.managerAppId)) return@Hooker chain.proceed()
+        if (ManagerIdentity.matches(callerUid, policy.managerAppId)) return@Hooker chain.proceed()
         val selected = policy.entryRules.asSequence().mapNotNull(ComponentRule::fromId)
             .filter { it.kind == kind }.map { it.id }.toSet()
         val priorities = policy.entryPriorities[kind].orEmpty()
@@ -133,9 +137,9 @@ class SystemServiceEntryFilterModule : XposedModule() {
             policy.displayMode.includes(rule.id in selected, selected.isNotEmpty())
         }
 
-        // Never make critical system selector surfaces unusable. Users may still hide any subset.
+        // Never make an app-facing selector unusable due to an over-broad rule or OEM API drift.
         if (result.values.isNotEmpty() && filtered.isEmpty()) {
-            record("RESTORE_ALL kind=$kind before=${result.values.size}")
+            record("RESTORE_ALL kind=$kind callerUid=$callerUid before=${result.values.size}")
             return@Hooker original
         }
         val ordered = if (priorities.isEmpty() || filtered.size < 2) filtered else prioritizeApps(
