@@ -1,6 +1,7 @@
 package com.yagay.ListCleaner.xposed
 
 import com.yagay.ListCleaner.domain.BrowserLinkConfig
+import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.OpenTypeConfig
@@ -22,6 +23,19 @@ internal data class RuntimeRuleSnapshot(
 ) {
     private val selectedKinds: Set<IntentKind> = selectedKinds(configured)
     val allSelectedPackages: Set<String> = visibilityCompat.activePackages()
+
+    init {
+        RuntimeComponentPolicy.publishEntryRules(
+            displayMode = displayMode,
+            entryRules = configured.filterTo(linkedSetOf()) { id ->
+                when (ComponentRule.fromId(id)?.kind) {
+                    IntentKind.LAUNCHER_SHORTCUT,
+                    IntentKind.DOCUMENT_PROVIDER -> true
+                    else -> false
+                }
+            },
+        )
+    }
 
     fun hasSelection(kind: IntentKind): Boolean = kind in selectedKinds
 }
