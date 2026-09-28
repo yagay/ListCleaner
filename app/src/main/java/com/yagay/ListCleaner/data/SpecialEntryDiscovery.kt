@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.provider.DocumentsContract
+import androidx.core.graphics.drawable.toBitmap
 import com.yagay.ListCleaner.domain.AppType
 import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.ComponentRule
@@ -46,6 +47,7 @@ internal class SpecialEntryDiscovery(private val context: Context) {
                 appLabel = runCatching { app.loadLabel(pm).toString() }.getOrDefault(activity.packageName),
                 activityLabel = runCatching { resolved.loadLabel(pm).toString() }
                     .getOrDefault(activity.name.substringAfterLast('.')),
+                appIcon = runCatching { app.loadIcon(pm).toBitmap(96, 96) }.getOrNull(),
                 appType = app.listCleanerAppType(),
                 evidence = buildList {
                     add("LAUNCHER_SHORTCUT source=MAIN+LAUNCHER activity=${activity.packageName}/${activity.name}")
@@ -81,6 +83,7 @@ internal class SpecialEntryDiscovery(private val context: Context) {
                     appLabel = runCatching { app.loadLabel(pm).toString() }.getOrDefault(provider.packageName),
                     activityLabel = runCatching { provider.loadLabel(pm).toString() }
                         .getOrDefault(provider.name.substringAfterLast('.')),
+                    appIcon = runCatching { app.loadIcon(pm).toBitmap(96, 96) }.getOrNull(),
                     appType = app.listCleanerAppType(),
                     evidence = buildList {
                         add("DOCUMENT_PROVIDER source=${DocumentsContract.PROVIDER_INTERFACE}")
