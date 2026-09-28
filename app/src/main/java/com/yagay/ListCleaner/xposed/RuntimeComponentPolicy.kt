@@ -23,20 +23,23 @@ internal object RuntimeComponentPolicy {
     @Volatile
     private var value = RuntimeComponentPolicySnapshot()
 
-    fun publish(
-        managerAppId: Int,
-        protectedComponents: Set<String>,
-        digest: String,
-        displayMode: DisplayMode = DisplayMode.HIDE_SELECTED,
-        entryRules: Set<String> = emptySet(),
-    ) {
-        value = RuntimeComponentPolicySnapshot(
+    /** Root component state is published after a verified atomic config is applied. */
+    fun publish(managerAppId: Int, protectedComponents: Set<String>, digest: String) {
+        val current = value
+        value = current.copy(
             authoritative = digest.isNotEmpty(),
             managerAppId = managerAppId,
             protectedComponents = protectedComponents.toSet(),
+            digest = digest,
+        )
+    }
+
+    /** Resolver snapshot construction publishes non-destructive entry rules from the same config. */
+    fun publishEntryRules(displayMode: DisplayMode, entryRules: Set<String>) {
+        val current = value
+        value = current.copy(
             displayMode = displayMode,
             entryRules = entryRules.toSet(),
-            digest = digest,
         )
     }
 
