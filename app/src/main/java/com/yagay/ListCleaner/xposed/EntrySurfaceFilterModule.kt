@@ -164,6 +164,10 @@ class EntrySurfaceFilterModule : XposedModule() {
         if (values.isEmpty()) return@Hooker original
 
         val policy = effectivePolicy()
+        if (ManagerIdentity.matches(Binder.getCallingUid(), policy.managerAppId)) {
+            return@Hooker original
+        }
+
         val kind = IntentKind.LAUNCHER_SHORTCUT
         val selected = selectedForKind(kind, policy)
         val priorities = policy.entryPriorities[kind].orEmpty()
@@ -177,7 +181,8 @@ class EntrySurfaceFilterModule : XposedModule() {
                 val shortcut = value as? ShortcutInfo ?: return@filter true
                 val activity = shortcut.activity ?: return@filter true
                 val rule = ComponentRule(kind, activity.packageName, activity.className)
-                val include = rule.isValid() && includes(rule, selected, policy)
+                if (!rule.isValid()) return@filter true
+                val include = includes(rule, selected, policy)
                 if (!include) removed++
                 include
             }
@@ -256,7 +261,8 @@ class EntrySurfaceFilterModule : XposedModule() {
             result.values.filter { value ->
                 val provider = (value as? ResolveInfo)?.providerInfo ?: return@filter true
                 val rule = ComponentRule(kind, provider.packageName, provider.name)
-                val include = rule.isValid() && includes(rule, selected, policy)
+                if (!rule.isValid()) return@filter true
+                val include = includes(rule, selected, policy)
                 if (!include) removed++
                 include
             }
