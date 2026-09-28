@@ -2,11 +2,8 @@ import java.util.Properties
 
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.plugin.compose")
-    id("org.jetbrains.kotlin.plugin.serialization")
 }
 
-// Private local configuration or CI environment; no private key is tracked.
 val releaseKeyProperties = Properties().apply {
     val propertiesFile = rootProject.file("keystore.properties")
     if (propertiesFile.isFile) propertiesFile.inputStream().use { load(it) }
@@ -25,13 +22,8 @@ check(signingValues.all { it == null } || hasReleaseSigning) {
     "Incomplete Release signing configuration. See docs/RELEASE.md."
 }
 
-// Hook compatibility is intentionally independent from the APK release version.
-// Keep this value unchanged for UI/resources/manager-only releases. Bump it to the
-// current versionCode only when xposed/** or a contract used by hooked processes changes.
-val hookCompatVersionCode = 43
-
 android {
-    namespace = "com.yagay.ListCleaner"
+    namespace = "com.yagay.ListCleaner.standalone"
     compileSdk {
         version = release(37) { minorApiLevel = 0 }
     }
@@ -42,16 +34,15 @@ android {
         targetSdk = 37
         versionCode = 43
         versionName = "1.6.18"
-        buildConfigField("long", "HOOK_COMPAT_VERSION_CODE", "${hookCompatVersionCode}L")
     }
-    buildFeatures { compose = true; buildConfig = true }
-    compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
     packaging.resources.merges += "META-INF/xposed/*"
-    
     sourceSets {
-        getByName("main") {
-            resources.srcDirs("src/main/resources")
-        }
+        getByName("main") { resources.srcDirs("src/main/resources") }
     }
 
     signingConfigs {
@@ -78,7 +69,6 @@ android {
     }
 }
 
-// An unsigned build is allowed only when explicitly requested for CI validation.
 val validateReleaseKey = tasks.register("validateReleaseKey") {
     val unsignedValidation = providers.gradleProperty("allowUnsignedRelease").orNull == "true"
     doLast {
@@ -92,15 +82,5 @@ tasks.matching { it.name == "preReleaseBuild" }.configureEach {
 }
 
 dependencies {
-    compileOnly("io.github.libxposed:api:102.0.0")
-    implementation("io.github.libxposed:service:102.0.0")
-    implementation("androidx.activity:activity-compose:1.10.1")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.0")
-    implementation("androidx.compose.material3:material3:1.3.2")
-    implementation("androidx.compose.material:material-icons-extended:1.7.8")
-    implementation("androidx.core:core-ktx:1.16.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
-    testImplementation("junit:junit:4.13.2")
+    implementation(project(":feature"))
 }
