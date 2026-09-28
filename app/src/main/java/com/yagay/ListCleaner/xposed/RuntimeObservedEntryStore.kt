@@ -12,7 +12,6 @@ internal data class ObservedShortcutEntry(
     val syntheticClass: String,
     val label: String,
     val activityClass: String?,
-    val shortcutId: String,
     val observedAt: Long,
 )
 
@@ -46,7 +45,6 @@ internal object RuntimeObservedEntryStore {
             syntheticClass = synthetic,
             label = label,
             activityClass = targetClass,
-            shortcutId = shortcutId,
             observedAt = System.currentTimeMillis(),
         )
         val key = "${kind.name}|$packageName|$synthetic"
