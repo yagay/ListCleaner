@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'app/**'
+      - 'feature/**'
       - 'README.md'
       - 'README.en.md'
       - 'docs/**'
@@ -20,6 +21,7 @@ on:
   pull_request:
     paths:
       - 'app/**'
+      - 'feature/**'
       - 'gradle/**'
       - '*.gradle.kts'
       - 'gradle.properties'
@@ -100,7 +102,7 @@ jobs:
       - name: Run unit tests
         run: |
           set -o pipefail
-          bash ./gradlew --no-daemon --console=plain --stacktrace :app:testDebugUnitTest 2>&1 | tee unit-test.log
+          bash ./gradlew --no-daemon --console=plain --stacktrace :feature:testDebugUnitTest 2>&1 | tee unit-test.log
 
       - name: Upload build diagnostics
         if: always()
@@ -114,6 +116,7 @@ jobs:
             debug-build.log
             unit-test.log
             app/build/reports/
+            feature/build/reports/
             build/reports/
           if-no-files-found: ignore
           retention-days: 7
