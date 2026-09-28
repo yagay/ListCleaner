@@ -14,6 +14,7 @@ import android.util.Log
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.DisplayMode
+import com.yagay.ListCleaner.domain.FilterPolicy
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.ManagerIdentity
 import com.yagay.ListCleaner.domain.ModuleConfig
@@ -30,7 +31,7 @@ import java.lang.reflect.Constructor
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
 
-/** Individual ShortcutInfo / Direct Share filtering plus manager-only observed-entry discovery. */
+/** Observes ShortcutInfo/Direct Share in system_server; only app-facing shortcut queries are filtered. */
 class ShortcutSurfaceModule : XposedModule() {
     private data class ListResult(val values: List<*>, val rebuild: (List<*>) -> Any?)
     private data class ParceledListAccessor(val getList: Method, val constructor: Constructor<*>)
@@ -77,11 +78,11 @@ class ShortcutSurfaceModule : XposedModule() {
             if (encoded.length > RuleRepository.MAX_BACKUP_CHARS) return@runCatching
             val config = Json { ignoreUnknownKeys = true }
                 .decodeFromString(ModuleConfig.serializer(), encoded).validated()
-            val specialKinds = setOf(IntentKind.SHORTCUT_ITEM, IntentKind.DIRECT_SHARE)
             fallbackMode = config.mode
             fallbackManagerAppId = config.managerAppId
-            fallbackRules = config.rules.filter { it.kind in specialKinds }.mapTo(linkedSetOf()) { it.id }
-            fallbackPriorities = config.priorities.apps.filterKeys { it in specialKinds }
+            fallbackRules = config.rules.filter { it.kind == IntentKind.SHORTCUT_ITEM }
+                .mapTo(linkedSetOf()) { it.id }
+            fallbackPriorities = config.priorities.apps.filterKeys { it == IntentKind.SHORTCUT_ITEM }
             record("POLICY_READ reason=$reason rules=${fallbackRules.size}")
         }.onFailure { Log.w(TAG, "Unable to refresh shortcut policy", it) }
     }
@@ -118,19 +119,24 @@ class ShortcutSurfaceModule : XposedModule() {
         values.filterIsInstance<ShortcutInfo>().forEach(RuntimeObservedEntryStore::observeShortcut)
         if (values.isEmpty()) return@Hooker original
 
+        val callerUid = Binder.getCallingUid()
+        if (!FilterPolicy.ordinaryAppCaller(callerUid)) return@Hooker original
+
         val policy = effectivePolicy()
-        if (ManagerIdentity.matches(Binder.getCallingUid(), policy.managerAppId)) return@Hooker original
+        if (ManagerIdentity.matches(callerUid, policy.managerAppId)) return@Hooker original
         val selected = selectedForKind(IntentKind.SHORTCUT_ITEM, policy)
         val priorities = policy.entryPriorities[IntentKind.SHORTCUT_ITEM].orEmpty()
         if (selected.isEmpty() && priorities.isEmpty()) return@Hooker original
 
         val filtered = if (policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) values else values.filter { value ->
             val shortcut = value as? ShortcutInfo ?: return@filter true
-            val rule = shortcutRule(IntentKind.SHORTCUT_ITEM, shortcut, shortcut.activity)
-                ?: return@filter true
+            val rule = shortcutRule(shortcut, shortcut.activity) ?: return@filter true
             shouldInclude(rule, selected, policy)
         }
-        if (values.isNotEmpty() && filtered.isEmpty()) return@Hooker original
+        if (values.isNotEmpty() && filtered.isEmpty()) {
+            record("RESTORE_ALL_SHORTCUTS callerUid=$callerUid before=${values.size}")
+            return@Hooker original
+        }
         val ordered = if (priorities.isEmpty() || filtered.size < 2) filtered else prioritizeApps(
             filtered, priorities,
             { (it as? ShortcutInfo)?.`package` ?: "" },
@@ -149,47 +155,27 @@ class ShortcutSurfaceModule : XposedModule() {
                         (List::class.java.isAssignableFrom(method.returnType) || method.returnType.name.endsWith("ParceledListSlice"))
                 }
                 .distinctBy(Method::toGenericString)
-                .forEach { method -> install(method, DIRECT_HOOK_ID, directShareHooker()) }
+                .forEach { method -> install(method, DIRECT_HOOK_ID, directShareObserver()) }
         }
     }
 
-    private fun directShareHooker() = XposedInterface.Hooker { chain ->
+    /** Direct Share filtering belongs to the Chooser process. system_server only observes targets. */
+    private fun directShareObserver() = XposedInterface.Hooker { chain ->
         val original = chain.proceed()
         val result = extractListResult(original) ?: return@Hooker original
-        if (result.values.isEmpty()) return@Hooker original
-        val parsed = result.values.map { value -> shareShortcut(value) }
-        parsed.filterNotNull().forEach { (shortcut, target) ->
-            RuntimeObservedEntryStore.observeDirectShare(shortcut, target)
+        result.values.forEach { value ->
+            shareShortcut(value)?.let { (shortcut, target) ->
+                RuntimeObservedEntryStore.observeDirectShare(shortcut, target)
+            }
         }
-
-        val policy = effectivePolicy()
-        if (ManagerIdentity.matches(Binder.getCallingUid(), policy.managerAppId)) return@Hooker original
-        val selected = selectedForKind(IntentKind.DIRECT_SHARE, policy)
-        val priorities = policy.entryPriorities[IntentKind.DIRECT_SHARE].orEmpty()
-        if (selected.isEmpty() && priorities.isEmpty()) return@Hooker original
-
-        val filtered = if (policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) result.values else result.values.filterIndexed { index, value ->
-            val pair = parsed[index] ?: return@filterIndexed true
-            val rule = shortcutRule(IntentKind.DIRECT_SHARE, pair.first, pair.second) ?: return@filterIndexed true
-            shouldInclude(rule, selected, policy)
-        }
-        if (result.values.isNotEmpty() && filtered.isEmpty()) return@Hooker original
-        val ordered = if (priorities.isEmpty() || filtered.size < 2) filtered else prioritizeApps(
-            filtered, priorities,
-            { value -> shareShortcut(value)?.first?.`package` ?: "" },
-            { 0 },
-        )
-        if (ordered == result.values) original else runCatching { result.rebuild(ordered) }.getOrElse { original }
+        original
     }
 
-    private fun shortcutRule(kind: IntentKind, shortcut: ShortcutInfo, component: ComponentName?): ComponentRule? {
+    private fun shortcutRule(shortcut: ShortcutInfo, component: ComponentName?): ComponentRule? {
         val packageName = shortcut.`package`?.takeIf { it.isNotBlank() } ?: return null
         val shortcutId = shortcut.id?.takeIf { it.isNotBlank() } ?: return null
-        val synthetic = when (kind) {
-            IntentKind.DIRECT_SHARE -> SyntheticEntryKeys.directShareClass(component?.className, shortcutId)
-            else -> SyntheticEntryKeys.shortcutItemClass(component?.className, shortcutId)
-        }
-        return ComponentRule(kind, packageName, synthetic).takeIf(ComponentRule::isValid)
+        val synthetic = SyntheticEntryKeys.shortcutItemClass(component?.className, shortcutId)
+        return ComponentRule(IntentKind.SHORTCUT_ITEM, packageName, synthetic).takeIf(ComponentRule::isValid)
     }
 
     private fun shareShortcut(value: Any?): Pair<ShortcutInfo, ComponentName?>? {
@@ -295,7 +281,7 @@ class ShortcutSurfaceModule : XposedModule() {
     private companion object {
         const val TAG = "ListCleaner.ShortcutSurface"
         const val SHORTCUT_HOOK_ID = "lc-shortcut-items"
-        const val DIRECT_HOOK_ID = "lc-direct-items"
+        const val DIRECT_HOOK_ID = "lc-direct-observer"
         const val DISCOVERY_HOOK_ID = "lc-observed-discovery"
         const val SHORTCUT_LOCAL_SERVICE = "com.android.server.pm.ShortcutService\$LocalService"
         val SHORTCUT_SERVICE_CLASSES = listOf(
