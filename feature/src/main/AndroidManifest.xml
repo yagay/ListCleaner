@@ -43,7 +43,6 @@
 
         <activity
             android:name="com.yagay.ListCleaner.ui.MainActivity"
-            android:exported="false"
             android:theme="@style/Theme.ListCleaner"/>
     </application>
 </manifest>
