@@ -8,9 +8,15 @@ enum class VisibilityScope {
     ALL,
     SHARE,
     SHARE_MULTIPLE,
+    SEND_TO,
     OPEN,
     BROWSER,
     DEEP_LINK,
+    DIAL,
+    GET_CONTENT,
+    CAPTURE_IMAGE,
+    CAPTURE_VIDEO,
+    RECORD_AUDIO,
     PROCESS_TEXT;
 
     fun matches(kind: IntentKind): Boolean = this == ALL || name == kind.name
