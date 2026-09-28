@@ -17,7 +17,9 @@ enum class VisibilityScope {
     CAPTURE_IMAGE,
     CAPTURE_VIDEO,
     RECORD_AUDIO,
-    PROCESS_TEXT;
+    PROCESS_TEXT,
+    LAUNCHER_SHORTCUT,
+    DOCUMENT_PROVIDER;
 
     fun matches(kind: IntentKind): Boolean = this == ALL || name == kind.name
 
