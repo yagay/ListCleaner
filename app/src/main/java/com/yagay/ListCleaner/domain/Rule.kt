@@ -17,7 +17,11 @@ enum class IntentKind(val action: String) {
     CAPTURE_IMAGE("android.media.action.IMAGE_CAPTURE"),
     CAPTURE_VIDEO("android.media.action.VIDEO_CAPTURE"),
     RECORD_AUDIO("android.provider.MediaStore.RECORD_SOUND"),
-    PROCESS_TEXT(Intent.ACTION_PROCESS_TEXT)
+    PROCESS_TEXT(Intent.ACTION_PROCESS_TEXT),
+    /** Launcher long-press/static/dynamic shortcut surface. Discovered synthetically, not by Intent resolution. */
+    LAUNCHER_SHORTCUT("com.yagay.ListCleaner.action.LAUNCHER_SHORTCUT"),
+    /** Storage Access Framework DocumentsProvider surface. Discovered via queryIntentContentProviders. */
+    DOCUMENT_PROVIDER("android.content.action.DOCUMENTS_PROVIDER")
 }
 
 @Serializable
