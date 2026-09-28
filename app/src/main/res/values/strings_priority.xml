@@ -2,14 +2,14 @@
 <resources>
     <string name="priority_unselected">Not prioritized</string>
     <string name="priority_selected">Prioritized</string>
-    <string name="priority_intro">Use Apps to narrow the list to user or system apps without changing saved order. Select apps to control priority. Swipe right to lock an app and swipe left to unlock it. Unlocked rows show no lock icon; the icon appears only after locking. Locks only protect bulk select/invert actions, remain manually editable, and never participate in or rewrite the saved order.</string>
+    <string name="priority_intro">Use Apps to narrow the list to user or system apps without changing saved order. Selecting an app here means prioritize it in supported chooser ordering; it never means set that app as Android's default. Swipe right to lock and swipe left to unlock. Locks only protect bulk select/invert actions and never participate in ordering.</string>
     <string name="priority_drag_help">Long-press prioritized apps to drag and reorder; release to save. After expanding an app, you can also move it up or down. Tap the pencil on a component to change its menu display name for the current Intent category; leave it empty to restore the original name.</string>
     <string name="priority_source_inherited">Current ordering source: inherited from Open · All</string>
     <string name="priority_source_dedicated">Current ordering source: dedicated ordering for %1$s</string>
     <string name="priority_source_none">Neither this type nor All has priority ordering</string>
     <string name="priority_restore_inheritance">Restore inheritance from All</string>
     <string name="priority_inheritance_help">Without dedicated ordering, this type inherits All directly. The first select, deselect, drag, or move operation in this type creates dedicated ordering based on the inherited order. Restoring inheritance makes it follow future changes to All again. Custom and built-in types use the same behavior.</string>
-    <string name="priority_general_help">Ordering and display names are saved per Intent category. The same component can use different names for Share, Open, and other categories. Renaming changes only chooser text, not the app name, Activity name, or actual target.</string>
+    <string name="priority_general_help">Ordering and display names are saved per entry category. They only influence supported candidate menus; they do not change Android Roles, default apps, service enablement, permissions, app names, component names, or actual targets.</string>
     <string name="priority_compat_disconnected">LSPosed is not connected. Changes can be saved but are not active yet.</string>
     <string name="priority_compat_unknown_host">No resolver host is confirmed, so ordering capability is unknown on this device.</string>
     <string name="priority_compat_vendor_path">A vendor-specific ordering path is not adapted. Ordering may work only when the AOSP path is used and pinning is not guaranteed.</string>
