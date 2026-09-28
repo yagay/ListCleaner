@@ -4,4 +4,4 @@ dependencyResolutionManagement {
     repositories { google(); mavenCentral() }
 }
 rootProject.name = "ListCleaner"
-include(":app")
+include(":app", ":feature")
