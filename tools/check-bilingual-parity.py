@@ -80,13 +80,12 @@ if missing_zh:
 if extra_zh:
     errors.append("Chinese resources have unmatched keys: " + ", ".join(f"{t}:{n}" for t, n in extra_zh))
 
-# Only the diagnostic overview is user-facing. Developer evidence/log reports may stay English-only.
 if string_value(default_dir, "diagnostic_readme") is None:
     errors.append("English diagnostic_readme resource missing")
 if string_value(zh_dir, "diagnostic_readme") is None:
     errors.append("Chinese diagnostic_readme resource missing")
 
-diag = (ROOT / "app/src/main/java/com/yagay/ListCleaner/ui/DiagnosticCollector.kt").read_text(encoding="utf-8")
+diag = (ROOT / "feature/src/main/java/com/yagay/ListCleaner/ui/DiagnosticCollector.kt").read_text(encoding="utf-8")
 for required in (
     'README.zh-CN.txt', 'README.en.txt',
     'localizedString(context, "zh-CN"', 'localizedString(context, "en"',
@@ -95,7 +94,6 @@ for required in (
     if required not in diag:
         errors.append(f"diagnostic user guide missing marker: {required}")
 
-# RELEASE_NOTES.md is the single bilingual source used by GitHub Release, Telegram and LSPosed sync.
 notes_path = ROOT / "RELEASE_NOTES.md"
 if not notes_path.is_file():
     errors.append("missing bilingual release notes: RELEASE_NOTES.md")
@@ -118,8 +116,6 @@ else:
             errors.append("RELEASE_NOTES.md has no release-note bullets")
 
 telegram = (ROOT / "tools/publish-telegram.py").read_text(encoding="utf-8")
-# The current publisher keeps the complete bilingual Release body, trims only the optional full
-# changelog suffix, and renders the resulting summary in one expandable blockquote.
 for required in (
     'summary = feature_summary(body)',
     'html.escape(summary)',
