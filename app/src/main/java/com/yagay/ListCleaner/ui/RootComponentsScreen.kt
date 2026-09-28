@@ -213,6 +213,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                     stringResource(
                         when (kind) {
                             null -> R.string.root_kind_all_help
+                            CleanupKind.LAUNCHER -> R.string.root_kind_launcher_help
                             CleanupKind.TILE -> R.string.root_kind_tile_help
                             CleanupKind.SHORTCUT -> R.string.root_kind_shortcut_help
                             CleanupKind.WIDGET -> R.string.root_kind_widget_help
