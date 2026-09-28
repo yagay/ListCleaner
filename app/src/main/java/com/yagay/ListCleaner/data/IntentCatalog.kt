@@ -457,6 +457,9 @@ class IntentCatalog(private val context: Context) {
         ).forEach { (scheme, value) ->
             add(Probe(Intent(Intent.ACTION_VIEW, Uri.parse(value)), false, "VIEW scheme=$scheme"))
         }
+        additionalEntryProbes().forEach { entry ->
+            add(Probe(entry.intent, entry.broad, entry.label))
+        }
         add(Probe(Intent(Intent.ACTION_PROCESS_TEXT).setType("text/plain"), false, "PROCESS_TEXT mime=text/plain"))
         for (mime in listOf("*/*", "image/*", "video/*", "audio/*")) {
             for (action in listOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE)) {
