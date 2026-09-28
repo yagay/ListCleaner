@@ -7,12 +7,13 @@ import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.OpenTypeConfig
 import com.yagay.ListCleaner.domain.PriorityConfig
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RuntimeEntryPolicyTest {
     @Test
-    fun runtimeSnapshotPublishesOnlySpecialEntryRulesAndPriorities() {
+    fun runtimeSnapshotPublishesOnlySpecialEntryRulesAndPrioritiesAtomically() {
         val shortcut = ComponentRule(
             IntentKind.LAUNCHER_SHORTCUT,
             "com.example.one",
@@ -44,11 +45,48 @@ class RuntimeEntryPolicyTest {
             diagnostic = false,
         )
 
+        RuntimeComponentPolicy.publish(
+            managerAppId = 12345,
+            protectedComponents = setOf("0|com.example|com.example.Protected"),
+            digest = "digest-a",
+        )
+
         val policy = RuntimeComponentPolicy.snapshot()
+        assertTrue(policy.authoritative)
+        assertEquals(12345, policy.managerAppId)
+        assertEquals("digest-a", policy.digest)
         assertEquals(DisplayMode.HIDE_SELECTED, policy.displayMode)
         assertEquals(setOf(shortcut.id, provider.id), policy.entryRules)
         assertEquals(listOf("com.example.one"), policy.entryPriorities[IntentKind.LAUNCHER_SHORTCUT])
         assertEquals(listOf("com.example.drive"), policy.entryPriorities[IntentKind.DOCUMENT_PROVIDER])
         assertTrue(IntentKind.SHARE !in policy.entryPriorities)
+    }
+
+    @Test
+    fun stagedEntryRulesDoNotPartiallyReplaceAuthoritativeSnapshot() {
+        RuntimeComponentPolicy.publishEntryRules(
+            displayMode = DisplayMode.HIDE_SELECTED,
+            entryRules = emptySet(),
+            entryPriorities = emptyMap(),
+        )
+        RuntimeComponentPolicy.publish(10001, emptySet(), "baseline")
+        val baseline = RuntimeComponentPolicy.snapshot()
+
+        RuntimeComponentPolicy.publishEntryRules(
+            displayMode = DisplayMode.SHOW_SELECTED,
+            entryRules = setOf("DIRECT_SHARE|com.example|com.example.Target"),
+            entryPriorities = mapOf(IntentKind.DIRECT_SHARE to listOf("com.example")),
+        )
+
+        val staged = RuntimeComponentPolicy.snapshot()
+        assertEquals(baseline, staged)
+        assertFalse(staged.displayMode == DisplayMode.SHOW_SELECTED)
+
+        RuntimeComponentPolicy.publish(10002, setOf("0|pkg|pkg.Component"), "next")
+        val committed = RuntimeComponentPolicy.snapshot()
+        assertEquals(DisplayMode.SHOW_SELECTED, committed.displayMode)
+        assertEquals(10002, committed.managerAppId)
+        assertEquals("next", committed.digest)
+        assertEquals(listOf("com.example"), committed.entryPriorities[IntentKind.DIRECT_SHARE])
     }
 }
