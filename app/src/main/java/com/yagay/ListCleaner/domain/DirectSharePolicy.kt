@@ -11,3 +11,28 @@ internal fun directShareVisibleIndices(
     val packageName = targetPackages[index]
     packageName == null || packageName in visibleSharePackages
 }
+
+/** Pure policy used by the Chooser hook so per-target filtering and ordering stay unit-testable. */
+internal fun directShareFilteredIndices(
+    targetPackages: List<String?>,
+    ruleIds: List<String?>,
+    visibleSharePackages: Set<String>,
+    selectedRuleIds: Set<String>,
+    displayMode: DisplayMode,
+    priorities: List<String>,
+): List<Int> {
+    var kept = directShareVisibleIndices(targetPackages, visibleSharePackages)
+    if (ruleIds.size == targetPackages.size && displayMode != DisplayMode.SHOW_ALL && selectedRuleIds.isNotEmpty()) {
+        kept = kept.filter { index ->
+            val ruleId = ruleIds[index] ?: return@filter true
+            displayMode.includes(ruleId in selectedRuleIds, true)
+        }
+    }
+    if (priorities.isEmpty() || kept.size < 2) return kept
+
+    val rank = priorities.distinct().withIndex().associate { (index, packageName) -> packageName to index }
+    return kept.sortedWith(
+        compareBy<Int> { index -> rank[targetPackages[index]] ?: Int.MAX_VALUE }
+            .thenBy { it }
+    )
+}
