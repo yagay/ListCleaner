@@ -1,6 +1,7 @@
 package com.yagay.ListCleaner.domain
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class AdditionalEntryClassificationTest {
@@ -30,9 +31,13 @@ class AdditionalEntryClassificationTest {
     }
 
     @Test
-    fun everyIntentKindHasMatchingVisibilityScope() {
-        IntentKind.entries.forEach { kind ->
-            assertEquals(kind.name, VisibilityScope.forKind(kind).name)
-        }
+    fun resolverKindsHaveMatchingVisibilityScopesButSpecialSurfacesDoNot() {
+        IntentKind.entries
+            .filterNot { it == IntentKind.LAUNCHER_SHORTCUT || it == IntentKind.DOCUMENT_PROVIDER }
+            .forEach { kind ->
+                assertEquals(kind.name, VisibilityScope.forKind(kind)?.name)
+            }
+        assertNull(VisibilityScope.forKind(IntentKind.LAUNCHER_SHORTCUT))
+        assertNull(VisibilityScope.forKind(IntentKind.DOCUMENT_PROVIDER))
     }
 }
