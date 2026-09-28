@@ -56,8 +56,8 @@
     <string name="intent_capture_video">录像</string>
     <string name="intent_record_audio">录音</string>
     <string name="intent_process_text">文本处理</string>
-    <string name="intent_home">默认桌面</string>
-    <string name="intent_assistant">助手</string>
+    <string name="intent_home">桌面候选</string>
+    <string name="intent_assistant">助手候选</string>
     <string name="intent_launcher_shortcut">长按快捷方式应用</string>
     <string name="intent_shortcut_item">快捷方式项目</string>
     <string name="intent_document_provider">存储位置</string>
