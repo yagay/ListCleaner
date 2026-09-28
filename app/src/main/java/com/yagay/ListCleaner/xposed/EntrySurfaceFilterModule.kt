@@ -1,6 +1,5 @@
 package com.yagay.ListCleaner.xposed
 
-import android.content.ComponentName
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.ResolveInfo
@@ -15,6 +14,7 @@ import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.ManagerIdentity
 import com.yagay.ListCleaner.domain.ModuleConfig
+import com.yagay.ListCleaner.domain.prioritizeApps
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
@@ -40,6 +40,7 @@ class EntrySurfaceFilterModule : XposedModule() {
     @Volatile private var processName = ""
     @Volatile private var fallbackMode = DisplayMode.HIDE_SELECTED
     @Volatile private var fallbackRules: Set<String> = emptySet()
+    @Volatile private var fallbackPriorities: Map<IntentKind, List<String>> = emptyMap()
     @Volatile private var fallbackManagerAppId = -1
 
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
@@ -84,7 +85,11 @@ class EntrySurfaceFilterModule : XposedModule() {
             fallbackMode = config.mode
             fallbackManagerAppId = config.managerAppId
             fallbackRules = specialRules(config.rules.map { it.id }.toSet())
-            record("POLICY_READ reason=$reason rules=${fallbackRules.size} mode=$fallbackMode")
+            fallbackPriorities = config.priorities.apps.filterKeys(::isSpecialKind)
+            record(
+                "POLICY_READ reason=$reason rules=${fallbackRules.size} mode=$fallbackMode " +
+                    "priorities=${fallbackPriorities.mapValues { it.value.size }}"
+            )
         }.onFailure {
             Log.w(TAG, "Unable to refresh entry policy; keeping previous snapshot", it)
         }
@@ -96,28 +101,32 @@ class EntrySurfaceFilterModule : XposedModule() {
             managerAppId = fallbackManagerAppId,
             displayMode = fallbackMode,
             entryRules = fallbackRules,
+            entryPriorities = fallbackPriorities,
         )
     }
+
+    private fun isSpecialKind(kind: IntentKind): Boolean =
+        kind == IntentKind.LAUNCHER_SHORTCUT || kind == IntentKind.DOCUMENT_PROVIDER
 
     private fun specialRules(ids: Set<String>): Set<String> = ids.filterTo(linkedSetOf()) { id ->
-        when (ComponentRule.fromId(id)?.kind) {
-            IntentKind.LAUNCHER_SHORTCUT,
-            IntentKind.DOCUMENT_PROVIDER -> true
-            else -> false
-        }
+        ComponentRule.fromId(id)?.kind?.let(::isSpecialKind) == true
     }
 
-    private fun includes(rule: ComponentRule, policy: RuntimeComponentPolicySnapshot): Boolean {
-        val selectedForKind = policy.entryRules.asSequence()
+    private fun selectedForKind(kind: IntentKind, policy: RuntimeComponentPolicySnapshot): Set<String> =
+        policy.entryRules.asSequence()
             .mapNotNull(ComponentRule::fromId)
-            .filter { it.kind == rule.kind }
+            .filter { it.kind == kind }
             .map { it.id }
             .toSet()
-        return policy.displayMode.includes(
-            selected = rule.id in selectedForKind,
-            hasSelection = selectedForKind.isNotEmpty(),
-        )
-    }
+
+    private fun includes(
+        rule: ComponentRule,
+        selectedForKind: Set<String>,
+        policy: RuntimeComponentPolicySnapshot,
+    ): Boolean = policy.displayMode.includes(
+        selected = rule.id in selectedForKind,
+        hasSelection = selectedForKind.isNotEmpty(),
+    )
 
     private fun installShortcutHooks(classLoader: ClassLoader) {
         val clazz = runCatching {
@@ -155,27 +164,37 @@ class EntrySurfaceFilterModule : XposedModule() {
         if (values.isEmpty()) return@Hooker original
 
         val policy = effectivePolicy()
-        val selectedForKind = policy.entryRules.any {
-            ComponentRule.fromId(it)?.kind == IntentKind.LAUNCHER_SHORTCUT
-        }
-        if (!selectedForKind || policy.displayMode == DisplayMode.SHOW_ALL) return@Hooker original
+        val kind = IntentKind.LAUNCHER_SHORTCUT
+        val selected = selectedForKind(kind, policy)
+        val priorities = policy.entryPriorities[kind].orEmpty()
+        if (selected.isEmpty() && priorities.isEmpty()) return@Hooker original
 
         var removed = 0
-        val filtered = values.filter { value ->
-            val shortcut = value as? ShortcutInfo ?: return@filter true
-            val activity = shortcut.activity ?: return@filter true
-            val rule = ComponentRule(
-                IntentKind.LAUNCHER_SHORTCUT,
-                activity.packageName,
-                activity.className,
-            )
-            val include = rule.isValid() && includes(rule, policy)
-            if (!include) removed++
-            include
+        val filtered = if (policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) {
+            values
+        } else {
+            values.filter { value ->
+                val shortcut = value as? ShortcutInfo ?: return@filter true
+                val activity = shortcut.activity ?: return@filter true
+                val rule = ComponentRule(kind, activity.packageName, activity.className)
+                val include = rule.isValid() && includes(rule, selected, policy)
+                if (!include) removed++
+                include
+            }
         }
-        if (removed == 0) return@Hooker original
-        record("SHORTCUT_FILTER before=${values.size} after=${filtered.size} removed=$removed")
-        filtered
+
+        val ordered = if (priorities.isEmpty() || filtered.size < 2) filtered else prioritizeApps(
+            filtered,
+            priorities,
+            { value -> (value as? ShortcutInfo)?.`package` ?: "" },
+            { 0 },
+        )
+        if (removed == 0 && ordered == values) return@Hooker original
+        record(
+            "SHORTCUT_RESULT before=${values.size} after=${ordered.size} removed=$removed " +
+                "priorities=${priorities.size}"
+        )
+        ordered
     }
 
     private fun installDocumentProviderHooks(classLoader: ClassLoader) {
@@ -222,32 +241,43 @@ class EntrySurfaceFilterModule : XposedModule() {
         if (ManagerIdentity.matches(Binder.getCallingUid(), policy.managerAppId)) {
             return@Hooker chain.proceed()
         }
-        val hasSelection = policy.entryRules.any {
-            ComponentRule.fromId(it)?.kind == IntentKind.DOCUMENT_PROVIDER
-        }
-        if (!hasSelection || policy.displayMode == DisplayMode.SHOW_ALL) return@Hooker chain.proceed()
+
+        val kind = IntentKind.DOCUMENT_PROVIDER
+        val selected = selectedForKind(kind, policy)
+        val priorities = policy.entryPriorities[kind].orEmpty()
+        if (selected.isEmpty() && priorities.isEmpty()) return@Hooker chain.proceed()
 
         val original = chain.proceed()
         val result = extractListResult(original) ?: return@Hooker original
         var removed = 0
-        val filtered = result.values.filter { value ->
-            val provider = (value as? ResolveInfo)?.providerInfo ?: return@filter true
-            val rule = ComponentRule(
-                IntentKind.DOCUMENT_PROVIDER,
-                provider.packageName,
-                provider.name,
-            )
-            val include = rule.isValid() && includes(rule, policy)
-            if (!include) removed++
-            include
+        val filtered = if (policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) {
+            result.values
+        } else {
+            result.values.filter { value ->
+                val provider = (value as? ResolveInfo)?.providerInfo ?: return@filter true
+                val rule = ComponentRule(kind, provider.packageName, provider.name)
+                val include = rule.isValid() && includes(rule, selected, policy)
+                if (!include) removed++
+                include
+            }
         }
-        if (removed == 0) return@Hooker original
         if (result.values.isNotEmpty() && filtered.isEmpty()) {
             record("DOCUMENT_RESTORE_ALL before=${result.values.size} reason=avoid_empty_provider_surface")
             return@Hooker original
         }
-        record("DOCUMENT_FILTER before=${result.values.size} after=${filtered.size} removed=$removed")
-        runCatching { result.rebuild(filtered) }.getOrElse { original }
+
+        val ordered = if (priorities.isEmpty() || filtered.size < 2) filtered else prioritizeApps(
+            filtered,
+            priorities,
+            { value -> (value as? ResolveInfo)?.providerInfo?.packageName ?: "" },
+            { value -> ((value as? ResolveInfo)?.providerInfo?.applicationInfo?.uid ?: 0) / PER_USER_RANGE },
+        )
+        if (removed == 0 && ordered == result.values) return@Hooker original
+        record(
+            "DOCUMENT_RESULT before=${result.values.size} after=${ordered.size} removed=$removed " +
+                "priorities=${priorities.size}"
+        )
+        runCatching { result.rebuild(ordered) }.getOrElse { original }
     }
 
     private fun extractListResult(original: Any?): ListResult? = when {
@@ -283,6 +313,7 @@ class EntrySurfaceFilterModule : XposedModule() {
         const val SHORTCUT_HOOK_ID = "lc-entry-shortcuts"
         const val DOCUMENT_HOOK_ID = "lc-entry-documents"
         const val SHORTCUT_LOCAL_SERVICE = "com.android.server.pm.ShortcutService\$LocalService"
+        const val PER_USER_RANGE = 100_000
 
         val PMS_CLASSES = listOf(
             "com.android.server.pm.PackageManagerService\$IPackageManagerImpl",
