@@ -46,9 +46,15 @@ internal fun DisplayMode.titleRes(): Int = when (this) {
 internal fun IntentKind.titleRes(): Int = when (this) {
     IntentKind.SHARE -> R.string.intent_share
     IntentKind.SHARE_MULTIPLE -> R.string.intent_share_multiple
+    IntentKind.SEND_TO -> R.string.intent_send_to
     IntentKind.OPEN -> R.string.intent_open
     IntentKind.BROWSER -> R.string.intent_browser
     IntentKind.DEEP_LINK -> R.string.intent_deep_link
+    IntentKind.DIAL -> R.string.intent_dial
+    IntentKind.GET_CONTENT -> R.string.intent_get_content
+    IntentKind.CAPTURE_IMAGE -> R.string.intent_capture_image
+    IntentKind.CAPTURE_VIDEO -> R.string.intent_capture_video
+    IntentKind.RECORD_AUDIO -> R.string.intent_record_audio
     IntentKind.PROCESS_TEXT -> R.string.intent_process_text
 }
 
@@ -57,14 +63,21 @@ internal fun VisibilityScope.titleRes(): Int = when (this) {
     VisibilityScope.ALL -> R.string.common_all
     VisibilityScope.SHARE -> R.string.intent_share
     VisibilityScope.SHARE_MULTIPLE -> R.string.intent_share_multiple
+    VisibilityScope.SEND_TO -> R.string.intent_send_to
     VisibilityScope.OPEN -> R.string.intent_open
     VisibilityScope.BROWSER -> R.string.intent_browser
     VisibilityScope.DEEP_LINK -> R.string.intent_deep_link
+    VisibilityScope.DIAL -> R.string.intent_dial
+    VisibilityScope.GET_CONTENT -> R.string.intent_get_content
+    VisibilityScope.CAPTURE_IMAGE -> R.string.intent_capture_image
+    VisibilityScope.CAPTURE_VIDEO -> R.string.intent_capture_video
+    VisibilityScope.RECORD_AUDIO -> R.string.intent_record_audio
     VisibilityScope.PROCESS_TEXT -> R.string.intent_process_text
 }
 
 @StringRes
 internal fun CleanupKind.titleRes(): Int = when (this) {
+    CleanupKind.LAUNCHER -> R.string.cleanup_launcher
     CleanupKind.TILE -> R.string.cleanup_tile
     CleanupKind.SHORTCUT -> R.string.cleanup_shortcut
     CleanupKind.WIDGET -> R.string.cleanup_widget

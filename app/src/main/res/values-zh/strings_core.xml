@@ -38,15 +38,22 @@
 
     <string name="intent_share">分享</string>
     <string name="intent_share_multiple">多文件分享</string>
+    <string name="intent_send_to">发送到</string>
     <string name="intent_open">打开方式</string>
     <string name="intent_browser">浏览器</string>
     <string name="intent_deep_link">深度链接</string>
+    <string name="intent_dial">拨号</string>
+    <string name="intent_get_content">选择内容</string>
+    <string name="intent_capture_image">拍照</string>
+    <string name="intent_capture_video">录像</string>
+    <string name="intent_record_audio">录音</string>
     <string name="intent_process_text">文本处理</string>
 
     <string name="display_hide_selected">隐藏选中</string>
     <string name="display_show_selected">只显示选中</string>
     <string name="display_show_all">全部显示</string>
 
+    <string name="cleanup_launcher">桌面图标</string>
     <string name="cleanup_tile">磁贴</string>
     <string name="cleanup_shortcut">快捷方式</string>
     <string name="cleanup_widget">小部件</string>

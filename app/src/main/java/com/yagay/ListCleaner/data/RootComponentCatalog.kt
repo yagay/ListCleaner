@@ -19,6 +19,7 @@ import com.yagay.ListCleaner.domain.listCleanerAppType
 import kotlinx.coroutines.delay
 
 enum class CleanupKind(val action: String) {
+    LAUNCHER(Intent.ACTION_MAIN),
     TILE("android.service.quicksettings.action.QS_TILE"),
     SHORTCUT("android.intent.action.CREATE_SHORTCUT"),
     WIDGET("android.appwidget.action.APPWIDGET_UPDATE")
@@ -56,6 +57,7 @@ data class RootComponentScan(
  * Read-only discovery for components List Cleaner can safely map back to Android components.
  *
  * Public subsystem registries are preferred when Android exposes them:
+ * - launcher entries: exported ACTION_MAIN + CATEGORY_LAUNCHER activities/aliases
  * - widgets: AppWidgetManager registry + manifest fallback
  * - shortcut creation entries: LauncherApps config activities + legacy ACTION_CREATE_SHORTCUT
  * - tiles: standard TileService manifest contract
@@ -86,6 +88,7 @@ class RootComponentCatalog(private val context: Context) {
     }
 
     private fun kindTitle(kind: CleanupKind): String = context.getString(when (kind) {
+        CleanupKind.LAUNCHER -> R.string.cleanup_launcher
         CleanupKind.TILE -> R.string.cleanup_tile
         CleanupKind.SHORTCUT -> R.string.cleanup_shortcut
         CleanupKind.WIDGET -> R.string.cleanup_widget
@@ -107,6 +110,18 @@ class RootComponentCatalog(private val context: Context) {
         }
         return merged.values.toList()
     }
+
+    @Suppress("DEPRECATION")
+    private fun queryLauncherActivities(): List<DiscoveredComponent> =
+        pm.queryIntentActivities(
+            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER),
+            flags
+        )
+            .mapNotNull { it.activityInfo }
+            .filter { it.exported }
+            .map {
+                DiscoveredComponent(it, setOf(ComponentDiscoverySource.PACKAGE_MANAGER))
+            }
 
     @Suppress("DEPRECATION")
     private fun queryTiles(): List<DiscoveredComponent> =
@@ -190,6 +205,7 @@ class RootComponentCatalog(private val context: Context) {
     }
 
     private fun query(kind: CleanupKind): List<DiscoveredComponent> = when (kind) {
+        CleanupKind.LAUNCHER -> queryLauncherActivities()
         CleanupKind.TILE -> queryTiles()
         CleanupKind.SHORTCUT -> mergeDiscovered(
             queryShortcutConfigActivities(),

@@ -42,9 +42,15 @@
     <!-- Intent kinds -->
     <string name="intent_share">Share</string>
     <string name="intent_share_multiple">Share multiple</string>
+    <string name="intent_send_to">Send to</string>
     <string name="intent_open">Open</string>
     <string name="intent_browser">Browser</string>
     <string name="intent_deep_link">Deep links</string>
+    <string name="intent_dial">Dial</string>
+    <string name="intent_get_content">Choose content</string>
+    <string name="intent_capture_image">Take photo</string>
+    <string name="intent_capture_video">Record video</string>
+    <string name="intent_record_audio">Record audio</string>
     <string name="intent_process_text">Text processing</string>
 
     <!-- Display modes -->
@@ -53,6 +59,7 @@
     <string name="display_show_all">Show all</string>
 
     <!-- Root component kinds -->
+    <string name="cleanup_launcher">Launcher icons</string>
     <string name="cleanup_tile">Tiles</string>
     <string name="cleanup_shortcut">Shortcuts</string>
     <string name="cleanup_widget">Widgets</string>
