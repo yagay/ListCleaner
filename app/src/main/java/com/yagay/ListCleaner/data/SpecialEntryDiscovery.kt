@@ -6,7 +6,6 @@ import android.content.pm.PackageManager
 import android.provider.DocumentsContract
 import com.yagay.ListCleaner.domain.AppType
 import com.yagay.ListCleaner.domain.ComponentCandidate
-import com.yagay.ListCleaner.domain.ComponentIdentity
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.FilterPolicy
 import com.yagay.ListCleaner.domain.IntentKind
@@ -33,12 +32,13 @@ internal class SpecialEntryDiscovery(private val context: Context) {
             val activity = resolved.activityInfo ?: return@mapNotNull null
             val app = activity.applicationInfo ?: return@mapNotNull null
             if (!activity.enabled || !app.enabled) return@mapNotNull null
-            val canonical = ComponentIdentity.canonicalClassName(
+            // ShortcutInfo#getActivity returns the published launcher component. Keep aliases exact
+            // instead of canonicalizing to targetActivity so runtime matching remains lossless.
+            val rule = ComponentRule(
+                IntentKind.LAUNCHER_SHORTCUT,
                 activity.packageName,
                 activity.name,
-                activity.targetActivity,
             )
-            val rule = ComponentRule(IntentKind.LAUNCHER_SHORTCUT, activity.packageName, canonical)
             if (!rule.isValid()) return@mapNotNull null
             val restricted = FilterPolicy.catalogRestricted(activity.exported, app.uid, managerUid)
             ComponentCandidate(
@@ -50,7 +50,7 @@ internal class SpecialEntryDiscovery(private val context: Context) {
                 evidence = buildList {
                     add("LAUNCHER_SHORTCUT source=MAIN+LAUNCHER activity=${activity.packageName}/${activity.name}")
                     if (activity.targetActivity?.isNotBlank() == true) {
-                        add("activityAlias=${activity.name} targetActivity=${activity.targetActivity} canonical=$canonical")
+                        add("activityAlias=${activity.name} targetActivity=${activity.targetActivity}")
                     }
                     if (restricted) add("RESTRICTED non-exported foreign launcher activity")
                 },
