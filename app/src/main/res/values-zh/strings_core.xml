@@ -48,6 +48,8 @@
     <string name="intent_capture_video">录像</string>
     <string name="intent_record_audio">录音</string>
     <string name="intent_process_text">文本处理</string>
+    <string name="intent_launcher_shortcut">长按快捷方式</string>
+    <string name="intent_document_provider">存储位置</string>
 
     <string name="display_hide_selected">隐藏选中</string>
     <string name="display_show_selected">只显示选中</string>
