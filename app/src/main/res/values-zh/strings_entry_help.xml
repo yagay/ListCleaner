@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="entry_help_title">入口说明</string>
     <string name="entry_rules_general_help">规则页管理 Android 或应用展示的候选入口。“隐藏选中”模式下，勾选表示隐藏；“只显示选中”模式下，勾选表示保留。规则不会设置默认应用、不会卸载应用，也不会真实停用组件；需要真实启用/停用组件时请使用“组件 · Root”页面。</string>
     <string name="entry_advanced_safety_note">高级入口只在普通应用调用候选查询时进行过滤；为避免影响系统核心行为，system/特权 UID 的查询保持原样。勾选不会授予或撤销权限，不会启用/停用服务，也不会把其他项目自动设为系统默认。</string>
 
