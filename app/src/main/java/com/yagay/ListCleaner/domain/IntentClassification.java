@@ -25,6 +25,8 @@ public final class IntentClassification {
         }
         if (s.equals("file")) return "OPEN";
         if (s.equals("content") || s.isEmpty()) return m.isEmpty() ? null : "OPEN";
+        if (s.equals("magnet") || s.equals("geo") || s.equals("mailto") ||
+                s.equals("tel") || s.equals("sms") || s.equals("smsto")) return "OPEN";
         return null;
     }
 }
