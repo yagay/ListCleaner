@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Refresh
@@ -167,6 +168,7 @@ internal fun ListControls(
     var menu by remember { mutableStateOf(false) }
     var appTypeMenu by remember { mutableStateOf(false) }
     var selectionMenu by remember { mutableStateOf(false) }
+    var helpExpanded by remember(state.filter) { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
@@ -240,13 +242,43 @@ internal fun ListControls(
                 }
             }
         }
-        state.filter?.let { selectedKind ->
+        val selectedKind = state.filter
+        TextButton(
+            onClick = { helpExpanded = !helpExpanded },
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 2.dp),
+        ) {
             Text(
-                stringResource(selectedKind.titleRes()),
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
+                if (selectedKind == null) stringResource(R.string.entry_help_title)
+                else stringResource(selectedKind.titleRes()),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = if (selectedKind == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
             )
+            Icon(
+                if (helpExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                contentDescription = stringResource(if (helpExpanded) R.string.common_collapse else R.string.common_expand),
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        if (helpExpanded) {
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) {
+                Text(
+                    if (selectedKind == null) stringResource(R.string.entry_rules_general_help)
+                    else stringResource(selectedKind.descriptionRes()),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (selectedKind?.entryGroup() == EntryGroup.ADVANCED) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        stringResource(R.string.entry_advanced_safety_note),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
         if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
         HorizontalDivider()
