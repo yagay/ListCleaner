@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <queries>
+        <package android:name="com.android.systemui"/>
+        <intent><action android:name="android.service.quicksettings.action.QS_TILE"/></intent>
+        <intent><action android:name="android.intent.action.CHOOSER"/></intent>
+        <package android:name="com.android.intentresolver"/>
+        <package android:name="android"/>
+        <intent><action android:name="android.intent.action.SEND"/><data android:mimeType="*/*"/></intent>
+        <intent><action android:name="android.intent.action.SEND_MULTIPLE"/><data android:mimeType="*/*"/></intent>
+        <intent><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="http"/></intent>
+        <intent><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="https"/></intent>
+        <intent><action android:name="android.intent.action.VIEW"/><data android:mimeType="*/*"/></intent>
+        <intent><action android:name="android.intent.action.PROCESS_TEXT"/><data android:mimeType="text/plain"/></intent>
+        <intent><action android:name="android.intent.action.CREATE_SHORTCUT"/></intent>
+        <intent><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent>
+    </queries>
+
+    <application>
+        <receiver
+            android:name="com.yagay.ListCleaner.runtime.ComponentReconcileReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.USER_UNLOCKED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.PACKAGE_ADDED"/>
+                <action android:name="android.intent.action.PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.PACKAGE_REMOVED"/>
+                <data android:scheme="package"/>
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name="com.yagay.ListCleaner.runtime.ComponentReconcileJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE"/>
+
+        <activity
+            android:name="com.yagay.ListCleaner.ui.MainActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ListCleaner"/>
+    </application>
+</manifest>
