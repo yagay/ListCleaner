@@ -61,8 +61,8 @@
     <string name="intent_capture_video">Record video</string>
     <string name="intent_record_audio">Record audio</string>
     <string name="intent_process_text">Text processing</string>
-    <string name="intent_home">Home app</string>
-    <string name="intent_assistant">Assistant</string>
+    <string name="intent_home">Home candidates</string>
+    <string name="intent_assistant">Assistant candidates</string>
     <string name="intent_launcher_shortcut">Long-press shortcut apps</string>
     <string name="intent_shortcut_item">Shortcut items</string>
     <string name="intent_document_provider">Storage locations</string>
