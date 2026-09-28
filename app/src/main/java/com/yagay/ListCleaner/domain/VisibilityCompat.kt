@@ -17,14 +17,13 @@ enum class VisibilityScope {
     CAPTURE_IMAGE,
     CAPTURE_VIDEO,
     RECORD_AUDIO,
-    PROCESS_TEXT,
-    LAUNCHER_SHORTCUT,
-    DOCUMENT_PROVIDER;
+    PROCESS_TEXT;
 
     fun matches(kind: IntentKind): Boolean = this == ALL || name == kind.name
 
     companion object {
-        fun forKind(kind: IntentKind): VisibilityScope = valueOf(kind.name)
+        /** Special system-managed surfaces intentionally do not participate in package visibility hiding. */
+        fun forKind(kind: IntentKind): VisibilityScope? = entries.firstOrNull { it.name == kind.name }
     }
 }
 
@@ -56,17 +55,19 @@ data class VisibilityCompatConfig(
 
 /**
  * An app is eligible for package-level compatibility hiding only when every currently catalogued
- * component in that top-level category is selected. This intentionally rejects tri-state/partial rows.
+ * component in that top-level category is selected. System-managed shortcut/provider surfaces are
+ * excluded because hiding their owning package would be much broader than hiding those entries.
  */
 fun deriveFullySelectedPackages(
     candidates: List<ComponentCandidate>,
     selected: Set<ComponentRule>
-): Map<VisibilityScope, Set<String>> = IntentKind.entries.associate { kind ->
+): Map<VisibilityScope, Set<String>> = IntentKind.entries.mapNotNull { kind ->
+    val scope = VisibilityScope.forKind(kind) ?: return@mapNotNull null
     val packages = candidates.asSequence()
         .filter { it.isCatalogCandidate && it.rule.kind == kind }
         .groupBy { it.rule.packageName }
         .filterValues { items -> items.isNotEmpty() && items.all { it.rule in selected } }
         .keys
         .toSet()
-    VisibilityScope.forKind(kind) to packages
-}.filterValues { it.isNotEmpty() }
+    scope to packages
+}.toMap().filterValues { it.isNotEmpty() }
