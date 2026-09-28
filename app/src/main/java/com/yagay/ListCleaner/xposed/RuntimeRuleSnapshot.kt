@@ -25,15 +25,13 @@ internal data class RuntimeRuleSnapshot(
     val allSelectedPackages: Set<String> = visibilityCompat.activePackages()
 
     init {
+        val specialKinds = setOf(IntentKind.LAUNCHER_SHORTCUT, IntentKind.DOCUMENT_PROVIDER)
         RuntimeComponentPolicy.publishEntryRules(
             displayMode = displayMode,
             entryRules = configured.filterTo(linkedSetOf()) { id ->
-                when (ComponentRule.fromId(id)?.kind) {
-                    IntentKind.LAUNCHER_SHORTCUT,
-                    IntentKind.DOCUMENT_PROVIDER -> true
-                    else -> false
-                }
+                ComponentRule.fromId(id)?.kind in specialKinds
             },
+            entryPriorities = priorities.apps.filterKeys { it in specialKinds },
         )
     }
 
