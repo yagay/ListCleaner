@@ -9,8 +9,8 @@
     <string name="intent_desc_direct_share">Recently observed Direct Share contacts, conversations, or sharing shortcuts shown at the top of the Android share sheet. Selecting hides that target from the chooser; contacts and conversations are not deleted.</string>
     <string name="intent_desc_send_to">Apps handling SENDTO links such as mailto: and smsto:. Useful for cleaning mail and messaging choices that are not ordinary Open candidates.</string>
     <string name="intent_desc_open">Open-with candidates for files, MIME types, schemes, and configured file types. Selecting changes only which matching entries are presented.</string>
-    <string name="intent_desc_browser">Browser candidates for HTTP and HTTPS links. This filters browser choices; it does not change Android's current default browser.</string>
-    <string name="intent_desc_deep_link">App handlers for configured web/deep links. Rules can hide or keep matching app entries without changing the app's verified-link state.</string>
+    <string name="intent_desc_browser">Browser candidates for HTTP and HTTPS links. This filters browser choices; it does not change Android\'s current default browser.</string>
+    <string name="intent_desc_deep_link">App handlers for configured web/deep links. Rules can hide or keep matching app entries without changing the app\'s verified-link state.</string>
     <string name="intent_desc_dial">Apps offered for ACTION_DIAL / tel: links. Filtering candidates does not change the current default dialer.</string>
     <string name="intent_desc_get_content">Apps offered for ACTION_GET_CONTENT when an app asks the user to choose content. Storage providers inside the system document picker are managed separately.</string>
     <string name="intent_desc_open_document">Handlers for ACTION_OPEN_DOCUMENT. This cleans the outer document-opening candidates; storage locations inside DocumentsUI are managed under Storage locations.</string>
@@ -19,9 +19,9 @@
     <string name="intent_desc_capture_video">Camera or video apps offered for ACTION_VIDEO_CAPTURE. Selecting only filters the capture chooser entry.</string>
     <string name="intent_desc_record_audio">Recorder apps offered for the standard record-sound Intent. Selecting only filters the chooser entry.</string>
     <string name="intent_desc_process_text">Apps and activities offered for selected-text actions such as translate, search, or process text. Text-processing lists are allowed to become empty.</string>
-    <string name="intent_desc_home">Apps returned for the HOME launcher Intent. This manages HOME candidates only and does not change the launcher currently set as Android's default.</string>
-    <string name="intent_desc_assistant">Apps returned for the assistant Intent. This manages assistant candidates only and does not change the system's selected default assistant or voice service.</string>
-    <string name="intent_desc_launcher_shortcut">App-level long-press shortcut sources associated with launcher activities. Use this to hide an app's shortcut surface as a group without disabling the app.</string>
+    <string name="intent_desc_home">Apps returned for the HOME launcher Intent. This manages HOME candidates only and does not change the launcher currently set as Android\'s default.</string>
+    <string name="intent_desc_assistant">Apps returned for the assistant Intent. This manages assistant candidates only and does not change the system\'s selected default assistant or voice service.</string>
+    <string name="intent_desc_launcher_shortcut">App-level long-press shortcut sources associated with launcher activities. Use this to hide an app\'s shortcut surface as a group without disabling the app.</string>
     <string name="intent_desc_shortcut_item">Individual manifest, dynamic, or pinned ShortcutInfo entries observed at runtime. Selecting hides the observed shortcut from supported query surfaces; the underlying shortcut data is not deleted.</string>
     <string name="intent_desc_document_provider">Storage Access Framework DocumentsProvider entries such as cloud drives, file managers, or NAS providers. Hiding an entry does not unmount storage or delete files.</string>
     <string name="intent_desc_input_method">InputMethodService candidates discovered through PackageManager. This does not enable, disable, or switch the current keyboard.</string>
