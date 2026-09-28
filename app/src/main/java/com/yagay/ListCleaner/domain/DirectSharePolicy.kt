@@ -7,10 +7,7 @@ package com.yagay.ListCleaner.domain
 internal fun directShareVisibleIndices(
     targetPackages: List<String?>,
     visibleSharePackages: Set<String>
-): List<Int> {
-    if (visibleSharePackages.isEmpty()) return targetPackages.indices.toList()
-    return targetPackages.indices.filter { index ->
-        val packageName = targetPackages[index]
-        packageName == null || packageName in visibleSharePackages
-    }
+): List<Int> = targetPackages.indices.filter { index ->
+    val packageName = targetPackages[index]
+    packageName == null || packageName in visibleSharePackages
 }
