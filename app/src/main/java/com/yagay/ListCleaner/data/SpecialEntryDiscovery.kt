@@ -85,7 +85,8 @@ internal class SpecialEntryDiscovery(private val context: Context) {
                     evidence = buildList {
                         add("DOCUMENT_PROVIDER source=${DocumentsContract.PROVIDER_INTERFACE}")
                         provider.authority?.takeIf { it.isNotBlank() }?.let { add("authority=$it") }
-                        provider.permission?.takeIf { it.isNotBlank() }?.let { add("permission=$it") }
+                        provider.readPermission?.takeIf { it.isNotBlank() }?.let { add("readPermission=$it") }
+                        provider.writePermission?.takeIf { it.isNotBlank() }?.let { add("writePermission=$it") }
                         if (restricted) add("RESTRICTED non-exported foreign documents provider")
                     },
                     restricted = restricted,
