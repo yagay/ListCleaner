@@ -36,6 +36,7 @@ import java.time.Instant
 class IntentCatalog(private val context: Context) {
     private val mutableCandidates = MutableStateFlow<List<ComponentCandidate>>(emptyList())
     val candidates: StateFlow<List<ComponentCandidate>> = mutableCandidates.asStateFlow()
+    private val specialEntryDiscovery = SpecialEntryDiscovery(context)
 
     suspend fun completeConfigured(
         items: List<ComponentCandidate>,
@@ -138,6 +139,17 @@ class IntentCatalog(private val context: Context) {
                 "declaredPackageHosts=${browserDiscovery.packagesByHost.size}\n" +
                 "cacheHitsSincePreviousScan=$previousCacheHits\n"
         )
+
+        val specialCandidates = specialEntryDiscovery.scan()
+        if (specialCandidates.isNotEmpty()) {
+            found += specialCandidates
+            specialCandidates.forEach { known += it.rule.id }
+            report.appendLine(
+                "specialEntries candidates=${specialCandidates.size} " +
+                    "launcherShortcuts=${specialCandidates.count { it.rule.kind == IntentKind.LAUNCHER_SHORTCUT }} " +
+                    "documentProviders=${specialCandidates.count { it.rule.kind == IntentKind.DOCUMENT_PROVIDER }}"
+            )
+        }
 
         val declaredCandidates = declaredDeepLinkCandidates(browserDiscovery.declaredHandlersByHost)
         if (declaredCandidates.isNotEmpty()) {
