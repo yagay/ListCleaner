@@ -115,9 +115,8 @@ internal class SpecialEntryDiscovery(private val context: Context) {
     }
 
     @Suppress("DEPRECATION")
-    private fun systemServiceEntries(): List<ComponentCandidate> {
-        val managerUid = android.os.Process.myUid()
-        return SYSTEM_SERVICE_ENTRY_DEFINITIONS.flatMap { definition ->
+    private fun systemServiceEntries(): List<ComponentCandidate> =
+        SYSTEM_SERVICE_ENTRY_DEFINITIONS.flatMap { definition ->
             runCatching { pm.queryIntentServices(Intent(definition.action), flags) }
                 .getOrDefault(emptyList())
                 .mapNotNull { resolved ->
@@ -129,7 +128,6 @@ internal class SpecialEntryDiscovery(private val context: Context) {
                     }
                     val rule = ComponentRule(definition.kind, service.packageName, service.name)
                     if (!rule.isValid()) return@mapNotNull null
-                    val restricted = FilterPolicy.catalogRestricted(service.exported, app.uid, managerUid)
                     ComponentCandidate(
                         rule = rule,
                         appLabel = runCatching { app.loadLabel(pm).toString() }.getOrDefault(service.packageName),
@@ -139,12 +137,13 @@ internal class SpecialEntryDiscovery(private val context: Context) {
                         appType = app.listCleanerAppType(),
                         evidence = buildList {
                             add("SERVICE_ENTRY action=${definition.action}")
+                            add("exported=${service.exported}")
                             service.permission?.takeIf { it.isNotBlank() }?.let { add("permission=$it") }
-                            if (restricted) add("RESTRICTED non-exported foreign service")
                         },
-                        restricted = restricted,
+                        // Framework-bound services are selected by Android itself; exported=false does
+                        // not make them invalid management candidates for ListCleaner.
+                        restricted = false,
                     )
                 }
         }
-    }
 }
