@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="repo_hidden_apps_too_many">Too many apps in the visibility list</string>
+    <string name="repo_custom_slot_only">Only custom open-type slots can be edited</string>
+    <string name="repo_custom_type_not_configured">The custom type is not configured</string>
+    <string name="repo_invalid_component_id">Invalid component identifier</string>
+    <string name="repo_component_id_not_normalized">The component identifier must use a normalized class name</string>
+    <string name="repo_invalid_component_rule">Invalid component rule</string>
+    <string name="repo_backup_too_many_rules">The backup contains too many rules</string>
+    <string name="repo_backup_invalid_component">The backup contains an invalid component</string>
+    <string name="repo_backup_too_large">The backup file is too large</string>
+    <string name="repo_backup_unsupported_version">Unsupported backup version: %1$d</string>
+    <string name="repo_backup_missing_display_mode">The backup is missing the display mode</string>
+    <string name="repo_too_many_rules">Too many rules</string>
+</resources>

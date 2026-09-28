@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="catalog_configured_waiting">已配置；等待重新确认匹配</string>
+    <string name="catalog_partial_scan_failed">部分扫描失败（%1$d 项）；成功结果已更新，未匹配的已配置项可在“已选规则”中管理</string>
+    <string name="catalog_file_type_unconfirmed">无法确认文件类型，未归入打开方式</string>
+</resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runtime_reset_title">Reset remote cleaning configuration?</string>
+    <string name="runtime_reset_help">This will clear Intent rules, ordering, and tile-cleaning configuration and pause filtering. If an old Hook is still running, system effects may remain until the system confirms the change. Cancel first if you need to preserve the old rules, restore the remote configuration, and export a JSON backup.</string>
+    <string name="runtime_confirm_reset">Reset</string>
+    <string name="runtime_validation_failed_help">When validation fails, scan results are not updated; selected rules can still be managed.</string>
+    <string name="runtime_restore_remote">Restore remote configuration</string>
+    <string name="runtime_reset_pause">Reset and pause filtering</string>
+    <string name="runtime_checking_update">Checking for update…</string>
+    <string name="runtime_apply_update">Detect and apply module update</string>
+</resources>

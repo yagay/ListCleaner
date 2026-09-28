@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="root_not_scanned">尚未扫描</string>
+    <string name="root_scan_failed">扫描失败</string>
+    <string name="root_kind_scan_failed">%1$s扫描失败</string>
+    <string name="root_component_invalid">组件标识不受支持</string>
+    <string name="root_component_protected">核心系统/管理组件，仅展示</string>
+    <string name="root_state_read_failed">状态读取失败，请刷新</string>
+    <string name="root_owner_disabled">所属应用已停用；本功能不会启用整个应用</string>
+    <string name="root_operation_not_allowed">无法操作</string>
+    <string name="root_user_changed">用户身份已变化，请重新扫描</string>
+    <string name="root_component_missing">组件已消失或不再属于此分类，请刷新</string>
+    <string name="root_component_changed">组件状态已被其他操作改变，请刷新后重试</string>
+    <string name="root_already_target_state">系统已处于目标状态，未执行命令</string>
+    <string name="root_command_incomplete">Root 命令未完成，请刷新核对实际状态</string>
+    <string name="root_operation_unconfirmed">操作未确认成功（退出码 %1$d，系统状态 %2$s）。请核对 Root 授权并刷新；不会自动重试。</string>
+    <string name="root_verified_enabled">已核验：组件已启用；不保证恢复原磁贴/小部件位置</string>
+    <string name="root_verified_disabled">已核验：组件已禁用；请重新打开目标选择器</string>
+
+    <string name="root_guidance">请打开 KernelSU / Magisk 等 Root 管理器，为“列表清理”开启超级用户权限，再返回重试。仅启用 LSPosed 模块不能代替 Root 授权。</string>
+    <string name="root_access_unavailable">无法取得 Root 权限。%1$s</string>
+    <string name="root_access_timeout">等待 Root 授权超时，尚未更改组件。%1$s</string>
+    <string name="root_access_denied">未获得 Root 权限，尚未更改组件。%1$s</string>
+
+    <string name="root_requesting_verify">正在请求 Root 并核验系统状态…</string>
+    <string name="root_requesting_invert">正在请求 Root 并反选组件…</string>
+    <string name="root_progress_enable">正在启用 %1$d/%2$d：%3$s</string>
+    <string name="root_progress_disable">正在禁用 %1$d/%2$d：%3$s</string>
+    <string name="root_progress_invert">正在反选 %1$d/%2$d：%3$s</string>
+    <string name="root_batch_enabled">已核验：%1$d 个组件已启用；请重新打开目标选择器</string>
+    <string name="root_batch_disabled">已核验：%1$d 个组件已禁用；请重新打开目标选择器</string>
+    <string name="root_batch_inverted">已核验：%1$d 个组件已反选；请重新打开目标选择器</string>
+    <string name="root_batch_stopped">已完成 %1$d/%2$d，操作已停止：%3$s。失败项请核对系统状态；剩余项未执行，已完成项不回滚。</string>
+    <string name="root_invert_stopped">已完成 %1$d/%2$d，反选已停止：%3$s。已完成项不回滚。</string>
+    <string name="root_post_scan_failed">操作后扫描失败，请刷新；不使用旧状态</string>
+
+    <string name="root_screen_title">组件清理 · Root</string>
+    <string name="root_permission_required">需要 Root 授权</string>
+    <string name="root_permission_ack">知道了</string>
+    <string name="root_screen_help">用于禁用或恢复应用提供的快捷设置磁贴、快捷方式创建入口和小部件。组件发现优先使用 Android 子系统注册表；注册表不可用、调用异常或运行中的 Hook 版本较旧时会自动降级到安全扫描，不因发现失败让组件页崩溃。Root 负责真实修改组件状态；期望禁用状态会持久保存，并通过 LSPosed/system_server 再次过滤发现结果，在开机、解锁及应用更新后自动校正。</string>
+    <string name="root_filter_help">“应用”可筛选全部、用户应用或系统应用，计数和批量操作只针对当前可见范围。应用或子项向右滑加锁、向左滑解锁；未锁定不显示锁图标，锁定后才显示状态图标。整体锁保护整个应用，部分锁只保护对应子项；“全部 → 已锁定”会汇总磁贴、快捷方式和小部件分类中的锁定项目。锁只跳过批量操作，仍可手动修改，不改变 Root 真实禁用状态，也不参与排序；核心受保护系统组件仍仅展示。</string>
+    <string name="root_selection_semantics">勾选＝组件真实已禁用。当前状态仍直接回读 Android，同时保存期望禁用策略；若系统在启动或更新后恢复组件，会继续过滤发现结果并自动重新禁用。</string>
+    <string name="root_change_semantics">勾选立即禁用，取消勾选立即明确启用，不再弹窗确认。禁用会影响正在使用此组件的功能；启用不是恢复原默认状态。</string>
+    <string name="root_kind_all_help">优先使用 Android 各子系统的正式注册表：标准 TileService、LauncherApps 快捷方式配置 Activity + 旧创建入口、AppWidgetManager Provider + Manifest 补充；不会禁用整个应用。</string>
+    <string name="root_kind_tile_help">仅列出标准 TileService。Wi-Fi、蓝牙等没有独立服务的系统内置磁贴不支持；核心系统组件仅展示。</string>
+    <string name="root_kind_shortcut_help">列出 LauncherApps 返回的快捷方式配置 Activity，并合并旧式快捷方式创建 Activity；不包含需要 Launcher 主机权限的动态/固定快捷方式实例或应用私有项目。禁用后可能影响其他使用该 Activity 的入口。</string>
+    <string name="root_kind_widget_help">优先读取 AppWidgetManager 的 Provider 注册表，并合并 Manifest 小部件接收器作为兼容补充。禁用可能使已放置的小部件失效；启用不保证恢复原布局。</string>
+    <string name="root_summary">应用列表 · %1$d · %2$d 个组件</string>
+    <string name="root_show_disabled_only">只看已禁用</string>
+    <string name="root_show_all">查看全部</string>
+    <string name="root_invert">反选</string>
+    <string name="root_enabled">已启用</string>
+    <string name="root_disabled">已禁用</string>
+    <string name="root_default_enabled">默认启用</string>
+    <string name="root_default_disabled">默认关闭</string>
+    <string name="root_explicit_enabled">明确启用</string>
+    <string name="root_disabled_unknown_source">已禁用（来源未知）</string>
+    <string name="root_unknown_state">状态未知</string>
+    <string name="root_protected">受保护</string>
+    <string name="root_disabled_summary">已禁用 %1$d/%2$d · %3$s</string>
+    <string name="root_display_only_count">%1$d 项仅展示，不参与批量操作</string>
+    <string name="root_component_count">%1$d 个组件</string>
+    <string name="root_app_count">%1$d 个应用</string>
+    <string name="root_no_components">没有匹配的组件</string>
+</resources>

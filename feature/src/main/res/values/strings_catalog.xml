@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="catalog_configured_waiting">Configured; waiting to confirm the match again</string>
+    <string name="catalog_partial_scan_failed">Part of the scan failed (%1$d items). Successful results were updated; unmatched configured items remain manageable under Selected rules.</string>
+    <string name="catalog_file_type_unconfirmed">The file type could not be confirmed as an Open request</string>
+</resources>

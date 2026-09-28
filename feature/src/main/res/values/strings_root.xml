@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="root_not_scanned">Not scanned yet</string>
+    <string name="root_scan_failed">Scan failed</string>
+    <string name="root_kind_scan_failed">%1$s scan failed</string>
+    <string name="root_component_invalid">Unsupported component identifier</string>
+    <string name="root_component_protected">Core system/management component; display only</string>
+    <string name="root_state_read_failed">Failed to read state; refresh and try again</string>
+    <string name="root_owner_disabled">The owning app is disabled; this feature will not enable the entire app</string>
+    <string name="root_operation_not_allowed">Operation not allowed</string>
+    <string name="root_user_changed">The user profile changed; scan again</string>
+    <string name="root_component_missing">The component disappeared or no longer belongs to this category; refresh</string>
+    <string name="root_component_changed">The component state changed elsewhere; refresh and try again</string>
+    <string name="root_already_target_state">The system is already in the requested state; no command was run</string>
+    <string name="root_command_incomplete">Root command did not complete; refresh and verify the actual state</string>
+    <string name="root_operation_unconfirmed">The operation could not be confirmed (exit code %1$d, system state %2$s). Check Root permission and refresh; it will not retry automatically.</string>
+    <string name="root_verified_enabled">Verified: component enabled; original tile/widget placement is not guaranteed to be restored</string>
+    <string name="root_verified_disabled">Verified: component disabled; reopen the target resolver</string>
+
+    <string name="root_guidance">Open KernelSU, Magisk, or another Root manager and grant List Cleaner superuser access, then return and try again. Enabling the LSPosed module alone does not grant Root access.</string>
+    <string name="root_access_unavailable">Unable to obtain Root access. %1$s</string>
+    <string name="root_access_timeout">Timed out while waiting for Root authorization. No component was changed. %1$s</string>
+    <string name="root_access_denied">Root access was not granted. No component was changed. %1$s</string>
+
+    <string name="root_requesting_verify">Requesting Root permission and verifying system state…</string>
+    <string name="root_requesting_invert">Requesting Root permission and preparing to invert components…</string>
+    <string name="root_progress_enable">Enabling %1$d/%2$d: %3$s</string>
+    <string name="root_progress_disable">Disabling %1$d/%2$d: %3$s</string>
+    <string name="root_progress_invert">Inverting %1$d/%2$d: %3$s</string>
+    <string name="root_batch_enabled">Verified: %1$d components enabled; reopen the target resolver</string>
+    <string name="root_batch_disabled">Verified: %1$d components disabled; reopen the target resolver</string>
+    <string name="root_batch_inverted">Verified: %1$d components inverted; reopen the target resolver</string>
+    <string name="root_batch_stopped">Completed %1$d/%2$d; operation stopped: %3$s. Verify the failed item in system state. Remaining items were not run, and completed changes are not rolled back.</string>
+    <string name="root_invert_stopped">Completed %1$d/%2$d; inversion stopped: %3$s. Completed changes are not rolled back.</string>
+    <string name="root_post_scan_failed">Post-operation scan failed; refresh. Stale state will not be used</string>
+
+    <string name="root_screen_title">Component cleanup · Root</string>
+    <string name="root_permission_required">Root permission required</string>
+    <string name="root_permission_ack">Got it</string>
+    <string name="root_screen_help">Disable or restore app-provided Quick Settings tiles, shortcut creation entries, and widgets. Discovery prefers Android subsystem registries and falls back safely when a registry or an older running hook is unavailable. Root performs the real component-state change; the desired disabled policy is persisted, filtered again through LSPosed/system_server discovery, and automatically reconciled after boot, unlock, and app updates.</string>
+    <string name="root_filter_help">Apps filters All, User apps, or System apps; counts and bulk actions apply only to the current view. Swipe right on an app or child item to lock it and swipe left to unlock it. Unlocked rows show no lock icon; a status icon appears only after locking. Full locks protect the whole app, partial locks protect selected child entries, and Locked under All aggregates locks from Tile, Shortcut, and Widget categories. Locks only skip bulk actions, remain manually editable, do not change Root disabled state, and do not participate in ordering. Core protected system components remain display-only.</string>
+    <string name="root_selection_semantics">Checked means the component is actually disabled. Current state is read back from Android, while List Cleaner also stores the desired disabled policy so restored components can be filtered and automatically disabled again after startup or updates.</string>
+    <string name="root_change_semantics">Checking disables immediately and unchecking explicitly enables immediately, without an extra confirmation dialog. Disabling can affect features currently using the component; enabling does not restore the original default state.</string>
+    <string name="root_kind_all_help">Uses Android subsystem registries where available: standard TileService entries, LauncherApps shortcut configuration activities plus legacy creation entries, and AppWidgetManager providers with manifest fallback. This never disables the entire app.</string>
+    <string name="root_kind_tile_help">Only standard TileService components are listed. Built-in system tiles without an independent service, such as Wi-Fi or Bluetooth, are unsupported; core system components are display-only.</string>
+    <string name="root_kind_shortcut_help">Lists shortcut configuration activities reported by LauncherApps plus legacy shortcut creation activities. Dynamic/pinned shortcut instances that require launcher-host access and private app entries are not included. Disabling may affect other entry points using the same Activity.</string>
+    <string name="root_kind_widget_help">Uses the AppWidgetManager provider registry first and merges manifest widget receivers as a fallback. Disabling can break placed widgets; enabling does not guarantee restoration of the previous layout.</string>
+    <string name="root_summary">App list · %1$d · %2$d components</string>
+    <string name="root_show_disabled_only">Show disabled only</string>
+    <string name="root_show_all">Show all</string>
+    <string name="root_invert">Invert</string>
+    <string name="root_enabled">Enabled</string>
+    <string name="root_disabled">Disabled</string>
+    <string name="root_default_enabled">Enabled by default</string>
+    <string name="root_default_disabled">Disabled by default</string>
+    <string name="root_explicit_enabled">Explicitly enabled</string>
+    <string name="root_disabled_unknown_source">Disabled (source unknown)</string>
+    <string name="root_unknown_state">Unknown state</string>
+    <string name="root_protected">Protected</string>
+    <string name="root_disabled_summary">Disabled %1$d/%2$d · %3$s</string>
+    <string name="root_display_only_count">%1$d entries are display-only and excluded from batch operations</string>
+    <string name="root_component_count">%1$d components</string>
+    <string name="root_app_count">%1$d apps</string>
+    <string name="root_no_components">No matching components</string>
+</resources>

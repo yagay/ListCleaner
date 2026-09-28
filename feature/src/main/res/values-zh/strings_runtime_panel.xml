@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runtime_reset_title">重置远程清理配置？</string>
+    <string name="runtime_reset_help">将清空 Intent 规则、排序及磁贴清理配置，并暂停过滤。旧 Hook 未退出时，系统效果仍可能保留；必须等待系统确认。如需保留旧规则，请取消，先恢复远程配置并导出 JSON 备份。</string>
+    <string name="runtime_confirm_reset">确认重置</string>
+    <string name="runtime_validation_failed_help">验证失败时不更新扫描结果；已选规则仍可管理。</string>
+    <string name="runtime_restore_remote">恢复远程配置</string>
+    <string name="runtime_reset_pause">重置并暂停过滤</string>
+    <string name="runtime_checking_update">正在检查更新…</string>
+    <string name="runtime_apply_update">检测并应用模块更新</string>
+</resources>

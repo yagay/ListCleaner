@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="visibility_title">App visibility list</string>
+    <string name="visibility_help">Choose which source apps need package-visibility compatibility hiding. The selected match categories decide which rule categories may contribute target apps. No category is selected by default, so compatibility hiding is not enabled automatically. This only applies in Hide selected mode.</string>
+    <string name="visibility_match_categories">Match categories (multi-select)</string>
+    <string name="visibility_no_categories">No category is selected. Compatibility hiding will not hide any target apps.</string>
+    <string name="visibility_active_targets">Only fully selected app rows from the selected categories are used; partial rows are excluded. %1$d target packages can currently match.</string>
+    <string name="visibility_search_sources">Search source apps or package names</string>
+    <string name="visibility_show_system">Show system apps</string>
+    <string name="visibility_summary">Showing %1$d/%2$d source apps · %3$d added</string>
+    <string name="visibility_added">Added</string>
+</resources>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A flat silhouette preserves the selected list-and-broom design when tinted. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="0.05167464" android:scaleY="0.05167464"
+        android:translateX="21.6" android:translateY="21.6">
+        <path android:fillColor="#FF000000"
+            android:pathData="M300,290 A69,69 0,1 1,300,428 A69,69 0,1 1,300,290 Z M300,480 A69,69 0,1 1,300,618 A69,69 0,1 1,300,480 Z M300,670 A69,69 0,1 1,300,808 A69,69 0,1 1,300,670 Z" />
+        <path android:fillColor="#FF000000"
+            android:pathData="M472,300 H730 A61,61 0,0 1,730,422 H472 A61,61 0,0 1,472,300 Z M472,490 H674 A61,61 0,0 1,674,612 H472 A61,61 0,0 1,472,490 Z M472,680 H590 Q565,711 607,747 L673,800 H472 A60,60 0,0 1,472,680 Z" />
+        <path android:fillColor="#FF000000"
+            android:pathData="M999,196 C1013,168 1040,163 1062,176 C1085,189 1091,214 1079,238 L936,496 C927,514 940,531 950,544 L808,480 C829,465 850,467 863,443 Z" />
+        <path android:fillColor="#FF000000"
+            android:pathData="M780,482 L972,570 Q992,579 985,599 L968,638 Q961,655 943,648 L749,560 Q734,554 742,536 L762,494 Q768,479 780,482 Z" />
+        <path android:fillColor="#FF000000"
+            android:pathData="M739,573 L941,667 L871,871 Q869,885 855,880 L803,860 L839,716 L780,850 L723,822 L775,678 L700,808 L655,779 L720,646 L632,763 L606,738 Q588,723 603,708 Z" />
+        <path android:fillColor="#FF000000"
+            android:pathData="M978,818 C993,866 998,870 1037,883 C996,898 991,905 978,945 C964,903 958,897 919,883 C960,870 965,863 978,818 Z" />
+    </group>
+</vector>

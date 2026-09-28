@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="custom_open_mime_summary">MIME %1$s</string>
+    <string name="custom_open_extension_summary">Extensions %1$s</string>
+    <string name="custom_open_add_title">Add %1$s</string>
+    <string name="custom_open_edit_title">Edit %1$s</string>
+</resources>

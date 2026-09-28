@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="component_title_dialog_title">Custom display name</string>
+    <string name="component_title_original">Original name: %1$s</string>
+    <string name="component_title_help">Only changes the display text of this component in the %1$s candidate menu. It does not change the app name, Intent, package name, component name, or actual launch target.</string>
+    <string name="component_title_field">Menu display name</string>
+    <string name="component_title_support">%1$d/64 · Leave empty to restore the original name · Custom names are temporarily not applied in Show all mode</string>
+</resources>

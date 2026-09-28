@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Full-bleed artwork includes its sapphire background and satin shadows.
+     Padding keeps the meaningful artwork inside the adaptive icon safe circle. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <gradient android:angle="315"
+                android:startColor="#287AF0" android:endColor="#0750D6" />
+        </shape>
+    </item>
+    <item>
+        <inset android:insetLeft="10%" android:insetTop="10%"
+            android:insetRight="10%" android:insetBottom="10%">
+            <bitmap android:src="@drawable/ic_launcher_artwork"
+                android:gravity="fill" android:filter="true" />
+        </inset>
+    </item>
+</layer-list>

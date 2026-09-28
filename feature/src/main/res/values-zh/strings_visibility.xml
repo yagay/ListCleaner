@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="visibility_title">应用隐藏列表</string>
+    <string name="visibility_help">这里选择“哪些来源应用”需要包级隐藏兼容。下面的“命中分类”决定哪些规则分类可以贡献目标应用；默认不选择任何分类，因此不会自动启用兼容隐藏。仅在“隐藏选中”模式生效。</string>
+    <string name="visibility_match_categories">命中分类（可多选）</string>
+    <string name="visibility_no_categories">当前未选择分类：应用隐藏兼容不会隐藏任何目标应用。</string>
+    <string name="visibility_active_targets">只使用所选分类中“应用整行完整勾选”的目标；半勾选（只选部分组件）不加入。当前可命中 %1$d 个目标包。</string>
+    <string name="visibility_search_sources">搜索来源应用或包名</string>
+    <string name="visibility_show_system">显示系统应用</string>
+    <string name="visibility_summary">显示 %1$d/%2$d 个来源应用 · 已加入 %3$d 个</string>
+    <string name="visibility_added">已加入</string>
+</resources>
