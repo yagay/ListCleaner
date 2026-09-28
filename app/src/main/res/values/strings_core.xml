@@ -52,6 +52,8 @@
     <string name="intent_capture_video">Record video</string>
     <string name="intent_record_audio">Record audio</string>
     <string name="intent_process_text">Text processing</string>
+    <string name="intent_launcher_shortcut">Long-press shortcuts</string>
+    <string name="intent_document_provider">Storage locations</string>
 
     <!-- Display modes -->
     <string name="display_hide_selected">Hide selected</string>
