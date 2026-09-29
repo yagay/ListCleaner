@@ -24,7 +24,7 @@ check(signingValues.all { it == null } || hasReleaseSigning) {
     "Incomplete Release signing configuration. See docs/RELEASE.md."
 }
 
-// system_server hooks are unchanged; embedded-share compatibility hooks load only in scoped app processes.
+// system_server hooks are unchanged; Direct Share empty-row hooks load only in scoped UI/app processes.
 val hookCompatVersionCode = 47
 
 android {
@@ -37,8 +37,8 @@ android {
         applicationId = "com.yagay.ListCleaner"
         minSdk = 31
         targetSdk = 37
-        versionCode = 49
-        versionName = "1.6.24"
+        versionCode = 50
+        versionName = "1.6.25"
         buildConfigField("long", "HOOK_COMPAT_VERSION_CODE", "${hookCompatVersionCode}L")
     }
     buildFeatures { compose = true; buildConfig = true }
