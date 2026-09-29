@@ -37,14 +37,14 @@
     <string name="root_screen_title">组件清理 · Root</string>
     <string name="root_permission_required">需要 Root 授权</string>
     <string name="root_permission_ack">知道了</string>
-    <string name="root_screen_help">本页和“规则”页不同：规则页只是过滤候选入口，这里会通过 Root 真实启用或停用 Android 组件。当前管理桌面图标、快捷设置磁贴、快捷方式创建/配置入口和小部件；期望禁用状态会持久保存，并在开机、解锁和应用更新后自动校正。</string>
-    <string name="root_filter_help">“应用”可筛选全部、用户应用或系统应用，计数和批量操作只针对当前可见范围。应用或子项向右滑加锁、向左滑解锁；未锁定不显示锁图标，锁定后才显示状态图标。整体锁保护整个应用，部分锁只保护对应子项；“全部 → 已锁定”会汇总桌面图标、磁贴、快捷方式和小部件分类中的锁定项目。锁只跳过批量操作，仍可手动修改，不改变 Root 真实禁用状态，也不参与排序；核心受保护系统组件仍仅展示。</string>
+    <string name="root_screen_help">本页和“规则”页不同：规则页只是过滤候选入口，这里会通过 Root 真实启用或停用 Android 组件。当前管理桌面入口、磁贴、创建快捷方式和小部件；期望禁用状态会持久保存，并在开机、解锁和应用更新后自动校正。</string>
+    <string name="root_filter_help">“应用”可筛选全部、用户应用或系统应用，计数和批量操作只针对当前可见范围。应用或子项向右滑加锁、向左滑解锁；未锁定不显示锁图标，锁定后才显示状态图标。整体锁保护整个应用，部分锁只保护对应子项；“全部 → 已锁定”会汇总桌面入口、磁贴、创建快捷方式和小部件中的锁定项目。锁只跳过批量操作，仍可手动修改，不改变 Root 真实禁用状态，也不参与排序；核心受保护系统组件仍仅展示。</string>
     <string name="root_selection_semantics">勾选＝组件真实已禁用。当前状态仍直接回读 Android，同时保存期望禁用策略；若系统在启动或更新后恢复组件，会继续过滤发现结果并自动重新禁用。</string>
     <string name="root_change_semantics">勾选立即禁用，取消勾选立即明确启用，不再弹窗确认。这里是真实组件状态修改，与规则页的入口过滤不同；禁用可能影响正在使用该组件的功能，启用也不会恢复之前的默认选择或布局。</string>
     <string name="root_kind_all_help">优先使用 Android 各子系统的正式注册表：桌面 Launcher Activity、标准 TileService、LauncherApps 快捷方式配置 Activity + 旧创建入口、AppWidgetManager Provider + Manifest 补充；不会禁用整个应用。</string>
     <string name="root_kind_launcher_help">列出导出的 ACTION_MAIN + CATEGORY_LAUNCHER Activity/Activity Alias。禁用后对应桌面/应用抽屉入口会消失；如果它是应用唯一的桌面入口，应用会更难打开，但应用本身不会被卸载。</string>
     <string name="root_kind_tile_help">仅列出标准 TileService。Wi-Fi、蓝牙等没有独立服务的系统内置磁贴不支持；核心系统组件仅展示。</string>
-    <string name="root_kind_shortcut_help">列出 LauncherApps 返回的快捷方式配置 Activity，并合并旧式快捷方式创建 Activity。这里不代表单独的 Dynamic / Pinned / Manifest ShortcutInfo；运行时观察到的具体快捷方式项目请在“规则”页管理。禁用这里的 Activity 可能影响其他共用入口。</string>
+    <string name="root_kind_shortcut_help">列出 LauncherApps 返回的快捷方式配置 Activity，并合并旧式快捷方式创建 Activity。这里不代表单独的 Dynamic / Pinned / Manifest ShortcutInfo；运行时观察到的具体长按快捷方式请在“规则”页管理。禁用这里的 Activity 可能影响其他共用入口。</string>
     <string name="root_kind_widget_help">优先读取 AppWidgetManager 的 Provider 注册表，并合并 Manifest 小部件接收器作为兼容补充。禁用可能使已放置的小部件失效；启用不保证恢复原布局。</string>
     <string name="root_summary">应用列表 · %1$d · %2$d 个组件</string>
     <string name="root_show_disabled_only">只看已禁用</string>
