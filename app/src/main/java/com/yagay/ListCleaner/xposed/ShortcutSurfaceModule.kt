@@ -80,12 +80,9 @@ class ShortcutSurfaceModule : XposedModule() {
                 .decodeFromString(ModuleConfig.serializer(), encoded).validated()
             fallbackMode = config.mode
             fallbackManagerAppId = config.managerAppId
-            fallbackRules = config.rules.filter {
-                it.kind == IntentKind.LAUNCHER_SHORTCUT || it.kind == IntentKind.SHORTCUT_ITEM
-            }.mapTo(linkedSetOf()) { it.id }
-            fallbackPriorities = config.priorities.apps.filterKeys {
-                it == IntentKind.LAUNCHER_SHORTCUT || it == IntentKind.SHORTCUT_ITEM
-            }
+            fallbackRules = config.rules.filter { it.kind == IntentKind.SHORTCUT_ITEM }
+                .mapTo(linkedSetOf()) { it.id }
+            fallbackPriorities = config.priorities.apps.filterKeys { it == IntentKind.SHORTCUT_ITEM }
             record("POLICY_READ reason=$reason rules=${fallbackRules.size}")
         }.onFailure { Log.w(TAG, "Unable to refresh shortcut policy", it) }
     }
@@ -103,6 +100,9 @@ class ShortcutSurfaceModule : XposedModule() {
     private fun selectedForKind(kind: IntentKind, policy: RuntimeComponentPolicySnapshot): Set<String> =
         policy.entryRules.asSequence().mapNotNull(ComponentRule::fromId)
             .filter { it.kind == kind }.map { it.id }.toSet()
+
+    private fun shouldInclude(rule: ComponentRule, selected: Set<String>, policy: RuntimeComponentPolicySnapshot): Boolean =
+        policy.displayMode.includes(rule.id in selected, selected.isNotEmpty())
 
     private fun installShortcutHooks(classLoader: ClassLoader) {
         val clazz = runCatching { Class.forName(SHORTCUT_LOCAL_SERVICE, false, classLoader) }.getOrNull() ?: return
@@ -124,33 +124,19 @@ class ShortcutSurfaceModule : XposedModule() {
 
         val policy = effectivePolicy()
         if (ManagerIdentity.matches(callerUid, policy.managerAppId)) return@Hooker original
-        val selectedApps = selectedForKind(IntentKind.LAUNCHER_SHORTCUT, policy)
-        val selectedItems = selectedForKind(IntentKind.SHORTCUT_ITEM, policy)
-        val itemPriorities = policy.entryPriorities[IntentKind.SHORTCUT_ITEM].orEmpty()
-        val appPriorities = policy.entryPriorities[IntentKind.LAUNCHER_SHORTCUT].orEmpty()
-        if (selectedApps.isEmpty() && selectedItems.isEmpty() && itemPriorities.isEmpty() && appPriorities.isEmpty()) {
-            return@Hooker original
-        }
+        val selected = selectedForKind(IntentKind.SHORTCUT_ITEM, policy)
+        val priorities = policy.entryPriorities[IntentKind.SHORTCUT_ITEM].orEmpty()
+        if (selected.isEmpty() && priorities.isEmpty()) return@Hooker original
 
-        val filtered = if (policy.displayMode == DisplayMode.SHOW_ALL || (selectedApps.isEmpty() && selectedItems.isEmpty())) {
-            values
-        } else values.filter { value ->
+        val filtered = if (policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) values else values.filter { value ->
             val shortcut = value as? ShortcutInfo ?: return@filter true
-            val itemRule = shortcutRule(shortcut, shortcut.activity)
-            val appRule = launcherShortcutRule(shortcut)
-            val appSelected = appRule?.id in selectedApps
-            val itemSelected = itemRule?.id in selectedItems
-            when (policy.displayMode) {
-                DisplayMode.HIDE_SELECTED -> !(appSelected || itemSelected)
-                DisplayMode.SHOW_SELECTED -> appSelected || itemSelected
-                DisplayMode.SHOW_ALL -> true
-            }
+            val rule = shortcutRule(shortcut, shortcut.activity) ?: return@filter true
+            shouldInclude(rule, selected, policy)
         }
         if (values.isNotEmpty() && filtered.isEmpty()) {
             record("RESTORE_ALL_SHORTCUTS callerUid=$callerUid before=${values.size}")
             return@Hooker original
         }
-        val priorities = if (appPriorities.isNotEmpty()) appPriorities else itemPriorities
         val ordered = if (priorities.isEmpty() || filtered.size < 2) filtered else prioritizeApps(
             filtered, priorities,
             { (it as? ShortcutInfo)?.`package` ?: "" },
@@ -190,15 +176,6 @@ class ShortcutSurfaceModule : XposedModule() {
         val shortcutId = shortcut.id?.takeIf { it.isNotBlank() } ?: return null
         val synthetic = SyntheticEntryKeys.shortcutItemClass(component?.className, shortcutId)
         return ComponentRule(IntentKind.SHORTCUT_ITEM, packageName, synthetic).takeIf(ComponentRule::isValid)
-    }
-
-    private fun launcherShortcutRule(shortcut: ShortcutInfo): ComponentRule? {
-        val packageName = shortcut.`package`?.takeIf { it.isNotBlank() } ?: return null
-        return ComponentRule(
-            IntentKind.LAUNCHER_SHORTCUT,
-            packageName,
-            SyntheticEntryKeys.launcherShortcutAppClass(),
-        ).takeIf(ComponentRule::isValid)
     }
 
     private fun shareShortcut(value: Any?): Pair<ShortcutInfo, ComponentName?>? {
@@ -244,19 +221,7 @@ class ShortcutSurfaceModule : XposedModule() {
 
         val original = chain.proceed()
         val result = extractListResult(original) ?: return@Hooker original
-        val observed = RuntimeObservedEntryStore.snapshot()
-        val appLevel = observed.asSequence()
-            .filter { it.kind == IntentKind.SHORTCUT_ITEM }
-            .distinctBy { it.packageName }
-            .map { entry ->
-                entry.copy(
-                    kind = IntentKind.LAUNCHER_SHORTCUT,
-                    syntheticClass = SyntheticEntryKeys.launcherShortcutAppClass(),
-                    label = entry.packageName,
-                    activityClass = null,
-                )
-            }.toList()
-        val synthetic = (observed + appLevel).map { entry ->
+        val synthetic = RuntimeObservedEntryStore.snapshot().map { entry ->
             ResolveInfo().apply {
                 nonLocalizedLabel = entry.label.ifBlank { entry.kind.name }
                 activityInfo = ActivityInfo().apply {
