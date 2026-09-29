@@ -33,25 +33,17 @@ internal class SpecialEntryDiscovery(private val context: Context) {
             val activity = resolved.activityInfo ?: return@mapNotNull null
             val kind = activity.metaData?.getString(ObservedEntryProtocol.META_KIND)
                 ?.let { runCatching { IntentKind.valueOf(it) }.getOrNull() }
-                ?.takeIf {
-                    it == IntentKind.LAUNCHER_SHORTCUT ||
-                        it == IntentKind.SHORTCUT_ITEM ||
-                        it == IntentKind.DIRECT_SHARE
-                }
+                ?.takeIf { it == IntentKind.SHORTCUT_ITEM || it == IntentKind.DIRECT_SHARE }
                 ?: return@mapNotNull null
             val rule = ComponentRule(kind, activity.packageName, activity.name)
             if (!rule.isValid()) return@mapNotNull null
             val app = runCatching { pm.getApplicationInfo(activity.packageName, 0) }.getOrNull()
-            val appLabel = app?.let { runCatching { it.loadLabel(pm).toString() }.getOrNull() }
-                ?: activity.packageName
             ComponentCandidate(
                 rule = rule,
-                appLabel = appLabel,
-                activityLabel = when (kind) {
-                    IntentKind.LAUNCHER_SHORTCUT -> appLabel
-                    else -> resolved.nonLocalizedLabel?.toString()?.takeIf { it.isNotBlank() }
-                        ?: activity.name.substringAfterLast('.')
-                },
+                appLabel = app?.let { runCatching { it.loadLabel(pm).toString() }.getOrNull() }
+                    ?: activity.packageName,
+                activityLabel = resolved.nonLocalizedLabel?.toString()?.takeIf { it.isNotBlank() }
+                    ?: activity.name.substringAfterLast('.'),
                 appIcon = app?.let { runCatching { it.loadIcon(pm).toBitmap(96, 96) }.getOrNull() },
                 appType = app?.listCleanerAppType() ?: AppType.USER,
                 evidence = buildList {
