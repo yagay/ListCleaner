@@ -2,40 +2,30 @@ package com.yagay.ListCleaner.domain
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SyntheticShortcutKeysTest {
     @Test
-    fun app_level_shortcut_key_is_stable_and_package_scoped_by_rule() {
-        val first = SyntheticEntryKeys.launcherShortcutAppClass()
-        val second = SyntheticEntryKeys.launcherShortcutAppClass()
+    fun shortcut_item_key_is_stable() {
+        val first = SyntheticEntryKeys.shortcutItemClass("com.example.MainActivity", "scan")
+        val second = SyntheticEntryKeys.shortcutItemClass("com.example.MainActivity", "scan")
 
         assertEquals(first, second)
-        assertTrue(first.endsWith("#shortcut-app"))
     }
 
     @Test
-    fun app_level_and_item_level_keys_are_distinct() {
-        val app = SyntheticEntryKeys.launcherShortcutAppClass()
-        val item = SyntheticEntryKeys.shortcutItemClass("com.example.MainActivity", "scan")
+    fun different_shortcut_ids_are_distinct() {
+        val scan = SyntheticEntryKeys.shortcutItemClass("com.example.MainActivity", "scan")
+        val chat = SyntheticEntryKeys.shortcutItemClass("com.example.MainActivity", "new_chat")
 
-        assertNotEquals(app, item)
+        assertNotEquals(scan, chat)
     }
 
     @Test
-    fun component_rule_package_keeps_app_level_keys_separate() {
-        val first = ComponentRule(
-            IntentKind.LAUNCHER_SHORTCUT,
-            "com.example.one",
-            SyntheticEntryKeys.launcherShortcutAppClass(),
-        )
-        val second = ComponentRule(
-            IntentKind.LAUNCHER_SHORTCUT,
-            "com.example.two",
-            SyntheticEntryKeys.launcherShortcutAppClass(),
-        )
+    fun same_shortcut_id_on_different_activities_is_distinct() {
+        val first = SyntheticEntryKeys.shortcutItemClass("com.example.MainActivity", "scan")
+        val second = SyntheticEntryKeys.shortcutItemClass("com.example.SecondActivity", "scan")
 
-        assertNotEquals(first.id, second.id)
+        assertNotEquals(first, second)
     }
 }
