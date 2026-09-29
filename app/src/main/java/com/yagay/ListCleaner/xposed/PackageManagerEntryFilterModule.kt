@@ -3,6 +3,8 @@ package com.yagay.ListCleaner.xposed
 import android.content.Intent
 import android.content.pm.ComponentInfo
 import android.content.pm.ResolveInfo
+import android.content.pm.ServiceInfo
+import android.net.Uri
 import android.os.Binder
 import android.os.Process
 import android.provider.DocumentsContract
@@ -14,9 +16,11 @@ import com.yagay.ListCleaner.domain.FilterPolicy
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.ManagerIdentity
 import com.yagay.ListCleaner.domain.SYSTEM_SERVICE_ENTRY_DEFINITIONS
+import com.yagay.ListCleaner.domain.isPackageScopedEntry
 import com.yagay.ListCleaner.domain.isSystemServiceEntry
 import com.yagay.ListCleaner.domain.prioritizeApps
 import com.yagay.ListCleaner.domain.systemServiceEntryKind
+import com.yagay.ListCleaner.domain.webTargetKind
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
@@ -31,8 +35,8 @@ class PackageManagerEntryFilterModule : XposedModule() {
     private data class QuerySpec(
         val kind: IntentKind,
         val component: (ResolveInfo) -> ComponentInfo?,
-        val requiredPermission: String? = null,
         val matchByPackage: Boolean = false,
+        val eligible: (ResolveInfo, ComponentInfo) -> Boolean = { _, _ -> true },
     )
 
     @Volatile private var processName = ""
@@ -47,7 +51,7 @@ class PackageManagerEntryFilterModule : XposedModule() {
             selectRules = { config ->
                 config.rules.asSequence()
                     .filter {
-                        it.kind == IntentKind.ASSISTANT ||
+                        it.kind.isPackageScopedEntry() ||
                             it.kind == IntentKind.DOCUMENT_PROVIDER ||
                             it.kind.isSystemServiceEntry()
                     }
@@ -55,7 +59,8 @@ class PackageManagerEntryFilterModule : XposedModule() {
             },
             selectPriorities = { config ->
                 config.priorities.apps.filterKeys { kind ->
-                    kind == IntentKind.DOCUMENT_PROVIDER || kind.isSystemServiceEntry()
+                    kind.isPackageScopedEntry() ||
+                        kind == IntentKind.DOCUMENT_PROVIDER || kind.isSystemServiceEntry()
                 }
             },
             record = ::record,
@@ -119,12 +124,34 @@ class PackageManagerEntryFilterModule : XposedModule() {
     }
 
     private fun querySpec(method: Method, intent: Intent): QuerySpec? {
-        val action = (intent.selector ?: intent).action ?: return null
-        if (action == Intent.ACTION_ASSIST && "Activit" in method.name) {
+        val effective = intent.selector ?: intent
+        val action = effective.action ?: return null
+        val activityQuery = "Activit" in method.name
+
+        if (activityQuery && action == Intent.ACTION_ASSIST) {
+            return QuerySpec(IntentKind.ASSISTANT, { it.activityInfo }, matchByPackage = true)
+        }
+        if (activityQuery && action == Intent.ACTION_MAIN &&
+            effective.categories?.contains(Intent.CATEGORY_HOME) == true
+        ) {
+            return QuerySpec(IntentKind.HOME, { it.activityInfo }, matchByPackage = true)
+        }
+        if (activityQuery && action == Intent.ACTION_MAIN &&
+            effective.categories?.contains(Intent.CATEGORY_ACCESSIBILITY_SHORTCUT_TARGET) == true
+        ) {
+            return QuerySpec(IntentKind.ACCESSIBILITY, { it.activityInfo })
+        }
+        if (activityQuery && action == Intent.ACTION_VIEW &&
+            effective.data?.scheme?.lowercase() in WEB_SCHEMES &&
+            effective.categories?.contains(Intent.CATEGORY_BROWSABLE) == true
+        ) {
             return QuerySpec(
-                kind = IntentKind.ASSISTANT,
+                kind = IntentKind.BROWSER,
                 component = { it.activityInfo },
                 matchByPackage = true,
+                // A web query may contain both generic browsers and host-specific Deep Links.
+                // Browser package rules must not accidentally consume the Deep Link component rows.
+                eligible = { resolved, _ -> resolved.webTargetKind() == IntentKind.BROWSER },
             )
         }
         if (action == DocumentsContract.PROVIDER_INTERFACE && "ContentProvider" in method.name) {
@@ -135,13 +162,22 @@ class PackageManagerEntryFilterModule : XposedModule() {
             return QuerySpec(
                 kind = IntentKind.ASSISTANT,
                 component = { it.serviceInfo },
-                requiredPermission = BIND_VOICE_INTERACTION_PERMISSION,
                 matchByPackage = true,
+                eligible = { _, component ->
+                    component is ServiceInfo && component.permission == BIND_VOICE_INTERACTION_PERMISSION
+                },
             )
         }
         val kind = systemServiceEntryKind(action) ?: return null
         val definition = SYSTEM_SERVICE_ENTRY_DEFINITIONS.firstOrNull { it.action == action } ?: return null
-        return QuerySpec(kind, { it.serviceInfo }, definition.requiredPermission)
+        return QuerySpec(
+            kind = kind,
+            component = { it.serviceInfo },
+            matchByPackage = kind.isPackageScopedEntry(),
+            eligible = { _, component ->
+                component is ServiceInfo && definition.acceptsPermission(component.permission)
+            },
+        )
     }
 
     private fun entryHooker(method: Method) = XposedInterface.Hooker { chain ->
@@ -194,9 +230,7 @@ class PackageManagerEntryFilterModule : XposedModule() {
             result.values.filter { value ->
                 val resolve = value as? ResolveInfo ?: return@filter true
                 val component = spec.component(resolve) ?: return@filter true
-                if (spec.requiredPermission != null && component is android.content.pm.ServiceInfo &&
-                    component.permission != spec.requiredPermission
-                ) return@filter true
+                if (!spec.eligible(resolve, component)) return@filter true
                 val rule = ComponentRule(spec.kind, component.packageName, component.name)
                 if (!rule.isValid()) return@filter true
                 val selectedMatch = if (spec.matchByPackage) {
@@ -258,6 +292,7 @@ class PackageManagerEntryFilterModule : XposedModule() {
         const val PER_USER_RANGE = 100_000
         const val VOICE_INTERACTION_SERVICE_INTERFACE = "android.service.voice.VoiceInteractionService"
         const val BIND_VOICE_INTERACTION_PERMISSION = "android.permission.BIND_VOICE_INTERACTION"
+        val WEB_SCHEMES = setOf("http", "https")
         val QUERY_METHODS = setOf(
             "queryIntentActivities", "queryIntentActivitiesAsUser", "queryIntentActivitiesInternal",
             "queryIntentServices", "queryIntentServicesAsUser", "queryIntentServicesInternal",
