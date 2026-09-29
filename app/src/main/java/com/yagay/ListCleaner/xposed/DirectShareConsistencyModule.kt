@@ -80,7 +80,8 @@ class DirectShareConsistencyModule : XposedModule() {
 
     private fun effectivePolicy(): RuntimeComponentPolicySnapshot {
         val runtime = RuntimeComponentPolicy.snapshot()
-        return if (runtime.authoritative) runtime else RuntimeComponentPolicySnapshot(
+        return if (runtime.authoritative) runtime else fallbackRuntimePolicy(
+            managerAppId = -1,
             displayMode = fallbackMode,
             entryRules = fallbackRules,
             entryPriorities = if (fallbackPriorities.isEmpty()) emptyMap()
@@ -131,10 +132,8 @@ class DirectShareConsistencyModule : XposedModule() {
 
         val parsed = targets.map(::parseDirectShareTarget)
         val policy = effectivePolicy()
-        val selected = policy.entryRules.asSequence().mapNotNull(ComponentRule::fromId)
-            .filter { it.kind == IntentKind.DIRECT_SHARE }
-            .mapTo(linkedSetOf()) { it.id }
-        val priorities = policy.entryPriorities[IntentKind.DIRECT_SHARE].orEmpty()
+        val selected = policy.selected(IntentKind.DIRECT_SHARE)
+        val priorities = policy.priorities(IntentKind.DIRECT_SHARE)
         val keptIndices = directShareFilteredIndices(
             targetPackages = parsed.map { it.packageName },
             ruleIds = parsed.map { it.rule?.id },
@@ -150,7 +149,6 @@ class DirectShareConsistencyModule : XposedModule() {
 
         val replacement = chain.args.toTypedArray()
         replacement[0] = keptIndices.map { targets[it] }
-
         pairedPredictionListIndex(chain.args, targets.size)?.let { index ->
             val paired = chain.args[index] as List<*>
             replacement[index] = keptIndices.map { paired[it] }
@@ -190,10 +188,6 @@ class DirectShareConsistencyModule : XposedModule() {
             .firstOrNull { it.name == name && it.parameterCount == 0 }
             ?.apply { isAccessible = true }
 
-    /**
-     * Current Android passes ChooserListAdapter as arg1. Older implementations passed the resolved
-     * app list directly. Supporting both paths keeps this hook fail-open across resolver variants.
-     */
     private fun visibleSharePackages(receiver: Any, args: List<Any?>): Set<String>? {
         val second = args.getOrNull(1)
         if (second is List<*>) return second.mapNotNull(::displayTargetPackage).toSet()
