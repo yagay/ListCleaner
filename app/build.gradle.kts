@@ -100,7 +100,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
-    implementation("io.github.libxposed:service:102")
-    compileOnly("io.github.libxposed:api:102")
+    implementation("io.github.libxposed:service:102.0.0")
+    compileOnly("io.github.libxposed:api:102.0.0")
     testImplementation("junit:junit:4.13.2")
 }
