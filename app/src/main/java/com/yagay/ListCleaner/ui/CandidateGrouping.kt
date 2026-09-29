@@ -15,6 +15,40 @@ data class AppGroup(
     val components: List<ComponentCandidate>
 )
 
+/**
+ * Single source of truth for candidate retention and UI visibility.
+ *
+ * Discovery state (available/unavailable/restricted), selection state and the current UI filter
+ * are deliberately evaluated here so refreshes cannot accidentally change list membership through
+ * a second, slightly different visibility rule elsewhere.
+ */
+internal object CandidateVisibilityPolicy {
+    fun retainAfterRefresh(item: ComponentCandidate, selected: Boolean): Boolean =
+        !item.unavailable || selected
+
+    fun visible(item: ComponentCandidate, selected: Boolean, uiFilter: UiFilter): Boolean {
+        if (!matchesSelectionFilter(selected, uiFilter)) return false
+
+        return when {
+            item.isCatalogCandidate -> true
+            // Restricted discoveries stay isolated from ALL/Unselected even if configured.
+            item.restricted -> selected &&
+                (uiFilter == UiFilter.SHOW_SELECTED || uiFilter == UiFilter.LOCKED)
+            // A configured rule may temporarily disappear from runtime discovery after refresh.
+            // Keep it manageable in ALL/Selected/Locked, but never in Unselected.
+            item.unavailable -> selected && uiFilter != UiFilter.HIDE_SELECTED
+            else -> false
+        }
+    }
+
+    private fun matchesSelectionFilter(selected: Boolean, uiFilter: UiFilter): Boolean = when (uiFilter) {
+        UiFilter.ALL -> true
+        UiFilter.HIDE_SELECTED -> !selected
+        UiFilter.SHOW_SELECTED -> selected
+        UiFilter.LOCKED -> true
+    }
+}
+
 private fun appSelectionRank(group: AppGroup, selected: Set<ComponentRule>): Int {
     val selectedCount = group.components.count { it.rule in selected }
     return when {
@@ -43,16 +77,11 @@ internal fun filterAppGroups(
     query: String,
     uiFilter: UiFilter
 ): List<AppGroup> = groups.mapNotNull { group ->
-    val matching = group.components.filter {
-        val isSelected = it.rule in selected
-        val matchesUiFilter = when (uiFilter) {
-            UiFilter.ALL -> true
-            UiFilter.HIDE_SELECTED -> !isSelected
-            UiFilter.SHOW_SELECTED -> isSelected
-            UiFilter.LOCKED -> true
-        }
-        catalogVisible(it, isSelected, uiFilter) && matchesUiFilter &&
-            (filter == null || it.rule.kind == filter) && it.matchesQuery(query)
+    val matching = group.components.filter { item ->
+        val isSelected = item.rule in selected
+        CandidateVisibilityPolicy.visible(item, isSelected, uiFilter) &&
+            (filter == null || item.rule.kind == filter) &&
+            item.matchesQuery(query)
     }
     if (matching.isEmpty()) null else group.copy(components = matching)
 }.sortedWith(
@@ -74,7 +103,9 @@ fun retainConfiguredCandidates(
     selected: Set<ComponentRule>,
     unavailableEvidence: String = "Configured but not observed during this scan; this does not mean the app is uninstalled"
 ): List<ComponentCandidate> {
-    val kept = items.filter { !it.unavailable || it.rule in selected }
+    val kept = items.filter { item ->
+        CandidateVisibilityPolicy.retainAfterRefresh(item, item.rule in selected)
+    }
     val ids = kept.map { it.rule.id }.toSet()
     return kept + selected.filter { it.id !in ids }.map { rule ->
         ComponentCandidate(
@@ -101,13 +132,3 @@ internal fun availableDeepLinkHosts(
         .toSet()
     return configuredHosts.mapNotNull(::normalizeBrowserHost).toSet() + matched
 }
-
-/**
- * A selected entry that becomes temporarily unobserved after refresh is still a configured rule,
- * so keep it visible in the normal ALL view. Restricted/non-catalog discoveries remain isolated
- * unless the user explicitly opens a selected/locked view.
- */
-internal fun catalogVisible(item: ComponentCandidate, selected: Boolean, uiFilter: UiFilter): Boolean =
-    item.isCatalogCandidate ||
-        (selected && item.unavailable && uiFilter == UiFilter.ALL) ||
-        (selected && (uiFilter == UiFilter.SHOW_SELECTED || uiFilter == UiFilter.LOCKED))
