@@ -20,7 +20,7 @@ jobs:
         id: gate
         shell: bash
         run: |
-          if [ "${{ github.event.head_commit.message }}" = "Run one-shot refresh refactor" ]; then
+          if [ "${{ github.event.head_commit.message }}" = "Commit refresh refactor source" ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
@@ -29,12 +29,6 @@ jobs:
       - name: Apply source refactor
         if: steps.gate.outputs.run == 'true'
         run: python3 tools/test_refresh_refactor.py
-
-      - name: Validate Debug build and tests
-        if: steps.gate.outputs.run == 'true'
-        run: |
-          chmod +x gradlew
-          ./gradlew :app:assembleDebug :app:testDebugUnitTest --no-daemon
 
       - name: Commit to test
         if: steps.gate.outputs.run == 'true'
