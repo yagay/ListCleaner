@@ -8,6 +8,7 @@
     <string name="root_state_read_failed">Failed to read state; refresh and try again</string>
     <string name="root_owner_disabled">The owning app is disabled; this feature will not enable the entire app</string>
     <string name="root_operation_not_allowed">Operation not allowed</string>
+    <string name="root_persistence_failed">Android changed the component state, but List Cleaner could not save the durable protection policy. Refresh and verify the component before continuing.</string>
     <string name="root_user_changed">The user profile changed; scan again</string>
     <string name="root_component_missing">The component disappeared or no longer belongs to this category; refresh</string>
     <string name="root_component_changed">The component state changed elsewhere; refresh and try again</string>
