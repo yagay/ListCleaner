@@ -194,8 +194,11 @@ class ShortcutSurfaceModule : XposedModule() {
 
     private fun launcherShortcutRule(shortcut: ShortcutInfo): ComponentRule? {
         val packageName = shortcut.`package`?.takeIf { it.isNotBlank() } ?: return null
-        val synthetic = SyntheticEntryKeys.launcherShortcutAppClass(shortcut.activity?.className)
-        return ComponentRule(IntentKind.LAUNCHER_SHORTCUT, packageName, synthetic).takeIf(ComponentRule::isValid)
+        return ComponentRule(
+            IntentKind.LAUNCHER_SHORTCUT,
+            packageName,
+            SyntheticEntryKeys.launcherShortcutAppClass(),
+        ).takeIf(ComponentRule::isValid)
     }
 
     private fun shareShortcut(value: Any?): Pair<ShortcutInfo, ComponentName?>? {
@@ -244,12 +247,13 @@ class ShortcutSurfaceModule : XposedModule() {
         val observed = RuntimeObservedEntryStore.snapshot()
         val appLevel = observed.asSequence()
             .filter { it.kind == IntentKind.SHORTCUT_ITEM }
-            .distinctBy { it.packageName to it.activityClass }
+            .distinctBy { it.packageName }
             .map { entry ->
                 entry.copy(
                     kind = IntentKind.LAUNCHER_SHORTCUT,
-                    syntheticClass = SyntheticEntryKeys.launcherShortcutAppClass(entry.activityClass),
-                    label = entry.activityClass?.substringAfterLast('.') ?: entry.packageName,
+                    syntheticClass = SyntheticEntryKeys.launcherShortcutAppClass(),
+                    label = entry.packageName,
+                    activityClass = null,
                 )
             }.toList()
         val synthetic = (observed + appLevel).map { entry ->
