@@ -120,3 +120,31 @@ fun IntentKind.surfaceDefinition(): EntrySurfaceDefinition? = ENTRY_SURFACE_DEFI
 
 fun IntentKind.isPackageScopedEntry(): Boolean =
     surfaceDefinition()?.identity == EntryIdentityScope.PACKAGE
+
+/**
+ * Collapse physical components to the logical row identity before they enter UI state.
+ * This is especially important for Android Role surfaces where one package can expose multiple
+ * qualifying components but the system picker still shows one package.
+ */
+fun normalizeLogicalCandidates(items: List<ComponentCandidate>): List<ComponentCandidate> {
+    if (items.isEmpty()) return items
+    return items.map { item ->
+        if (!item.rule.kind.isPackageScopedEntry()) {
+            item
+        } else {
+            item.copy(
+                rule = SyntheticEntryKeys.packageScopedRule(item.rule.kind, item.rule.packageName),
+                activityLabel = item.appLabel,
+            )
+        }
+    }.groupBy { it.rule.id }.values.map { matches ->
+        val first = matches.firstOrNull { it.isCatalogCandidate } ?: matches.first()
+        first.copy(
+            evidence = matches.flatMap { it.evidence }.distinct().take(48),
+            restricted = matches.all { it.restricted },
+            unavailable = matches.all { it.unavailable },
+            broadMatch = matches.all { it.broadMatch },
+            browserHosts = matches.flatMap { it.browserHosts }.toSet(),
+        )
+    }.sortedWith(compareBy({ it.rule.kind.ordinal }, { it.appLabel.lowercase() }, { it.rule.id }))
+}
