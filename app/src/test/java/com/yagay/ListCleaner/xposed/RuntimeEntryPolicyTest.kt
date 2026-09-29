@@ -15,6 +15,11 @@ class RuntimeEntryPolicyTest {
     @Test
     fun runtimeSnapshotPublishesOnlySpecialEntryRulesAndPrioritiesAtomically() {
         val shortcut = ComponentRule(
+            IntentKind.SHORTCUT_ITEM,
+            "com.example.one",
+            "com.example.one.MainActivity#shortcut#scan",
+        )
+        val legacyShortcutSurface = ComponentRule(
             IntentKind.LAUNCHER_SHORTCUT,
             "com.example.one",
             "com.example.one.MainActivity",
@@ -31,11 +36,12 @@ class RuntimeEntryPolicyTest {
         )
 
         RuntimeRuleSnapshot(
-            configured = setOf(shortcut.id, provider.id, ordinary.id),
+            configured = setOf(shortcut.id, legacyShortcutSurface.id, provider.id, ordinary.id),
             displayMode = DisplayMode.HIDE_SELECTED,
             priorities = PriorityConfig(
                 apps = mapOf(
-                    IntentKind.LAUNCHER_SHORTCUT to listOf("com.example.one"),
+                    IntentKind.SHORTCUT_ITEM to listOf("com.example.one"),
+                    IntentKind.LAUNCHER_SHORTCUT to listOf("com.example.legacy"),
                     IntentKind.DOCUMENT_PROVIDER to listOf("com.example.drive"),
                     IntentKind.SHARE to listOf("com.example.share"),
                 )
@@ -57,8 +63,9 @@ class RuntimeEntryPolicyTest {
         assertEquals("digest-a", policy.digest)
         assertEquals(DisplayMode.HIDE_SELECTED, policy.displayMode)
         assertEquals(setOf(shortcut.id, provider.id), policy.entryRules)
-        assertEquals(listOf("com.example.one"), policy.entryPriorities[IntentKind.LAUNCHER_SHORTCUT])
+        assertEquals(listOf("com.example.one"), policy.entryPriorities[IntentKind.SHORTCUT_ITEM])
         assertEquals(listOf("com.example.drive"), policy.entryPriorities[IntentKind.DOCUMENT_PROVIDER])
+        assertTrue(IntentKind.LAUNCHER_SHORTCUT !in policy.entryPriorities)
         assertTrue(IntentKind.SHARE !in policy.entryPriorities)
     }
 
