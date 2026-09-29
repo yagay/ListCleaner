@@ -24,7 +24,7 @@ check(signingValues.all { it == null } || hasReleaseSigning) {
     "Incomplete Release signing configuration. See docs/RELEASE.md."
 }
 
-// system_server hooks are unchanged; this build adds manager-side runtime coverage diagnostics only.
+// system_server hook generation is unchanged; this build fixes app-process runtime policy delivery.
 val hookCompatVersionCode = 47
 
 android {
@@ -37,8 +37,8 @@ android {
         applicationId = "com.yagay.ListCleaner"
         minSdk = 31
         targetSdk = 37
-        versionCode = 53
-        versionName = "1.6.28"
+        versionCode = 54
+        versionName = "1.6.29"
         buildConfigField("long", "HOOK_COMPAT_VERSION_CODE", "${hookCompatVersionCode}L")
     }
     buildFeatures { compose = true; buildConfig = true }
