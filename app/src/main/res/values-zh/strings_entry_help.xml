@@ -21,8 +21,8 @@
     <string name="intent_desc_process_text">选中文字后出现的翻译、搜索、处理文本等应用/Activity。文本处理允许规则把候选全部隐藏。</string>
     <string name="intent_desc_home">HOME 桌面 Intent 返回的 Launcher 候选。这里只管理桌面候选，不会修改 Android 当前已经设置的默认桌面。</string>
     <string name="intent_desc_assistant">Assistant Intent 返回的助手候选。这里只管理助手入口，不会修改系统当前默认助手或语音服务。</string>
-    <string name="intent_desc_launcher_shortcut">与 Launcher Activity 关联的应用级长按快捷方式来源。可按应用整体隐藏长按快捷方式入口，不会停用应用本身。</string>
-    <string name="intent_desc_shortcut_item">运行时观察到的 Manifest、Dynamic 或 Pinned ShortcutInfo 单项。勾选后在支持的查询入口隐藏该快捷方式，不会删除底层 Shortcut 数据。</string>
+    <string name="intent_desc_launcher_shortcut">仅显示系统运行时实际观察到存在 ShortcutInfo 的应用，并按应用整体管理长按快捷方式。选择某个应用会作用于该应用已观察到的 Manifest、Dynamic、Pinned Shortcut；不会停用应用或桌面图标。</string>
+    <string name="intent_desc_shortcut_item">系统运行时实际观察到的单个 Manifest、Dynamic 或 Pinned ShortcutInfo，例如“扫一扫”“新建聊天”。可逐项隐藏，不会删除底层 Shortcut 数据。</string>
     <string name="intent_desc_document_provider">Storage Access Framework 的 DocumentsProvider，例如云盘、文件管理器或 NAS Provider。隐藏后不会卸载存储位置，也不会删除任何文件。</string>
     <string name="intent_desc_input_method">PackageManager 发现的 InputMethodService 输入法候选。不会启用、停用或切换当前输入法。</string>
     <string name="intent_desc_autofill">AutofillService 自动填充候选。过滤发现结果不会启用/停用自动填充，也不会修改当前默认自动填充服务。</string>
