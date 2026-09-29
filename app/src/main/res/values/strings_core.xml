@@ -63,8 +63,8 @@
     <string name="intent_process_text">Text processing</string>
     <string name="intent_home">Home candidates</string>
     <string name="intent_assistant">Assistant candidates</string>
-    <string name="intent_launcher_shortcut">Long-press shortcut apps</string>
-    <string name="intent_shortcut_item">Long-press shortcut items</string>
+    <string name="intent_launcher_shortcut">Legacy long-press shortcuts</string>
+    <string name="intent_shortcut_item">Long-press shortcuts</string>
     <string name="intent_document_provider">Storage locations</string>
     <string name="intent_input_method">Keyboards</string>
     <string name="intent_autofill">Autofill services</string>
