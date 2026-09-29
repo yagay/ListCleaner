@@ -3,6 +3,7 @@ package com.yagay.ListCleaner.ui
 import android.content.Context
 import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.data.RootComponent
+import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.OpenPreset
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,7 +46,7 @@ internal class BulkLockStore(context: Context) {
                 val index = entry.indexOf(marker)
                 val prefix = entry.substring(0, index + marker.length)
                 val id = entry.substring(index + marker.length)
-                val parsed = com.yagay.ListCleaner.domain.ComponentRule.fromId(id)
+                val parsed = ComponentRule.fromId(id)
                 if (parsed?.kind == IntentKind.BROWSER) {
                     changed = true
                     prefix + parsed.copy(kind = IntentKind.DEEP_LINK).id
@@ -58,6 +59,27 @@ internal class BulkLockStore(context: Context) {
     private fun entries(): Set<String> = cachedEntries
     private fun appKey(scope: String, appId: String) = listOf(scope, "app", appId).joinToString(SEPARATOR)
     private fun itemKey(scope: String, itemId: String) = listOf(scope, "item", itemId).joinToString(SEPARATOR)
+
+    private fun itemBelongsToApp(appId: String, itemId: String): Boolean {
+        if (itemId == appId) return true
+        ComponentRule.fromId(itemId)?.let { return it.packageName == appId }
+
+        // Root component app IDs are "user|package" and item IDs are
+        // "user|KIND|package/class". Parse only enough to identify the owner package.
+        val appParts = appId.split('|', limit = 2)
+        val itemParts = itemId.split('|', limit = 3)
+        if (appParts.size == 2 && itemParts.size == 3 && appParts[0] == itemParts[0]) {
+            return itemParts[2].substringBefore('/') == appParts[1]
+        }
+        return false
+    }
+
+    private fun removeChildLocksForApp(current: MutableSet<String>, scope: String, appId: String) {
+        val prefix = listOf(scope, "item").joinToString(SEPARATOR) + SEPARATOR
+        current.removeAll { entry ->
+            entry.startsWith(prefix) && itemBelongsToApp(appId, entry.removePrefix(prefix))
+        }
+    }
 
     fun isAppLocked(scope: String, appId: String): Boolean = appKey(scope, appId) in entries()
 
@@ -89,6 +111,8 @@ internal class BulkLockStore(context: Context) {
             current.add(app)
         } else {
             current.remove(app)
+            // Clear hidden/stale child locks too, not only rows visible in the current scan.
+            removeChildLocksForApp(current, scope, appId)
             ids.forEach { current.remove(itemKey(scope, it)) }
         }
         persist(current)
@@ -142,7 +166,6 @@ internal fun componentBulkLockScope(kind: CleanupKind?): String =
 
 internal fun componentBulkLockAppId(item: RootComponent): String =
     "${item.user}|${item.component.packageName}"
-
 
 internal fun browserRuleBulkLockScope(host: String): String =
     "rules:BROWSER:HOST:" + (com.yagay.ListCleaner.domain.normalizeBrowserHost(host) ?: host)
