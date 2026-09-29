@@ -121,19 +121,21 @@ class ShortcutSurfaceModule : XposedModule() {
             val rule = shortcutRule(shortcut, shortcut.activity) ?: return@filter true
             policy.displayMode.includes(rule.id in selected, selected.isNotEmpty())
         }
-        if (values.isNotEmpty() && filtered.isEmpty()) {
-            record(
-                "RESTORE_ALL_SHORTCUTS callerUid=${call.callerUid} callerPackage=${call.callingPackage} " +
-                    "before=${values.size}"
-            )
-            return@Hooker original
-        }
         val ordered = if (priorities.isEmpty() || filtered.size < 2) filtered else prioritizeApps(
             filtered, priorities,
             { (it as? ShortcutInfo)?.`package` ?: "" },
             { 0 },
         )
-        if (ordered == values) original else ordered
+        if (ordered == values) {
+            original
+        } else {
+            record(
+                "SHORTCUT_FILTER callerUid=${call.callerUid} callerPackage=${call.callingPackage} " +
+                    "before=${values.size} after=${ordered.size} removed=${values.size - filtered.size} " +
+                    "selected=${selected.size} priorities=${priorities.size} emptyAllowed=${ordered.isEmpty()}"
+            )
+            ordered
+        }
     }
 
     private fun installShareTargetHooks(classLoader: ClassLoader) {
@@ -186,10 +188,6 @@ class ShortcutSurfaceModule : XposedModule() {
             pair?.let { (shortcut, target) -> directShareRule(shortcut, target)?.id }
         }
 
-        // At this lower ShortcutService layer the ordinary Share app list is not available. Treat
-        // every package returned by this same query as visible, so this path applies only the
-        // explicit Direct Share target rules/order. Chooser-level app consistency still runs on
-        // ROMs that use sendShareShortcutInfoList(). Unknown targets remain fail-open.
         val queryPackages = targetPackages.filterNotNull().toSet()
         val keptIndices = directShareFilteredIndices(
             targetPackages = targetPackages,
