@@ -119,108 +119,100 @@ internal class RootComponentsController(
     fun change(target: RootComponent, enable: Boolean) = change(listOf(target), enable)
 
     fun change(visibleTargets: List<RootComponent>, enable: Boolean) {
-        if (mutableBusy.value) return
         val targets = visibleTargets.filter {
             it.blocked == null && it.enabled != null && it.enabled != enable
-        }.distinctBy { "${it.user}|${it.component.flattenToString()}" }
-        if (targets.isEmpty()) return
-        mutableRootNotice.value = null
-        mutableBusy.value = true
-        mutableMessage.value = app.getString(R.string.root_requesting_verify)
-        scope.launch {
-            withContext(Dispatchers.IO) {
-                val completedTargets = mutableListOf<RootComponent>()
-                try {
-                    catalog.requireRoot()
-                    var result = ""
-                    for (target in targets) {
-                        coroutineContext.ensureActive()
-                        mutableMessage.value = app.getString(
-                            if (enable) R.string.root_progress_enable else R.string.root_progress_disable,
-                            completedTargets.size + 1,
-                            targets.size,
-                            target.label
-                        )
-                        result = withContext(NonCancellable) { catalog.change(target, enable) }
-                        persistConfirmedState(target, disabled = !enable)
-                        completedTargets += target
-                    }
-                    mutableMessage.value = if (targets.size == 1) {
-                        result
-                    } else {
-                        app.getString(
-                            if (enable) R.string.root_batch_enabled else R.string.root_batch_disabled,
-                            completedTargets.size
-                        )
-                    }
-                } catch (cancelled: CancellationException) {
-                    Log.i(TAG, "Root component batch cancelled after ${completedTargets.size}/${targets.size}")
-                    throw cancelled
-                } catch (failure: ComponentRootCommand.RootAccessException) {
-                    val message = rootAccessMessage(failure)
-                    mutableMessage.value = message
-                    mutableRootNotice.value = message
-                } catch (failure: Exception) {
-                    Log.e(TAG, "Root component mutation failed after ${completedTargets.size}/${targets.size}", failure)
-                    mutableMessage.value = app.getString(
-                        R.string.root_batch_stopped,
-                        completedTargets.size,
-                        targets.size,
-                        mutationFailureText(failure)
-                    )
-                } finally {
-                    if (completedTargets.isNotEmpty()) {
-                        withContext(NonCancellable) { app.synchronize() }
-                        refreshAfterMutation(completedTargets)
-                    }
-                    mutableBusy.value = false
-                }
-            }
         }
+        mutateBatch(
+            visibleTargets = targets,
+            initialMessage = app.getString(R.string.root_requesting_verify),
+            targetEnable = { enable },
+            progressMessage = { index, total, target ->
+                app.getString(
+                    if (enable) R.string.root_progress_enable else R.string.root_progress_disable,
+                    index,
+                    total,
+                    target.label
+                )
+            },
+            successMessage = { completed, lastResult ->
+                if (targets.distinctRootTargets().size == 1) lastResult else app.getString(
+                    if (enable) R.string.root_batch_enabled else R.string.root_batch_disabled,
+                    completed
+                )
+            },
+            stoppedMessage = { completed, total, reason ->
+                app.getString(R.string.root_batch_stopped, completed, total, reason)
+            },
+            operationName = "mutation",
+        )
     }
 
     fun invert(visibleTargets: List<RootComponent>) {
+        mutateBatch(
+            visibleTargets = visibleTargets.filter { it.blocked == null && it.enabled != null },
+            initialMessage = app.getString(R.string.root_requesting_invert),
+            targetEnable = { it.enabled == false },
+            progressMessage = { index, total, target ->
+                app.getString(R.string.root_progress_invert, index, total, target.label)
+            },
+            successMessage = { completed, _ -> app.getString(R.string.root_batch_inverted, completed) },
+            stoppedMessage = { completed, total, reason ->
+                app.getString(R.string.root_invert_stopped, completed, total, reason)
+            },
+            operationName = "inversion",
+        )
+    }
+
+    private fun List<RootComponent>.distinctRootTargets(): List<RootComponent> =
+        distinctBy { "${it.user}|${it.component.flattenToString()}" }
+
+    private fun mutateBatch(
+        visibleTargets: List<RootComponent>,
+        initialMessage: String,
+        targetEnable: (RootComponent) -> Boolean,
+        progressMessage: (index: Int, total: Int, target: RootComponent) -> String,
+        successMessage: (completed: Int, lastResult: String) -> String,
+        stoppedMessage: (completed: Int, total: Int, reason: String) -> String,
+        operationName: String,
+    ) {
         if (mutableBusy.value) return
-        val targets = visibleTargets.filter {
-            it.blocked == null && it.enabled != null
-        }.distinctBy { "${it.user}|${it.component.flattenToString()}" }
+        val targets = visibleTargets.distinctRootTargets()
         if (targets.isEmpty()) return
         mutableRootNotice.value = null
         mutableBusy.value = true
-        mutableMessage.value = app.getString(R.string.root_requesting_invert)
+        mutableMessage.value = initialMessage
         scope.launch {
             withContext(Dispatchers.IO) {
                 val completedTargets = mutableListOf<RootComponent>()
+                var lastResult = ""
                 try {
                     catalog.requireRoot()
                     for (target in targets) {
                         coroutineContext.ensureActive()
-                        mutableMessage.value = app.getString(
-                            R.string.root_progress_invert,
+                        mutableMessage.value = progressMessage(
                             completedTargets.size + 1,
                             targets.size,
-                            target.label
+                            target,
                         )
-                        val enable = target.enabled == false
-                        withContext(NonCancellable) { catalog.change(target, enable) }
+                        val enable = targetEnable(target)
+                        lastResult = withContext(NonCancellable) { catalog.change(target, enable) }
                         persistConfirmedState(target, disabled = !enable)
                         completedTargets += target
                     }
-                    mutableMessage.value = app.getString(R.string.root_batch_inverted, completedTargets.size)
+                    mutableMessage.value = successMessage(completedTargets.size, lastResult)
                 } catch (cancelled: CancellationException) {
-                    Log.i(TAG, "Root component inversion cancelled after ${completedTargets.size}/${targets.size}")
+                    Log.i(TAG, "Root component $operationName cancelled after ${completedTargets.size}/${targets.size}")
                     throw cancelled
                 } catch (failure: ComponentRootCommand.RootAccessException) {
                     val message = rootAccessMessage(failure)
                     mutableMessage.value = message
                     mutableRootNotice.value = message
                 } catch (failure: Exception) {
-                    Log.e(TAG, "Root component inversion failed after ${completedTargets.size}/${targets.size}", failure)
-                    mutableMessage.value = app.getString(
-                        R.string.root_invert_stopped,
+                    Log.e(TAG, "Root component $operationName failed after ${completedTargets.size}/${targets.size}", failure)
+                    mutableMessage.value = stoppedMessage(
                         completedTargets.size,
                         targets.size,
-                        mutationFailureText(failure)
+                        mutationFailureText(failure),
                     )
                 } finally {
                     if (completedTargets.isNotEmpty()) {
