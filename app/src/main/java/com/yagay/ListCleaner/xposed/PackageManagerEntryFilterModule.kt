@@ -22,6 +22,7 @@ import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
+import java.io.File
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
 
@@ -31,6 +32,7 @@ class PackageManagerEntryFilterModule : XposedModule() {
         val kind: IntentKind,
         val component: (ResolveInfo) -> ComponentInfo?,
         val requiredPermission: String? = null,
+        val matchByPackage: Boolean = false,
     )
 
     @Volatile private var processName = ""
@@ -44,7 +46,11 @@ class PackageManagerEntryFilterModule : XposedModule() {
             preferences = preferences,
             selectRules = { config ->
                 config.rules.asSequence()
-                    .filter { it.kind == IntentKind.DOCUMENT_PROVIDER || it.kind.isSystemServiceEntry() }
+                    .filter {
+                        it.kind == IntentKind.ASSISTANT ||
+                            it.kind == IntentKind.DOCUMENT_PROVIDER ||
+                            it.kind.isSystemServiceEntry()
+                    }
                     .mapTo(linkedSetOf()) { it.id }
             },
             selectPriorities = { config ->
@@ -118,6 +124,14 @@ class PackageManagerEntryFilterModule : XposedModule() {
             return QuerySpec(IntentKind.DOCUMENT_PROVIDER, { it.providerInfo })
         }
         if ("Service" !in method.name) return null
+        if (action == VOICE_INTERACTION_SERVICE_INTERFACE) {
+            return QuerySpec(
+                kind = IntentKind.ASSISTANT,
+                component = { it.serviceInfo },
+                requiredPermission = BIND_VOICE_INTERACTION_PERMISSION,
+                matchByPackage = true,
+            )
+        }
         val kind = systemServiceEntryKind(action) ?: return null
         val definition = SYSTEM_SERVICE_ENTRY_DEFINITIONS.firstOrNull { it.action == action } ?: return null
         return QuerySpec(kind, { it.serviceInfo }, definition.requiredPermission)
@@ -126,19 +140,43 @@ class PackageManagerEntryFilterModule : XposedModule() {
     private fun entryHooker(method: Method) = XposedInterface.Hooker { chain ->
         val intent = chain.args.firstOrNull { it is Intent } as? Intent ?: return@Hooker chain.proceed()
         val spec = querySpec(method, intent) ?: return@Hooker chain.proceed()
+        val binderUid = Binder.getCallingUid()
+        val binderPid = Binder.getCallingPid()
         val callerUid = HookCallIdentity.packageManagerCallerUid(
             methodName = method.name,
             parameterTypeNames = method.parameterTypes.map { it.name },
             args = chain.args,
-            binderUid = Binder.getCallingUid(),
+            binderUid = binderUid,
         )
-        if (!FilterPolicy.ordinaryAppCaller(callerUid)) return@Hooker chain.proceed()
 
         val policy = effectivePolicy()
         if (ManagerIdentity.matches(callerUid, policy.managerAppId)) return@Hooker chain.proceed()
         val selected = policy.selected(spec.kind)
         val priorities = policy.priorities(spec.kind)
         if (selected.isEmpty() && priorities.isEmpty()) return@Hooker chain.proceed()
+
+        val callerProcess = callerProcessName(binderPid)
+        val ordinaryCaller = FilterPolicy.ordinaryAppCaller(callerUid)
+        val privilegedConfigurationUi = !ordinaryCaller && isExternalConfigurationUiCaller(binderPid, callerProcess)
+        if (!ordinaryCaller && !privilegedConfigurationUi) {
+            record(
+                "SYSTEM_CALLER_BYPASS kind=${spec.kind} action=${(intent.selector ?: intent).action} " +
+                    "callerUid=$callerUid binderUid=$binderUid callerPid=$binderPid " +
+                    "callerProcess=${callerProcess ?: "unknown"}"
+            )
+            return@Hooker chain.proceed()
+        }
+
+        val selectedPackages = if (spec.matchByPackage) {
+            selected.asSequence()
+                .mapNotNull(ComponentRule::fromId)
+                .mapTo(linkedSetOf()) { it.packageName }
+        } else emptySet()
+        record(
+            "QUERY kind=${spec.kind} action=${(intent.selector ?: intent).action} callerUid=$callerUid " +
+                "callerPid=$binderPid callerProcess=${callerProcess ?: "unknown"} " +
+                "match=${if (spec.matchByPackage) "package" else "component"} selected=${selected.size}"
+        )
 
         val original = chain.proceed()
         val result = listResults.extract(original) ?: return@Hooker original
@@ -154,15 +192,15 @@ class PackageManagerEntryFilterModule : XposedModule() {
                 ) return@filter true
                 val rule = ComponentRule(spec.kind, component.packageName, component.name)
                 if (!rule.isValid()) return@filter true
-                val include = policy.displayMode.includes(rule.id in selected, selected.isNotEmpty())
+                val selectedMatch = if (spec.matchByPackage) {
+                    component.packageName in selectedPackages
+                } else {
+                    rule.id in selected
+                }
+                val include = policy.displayMode.includes(selectedMatch, selected.isNotEmpty())
                 if (!include) removed++
                 include
             }
-        }
-
-        if (result.values.isNotEmpty() && filtered.isEmpty()) {
-            record("RESTORE_ALL kind=${spec.kind} callerUid=$callerUid before=${result.values.size}")
-            return@Hooker original
         }
 
         val ordered = if (priorities.isEmpty() || filtered.size < 2) filtered else prioritizeApps(
@@ -177,9 +215,28 @@ class PackageManagerEntryFilterModule : XposedModule() {
         if (removed == 0 && ordered == result.values) return@Hooker original
         record(
             "RESULT kind=${spec.kind} callerUid=$callerUid before=${result.values.size} " +
-                "after=${ordered.size} removed=$removed priorities=${priorities.size}"
+                "after=${ordered.size} removed=$removed priorities=${priorities.size} " +
+                "emptyAllowed=${ordered.isEmpty()}"
         )
         result.rebuild(ordered)
+    }
+
+    private fun isExternalConfigurationUiCaller(pid: Int, process: String?): Boolean {
+        if (pid <= 0 || pid == Process.myPid()) return false
+        val value = process?.lowercase() ?: return false
+        return "settings" in value || "permissioncontroller" in value ||
+            "rolecontroller" in value || "role.controller" in value
+    }
+
+    private fun callerProcessName(pid: Int): String? {
+        if (pid <= 0) return null
+        return runCatching {
+            File("/proc/$pid/cmdline").inputStream().use { input ->
+                val buffer = ByteArray(256)
+                val count = input.read(buffer)
+                if (count <= 0) null else String(buffer, 0, count).substringBefore('\u0000').trim().ifBlank { null }
+            }
+        }.getOrNull()
     }
 
     private fun record(message: String) {
@@ -192,6 +249,8 @@ class PackageManagerEntryFilterModule : XposedModule() {
         const val TAG = "ListCleaner.PmEntries"
         const val HOOK_ID = "lc-pm-entry-filter"
         const val PER_USER_RANGE = 100_000
+        const val VOICE_INTERACTION_SERVICE_INTERFACE = "android.service.voice.VoiceInteractionService"
+        const val BIND_VOICE_INTERACTION_PERMISSION = "android.permission.BIND_VOICE_INTERACTION"
         val QUERY_METHODS = setOf(
             "queryIntentServices", "queryIntentServicesAsUser", "queryIntentServicesInternal",
             "queryIntentContentProviders", "queryIntentContentProvidersAsUser", "queryIntentContentProvidersInternal",
