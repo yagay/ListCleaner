@@ -1,11 +1,15 @@
 package com.yagay.ListCleaner.xposed
 
+import android.app.Activity
 import android.content.ComponentName
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.pm.ResolveInfo
 import android.content.pm.ShortcutInfo
 import android.os.Process
 import android.util.Log
+import android.view.View
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.DisplayMode
@@ -20,14 +24,17 @@ import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
+import java.lang.reflect.Field
 import java.lang.reflect.Method
+import java.util.Collections
+import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Vendor-neutral compatibility layer for apps that embed their own Direct Share row.
  *
  * OEM-specific knowledge is declarative in [EmbeddedDirectShareProfiles]. The filtering,
- * observation, ordering and rule-id logic remain shared with the system Direct Share path.
+ * observation, ordering, empty-surface collapsing and rule-id logic stay shared.
  */
 class EmbeddedDirectShareModule : XposedModule() {
     private data class ParsedTarget(
@@ -36,8 +43,15 @@ class EmbeddedDirectShareModule : XposedModule() {
         val observed: ObservedEntryRecord?,
     )
 
+    private data class HiddenViewState(
+        val visibility: Int,
+        val layoutHeight: Int?,
+    )
+
     @Volatile private var processName = ""
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
+    private val hiddenViews: MutableMap<View, HiddenViewState> =
+        Collections.synchronizedMap(WeakHashMap())
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
@@ -105,7 +119,7 @@ class EmbeddedDirectShareModule : XposedModule() {
                     if (!installedMethods.add(key)) return@forEach
                     runCatching {
                         method.isAccessible = true
-                        hook(method).setId(HOOK_ID).intercept(adapterRefreshHooker(profile.id))
+                        hook(method).setId(HOOK_ID).intercept(adapterRefreshHooker(profile))
                         installed++
                         record("HOOK_INSTALLED profile=${profile.id} method=${method.toGenericString()}")
                     }.onFailure {
@@ -131,19 +145,24 @@ class EmbeddedDirectShareModule : XposedModule() {
         }
     }
 
-    private fun adapterRefreshHooker(profileId: String) = XposedInterface.Hooker { chain ->
+    private fun adapterRefreshHooker(profile: EmbeddedDirectShareHostProfile) = XposedInterface.Hooker { chain ->
         val original = chain.proceed()
         val adapter = chain.thisObject ?: return@Hooker original
         val policy = effectivePolicy()
         val selected = policy.selected(IntentKind.DIRECT_SHARE)
         val priorities = policy.priorities(IntentKind.DIRECT_SHARE)
-        if ((policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) && priorities.isEmpty()) {
+        val filteringActive =
+            policy.displayMode != DisplayMode.SHOW_ALL && selected.isNotEmpty() || priorities.isNotEmpty()
+        if (!filteringActive) {
+            updateEmptySurface(profile, adapter, empty = false)
             return@Hooker original
         }
 
         val lists = mutableTargetLists(adapter)
         if (lists.isEmpty()) {
-            record("LISTS_EMPTY profile=$profileId adapter=${adapter.javaClass.name}")
+            val empty = adapterItemCount(adapter)?.let { it <= 0 } ?: false
+            updateEmptySurface(profile, adapter, empty)
+            record("LISTS_EMPTY profile=${profile.id} adapter=${adapter.javaClass.name} empty=$empty")
             return@Hooker original
         }
 
@@ -183,38 +202,131 @@ class EmbeddedDirectShareModule : XposedModule() {
             changedLists++
         }
 
+        val empty = adapterItemCount(adapter)?.let { it <= 0 }
+            ?: (parsedCount > 0 && afterCount == 0)
+        updateEmptySurface(profile, adapter, empty)
+
         val persisted = observedPersistence.merge(observed)
         if (changedLists > 0) {
             runCatching {
                 findNoArgMethod(adapter.javaClass, "notifyDataSetChanged")?.invoke(adapter)
             }.onFailure {
-                record("NOTIFY_FAILED profile=$profileId error=${it.javaClass.name}")
+                record("NOTIFY_FAILED profile=${profile.id} error=${it.javaClass.name}")
             }
             record(
-                "FILTER profile=$profileId lists=$changedLists before=$beforeCount after=$afterCount " +
+                "FILTER profile=${profile.id} lists=$changedLists before=$beforeCount after=$afterCount " +
                     "parsed=$parsedCount selected=${selected.size} priorities=${priorities.size} " +
-                    "observed=${observed.size} persisted=$persisted"
+                    "empty=$empty observed=${observed.size} persisted=$persisted"
             )
         } else {
             record(
-                "HIT profile=$profileId lists=${lists.size} parsed=$parsedCount selected=${selected.size} " +
-                    "priorities=${priorities.size} observed=${observed.size} persisted=$persisted"
+                "HIT profile=${profile.id} lists=${lists.size} parsed=$parsedCount selected=${selected.size} " +
+                    "priorities=${priorities.size} empty=$empty observed=${observed.size} persisted=$persisted"
             )
         }
         original
     }
 
+    private fun updateEmptySurface(profile: EmbeddedDirectShareHostProfile, adapter: Any, empty: Boolean) {
+        if (profile.collapseWhenEmptyResourceNames.isEmpty()) return
+        val root = findHostRoot(adapter) ?: return
+        val resources = root.resources
+        val packageName = root.context.packageName
+        var changed = 0
+
+        profile.collapseWhenEmptyResourceNames.forEach { entryName ->
+            val resourceId = resources.getIdentifier(entryName, "id", packageName)
+            if (resourceId == 0) return@forEach
+            val view = root.findViewById<View>(resourceId) ?: return@forEach
+            val didChange = if (empty) hideView(view) else restoreView(view)
+            if (didChange) changed++
+        }
+
+        if (changed > 0) {
+            record("EMPTY_SURFACE profile=${profile.id} empty=$empty changedViews=$changed")
+        }
+    }
+
+    private fun hideView(view: View): Boolean {
+        synchronized(hiddenViews) {
+            if (hiddenViews.containsKey(view)) return false
+            hiddenViews[view] = HiddenViewState(
+                visibility = view.visibility,
+                layoutHeight = view.layoutParams?.height,
+            )
+        }
+        view.visibility = View.GONE
+        view.layoutParams?.let { params ->
+            params.height = 0
+            view.layoutParams = params
+        }
+        view.requestLayout()
+        return true
+    }
+
+    private fun restoreView(view: View): Boolean {
+        val state = synchronized(hiddenViews) { hiddenViews.remove(view) } ?: return false
+        view.layoutParams?.let { params ->
+            state.layoutHeight?.let { params.height = it }
+            view.layoutParams = params
+        }
+        view.visibility = state.visibility
+        view.requestLayout()
+        return true
+    }
+
+    private fun findHostRoot(adapter: Any): View? {
+        allFields(adapter.javaClass).forEach { field ->
+            if (!View::class.java.isAssignableFrom(field.type)) return@forEach
+            val view = readField(field, adapter) as? View
+            if (view != null) return view.rootView ?: view
+        }
+
+        allFields(adapter.javaClass).forEach { field ->
+            if (!Context::class.java.isAssignableFrom(field.type)) return@forEach
+            val context = readField(field, adapter) as? Context ?: return@forEach
+            val activity = unwrapActivity(context) ?: return@forEach
+            return activity.window?.decorView
+        }
+        return null
+    }
+
+    private fun unwrapActivity(context: Context): Activity? {
+        var current: Context? = context
+        repeat(10) {
+            when (val value = current) {
+                is Activity -> return value
+                is ContextWrapper -> {
+                    val next = value.baseContext
+                    if (next === value) return null
+                    current = next
+                }
+                else -> return null
+            }
+        }
+        return null
+    }
+
+    private fun readField(field: Field, receiver: Any): Any? = runCatching {
+        field.isAccessible = true
+        field.get(receiver)
+    }.getOrNull()
+
+    private fun allFields(clazz: Class<*>): Sequence<Field> =
+        generateSequence(clazz as Class<*>?) { it.superclass }
+            .flatMap { it.declaredFields.asSequence() }
+
+    private fun adapterItemCount(adapter: Any): Int? = runCatching {
+        (findNoArgMethod(adapter.javaClass, "getItemCount")?.invoke(adapter) as? Number)?.toInt()
+    }.getOrNull()
+
     @Suppress("UNCHECKED_CAST")
     private fun mutableTargetLists(adapter: Any): List<MutableList<Any?>> {
         val result = mutableListOf<MutableList<Any?>>()
-        generateSequence(adapter.javaClass as Class<*>?) { it.superclass }
-            .flatMap { it.declaredFields.asSequence() }
+        allFields(adapter.javaClass)
             .filter { java.util.List::class.java.isAssignableFrom(it.type) }
             .forEach { field ->
-                val value = runCatching {
-                    field.isAccessible = true
-                    field.get(adapter)
-                }.getOrNull() as? MutableList<Any?> ?: return@forEach
+                val value = readField(field, adapter) as? MutableList<Any?> ?: return@forEach
                 if (result.none { it === value }) result += value
             }
         return result
