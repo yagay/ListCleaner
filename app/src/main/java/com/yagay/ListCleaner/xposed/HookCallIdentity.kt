@@ -1,11 +1,11 @@
 package com.yagay.ListCleaner.xposed
 
 /**
- * Small reflection-layout helpers for system_server hooks.
+ * Reflection-layout helpers for system_server hooks.
  *
  * Internal PackageManager/ShortcutService methods often carry the original caller UID explicitly.
  * Binder.getCallingUid() is not authoritative after framework code clears/restores Binder identity,
- * so hooks should prefer the explicit argument whenever the known signature exposes one.
+ * so hooks prefer the explicit argument whenever a known signature exposes one.
  */
 internal object HookCallIdentity {
     data class ShortcutCall(
@@ -15,7 +15,7 @@ internal object HookCallIdentity {
         val explicitCallerUid: Boolean,
     )
 
-    fun serviceCallerUid(
+    fun packageManagerCallerUid(
         methodName: String,
         parameterTypeNames: List<String>,
         args: List<Any?>,
@@ -27,10 +27,17 @@ internal object HookCallIdentity {
         val ints = parameterTypeNames.indices.filter { index ->
             index > intentIndex && parameterTypeNames[index] == "int"
         }
-        // AOSP queryIntentServicesInternal(..., int userId, int callingUid, ...)
+        // AOSP queryIntent*Internal(..., int userId, int callingUid, int callingPid, ...)
         val callerIndex = ints.getOrNull(1) ?: return binderUid
         return args.getOrNull(callerIndex) as? Int ?: binderUid
     }
+
+    fun serviceCallerUid(
+        methodName: String,
+        parameterTypeNames: List<String>,
+        args: List<Any?>,
+        binderUid: Int,
+    ): Int = packageManagerCallerUid(methodName, parameterTypeNames, args, binderUid)
 
     fun shortcutCall(
         parameterTypeNames: List<String>,
@@ -47,9 +54,6 @@ internal object HookCallIdentity {
             emptyList()
         }
 
-        // Modern AOSP LocalService#getShortcuts has:
-        // ... ComponentName, int queryFlags, int userId, int callingPid, int callingUid.
-        // Older releases may omit pid/uid; in that case Binder UID is the safe fallback.
         val queryFlagsIndex = intsAfterComponent.firstOrNull()
         val explicitCallerIndex = intsAfterComponent.getOrNull(3)
         val explicitUid = explicitCallerIndex?.let { args.getOrNull(it) as? Int }
