@@ -51,9 +51,17 @@ data class ModuleConfig(
             if (parsed.kind == IntentKind.BROWSER) parsed.id to parsed.copy(kind = IntentKind.DEEP_LINK).id
             else null
         }.toMap()
-        val migratedIds = legacyDomainIds + assistantIds
         val migratedTitles = cleanPriorities.titles.toMutableMap()
-        migratedIds.forEach { (oldId, newId) ->
+        // Browser/Deep Link compatibility historically copies the title while retaining the old
+        // Browser key; do not change that established backup/UI behavior.
+        legacyDomainIds.forEach { (oldId, newId) ->
+            migratedTitles[oldId]?.let { title ->
+                if (newId !in migratedTitles) migratedTitles[newId] = title
+            }
+        }
+        // Assistant component identities are retired, so move the title to the package key and
+        // remove the obsolete component key to avoid duplicate unavailable entries after upgrade.
+        assistantIds.forEach { (oldId, newId) ->
             migratedTitles[oldId]?.let { title ->
                 if (newId !in migratedTitles) migratedTitles[newId] = title
                 migratedTitles.remove(oldId)
