@@ -26,7 +26,7 @@ import java.io.File
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
 
-/** Shared non-destructive PackageManager entry filter for provider/service chooser surfaces. */
+/** Shared non-destructive PackageManager entry filter for role/activity/provider/service surfaces. */
 class PackageManagerEntryFilterModule : XposedModule() {
     private data class QuerySpec(
         val kind: IntentKind,
@@ -120,6 +120,13 @@ class PackageManagerEntryFilterModule : XposedModule() {
 
     private fun querySpec(method: Method, intent: Intent): QuerySpec? {
         val action = (intent.selector ?: intent).action ?: return null
+        if (action == Intent.ACTION_ASSIST && "Activit" in method.name) {
+            return QuerySpec(
+                kind = IntentKind.ASSISTANT,
+                component = { it.activityInfo },
+                matchByPackage = true,
+            )
+        }
         if (action == DocumentsContract.PROVIDER_INTERFACE && "ContentProvider" in method.name) {
             return QuerySpec(IntentKind.DOCUMENT_PROVIDER, { it.providerInfo })
         }
@@ -252,6 +259,7 @@ class PackageManagerEntryFilterModule : XposedModule() {
         const val VOICE_INTERACTION_SERVICE_INTERFACE = "android.service.voice.VoiceInteractionService"
         const val BIND_VOICE_INTERACTION_PERMISSION = "android.permission.BIND_VOICE_INTERACTION"
         val QUERY_METHODS = setOf(
+            "queryIntentActivities", "queryIntentActivitiesAsUser", "queryIntentActivitiesInternal",
             "queryIntentServices", "queryIntentServicesAsUser", "queryIntentServicesInternal",
             "queryIntentContentProviders", "queryIntentContentProvidersAsUser", "queryIntentContentProvidersInternal",
         )
