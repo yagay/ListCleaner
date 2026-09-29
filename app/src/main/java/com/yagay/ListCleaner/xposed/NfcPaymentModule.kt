@@ -1,0 +1,171 @@
+package com.yagay.ListCleaner.xposed
+
+import android.content.ComponentName
+import android.os.Binder
+import android.os.Process
+import android.util.Log
+import com.yagay.ListCleaner.data.ObservedEntryCache
+import com.yagay.ListCleaner.data.RuleRepository
+import com.yagay.ListCleaner.domain.ComponentRule
+import com.yagay.ListCleaner.domain.DisplayMode
+import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.ManagerIdentity
+import com.yagay.ListCleaner.domain.ObservedEntryRecord
+import io.github.libxposed.api.XposedInterface
+import io.github.libxposed.api.XposedModule
+import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
+import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
+import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
+import java.lang.reflect.Method
+import java.util.concurrent.ConcurrentHashMap
+
+/** Filters the NFC service's authoritative CATEGORY_PAYMENT list. */
+class NfcPaymentModule : XposedModule() {
+    @Volatile private var processName = ""
+    private val installedMethods = ConcurrentHashMap.newKeySet<String>()
+    private var policyStarted = false
+
+    private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        getRemotePreferences(RuleRepository.REMOTE_PREFS)
+    }
+    private val persistence by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        RemoteObservedEntryPersistence(preferences, ::record)
+    }
+    private val fallback by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        RemoteEntryPolicyFallback(
+            preferences = preferences,
+            selectRules = { config ->
+                config.rules.filter { it.kind == IntentKind.NFC_HCE }.mapTo(linkedSetOf()) { it.id }
+            },
+            selectPriorities = { emptyMap() },
+            record = ::record,
+        )
+    }
+
+    override fun onModuleLoaded(param: ModuleLoadedParam) {
+        processName = param.processName
+        record("MODULE_LOADED")
+    }
+
+    override fun onHotReloading(param: HotReloadingParam): Boolean = false
+
+    override fun onPackageReady(param: PackageReadyParam) {
+        if (param.packageName != NFC_PACKAGE) return
+        NFC_MANAGER_CLASSES.forEach { className ->
+            val clazz = runCatching { Class.forName(className, false, param.classLoader) }.getOrNull()
+                ?: return@forEach
+            clazz.declaredMethods.asSequence()
+                .filter(::isPaymentServicesMethod)
+                .forEach { method ->
+                    val key = method.toGenericString()
+                    if (!installedMethods.add(key)) return@forEach
+                    runCatching {
+                        method.isAccessible = true
+                        hook(method).setId(HOOK_ID).intercept(paymentServicesHooker())
+                        startPolicyOnce()
+                        record("HOOK_INSTALLED class=$className method=$key")
+                    }.onFailure {
+                        installedMethods.remove(key)
+                        record("HOOK_FAILED class=$className method=$key error=${it.javaClass.name}")
+                    }
+                }
+        }
+    }
+
+    private fun isPaymentServicesMethod(method: Method): Boolean =
+        method.name == "getServices" &&
+            List::class.java.isAssignableFrom(method.returnType) &&
+            method.parameterTypes.any { it == String::class.java }
+
+    private fun paymentServicesHooker() = XposedInterface.Hooker { chain ->
+        val category = chain.args.firstOrNull { it is String } as? String
+            ?: return@Hooker chain.proceed()
+        if (category != PAYMENT_CATEGORY) return@Hooker chain.proceed()
+
+        val original = chain.proceed()
+        val values = original as? List<*> ?: return@Hooker original
+        val components = values.mapNotNull(::componentOf)
+        persistObservations(components)
+
+        val policy = effectivePolicy()
+        val callerUid = Binder.getCallingUid()
+        val callerPid = Binder.getCallingPid()
+        if (ManagerIdentity.matches(callerUid, policy.managerAppId) || callerPid == Process.myPid()) {
+            return@Hooker original
+        }
+        val selected = policy.selected(IntentKind.NFC_HCE)
+        if (policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) return@Hooker original
+
+        val filtered = values.filter { value ->
+            val component = componentOf(value) ?: return@filter true
+            val rule = ComponentRule(IntentKind.NFC_HCE, component.packageName, component.className)
+            policy.displayMode.includes(rule.id in selected, selected.isNotEmpty())
+        }
+        if (filtered.size == values.size) return@Hooker original
+        record(
+            "FILTER category=$category callerUid=$callerUid before=${values.size} after=${filtered.size} selected=${selected.size}"
+        )
+        ArrayList(filtered)
+    }
+
+    private fun componentOf(value: Any?): ComponentName? = runCatching {
+        val method = value?.javaClass?.methods?.firstOrNull {
+            it.name == "getComponent" && it.parameterCount == 0
+        } ?: value?.javaClass?.declaredMethods?.firstOrNull {
+            it.name == "getComponent" && it.parameterCount == 0
+        } ?: return@runCatching null
+        method.isAccessible = true
+        method.invoke(value) as? ComponentName
+    }.getOrNull()
+
+    private fun persistObservations(components: List<ComponentName>) {
+        if (components.isEmpty()) return
+        val now = System.currentTimeMillis()
+        persistence.merge(components.distinct().map { component ->
+            ObservedEntryRecord(
+                kind = IntentKind.NFC_HCE.name,
+                packageName = component.packageName,
+                syntheticClass = component.className,
+                activityClass = component.className,
+                observedAt = now,
+            )
+        })
+    }
+
+    private fun startPolicyOnce() {
+        if (policyStarted) return
+        synchronized(this) {
+            if (policyStarted) return
+            fallback.start()
+            policyStarted = true
+        }
+    }
+
+    private fun effectivePolicy(): RuntimeComponentPolicySnapshot {
+        val runtime = RuntimeComponentPolicy.snapshot()
+        if (runtime.authoritative) return runtime
+        val local = fallback.snapshot()
+        return fallbackRuntimePolicy(
+            managerAppId = local.managerAppId,
+            displayMode = local.displayMode,
+            entryRules = local.rules,
+            entryPriorities = emptyMap(),
+        )
+    }
+
+    private fun record(message: String) {
+        val line = "pid=${Process.myPid()} process=$processName $message"
+        runCatching { Log.i(TAG, line) }
+        runCatching { log(Log.INFO, TAG, line) }
+    }
+
+    private companion object {
+        const val TAG = "ListCleaner.NfcPayment"
+        const val HOOK_ID = "lc-nfc-payment-services"
+        const val NFC_PACKAGE = "com.android.nfc"
+        const val PAYMENT_CATEGORY = "payment"
+        val NFC_MANAGER_CLASSES = listOf(
+            "com.android.nfc.cardemulation.CardEmulationManager",
+        )
+    }
+}
