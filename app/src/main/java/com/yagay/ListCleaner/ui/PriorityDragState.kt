@@ -26,16 +26,36 @@ internal class PriorityDragState(private val list: LazyListState) {
         private set
 
     fun start(y: Float, kind: String, visible: List<String>, saved: List<String>): Boolean {
-        val keys = visible.associateBy { "app|$kind|$it" }
+        val visibleSet = visible.toSet()
         val layout = list.layoutInfo
         val top = contentTop()
         if (y < top || y >= layout.viewportEndOffset) return false
-        val row = layout.visibleItemsInfo.firstOrNull {
-            it.key in keys && y >= it.offset && y < it.offset + it.size
+        val row = layout.visibleItemsInfo.firstOrNull { info ->
+            val key = info.key as? String ?: return@firstOrNull false
+            if (!key.startsWith("app|$kind|") || y < info.offset || y >= info.offset + info.size) {
+                return@firstOrNull false
+            }
+            key.substringAfterLast('|') in visibleSet
         } ?: return false
-        val pkg = keys.getValue(row.key as String)
-        session = PriorityDragSession(pkg, pkg, saved.toList(), visible.toList(), keys,
-            y, y - row.offset, row.size)
+        val key = row.key as String
+        val pkg = key.substringAfterLast('|')
+        val keys = layout.visibleItemsInfo.mapNotNull { info ->
+            val rowKey = info.key as? String ?: return@mapNotNull null
+            if (!rowKey.startsWith("app|$kind|")) return@mapNotNull null
+            val candidate = rowKey.substringAfterLast('|')
+            if (candidate !in visibleSet) return@mapNotNull null
+            rowKey to candidate
+        }.toMap()
+        session = PriorityDragSession(
+            pkg,
+            pkg,
+            saved.toList(),
+            visible.toList(),
+            keys,
+            y,
+            y - row.offset,
+            row.size,
+        )
         return true
     }
 
