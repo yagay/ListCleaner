@@ -47,6 +47,15 @@ object PersistentComponentState {
         .toSet()
 }
 
+enum class ComponentPersistenceResult {
+    LOCAL_FAILED,
+    LOCAL_SAVED,
+    FULLY_SYNCED;
+
+    val localSaved: Boolean get() = this != LOCAL_FAILED
+    val remoteSynced: Boolean get() = this == FULLY_SYNCED
+}
+
 /** Local source of truth plus a best-effort mirror into libxposed remote preferences. */
 class PersistentComponentStore(private val app: ListCleanerApp) {
     private val prefs = app.getSharedPreferences(PersistentComponentState.LOCAL_PREFS, Context.MODE_PRIVATE)
@@ -61,19 +70,24 @@ class PersistentComponentStore(private val app: ListCleanerApp) {
 
     /**
      * Update local intent first, then mirror the complete set to system_server's remote preferences.
-     * A remote write failure does not discard the local intent; the next screen refresh retries it.
+     * Local persistence is authoritative. A remote mirror failure is recoverable because the next
+     * synchronization transports the locally persisted set again.
      */
     @Synchronized
-    fun setDisabled(component: RootComponent, disabled: Boolean): Boolean {
+    fun setDisabled(component: RootComponent, disabled: Boolean): ComponentPersistenceResult {
         val key = PersistentComponentState.key(component.user, component.component)
         val next = disabledKeys().toMutableSet().apply {
             if (disabled) add(key) else remove(key)
         }.toSet()
         if (!prefs.edit().putStringSet(PersistentComponentState.LOCAL_KEY, next).commit()) {
             Log.e(TAG, "Failed to persist desired component state for $key")
-            return false
+            return ComponentPersistenceResult.LOCAL_FAILED
         }
-        return syncRemote(next)
+        return if (syncRemote(next)) {
+            ComponentPersistenceResult.FULLY_SYNCED
+        } else {
+            ComponentPersistenceResult.LOCAL_SAVED
+        }
     }
 
     @Synchronized
