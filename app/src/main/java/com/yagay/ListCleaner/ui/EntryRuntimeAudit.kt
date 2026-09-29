@@ -123,6 +123,8 @@ internal object EntryRuntimeAudit {
             return !line.contains("DIRECT_") && !line.contains("DIRECT_SHARE") && !line.contains("getShareTargets")
         }
 
+        if (line.contains("ListCleaner.SystemManagers") && managerLogMatches(kind, line)) return true
+
         if ((EntryRuntimePath.PACKAGE_MANAGER_SERVICE in coveredPaths ||
                 EntryRuntimePath.PACKAGE_MANAGER_PROVIDER in coveredPaths) &&
             line.contains("ListCleaner.PmEntries")
@@ -141,6 +143,13 @@ internal object EntryRuntimeAudit {
         return false
     }
 
+    private fun managerLogMatches(kind: IntentKind, line: String): Boolean = when (kind) {
+        IntentKind.ACCESSIBILITY -> line.contains("kind=ACCESSIBILITY") || line.contains("lc-accessibility-manager")
+        IntentKind.INPUT_METHOD -> line.contains("kind=INPUT_METHOD") || line.contains("lc-ime-manager") || line.contains("IME_BRIDGE")
+        IntentKind.PRINT -> line.contains("kind=PRINT") || line.contains("lc-print-manager")
+        else -> false
+    }
+
     private fun isHookReady(line: String): Boolean =
         line.contains("HOOK_INSTALLED") || line.contains("HOOKS_READY") ||
             line.contains("SYSTEM_HOOKS") || line.contains("RESOLVER_HOOKS") ||
@@ -148,11 +157,13 @@ internal object EntryRuntimeAudit {
 
     private fun isQuery(line: String): Boolean =
         line.contains(" QUERY ") || line.contains(" HIT ") || line.contains("_HIT ") ||
+            line.contains("MANAGER_HIT") || line.contains("IME_BRIDGE") ||
             line.contains("LISTS_EMPTY")
 
     private fun isFilter(line: String): Boolean =
         line.contains(" FILTER ") || line.contains("DIRECT_FILTER") || line.contains("FILTERED") ||
-            line.contains("SHORTCUT_FILTER") || line.contains("RESULT kind=") ||
+            line.contains("SHORTCUT_FILTER") || line.contains("MANAGER_FILTER") ||
+            line.contains("RESULT kind=") ||
             (line.contains(" before=") && line.contains(" after=")) ||
             ARROW_FILTER.containsMatchIn(line)
 
