@@ -24,13 +24,13 @@ fun IntentKind.entryGroup(): EntryGroup = when (this) {
     IntentKind.CAPTURE_IMAGE,
     IntentKind.CAPTURE_VIDEO,
     IntentKind.RECORD_AUDIO,
-    IntentKind.PROCESS_TEXT -> EntryGroup.OPEN
+    IntentKind.PROCESS_TEXT,
+    IntentKind.ASSISTANT -> EntryGroup.OPEN
 
+    IntentKind.HOME,
     IntentKind.LAUNCHER_SHORTCUT,
     IntentKind.SHORTCUT_ITEM -> EntryGroup.DESKTOP
 
-    IntentKind.HOME,
-    IntentKind.ASSISTANT,
     IntentKind.DOCUMENT_PROVIDER,
     IntentKind.INPUT_METHOD,
     IntentKind.AUTOFILL,
@@ -45,7 +45,7 @@ fun IntentKind.entryGroup(): EntryGroup = when (this) {
     IntentKind.CALL_SCREENING -> EntryGroup.ADVANCED
 }
 
-/** LAUNCHER_SHORTCUT is retained only so old test backups/configs can still deserialize. */
+/** Legacy app-level shortcut surface is deserializable but no longer selectable or executable. */
 fun IntentKind.isSelectableEntryKind(): Boolean = this != IntentKind.LAUNCHER_SHORTCUT
 
 fun EntryGroup.kinds(): List<IntentKind> =
