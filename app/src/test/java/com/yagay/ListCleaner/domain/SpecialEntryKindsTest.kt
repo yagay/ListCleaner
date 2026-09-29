@@ -7,13 +7,25 @@ import org.junit.Test
 
 class SpecialEntryKindsTest {
     @Test
-    fun specialEntryRulesRoundTripWithoutPackageVisibilityScope() {
-        listOf(IntentKind.LAUNCHER_SHORTCUT, IntentKind.DOCUMENT_PROVIDER).forEach { kind ->
+    fun activeSpecialEntryRulesRoundTripWithoutPackageVisibilityScope() {
+        listOf(IntentKind.SHORTCUT_ITEM, IntentKind.DOCUMENT_PROVIDER).forEach { kind ->
             val rule = ComponentRule(kind, "com.example.app", "com.example.app.Entry")
             assertTrue(rule.isValid())
             assertEquals(rule, ComponentRule.fromId(rule.id))
             assertNull(VisibilityScope.forKind(kind))
         }
+    }
+
+    @Test
+    fun retiredLauncherShortcutRuleDoesNotRoundTrip() {
+        val legacy = ComponentRule(
+            IntentKind.LAUNCHER_SHORTCUT,
+            "com.example.app",
+            "com.example.app.Entry",
+        )
+        assertTrue(legacy.isValid())
+        assertNull(ComponentRule.fromId(legacy.id))
+        assertNull(VisibilityScope.forKind(IntentKind.LAUNCHER_SHORTCUT))
     }
 
     @Test
