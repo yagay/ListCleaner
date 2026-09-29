@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.util.Log
 import com.yagay.ListCleaner.R
+import com.yagay.ListCleaner.domain.EmbeddedDirectShareProfiles
 import com.yagay.ListCleaner.domain.IntentKind
 
 data class ResolverHost(
@@ -15,12 +16,12 @@ data class ResolverHost(
     val processName: String,
     val scenarios: Set<String>
 ) {
-    val requiresManualScope: Boolean get() = when (packageName) {
-        "system" -> false
-        "com.android.intentresolver" -> false
-        "com.android.systemui" -> false
-        "com.oneplus.gallery" -> false
-        "android" -> processName !in ResolverScopeDetector.FRAMEWORK_UI_PROCESSES
+    val requiresManualScope: Boolean get() = when {
+        packageName == "system" -> false
+        packageName == "com.android.intentresolver" -> false
+        packageName == "com.android.systemui" -> false
+        EmbeddedDirectShareProfiles.isKnownHost(packageName) -> false
+        packageName == "android" -> processName !in ResolverScopeDetector.FRAMEWORK_UI_PROCESSES
         else -> true
     }
 }
@@ -39,18 +40,19 @@ class ResolverScopeDetector(private val context: Context) {
     fun detect(): ScopeDetection {
         val pm = context.packageManager
         val warnings = mutableListOf<String>()
-        val installed = KNOWN_PACKAGES.filter { packageName ->
+        val installedInfo = KNOWN_PACKAGES.mapNotNull { packageName ->
             try {
-                pm.getApplicationInfo(packageName, 0)
-                true
+                packageName to pm.getApplicationInfo(packageName, 0)
             } catch (_: PackageManager.NameNotFoundException) {
-                false
+                null
             } catch (failure: Exception) {
                 Log.e(TAG, "Installed-host detection failed for $packageName", failure)
                 warnings += context.getString(R.string.scope_detection_failed, packageName)
-                false
+                null
             }
-        }.toSet()
+        }.toMap()
+        val installed = installedInfo.keys
+
         val probes = listOf(
             context.getString(R.string.scope_scenario_system_share_sheet) to
                 Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain"), null),
@@ -92,31 +94,36 @@ class ResolverScopeDetector(private val context: Context) {
         }.groupBy { it.packageName to it.className }.values.map { entries ->
             entries.first().copy(scenarios = entries.flatMap { it.scenarios }.toSet())
         }
-        val oemShareHosts = buildList {
-            if (OPLUS_GALLERY_PACKAGE in installed) {
-                add(
-                    ResolverHost(
-                        OPLUS_GALLERY_PACKAGE,
-                        OPLUS_GALLERY_SHARE_ACTIVITY,
-                        OPLUS_GALLERY_PACKAGE,
-                        setOf(context.getString(R.string.scope_scenario_share))
-                    )
+
+        val embeddedShareHosts = EmbeddedDirectShareProfiles.all.flatMap { profile ->
+            profile.packages.filter { it in installed }.map { packageName ->
+                ResolverHost(
+                    packageName = packageName,
+                    className = profile.shareActivityClasses.firstOrNull()
+                        ?: profile.adapterClasses.firstOrNull()
+                        ?: profile.id,
+                    processName = installedInfo[packageName]?.processName ?: packageName,
+                    scenarios = setOf(context.getString(R.string.scope_scenario_share)),
                 )
             }
         }
+
         val systemHost = ResolverHost(
             "system",
             "PackageManagerService",
             "system",
             setOf(context.getString(R.string.scope_scenario_global_intent))
         )
-        return ScopeDetection(listOf(systemHost) + resolverHosts + oemShareHosts, installed + "system", warnings)
+        return ScopeDetection(
+            hosts = listOf(systemHost) + resolverHosts + embeddedShareHosts,
+            installedCandidates = installed + "system",
+            warnings = warnings,
+        )
     }
 
     companion object {
-        const val OPLUS_GALLERY_PACKAGE = "com.oneplus.gallery"
-        const val OPLUS_GALLERY_SHARE_ACTIVITY = "com.oplus.gallery.sharepage.GalleryShareInnerActivity"
-        val KNOWN_PACKAGES = setOf("android", "com.android.intentresolver", "com.android.systemui", OPLUS_GALLERY_PACKAGE)
+        private val STANDARD_PACKAGES = setOf("android", "com.android.intentresolver", "com.android.systemui")
+        val KNOWN_PACKAGES: Set<String> = STANDARD_PACKAGES + EmbeddedDirectShareProfiles.knownPackages
         val FRAMEWORK_UI_PROCESSES = setOf("android:ui", "system:ui")
         private const val TAG = "ListCleaner.Scope"
     }
