@@ -83,7 +83,6 @@ fun IntentKind.isSystemServiceEntry(): Boolean =
     SYSTEM_SERVICE_ENTRY_DEFINITIONS.any { it.kind == this }
 
 fun IntentKind.isSpecialEntrySurface(): Boolean = when (this) {
-    IntentKind.LAUNCHER_SHORTCUT,
     IntentKind.SHORTCUT_ITEM,
     IntentKind.DIRECT_SHARE,
     IntentKind.DOCUMENT_PROVIDER -> true
