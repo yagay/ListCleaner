@@ -27,7 +27,10 @@ public final class DiagnosticEvidence {
     }
 
     public void accept(String source, String line) {
-        if (!line.contains("com.yagay.ListCleaner,ListCleaner.Diagnostic,")) return;
+        // libxposed file logs contain "com.yagay.ListCleaner,ListCleaner.<tag>,..." while Android
+        // logcat contains the tag directly. Keep every ListCleaner module tag so newly split hook
+        // modules do not silently disappear from diagnostics.
+        if (!line.contains("ListCleaner")) return;
         String hash = java.util.Base64.getEncoder().encodeToString(digest.digest(line.getBytes(StandardCharsets.UTF_8)));
         if (seen.contains(hash)) { duplicates++; return; }
         if (seen.size() >= 8192) { omitted++; return; }
@@ -35,8 +38,12 @@ public final class DiagnosticEvidence {
         Matcher id = ID.matcher(line);
         if (id.find()) {
             String stage = line.contains(" MODULE_LOADED ") ? "loaded" :
-                line.contains(" HOOK_INSTALLED ") ? "hookInstalled" :
+                line.contains(" HOOK_INSTALLED ") || line.contains(" HOOKS_READY ") || line.contains(" PROFILE_READY ") ? "hookInstalled" :
                 line.contains(" QUERY ") ? "queryObserved" :
+                line.contains(" FILTER ") || line.contains("DIRECT_FILTER") || line.contains("FILTERED") ? "filterObserved" :
+                line.contains(" RESTORE_ALL") ? "restoreObserved" :
+                line.contains(" HIT ") || line.contains("_HIT ") ? "hitObserved" :
+                line.contains(" HOOK_FAILED ") || line.contains(" HOT_RELOAD_FAILED ") ? "hookFailed" :
                 line.contains(" ORDER_APPLIED ") ? "orderObserved" :
                 line.contains(" TILE_HOOK_INSTALLED ") ? "tileHookInstalled" :
                 line.contains(" TILE_CONFIG ") ? "tileConfigRead" :
@@ -53,7 +60,6 @@ public final class DiagnosticEvidence {
                 line.contains(" MANAGER_QUERY_BYPASS ") ? "managerBypass" :
                 line.contains(" CONFIG_ACK ") ? "configAcknowledged" :
                 line.contains(" HOT_RELOAD_READY ") ? "hotReloadReady" :
-                line.contains(" HOT_RELOAD_FAILED ") ? "hotReloadFailed" :
                 line.contains(" RULES_READ_FAILED ") ? "rulesReadFailed" :
                 line.contains("FILTER_PAUSED") ? "identityUnknown" : null;
             if (stage != null) {
