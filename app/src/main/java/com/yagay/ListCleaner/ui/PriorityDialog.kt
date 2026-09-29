@@ -82,6 +82,9 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     var appTypeFilter by rememberSaveable { mutableStateOf(AppTypeFilter.ALL) }
     val bulkLockRevision by vm.bulkLockRevision.collectAsState()
     var expandedKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var lockMenuPackage by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingLongPressY by remember { mutableStateOf<Float?>(null) }
+    var longPressMoved by remember { mutableStateOf(false) }
     LaunchedEffect(kind) {
         if (kind != IntentKind.OPEN) vm.setRuleOpenPreset(null)
         if (kind != IntentKind.DEEP_LINK) vm.setRuleBrowserHost(null)
@@ -163,7 +166,21 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     val density = LocalDensity.current
     val edge = with(density) { 56.dp.toPx() }
     val speed = with(density) { 640.dp.toPx() }
-    LaunchedEffect(kind, openPreset, browserHost, viewFilter, appTypeFilter, state.query, rankedRaw, moveTargets) { dragState.cancel() }
+    val scopeToken = openPreset?.name ?: browserHost ?: "ALL"
+    val appRowsByKey = remember(groups, kind, scopeToken) {
+        groups.associateBy { group -> "app|${kind.name}|$scopeToken|${group.packageName}" }
+    }
+    fun packageAt(y: Float): String? {
+        val row = listState.layoutInfo.visibleItemsInfo.firstOrNull { info ->
+            info.key in appRowsByKey && y >= info.offset && y < info.offset + info.size
+        } ?: return null
+        return appRowsByKey[row.key]?.packageName
+    }
+
+    LaunchedEffect(kind, openPreset, browserHost, viewFilter, appTypeFilter, state.query, rankedRaw, moveTargets) {
+        dragState.cancel()
+        lockMenuPackage = null
+    }
     DisposableEffect(dragState) { onDispose { dragState.cancel() } }
     LaunchedEffect(drag?.packageName) {
         if (dragState.session != null) {
@@ -183,22 +200,34 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
-            Modifier.fillMaxSize().pointerInput(kind, openPreset, browserHost, viewFilter, appTypeFilter, state.query) {
+            Modifier.fillMaxSize().pointerInput(kind, openPreset, browserHost, viewFilter, appTypeFilter, state.query, groups) {
                 detectDragGesturesAfterLongPress(
                     onDragStart = { position ->
-                        if (dragState.start(position.y, kind.name, currentVisible, currentSaved)) {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        }
+                        pendingLongPressY = position.y
+                        longPressMoved = false
                     },
                     onDrag = { change, amount ->
-                        if (dragState.session != null) {
+                        if (!longPressMoved) {
+                            longPressMoved = true
+                            val startY = pendingLongPressY ?: change.position.y
+                            if (dragState.start(startY, kind.name, currentVisible, currentSaved)) {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                change.consume()
+                                dragState.move(amount.y)
+                            }
+                        } else if (dragState.session != null) {
                             change.consume()
                             dragState.move(amount.y)
                         }
                     },
-                    onDragCancel = { dragState.cancel() },
+                    onDragCancel = {
+                        pendingLongPressY = null
+                        longPressMoved = false
+                        dragState.cancel()
+                    },
                     onDragEnd = {
-                        dragState.finish()?.let { finished ->
+                        val finished = dragState.finish()
+                        if (finished != null) {
                             when {
                                 typedOpenPreset != null ->
                                     vm.moveOpenTypePriorityTo(typedOpenPreset, finished.packageName, finished.target, finished.visible, finished.saved)
@@ -206,7 +235,11 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     vm.moveBrowserHostPriorityTo(deepLinkHost, finished.packageName, finished.target, finished.visible, finished.saved)
                                 else -> vm.movePriorityTo(kind, finished.packageName, finished.target, finished.visible, finished.saved)
                             }
+                        } else if (!longPressMoved) {
+                            pendingLongPressY?.let { y -> lockMenuPackage = packageAt(y) }
                         }
+                        pendingLongPressY = null
+                        longPressMoved = false
                     }
                 )
             },
@@ -408,72 +441,78 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                 item(key = "app|$key", contentType = "app") {
                     val marker = MaterialTheme.colorScheme.primary
                     val expandLabel = stringResource(if (expanded) R.string.common_collapse else R.string.common_expand)
-                    Row(
-                        Modifier.fillMaxWidth()
-                            .bulkLockSwipe(
-                                onLock = { vm.setBulkAppLocked(lockScope, packageName, emptyList(), true) },
-                                onUnlock = { vm.setBulkAppLocked(lockScope, packageName, emptyList(), false) }
+                    val lockState = vm.bulkLockState(lockScope, packageName, emptyList())
+                    Box(Modifier.fillMaxWidth()) {
+                        Row(
+                            Modifier.fillMaxWidth()
+                                .alpha(if (drag?.packageName == packageName) 0.3f else 1f)
+                                .drawWithContent {
+                                    drawContent()
+                                    if (drag?.target == packageName && drag.packageName != packageName) {
+                                        val y = if (drag.movingDown) size.height - 2.dp.toPx() else 2.dp.toPx()
+                                        drawLine(marker, Offset(0f, y), Offset(size.width, y), 3.dp.toPx())
+                                    }
+                                }
+                                .clickable(onClickLabel = expandLabel, onClick = onExpand)
+                                .heightIn(min = 64.dp)
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = group.rank != null,
+                                enabled = group.rank != null || rankedRaw.size < 200,
+                                onCheckedChange = { checked ->
+                                    when {
+                                        typedOpenPreset != null -> {
+                                            if (checked) vm.pinOpenTypeApp(typedOpenPreset, packageName)
+                                            else vm.removeOpenTypePriority(typedOpenPreset, packageName)
+                                        }
+                                        deepLinkHost != null -> {
+                                            if (checked) vm.pinBrowserHostApp(deepLinkHost, packageName)
+                                            else vm.removeBrowserHostPriority(deepLinkHost, packageName)
+                                        }
+                                        checked -> vm.pinApp(kind, packageName)
+                                        else -> vm.removePriority(kind, packageName)
+                                    }
+                                }
                             )
-                            .alpha(if (drag?.packageName == packageName) 0.3f else 1f)
-                            .drawWithContent {
-                                drawContent()
-                                if (drag?.target == packageName && drag.packageName != packageName) {
-                                    val y = if (drag.movingDown) size.height - 2.dp.toPx() else 2.dp.toPx()
-                                    drawLine(marker, Offset(0f, y), Offset(size.width, y), 3.dp.toPx())
-                                }
-                            }
-                            .clickable(onClickLabel = expandLabel, onClick = onExpand)
-                            .heightIn(min = 64.dp)
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = group.rank != null,
-                            enabled = group.rank != null || rankedRaw.size < 200,
-                            onCheckedChange = { checked ->
-                                when {
-                                    typedOpenPreset != null -> {
-                                        if (checked) vm.pinOpenTypeApp(typedOpenPreset, packageName)
-                                        else vm.removeOpenTypePriority(typedOpenPreset, packageName)
-                                    }
-                                    deepLinkHost != null -> {
-                                        if (checked) vm.pinBrowserHostApp(deepLinkHost, packageName)
-                                        else vm.removeBrowserHostPriority(deepLinkHost, packageName)
-                                    }
-                                    checked -> vm.pinApp(kind, packageName)
-                                    else -> vm.removePriority(kind, packageName)
-                                }
-                            }
-                        )
-                        AppIcon(first.appIcon, first.appLabel)
-                        Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                            Text(first.appLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
-                            val rankText = group.rank?.let {
-                                stringResource(
-                                    if (inheritsOpenPriority || inheritsDeepLinkPriority) R.string.priority_rank_inherited else R.string.priority_rank,
-                                    it
+                            AppIcon(first.appIcon, first.appLabel)
+                            Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                                Text(first.appLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
+                                val rankText = group.rank?.let {
+                                    stringResource(
+                                        if (inheritsOpenPriority || inheritsDeepLinkPriority) R.string.priority_rank_inherited else R.string.priority_rank,
+                                        it
+                                    )
+                                } ?: stringResource(R.string.priority_not_prioritized)
+                                Text(
+                                    stringResource(R.string.priority_app_summary, rankText, group.components.size),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                            } ?: stringResource(R.string.priority_not_prioritized)
-                            Text(
-                                stringResource(R.string.priority_app_summary, rankText, group.components.size),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            }
+                            if (lockState != BulkLockState.NONE) {
+                                Icon(
+                                    Icons.Rounded.Lock,
+                                    contentDescription = stringResource(R.string.bulk_lock_full),
+                                    modifier = Modifier.padding(horizontal = 8.dp).size(20.dp)
+                                )
+                            }
+                            IconButton(onClick = onExpand) {
+                                Icon(
+                                    if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                                    expandLabel
+                                )
+                            }
                         }
-                        val lockState = vm.bulkLockState(lockScope, packageName, emptyList())
-                        if (lockState != BulkLockState.NONE) {
-                            Icon(
-                                Icons.Rounded.Lock,
-                                contentDescription = stringResource(R.string.bulk_lock_full),
-                                modifier = Modifier.padding(horizontal = 8.dp).size(20.dp)
-                            )
-                        }
-                        IconButton(onClick = onExpand) {
-                            Icon(
-                                if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                                expandLabel
-                            )
-                        }
+                        BulkLockContextMenu(
+                            expanded = lockMenuPackage == packageName,
+                            onDismiss = { if (lockMenuPackage == packageName) lockMenuPackage = null },
+                            canLock = lockState != BulkLockState.FULL,
+                            canUnlock = lockState != BulkLockState.NONE,
+                            onLock = { vm.setBulkAppLocked(lockScope, packageName, emptyList(), true) },
+                            onUnlock = { vm.setBulkAppLocked(lockScope, packageName, emptyList(), false) }
+                        )
                     }
                     HorizontalDivider()
                 }
