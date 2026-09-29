@@ -7,6 +7,7 @@ import android.util.Log
 import com.yagay.ListCleaner.data.IntentCatalog
 import com.yagay.ListCleaner.data.PersistentComponentStore
 import com.yagay.ListCleaner.data.RuleRepository
+import com.yagay.ListCleaner.data.readLegacyRemoteConfig
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.ModuleConfig
 import com.yagay.ListCleaner.domain.PriorityConfig
@@ -146,25 +147,9 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                         }
                         val remote = if (encoded != null) {
                             json.decodeFromString(ModuleConfig.serializer(), encoded).validated()
-                        } else if (prefs.contains(RuleRepository.KEY_RULES)) {
-                            ModuleConfig(
-                                prefs.getStringSet(RuleRepository.KEY_RULES, emptySet()).orEmpty()
-                                    .map {
-                                        requireNotNull(com.yagay.ListCleaner.domain.ComponentRule.fromId(it)) {
-                                            getString(R.string.runtime_legacy_rules_corrupt)
-                                        }
-                                    }.toSet(),
-                                DisplayMode.fromStored(
-                                    prefs.getString(RuleRepository.KEY_DISPLAY_MODE, null),
-                                    prefs.getBoolean(RuleRepository.KEY_BLACKLIST, true)
-                                ),
-                                json.decodeFromString(
-                                    PriorityConfig.serializer(),
-                                    prefs.getString(RuleRepository.KEY_PRIORITIES, null) ?: "{}"
-                                ),
-                                prefs.getBoolean(RuleRepository.KEY_DIAGNOSTIC, false)
-                            ).validated()
-                        } else null
+                        } else {
+                            readLegacyRemoteConfig(prefs, json)
+                        }
                         if (!isCurrent(session)) return@withLock false
                         if (remote != null) {
                             corruptRecovery = false
