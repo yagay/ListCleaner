@@ -56,8 +56,9 @@ class ModuleConfigTest {
         assertFalse(legacy.id in config.priorities.titles)
     }
 
-    @Test fun legacyDomainRulesAndTitlesMigrateWithoutDeletingBrowserTitle() {
+    @Test fun legacyDomainRulesCopyDeepLinkTitleAndNormalizeBrowserRoleTitle() {
         val browserRule = ComponentRule(IntentKind.BROWSER, "com.example", "com.example.Target")
+        val browserPackageRule = SyntheticEntryKeys.packageScopedRule(IntentKind.BROWSER, "com.example")
         val deepLinkRule = browserRule.copy(kind = IntentKind.DEEP_LINK)
         val config = ModuleConfig(
             rules = setOf(browserRule),
@@ -70,29 +71,32 @@ class ModuleConfigTest {
             )
         ).validated()
 
+        assertEquals(setOf(browserPackageRule), config.rules)
         assertTrue(deepLinkRule in config.browserLinks.selectedRules("example.com"))
-        assertEquals("Target", config.priorities.titles[browserRule.id])
+        assertFalse(browserRule.id in config.priorities.titles)
+        assertEquals("Target", config.priorities.titles[browserPackageRule.id])
         assertEquals("Target", config.priorities.titles[deepLinkRule.id])
     }
 
-    @Test fun assistantComponentRulesCollapseToPackageRuleAndTitleMigrates() {
-        val packageName = "com.example.assistant"
-        val activity = ComponentRule(IntentKind.ASSISTANT, packageName, "$packageName.AssistActivity")
-        val voiceService = ComponentRule(IntentKind.ASSISTANT, packageName, "$packageName.VoiceService")
-        val packageRule = SyntheticEntryKeys.assistantPackageRule(packageName)
-        val config = ModuleConfig(
-            rules = setOf(activity, voiceService),
-            mode = DisplayMode.HIDE_SELECTED,
-            priorities = PriorityConfig(
-                titles = mapOf(activity.id to "Assistant label")
-            ),
-            diagnostic = false,
-        ).validated()
+    @Test fun packageScopedRoleComponentsCollapseAndTitlesMigrate() {
+        val kinds = listOf(IntentKind.ASSISTANT, IntentKind.HOME, IntentKind.BROWSER, IntentKind.CALL_SCREENING)
+        kinds.forEach { kind ->
+            val packageName = "com.example.${kind.name.lowercase()}"
+            val first = ComponentRule(kind, packageName, "$packageName.First")
+            val second = ComponentRule(kind, packageName, "$packageName.Second")
+            val packageRule = SyntheticEntryKeys.packageScopedRule(kind, packageName)
+            val config = ModuleConfig(
+                rules = setOf(first, second),
+                mode = DisplayMode.HIDE_SELECTED,
+                priorities = PriorityConfig(titles = mapOf(first.id to "Role label")),
+                diagnostic = false,
+            ).validated()
 
-        assertEquals(setOf(packageRule), config.rules)
-        assertEquals("Assistant label", config.priorities.titles[packageRule.id])
-        assertFalse(activity.id in config.priorities.titles)
-        assertFalse(voiceService.id in config.priorities.titles)
+            assertEquals(setOf(packageRule), config.rules)
+            assertEquals("Role label", config.priorities.titles[packageRule.id])
+            assertFalse(first.id in config.priorities.titles)
+            assertFalse(second.id in config.priorities.titles)
+        }
     }
 
     @Test fun runtimeComponentPolicyRoundTrip() {
