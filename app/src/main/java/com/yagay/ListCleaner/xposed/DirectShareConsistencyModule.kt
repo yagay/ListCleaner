@@ -1,16 +1,13 @@
 package com.yagay.ListCleaner.xposed
 
 import android.content.ComponentName
-import android.content.SharedPreferences
 import android.content.pm.ResolveInfo
 import android.content.pm.ShortcutInfo
 import android.os.Process
 import android.util.Log
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.ComponentRule
-import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
-import com.yagay.ListCleaner.domain.ModuleConfig
 import com.yagay.ListCleaner.domain.SyntheticEntryKeys
 import com.yagay.ListCleaner.domain.directShareFilteredIndices
 import io.github.libxposed.api.XposedInterface
@@ -18,14 +15,10 @@ import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
-import kotlinx.serialization.json.Json
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
 
-/**
- * Keeps Android's Direct Share row consistent with the ordinary Share resolver and applies
- * per-conversation rules in the Chooser process. system_server only observes Direct Share targets.
- */
+/** Keeps Direct Share consistent with the ordinary Share resolver in the Chooser process. */
 class DirectShareConsistencyModule : XposedModule() {
     private data class ParsedTarget(
         val packageName: String?,
@@ -33,16 +26,24 @@ class DirectShareConsistencyModule : XposedModule() {
     )
 
     @Volatile private var processName = ""
-    @Volatile private var fallbackMode = DisplayMode.HIDE_SELECTED
-    @Volatile private var fallbackRules: Set<String> = emptySet()
-    @Volatile private var fallbackPriorities: List<String> = emptyList()
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
-
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
-    private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == null || key == RuleRepository.KEY_CONFIG) refreshFallback("preference changed")
+    private val fallback by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        RemoteEntryPolicyFallback(
+            preferences = preferences,
+            selectRules = { config ->
+                config.rules.filter { it.kind == IntentKind.DIRECT_SHARE }
+                    .mapTo(linkedSetOf()) { it.id }
+            },
+            selectPriorities = { config ->
+                config.priorities.apps[IntentKind.DIRECT_SHARE]
+                    ?.let { mapOf(IntentKind.DIRECT_SHARE to it) }
+                    .orEmpty()
+            },
+            record = ::record,
+        )
     }
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
@@ -54,38 +55,19 @@ class DirectShareConsistencyModule : XposedModule() {
 
     override fun onPackageReady(param: PackageReadyParam) {
         if (param.packageName != FRAMEWORK_PACKAGE && param.packageName != INTENT_RESOLVER_PACKAGE) return
-        initializePreferences()
+        fallback.start()
         installChooserHooks(param.classLoader)
-    }
-
-    private fun initializePreferences() {
-        runCatching { preferences.registerOnSharedPreferenceChangeListener(preferenceListener) }
-        refreshFallback("init")
-    }
-
-    @Synchronized
-    private fun refreshFallback(reason: String) {
-        runCatching {
-            val encoded = preferences.getString(RuleRepository.KEY_CONFIG, null) ?: return@runCatching
-            if (encoded.length > RuleRepository.MAX_BACKUP_CHARS) return@runCatching
-            val config = Json { ignoreUnknownKeys = true }
-                .decodeFromString(ModuleConfig.serializer(), encoded).validated()
-            fallbackMode = config.mode
-            fallbackRules = config.rules.filter { it.kind == IntentKind.DIRECT_SHARE }
-                .mapTo(linkedSetOf()) { it.id }
-            fallbackPriorities = config.priorities.apps[IntentKind.DIRECT_SHARE].orEmpty()
-            record("POLICY_READ reason=$reason rules=${fallbackRules.size}")
-        }.onFailure { Log.w(TAG, "Unable to refresh Direct Share policy", it) }
     }
 
     private fun effectivePolicy(): RuntimeComponentPolicySnapshot {
         val runtime = RuntimeComponentPolicy.snapshot()
-        return if (runtime.authoritative) runtime else fallbackRuntimePolicy(
-            managerAppId = -1,
-            displayMode = fallbackMode,
-            entryRules = fallbackRules,
-            entryPriorities = if (fallbackPriorities.isEmpty()) emptyMap()
-            else mapOf(IntentKind.DIRECT_SHARE to fallbackPriorities),
+        if (runtime.authoritative) return runtime
+        val local = fallback.snapshot()
+        return fallbackRuntimePolicy(
+            managerAppId = local.managerAppId,
+            displayMode = local.displayMode,
+            entryRules = local.rules,
+            entryPriorities = local.priorities,
         )
     }
 
