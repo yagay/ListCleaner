@@ -1,0 +1,24 @@
+package com.yagay.ListCleaner.ui
+
+import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.OpenPreset
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Test
+
+class EntryContextTest {
+    @Test
+    fun `changing entry kind clears incompatible subcontexts`() {
+        val open = EntryContext(kind = IntentKind.OPEN, openPreset = OpenPreset.PDF)
+        val share = open.withKind(IntentKind.SHARE)
+        assertEquals(IntentKind.SHARE, share.kind)
+        assertNull(share.openPreset)
+        assertNull(share.browserHost)
+    }
+
+    @Test
+    fun `same compatible kind preserves its subcontext`() {
+        val deepLink = EntryContext(kind = IntentKind.DEEP_LINK, browserHost = "example.com")
+        assertEquals("example.com", deepLink.withKind(IntentKind.DEEP_LINK).browserHost)
+    }
+}
