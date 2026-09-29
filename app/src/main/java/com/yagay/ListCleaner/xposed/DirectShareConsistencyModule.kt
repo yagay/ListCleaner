@@ -8,6 +8,7 @@ import android.util.Log
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.ObservedEntryRecord
 import com.yagay.ListCleaner.domain.SyntheticEntryKeys
 import com.yagay.ListCleaner.domain.directShareFilteredIndices
 import io.github.libxposed.api.XposedInterface
@@ -23,12 +24,16 @@ class DirectShareConsistencyModule : XposedModule() {
     private data class ParsedTarget(
         val packageName: String?,
         val rule: ComponentRule?,
+        val observed: ObservedEntryRecord?,
     )
 
     @Volatile private var processName = ""
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
+    }
+    private val observedPersistence by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        RemoteObservedEntryPersistence(preferences, ::record)
     }
     private val fallback by lazy(LazyThreadSafetyMode.PUBLICATION) {
         RemoteEntryPolicyFallback(
@@ -75,6 +80,7 @@ class DirectShareConsistencyModule : XposedModule() {
         var installed = 0
         CHOOSER_CLASSES.forEach { className ->
             val clazz = runCatching { Class.forName(className, false, classLoader) }.getOrElse {
+                record("CHOOSER_CLASS_UNAVAILABLE class=$className")
                 return@forEach
             }
             generateSequence(clazz as Class<*>?) { it.superclass }
@@ -106,13 +112,23 @@ class DirectShareConsistencyModule : XposedModule() {
     private fun directShareHooker() = XposedInterface.Hooker { chain ->
         val targets = chain.args.getOrNull(0) as? List<*>
             ?: return@Hooker chain.proceed()
-        if (targets.isEmpty()) return@Hooker chain.proceed()
+        if (targets.isEmpty()) {
+            record("DELIVERY_HIT count=0")
+            return@Hooker chain.proceed()
+        }
+
+        val parsed = targets.map(::parseDirectShareTarget)
+        val observed = parsed.mapNotNull(ParsedTarget::observed)
+        val persisted = observedPersistence.merge(observed)
+        record(
+            "DELIVERY_HIT count=${targets.size} parsed=${parsed.count { it.rule != null }} " +
+                "observed=${observed.size} persisted=$persisted"
+        )
 
         val receiver = chain.thisObject ?: return@Hooker chain.proceed()
         val visibleSharePackages = visibleSharePackages(receiver, chain.args)
             ?: return@Hooker chain.proceed()
 
-        val parsed = targets.map(::parseDirectShareTarget)
         val policy = effectivePolicy()
         val selected = policy.selected(IntentKind.DIRECT_SHARE)
         val priorities = policy.priorities(IntentKind.DIRECT_SHARE)
@@ -144,7 +160,7 @@ class DirectShareConsistencyModule : XposedModule() {
     }
 
     private fun parseDirectShareTarget(value: Any?): ParsedTarget {
-        if (value == null) return ParsedTarget(null, null)
+        if (value == null) return ParsedTarget(null, null, null)
         val shortcut = runCatching {
             findNoArgMethod(value.javaClass, "getShortcutInfo")?.invoke(value) as? ShortcutInfo
         }.getOrNull()
@@ -161,7 +177,17 @@ class DirectShareConsistencyModule : XposedModule() {
                 SyntheticEntryKeys.directShareClass(target?.className ?: shortcut?.activity?.className, shortcutId),
             ).takeIf(ComponentRule::isValid)
         } else null
-        return ParsedTarget(packageName, rule)
+        val observed = if (rule != null) {
+            ObservedEntryRecord(
+                kind = IntentKind.DIRECT_SHARE.name,
+                packageName = rule.packageName,
+                syntheticClass = rule.className,
+                label = shortcut?.shortLabel?.toString().orEmpty(),
+                activityClass = target?.className ?: shortcut?.activity?.className,
+                observedAt = System.currentTimeMillis(),
+            ).validatedOrNull()
+        } else null
+        return ParsedTarget(packageName, rule, observed)
     }
 
     private fun findNoArgMethod(clazz: Class<*>, name: String): Method? =
