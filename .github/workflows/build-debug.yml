@@ -52,15 +52,6 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Fetch public libxposed sources
-        run: |
-          set -euo pipefail
-          mkdir -p .deps/libxposed
-          git clone --depth 1 https://github.com/libxposed/api.git .deps/libxposed/api
-          git clone --depth 1 https://github.com/libxposed/service.git .deps/libxposed/service
-          echo "libxposed-api=$(git -C .deps/libxposed/api rev-parse HEAD)"
-          echo "libxposed-service=$(git -C .deps/libxposed/service rev-parse HEAD)"
-
       - name: Check source localization
         run: python3 tools/check-source-localization.py
 
@@ -89,15 +80,9 @@ jobs:
           sdkmanager "cmdline-tools;23.0" 2>&1 | tee sdk-tools.log
           sdk_manager="${ANDROID_HOME}/cmdline-tools/23.0/bin/sdkmanager"
           "$sdk_manager" --list --channel=3 > sdk-packages.log 2>&1
-          "$sdk_manager" --channel=3 "platforms;android-36" "platforms;android-37.0" "build-tools;36.0.0" "platform-tools" 2>&1 | tee sdk-install.log
+          "$sdk_manager" --channel=3 "platforms;android-37.0" "build-tools;36.0.0" "platform-tools" 2>&1 | tee sdk-install.log
           test -s "${ANDROID_HOME}/platforms/android-37.0/android.jar"
           test -x "${ANDROID_HOME}/build-tools/36.0.0/aapt2"
-
-      - name: Build libxposed API and Service
-        run: |
-          set -euo pipefail
-          (cd .deps/libxposed/api && bash ./gradlew --no-daemon --console=plain publishToMavenLocal)
-          (cd .deps/libxposed/service && bash ./gradlew --no-daemon --console=plain publishToMavenLocal)
 
       - name: Build Debug APK
         run: |
