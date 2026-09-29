@@ -23,10 +23,14 @@ internal object RuntimeObservedEntryStore {
     private val entries = ConcurrentHashMap<String, ObservedShortcutEntry>()
 
     fun observeShortcut(shortcut: ShortcutInfo) {
+        // Launcher long-press menus are backed by enabled manifest/dynamic shortcuts. Pinned-only
+        // and cached shortcuts are different surfaces and must not leak into this category.
+        if (!shortcut.isEnabled || (!shortcut.isDeclaredInManifest && !shortcut.isDynamic)) return
         observe(IntentKind.SHORTCUT_ITEM, shortcut, shortcut.activity)
     }
 
     fun observeDirectShare(shortcut: ShortcutInfo, target: ComponentName?) {
+        // Direct Share has its own surface and observation path, so do not apply launcher filtering.
         observe(IntentKind.DIRECT_SHARE, shortcut, target ?: shortcut.activity)
     }
 
