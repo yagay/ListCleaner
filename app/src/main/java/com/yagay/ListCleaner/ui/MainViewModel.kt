@@ -3,7 +3,6 @@ package com.yagay.ListCleaner.ui
 import android.app.Application
 import android.net.Uri
 import android.util.Log
-import java.io.File
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Dashboard
 import androidx.compose.material.icons.rounded.GridView
@@ -24,13 +23,10 @@ import com.yagay.ListCleaner.domain.CustomOpenDefinition
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.OpenPreset
-import com.yagay.ListCleaner.domain.OpenSelectionSource
 import com.yagay.ListCleaner.domain.OpenTypeConfig
 import com.yagay.ListCleaner.domain.PriorityConfig
 import com.yagay.ListCleaner.domain.matchesOpenPreset
 import com.yagay.ListCleaner.domain.normalizeBrowserHost
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -42,7 +38,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 enum class Destination(val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     RULES(Icons.Rounded.List),
@@ -94,6 +89,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         canEdit = ::canEdit,
         ensureBrowserHostConfigured = ::ensureBrowserHostConfigured,
     )
+    private val diagnostics by lazy(LazyThreadSafetyMode.NONE) {
+        DiagnosticController(
+            app = app,
+            scope = viewModelScope,
+            stateProvider = { state.value },
+            rootScanProvider = { rootComponents.scan.value },
+            rootLastOperationProvider = { rootComponents.lastOperation },
+        )
+    }
 
     val componentScan = rootComponents.scan
     val componentBusy = rootComponents.busy
@@ -101,11 +105,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val componentRootNotice = rootComponents.rootNotice
     val bulkLockRevision: StateFlow<Long> = bulkLocks.revision
 
+    val updating: StateFlow<Boolean> = moduleRuntime.updating
+    val updateMessage: StateFlow<String?> = moduleRuntime.updateMessage
+
+    val fileCheckStatus: StateFlow<String?> get() = diagnostics.fileCheckStatus
+    val checkingFile: StateFlow<Boolean> get() = diagnostics.checkingFile
+    val collectingDiagnostics: StateFlow<Boolean> get() = diagnostics.collectingDiagnostics
+    val exportMessage: StateFlow<String?> get() = diagnostics.exportMessage
+
     fun dismissComponentRootNotice() = rootComponents.dismissRootNotice()
     fun refreshComponents() = rootComponents.refresh()
     fun changeComponent(target: RootComponent, enable: Boolean) = rootComponents.change(target, enable)
     fun changeComponents(targets: List<RootComponent>, enable: Boolean) = rootComponents.change(targets, enable)
     fun invertComponents(targets: List<RootComponent>) = rootComponents.invert(targets)
+    fun inspectFile(uri: Uri) = diagnostics.inspectFile(uri)
+    fun exportDiagnostics(uri: Uri) = diagnostics.exportDiagnostics(uri)
+    fun clearExportMessage() = diagnostics.clearExportMessage()
 
     private fun componentScopes(kind: CleanupKind?, item: RootComponent): List<String> =
         if (kind != null) {
@@ -182,85 +197,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (editable.isNotEmpty()) rootComponents.invert(editable)
     }
 
-    val updating: StateFlow<Boolean> = moduleRuntime.updating
-    val updateMessage: StateFlow<String?> = moduleRuntime.updateMessage
-
     private val candidates = candidateController.candidates
     private val discoveredBrowserHosts = candidateController.browserHosts
     private val loading = candidateController.loading
     private val error = candidateController.error
-
-    private val mutableFileCheckStatus = MutableStateFlow<String?>(null)
-    val fileCheckStatus: StateFlow<String?> = mutableFileCheckStatus
-    private val mutableCheckingFile = MutableStateFlow(false)
-    val checkingFile: StateFlow<Boolean> = mutableCheckingFile
-
-    private fun openPresetTitle(config: OpenTypeConfig, preset: OpenPreset): String =
-        config.customDefinitions[preset]?.title ?: app.getString(preset.titleRes())
-
-    private fun selectionSourceTitle(source: OpenSelectionSource): String = app.getString(
-        when (source) {
-            OpenSelectionSource.GENERIC -> R.string.file_preview_source_generic
-            OpenSelectionSource.TYPED -> R.string.file_preview_source_typed
-            OpenSelectionSource.GENERIC_AND_TYPED -> R.string.file_preview_source_generic_and_typed
-        }
-    )
-
-    fun inspectFile(uri: Uri) {
-        if (mutableCheckingFile.value) return
-        mutableCheckingFile.value = true
-        viewModelScope.launch {
-            mutableFileCheckStatus.value = app.getString(R.string.file_preview_checking)
-            try {
-                val mime = app.contentResolver.getType(uri)
-                val found = app.catalog.inspectFile(uri)
-                val config = app.rules.remoteSnapshot()
-                val preview = com.yagay.ListCleaner.domain.previewOpenEffect(
-                    found,
-                    config.rules,
-                    config.mode,
-                    config.priorities,
-                    config.openTypes,
-                    mime,
-                    uri.scheme,
-                    uri.lastPathSegment ?: uri.path
-                )
-                mutableFileCheckStatus.value = buildString {
-                    val typeTitle = preview.preset?.let { openPresetTitle(config.openTypes, it) }
-                        ?: app.getString(R.string.file_preview_generic_open)
-                    append(app.getString(
-                        R.string.file_preview_header,
-                        typeTitle,
-                        mime ?: app.getString(R.string.common_unknown)
-                    ))
-                    append(app.getString(R.string.file_preview_counts, preview.rawCount, preview.finalCount))
-                    if (preview.restoredEmpty) append(app.getString(R.string.file_preview_empty_restored))
-                    append(app.getString(R.string.file_preview_disclaimer))
-                    val details = preview.items.take(12)
-                    if (details.isNotEmpty()) append('\n')
-                    details.forEachIndexed { index, item ->
-                        if (index > 0) append('\n')
-                        append(if (item.included) "✓ " else "✕ ")
-                        append(item.candidate.appLabel)
-                        item.rank?.let { append(app.getString(R.string.file_preview_rank, it)) }
-                        item.selectedBy?.let {
-                            append(app.getString(R.string.file_preview_source, selectionSourceTitle(it)))
-                        }
-                    }
-                    if (preview.items.size > details.size) {
-                        append(app.getString(R.string.file_preview_more, preview.items.size - details.size))
-                    }
-                }
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (failure: Exception) {
-                Log.e(TAG, "File preview failed", failure)
-                mutableFileCheckStatus.value = app.getString(R.string.file_preview_failed)
-            } finally {
-                mutableCheckingFile.value = false
-            }
-        }
-    }
 
     private val entryContext = MutableStateFlow(EntryContext())
     private val filter = entryContext.map { it.kind }.stateIn(
@@ -286,58 +226,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val moduleStatus: StateFlow<ModuleStatus> = moduleRuntime.status
     private val destination = MutableStateFlow(Destination.RULES)
     private val expandedAppKey = MutableStateFlow<String?>(null)
-
-    private val mutableCollectingDiagnostics = MutableStateFlow(false)
-    val collectingDiagnostics: StateFlow<Boolean> = mutableCollectingDiagnostics
-    private val mutableExportMessage = MutableStateFlow<String?>(null)
-    val exportMessage: StateFlow<String?> = mutableExportMessage
-
-    fun clearExportMessage() { mutableExportMessage.value = null }
-
-    fun exportDiagnostics(uri: Uri) {
-        if (mutableCollectingDiagnostics.value) return
-        mutableCollectingDiagnostics.value = true
-        viewModelScope.launch {
-            var report: File? = null
-            try {
-                val config = app.rules.remoteSnapshot()
-                report = DiagnosticCollector.collect(
-                    app,
-                    state.value.copy(
-                        module = moduleStatus.value,
-                        selected = config.rules,
-                        displayMode = config.mode,
-                        priorities = config.priorities,
-                        diagnosticMode = config.diagnostic,
-                        openTypes = config.openTypes,
-                        openTypesExplicit = config.openTypes,
-                        runtime = app.runtime.value,
-                        syncStatus = app.syncStatus.value
-                    ),
-                    rootComponents.scan.value,
-                    rootComponents.lastOperation
-                )
-                val ready = requireNotNull(report)
-                withContext(Dispatchers.IO) {
-                    val output = app.contentResolver.openOutputStream(uri, "wt")
-                        ?: error(app.getString(R.string.diagnostic_create_failed))
-                    output.use { destination -> ready.inputStream().use { it.copyTo(destination) } }
-                }
-                mutableExportMessage.value = app.getString(R.string.diagnostic_exported)
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (failure: Exception) {
-                Log.e(TAG, "Diagnostic export failed", failure)
-                mutableExportMessage.value = app.getString(
-                    R.string.diagnostic_export_failed,
-                    app.getString(R.string.diagnostic_create_failed)
-                )
-            } finally {
-                report?.delete()
-                mutableCollectingDiagnostics.value = false
-            }
-        }
-    }
 
     private data class PreparedCandidates(
         val candidates: List<ComponentCandidate>,
@@ -533,17 +421,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         app.rules.setBrowserHostSelected(normalized, editable, selected)
     }
 
-    fun selectBrowserHostRules(host: String, rules: Collection<ComponentRule>, lockScope: String) {
+    fun selectBrowserHostRules(host: String, rules: Collection<ComponentRule>, lockScope: String) =
         mutateBrowserHostRules(host, rules, lockScope, SelectionOperation.SELECT)
-    }
 
-    fun deselectBrowserHostRules(host: String, rules: Collection<ComponentRule>, lockScope: String) {
+    fun deselectBrowserHostRules(host: String, rules: Collection<ComponentRule>, lockScope: String) =
         mutateBrowserHostRules(host, rules, lockScope, SelectionOperation.DESELECT)
-    }
 
-    fun invertBrowserHostRules(host: String, rules: Collection<ComponentRule>, lockScope: String) {
+    fun invertBrowserHostRules(host: String, rules: Collection<ComponentRule>, lockScope: String) =
         mutateBrowserHostRules(host, rules, lockScope, SelectionOperation.INVERT)
-    }
 
     private fun mutateBrowserHostRules(
         host: String,
@@ -567,17 +452,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun selectOpenTypeRules(preset: OpenPreset, rules: Collection<ComponentRule>, lockScope: String) {
+    fun selectOpenTypeRules(preset: OpenPreset, rules: Collection<ComponentRule>, lockScope: String) =
         mutateOpenTypeRules(preset, rules, lockScope, SelectionOperation.SELECT)
-    }
 
-    fun deselectOpenTypeRules(preset: OpenPreset, rules: Collection<ComponentRule>, lockScope: String) {
+    fun deselectOpenTypeRules(preset: OpenPreset, rules: Collection<ComponentRule>, lockScope: String) =
         mutateOpenTypeRules(preset, rules, lockScope, SelectionOperation.DESELECT)
-    }
 
-    fun invertOpenTypeRules(preset: OpenPreset, rules: Collection<ComponentRule>, lockScope: String) {
+    fun invertOpenTypeRules(preset: OpenPreset, rules: Collection<ComponentRule>, lockScope: String) =
         mutateOpenTypeRules(preset, rules, lockScope, SelectionOperation.INVERT)
-    }
 
     private fun mutateOpenTypeRules(
         preset: OpenPreset,
@@ -597,17 +479,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun selectRules(rules: Collection<ComponentRule>, filter: IntentKind?, preset: OpenPreset?) {
+    fun selectRules(rules: Collection<ComponentRule>, filter: IntentKind?, preset: OpenPreset?) =
         mutateRules(rules, filter, preset, SelectionOperation.SELECT)
-    }
 
-    fun deselectRules(rules: Collection<ComponentRule>, filter: IntentKind?, preset: OpenPreset?) {
+    fun deselectRules(rules: Collection<ComponentRule>, filter: IntentKind?, preset: OpenPreset?) =
         mutateRules(rules, filter, preset, SelectionOperation.DESELECT)
-    }
 
-    fun invertRules(rules: Collection<ComponentRule>, filter: IntentKind?, preset: OpenPreset?) {
+    fun invertRules(rules: Collection<ComponentRule>, filter: IntentKind?, preset: OpenPreset?) =
         mutateRules(rules, filter, preset, SelectionOperation.INVERT)
-    }
 
     private fun mutateRules(
         rules: Collection<ComponentRule>,
@@ -629,15 +508,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     internal fun bulkLockState(scope: String, appId: String, itemIds: Collection<String>): BulkLockState =
         bulkLocks.state(scope, appId, itemIds)
-
     internal fun isBulkItemLocked(scope: String, itemId: String): Boolean = bulkLocks.isItemLocked(scope, itemId)
     internal fun isBulkAppLocked(scope: String, appId: String): Boolean = bulkLocks.isAppLocked(scope, appId)
     internal fun isBulkProtected(scope: String, appId: String, itemId: String): Boolean =
         bulkLocks.isProtected(scope, appId, itemId)
-
     internal fun setBulkAppLocked(scope: String, appId: String, itemIds: Collection<String>, locked: Boolean) =
         bulkLocks.setAppLocked(scope, appId, itemIds, locked)
-
     internal fun setBulkItemLocked(scope: String, itemId: String, locked: Boolean) =
         bulkLocks.setItemLocked(scope, itemId, locked)
 
@@ -678,9 +554,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     internal fun isRuleBulkProtected(filter: IntentKind?, preset: OpenPreset?, rule: ComponentRule): Boolean =
-        ruleScopes(filter, preset, rule).any { scope ->
-            bulkLocks.isProtected(scope, rule.packageName, rule.id)
-        }
+        ruleScopes(filter, preset, rule).any { scope -> bulkLocks.isProtected(scope, rule.packageName, rule.id) }
 
     internal fun isRuleAppLocked(
         filter: IntentKind?,
@@ -738,7 +612,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     internal fun toggleBulkAppLock(scope: String, appId: String, itemIds: Collection<String>) =
         bulkLocks.toggleApp(scope, appId, itemIds)
-
     internal fun toggleBulkItemLock(scope: String, itemId: String) = bulkLocks.toggleItem(scope, itemId)
 
     fun setDisplayMode(value: DisplayMode) { if (canEdit()) app.rules.setDisplayMode(value) }
