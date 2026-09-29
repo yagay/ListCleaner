@@ -246,7 +246,7 @@ class EmbeddedDirectShareModule : XposedModule() {
                 IntentKind.DIRECT_SHARE,
                 shortcutPackage,
                 SyntheticEntryKeys.directShareClass(
-                    component?.className ?: shortcut.activity?.className,
+                    component?.className ?: shortcut?.activity?.className,
                     shortcutId,
                 ),
             ).takeIf(ComponentRule::isValid)
