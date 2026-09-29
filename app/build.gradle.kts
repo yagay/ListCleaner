@@ -24,8 +24,8 @@ check(signingValues.all { it == null } || hasReleaseSigning) {
     "Incomplete Release signing configuration. See docs/RELEASE.md."
 }
 
-// New system_server entry hooks require a new hook generation. This test branch is Debug-only.
-val hookCompatVersionCode = 46
+// system_server hook installation changed; keep this test branch on a distinct hook generation.
+val hookCompatVersionCode = 47
 
 android {
     namespace = "com.yagay.ListCleaner"
@@ -37,8 +37,8 @@ android {
         applicationId = "com.yagay.ListCleaner"
         minSdk = 31
         targetSdk = 37
-        versionCode = 46
-        versionName = "1.6.21"
+        versionCode = 47
+        versionName = "1.6.22"
         buildConfigField("long", "HOOK_COMPAT_VERSION_CODE", "${hookCompatVersionCode}L")
     }
     buildFeatures { compose = true; buildConfig = true }

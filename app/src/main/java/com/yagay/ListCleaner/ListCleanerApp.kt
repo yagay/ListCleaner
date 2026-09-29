@@ -21,10 +21,13 @@ import io.github.libxposed.service.XposedServiceHelper
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -44,6 +47,7 @@ data class RuntimeStatus(
     val observedAtMillis: Long = System.currentTimeMillis()
 )
 
+@OptIn(FlowPreview::class)
 class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
     lateinit var rules: RuleRepository; private set
     lateinit var catalog: IntentCatalog; private set
@@ -85,8 +89,16 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                 deriveFullySelectedPackages(candidates, selected)
             }.collect(rules::setVisibilityFullPackages)
         }
+        // Service lifecycle changes must synchronize immediately. Rule edits are debounced so a
+        // burst of checkbox changes produces one runtime config transfer instead of one per tap.
         applicationScope.launch {
-            combine(rules.revision, serviceSession) { _, _ -> Unit }.collect { synchronize() }
+            serviceSession.collect { synchronize() }
+        }
+        applicationScope.launch {
+            rules.revision
+                .drop(1)
+                .debounce(CONFIG_SYNC_DEBOUNCE_MS)
+                .collect { synchronize() }
         }
     }
 
@@ -366,5 +378,6 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
 
     private companion object {
         const val TAG = "ListCleaner.App"
+        const val CONFIG_SYNC_DEBOUNCE_MS = 300L
     }
 }

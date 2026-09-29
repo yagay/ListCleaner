@@ -27,6 +27,7 @@ import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
 import java.lang.reflect.Method
+import java.lang.reflect.Modifier
 import java.util.concurrent.ConcurrentHashMap
 
 /** Observes launcher ShortcutInfo/Direct Share in system_server and filters only launcher-facing queries. */
@@ -302,6 +303,10 @@ class ShortcutSurfaceModule : XposedModule() {
     }
 
     private fun install(method: Method, id: String, hooker: XposedInterface.Hooker) {
+        if (Modifier.isAbstract(method.modifiers) || method.declaringClass.isInterface) {
+            record("HOOK_SKIPPED id=$id reason=abstract_or_interface method=${method.toGenericString()}")
+            return
+        }
         val key = "$id#${method.toGenericString()}"
         if (!installedMethods.add(key)) return
         runCatching {
@@ -310,7 +315,10 @@ class ShortcutSurfaceModule : XposedModule() {
             record("HOOK_INSTALLED id=$id method=${method.toGenericString()}")
         }.onFailure {
             installedMethods.remove(key)
-            record("HOOK_FAILED id=$id error=${it.javaClass.name}")
+            record(
+                "HOOK_FAILED id=$id method=${method.toGenericString()} error=${it.javaClass.name} " +
+                    "message=${it.message?.take(160) ?: "none"}"
+            )
         }
     }
 
