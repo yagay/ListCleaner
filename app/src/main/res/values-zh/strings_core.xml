@@ -35,6 +35,8 @@
     <string name="bulk_lock_none">未锁定（会受批量操作影响）</string>
     <string name="bulk_lock_partial">部分锁定（部分项目不受批量操作影响）</string>
     <string name="bulk_lock_full">已锁定（不受批量操作影响）</string>
+    <string name="bulk_lock_action_lock">锁定</string>
+    <string name="bulk_lock_action_unlock">解除锁定</string>
 
     <string name="entry_group_share">分享</string>
     <string name="entry_group_open">操作</string>
