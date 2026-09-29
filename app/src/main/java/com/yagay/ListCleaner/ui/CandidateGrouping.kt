@@ -103,9 +103,11 @@ internal fun availableDeepLinkHosts(
 }
 
 /**
- * Keep configured entries visible in the normal ALL view even when a refresh can no longer
- * observe them. Refreshing must not make a rule disappear from the page where it was selected;
- * only the explicit unselected-only filter is allowed to hide selected entries.
+ * A selected entry that becomes temporarily unobserved after refresh is still a configured rule,
+ * so keep it visible in the normal ALL view. Restricted/non-catalog discoveries remain isolated
+ * unless the user explicitly opens a selected/locked view.
  */
 internal fun catalogVisible(item: ComponentCandidate, selected: Boolean, uiFilter: UiFilter): Boolean =
-    item.isCatalogCandidate || (selected && uiFilter != UiFilter.HIDE_SELECTED)
+    item.isCatalogCandidate ||
+        (selected && item.unavailable && uiFilter == UiFilter.ALL) ||
+        (selected && (uiFilter == UiFilter.SHOW_SELECTED || uiFilter == UiFilter.LOCKED))
