@@ -1,3 +1,5 @@
 system
 android
 com.android.intentresolver
+com.google.android.permissioncontroller
+com.android.permissioncontroller
