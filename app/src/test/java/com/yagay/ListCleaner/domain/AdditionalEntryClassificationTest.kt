@@ -9,6 +9,10 @@ class AdditionalEntryClassificationTest {
     fun additionalImplicitActionsKeepDistinctRuleKinds() {
         val cases = listOf(
             Triple("android.intent.action.SENDTO", "mailto", "SEND_TO"),
+            Triple("android.intent.action.SENDTO", "sms", "SEND_TO"),
+            Triple("android.intent.action.SENDTO", "smsto", "SEND_TO"),
+            Triple("android.intent.action.SENDTO", "mms", "SEND_TO"),
+            Triple("android.intent.action.SENDTO", "mmsto", "SEND_TO"),
             Triple("android.intent.action.DIAL", "tel", "DIAL"),
             Triple("android.intent.action.GET_CONTENT", null, "GET_CONTENT"),
             Triple("android.intent.action.OPEN_DOCUMENT", null, "OPEN_DOCUMENT"),
