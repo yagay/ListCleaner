@@ -16,6 +16,8 @@ data class EmbeddedDirectShareHostProfile(
     val shareActivityClasses: Set<String>,
     val adapterClasses: Set<String>,
     val refreshMethods: Set<EmbeddedDirectShareMethodSignature>,
+    /** View IDs (resource entry names, not numeric IDs) that should collapse when Direct Share is empty. */
+    val collapseWhenEmptyResourceNames: Set<String> = emptySet(),
 )
 
 object EmbeddedDirectShareProfiles {
@@ -40,6 +42,13 @@ object EmbeddedDirectShareProfiles {
                     returnTypeName = "void",
                     parameterTypeNames = listOf("android.content.Intent"),
                 ),
+            ),
+            // Resource entry names are resolved at runtime in the host package. Keep UI knowledge
+            // declarative so other OEMs only need another profile rather than another hook module.
+            collapseWhenEmptyResourceNames = setOf(
+                "direct_share_fl",
+                "direct_share_divider",
+                "direct_share_no_data_tv",
             ),
         ),
     )
