@@ -6,6 +6,7 @@ import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.BrowserLinkDiscovery
 import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.ComponentRule
+import com.yagay.ListCleaner.domain.normalizeLogicalCandidates
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -69,7 +70,7 @@ internal class CandidateController(
                 if (currentGeneration != generation) return@launch
 
                 val configured = configuredRules()
-                mutableCandidates.value = app.catalog.completeConfigured(mutableCandidates.value, configured)
+                mutableCandidates.value = completeLogical(mutableCandidates.value, configured)
 
                 val cachedBrowserDiscovery = browserLinkDiscovery.snapshot()
                 if (currentGeneration == generation) {
@@ -82,7 +83,7 @@ internal class CandidateController(
                     force = forceCatalog,
                 )
                 if (currentGeneration != generation) return@launch
-                mutableCandidates.value = app.catalog.completeConfigured(baseResult, configuredRules())
+                mutableCandidates.value = completeLogical(baseResult, configuredRules())
                 mutableError.value = app.catalog.scanWarning
                 mutableLoading.value = false
 
@@ -99,7 +100,7 @@ internal class CandidateController(
                                 force = true,
                             )
                             if (currentGeneration == generation) {
-                                mutableCandidates.value = app.catalog.completeConfigured(enriched, configuredRules())
+                                mutableCandidates.value = completeLogical(enriched, configuredRules())
                                 mutableError.value = app.catalog.scanWarning
                             }
                         }
@@ -119,6 +120,12 @@ internal class CandidateController(
             }
         }
     }
+
+    private suspend fun completeLogical(
+        items: List<ComponentCandidate>,
+        configured: Set<ComponentRule>,
+    ): List<ComponentCandidate> =
+        app.catalog.completeConfigured(normalizeLogicalCandidates(items), configured)
 
     private fun configuredRules(): Set<ComponentRule> = buildSet {
         addAll(app.rules.rules.value)
