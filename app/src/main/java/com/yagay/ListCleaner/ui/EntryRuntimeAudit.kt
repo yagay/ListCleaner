@@ -1,0 +1,158 @@
+package com.yagay.ListCleaner.ui
+
+import com.yagay.ListCleaner.domain.EmptyResultBehavior
+import com.yagay.ListCleaner.domain.EntryRuntimePath
+import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.isSelectableEntryKind
+import com.yagay.ListCleaner.domain.runtimeDefinition
+
+/** Builds a machine-friendly cross-check between manager discovery/config and real hook evidence. */
+internal object EntryRuntimeAudit {
+    private data class Evidence(
+        var hookReady: Int = 0,
+        var queryObserved: Int = 0,
+        var filterObserved: Int = 0,
+        var restoreObserved: Int = 0,
+        var failed: Int = 0,
+    )
+
+    fun report(state: MainState, runtimeLogText: String): String = buildString {
+        appendLine("Entry runtime audit")
+        appendLine("generatedFrom=current manager state + bounded historical runtime logs")
+        appendLine("IMPORTANT: missing runtime evidence means UNKNOWN until that surface is exercised; it is not proof of failure.")
+        appendLine("coverageGap is source-code architecture coverage, not a live-device observation.")
+        appendLine()
+
+        val lines = runtimeLogText.lineSequence()
+            .filter { it.contains("ListCleaner") }
+            .take(50_000)
+            .toList()
+
+        IntentKind.entries
+            .filter(IntentKind::isSelectableEntryKind)
+            .forEach { kind ->
+                val definition = kind.runtimeDefinition()
+                val candidates = state.candidates.filter { it.rule.kind == kind }
+                val discovered = candidates.count { !it.unavailable }
+                val unavailable = candidates.count { it.unavailable }
+                val selected = state.selected.count { it.kind == kind }
+                val selectedUnavailable = candidates.count { it.unavailable && it.rule in state.selected }
+                val evidence = collectEvidence(kind, definition?.coveredPaths.orEmpty(), lines)
+                val status = when {
+                    selected == 0 -> "UNCONFIGURED"
+                    evidence.restoreObserved > 0 -> "EMPTY_RESULT_RESTORED"
+                    evidence.filterObserved > 0 -> "FILTER_OBSERVED"
+                    evidence.failed > 0 && evidence.hookReady == 0 -> "HOOK_ERROR_SEEN"
+                    evidence.queryObserved > 0 || evidence.hookReady > 0 -> "RUNTIME_SEEN_NOT_FILTER_CONFIRMED"
+                    else -> "NO_RUNTIME_EVIDENCE"
+                }
+
+                val risks = linkedSetOf<String>()
+                if (definition == null) {
+                    risks += "NO_RUNTIME_DEFINITION"
+                } else {
+                    definition.missingPaths.forEach { risks += "COVERAGE_GAP_${it.name}" }
+                    if (definition.systemCallerBypassPossible) risks += "SYSTEM_CALLER_BYPASS_POSSIBLE"
+                    val canRestoreEmpty = definition.coveredPaths.any { path ->
+                        definition.emptyBehavior[path] == EmptyResultBehavior.RESTORE_ORIGINAL
+                    }
+                    if (selected > 0 && discovered > 0 && selected >= discovered && canRestoreEmpty) {
+                        risks += "EMPTY_RESULT_GUARD_MAY_RESTORE"
+                    }
+                }
+                if (selected > 0 && discovered == 0) risks += "CONFIGURED_NOT_DISCOVERED"
+                if (selectedUnavailable > 0) risks += "SELECTED_UNAVAILABLE=$selectedUnavailable"
+                if (evidence.restoreObserved > 0) risks += "RESTORE_ALL_SEEN_IN_LOG"
+                if (evidence.failed > 0) risks += "HOOK_FAILURE_SEEN"
+                if (selected > 0 && evidence.hookReady == 0 && evidence.queryObserved == 0 && evidence.filterObserved == 0) {
+                    risks += "NO_RUNTIME_EVIDENCE"
+                }
+
+                append("kind=${kind.name}")
+                append(" discovered=$discovered unavailable=$unavailable selected=$selected")
+                append(" status=$status")
+                append(" expectedPaths=${definition?.expectedPaths?.joinToString("+") { it.name } ?: "none"}")
+                append(" coveredPaths=${definition?.coveredPaths?.joinToString("+") { it.name } ?: "none"}")
+                append(" hookReady=${evidence.hookReady}")
+                append(" queryObserved=${evidence.queryObserved}")
+                append(" filterObserved=${evidence.filterObserved}")
+                append(" restoreObserved=${evidence.restoreObserved}")
+                append(" failed=${evidence.failed}")
+                append(" risks=${if (risks.isEmpty()) "none" else risks.joinToString(",")}")
+                definition?.roleName?.let { append(" role=$it") }
+                appendLine()
+            }
+    }
+
+    private fun collectEvidence(
+        kind: IntentKind,
+        coveredPaths: Set<EntryRuntimePath>,
+        lines: List<String>,
+    ): Evidence {
+        val evidence = Evidence()
+        lines.forEach { line ->
+            if (!relevant(kind, coveredPaths, line)) return@forEach
+            when {
+                isFailure(line) -> evidence.failed++
+                isRestore(line) -> evidence.restoreObserved++
+                isFilter(line) -> evidence.filterObserved++
+                isQuery(line) -> evidence.queryObserved++
+                isHookReady(line) -> evidence.hookReady++
+            }
+        }
+        return evidence
+    }
+
+    private fun relevant(kind: IntentKind, coveredPaths: Set<EntryRuntimePath>, line: String): Boolean {
+        if (Regex("\\bkind=${Regex.escape(kind.name)}\\b").containsMatchIn(line)) return true
+
+        if (kind == IntentKind.ASSISTANT &&
+            (line.contains("ListCleaner.AssistantRole") || line.contains("role=android.app.role.ASSISTANT"))) {
+            return true
+        }
+        if (kind == IntentKind.DIRECT_SHARE) {
+            if (line.contains("ListCleaner.DirectShare") || line.contains("ListCleaner.EmbeddedDirectShare")) return true
+            if (line.contains("ListCleaner.ShortcutSurface") &&
+                (line.contains("DIRECT_") || line.contains("DIRECT_SHARE") || line.contains("getShareTargets"))) return true
+        }
+        if (kind == IntentKind.SHORTCUT_ITEM && line.contains("ListCleaner.ShortcutSurface")) {
+            return !line.contains("DIRECT_") && !line.contains("DIRECT_SHARE") && !line.contains("getShareTargets")
+        }
+
+        if ((EntryRuntimePath.PACKAGE_MANAGER_SERVICE in coveredPaths ||
+                EntryRuntimePath.PACKAGE_MANAGER_PROVIDER in coveredPaths) &&
+            line.contains("ListCleaner.PmEntries")
+        ) {
+            return line.contains("HOOKS_READY") || line.contains("HOOK_INSTALLED")
+        }
+
+        if (EntryRuntimePath.RESOLVER_ACTIVITY in coveredPaths &&
+            (line.contains("ListCleaner.Diagnostic") || line.contains("ListCleaner:")) &&
+            (line.contains("SYSTEM_HOOKS") || line.contains("RESOLVER_HOOKS") || line.contains("HOOK_INSTALLED"))
+        ) {
+            return true
+        }
+        return false
+    }
+
+    private fun isHookReady(line: String): Boolean =
+        line.contains("HOOK_INSTALLED") || line.contains("HOOKS_READY") ||
+            line.contains("SYSTEM_HOOKS") || line.contains("RESOLVER_HOOKS") ||
+            line.contains("PROFILE_READY") || line.contains("MODULE_LOADED")
+
+    private fun isQuery(line: String): Boolean =
+        line.contains(" QUERY ") || line.contains(" HIT ") || line.contains("_HIT ") ||
+            line.contains("LISTS_EMPTY")
+
+    private fun isFilter(line: String): Boolean =
+        line.contains(" FILTER ") || line.contains("DIRECT_FILTER") || line.contains("FILTERED") ||
+            line.contains("RESULT kind=") || line.contains(" before=") && line.contains(" after=")
+
+    private fun isRestore(line: String): Boolean =
+        line.contains("RESTORE_ALL") || line.contains("RESTORE_ORIGINAL")
+
+    private fun isFailure(line: String): Boolean =
+        line.contains("HOOK_FAILED") || line.contains("HOT_RELOAD_FAILED") ||
+            line.contains("UNSUPPORTED") || line.contains("CLASS_UNAVAILABLE") ||
+            line.contains("ADAPTER_CLASS_UNAVAILABLE")
+}
