@@ -59,7 +59,7 @@
     <string name="intent_home">桌面候选</string>
     <string name="intent_assistant">助手候选</string>
     <string name="intent_launcher_shortcut">长按快捷方式应用</string>
-    <string name="intent_shortcut_item">快捷方式项目</string>
+    <string name="intent_shortcut_item">长按快捷方式项目</string>
     <string name="intent_document_provider">存储位置</string>
     <string name="intent_input_method">输入法</string>
     <string name="intent_autofill">自动填充服务</string>
@@ -79,7 +79,7 @@
 
     <string name="cleanup_launcher">桌面图标</string>
     <string name="cleanup_tile">磁贴</string>
-    <string name="cleanup_shortcut">快捷方式</string>
+    <string name="cleanup_shortcut">创建快捷方式入口</string>
     <string name="cleanup_widget">小部件</string>
 
     <string name="open_browser">网页链接</string>
