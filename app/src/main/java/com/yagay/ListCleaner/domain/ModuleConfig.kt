@@ -28,6 +28,7 @@ data class ModuleConfig(
 ) {
     fun validated(): ModuleConfig {
         require(rules.size <= 20_000 && rules.all(ComponentRule::isValid))
+        val cleanRules = rules.filterTo(linkedSetOf()) { it.kind.isSelectableEntryKind() }
         val cleanPriorities = priorities.validated()
         require(managerAppId == -1 || ManagerIdentity.valid(managerAppId))
         require(hiddenFromApps.size <= 2_000 && hiddenFromApps.all(PackageIdentity::valid))
@@ -52,11 +53,13 @@ data class ModuleConfig(
         val cleanBrowserLinks = browserLinks.validated()
         val cleanVisibilityCompat = visibilityCompat.validated()
         return if (
+            cleanRules == rules &&
             migratedPriorities == priorities &&
             cleanOpenTypes == openTypes &&
             cleanBrowserLinks == browserLinks &&
             cleanVisibilityCompat == visibilityCompat
         ) this else copy(
+            rules = cleanRules,
             priorities = migratedPriorities,
             openTypes = cleanOpenTypes,
             browserLinks = cleanBrowserLinks,
