@@ -7,11 +7,16 @@ enum class EntryRuntimePath {
     DIRECT_SHARE_CHOOSER,
     DIRECT_SHARE_EMBEDDED,
     SHORTCUT_SERVICE,
+    PACKAGE_MANAGER_ACTIVITY,
     PACKAGE_MANAGER_PROVIDER,
     PACKAGE_MANAGER_SERVICE,
     ACCESSIBILITY_MANAGER,
     INPUT_METHOD_MANAGER,
     PRINT_MANAGER,
+    CREDENTIAL_MANAGER,
+    COMBINED_PROVIDER_SETTINGS,
+    VPN_APP_OPS,
+    NFC_CARD_EMULATION,
 }
 
 enum class EmptyResultBehavior {
@@ -30,13 +35,7 @@ data class EntryRuntimeDefinition(
     val missingPaths: Set<EntryRuntimePath> get() = expectedPaths - coveredPaths
 }
 
-/**
- * Central runtime coverage registry.
- *
- * Discovery, UI and hooks historically grew independently. This table documents the actual final
- * Android surfaces for every selectable entry kind so diagnostics and future hook work cannot assume
- * that a PackageManager probe is also the final system UI source.
- */
+/** Final Android authority coverage for every selectable entry kind. */
 val ENTRY_RUNTIME_DEFINITIONS: Map<IntentKind, EntryRuntimeDefinition> = buildMap {
     val resolverOnly = setOf(
         IntentKind.SHARE,
@@ -57,81 +56,63 @@ val ENTRY_RUNTIME_DEFINITIONS: Map<IntentKind, EntryRuntimeDefinition> = buildMa
         put(
             kind,
             EntryRuntimeDefinition(
-                kind = kind,
-                expectedPaths = setOf(EntryRuntimePath.RESOLVER_ACTIVITY),
-                coveredPaths = setOf(EntryRuntimePath.RESOLVER_ACTIVITY),
-                emptyBehavior = mapOf(
+                kind,
+                setOf(EntryRuntimePath.RESOLVER_ACTIVITY),
+                setOf(EntryRuntimePath.RESOLVER_ACTIVITY),
+                mapOf(
                     EntryRuntimePath.RESOLVER_ACTIVITY to if (kind == IntentKind.PROCESS_TEXT) {
                         EmptyResultBehavior.ALLOW_EMPTY
-                    } else {
-                        EmptyResultBehavior.RESTORE_ORIGINAL
-                    }
+                    } else EmptyResultBehavior.RESTORE_ORIGINAL
                 ),
             )
         )
     }
 
-    put(
+    fun role(kind: IntentKind, name: String, extra: Set<EntryRuntimePath> = emptySet()) {
+        val paths = setOf(EntryRuntimePath.RESOLVER_ACTIVITY, EntryRuntimePath.ROLE_CONTROLLER) + extra
+        put(
+            kind,
+            EntryRuntimeDefinition(
+                kind,
+                paths,
+                paths,
+                paths.associateWith { path ->
+                    if (path == EntryRuntimePath.RESOLVER_ACTIVITY) EmptyResultBehavior.RESTORE_ORIGINAL
+                    else EmptyResultBehavior.ALLOW_EMPTY
+                },
+                roleName = name,
+            )
+        )
+    }
+    role(
         IntentKind.ASSISTANT,
+        "android.app.role.ASSISTANT",
+        setOf(EntryRuntimePath.PACKAGE_MANAGER_SERVICE),
+    )
+    role(IntentKind.HOME, "android.app.role.HOME")
+    role(IntentKind.BROWSER, "android.app.role.BROWSER")
+
+    put(
+        IntentKind.CALL_SCREENING,
         EntryRuntimeDefinition(
-            kind = IntentKind.ASSISTANT,
-            expectedPaths = setOf(
-                EntryRuntimePath.RESOLVER_ACTIVITY,
-                EntryRuntimePath.PACKAGE_MANAGER_SERVICE,
-                EntryRuntimePath.ROLE_CONTROLLER,
-            ),
-            coveredPaths = setOf(
-                EntryRuntimePath.RESOLVER_ACTIVITY,
-                EntryRuntimePath.PACKAGE_MANAGER_SERVICE,
-                EntryRuntimePath.ROLE_CONTROLLER,
-            ),
-            emptyBehavior = mapOf(
-                EntryRuntimePath.RESOLVER_ACTIVITY to EmptyResultBehavior.RESTORE_ORIGINAL,
+            IntentKind.CALL_SCREENING,
+            setOf(EntryRuntimePath.PACKAGE_MANAGER_SERVICE, EntryRuntimePath.ROLE_CONTROLLER),
+            setOf(EntryRuntimePath.PACKAGE_MANAGER_SERVICE, EntryRuntimePath.ROLE_CONTROLLER),
+            mapOf(
                 EntryRuntimePath.PACKAGE_MANAGER_SERVICE to EmptyResultBehavior.ALLOW_EMPTY,
                 EntryRuntimePath.ROLE_CONTROLLER to EmptyResultBehavior.ALLOW_EMPTY,
             ),
-            roleName = "android.app.role.ASSISTANT",
+            roleName = "android.app.role.CALL_SCREENING",
         )
     )
-    put(
-        IntentKind.HOME,
-        EntryRuntimeDefinition(
-            kind = IntentKind.HOME,
-            expectedPaths = setOf(EntryRuntimePath.RESOLVER_ACTIVITY, EntryRuntimePath.ROLE_CONTROLLER),
-            coveredPaths = setOf(EntryRuntimePath.RESOLVER_ACTIVITY, EntryRuntimePath.ROLE_CONTROLLER),
-            emptyBehavior = mapOf(
-                EntryRuntimePath.RESOLVER_ACTIVITY to EmptyResultBehavior.RESTORE_ORIGINAL,
-                EntryRuntimePath.ROLE_CONTROLLER to EmptyResultBehavior.ALLOW_EMPTY,
-            ),
-            roleName = "android.app.role.HOME",
-        )
-    )
-    put(
-        IntentKind.BROWSER,
-        EntryRuntimeDefinition(
-            kind = IntentKind.BROWSER,
-            expectedPaths = setOf(EntryRuntimePath.RESOLVER_ACTIVITY, EntryRuntimePath.ROLE_CONTROLLER),
-            coveredPaths = setOf(EntryRuntimePath.RESOLVER_ACTIVITY, EntryRuntimePath.ROLE_CONTROLLER),
-            emptyBehavior = mapOf(
-                EntryRuntimePath.RESOLVER_ACTIVITY to EmptyResultBehavior.RESTORE_ORIGINAL,
-                EntryRuntimePath.ROLE_CONTROLLER to EmptyResultBehavior.ALLOW_EMPTY,
-            ),
-            roleName = "android.app.role.BROWSER",
-        )
-    )
+
     put(
         IntentKind.DIRECT_SHARE,
         EntryRuntimeDefinition(
-            kind = IntentKind.DIRECT_SHARE,
-            expectedPaths = setOf(
-                EntryRuntimePath.DIRECT_SHARE_CHOOSER,
-                EntryRuntimePath.DIRECT_SHARE_EMBEDDED,
-            ),
-            coveredPaths = setOf(
-                EntryRuntimePath.DIRECT_SHARE_CHOOSER,
-                EntryRuntimePath.DIRECT_SHARE_EMBEDDED,
-            ),
-            emptyBehavior = mapOf(
+            IntentKind.DIRECT_SHARE,
+            setOf(EntryRuntimePath.DIRECT_SHARE_CHOOSER, EntryRuntimePath.DIRECT_SHARE_EMBEDDED),
+            setOf(EntryRuntimePath.DIRECT_SHARE_CHOOSER, EntryRuntimePath.DIRECT_SHARE_EMBEDDED),
+            mapOf(
                 EntryRuntimePath.DIRECT_SHARE_CHOOSER to EmptyResultBehavior.ALLOW_EMPTY,
                 EntryRuntimePath.DIRECT_SHARE_EMBEDDED to EmptyResultBehavior.ALLOW_EMPTY,
             ),
@@ -140,53 +121,104 @@ val ENTRY_RUNTIME_DEFINITIONS: Map<IntentKind, EntryRuntimeDefinition> = buildMa
     put(
         IntentKind.SHORTCUT_ITEM,
         EntryRuntimeDefinition(
-            kind = IntentKind.SHORTCUT_ITEM,
-            expectedPaths = setOf(EntryRuntimePath.SHORTCUT_SERVICE),
-            coveredPaths = setOf(EntryRuntimePath.SHORTCUT_SERVICE),
-            emptyBehavior = mapOf(EntryRuntimePath.SHORTCUT_SERVICE to EmptyResultBehavior.ALLOW_EMPTY),
+            IntentKind.SHORTCUT_ITEM,
+            setOf(EntryRuntimePath.SHORTCUT_SERVICE),
+            setOf(EntryRuntimePath.SHORTCUT_SERVICE),
+            mapOf(EntryRuntimePath.SHORTCUT_SERVICE to EmptyResultBehavior.ALLOW_EMPTY),
         )
     )
     put(
         IntentKind.DOCUMENT_PROVIDER,
         EntryRuntimeDefinition(
-            kind = IntentKind.DOCUMENT_PROVIDER,
-            expectedPaths = setOf(EntryRuntimePath.PACKAGE_MANAGER_PROVIDER),
-            coveredPaths = setOf(EntryRuntimePath.PACKAGE_MANAGER_PROVIDER),
-            emptyBehavior = mapOf(EntryRuntimePath.PACKAGE_MANAGER_PROVIDER to EmptyResultBehavior.ALLOW_EMPTY),
+            IntentKind.DOCUMENT_PROVIDER,
+            setOf(EntryRuntimePath.PACKAGE_MANAGER_PROVIDER),
+            setOf(EntryRuntimePath.PACKAGE_MANAGER_PROVIDER),
+            mapOf(EntryRuntimePath.PACKAGE_MANAGER_PROVIDER to EmptyResultBehavior.ALLOW_EMPTY),
             systemCallerBypassPossible = true,
         )
     )
 
-    SYSTEM_SERVICE_ENTRY_DEFINITIONS.map { it.kind }.distinct().forEach { kind ->
-        val roleName = when (kind) {
-            IntentKind.CALL_SCREENING -> "android.app.role.CALL_SCREENING"
-            else -> null
-        }
-        val managerPath = when (kind) {
-            IntentKind.ACCESSIBILITY -> EntryRuntimePath.ACCESSIBILITY_MANAGER
-            IntentKind.INPUT_METHOD -> EntryRuntimePath.INPUT_METHOD_MANAGER
-            IntentKind.PRINT -> EntryRuntimePath.PRINT_MANAGER
-            else -> null
-        }
-        val expected = buildSet {
-            add(EntryRuntimePath.PACKAGE_MANAGER_SERVICE)
-            if (roleName != null) add(EntryRuntimePath.ROLE_CONTROLLER)
-            if (managerPath != null) add(managerPath)
-        }
+    put(
+        IntentKind.INPUT_METHOD,
+        EntryRuntimeDefinition(
+            IntentKind.INPUT_METHOD,
+            setOf(EntryRuntimePath.INPUT_METHOD_MANAGER),
+            setOf(EntryRuntimePath.INPUT_METHOD_MANAGER),
+            mapOf(EntryRuntimePath.INPUT_METHOD_MANAGER to EmptyResultBehavior.ALLOW_EMPTY),
+        )
+    )
+    put(
+        IntentKind.ACCESSIBILITY,
+        EntryRuntimeDefinition(
+            IntentKind.ACCESSIBILITY,
+            setOf(EntryRuntimePath.ACCESSIBILITY_MANAGER, EntryRuntimePath.PACKAGE_MANAGER_ACTIVITY),
+            setOf(EntryRuntimePath.ACCESSIBILITY_MANAGER, EntryRuntimePath.PACKAGE_MANAGER_ACTIVITY),
+            mapOf(
+                EntryRuntimePath.ACCESSIBILITY_MANAGER to EmptyResultBehavior.ALLOW_EMPTY,
+                EntryRuntimePath.PACKAGE_MANAGER_ACTIVITY to EmptyResultBehavior.ALLOW_EMPTY,
+            ),
+        )
+    )
+    put(
+        IntentKind.PRINT,
+        EntryRuntimeDefinition(
+            IntentKind.PRINT,
+            setOf(EntryRuntimePath.PRINT_MANAGER),
+            setOf(EntryRuntimePath.PRINT_MANAGER),
+            mapOf(EntryRuntimePath.PRINT_MANAGER to EmptyResultBehavior.ALLOW_EMPTY),
+        )
+    )
+    put(
+        IntentKind.VPN,
+        EntryRuntimeDefinition(
+            IntentKind.VPN,
+            setOf(EntryRuntimePath.VPN_APP_OPS),
+            setOf(EntryRuntimePath.VPN_APP_OPS),
+            mapOf(EntryRuntimePath.VPN_APP_OPS to EmptyResultBehavior.ALLOW_EMPTY),
+        )
+    )
+    put(
+        IntentKind.AUTOFILL,
+        EntryRuntimeDefinition(
+            IntentKind.AUTOFILL,
+            setOf(EntryRuntimePath.PACKAGE_MANAGER_SERVICE, EntryRuntimePath.COMBINED_PROVIDER_SETTINGS),
+            setOf(EntryRuntimePath.PACKAGE_MANAGER_SERVICE, EntryRuntimePath.COMBINED_PROVIDER_SETTINGS),
+            mapOf(
+                EntryRuntimePath.PACKAGE_MANAGER_SERVICE to EmptyResultBehavior.ALLOW_EMPTY,
+                EntryRuntimePath.COMBINED_PROVIDER_SETTINGS to EmptyResultBehavior.ALLOW_EMPTY,
+            ),
+        )
+    )
+    put(
+        IntentKind.CREDENTIAL_PROVIDER,
+        EntryRuntimeDefinition(
+            IntentKind.CREDENTIAL_PROVIDER,
+            setOf(EntryRuntimePath.CREDENTIAL_MANAGER, EntryRuntimePath.COMBINED_PROVIDER_SETTINGS),
+            setOf(EntryRuntimePath.CREDENTIAL_MANAGER, EntryRuntimePath.COMBINED_PROVIDER_SETTINGS),
+            mapOf(
+                EntryRuntimePath.CREDENTIAL_MANAGER to EmptyResultBehavior.ALLOW_EMPTY,
+                EntryRuntimePath.COMBINED_PROVIDER_SETTINGS to EmptyResultBehavior.ALLOW_EMPTY,
+            ),
+        )
+    )
+    put(
+        IntentKind.NFC_HCE,
+        EntryRuntimeDefinition(
+            IntentKind.NFC_HCE,
+            setOf(EntryRuntimePath.NFC_CARD_EMULATION),
+            setOf(EntryRuntimePath.NFC_CARD_EMULATION),
+            mapOf(EntryRuntimePath.NFC_CARD_EMULATION to EmptyResultBehavior.ALLOW_EMPTY),
+        )
+    )
+
+    setOf(IntentKind.NOTIFICATION_LISTENER, IntentKind.WALLPAPER, IntentKind.DREAM).forEach { kind ->
         put(
             kind,
             EntryRuntimeDefinition(
-                kind = kind,
-                expectedPaths = expected,
-                coveredPaths = expected,
-                emptyBehavior = buildMap {
-                    put(EntryRuntimePath.PACKAGE_MANAGER_SERVICE, EmptyResultBehavior.ALLOW_EMPTY)
-                    if (roleName != null) put(EntryRuntimePath.ROLE_CONTROLLER, EmptyResultBehavior.ALLOW_EMPTY)
-                    if (managerPath != null) put(managerPath, EmptyResultBehavior.ALLOW_EMPTY)
-                },
-                roleName = roleName,
-                // The final manager path is now covered for Accessibility/IME/Print, but PM-level
-                // system callers can still bypass the lower discovery hook by design.
+                kind,
+                setOf(EntryRuntimePath.PACKAGE_MANAGER_SERVICE),
+                setOf(EntryRuntimePath.PACKAGE_MANAGER_SERVICE),
+                mapOf(EntryRuntimePath.PACKAGE_MANAGER_SERVICE to EmptyResultBehavior.ALLOW_EMPTY),
                 systemCallerBypassPossible = true,
             )
         )
