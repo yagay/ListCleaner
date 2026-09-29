@@ -20,40 +20,11 @@ internal class SpecialEntryDiscovery(private val context: Context) {
     private val flags = PackageManager.MATCH_ALL or PackageManager.GET_META_DATA
 
     fun scan(): List<ComponentCandidate> = (
-        launcherShortcutActivities() +
-            observedShortcutEntries() +
+        observedShortcutEntries() +
             documentProviders() +
             systemServiceEntries()
         ).distinctBy { it.rule.id }
         .sortedWith(compareBy<ComponentCandidate>({ it.rule.kind.ordinal }, { it.appLabel.lowercase() }, { it.activityLabel.lowercase() }))
-
-    @Suppress("DEPRECATION")
-    private fun launcherShortcutActivities(): List<ComponentCandidate> {
-        val managerUid = android.os.Process.myUid()
-        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        return pm.queryIntentActivities(intent, flags).mapNotNull { resolved ->
-            val activity = resolved.activityInfo ?: return@mapNotNull null
-            val app = activity.applicationInfo ?: return@mapNotNull null
-            if (!activity.enabled || !app.enabled) return@mapNotNull null
-            val rule = ComponentRule(IntentKind.LAUNCHER_SHORTCUT, activity.packageName, activity.name)
-            if (!rule.isValid()) return@mapNotNull null
-            val restricted = FilterPolicy.catalogRestricted(activity.exported, app.uid, managerUid)
-            ComponentCandidate(
-                rule = rule,
-                appLabel = runCatching { app.loadLabel(pm).toString() }.getOrDefault(activity.packageName),
-                activityLabel = runCatching { resolved.loadLabel(pm).toString() }
-                    .getOrDefault(activity.name.substringAfterLast('.')),
-                appIcon = runCatching { app.loadIcon(pm).toBitmap(96, 96) }.getOrNull(),
-                appType = app.listCleanerAppType(),
-                evidence = buildList {
-                    add("LAUNCHER_SHORTCUT source=MAIN+LAUNCHER activity=${activity.packageName}/${activity.name}")
-                    activity.targetActivity?.takeIf { it.isNotBlank() }?.let { add("activityAlias=${activity.name} targetActivity=$it") }
-                    if (restricted) add("RESTRICTED non-exported foreign launcher activity")
-                },
-                restricted = restricted,
-            )
-        }
-    }
 
     @Suppress("DEPRECATION")
     private fun observedShortcutEntries(): List<ComponentCandidate> {
@@ -62,17 +33,25 @@ internal class SpecialEntryDiscovery(private val context: Context) {
             val activity = resolved.activityInfo ?: return@mapNotNull null
             val kind = activity.metaData?.getString(ObservedEntryProtocol.META_KIND)
                 ?.let { runCatching { IntentKind.valueOf(it) }.getOrNull() }
-                ?.takeIf { it == IntentKind.SHORTCUT_ITEM || it == IntentKind.DIRECT_SHARE }
+                ?.takeIf {
+                    it == IntentKind.LAUNCHER_SHORTCUT ||
+                        it == IntentKind.SHORTCUT_ITEM ||
+                        it == IntentKind.DIRECT_SHARE
+                }
                 ?: return@mapNotNull null
             val rule = ComponentRule(kind, activity.packageName, activity.name)
             if (!rule.isValid()) return@mapNotNull null
             val app = runCatching { pm.getApplicationInfo(activity.packageName, 0) }.getOrNull()
+            val appLabel = app?.let { runCatching { it.loadLabel(pm).toString() }.getOrNull() }
+                ?: activity.packageName
             ComponentCandidate(
                 rule = rule,
-                appLabel = app?.let { runCatching { it.loadLabel(pm).toString() }.getOrNull() }
-                    ?: activity.packageName,
-                activityLabel = resolved.nonLocalizedLabel?.toString()?.takeIf { it.isNotBlank() }
-                    ?: activity.name.substringAfterLast('.'),
+                appLabel = appLabel,
+                activityLabel = when (kind) {
+                    IntentKind.LAUNCHER_SHORTCUT -> appLabel
+                    else -> resolved.nonLocalizedLabel?.toString()?.takeIf { it.isNotBlank() }
+                        ?: activity.name.substringAfterLast('.')
+                },
                 appIcon = app?.let { runCatching { it.loadIcon(pm).toBitmap(96, 96) }.getOrNull() },
                 appType = app?.listCleanerAppType() ?: AppType.USER,
                 evidence = buildList {
@@ -140,8 +119,6 @@ internal class SpecialEntryDiscovery(private val context: Context) {
                             add("exported=${service.exported}")
                             service.permission?.takeIf { it.isNotBlank() }?.let { add("permission=$it") }
                         },
-                        // Framework-bound services are selected by Android itself; exported=false does
-                        // not make them invalid management candidates for ListCleaner.
                         restricted = false,
                     )
                 }
