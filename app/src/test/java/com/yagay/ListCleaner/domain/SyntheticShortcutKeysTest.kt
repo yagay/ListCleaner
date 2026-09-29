@@ -37,14 +37,28 @@ class SyntheticShortcutKeysTest {
     }
 
     @Test
-    fun historical_assistant_components_collapse_to_package_identity() {
-        val activity = ComponentRule(IntentKind.ASSISTANT, "com.example.assistant", "com.example.AssistActivity")
-        val service = ComponentRule(IntentKind.ASSISTANT, "com.example.assistant", "com.example.VoiceService")
+    fun all_role_package_identities_are_stable() {
+        assertEquals("@assistant", SyntheticEntryKeys.packageScopedClass(IntentKind.ASSISTANT))
+        assertEquals("@home", SyntheticEntryKeys.packageScopedClass(IntentKind.HOME))
+        assertEquals("@browser", SyntheticEntryKeys.packageScopedClass(IntentKind.BROWSER))
+        assertEquals("@call_screening", SyntheticEntryKeys.packageScopedClass(IntentKind.CALL_SCREENING))
+    }
 
-        assertEquals(
-            SyntheticEntryKeys.normalizePackageScopedRule(activity),
-            SyntheticEntryKeys.normalizePackageScopedRule(service),
-        )
+    @Test
+    fun historical_package_scoped_components_collapse_by_package() {
+        listOf(
+            IntentKind.ASSISTANT,
+            IntentKind.HOME,
+            IntentKind.BROWSER,
+            IntentKind.CALL_SCREENING,
+        ).forEach { kind ->
+            val first = ComponentRule(kind, "com.example.target", "com.example.First")
+            val second = ComponentRule(kind, "com.example.target", "com.example.Second")
+            assertEquals(
+                SyntheticEntryKeys.normalizePackageScopedRule(first),
+                SyntheticEntryKeys.normalizePackageScopedRule(second),
+            )
+        }
     }
 
     @Test
