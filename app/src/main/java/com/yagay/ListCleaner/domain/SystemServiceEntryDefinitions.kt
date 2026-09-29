@@ -11,7 +11,11 @@ data class SystemServiceEntryDefinition(
     val kind: IntentKind,
     val action: String,
     val requiredPermission: String? = null,
-)
+    val alternativePermissions: Set<String> = emptySet(),
+) {
+    fun acceptsPermission(permission: String?): Boolean =
+        requiredPermission == null || permission == requiredPermission || permission in alternativePermissions
+}
 
 val SYSTEM_SERVICE_ENTRY_DEFINITIONS: List<SystemServiceEntryDefinition> = listOf(
     SystemServiceEntryDefinition(
@@ -23,6 +27,7 @@ val SYSTEM_SERVICE_ENTRY_DEFINITIONS: List<SystemServiceEntryDefinition> = listO
         IntentKind.AUTOFILL,
         "android.service.autofill.AutofillService",
         "android.permission.BIND_AUTOFILL_SERVICE",
+        alternativePermissions = setOf("android.permission.BIND_AUTOFILL"),
     ),
     SystemServiceEntryDefinition(
         IntentKind.CREDENTIAL_PROVIDER,
