@@ -23,9 +23,9 @@ enum class IntentKind(val action: String) {
     PROCESS_TEXT(Intent.ACTION_PROCESS_TEXT),
     HOME(Intent.ACTION_MAIN),
     ASSISTANT(Intent.ACTION_ASSIST),
-    /** Launcher Activity surface used for app-level long-press shortcut cleanup. */
+    /** Retired app-level shortcut surface, kept only so old serialized configs can deserialize. */
     LAUNCHER_SHORTCUT("com.yagay.ListCleaner.action.LAUNCHER_SHORTCUT"),
-    /** Individual manifest/dynamic/pinned shortcut observed from ShortcutService. */
+    /** Individual enabled manifest/dynamic shortcut observed from ShortcutService. */
     SHORTCUT_ITEM("com.yagay.ListCleaner.action.SHORTCUT_ITEM"),
     /** Storage Access Framework DocumentsProvider surface. */
     DOCUMENT_PROVIDER("android.content.action.DOCUMENTS_PROVIDER"),
@@ -57,8 +57,11 @@ data class ComponentRule(val kind: IntentKind, val packageName: String, val clas
         fun fromId(id: String): ComponentRule? {
             val parts = id.split('|', limit = 3)
             return if (parts.size == 3) runCatching {
-                ComponentRule(IntentKind.valueOf(parts[0]), parts[1],
-                    if (parts[2].startsWith('.')) parts[1] + parts[2] else parts[2]).takeIf(ComponentRule::isValid)
+                ComponentRule(
+                    IntentKind.valueOf(parts[0]),
+                    parts[1],
+                    if (parts[2].startsWith('.')) parts[1] + parts[2] else parts[2],
+                ).takeIf { it.isValid() && it.kind.isSelectableEntryKind() }
             }.getOrNull() else null
         }
     }
