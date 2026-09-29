@@ -72,10 +72,19 @@ val ENTRY_RUNTIME_DEFINITIONS: Map<IntentKind, EntryRuntimeDefinition> = buildMa
         IntentKind.ASSISTANT,
         EntryRuntimeDefinition(
             kind = IntentKind.ASSISTANT,
-            expectedPaths = setOf(EntryRuntimePath.RESOLVER_ACTIVITY, EntryRuntimePath.ROLE_CONTROLLER),
-            coveredPaths = setOf(EntryRuntimePath.RESOLVER_ACTIVITY, EntryRuntimePath.ROLE_CONTROLLER),
+            expectedPaths = setOf(
+                EntryRuntimePath.RESOLVER_ACTIVITY,
+                EntryRuntimePath.PACKAGE_MANAGER_SERVICE,
+                EntryRuntimePath.ROLE_CONTROLLER,
+            ),
+            coveredPaths = setOf(
+                EntryRuntimePath.RESOLVER_ACTIVITY,
+                EntryRuntimePath.PACKAGE_MANAGER_SERVICE,
+                EntryRuntimePath.ROLE_CONTROLLER,
+            ),
             emptyBehavior = mapOf(
                 EntryRuntimePath.RESOLVER_ACTIVITY to EmptyResultBehavior.RESTORE_ORIGINAL,
+                EntryRuntimePath.PACKAGE_MANAGER_SERVICE to EmptyResultBehavior.ALLOW_EMPTY,
                 EntryRuntimePath.ROLE_CONTROLLER to EmptyResultBehavior.ALLOW_EMPTY,
             ),
             roleName = "android.app.role.ASSISTANT",
@@ -86,8 +95,11 @@ val ENTRY_RUNTIME_DEFINITIONS: Map<IntentKind, EntryRuntimeDefinition> = buildMa
         EntryRuntimeDefinition(
             kind = IntentKind.HOME,
             expectedPaths = setOf(EntryRuntimePath.RESOLVER_ACTIVITY, EntryRuntimePath.ROLE_CONTROLLER),
-            coveredPaths = setOf(EntryRuntimePath.RESOLVER_ACTIVITY),
-            emptyBehavior = mapOf(EntryRuntimePath.RESOLVER_ACTIVITY to EmptyResultBehavior.RESTORE_ORIGINAL),
+            coveredPaths = setOf(EntryRuntimePath.RESOLVER_ACTIVITY, EntryRuntimePath.ROLE_CONTROLLER),
+            emptyBehavior = mapOf(
+                EntryRuntimePath.RESOLVER_ACTIVITY to EmptyResultBehavior.RESTORE_ORIGINAL,
+                EntryRuntimePath.ROLE_CONTROLLER to EmptyResultBehavior.ALLOW_EMPTY,
+            ),
             roleName = "android.app.role.HOME",
         )
     )
@@ -96,8 +108,11 @@ val ENTRY_RUNTIME_DEFINITIONS: Map<IntentKind, EntryRuntimeDefinition> = buildMa
         EntryRuntimeDefinition(
             kind = IntentKind.BROWSER,
             expectedPaths = setOf(EntryRuntimePath.RESOLVER_ACTIVITY, EntryRuntimePath.ROLE_CONTROLLER),
-            coveredPaths = setOf(EntryRuntimePath.RESOLVER_ACTIVITY),
-            emptyBehavior = mapOf(EntryRuntimePath.RESOLVER_ACTIVITY to EmptyResultBehavior.RESTORE_ORIGINAL),
+            coveredPaths = setOf(EntryRuntimePath.RESOLVER_ACTIVITY, EntryRuntimePath.ROLE_CONTROLLER),
+            emptyBehavior = mapOf(
+                EntryRuntimePath.RESOLVER_ACTIVITY to EmptyResultBehavior.RESTORE_ORIGINAL,
+                EntryRuntimePath.ROLE_CONTROLLER to EmptyResultBehavior.ALLOW_EMPTY,
+            ),
             roleName = "android.app.role.BROWSER",
         )
     )
@@ -125,7 +140,7 @@ val ENTRY_RUNTIME_DEFINITIONS: Map<IntentKind, EntryRuntimeDefinition> = buildMa
             kind = IntentKind.SHORTCUT_ITEM,
             expectedPaths = setOf(EntryRuntimePath.SHORTCUT_SERVICE),
             coveredPaths = setOf(EntryRuntimePath.SHORTCUT_SERVICE),
-            emptyBehavior = mapOf(EntryRuntimePath.SHORTCUT_SERVICE to EmptyResultBehavior.RESTORE_ORIGINAL),
+            emptyBehavior = mapOf(EntryRuntimePath.SHORTCUT_SERVICE to EmptyResultBehavior.ALLOW_EMPTY),
         )
     )
     put(
@@ -134,7 +149,7 @@ val ENTRY_RUNTIME_DEFINITIONS: Map<IntentKind, EntryRuntimeDefinition> = buildMa
             kind = IntentKind.DOCUMENT_PROVIDER,
             expectedPaths = setOf(EntryRuntimePath.PACKAGE_MANAGER_PROVIDER),
             coveredPaths = setOf(EntryRuntimePath.PACKAGE_MANAGER_PROVIDER),
-            emptyBehavior = mapOf(EntryRuntimePath.PACKAGE_MANAGER_PROVIDER to EmptyResultBehavior.RESTORE_ORIGINAL),
+            emptyBehavior = mapOf(EntryRuntimePath.PACKAGE_MANAGER_PROVIDER to EmptyResultBehavior.ALLOW_EMPTY),
             systemCallerBypassPossible = true,
         )
     )
@@ -153,10 +168,11 @@ val ENTRY_RUNTIME_DEFINITIONS: Map<IntentKind, EntryRuntimeDefinition> = buildMa
             EntryRuntimeDefinition(
                 kind = kind,
                 expectedPaths = expected,
-                coveredPaths = setOf(EntryRuntimePath.PACKAGE_MANAGER_SERVICE),
-                emptyBehavior = mapOf(
-                    EntryRuntimePath.PACKAGE_MANAGER_SERVICE to EmptyResultBehavior.RESTORE_ORIGINAL
-                ),
+                coveredPaths = expected,
+                emptyBehavior = buildMap {
+                    put(EntryRuntimePath.PACKAGE_MANAGER_SERVICE, EmptyResultBehavior.ALLOW_EMPTY)
+                    if (roleName != null) put(EntryRuntimePath.ROLE_CONTROLLER, EmptyResultBehavior.ALLOW_EMPTY)
+                },
                 roleName = roleName,
                 systemCallerBypassPossible = true,
             )
