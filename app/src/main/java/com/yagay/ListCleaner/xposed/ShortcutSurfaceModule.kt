@@ -86,20 +86,13 @@ class ShortcutSurfaceModule : XposedModule() {
 
     private fun effectivePolicy(): RuntimeComponentPolicySnapshot {
         val runtime = RuntimeComponentPolicy.snapshot()
-        return if (runtime.authoritative) runtime else RuntimeComponentPolicySnapshot(
+        return if (runtime.authoritative) runtime else fallbackRuntimePolicy(
             managerAppId = fallbackManagerAppId,
             displayMode = fallbackMode,
             entryRules = fallbackRules,
             entryPriorities = fallbackPriorities,
         )
     }
-
-    private fun selectedForKind(kind: IntentKind, policy: RuntimeComponentPolicySnapshot): Set<String> =
-        policy.entryRules.asSequence().mapNotNull(ComponentRule::fromId)
-            .filter { it.kind == kind }.map { it.id }.toSet()
-
-    private fun shouldInclude(rule: ComponentRule, selected: Set<String>, policy: RuntimeComponentPolicySnapshot): Boolean =
-        policy.displayMode.includes(rule.id in selected, selected.isNotEmpty())
 
     private fun installShortcutHooks(classLoader: ClassLoader) {
         val clazz = runCatching { Class.forName(SHORTCUT_LOCAL_SERVICE, false, classLoader) }.getOrNull() ?: return
@@ -127,20 +120,18 @@ class ShortcutSurfaceModule : XposedModule() {
             return@Hooker original
         }
 
-        // Observe only launcher-facing manifest/dynamic queries. Internal/system queries must not
-        // pollute the manager's "recently observed shortcuts" catalog.
         values.filterIsInstance<ShortcutInfo>().forEach(RuntimeObservedEntryStore::observeShortcut)
 
         val policy = effectivePolicy()
         if (ManagerIdentity.matches(call.callerUid, policy.managerAppId)) return@Hooker original
-        val selected = selectedForKind(IntentKind.SHORTCUT_ITEM, policy)
-        val priorities = policy.entryPriorities[IntentKind.SHORTCUT_ITEM].orEmpty()
+        val selected = policy.selected(IntentKind.SHORTCUT_ITEM)
+        val priorities = policy.priorities(IntentKind.SHORTCUT_ITEM)
         if (selected.isEmpty() && priorities.isEmpty()) return@Hooker original
 
         val filtered = if (policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) values else values.filter { value ->
             val shortcut = value as? ShortcutInfo ?: return@filter true
             val rule = shortcutRule(shortcut, shortcut.activity) ?: return@filter true
-            shouldInclude(rule, selected, policy)
+            policy.displayMode.includes(rule.id in selected, selected.isNotEmpty())
         }
         if (values.isNotEmpty() && filtered.isEmpty()) {
             record(
@@ -171,7 +162,6 @@ class ShortcutSurfaceModule : XposedModule() {
         }
     }
 
-    /** Direct Share filtering belongs to the Chooser process. system_server only observes targets. */
     private fun directShareObserver() = XposedInterface.Hooker { chain ->
         val original = chain.proceed()
         val result = listResults.extract(original) ?: return@Hooker original
@@ -218,18 +208,24 @@ class ShortcutSurfaceModule : XposedModule() {
                         (List::class.java.isAssignableFrom(method.returnType) || method.returnType.name.endsWith("ParceledListSlice"))
                 }
                 .distinctBy(Method::toGenericString)
-                .forEach { method -> install(method, DISCOVERY_HOOK_ID, observedDiscoveryHooker()) }
+                .forEach { method -> install(method, DISCOVERY_HOOK_ID, observedDiscoveryHooker(method)) }
         }
     }
 
-    private fun observedDiscoveryHooker() = XposedInterface.Hooker { chain ->
+    private fun observedDiscoveryHooker(method: Method) = XposedInterface.Hooker { chain ->
         val intent = chain.args.firstOrNull { it is Intent } as? Intent ?: return@Hooker chain.proceed()
         val effective = intent.selector ?: intent
         if (effective.action != ObservedEntryProtocol.ACTION || effective.`package` != ObservedEntryProtocol.PACKAGE) {
             return@Hooker chain.proceed()
         }
+        val callerUid = HookCallIdentity.packageManagerCallerUid(
+            methodName = method.name,
+            parameterTypeNames = method.parameterTypes.map { it.name },
+            args = chain.args,
+            binderUid = Binder.getCallingUid(),
+        )
         val policy = effectivePolicy()
-        if (!ManagerIdentity.matches(Binder.getCallingUid(), policy.managerAppId)) return@Hooker chain.proceed()
+        if (!ManagerIdentity.matches(callerUid, policy.managerAppId)) return@Hooker chain.proceed()
 
         val original = chain.proceed()
         val result = listResults.extract(original) ?: return@Hooker original
