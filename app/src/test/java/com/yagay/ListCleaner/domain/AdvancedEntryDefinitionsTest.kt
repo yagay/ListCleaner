@@ -21,6 +21,14 @@ class AdvancedEntryDefinitionsTest {
     }
 
     @Test
+    fun autofillAcceptsCurrentAndLegacyBindPermissions() {
+        val definition = SYSTEM_SERVICE_ENTRY_DEFINITIONS.single { it.kind == IntentKind.AUTOFILL }
+        assertTrue(definition.acceptsPermission("android.permission.BIND_AUTOFILL_SERVICE"))
+        assertTrue(definition.acceptsPermission("android.permission.BIND_AUTOFILL"))
+        assertFalse(definition.acceptsPermission("android.permission.BIND_ACCESSIBILITY_SERVICE"))
+    }
+
+    @Test
     fun syntheticShortcutKeysAreStableAndSeparatedBySurface() {
         val first = SyntheticEntryKeys.shortcutItemClass("a.b.Main", "chat/123")
         val same = SyntheticEntryKeys.shortcutItemClass("a.b.Main", "chat/123")
