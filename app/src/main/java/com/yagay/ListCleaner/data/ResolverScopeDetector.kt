@@ -20,6 +20,7 @@ data class ResolverHost(
         packageName == "system" -> false
         packageName == "com.android.intentresolver" -> false
         packageName == "com.android.systemui" -> false
+        packageName in ResolverScopeDetector.AUTHORITY_PACKAGES -> false
         className == ResolverScopeDetector.ROLE_CONTROLLER_SERVICE_INTERFACE -> false
         EmbeddedDirectShareProfiles.isKnownHost(packageName) -> false
         packageName == "android" -> processName !in ResolverScopeDetector.FRAMEWORK_UI_PROCESSES
@@ -138,8 +139,18 @@ class ResolverScopeDetector(private val context: Context) {
                 )
             }
 
-        val assistantRoleHosts = (roleControllerHosts + knownRoleControllerHosts)
-            .distinctBy { it.packageName }
+        val roleHosts = (roleControllerHosts + knownRoleControllerHosts).distinctBy { it.packageName }
+        val authorityHosts = AUTHORITY_PACKAGES.filter { it in installed }.map { packageName ->
+            ResolverHost(
+                packageName = packageName,
+                className = when (packageName) {
+                    "com.android.nfc" -> "CardEmulationManager"
+                    else -> "CombinedProviderInfo"
+                },
+                processName = installedInfo[packageName]?.processName ?: packageName,
+                scenarios = emptySet(),
+            )
+        }
 
         val systemHost = ResolverHost(
             "system",
@@ -148,8 +159,8 @@ class ResolverScopeDetector(private val context: Context) {
             setOf(context.getString(R.string.scope_scenario_global_intent))
         )
         return ScopeDetection(
-            hosts = listOf(systemHost) + resolverHosts + embeddedShareHosts + assistantRoleHosts,
-            installedCandidates = installed + assistantRoleHosts.map { it.packageName } + "system",
+            hosts = listOf(systemHost) + resolverHosts + embeddedShareHosts + roleHosts + authorityHosts,
+            installedCandidates = installed + roleHosts.map { it.packageName } + authorityHosts.map { it.packageName } + "system",
             warnings = warnings,
         )
     }
@@ -160,9 +171,10 @@ class ResolverScopeDetector(private val context: Context) {
             "com.google.android.permissioncontroller",
             "com.android.permissioncontroller",
         )
+        val AUTHORITY_PACKAGES = setOf("com.android.settings", "com.android.nfc")
         private val STANDARD_PACKAGES = setOf("android", "com.android.intentresolver", "com.android.systemui")
         val KNOWN_PACKAGES: Set<String> =
-            STANDARD_PACKAGES + EmbeddedDirectShareProfiles.knownPackages + ROLE_CONTROLLER_PACKAGES
+            STANDARD_PACKAGES + EmbeddedDirectShareProfiles.knownPackages + ROLE_CONTROLLER_PACKAGES + AUTHORITY_PACKAGES
         val FRAMEWORK_UI_PROCESSES = setOf("android:ui", "system:ui")
         private const val TAG = "ListCleaner.Scope"
     }
