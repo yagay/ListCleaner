@@ -2,11 +2,14 @@ package com.yagay.ListCleaner.xposed
 
 import android.content.ComponentName
 import android.content.pm.ShortcutInfo
+import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.OBSERVABLE_ENTRY_KINDS
 import com.yagay.ListCleaner.domain.SyntheticEntryKeys
+import com.yagay.ListCleaner.domain.isPackageScopedEntry
 import java.util.concurrent.ConcurrentHashMap
 
-internal data class ObservedShortcutEntry(
+internal data class ObservedRuntimeEntry(
     val kind: IntentKind,
     val packageName: String,
     val syntheticClass: String,
@@ -15,26 +18,55 @@ internal data class ObservedShortcutEntry(
     val observedAt: Long,
 )
 
-/** Process-local observations from ShortcutService, bounded and privacy-minimized. */
+/** Process-local observations from Android's authoritative runtime managers. */
 internal object RuntimeObservedEntryStore {
     private const val MAX_ENTRIES = 1024
     private const val MAX_LABEL_CHARS = 160
     private const val MAX_ID_CHARS = 300
-    private val entries = ConcurrentHashMap<String, ObservedShortcutEntry>()
+    private val entries = ConcurrentHashMap<String, ObservedRuntimeEntry>()
 
     fun observeShortcut(shortcut: ShortcutInfo) {
-        // Launcher long-press menus are backed by enabled manifest/dynamic shortcuts. Pinned-only
-        // and cached shortcuts are different surfaces and must not leak into this category.
         if (!shortcut.isEnabled || (!shortcut.isDeclaredInManifest && !shortcut.isDynamic)) return
-        observe(IntentKind.SHORTCUT_ITEM, shortcut, shortcut.activity)
+        observeShortcutLike(IntentKind.SHORTCUT_ITEM, shortcut, shortcut.activity)
     }
 
     fun observeDirectShare(shortcut: ShortcutInfo, target: ComponentName?) {
-        // Direct Share has its own surface and observation path, so do not apply launcher filtering.
-        observe(IntentKind.DIRECT_SHARE, shortcut, target ?: shortcut.activity)
+        observeShortcutLike(IntentKind.DIRECT_SHARE, shortcut, target ?: shortcut.activity)
     }
 
-    private fun observe(kind: IntentKind, shortcut: ShortcutInfo, component: ComponentName?) {
+    fun observeComponent(kind: IntentKind, component: ComponentName, label: String = "") {
+        if (kind !in OBSERVABLE_ENTRY_KINDS || kind.isPackageScopedEntry()) return
+        val rule = ComponentRule(kind, component.packageName, component.className)
+        if (!rule.isValid()) return
+        put(
+            ObservedRuntimeEntry(
+                kind = kind,
+                packageName = rule.packageName,
+                syntheticClass = rule.className,
+                label = label.take(MAX_LABEL_CHARS),
+                activityClass = rule.className,
+                observedAt = System.currentTimeMillis(),
+            )
+        )
+    }
+
+    fun observePackage(kind: IntentKind, packageName: String, label: String = "") {
+        if (kind !in OBSERVABLE_ENTRY_KINDS || !kind.isPackageScopedEntry()) return
+        val rule = runCatching { SyntheticEntryKeys.packageScopedRule(kind, packageName) }.getOrNull() ?: return
+        if (!rule.isValid()) return
+        put(
+            ObservedRuntimeEntry(
+                kind = kind,
+                packageName = rule.packageName,
+                syntheticClass = rule.className,
+                label = label.take(MAX_LABEL_CHARS),
+                activityClass = null,
+                observedAt = System.currentTimeMillis(),
+            )
+        )
+    }
+
+    private fun observeShortcutLike(kind: IntentKind, shortcut: ShortcutInfo, component: ComponentName?) {
         val packageName = shortcut.`package`?.takeIf { it.isNotBlank() } ?: return
         val shortcutId = shortcut.id?.takeIf { it.isNotBlank() && it.length <= MAX_ID_CHARS } ?: return
         val targetClass = component?.className
@@ -42,16 +74,20 @@ internal object RuntimeObservedEntryStore {
             IntentKind.DIRECT_SHARE -> SyntheticEntryKeys.directShareClass(targetClass, shortcutId)
             else -> SyntheticEntryKeys.shortcutItemClass(targetClass, shortcutId)
         }
-        val label = shortcut.shortLabel?.toString()?.take(MAX_LABEL_CHARS).orEmpty()
-        val entry = ObservedShortcutEntry(
-            kind = kind,
-            packageName = packageName,
-            syntheticClass = synthetic,
-            label = label,
-            activityClass = targetClass,
-            observedAt = System.currentTimeMillis(),
+        put(
+            ObservedRuntimeEntry(
+                kind = kind,
+                packageName = packageName,
+                syntheticClass = synthetic,
+                label = shortcut.shortLabel?.toString()?.take(MAX_LABEL_CHARS).orEmpty(),
+                activityClass = targetClass,
+                observedAt = System.currentTimeMillis(),
+            )
         )
-        val key = "${kind.name}|$packageName|$synthetic"
+    }
+
+    private fun put(entry: ObservedRuntimeEntry) {
+        val key = "${entry.kind.name}|${entry.packageName}|${entry.syntheticClass}"
         entries[key] = entry
         if (entries.size > MAX_ENTRIES) {
             entries.values.sortedBy { it.observedAt }
@@ -62,9 +98,10 @@ internal object RuntimeObservedEntryStore {
         }
     }
 
-    fun snapshot(): List<ObservedShortcutEntry> =
+    fun snapshot(): List<ObservedRuntimeEntry> =
         entries.values.sortedWith(
-            compareByDescending<ObservedShortcutEntry> { it.observedAt }
+            compareByDescending<ObservedRuntimeEntry> { it.observedAt }
+                .thenBy { it.kind.ordinal }
                 .thenBy { it.packageName }
                 .thenBy { it.label }
         )
