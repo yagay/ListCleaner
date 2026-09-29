@@ -1,13 +1,11 @@
 package com.yagay.ListCleaner.xposed
 
 import com.yagay.ListCleaner.domain.BrowserLinkConfig
-import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.OpenTypeConfig
 import com.yagay.ListCleaner.domain.PriorityConfig
 import com.yagay.ListCleaner.domain.VisibilityCompatConfig
-import com.yagay.ListCleaner.domain.isSpecialEntrySurface
 import com.yagay.ListCleaner.domain.selectedKinds
 
 internal data class RuntimeRuleSnapshot(
@@ -26,12 +24,14 @@ internal data class RuntimeRuleSnapshot(
     val allSelectedPackages: Set<String> = visibilityCompat.activePackages()
 
     init {
+        // Publish the complete verified rule snapshot. Specialized Xposed entries select only the
+        // kinds they own, but they must not lose rules merely because a kind was historically
+        // classified as an ordinary resolver surface. Assistant/RoleController is the concrete
+        // example: its final UI path is specialized even though ACTION_ASSIST is also resolvable.
         RuntimeComponentPolicy.publishEntryRules(
             displayMode = displayMode,
-            entryRules = configured.filterTo(linkedSetOf()) { id ->
-                ComponentRule.fromId(id)?.kind?.isSpecialEntrySurface() == true
-            },
-            entryPriorities = priorities.apps.filterKeys { it.isSpecialEntrySurface() },
+            entryRules = configured,
+            entryPriorities = priorities.apps,
         )
     }
 
