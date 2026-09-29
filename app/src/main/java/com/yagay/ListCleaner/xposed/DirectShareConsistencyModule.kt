@@ -5,6 +5,7 @@ import android.content.pm.ResolveInfo
 import android.content.pm.ShortcutInfo
 import android.os.Process
 import android.util.Log
+import android.view.View
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.IntentKind
@@ -17,6 +18,8 @@ import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import java.lang.reflect.Method
+import java.util.Collections
+import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 
 /** Keeps Direct Share consistent with the ordinary Share resolver in the Chooser process. */
@@ -27,8 +30,16 @@ class DirectShareConsistencyModule : XposedModule() {
         val observed: ObservedEntryRecord?,
     )
 
+    private data class HiddenRowState(
+        val visibility: Int,
+        val layoutHeight: Int?,
+    )
+
     @Volatile private var processName = ""
+    @Volatile private var collapseEmptyDirectShare = false
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
+    private val hiddenRows: MutableMap<View, HiddenRowState> =
+        Collections.synchronizedMap(WeakHashMap())
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
@@ -62,6 +73,7 @@ class DirectShareConsistencyModule : XposedModule() {
         if (param.packageName != FRAMEWORK_PACKAGE && param.packageName != INTENT_RESOLVER_PACKAGE) return
         fallback.start()
         installChooserHooks(param.classLoader)
+        installChooserGridHooks(param.classLoader)
     }
 
     private fun effectivePolicy(): RuntimeComponentPolicySnapshot {
@@ -104,16 +116,56 @@ class DirectShareConsistencyModule : XposedModule() {
         record("HOOKS_READY new=$installed total=${installedMethods.size}")
     }
 
+    /**
+     * AOSP intentionally renders a dedicated "no direct share targets" placeholder row when its
+     * direct-share adapter becomes empty. Collapse the whole DirectShareViewHolder only when our
+     * filtering produced/maintains that empty state. No localized text matching is required.
+     */
+    private fun installChooserGridHooks(classLoader: ClassLoader) {
+        var installed = 0
+        GRID_ADAPTER_CLASSES.forEach { className ->
+            val clazz = runCatching { Class.forName(className, false, classLoader) }.getOrElse {
+                record("GRID_CLASS_UNAVAILABLE class=$className")
+                return@forEach
+            }
+            generateSequence(clazz as Class<*>?) { it.superclass }
+                .flatMap { it.declaredMethods.asSequence() }
+                .filter { method ->
+                    method.name == "bindItemGroupViewHolder" &&
+                        method.returnType == Void.TYPE &&
+                        method.parameterCount == 2
+                }
+                .distinctBy(Method::toGenericString)
+                .forEach { method ->
+                    val key = "grid#${method.toGenericString()}"
+                    if (!installedMethods.add(key)) return@forEach
+                    runCatching {
+                        method.isAccessible = true
+                        hook(method).setId(GRID_HOOK_ID).intercept(gridRowHooker())
+                        installed++
+                        record("GRID_HOOK_INSTALLED method=${method.toGenericString()}")
+                    }.onFailure {
+                        installedMethods.remove(key)
+                        record("GRID_HOOK_FAILED method=${method.toGenericString()} error=${it.javaClass.name}")
+                    }
+                }
+        }
+        record("GRID_HOOKS_READY new=$installed total=${installedMethods.size}")
+    }
+
     private fun isDirectShareDeliveryMethod(method: Method): Boolean =
         method.name == "sendShareShortcutInfoList" &&
             method.parameterTypes.isNotEmpty() &&
             List::class.java.isAssignableFrom(method.parameterTypes[0])
 
     private fun directShareHooker() = XposedInterface.Hooker { chain ->
+        collapseEmptyDirectShare = false
         val targets = chain.args.getOrNull(0) as? List<*>
             ?: return@Hooker chain.proceed()
         if (targets.isEmpty()) {
-            record("DELIVERY_HIT count=0")
+            val selected = effectivePolicy().selected(IntentKind.DIRECT_SHARE)
+            collapseEmptyDirectShare = selected.isNotEmpty()
+            record("DELIVERY_HIT count=0 collapse=$collapseEmptyDirectShare")
             return@Hooker chain.proceed()
         }
 
@@ -140,6 +192,7 @@ class DirectShareConsistencyModule : XposedModule() {
             displayMode = policy.displayMode,
             priorities = priorities,
         )
+        collapseEmptyDirectShare = targets.isNotEmpty() && keptIndices.isEmpty()
 
         if (keptIndices.size == targets.size && keptIndices.indices.all { keptIndices[it] == it }) {
             return@Hooker chain.proceed()
@@ -153,10 +206,60 @@ class DirectShareConsistencyModule : XposedModule() {
         }
 
         record(
-            "FILTER before=${targets.size} after=${keptIndices.size} " +
+            "FILTER before=${targets.size} after=${keptIndices.size} collapse=$collapseEmptyDirectShare " +
                 "visibleApps=${visibleSharePackages.size} selected=${selected.size} priorities=${priorities.size}"
         )
         chain.proceed(replacement)
+    }
+
+    private fun gridRowHooker() = XposedInterface.Hooker { chain ->
+        val result = chain.proceed()
+        val holder = chain.args.getOrNull(1) ?: return@Hooker result
+        if (!holder.javaClass.name.contains("DirectShareViewHolder")) return@Hooker result
+        val itemView = viewHolderItemView(holder) ?: return@Hooker result
+        val changed = if (collapseEmptyDirectShare) hideRow(itemView) else restoreRow(itemView)
+        if (changed) {
+            record("EMPTY_ROW collapse=$collapseEmptyDirectShare holder=${holder.javaClass.name}")
+        }
+        result
+    }
+
+    private fun viewHolderItemView(holder: Any): View? =
+        generateSequence(holder.javaClass as Class<*>?) { it.superclass }
+            .flatMap { it.declaredFields.asSequence() }
+            .firstOrNull { field ->
+                field.name == "itemView" && View::class.java.isAssignableFrom(field.type)
+            }
+            ?.let { field ->
+                runCatching {
+                    field.isAccessible = true
+                    field.get(holder) as? View
+                }.getOrNull()
+            }
+
+    private fun hideRow(view: View): Boolean {
+        synchronized(hiddenRows) {
+            if (hiddenRows.containsKey(view)) return false
+            hiddenRows[view] = HiddenRowState(view.visibility, view.layoutParams?.height)
+        }
+        view.visibility = View.GONE
+        view.layoutParams?.let { params ->
+            params.height = 0
+            view.layoutParams = params
+        }
+        view.requestLayout()
+        return true
+    }
+
+    private fun restoreRow(view: View): Boolean {
+        val state = synchronized(hiddenRows) { hiddenRows.remove(view) } ?: return false
+        view.layoutParams?.let { params ->
+            state.layoutHeight?.let { params.height = it }
+            view.layoutParams = params
+        }
+        view.visibility = state.visibility
+        view.requestLayout()
+        return true
     }
 
     private fun parseDirectShareTarget(value: Any?): ParsedTarget {
@@ -260,6 +363,7 @@ class DirectShareConsistencyModule : XposedModule() {
     private companion object {
         const val TAG = "ListCleaner.DirectShare"
         const val HOOK_ID = "lc-direct-share-consistency"
+        const val GRID_HOOK_ID = "lc-direct-share-empty-row"
         const val FRAMEWORK_PACKAGE = "android"
         const val INTENT_RESOLVER_PACKAGE = "com.android.intentresolver"
         const val APP_TARGET_CLASS = "android.app.prediction.AppTarget"
@@ -267,6 +371,10 @@ class DirectShareConsistencyModule : XposedModule() {
         val CHOOSER_CLASSES = listOf(
             "com.android.intentresolver.ChooserActivity",
             "com.android.internal.app.ChooserActivity"
+        )
+        val GRID_ADAPTER_CLASSES = listOf(
+            "com.android.intentresolver.grid.ChooserGridAdapter",
+            "com.android.internal.app.ChooserActivity\$ChooserGridAdapter",
         )
     }
 }
