@@ -3,6 +3,7 @@ package com.yagay.ListCleaner
 import android.app.Application
 import android.util.Log
 import com.yagay.ListCleaner.data.IntentCatalog
+import com.yagay.ListCleaner.data.ObservedEntryCache
 import com.yagay.ListCleaner.data.PersistentComponentStore
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.data.readLegacyRemoteConfig
@@ -57,6 +58,7 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
     private val syncMutex = Mutex()
     private val json = Json { ignoreUnknownKeys = true }
     private val runtimeTransport by lazy(LazyThreadSafetyMode.NONE) { RuntimeConfigTransport(this) }
+    private val observedEntryCache by lazy(LazyThreadSafetyMode.NONE) { ObservedEntryCache(this) }
     private var pendingRecovery: ModuleConfig? = null
     private var corruptRecovery = false
     private var acknowledgedSessionGeneration = -1L
@@ -87,6 +89,7 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
         serviceSession.value = session
         applicationScope.launch {
             PersistentComponentStore(this@ListCleanerApp).syncRemote()
+            synchronizeObservedEntries()
         }
     }
 
@@ -103,6 +106,24 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
 
     fun currentSession(): ServiceSession? = sessionRegistry.snapshot()
     fun isCurrent(session: ServiceSession?): Boolean = sessionRegistry.isCurrent(session)
+
+    suspend fun synchronizeObservedEntries(): Int = withContext(Dispatchers.IO) {
+        val session = currentSession() ?: return@withContext observedEntryCache.snapshot().size
+        runCatching {
+            val prefs = session.service.getRemotePreferences(RuleRepository.REMOTE_PREFS)
+            observedEntryCache.mergeEncoded(prefs.getString(ObservedEntryCache.REMOTE_KEY, null)).size
+        }.onFailure {
+            Log.w(TAG, "Observed entry cache synchronization failed", it)
+        }.getOrElse { observedEntryCache.snapshot().size }
+    }
+
+    private fun syncObservedEntriesFrom(prefs: android.content.SharedPreferences) {
+        runCatching {
+            observedEntryCache.mergeEncoded(prefs.getString(ObservedEntryCache.REMOTE_KEY, null))
+        }.onFailure {
+            Log.w(TAG, "Observed entry cache read failed", it)
+        }
+    }
 
     private fun publish(status: RuntimeStatus): Boolean {
         runtime.value = status
@@ -124,6 +145,7 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                 attemptSession = session
                 val bound = session.service
                 val prefs = bound.getRemotePreferences(RuleRepository.REMOTE_PREFS)
+                syncObservedEntriesFrom(prefs)
                 if (!rules.hasLocalConfiguration()) {
                     try {
                         val encoded = prefs.getString(RuleRepository.KEY_CONFIG, null)
