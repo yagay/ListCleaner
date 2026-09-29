@@ -42,20 +42,6 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-      - name: Checkout libxposed API 102
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          repository: libxposed/api
-          ref: 102.0.0
-          path: .deps/libxposed/api
-          persist-credentials: false
-      - name: Checkout libxposed Service 102
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          repository: libxposed/service
-          ref: 102.0.0
-          path: .deps/libxposed/service
-          persist-credentials: false
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
         with:
           distribution: temurin
@@ -70,9 +56,7 @@ jobs:
         run: |
           set -euo pipefail
           sdkmanager "cmdline-tools;23.0" > sdk-tools.log 2>&1
-          "${ANDROID_HOME}/cmdline-tools/23.0/bin/sdkmanager" --channel=3 "platforms;android-36" "platforms;android-37.0" "build-tools;36.0.0" > sdk-install.log 2>&1
-          (cd .deps/libxposed/api && bash ./gradlew --no-daemon --console=plain publishToMavenLocal)
-          (cd .deps/libxposed/service && bash ./gradlew --no-daemon --console=plain publishToMavenLocal)
+          "${ANDROID_HOME}/cmdline-tools/23.0/bin/sdkmanager" --channel=3 "platforms;android-37.0" "build-tools;36.0.0" > sdk-install.log 2>&1
           bash ./gradlew --no-daemon --console=plain --stacktrace -PallowUnsignedRelease=true :app:assembleRelease 2>&1 | tee release-build.log
       - name: Upload compilation diagnostics
         if: always()
@@ -102,22 +86,6 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 2
-
-      - name: Checkout libxposed API 102
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          repository: libxposed/api
-          ref: 102.0.0
-          path: .deps/libxposed/api
-          persist-credentials: false
-
-      - name: Checkout libxposed Service 102
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          repository: libxposed/service
-          ref: 102.0.0
-          path: .deps/libxposed/service
-          persist-credentials: false
 
       - name: Decide publication mode
         id: publication
@@ -163,15 +131,9 @@ jobs:
           set -euo pipefail
           sdkmanager "cmdline-tools;23.0" > sdk-tools.log 2>&1
           sdk_manager="${ANDROID_HOME}/cmdline-tools/23.0/bin/sdkmanager"
-          "$sdk_manager" --channel=3 "platforms;android-36" "platforms;android-37.0" "build-tools;36.0.0" "platform-tools" > sdk-install.log 2>&1
+          "$sdk_manager" --channel=3 "platforms;android-37.0" "build-tools;36.0.0" "platform-tools" > sdk-install.log 2>&1
           test -s "${ANDROID_HOME}/platforms/android-37.0/android.jar"
           test -x "${ANDROID_HOME}/build-tools/36.0.0/apksigner"
-
-      - name: Build libxposed API and Service
-        run: |
-          set -euo pipefail
-          (cd .deps/libxposed/api && bash ./gradlew --no-daemon --console=plain publishToMavenLocal)
-          (cd .deps/libxposed/service && bash ./gradlew --no-daemon --console=plain publishToMavenLocal)
 
       - name: Compile optimized Release APK
         run: |
