@@ -26,4 +26,12 @@ class EmbeddedDirectShareProfilesTest {
                 it.parameterTypeNames == listOf("android.content.Intent")
         })
     }
+
+    @Test
+    fun oplusProfileDeclaresEmptySurfaceResources() {
+        val profile = EmbeddedDirectShareProfiles.matching("com.oneplus.gallery").single()
+        assertTrue("direct_share_fl" in profile.collapseWhenEmptyResourceNames)
+        assertTrue("direct_share_divider" in profile.collapseWhenEmptyResourceNames)
+        assertTrue("direct_share_no_data_tv" in profile.collapseWhenEmptyResourceNames)
+    }
 }
