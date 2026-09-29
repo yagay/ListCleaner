@@ -24,7 +24,7 @@ check(signingValues.all { it == null } || hasReleaseSigning) {
     "Incomplete Release signing configuration. See docs/RELEASE.md."
 }
 
-// system_server hooks are unchanged; this build centralizes manager-side candidate visibility only.
+// system_server hooks are unchanged; this build adds manager-side runtime coverage diagnostics only.
 val hookCompatVersionCode = 47
 
 android {
@@ -37,8 +37,8 @@ android {
         applicationId = "com.yagay.ListCleaner"
         minSdk = 31
         targetSdk = 37
-        versionCode = 52
-        versionName = "1.6.27"
+        versionCode = 53
+        versionName = "1.6.28"
         buildConfigField("long", "HOOK_COMPAT_VERSION_CODE", "${hookCompatVersionCode}L")
     }
     buildFeatures { compose = true; buildConfig = true }
@@ -78,25 +78,29 @@ android {
 val validateReleaseKey = tasks.register("validateReleaseKey") {
     val unsignedValidation = providers.gradleProperty("allowUnsignedRelease").orNull == "true"
     doLast {
-        check(hasReleaseSigning || unsignedValidation) {
-            "Release signing is required. Configure keystore.properties or RELEASE_* variables."
+        if (unsignedValidation) return@doLast
+        check(hasReleaseSigning) {
+            "Release signing is required. Configure keystore.properties or RELEASE_STORE_FILE/RELEASE_STORE_PASSWORD/RELEASE_KEY_ALIAS/RELEASE_KEY_PASSWORD."
         }
     }
 }
-tasks.matching { it.name == "preReleaseBuild" }.configureEach {
-    dependsOn(validateReleaseKey)
+
+tasks.configureEach {
+    if (name == "assembleRelease" || name == "bundleRelease" || name == "packageRelease") {
+        dependsOn(validateReleaseKey)
+    }
 }
 
 dependencies {
-    compileOnly("io.github.libxposed:api:102.0.0")
-    implementation("io.github.libxposed:service:102.0.0")
-    implementation("androidx.activity:activity-compose:1.10.1")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.0")
-    implementation("androidx.compose.material3:material3:1.3.2")
-    implementation("androidx.compose.material:material-icons-extended:1.7.8")
-    implementation("androidx.core:core-ktx:1.16.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
+    implementation("androidx.core:core-ktx:1.17.0")
+    implementation("androidx.activity:activity-compose:1.12.4")
+    implementation(platform("androidx.compose:compose-bom:2026.08.00"))
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+    implementation("io.github.libxposed:service:102")
+    compileOnly("io.github.libxposed:api:102")
     testImplementation("junit:junit:4.13.2")
 }
