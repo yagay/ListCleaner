@@ -34,6 +34,28 @@ class ModuleConfigTest {
         assertEquals(DisplayMode.HIDE_SELECTED, decoded.mode)
         assertTrue(decoded.rules.isEmpty())
     }
+
+    @Test fun retiredLauncherShortcutStateIsDiscarded() {
+        val legacy = ComponentRule(
+            IntentKind.LAUNCHER_SHORTCUT,
+            "com.example",
+            "com.example.MainActivity",
+        )
+        val config = ModuleConfig(
+            rules = setOf(legacy),
+            mode = DisplayMode.HIDE_SELECTED,
+            priorities = PriorityConfig(
+                apps = mapOf(IntentKind.LAUNCHER_SHORTCUT to listOf("com.example")),
+                titles = mapOf(legacy.id to "Legacy"),
+            ),
+            diagnostic = false,
+        ).validated()
+
+        assertTrue(config.rules.isEmpty())
+        assertFalse(IntentKind.LAUNCHER_SHORTCUT in config.priorities.apps)
+        assertFalse(legacy.id in config.priorities.titles)
+    }
+
     @Test fun legacyDomainRulesAndTitlesMigrateWithoutDeletingBrowserTitle() {
         val browserRule = ComponentRule(IntentKind.BROWSER, "com.example", "com.example.Target")
         val deepLinkRule = browserRule.copy(kind = IntentKind.DEEP_LINK)
