@@ -19,6 +19,7 @@ import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.ManagerIdentity
 import com.yagay.ListCleaner.domain.ObservedEntryProtocol
 import com.yagay.ListCleaner.domain.SyntheticEntryKeys
+import com.yagay.ListCleaner.domain.directShareFilteredIndices
 import com.yagay.ListCleaner.domain.prioritizeApps
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
@@ -40,11 +41,14 @@ class ShortcutSurfaceModule : XposedModule() {
         RemoteEntryPolicyFallback(
             preferences = preferences,
             selectRules = { config ->
-                config.rules.filter { it.kind == IntentKind.SHORTCUT_ITEM }
-                    .mapTo(linkedSetOf()) { it.id }
+                config.rules.filter {
+                    it.kind == IntentKind.SHORTCUT_ITEM || it.kind == IntentKind.DIRECT_SHARE
+                }.mapTo(linkedSetOf()) { it.id }
             },
             selectPriorities = { config ->
-                config.priorities.apps.filterKeys { it == IntentKind.SHORTCUT_ITEM }
+                config.priorities.apps.filterKeys {
+                    it == IntentKind.SHORTCUT_ITEM || it == IntentKind.DIRECT_SHARE
+                }
             },
             record = ::record,
         )
@@ -141,19 +145,70 @@ class ShortcutSurfaceModule : XposedModule() {
                         (List::class.java.isAssignableFrom(method.returnType) || method.returnType.name.endsWith("ParceledListSlice"))
                 }
                 .distinctBy(Method::toGenericString)
-                .forEach { method -> install(method, DIRECT_HOOK_ID, directShareObserver()) }
+                .forEach { method -> install(method, DIRECT_HOOK_ID, directShareHooker()) }
         }
     }
 
-    private fun directShareObserver() = XposedInterface.Hooker { chain ->
+    /**
+     * OxygenOS/other OEM resolvers can render Direct Share straight from ShortcutService and never
+     * call ChooserActivity.sendShareShortcutInfoList(). Filter here as a second, lower-level path;
+     * the Chooser hook remains in place for AOSP variants where it is actually used.
+     */
+    private fun directShareHooker() = XposedInterface.Hooker { chain ->
         val original = chain.proceed()
         val result = listResults.extract(original) ?: return@Hooker original
-        result.values.forEach { value ->
-            shareShortcut(value)?.let { (shortcut, target) ->
-                RuntimeObservedEntryStore.observeDirectShare(shortcut, target)
-            }
+        val values = result.values
+        if (values.isEmpty()) return@Hooker original
+
+        val parsed = values.map(::shareShortcut)
+        parsed.filterNotNull().forEach { (shortcut, target) ->
+            RuntimeObservedEntryStore.observeDirectShare(shortcut, target)
         }
-        original
+
+        val callingPackage = chain.args.firstOrNull { it is String } as? String
+        if (!isDirectShareResolverCaller(callingPackage)) return@Hooker original
+
+        val callerUid = Binder.getCallingUid()
+        val policy = effectivePolicy()
+        if (ManagerIdentity.matches(callerUid, policy.managerAppId)) return@Hooker original
+
+        val selected = policy.selected(IntentKind.DIRECT_SHARE)
+        val priorities = policy.priorities(IntentKind.DIRECT_SHARE)
+        if ((policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) && priorities.isEmpty()) {
+            return@Hooker original
+        }
+
+        val targetPackages = parsed.map { pair ->
+            pair?.second?.packageName ?: pair?.first?.`package`
+        }
+        val ruleIds = parsed.map { pair ->
+            pair?.let { (shortcut, target) -> directShareRule(shortcut, target)?.id }
+        }
+
+        // At this lower ShortcutService layer the ordinary Share app list is not available. Treat
+        // every package returned by this same query as visible, so this path applies only the
+        // explicit Direct Share target rules/order. Chooser-level app consistency still runs on
+        // ROMs that use sendShareShortcutInfoList(). Unknown targets remain fail-open.
+        val queryPackages = targetPackages.filterNotNull().toSet()
+        val keptIndices = directShareFilteredIndices(
+            targetPackages = targetPackages,
+            ruleIds = ruleIds,
+            visibleSharePackages = queryPackages,
+            selectedRuleIds = selected,
+            displayMode = policy.displayMode,
+            priorities = priorities,
+        )
+        if (keptIndices.size == values.size && keptIndices.indices.all { keptIndices[it] == it }) {
+            return@Hooker original
+        }
+
+        val replacement = keptIndices.map { values[it] }
+        record(
+            "DIRECT_FILTER callerUid=$callerUid callerPackage=$callingPackage before=${values.size} " +
+                "after=${replacement.size} parsed=${ruleIds.count { it != null }} " +
+                "selected=${selected.size} priorities=${priorities.size}"
+        )
+        result.rebuild(replacement)
     }
 
     private fun shortcutRule(shortcut: ShortcutInfo, component: ComponentName?): ComponentRule? {
@@ -161,6 +216,16 @@ class ShortcutSurfaceModule : XposedModule() {
         val shortcutId = shortcut.id?.takeIf { it.isNotBlank() } ?: return null
         val synthetic = SyntheticEntryKeys.shortcutItemClass(component?.className, shortcutId)
         return ComponentRule(IntentKind.SHORTCUT_ITEM, packageName, synthetic).takeIf(ComponentRule::isValid)
+    }
+
+    private fun directShareRule(shortcut: ShortcutInfo, target: ComponentName?): ComponentRule? {
+        val packageName = shortcut.`package`?.takeIf { it.isNotBlank() } ?: return null
+        val shortcutId = shortcut.id?.takeIf { it.isNotBlank() } ?: return null
+        val synthetic = SyntheticEntryKeys.directShareClass(
+            target?.className ?: shortcut.activity?.className,
+            shortcutId,
+        )
+        return ComponentRule(IntentKind.DIRECT_SHARE, packageName, synthetic).takeIf(ComponentRule::isValid)
     }
 
     private fun shareShortcut(value: Any?): Pair<ShortcutInfo, ComponentName?>? {
@@ -179,6 +244,12 @@ class ShortcutSurfaceModule : XposedModule() {
             .flatMap { it.declaredMethods.asSequence() }
             .firstOrNull { it.name == name && it.parameterCount == 0 }
             ?.apply { isAccessible = true }
+
+    private fun isDirectShareResolverCaller(packageName: String?): Boolean =
+        packageName == INTENT_RESOLVER_PACKAGE ||
+            packageName == FRAMEWORK_PACKAGE ||
+            packageName == OPLUS_RESOLVER_PACKAGE ||
+            packageName == COLOROS_RESOLVER_PACKAGE
 
     private fun installObservedDiscoveryHooks(classLoader: ClassLoader) {
         PMS_CLASSES.forEach { className ->
@@ -255,6 +326,10 @@ class ShortcutSurfaceModule : XposedModule() {
         const val DIRECT_HOOK_ID = "lc-direct-observer"
         const val DISCOVERY_HOOK_ID = "lc-observed-discovery"
         const val SHORTCUT_LOCAL_SERVICE = "com.android.server.pm.ShortcutService\$LocalService"
+        const val INTENT_RESOLVER_PACKAGE = "com.android.intentresolver"
+        const val FRAMEWORK_PACKAGE = "android"
+        const val OPLUS_RESOLVER_PACKAGE = "com.oplus.resolver"
+        const val COLOROS_RESOLVER_PACKAGE = "com.coloros.resolver"
         val SHORTCUT_MATCH_MASK = LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or
             LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST
         val SHORTCUT_SERVICE_CLASSES = listOf(
