@@ -2,8 +2,8 @@
 <resources>
     <string name="priority_unselected">未优先</string>
     <string name="priority_selected">已优先</string>
-    <string name="priority_intro">“应用”可筛选用户应用或系统应用，只缩小当前列表，不改变已保存顺序。在这里勾选表示把应用加入支持的候选排序优先级，不代表把它设成 Android 默认应用。应用向右滑加锁、向左滑解锁；锁只保护批量选择/反选，不参与排序。</string>
-    <string name="priority_drag_help">长按已优先应用可拖动排序，松手保存；展开后也可上移、下移。展开组件后点铅笔可修改该组件在当前 Intent 分类中的菜单显示名称，留空保存恢复原名称。</string>
+    <string name="priority_intro">“应用”可筛选用户应用或系统应用，只缩小当前列表，不改变已保存顺序。在这里勾选表示把应用加入支持的候选排序优先级，不代表把它设成 Android 默认应用。长按但不拖动会打开锁定菜单；锁只保护批量选择/反选，不参与排序。</string>
+    <string name="priority_drag_help">长按已优先应用并移动可拖动排序，松手保存；长按后不移动则打开锁定菜单。展开后也可上移、下移。展开组件后点铅笔可修改该组件在当前 Intent 分类中的菜单显示名称，留空保存恢复原名称。</string>
     <string name="priority_source_inherited">当前排序来源：继承“打开方式 · 全部”</string>
     <string name="priority_source_dedicated">当前排序来源：%1$s 专用排序</string>
     <string name="priority_source_none">当前类型和“全部”都没有优先排序</string>
