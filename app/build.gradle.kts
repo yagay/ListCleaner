@@ -24,7 +24,7 @@ check(signingValues.all { it == null } || hasReleaseSigning) {
     "Incomplete Release signing configuration. See docs/RELEASE.md."
 }
 
-// system_server hook installation changed; keep this test branch on a distinct hook generation.
+// system_server hooks are unchanged; the OxygenOS Gallery compatibility hook loads in its app process.
 val hookCompatVersionCode = 47
 
 android {
@@ -37,8 +37,8 @@ android {
         applicationId = "com.yagay.ListCleaner"
         minSdk = 31
         targetSdk = 37
-        versionCode = 47
-        versionName = "1.6.22"
+        versionCode = 48
+        versionName = "1.6.23"
         buildConfigField("long", "HOOK_COMPAT_VERSION_CODE", "${hookCompatVersionCode}L")
     }
     buildFeatures { compose = true; buildConfig = true }

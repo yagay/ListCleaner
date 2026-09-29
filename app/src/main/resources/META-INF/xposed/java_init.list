@@ -2,5 +2,6 @@ com.yagay.ListCleaner.xposed.ListCleanerModule
 com.yagay.ListCleaner.xposed.ComponentStateGuardModule
 com.yagay.ListCleaner.xposed.ComponentDiscoveryFilterModule
 com.yagay.ListCleaner.xposed.DirectShareConsistencyModule
+com.yagay.ListCleaner.xposed.OplusGalleryDirectShareModule
 com.yagay.ListCleaner.xposed.PackageManagerEntryFilterModule
 com.yagay.ListCleaner.xposed.ShortcutSurfaceModule

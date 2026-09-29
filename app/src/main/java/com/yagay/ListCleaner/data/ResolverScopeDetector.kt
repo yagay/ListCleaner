@@ -19,6 +19,7 @@ data class ResolverHost(
         "system" -> false
         "com.android.intentresolver" -> false
         "com.android.systemui" -> false
+        "com.oneplus.gallery" -> false
         "android" -> processName !in ResolverScopeDetector.FRAMEWORK_UI_PROCESSES
         else -> true
     }
@@ -91,17 +92,31 @@ class ResolverScopeDetector(private val context: Context) {
         }.groupBy { it.packageName to it.className }.values.map { entries ->
             entries.first().copy(scenarios = entries.flatMap { it.scenarios }.toSet())
         }
+        val oemShareHosts = buildList {
+            if (OPLUS_GALLERY_PACKAGE in installed) {
+                add(
+                    ResolverHost(
+                        OPLUS_GALLERY_PACKAGE,
+                        OPLUS_GALLERY_SHARE_ACTIVITY,
+                        OPLUS_GALLERY_PACKAGE,
+                        setOf(context.getString(R.string.scope_scenario_share))
+                    )
+                )
+            }
+        }
         val systemHost = ResolverHost(
             "system",
             "PackageManagerService",
             "system",
             setOf(context.getString(R.string.scope_scenario_global_intent))
         )
-        return ScopeDetection(listOf(systemHost) + resolverHosts, installed + "system", warnings)
+        return ScopeDetection(listOf(systemHost) + resolverHosts + oemShareHosts, installed + "system", warnings)
     }
 
     companion object {
-        val KNOWN_PACKAGES = setOf("android", "com.android.intentresolver", "com.android.systemui")
+        const val OPLUS_GALLERY_PACKAGE = "com.oneplus.gallery"
+        const val OPLUS_GALLERY_SHARE_ACTIVITY = "com.oplus.gallery.sharepage.GalleryShareInnerActivity"
+        val KNOWN_PACKAGES = setOf("android", "com.android.intentresolver", "com.android.systemui", OPLUS_GALLERY_PACKAGE)
         val FRAMEWORK_UI_PROCESSES = setOf("android:ui", "system:ui")
         private const val TAG = "ListCleaner.Scope"
     }
