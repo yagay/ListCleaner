@@ -40,6 +40,7 @@ internal class RootComponentsController(
 
     private val mutableRootNotice = MutableStateFlow<String?>(null)
     val rootNotice: StateFlow<String?> = mutableRootNotice
+    private var refreshPending = false
 
     val lastOperation: String get() = catalog.lastOperation
 
@@ -58,16 +59,30 @@ internal class RootComponentsController(
     }
 
     fun refresh() {
-        if (mutableBusy.value) return
+        if (mutableBusy.value) {
+            refreshPending = true
+            return
+        }
         mutableBusy.value = true
         scope.launch {
             try {
-                mutableScan.value = withContext(Dispatchers.IO) {
-                    // Retry the remote mirror whenever this screen is opened/refreshed. The local
-                    // desired state remains authoritative if the Xposed service was temporarily down.
-                    persistentComponents.syncRemote()
-                    app.synchronize()
-                    catalog.scan()
+                val protocolBefore = app.runtime.value.componentDiscoveryProtocol
+                // Component discovery is local PackageManager/LauncherApps work. Publish it first;
+                // LSPosed synchronization is enrichment and must not block the visible list.
+                mutableScan.value = withContext(Dispatchers.IO) { catalog.scan() }
+                try {
+                    withContext(Dispatchers.IO) {
+                        persistentComponents.syncRemote()
+                        app.synchronize()
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
+                    Log.w(TAG, "Root runtime synchronization failed after local scan", failure)
+                }
+                val protocolAfter = app.runtime.value.componentDiscoveryProtocol
+                if (protocolAfter != protocolBefore) {
+                    mutableScan.value = withContext(Dispatchers.IO) { catalog.scan() }
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -76,6 +91,10 @@ internal class RootComponentsController(
                 mutableMessage.value = app.getString(R.string.root_scan_failed)
             } finally {
                 mutableBusy.value = false
+                if (refreshPending) {
+                    refreshPending = false
+                    refresh()
+                }
             }
         }
     }

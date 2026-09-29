@@ -146,7 +146,13 @@ class MainActivity : ComponentActivity() {
                     vm::setQuery,
                     { searchExpanded = true },
                     closeSearch,
-                    { if (state.destination == Destination.TILES) vm.refreshComponents() else vm.refresh(forceCatalog = true) },
+                    {
+                        when (state.destination) {
+                            Destination.RULES, Destination.PRIORITY -> vm.refresh(forceCatalog = true)
+                            Destination.TILES -> vm.refreshComponents()
+                            Destination.DASHBOARD -> vm.refreshModuleStatus()
+                        }
+                    },
                     { restore.launch(arrayOf("application/json", "text/plain")) },
                     { export.launch("ListCleaner-backup.json") }
                 )

@@ -71,4 +71,9 @@
     <string name="dashboard_export_diagnostics">一键导出诊断包</string>
     <string name="diagnostic_export_help">先开启诊断，再复现问题，最后导出。诊断包会尽量包含近期 LSPosed 与系统日志；系统原始日志仍可能包含其他进程隐私，分享前请检查。部分来源需要 Root，读取失败会记录在包内。</string>
     <string name="app_version_format">%1$s v%2$s</string>
+
+    <string name="rules_scan_summary">已扫描 %1$d 个入口 · 当前显示 %2$d 个应用</string>
+    <string name="priority_rule_scope_summary">按规则可排序 %1$d 个应用 · 当前显示 %2$d 个</string>
+    <string name="root_scan_total">筛选前已扫描 %1$d 个组件</string>
+    <string name="observed_entry_empty_help">暂未观察到相关入口。请先使用目标应用的分享面板或桌面长按快捷方式，再返回刷新。</string>
 </resources>

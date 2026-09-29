@@ -198,6 +198,9 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
         item(key = "summary") {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Text(stringResource(R.string.root_summary, groups.size, visible.size), style = MaterialTheme.typography.labelLarge)
+                if (scan.items.size != visible.size) {
+                    Text(stringResource(R.string.root_scan_total, scan.items.size), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 Text(
                     stringResource(R.string.root_filter_help),
                     style = MaterialTheme.typography.labelSmall,

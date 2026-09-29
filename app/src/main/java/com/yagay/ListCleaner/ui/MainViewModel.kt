@@ -287,6 +287,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val loading = MutableStateFlow(true)
     private val error = MutableStateFlow<String?>(null)
     private val filter = MutableStateFlow<IntentKind?>(null)
+    private val ruleOpenPresetFilter = MutableStateFlow<OpenPreset?>(null)
+    val ruleOpenPreset: StateFlow<OpenPreset?> = ruleOpenPresetFilter
+    private val ruleBrowserHostFilter = MutableStateFlow<String?>(null)
+    val ruleBrowserHost: StateFlow<String?> = ruleBrowserHostFilter
     private val query = MutableStateFlow("")
     @OptIn(kotlinx.coroutines.FlowPreview::class)
     private val debouncedQuery = query.debounce(120).distinctUntilChanged()
@@ -295,6 +299,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val destination = MutableStateFlow(Destination.RULES)
     private val expandedAppKey = MutableStateFlow<String?>(null)
     private var refreshJob: Job? = null
+    private var browserRefreshJob: Job? = null
     private var refreshGeneration = 0L
 
     private val mutableCollectingDiagnostics = MutableStateFlow(false)
@@ -457,6 +462,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
+        viewModelScope.launch {
+            var firstRevision = true
+            app.catalog.revision.collectLatest {
+                if (firstRevision) {
+                    firstRevision = false
+                    return@collectLatest
+                }
+                kotlinx.coroutines.delay(250)
+                refresh()
+            }
+        }
     }
 
     fun setDiagnosticMode(enabled: Boolean) {
@@ -478,6 +494,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun refresh(forceCatalog: Boolean = false) {
         val generation = ++refreshGeneration
         refreshJob?.cancel()
+        browserRefreshJob?.cancel()
         refreshJob = viewModelScope.launch {
             loading.value = true
             error.value = null
@@ -487,25 +504,52 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     app.rules.browserLinks.value.rules.values.flatten().mapNotNull(ComponentRule::fromId)
                 candidates.value = app.catalog.completeConfigured(candidates.value, configured)
 
-                // Candidate discovery belongs to the manager app and must stay usable even when
-                // system_server/Resolver still has the previous module version after an APK update.
-                // Runtime synchronization continues independently through ListCleanerApp and the
-                // status controller; it gates system-side effect, not local list visibility.
-                val browserDiscovery = browserLinkDiscovery.discoverDetailed(forceCatalog)
-                val autoHosts = browserDiscovery.hosts
-                if (generation == refreshGeneration) discoveredBrowserHosts.value = autoHosts
-                val result = app.catalog.scan(
+                // Never block the primary rule/priority list on root App-Link discovery. Reuse the
+                // last enrichment snapshot for the fast scan, publish it immediately, then refresh
+                // domains in a separate job and merge any richer result later.
+                val cachedBrowserDiscovery = browserLinkDiscovery.snapshot()
+                if (generation == refreshGeneration) {
+                    discoveredBrowserHosts.value = cachedBrowserDiscovery.hosts
+                }
+                val baseResult = app.catalog.scan(
                     app.rules.openTypes.value.customDefinitions,
-                    app.rules.browserLinks.value.hosts + autoHosts,
-                    browserDiscovery = browserDiscovery,
+                    app.rules.browserLinks.value.hosts + cachedBrowserDiscovery.hosts,
+                    browserDiscovery = cachedBrowserDiscovery,
                     force = forceCatalog
                 )
-                if (generation == refreshGeneration) {
-                    val updatedConfigured = app.rules.rules.value +
-                        app.rules.openTypes.value.rules.values.flatten().mapNotNull(ComponentRule::fromId) +
-                        app.rules.browserLinks.value.rules.values.flatten().mapNotNull(ComponentRule::fromId)
-                    candidates.value = app.catalog.completeConfigured(result, updatedConfigured)
-                    error.value = app.catalog.scanWarning
+                if (generation != refreshGeneration) return@launch
+                val updatedConfigured = app.rules.rules.value +
+                    app.rules.openTypes.value.rules.values.flatten().mapNotNull(ComponentRule::fromId) +
+                    app.rules.browserLinks.value.rules.values.flatten().mapNotNull(ComponentRule::fromId)
+                candidates.value = app.catalog.completeConfigured(baseResult, updatedConfigured)
+                error.value = app.catalog.scanWarning
+                loading.value = false
+
+                browserRefreshJob = viewModelScope.launch {
+                    try {
+                        val browserDiscovery = browserLinkDiscovery.discoverDetailed(forceCatalog)
+                        if (generation != refreshGeneration) return@launch
+                        discoveredBrowserHosts.value = browserDiscovery.hosts
+                        if (browserDiscovery != cachedBrowserDiscovery) {
+                            val enriched = app.catalog.scan(
+                                app.rules.openTypes.value.customDefinitions,
+                                app.rules.browserLinks.value.hosts + browserDiscovery.hosts,
+                                browserDiscovery = browserDiscovery,
+                                force = true
+                            )
+                            if (generation == refreshGeneration) {
+                                val latestConfigured = app.rules.rules.value +
+                                    app.rules.openTypes.value.rules.values.flatten().mapNotNull(ComponentRule::fromId) +
+                                    app.rules.browserLinks.value.rules.values.flatten().mapNotNull(ComponentRule::fromId)
+                                candidates.value = app.catalog.completeConfigured(enriched, latestConfigured)
+                                error.value = app.catalog.scanWarning
+                            }
+                        }
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (failure: Throwable) {
+                        Log.w(TAG, "Background App Link enrichment failed", failure)
+                    }
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -832,10 +876,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     internal fun toggleBulkItemLock(scope: String, itemId: String) = bulkLocks.toggleItem(scope, itemId)
 
     fun setDisplayMode(value: DisplayMode) { if (canEdit()) app.rules.setDisplayMode(value) }
-    fun setFilter(value: IntentKind?) { filter.value = value }
+    fun setFilter(value: IntentKind?) {
+        filter.value = value
+        if (value != IntentKind.OPEN) ruleOpenPresetFilter.value = null
+        if (value != IntentKind.DEEP_LINK) ruleBrowserHostFilter.value = null
+    }
+    fun setRuleOpenPreset(value: OpenPreset?) { ruleOpenPresetFilter.value = value }
+    fun setRuleBrowserHost(value: String?) { ruleBrowserHostFilter.value = value }
     fun setQuery(value: String) { query.value = value }
     fun setUiFilter(value: UiFilter) { uiFilter.value = value }
-    fun setDestination(value: Destination) { destination.value = value }
+    fun setDestination(value: Destination) {
+        if (destination.value != value) {
+            query.value = ""
+            expandedAppKey.value = null
+        }
+        destination.value = value
+    }
     fun toggleExpandedApp(key: String) { expandedAppKey.value = if (expandedAppKey.value == key) null else key }
     fun exportJson(): String = app.rules.exportJson()
     fun importJson(content: String) = app.rules.importJson(content)

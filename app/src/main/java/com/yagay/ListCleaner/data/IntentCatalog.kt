@@ -36,6 +36,8 @@ import java.time.Instant
 class IntentCatalog(private val context: Context) {
     private val mutableCandidates = MutableStateFlow<List<ComponentCandidate>>(emptyList())
     val candidates: StateFlow<List<ComponentCandidate>> = mutableCandidates.asStateFlow()
+    private val mutableRevision = MutableStateFlow(0L)
+    val revision: StateFlow<Long> = mutableRevision.asStateFlow()
     private val specialEntryDiscovery = SpecialEntryDiscovery(context)
 
     suspend fun completeConfigured(
@@ -91,6 +93,7 @@ class IntentCatalog(private val context: Context) {
     /** Mark candidate discovery stale while keeping reusable app icons in memory. */
     fun invalidate(packageName: String? = null) {
         invalidated = true
+        mutableRevision.value = mutableRevision.value + 1L
         packageName?.let {
             appIconCache.remove(it)
             appLabelCache.remove(it)
@@ -116,14 +119,20 @@ class IntentCatalog(private val context: Context) {
             .joinToString(";") { (host, packages) ->
                 host + "=" + packages.sorted().joinToString(",")
             }
+        val specialCandidates = runCatching { specialEntryDiscovery.scan() }.getOrDefault(emptyList())
+        val specialFingerprint = specialCandidates.asSequence()
+            .map { it.rule.id }
+            .sorted()
+            .joinToString(",")
         val fingerprint = customDefinitions.entries
             .sortedBy { it.key.ordinal }
             .joinToString("|") { (preset, definition) -> "$preset=$definition" } +
             "|browserHosts=" + normalizedBrowserHosts.joinToString(",") +
             "|declaredHandlers=" + discoveryFingerprint +
-            "|declaredPackages=" + packageFingerprint
+            "|declaredPackages=" + packageFingerprint +
+            "|specialEntries=" + specialFingerprint
         val cached = mutableCandidates.value
-        if (!force && !invalidated && cached.isNotEmpty() && fingerprint == cachedDefinitionFingerprint) {
+        if (!force && !invalidated && fingerprint == cachedDefinitionFingerprint) {
             cacheHitsSinceLastScan++
             return@withContext cached
         }
@@ -140,7 +149,6 @@ class IntentCatalog(private val context: Context) {
                 "cacheHitsSincePreviousScan=$previousCacheHits\n"
         )
 
-        val specialCandidates = specialEntryDiscovery.scan()
         if (specialCandidates.isNotEmpty()) {
             found += specialCandidates
             specialCandidates.forEach { known += it.rule.id }

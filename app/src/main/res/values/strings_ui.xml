@@ -71,4 +71,9 @@
     <string name="dashboard_export_diagnostics">Export diagnostic package</string>
     <string name="diagnostic_export_help">Enable diagnostics first, reproduce the problem, then export. The package includes recent LSPosed and system logs where available. Raw system logs can contain data from other processes, so review before sharing. Root access is required for some sources; read failures are recorded in the package.</string>
     <string name="app_version_format">%1$s v%2$s</string>
+
+    <string name="rules_scan_summary">Scanned %1$d entries · currently showing %2$d apps</string>
+    <string name="priority_rule_scope_summary">Rule-visible scope: %1$d apps · currently showing %2$d</string>
+    <string name="root_scan_total">Scanned %1$d components before filters</string>
+    <string name="observed_entry_empty_help">No observed entries yet. Use the target app's share panel or launcher shortcuts first, then refresh.</string>
 </resources>

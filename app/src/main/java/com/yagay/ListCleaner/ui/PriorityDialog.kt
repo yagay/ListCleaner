@@ -75,22 +75,22 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
         )
     }
 
-    var kind by rememberSaveable { mutableStateOf(state.filter ?: IntentKind.SHARE) }
-    var openPreset by rememberSaveable { mutableStateOf<OpenPreset?>(null) }
-    var browserHost by rememberSaveable { mutableStateOf<String?>(null) }
+    val kind = state.filter ?: IntentKind.SHARE
+    val openPreset by vm.ruleOpenPreset.collectAsState()
+    val browserHost by vm.ruleBrowserHost.collectAsState()
     var viewFilter by rememberSaveable { mutableStateOf(UiFilter.ALL) }
     var appTypeFilter by rememberSaveable { mutableStateOf(AppTypeFilter.ALL) }
     val bulkLockRevision by vm.bulkLockRevision.collectAsState()
     var expandedKey by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(kind) {
-        if (kind != IntentKind.OPEN) openPreset = null
-        if (kind != IntentKind.DEEP_LINK) browserHost = null
+        if (kind != IntentKind.OPEN) vm.setRuleOpenPreset(null)
+        if (kind != IntentKind.DEEP_LINK) vm.setRuleBrowserHost(null)
     }
     LaunchedEffect(state.openTypesExplicit.customDefinitions, openPreset) {
-        if (openPreset?.isCustom == true && openPreset !in state.openTypesExplicit.customDefinitions) openPreset = null
+        if (openPreset?.isCustom == true && openPreset !in state.openTypesExplicit.customDefinitions) vm.setRuleOpenPreset(null)
     }
     LaunchedEffect(state.browserAvailableHosts, browserHost) {
-        if (browserHost != null && browserHost !in state.browserAvailableHosts) browserHost = null
+        if (browserHost != null && browserHost !in state.browserAvailableHosts) vm.setRuleBrowserHost(null)
     }
 
     val typedOpenPreset = openPreset.takeIf { kind == IntentKind.OPEN }
@@ -222,7 +222,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                     Column {
                         ListControls(
                             state.copy(filter = kind, uiFilter = viewFilter),
-                            onFilter = { entry -> if (entry != null) { kind = entry; expandedKey = null } },
+                            onFilter = { entry -> if (entry != null) { vm.setFilter(entry); expandedKey = null } },
                             onUiFilter = { viewFilter = it },
                             appTypeFilter = appTypeFilter,
                             onAppTypeFilter = { appTypeFilter = it },
@@ -242,14 +242,14 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     IntentKind.OPEN -> OpenPresetFilterMenu(
                                         selected = openPreset,
                                         config = state.openTypesExplicit,
-                                        onSelected = { openPreset = it },
+                                        onSelected = vm::setRuleOpenPreset,
                                         onManageCustom = { showCustomTypes = true }
                                     )
                                     IntentKind.DEEP_LINK -> BrowserHostFilterMenu(
                                         selected = browserHost,
                                         config = state.browserLinks,
                                         availableHosts = state.browserAvailableHosts,
-                                        onSelected = { browserHost = it },
+                                        onSelected = vm::setRuleBrowserHost,
                                         onManage = { showBrowserHosts = true }
                                     )
                                     else -> Unit
@@ -297,6 +297,11 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                         if (presetTitle == null) stringResource(R.string.app_list_count, groups.size)
                         else stringResource(R.string.app_list_count_type, groups.size, presetTitle),
                         style = MaterialTheme.typography.labelLarge
+                    )
+                    Text(
+                        stringResource(R.string.priority_rule_scope_summary, visibleSaved.size, groups.size),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         stringResource(R.string.priority_intro),

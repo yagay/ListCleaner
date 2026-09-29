@@ -57,17 +57,17 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
         )
     }
 
-    var openPreset by rememberSaveable { mutableStateOf<OpenPreset?>(null) }
-    var browserHost by rememberSaveable { mutableStateOf<String?>(null) }
+    val openPreset by vm.ruleOpenPreset.collectAsState()
+    val browserHost by vm.ruleBrowserHost.collectAsState()
     LaunchedEffect(state.filter) {
-        if (state.filter != IntentKind.OPEN) openPreset = null
-        if (state.filter != IntentKind.DEEP_LINK) browserHost = null
+        if (state.filter != IntentKind.OPEN) vm.setRuleOpenPreset(null)
+        if (state.filter != IntentKind.DEEP_LINK) vm.setRuleBrowserHost(null)
     }
     LaunchedEffect(state.openTypesExplicit.customDefinitions, openPreset) {
-        if (openPreset?.isCustom == true && openPreset !in state.openTypesExplicit.customDefinitions) openPreset = null
+        if (openPreset?.isCustom == true && openPreset !in state.openTypesExplicit.customDefinitions) vm.setRuleOpenPreset(null)
     }
     LaunchedEffect(state.browserAvailableHosts, browserHost) {
-        if (browserHost != null && browserHost !in state.browserAvailableHosts) browserHost = null
+        if (browserHost != null && browserHost !in state.browserAvailableHosts) vm.setRuleBrowserHost(null)
     }
 
     val typedOpenPreset = openPreset.takeIf { state.filter == IntentKind.OPEN }
@@ -163,14 +163,14 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                                 IntentKind.OPEN -> OpenPresetFilterMenu(
                                     selected = openPreset,
                                     config = state.openTypesExplicit,
-                                    onSelected = { openPreset = it },
+                                    onSelected = vm::setRuleOpenPreset,
                                     onManageCustom = { showCustomTypes = true }
                                 )
                                 IntentKind.DEEP_LINK -> BrowserHostFilterMenu(
                                     selected = browserHost,
                                     config = state.browserLinks,
                                     availableHosts = state.browserAvailableHosts,
-                                    onSelected = { browserHost = it },
+                                    onSelected = vm::setRuleBrowserHost,
                                     onManage = { showBrowserHosts = true }
                                 )
                                 else -> Unit
@@ -338,7 +338,13 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
         if (!state.loading && shownGroups.isEmpty()) {
             item {
                 Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                    Text(stringResource(R.string.no_matching_components))
+                    Text(
+                        stringResource(
+                            if (state.filter == IntentKind.DIRECT_SHARE || state.filter == IntentKind.SHORTCUT_ITEM)
+                                R.string.observed_entry_empty_help
+                            else R.string.no_matching_components
+                        )
+                    )
                 }
             }
         }
@@ -362,6 +368,11 @@ private fun SummaryRow(
             if (presetTitle == null) stringResource(R.string.app_list_count, groupCount)
             else stringResource(R.string.app_list_count_type, groupCount, presetTitle),
             style = MaterialTheme.typography.labelLarge
+        )
+        Text(
+            stringResource(R.string.rules_scan_summary, state.candidates.count { it.isCatalogCandidate }, groupCount),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
             stringResource(R.string.rules_page_intro),
@@ -522,7 +533,6 @@ fun DashboardTabContent(
         Text(stringResource(R.string.dashboard_diagnostics), style = MaterialTheme.typography.titleMedium)
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 Text(stringResource(R.string.dashboard_scan_disclaimer), style = MaterialTheme.typography.labelSmall)
                 OutlinedButton(
                     onClick = onInspectFile,

@@ -27,6 +27,9 @@ class BrowserLinkDiscovery {
 
     suspend fun discover(force: Boolean = false): Set<String> = discoverDetailed(force).hosts
 
+    /** Last successful enrichment snapshot. Reading this never starts root/dumpsys work. */
+    fun snapshot(): BrowserLinkDiscoveryResult = cached
+
     suspend fun discoverDetailed(force: Boolean = false): BrowserLinkDiscoveryResult =
         withContext(Dispatchers.IO) {
             val now = System.currentTimeMillis()
