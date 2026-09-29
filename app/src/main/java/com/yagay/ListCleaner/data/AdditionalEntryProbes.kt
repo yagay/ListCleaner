@@ -76,7 +76,9 @@ internal fun additionalEntryProbes(): List<AdditionalEntryProbe> = buildList {
             label = "DEFAULT_HOME"
         )
     )
-    add(AdditionalEntryProbe(Intent(Intent.ACTION_ASSIST), false, "ASSISTANT"))
+    // Assistant is intentionally not a plain Activity probe here. Android's Assistant role merges
+    // ACTION_ASSIST activities and qualified VoiceInteractionService packages. SpecialEntryDiscovery
+    // mirrors that package-level qualification so the manager list matches the system role picker.
 }
 
 private fun documentProbe(
