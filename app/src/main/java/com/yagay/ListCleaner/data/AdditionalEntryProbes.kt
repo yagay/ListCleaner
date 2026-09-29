@@ -10,60 +10,61 @@ internal data class AdditionalEntryProbe(
     val label: String
 )
 
+private data class UriProbeDefinition(
+    val action: String,
+    val sampleUri: String,
+    val labelPrefix: String,
+)
+
+private data class ActionProbeDefinition(
+    val action: String,
+    val label: String,
+)
+
+private val URI_PROBES = listOf(
+    UriProbeDefinition(Intent.ACTION_SENDTO, "mailto:test@example.com", "SENDTO"),
+    UriProbeDefinition(Intent.ACTION_SENDTO, "sms:123456789", "SENDTO"),
+    UriProbeDefinition(Intent.ACTION_SENDTO, "smsto:123456789", "SENDTO"),
+    UriProbeDefinition(Intent.ACTION_SENDTO, "mms:123456789", "SENDTO"),
+    UriProbeDefinition(Intent.ACTION_SENDTO, "mmsto:123456789", "SENDTO"),
+    UriProbeDefinition(Intent.ACTION_DIAL, "tel:123456789", "DIAL"),
+)
+
+private val ACTION_PROBES = listOf(
+    ActionProbeDefinition("android.media.action.IMAGE_CAPTURE", "CAPTURE_IMAGE"),
+    ActionProbeDefinition("android.media.action.VIDEO_CAPTURE", "CAPTURE_VIDEO"),
+    ActionProbeDefinition("android.provider.MediaStore.RECORD_SOUND", "RECORD_AUDIO"),
+)
+
+private val DOCUMENT_MIMES = listOf(
+    "*/*",
+    "image/*",
+    "video/*",
+    "audio/*",
+    "text/plain",
+    "application/pdf",
+)
+
 internal fun additionalEntryProbes(): List<AdditionalEntryProbe> = buildList {
-    val sendToSamples = listOf(
-        "mailto:test@example.com",
-        "sms:123456789",
-        "smsto:123456789",
-        "mms:123456789",
-        "mmsto:123456789",
-    )
-    sendToSamples.forEach { sample ->
-        val scheme = sample.substringBefore(':')
+    URI_PROBES.forEach { definition ->
+        val scheme = definition.sampleUri.substringBefore(':')
         add(
             AdditionalEntryProbe(
-                Intent(Intent.ACTION_SENDTO, Uri.parse(sample)),
-                false,
-                "SENDTO scheme=$scheme",
+                intent = Intent(definition.action, Uri.parse(definition.sampleUri)),
+                broad = false,
+                label = "${definition.labelPrefix} scheme=$scheme",
             )
         )
     }
-    add(AdditionalEntryProbe(Intent(Intent.ACTION_DIAL, Uri.parse("tel:123456789")), false, "DIAL scheme=tel"))
 
-    add(AdditionalEntryProbe(Intent("android.media.action.IMAGE_CAPTURE"), false, "CAPTURE_IMAGE"))
-    add(AdditionalEntryProbe(Intent("android.media.action.VIDEO_CAPTURE"), false, "CAPTURE_VIDEO"))
-    add(AdditionalEntryProbe(Intent("android.provider.MediaStore.RECORD_SOUND"), false, "RECORD_AUDIO"))
+    ACTION_PROBES.forEach { definition ->
+        add(AdditionalEntryProbe(Intent(definition.action), false, definition.label))
+    }
 
-    val documentMimes = listOf("*/*", "image/*", "video/*", "audio/*", "text/plain", "application/pdf")
-    documentMimes.forEach { mime ->
-        add(
-            AdditionalEntryProbe(
-                Intent(Intent.ACTION_GET_CONTENT)
-                    .addCategory(Intent.CATEGORY_OPENABLE)
-                    .setType(mime),
-                broad = mime == "*/*",
-                label = "GET_CONTENT mime=$mime"
-            )
-        )
-        add(
-            AdditionalEntryProbe(
-                Intent(Intent.ACTION_OPEN_DOCUMENT)
-                    .addCategory(Intent.CATEGORY_OPENABLE)
-                    .setType(mime),
-                broad = mime == "*/*",
-                label = "OPEN_DOCUMENT mime=$mime"
-            )
-        )
-        add(
-            AdditionalEntryProbe(
-                Intent(Intent.ACTION_CREATE_DOCUMENT)
-                    .addCategory(Intent.CATEGORY_OPENABLE)
-                    .setType(mime)
-                    .putExtra(Intent.EXTRA_TITLE, "ListCleaner-probe"),
-                broad = mime == "*/*",
-                label = "CREATE_DOCUMENT mime=$mime"
-            )
-        )
+    DOCUMENT_MIMES.forEach { mime ->
+        add(documentProbe(Intent.ACTION_GET_CONTENT, mime, "GET_CONTENT"))
+        add(documentProbe(Intent.ACTION_OPEN_DOCUMENT, mime, "OPEN_DOCUMENT"))
+        add(documentProbe(Intent.ACTION_CREATE_DOCUMENT, mime, "CREATE_DOCUMENT", create = true))
     }
 
     add(
@@ -75,11 +76,22 @@ internal fun additionalEntryProbes(): List<AdditionalEntryProbe> = buildList {
             label = "DEFAULT_HOME"
         )
     )
-    add(
-        AdditionalEntryProbe(
-            Intent(Intent.ACTION_ASSIST),
-            broad = false,
-            label = "ASSISTANT"
-        )
+    add(AdditionalEntryProbe(Intent(Intent.ACTION_ASSIST), false, "ASSISTANT"))
+}
+
+private fun documentProbe(
+    action: String,
+    mime: String,
+    label: String,
+    create: Boolean = false,
+): AdditionalEntryProbe {
+    val intent = Intent(action)
+        .addCategory(Intent.CATEGORY_OPENABLE)
+        .setType(mime)
+    if (create) intent.putExtra(Intent.EXTRA_TITLE, "ListCleaner-probe")
+    return AdditionalEntryProbe(
+        intent = intent,
+        broad = mime == "*/*",
+        label = "$label mime=$mime",
     )
 }
