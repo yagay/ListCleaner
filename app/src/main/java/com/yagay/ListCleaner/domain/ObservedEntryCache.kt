@@ -10,6 +10,7 @@ val OBSERVABLE_ENTRY_KINDS: Set<IntentKind> = setOf(
     IntentKind.ACCESSIBILITY,
     IntentKind.INPUT_METHOD,
     IntentKind.PRINT,
+    IntentKind.AUTOFILL,
     IntentKind.CREDENTIAL_PROVIDER,
     IntentKind.VPN,
     IntentKind.NFC_HCE,
