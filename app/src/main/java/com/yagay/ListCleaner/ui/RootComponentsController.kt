@@ -3,6 +3,7 @@ package com.yagay.ListCleaner.ui
 import android.util.Log
 import com.yagay.ListCleaner.ListCleanerApp
 import com.yagay.ListCleaner.R
+import com.yagay.ListCleaner.data.ComponentPersistenceResult
 import com.yagay.ListCleaner.data.ComponentRootCommand
 import com.yagay.ListCleaner.data.PersistentComponentStore
 import com.yagay.ListCleaner.data.RootComponent
@@ -58,6 +59,16 @@ internal class RootComponentsController(
         )
     }
 
+    private fun persistConfirmedState(target: RootComponent, disabled: Boolean) {
+        when (persistentComponents.setDisabled(target, disabled)) {
+            ComponentPersistenceResult.LOCAL_FAILED ->
+                error(app.getString(R.string.root_persistence_failed))
+            ComponentPersistenceResult.LOCAL_SAVED ->
+                Log.w(TAG, "Component policy saved locally but remote mirror is pending for ${target.id}")
+            ComponentPersistenceResult.FULLY_SYNCED -> Unit
+        }
+    }
+
     fun refresh() {
         if (mutableBusy.value) {
             refreshPending = true
@@ -67,8 +78,6 @@ internal class RootComponentsController(
         scope.launch {
             try {
                 val protocolBefore = app.runtime.value.componentDiscoveryProtocol
-                // Component discovery is local PackageManager/LauncherApps work. Publish it first;
-                // LSPosed synchronization is enrichment and must not block the visible list.
                 mutableScan.value = withContext(Dispatchers.IO) { catalog.scan() }
                 try {
                     withContext(Dispatchers.IO) {
@@ -125,9 +134,7 @@ internal class RootComponentsController(
                             target.label
                         )
                         result = withContext(NonCancellable) { catalog.change(target, enable) }
-                        // Persist only after Android confirms the requested state. This makes the
-                        // checkbox a durable policy instead of a one-shot `pm disable` command.
-                        persistentComponents.setDisabled(target, disabled = !enable)
+                        persistConfirmedState(target, disabled = !enable)
                         completedTargets += target
                     }
                     mutableMessage.value = if (targets.size == 1) {
@@ -151,7 +158,8 @@ internal class RootComponentsController(
                         R.string.root_batch_stopped,
                         completedTargets.size,
                         targets.size,
-                        app.getString(R.string.root_operation_not_allowed)
+                        failure.message?.takeIf { it.isNotBlank() }
+                            ?: app.getString(R.string.root_operation_not_allowed)
                     )
                 } finally {
                     if (completedTargets.isNotEmpty()) {
@@ -188,7 +196,7 @@ internal class RootComponentsController(
                         )
                         val enable = target.enabled == false
                         withContext(NonCancellable) { catalog.change(target, enable) }
-                        persistentComponents.setDisabled(target, disabled = !enable)
+                        persistConfirmedState(target, disabled = !enable)
                         completedTargets += target
                     }
                     mutableMessage.value = app.getString(R.string.root_batch_inverted, completedTargets.size)
@@ -205,7 +213,8 @@ internal class RootComponentsController(
                         R.string.root_invert_stopped,
                         completedTargets.size,
                         targets.size,
-                        app.getString(R.string.root_operation_not_allowed)
+                        failure.message?.takeIf { it.isNotBlank() }
+                            ?: app.getString(R.string.root_operation_not_allowed)
                     )
                 } finally {
                     if (completedTargets.isNotEmpty()) {
