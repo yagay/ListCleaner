@@ -8,8 +8,6 @@ import com.yagay.ListCleaner.data.ResolverScopeDetector
 import com.yagay.ListCleaner.data.ScopeDetection
 import com.yagay.ListCleaner.domain.RuntimeProtocol
 import com.yagay.ListCleaner.runtime.ServiceSession
-import io.github.libxposed.service.HookedTarget
-import io.github.libxposed.service.HotReloadResult
 import io.github.libxposed.service.XposedService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -57,7 +55,7 @@ data class ModuleStatus(
     }
 }
 
-/** Owns LSPosed service/session state, scope requests and hot reload operations. */
+/** Owns LSPosed service/session state, scope requests and hook-generation restart checks. */
 class ModuleRuntimeController(
     private val app: ListCleanerApp,
     private val scope: CoroutineScope
@@ -125,6 +123,12 @@ class ModuleRuntimeController(
         }
     }
 
+    /**
+     * Multiple libxposed Java entries own independent system hooks in this module. A partial hot
+     * reload can update only some of them, leaving mixed generations in system_server. Therefore a
+     * hook compatibility bump is handled as a restart requirement. Manager-only APK updates keep
+     * the same HOOK_COMPAT_VERSION_CODE and continue without a restart.
+     */
     fun applyUpdate(onFinished: () -> Unit) {
         if (mutableUpdating.value) return
         val generation = ++updateGeneration
@@ -135,8 +139,7 @@ class ModuleRuntimeController(
             fun current(): Boolean = generation == updateGeneration && app.isCurrent(session)
             try {
                 val active = session ?: error(app.getString(R.string.update_lsposed_disconnected))
-                val bound = active.service
-                val targets = withContext(Dispatchers.IO) { bound.runningTargets }
+                val targets = withContext(Dispatchers.IO) { active.service.runningTargets }
                 if (!current()) return@launch
                 val pending = targets.filter {
                     !RuntimeProtocol.hookCompatible(
@@ -146,63 +149,27 @@ class ModuleRuntimeController(
                         BuildConfig.VERSION_CODE.toLong()
                     )
                 }
-                val messages = mutableListOf<String>()
-                for (target in pending) {
-                    if (!current()) return@launch
-                    try {
-                        if (target.state == HookedTarget.State.RELOADING) {
-                            messages += app.getString(R.string.update_target_reloading, target.processName)
-                            continue
-                        }
-                        if (target.loadedVersionCode < 19) {
-                            messages += app.getString(
-                                R.string.update_target_too_old,
-                                target.processName,
-                                target.loadedVersionCode
-                            )
-                            continue
-                        }
-                        val result = withTimeoutOrNull(15_000) {
-                            requestHotReload(bound, target)
-                        }
-                        if (!current()) return@launch
-                        val resultText = when (result?.status()) {
-                            HotReloadResult.Status.SUCCEEDED -> app.getString(R.string.update_succeeded)
-                            HotReloadResult.Status.UNSUPPORTED -> app.getString(R.string.update_unsupported)
-                            HotReloadResult.Status.FAILED -> app.getString(
-                                R.string.update_failed,
-                                app.getString(R.string.update_old_module_rejected)
-                            )
-                            HotReloadResult.Status.PROCESS_DIED -> app.getString(R.string.update_process_died)
-                            HotReloadResult.Status.IN_PROGRESS -> app.getString(R.string.update_in_progress)
-                            null -> app.getString(R.string.update_timeout)
-                        }
-                        messages += app.getString(R.string.update_target_result, target.processName, resultText)
-                    } catch (cancelled: CancellationException) {
-                        throw cancelled
-                    } catch (failure: Exception) {
-                        Log.e(TAG, "Hot reload request failed for ${target.processName}", failure)
-                        if (!current()) return@launch
-                        messages += app.getString(
-                            R.string.update_request_failed,
+                mutableUpdateMessage.value = if (pending.isEmpty()) {
+                    app.getString(R.string.update_nothing_pending)
+                } else {
+                    pending.joinToString("\n") { target ->
+                        app.getString(
+                            R.string.update_target_restart_required,
                             target.processName,
-                            app.getString(R.string.update_old_module_rejected)
+                            target.loadedVersionCode,
+                            BuildConfig.HOOK_COMPAT_VERSION_CODE
                         )
                     }
                 }
-                if (!current()) return@launch
-                mutableUpdateMessage.value = if (messages.isEmpty()) {
-                    app.getString(R.string.update_nothing_pending)
-                } else messages.joinToString("\n")
                 onFinished()
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                Log.e(TAG, "Hot update check failed", failure)
+                Log.e(TAG, "Hook generation check failed", failure)
                 if (current()) {
                     mutableUpdateMessage.value = app.getString(
                         R.string.update_check_failed,
-                        app.getString(R.string.update_old_module_rejected)
+                        failure.javaClass.simpleName
                     )
                 }
             } finally {
@@ -283,15 +250,6 @@ class ModuleRuntimeController(
             }
         }
     }
-
-    private suspend fun requestHotReload(bound: XposedService, target: HookedTarget): HotReloadResult =
-        withContext(Dispatchers.IO) {
-            suspendCancellableCoroutine { continuation ->
-                bound.hotReloadModule(target, null) { _, reply ->
-                    if (continuation.isActive) continuation.resume(reply)
-                }
-            }
-        }
 
     private companion object {
         const val TAG = "ListCleaner.ModuleRuntime"
