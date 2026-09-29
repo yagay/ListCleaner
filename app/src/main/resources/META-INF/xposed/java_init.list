@@ -3,6 +3,6 @@ com.yagay.ListCleaner.xposed.ComponentStateGuardModule
 com.yagay.ListCleaner.xposed.ComponentDiscoveryFilterModule
 com.yagay.ListCleaner.xposed.DirectShareConsistencyModule
 com.yagay.ListCleaner.xposed.EmbeddedDirectShareModule
-com.yagay.ListCleaner.xposed.AssistantRoleModule
+com.yagay.ListCleaner.xposed.RoleControllerModule
 com.yagay.ListCleaner.xposed.PackageManagerEntryFilterModule
 com.yagay.ListCleaner.xposed.ShortcutSurfaceModule
