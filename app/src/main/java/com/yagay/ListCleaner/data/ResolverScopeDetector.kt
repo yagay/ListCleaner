@@ -20,6 +20,7 @@ data class ResolverHost(
         packageName == "system" -> false
         packageName == "com.android.intentresolver" -> false
         packageName == "com.android.systemui" -> false
+        className == ResolverScopeDetector.ROLE_CONTROLLER_SERVICE_INTERFACE -> false
         EmbeddedDirectShareProfiles.isKnownHost(packageName) -> false
         packageName == "android" -> processName !in ResolverScopeDetector.FRAMEWORK_UI_PROCESSES
         else -> true
@@ -108,6 +109,38 @@ class ResolverScopeDetector(private val context: Context) {
             }
         }
 
+        val roleControllerHosts = runCatching {
+            pm.queryIntentServices(
+                Intent(ROLE_CONTROLLER_SERVICE_INTERFACE),
+                PackageManager.MATCH_SYSTEM_ONLY,
+            ).mapNotNull { resolveInfo ->
+                val info = resolveInfo.serviceInfo ?: return@mapNotNull null
+                ResolverHost(
+                    packageName = info.packageName,
+                    className = ROLE_CONTROLLER_SERVICE_INTERFACE,
+                    processName = info.processName ?: info.applicationInfo?.processName ?: info.packageName,
+                    scenarios = emptySet(),
+                )
+            }
+        }.onFailure { failure ->
+            Log.e(TAG, "Role-controller detection failed", failure)
+            warnings += context.getString(R.string.scope_detection_failed, ROLE_CONTROLLER_SERVICE_INTERFACE)
+        }.getOrDefault(emptyList())
+
+        val knownRoleControllerHosts = ROLE_CONTROLLER_PACKAGES
+            .filter { it in installed }
+            .map { packageName ->
+                ResolverHost(
+                    packageName = packageName,
+                    className = ROLE_CONTROLLER_SERVICE_INTERFACE,
+                    processName = installedInfo[packageName]?.processName ?: packageName,
+                    scenarios = emptySet(),
+                )
+            }
+
+        val assistantRoleHosts = (roleControllerHosts + knownRoleControllerHosts)
+            .distinctBy { it.packageName }
+
         val systemHost = ResolverHost(
             "system",
             "PackageManagerService",
@@ -115,15 +148,21 @@ class ResolverScopeDetector(private val context: Context) {
             setOf(context.getString(R.string.scope_scenario_global_intent))
         )
         return ScopeDetection(
-            hosts = listOf(systemHost) + resolverHosts + embeddedShareHosts,
-            installedCandidates = installed + "system",
+            hosts = listOf(systemHost) + resolverHosts + embeddedShareHosts + assistantRoleHosts,
+            installedCandidates = installed + assistantRoleHosts.map { it.packageName } + "system",
             warnings = warnings,
         )
     }
 
     companion object {
+        const val ROLE_CONTROLLER_SERVICE_INTERFACE = "android.app.role.RoleControllerService"
+        private val ROLE_CONTROLLER_PACKAGES = setOf(
+            "com.google.android.permissioncontroller",
+            "com.android.permissioncontroller",
+        )
         private val STANDARD_PACKAGES = setOf("android", "com.android.intentresolver", "com.android.systemui")
-        val KNOWN_PACKAGES: Set<String> = STANDARD_PACKAGES + EmbeddedDirectShareProfiles.knownPackages
+        val KNOWN_PACKAGES: Set<String> =
+            STANDARD_PACKAGES + EmbeddedDirectShareProfiles.knownPackages + ROLE_CONTROLLER_PACKAGES
         val FRAMEWORK_UI_PROCESSES = setOf("android:ui", "system:ui")
         private const val TAG = "ListCleaner.Scope"
     }
