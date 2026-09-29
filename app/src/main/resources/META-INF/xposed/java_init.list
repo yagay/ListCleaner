@@ -7,5 +7,6 @@ com.yagay.ListCleaner.xposed.RoleControllerModule
 com.yagay.ListCleaner.xposed.PackageManagerEntryFilterModule
 com.yagay.ListCleaner.xposed.SystemManagerEntryFilterModule
 com.yagay.ListCleaner.xposed.NfcPaymentModule
+com.yagay.ListCleaner.xposed.CombinedProviderSettingsModule
 com.yagay.ListCleaner.xposed.PackageScopedResolverFilterModule
 com.yagay.ListCleaner.xposed.ShortcutSurfaceModule
