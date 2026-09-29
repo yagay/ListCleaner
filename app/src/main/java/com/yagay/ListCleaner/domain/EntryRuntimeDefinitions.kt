@@ -9,6 +9,9 @@ enum class EntryRuntimePath {
     SHORTCUT_SERVICE,
     PACKAGE_MANAGER_PROVIDER,
     PACKAGE_MANAGER_SERVICE,
+    ACCESSIBILITY_MANAGER,
+    INPUT_METHOD_MANAGER,
+    PRINT_MANAGER,
 }
 
 enum class EmptyResultBehavior {
@@ -159,9 +162,16 @@ val ENTRY_RUNTIME_DEFINITIONS: Map<IntentKind, EntryRuntimeDefinition> = buildMa
             IntentKind.CALL_SCREENING -> "android.app.role.CALL_SCREENING"
             else -> null
         }
+        val managerPath = when (kind) {
+            IntentKind.ACCESSIBILITY -> EntryRuntimePath.ACCESSIBILITY_MANAGER
+            IntentKind.INPUT_METHOD -> EntryRuntimePath.INPUT_METHOD_MANAGER
+            IntentKind.PRINT -> EntryRuntimePath.PRINT_MANAGER
+            else -> null
+        }
         val expected = buildSet {
             add(EntryRuntimePath.PACKAGE_MANAGER_SERVICE)
             if (roleName != null) add(EntryRuntimePath.ROLE_CONTROLLER)
+            if (managerPath != null) add(managerPath)
         }
         put(
             kind,
@@ -172,8 +182,11 @@ val ENTRY_RUNTIME_DEFINITIONS: Map<IntentKind, EntryRuntimeDefinition> = buildMa
                 emptyBehavior = buildMap {
                     put(EntryRuntimePath.PACKAGE_MANAGER_SERVICE, EmptyResultBehavior.ALLOW_EMPTY)
                     if (roleName != null) put(EntryRuntimePath.ROLE_CONTROLLER, EmptyResultBehavior.ALLOW_EMPTY)
+                    if (managerPath != null) put(managerPath, EmptyResultBehavior.ALLOW_EMPTY)
                 },
                 roleName = roleName,
+                // The final manager path is now covered for Accessibility/IME/Print, but PM-level
+                // system callers can still bypass the lower discovery hook by design.
                 systemCallerBypassPossible = true,
             )
         )
