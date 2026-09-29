@@ -14,6 +14,7 @@ import java.util.regex.Pattern;
 public final class DiagnosticEvidence {
     private static final Pattern ID = Pattern.compile("pid=(\\d+) process=(\\S+)");
     private static final Pattern KIND = Pattern.compile("kind=(\\w+)");
+    private static final Pattern ARROW_FILTER = Pattern.compile("\\b\\d+\\s*->\\s*\\d+\\b");
     private final DiagnosticBuffer buffer = new DiagnosticBuffer(512 * 1024);
     private final Set<String> seen = new HashSet<>();
     private final Map<String, Integer> counts = new LinkedHashMap<>();
@@ -53,8 +54,10 @@ public final class DiagnosticEvidence {
                 line.contains(" ORDER_FAILED ") || line.contains(" ORDER_HOOK_FAILED ") ? "orderFailed" :
                 line.contains(" MODULE_LOADED ") ? "loaded" :
                 line.contains(" HOOK_INSTALLED ") || line.contains(" HOOKS_READY ") || line.contains(" PROFILE_READY ") ? "hookInstalled" :
+                line.contains(" RESULT kind=") || line.contains(" SHORTCUT_FILTER ") ||
+                    line.contains(" FILTER ") || line.contains("DIRECT_FILTER") || line.contains("FILTERED") ||
+                    ARROW_FILTER.matcher(line).find() ? "filterObserved" :
                 line.contains(" QUERY ") ? "queryObserved" :
-                line.contains(" FILTER ") || line.contains("DIRECT_FILTER") || line.contains("FILTERED") ? "filterObserved" :
                 line.contains(" RESTORE_ALL") ? "restoreObserved" :
                 line.contains(" HIT ") || line.contains("_HIT ") ? "hitObserved" :
                 line.contains(" HOOK_FAILED ") || line.contains(" HOT_RELOAD_FAILED ") ? "hookFailed" :
