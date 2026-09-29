@@ -23,38 +23,38 @@ class CandidateVisibilityPolicyTest {
 
     @Test fun normalCandidatesFollowOnlySelectionFilter() {
         val item = candidate()
-        assertTrue(CandidateVisibilityPolicy.visible(item, selected = false, UiFilter.ALL))
-        assertTrue(CandidateVisibilityPolicy.visible(item, selected = true, UiFilter.ALL))
-        assertTrue(CandidateVisibilityPolicy.visible(item, selected = false, UiFilter.HIDE_SELECTED))
-        assertFalse(CandidateVisibilityPolicy.visible(item, selected = true, UiFilter.HIDE_SELECTED))
-        assertFalse(CandidateVisibilityPolicy.visible(item, selected = false, UiFilter.SHOW_SELECTED))
-        assertTrue(CandidateVisibilityPolicy.visible(item, selected = true, UiFilter.SHOW_SELECTED))
+        assertTrue(CandidateVisibilityPolicy.visible(item, selected = false, uiFilter = UiFilter.ALL))
+        assertTrue(CandidateVisibilityPolicy.visible(item, selected = true, uiFilter = UiFilter.ALL))
+        assertTrue(CandidateVisibilityPolicy.visible(item, selected = false, uiFilter = UiFilter.HIDE_SELECTED))
+        assertFalse(CandidateVisibilityPolicy.visible(item, selected = true, uiFilter = UiFilter.HIDE_SELECTED))
+        assertFalse(CandidateVisibilityPolicy.visible(item, selected = false, uiFilter = UiFilter.SHOW_SELECTED))
+        assertTrue(CandidateVisibilityPolicy.visible(item, selected = true, uiFilter = UiFilter.SHOW_SELECTED))
     }
 
     @Test fun selectedUnavailableCandidateSurvivesRefreshInAll() {
         val item = candidate(unavailable = true)
         assertTrue(CandidateVisibilityPolicy.retainAfterRefresh(item, selected = true))
         assertFalse(CandidateVisibilityPolicy.retainAfterRefresh(item, selected = false))
-        assertTrue(CandidateVisibilityPolicy.visible(item, selected = true, UiFilter.ALL))
-        assertTrue(CandidateVisibilityPolicy.visible(item, selected = true, UiFilter.SHOW_SELECTED))
-        assertTrue(CandidateVisibilityPolicy.visible(item, selected = true, UiFilter.LOCKED))
-        assertFalse(CandidateVisibilityPolicy.visible(item, selected = true, UiFilter.HIDE_SELECTED))
-        assertFalse(CandidateVisibilityPolicy.visible(item, selected = false, UiFilter.ALL))
+        assertTrue(CandidateVisibilityPolicy.visible(item, selected = true, uiFilter = UiFilter.ALL))
+        assertTrue(CandidateVisibilityPolicy.visible(item, selected = true, uiFilter = UiFilter.SHOW_SELECTED))
+        assertTrue(CandidateVisibilityPolicy.visible(item, selected = true, uiFilter = UiFilter.LOCKED))
+        assertFalse(CandidateVisibilityPolicy.visible(item, selected = true, uiFilter = UiFilter.HIDE_SELECTED))
+        assertFalse(CandidateVisibilityPolicy.visible(item, selected = false, uiFilter = UiFilter.ALL))
     }
 
     @Test fun restrictedCandidatesStayIsolatedFromAll() {
         val item = candidate(restricted = true)
-        assertFalse(CandidateVisibilityPolicy.visible(item, selected = false, UiFilter.ALL))
-        assertFalse(CandidateVisibilityPolicy.visible(item, selected = true, UiFilter.ALL))
-        assertFalse(CandidateVisibilityPolicy.visible(item, selected = true, UiFilter.HIDE_SELECTED))
-        assertTrue(CandidateVisibilityPolicy.visible(item, selected = true, UiFilter.SHOW_SELECTED))
-        assertTrue(CandidateVisibilityPolicy.visible(item, selected = true, UiFilter.LOCKED))
+        assertFalse(CandidateVisibilityPolicy.visible(item, selected = false, uiFilter = UiFilter.ALL))
+        assertFalse(CandidateVisibilityPolicy.visible(item, selected = true, uiFilter = UiFilter.ALL))
+        assertFalse(CandidateVisibilityPolicy.visible(item, selected = true, uiFilter = UiFilter.HIDE_SELECTED))
+        assertTrue(CandidateVisibilityPolicy.visible(item, selected = true, uiFilter = UiFilter.SHOW_SELECTED))
+        assertTrue(CandidateVisibilityPolicy.visible(item, selected = true, uiFilter = UiFilter.LOCKED))
     }
 
     @Test fun restrictedUnavailableNeverLeaksIntoAll() {
         val item = candidate(unavailable = true, restricted = true)
         assertTrue(CandidateVisibilityPolicy.retainAfterRefresh(item, selected = true))
-        assertFalse(CandidateVisibilityPolicy.visible(item, selected = true, UiFilter.ALL))
-        assertTrue(CandidateVisibilityPolicy.visible(item, selected = true, UiFilter.SHOW_SELECTED))
+        assertFalse(CandidateVisibilityPolicy.visible(item, selected = true, uiFilter = UiFilter.ALL))
+        assertTrue(CandidateVisibilityPolicy.visible(item, selected = true, uiFilter = UiFilter.SHOW_SELECTED))
     }
 }
