@@ -25,6 +25,8 @@ internal class RootComponentsController(
     private val app: ListCleanerApp,
     private val scope: CoroutineScope
 ) {
+    private class RootPolicyPersistenceException : IllegalStateException()
+
     private val catalog = RootComponentCatalog(app)
     private val persistentComponents = PersistentComponentStore(app)
 
@@ -61,13 +63,19 @@ internal class RootComponentsController(
 
     private fun persistConfirmedState(target: RootComponent, disabled: Boolean) {
         when (persistentComponents.setDisabled(target, disabled)) {
-            ComponentPersistenceResult.LOCAL_FAILED ->
-                error(app.getString(R.string.root_persistence_failed))
+            ComponentPersistenceResult.LOCAL_FAILED -> throw RootPolicyPersistenceException()
             ComponentPersistenceResult.LOCAL_SAVED ->
                 Log.w(TAG, "Component policy saved locally but remote mirror is pending for ${target.id}")
             ComponentPersistenceResult.FULLY_SYNCED -> Unit
         }
     }
+
+    private fun mutationFailureText(failure: Exception): String =
+        if (failure is RootPolicyPersistenceException) {
+            app.getString(R.string.root_persistence_failed)
+        } else {
+            app.getString(R.string.root_operation_not_allowed)
+        }
 
     fun refresh() {
         if (mutableBusy.value) {
@@ -158,8 +166,7 @@ internal class RootComponentsController(
                         R.string.root_batch_stopped,
                         completedTargets.size,
                         targets.size,
-                        failure.message?.takeIf { it.isNotBlank() }
-                            ?: app.getString(R.string.root_operation_not_allowed)
+                        mutationFailureText(failure)
                     )
                 } finally {
                     if (completedTargets.isNotEmpty()) {
@@ -213,8 +220,7 @@ internal class RootComponentsController(
                         R.string.root_invert_stopped,
                         completedTargets.size,
                         targets.size,
-                        failure.message?.takeIf { it.isNotBlank() }
-                            ?: app.getString(R.string.root_operation_not_allowed)
+                        mutationFailureText(failure)
                     )
                 } finally {
                     if (completedTargets.isNotEmpty()) {
