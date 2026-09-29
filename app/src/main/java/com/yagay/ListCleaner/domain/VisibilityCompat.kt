@@ -55,19 +55,22 @@ data class VisibilityCompatConfig(
 
 /**
  * An app is eligible for package-level compatibility hiding only when every currently catalogued
- * component in that top-level category is selected. System-managed shortcut/provider surfaces are
- * excluded because hiding their owning package would be much broader than hiding those entries.
+ * logical candidate in that top-level category is selected. System-managed shortcut/provider
+ * surfaces are excluded because hiding their owning package would be much broader than hiding them.
  */
 fun deriveFullySelectedPackages(
     candidates: List<ComponentCandidate>,
     selected: Set<ComponentRule>
-): Map<VisibilityScope, Set<String>> = IntentKind.entries.mapNotNull { kind ->
-    val scope = VisibilityScope.forKind(kind) ?: return@mapNotNull null
-    val packages = candidates.asSequence()
-        .filter { it.isCatalogCandidate && it.rule.kind == kind }
-        .groupBy { it.rule.packageName }
-        .filterValues { items -> items.isNotEmpty() && items.all { it.rule in selected } }
-        .keys
-        .toSet()
-    scope to packages
-}.toMap().filterValues { it.isNotEmpty() }
+): Map<VisibilityScope, Set<String>> {
+    val logicalCandidates = normalizeLogicalCandidates(candidates)
+    return IntentKind.entries.mapNotNull { kind ->
+        val scope = VisibilityScope.forKind(kind) ?: return@mapNotNull null
+        val packages = logicalCandidates.asSequence()
+            .filter { it.isCatalogCandidate && it.rule.kind == kind }
+            .groupBy { it.rule.packageName }
+            .filterValues { items -> items.isNotEmpty() && items.all { it.rule in selected } }
+            .keys
+            .toSet()
+        scope to packages
+    }.toMap().filterValues { it.isNotEmpty() }
+}
