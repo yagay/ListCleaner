@@ -49,6 +49,19 @@ class RuleRepository(context: Context) {
     private val mutableRevision = MutableStateFlow(0L)
     val revision: StateFlow<Long> = mutableRevision.asStateFlow()
 
+    init {
+        if (!prefs.contains(KEY_LOCAL_CONFIG) && hasLegacyLocalConfiguration()) {
+            persistLocalSnapshot()
+        }
+    }
+
+    private fun hasLegacyLocalConfiguration(): Boolean =
+        prefs.contains(KEY_INITIALIZED) || prefs.contains(KEY_RULES) || prefs.contains(KEY_DISPLAY_MODE) ||
+            prefs.contains(KEY_BLACKLIST) || prefs.contains(KEY_PRIORITIES) ||
+            prefs.contains(KEY_HIDDEN_FROM_APPS) || prefs.contains(KEY_OPEN_TYPES) ||
+            prefs.contains(KEY_BROWSER_LINKS) || prefs.contains(KEY_VISIBILITY_SCOPES) ||
+            prefs.contains(KEY_TILES) || prefs.contains(KEY_DEFAULT_OPEN)
+
     private fun loadInitialConfig(): ModuleConfig {
         prefs.getString(KEY_LOCAL_CONFIG, null)?.let { encoded ->
             if (encoded.length <= MAX_BACKUP_CHARS) {
@@ -96,11 +109,7 @@ class RuleRepository(context: Context) {
         ).validated()
     }
 
-    fun hasLocalConfiguration(): Boolean = prefs.contains(KEY_LOCAL_CONFIG) || prefs.contains(KEY_INITIALIZED) ||
-        prefs.contains(KEY_RULES) || prefs.contains(KEY_DISPLAY_MODE) || prefs.contains(KEY_BLACKLIST) ||
-        prefs.contains(KEY_PRIORITIES) || prefs.contains(KEY_HIDDEN_FROM_APPS) || prefs.contains(KEY_OPEN_TYPES) ||
-        prefs.contains(KEY_BROWSER_LINKS) || prefs.contains(KEY_VISIBILITY_SCOPES) ||
-        prefs.contains(KEY_TILES) || prefs.contains(KEY_DEFAULT_OPEN)
+    fun hasLocalConfiguration(): Boolean = prefs.contains(KEY_LOCAL_CONFIG) || hasLegacyLocalConfiguration()
 
     @Synchronized fun markInitialized() {
         persistLocalSnapshot()
@@ -453,7 +462,6 @@ class RuleRepository(context: Context) {
         ).validated()
 
         persistPrepared(prepared)
-        // Legacy blacklist is retained only for downgrade compatibility; config_v2 is authoritative.
         prefs.edit().putBoolean(KEY_BLACKLIST, legacyBlacklist).apply()
 
         mutableRules.value = prepared.rules
@@ -469,20 +477,22 @@ class RuleRepository(context: Context) {
     }
 
     private fun normalizeHiddenApps(packages: Set<String>): Set<String> {
-        val valid = sanitizeHiddenAppsForLoad(packages.asSequence()).toSet()
-        require(valid.size <= 2_000) { appContext.getString(R.string.repo_hidden_apps_too_many) }
+        val self = "com.yagay.ListCleaner"
+        val valid = packages.asSequence()
+            .map(String::trim)
+            .filter { it != "android" && it != self && PackageIdentity.valid(it) }
+            .take(MAX_HIDDEN_APPS + 1)
+            .toSet()
+        require(valid.size <= MAX_HIDDEN_APPS) { appContext.getString(R.string.repo_hidden_apps_too_many) }
         return valid
     }
 
-    private fun sanitizeHiddenAppsForLoad(packages: Iterable<String>): Set<String> =
-        sanitizeHiddenAppsForLoad(packages.asSequence())
-
-    private fun sanitizeHiddenAppsForLoad(packages: Sequence<String>): Set<String> {
+    private fun sanitizeHiddenAppsForLoad(packages: Iterable<String>): Set<String> {
         val self = "com.yagay.ListCleaner"
-        return packages
+        return packages.asSequence()
             .map(String::trim)
             .filter { it != "android" && it != self && PackageIdentity.valid(it) }
-            .take(2_000)
+            .take(MAX_HIDDEN_APPS)
             .toSet()
     }
 
@@ -516,6 +526,7 @@ class RuleRepository(context: Context) {
         private const val KEY_LOCAL_CONFIG = "config_v2"
         private const val KEY_INITIALIZED = "configuration_initialized"
         private const val MAX_RULES = 20_000
+        private const val MAX_HIDDEN_APPS = 2_000
         const val MAX_BACKUP_CHARS = 2_000_000
     }
 }
