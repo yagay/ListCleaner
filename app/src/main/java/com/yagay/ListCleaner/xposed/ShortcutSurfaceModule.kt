@@ -2,7 +2,6 @@ package com.yagay.ListCleaner.xposed
 
 import android.content.ComponentName
 import android.content.Intent
-import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
 import android.content.pm.LauncherApps
@@ -18,7 +17,6 @@ import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.FilterPolicy
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.ManagerIdentity
-import com.yagay.ListCleaner.domain.ModuleConfig
 import com.yagay.ListCleaner.domain.ObservedEntryProtocol
 import com.yagay.ListCleaner.domain.SyntheticEntryKeys
 import com.yagay.ListCleaner.domain.prioritizeApps
@@ -27,25 +25,29 @@ import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
-import kotlinx.serialization.json.Json
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
 
 /** Observes launcher ShortcutInfo/Direct Share in system_server and filters only launcher-facing queries. */
 class ShortcutSurfaceModule : XposedModule() {
     @Volatile private var processName = ""
-    @Volatile private var fallbackMode = DisplayMode.HIDE_SELECTED
-    @Volatile private var fallbackRules: Set<String> = emptySet()
-    @Volatile private var fallbackPriorities: Map<IntentKind, List<String>> = emptyMap()
-    @Volatile private var fallbackManagerAppId = -1
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
     private val listResults = SafeListResultExtractor(::record)
-
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
-    private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == null || key == RuleRepository.KEY_CONFIG) refreshFallback("preference changed")
+    private val fallback by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        RemoteEntryPolicyFallback(
+            preferences = preferences,
+            selectRules = { config ->
+                config.rules.filter { it.kind == IntentKind.SHORTCUT_ITEM }
+                    .mapTo(linkedSetOf()) { it.id }
+            },
+            selectPriorities = { config ->
+                config.priorities.apps.filterKeys { it == IntentKind.SHORTCUT_ITEM }
+            },
+            record = ::record,
+        )
     }
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
@@ -57,40 +59,21 @@ class ShortcutSurfaceModule : XposedModule() {
 
     override fun onSystemServerStarting(param: SystemServerStartingParam) {
         processName = "system"
-        initializePreferences()
+        fallback.start()
         installShortcutHooks(param.classLoader)
         installShareTargetHooks(param.classLoader)
         installObservedDiscoveryHooks(param.classLoader)
     }
 
-    private fun initializePreferences() {
-        runCatching { preferences.registerOnSharedPreferenceChangeListener(preferenceListener) }
-        refreshFallback("init")
-    }
-
-    @Synchronized
-    private fun refreshFallback(reason: String) {
-        runCatching {
-            val encoded = preferences.getString(RuleRepository.KEY_CONFIG, null) ?: return@runCatching
-            if (encoded.length > RuleRepository.MAX_BACKUP_CHARS) return@runCatching
-            val config = Json { ignoreUnknownKeys = true }
-                .decodeFromString(ModuleConfig.serializer(), encoded).validated()
-            fallbackMode = config.mode
-            fallbackManagerAppId = config.managerAppId
-            fallbackRules = config.rules.filter { it.kind == IntentKind.SHORTCUT_ITEM }
-                .mapTo(linkedSetOf()) { it.id }
-            fallbackPriorities = config.priorities.apps.filterKeys { it == IntentKind.SHORTCUT_ITEM }
-            record("POLICY_READ reason=$reason rules=${fallbackRules.size}")
-        }.onFailure { Log.w(TAG, "Unable to refresh shortcut policy", it) }
-    }
-
     private fun effectivePolicy(): RuntimeComponentPolicySnapshot {
         val runtime = RuntimeComponentPolicy.snapshot()
-        return if (runtime.authoritative) runtime else fallbackRuntimePolicy(
-            managerAppId = fallbackManagerAppId,
-            displayMode = fallbackMode,
-            entryRules = fallbackRules,
-            entryPriorities = fallbackPriorities,
+        if (runtime.authoritative) return runtime
+        val local = fallback.snapshot()
+        return fallbackRuntimePolicy(
+            managerAppId = local.managerAppId,
+            displayMode = local.displayMode,
+            entryRules = local.rules,
+            entryPriorities = local.priorities,
         )
     }
 
