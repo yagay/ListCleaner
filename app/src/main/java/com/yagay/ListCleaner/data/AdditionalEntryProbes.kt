@@ -11,8 +11,23 @@ internal data class AdditionalEntryProbe(
 )
 
 internal fun additionalEntryProbes(): List<AdditionalEntryProbe> = buildList {
-    add(AdditionalEntryProbe(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:test@example.com")), false, "SENDTO scheme=mailto"))
-    add(AdditionalEntryProbe(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:123456789")), false, "SENDTO scheme=smsto"))
+    val sendToSamples = listOf(
+        "mailto:test@example.com",
+        "sms:123456789",
+        "smsto:123456789",
+        "mms:123456789",
+        "mmsto:123456789",
+    )
+    sendToSamples.forEach { sample ->
+        val scheme = sample.substringBefore(':')
+        add(
+            AdditionalEntryProbe(
+                Intent(Intent.ACTION_SENDTO, Uri.parse(sample)),
+                false,
+                "SENDTO scheme=$scheme",
+            )
+        )
+    }
     add(AdditionalEntryProbe(Intent(Intent.ACTION_DIAL, Uri.parse("tel:123456789")), false, "DIAL scheme=tel"))
 
     add(AdditionalEntryProbe(Intent("android.media.action.IMAGE_CAPTURE"), false, "CAPTURE_IMAGE"))
