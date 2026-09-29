@@ -3,7 +3,6 @@ package com.yagay.ListCleaner.xposed
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.ResolveInfo
-import android.content.pm.ShortcutInfo
 import android.os.Binder
 import android.os.Process
 import android.provider.DocumentsContract
@@ -11,6 +10,7 @@ import android.util.Log
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.DisplayMode
+import com.yagay.ListCleaner.domain.FilterPolicy
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.ManagerIdentity
 import com.yagay.ListCleaner.domain.ModuleConfig
@@ -21,22 +21,17 @@ import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
 import kotlinx.serialization.json.Json
-import java.lang.reflect.Constructor
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Non-destructive filters for entry surfaces that are not ordinary Activity resolver results.
+ * Non-destructive filtering for the Storage Access Framework DocumentsProvider surface.
  *
- * - Launcher shortcuts: filters ShortcutService results by their owning launcher Activity.
- * - Storage locations: filters DocumentsProvider discovery used by the Storage Access Framework.
- *
- * No package/component state is changed. Unknown/OEM result shapes fail open.
+ * The retired app-level LAUNCHER_SHORTCUT path intentionally does not install any hook here;
+ * individual launcher shortcuts are owned solely by [ShortcutSurfaceModule]. Unknown/OEM result
+ * shapes fail open and no package/component state is changed.
  */
 class EntrySurfaceFilterModule : XposedModule() {
-    private data class ListResult(val values: List<*>, val rebuild: (List<*>) -> Any?)
-    private data class ParceledListAccessor(val getList: Method, val constructor: Constructor<*>)
-
     @Volatile private var processName = ""
     @Volatile private var fallbackMode = DisplayMode.HIDE_SELECTED
     @Volatile private var fallbackRules: Set<String> = emptySet()
@@ -44,7 +39,7 @@ class EntrySurfaceFilterModule : XposedModule() {
     @Volatile private var fallbackManagerAppId = -1
 
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
-    private val parceledListAccessorCache = ConcurrentHashMap<Class<*>, ParceledListAccessor>()
+    private val listResults = SafeListResultExtractor(::record)
 
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
@@ -64,7 +59,6 @@ class EntrySurfaceFilterModule : XposedModule() {
     override fun onSystemServerStarting(param: SystemServerStartingParam) {
         processName = "system"
         initializePreferences()
-        installShortcutHooks(param.classLoader)
         installDocumentProviderHooks(param.classLoader)
     }
 
@@ -84,8 +78,9 @@ class EntrySurfaceFilterModule : XposedModule() {
                 .validated()
             fallbackMode = config.mode
             fallbackManagerAppId = config.managerAppId
-            fallbackRules = specialRules(config.rules.map { it.id }.toSet())
-            fallbackPriorities = config.priorities.apps.filterKeys(::isSpecialKind)
+            fallbackRules = config.rules.filter { it.kind == IntentKind.DOCUMENT_PROVIDER }
+                .mapTo(linkedSetOf()) { it.id }
+            fallbackPriorities = config.priorities.apps.filterKeys { it == IntentKind.DOCUMENT_PROVIDER }
             record(
                 "POLICY_READ reason=$reason rules=${fallbackRules.size} mode=$fallbackMode " +
                     "priorities=${fallbackPriorities.mapValues { it.value.size }}"
@@ -105,13 +100,6 @@ class EntrySurfaceFilterModule : XposedModule() {
         )
     }
 
-    private fun isSpecialKind(kind: IntentKind): Boolean =
-        kind == IntentKind.LAUNCHER_SHORTCUT || kind == IntentKind.DOCUMENT_PROVIDER
-
-    private fun specialRules(ids: Set<String>): Set<String> = ids.filterTo(linkedSetOf()) { id ->
-        ComponentRule.fromId(id)?.kind?.let(::isSpecialKind) == true
-    }
-
     private fun selectedForKind(kind: IntentKind, policy: RuntimeComponentPolicySnapshot): Set<String> =
         policy.entryRules.asSequence()
             .mapNotNull(ComponentRule::fromId)
@@ -127,80 +115,6 @@ class EntrySurfaceFilterModule : XposedModule() {
         selected = rule.id in selectedForKind,
         hasSelection = selectedForKind.isNotEmpty(),
     )
-
-    private fun installShortcutHooks(classLoader: ClassLoader) {
-        val clazz = runCatching {
-            Class.forName(SHORTCUT_LOCAL_SERVICE, false, classLoader)
-        }.getOrElse {
-            record("SHORTCUT_CLASS_UNAVAILABLE error=${it.javaClass.name}")
-            return
-        }
-        var installed = 0
-        generateSequence(clazz as Class<*>?) { it.superclass }
-            .flatMap { it.declaredMethods.asSequence() }
-            .filter { method ->
-                method.name == "getShortcuts" && List::class.java.isAssignableFrom(method.returnType)
-            }
-            .distinctBy(Method::toGenericString)
-            .forEach { method ->
-                val key = "SHORTCUT#${method.toGenericString()}"
-                if (!installedMethods.add(key)) return@forEach
-                runCatching {
-                    method.isAccessible = true
-                    hook(method).setId(SHORTCUT_HOOK_ID).intercept(shortcutHooker())
-                    installed++
-                    record("SHORTCUT_HOOK_INSTALLED method=${method.toGenericString()}")
-                }.onFailure {
-                    installedMethods.remove(key)
-                    record("SHORTCUT_HOOK_FAILED method=${method.toGenericString()} error=${it.javaClass.name}")
-                }
-            }
-        record("SHORTCUT_HOOKS_READY new=$installed")
-    }
-
-    private fun shortcutHooker() = XposedInterface.Hooker { chain ->
-        val original = chain.proceed()
-        val values = original as? List<*> ?: return@Hooker original
-        if (values.isEmpty()) return@Hooker original
-
-        val policy = effectivePolicy()
-        if (ManagerIdentity.matches(Binder.getCallingUid(), policy.managerAppId)) {
-            return@Hooker original
-        }
-
-        val kind = IntentKind.LAUNCHER_SHORTCUT
-        val selected = selectedForKind(kind, policy)
-        val priorities = policy.entryPriorities[kind].orEmpty()
-        if (selected.isEmpty() && priorities.isEmpty()) return@Hooker original
-
-        var removed = 0
-        val filtered = if (policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) {
-            values
-        } else {
-            values.filter { value ->
-                val shortcut = value as? ShortcutInfo ?: return@filter true
-                val activity = shortcut.activity ?: return@filter true
-                val rule = ComponentRule(kind, activity.packageName, activity.className)
-                if (!rule.isValid()) return@filter true
-                val include = includes(rule, selected, policy)
-                if (!include) removed++
-                include
-            }
-        }
-
-        val ordered = if (priorities.isEmpty() || filtered.size < 2) filtered else prioritizeApps(
-            filtered,
-            priorities,
-            { value -> (value as? ShortcutInfo)?.`package` ?: "" },
-            { 0 },
-        )
-        if (removed == 0 && ordered == values) return@Hooker original
-        record(
-            "SHORTCUT_RESULT before=${values.size} after=${ordered.size} removed=$removed " +
-                "priorities=${priorities.size}"
-        )
-        ordered
-    }
 
     private fun installDocumentProviderHooks(classLoader: ClassLoader) {
         var installed = 0
@@ -242,10 +156,11 @@ class EntrySurfaceFilterModule : XposedModule() {
         val effective = intent.selector ?: intent
         if (effective.action != DocumentsContract.PROVIDER_INTERFACE) return@Hooker chain.proceed()
 
+        val callerUid = Binder.getCallingUid()
+        if (!FilterPolicy.ordinaryAppCaller(callerUid)) return@Hooker chain.proceed()
+
         val policy = effectivePolicy()
-        if (ManagerIdentity.matches(Binder.getCallingUid(), policy.managerAppId)) {
-            return@Hooker chain.proceed()
-        }
+        if (ManagerIdentity.matches(callerUid, policy.managerAppId)) return@Hooker chain.proceed()
 
         val kind = IntentKind.DOCUMENT_PROVIDER
         val selected = selectedForKind(kind, policy)
@@ -253,7 +168,7 @@ class EntrySurfaceFilterModule : XposedModule() {
         if (selected.isEmpty() && priorities.isEmpty()) return@Hooker chain.proceed()
 
         val original = chain.proceed()
-        val result = extractListResult(original) ?: return@Hooker original
+        val result = listResults.extract(original) ?: return@Hooker original
         var removed = 0
         val filtered = if (policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) {
             result.values
@@ -268,7 +183,7 @@ class EntrySurfaceFilterModule : XposedModule() {
             }
         }
         if (result.values.isNotEmpty() && filtered.isEmpty()) {
-            record("DOCUMENT_RESTORE_ALL before=${result.values.size} reason=avoid_empty_provider_surface")
+            record("DOCUMENT_RESTORE_ALL callerUid=$callerUid before=${result.values.size} reason=avoid_empty_provider_surface")
             return@Hooker original
         }
 
@@ -280,32 +195,10 @@ class EntrySurfaceFilterModule : XposedModule() {
         )
         if (removed == 0 && ordered == result.values) return@Hooker original
         record(
-            "DOCUMENT_RESULT before=${result.values.size} after=${ordered.size} removed=$removed " +
-                "priorities=${priorities.size}"
+            "DOCUMENT_RESULT callerUid=$callerUid before=${result.values.size} after=${ordered.size} " +
+                "removed=$removed priorities=${priorities.size}"
         )
-        runCatching { result.rebuild(ordered) }.getOrElse { original }
-    }
-
-    private fun extractListResult(original: Any?): ListResult? = when {
-        original is List<*> -> ListResult(original) { it }
-        original == null -> null
-        original.javaClass.name.endsWith("ParceledListSlice") -> extractParceledListSlice(original)
-        else -> null
-    }
-
-    private fun extractParceledListSlice(original: Any): ListResult? {
-        val accessor = parceledListAccessorCache.computeIfAbsent(original.javaClass) { clazz ->
-            val getList = clazz.methods.firstOrNull { it.name == "getList" && it.parameterCount == 0 }
-                ?.apply { isAccessible = true }
-                ?: throw NoSuchMethodException("${clazz.name}#getList()")
-            val constructor = clazz.declaredConstructors.firstOrNull { ctor ->
-                ctor.parameterTypes.size == 1 && List::class.java.isAssignableFrom(ctor.parameterTypes[0])
-            }?.apply { isAccessible = true }
-                ?: throw NoSuchMethodException("${clazz.name}(List)")
-            ParceledListAccessor(getList, constructor)
-        }
-        val values = accessor.getList.invoke(original) as? List<*> ?: return null
-        return ListResult(values) { filtered -> accessor.constructor.newInstance(filtered) }
+        result.rebuild(ordered)
     }
 
     private fun record(message: String) {
@@ -316,9 +209,7 @@ class EntrySurfaceFilterModule : XposedModule() {
 
     private companion object {
         const val TAG = "ListCleaner.EntrySurface"
-        const val SHORTCUT_HOOK_ID = "lc-entry-shortcuts"
         const val DOCUMENT_HOOK_ID = "lc-entry-documents"
-        const val SHORTCUT_LOCAL_SERVICE = "com.android.server.pm.ShortcutService\$LocalService"
         const val PER_USER_RANGE = 100_000
 
         val PMS_CLASSES = listOf(
