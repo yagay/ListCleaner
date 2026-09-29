@@ -41,4 +41,23 @@ class RuntimeEntryIndexTest {
         assertFalse("LAUNCHER_SHORTCUT|com.example.old|Old" in policy.entryRules)
         assertEquals(10001, policy.managerAppId)
     }
+
+    @Test
+    fun `fallback priorities stay isolated by entry kind`() {
+        val shortcut = ComponentRule(IntentKind.SHORTCUT_ITEM, "com.example.shortcut", "Shortcut#2")
+        val direct = ComponentRule(IntentKind.DIRECT_SHARE, "com.example.direct", "Direct#2")
+        val policy = fallbackRuntimePolicy(
+            managerAppId = 10002,
+            displayMode = DisplayMode.HIDE_SELECTED,
+            entryRules = setOf(shortcut.id, direct.id),
+            entryPriorities = mapOf(
+                IntentKind.SHORTCUT_ITEM to listOf("com.example.shortcut"),
+                IntentKind.DIRECT_SHARE to listOf("com.example.direct"),
+            ),
+        )
+
+        assertEquals(listOf("com.example.shortcut"), policy.priorities(IntentKind.SHORTCUT_ITEM))
+        assertEquals(listOf("com.example.direct"), policy.priorities(IntentKind.DIRECT_SHARE))
+        assertTrue(policy.priorities(IntentKind.DOCUMENT_PROVIDER).isEmpty())
+    }
 }
