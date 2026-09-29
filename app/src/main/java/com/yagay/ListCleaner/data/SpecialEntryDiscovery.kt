@@ -11,6 +11,7 @@ import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.FilterPolicy
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.ObservedEntryProtocol
+import com.yagay.ListCleaner.domain.ObservedEntryRecord
 import com.yagay.ListCleaner.domain.SYSTEM_SERVICE_ENTRY_DEFINITIONS
 import com.yagay.ListCleaner.domain.listCleanerAppType
 
@@ -18,6 +19,7 @@ import com.yagay.ListCleaner.domain.listCleanerAppType
 internal class SpecialEntryDiscovery(private val context: Context) {
     private val pm = context.packageManager
     private val flags = PackageManager.MATCH_ALL or PackageManager.GET_META_DATA
+    private val observedCache = ObservedEntryCache(context)
 
     fun scan(): List<ComponentCandidate> = (
         observedShortcutEntries() +
@@ -29,27 +31,46 @@ internal class SpecialEntryDiscovery(private val context: Context) {
     @Suppress("DEPRECATION")
     private fun observedShortcutEntries(): List<ComponentCandidate> {
         val intent = Intent(ObservedEntryProtocol.ACTION).setPackage(ObservedEntryProtocol.PACKAGE)
-        return runCatching { pm.queryIntentActivities(intent, flags) }.getOrDefault(emptyList()).mapNotNull { resolved ->
-            val activity = resolved.activityInfo ?: return@mapNotNull null
-            val kind = activity.metaData?.getString(ObservedEntryProtocol.META_KIND)
-                ?.let { runCatching { IntentKind.valueOf(it) }.getOrNull() }
+        val liveRecords = runCatching { pm.queryIntentActivities(intent, flags) }
+            .getOrDefault(emptyList())
+            .mapNotNull { resolved ->
+                val activity = resolved.activityInfo ?: return@mapNotNull null
+                val kind = activity.metaData?.getString(ObservedEntryProtocol.META_KIND)
+                    ?.let { runCatching { IntentKind.valueOf(it) }.getOrNull() }
+                    ?.takeIf { it == IntentKind.SHORTCUT_ITEM || it == IntentKind.DIRECT_SHARE }
+                    ?: return@mapNotNull null
+                val rule = ComponentRule(kind, activity.packageName, activity.name)
+                if (!rule.isValid()) return@mapNotNull null
+                ObservedEntryRecord(
+                    kind = kind.name,
+                    packageName = rule.packageName,
+                    syntheticClass = rule.className,
+                    label = resolved.nonLocalizedLabel?.toString().orEmpty(),
+                    activityClass = activity.metaData?.getString(ObservedEntryProtocol.META_ACTIVITY),
+                    observedAt = System.currentTimeMillis(),
+                ).validatedOrNull()
+            }
+        val liveKeys = liveRecords.mapTo(hashSetOf()) { it.key }
+        val records = observedCache.merge(liveRecords)
+
+        return records.mapNotNull { observed ->
+            val kind = runCatching { IntentKind.valueOf(observed.kind) }.getOrNull()
                 ?.takeIf { it == IntentKind.SHORTCUT_ITEM || it == IntentKind.DIRECT_SHARE }
                 ?: return@mapNotNull null
-            val rule = ComponentRule(kind, activity.packageName, activity.name)
+            val rule = ComponentRule(kind, observed.packageName, observed.syntheticClass)
             if (!rule.isValid()) return@mapNotNull null
-            val app = runCatching { pm.getApplicationInfo(activity.packageName, 0) }.getOrNull()
+            val app = runCatching { pm.getApplicationInfo(observed.packageName, 0) }.getOrNull()
+                ?: return@mapNotNull null
             ComponentCandidate(
                 rule = rule,
-                appLabel = app?.let { runCatching { it.loadLabel(pm).toString() }.getOrNull() }
-                    ?: activity.packageName,
-                activityLabel = resolved.nonLocalizedLabel?.toString()?.takeIf { it.isNotBlank() }
-                    ?: activity.name.substringAfterLast('.'),
-                appIcon = app?.let { runCatching { it.loadIcon(pm).toBitmap(96, 96) }.getOrNull() },
-                appType = app?.listCleanerAppType() ?: AppType.USER,
+                appLabel = runCatching { app.loadLabel(pm).toString() }.getOrDefault(observed.packageName),
+                activityLabel = observed.label.ifBlank { observed.activityClass?.substringAfterLast('.') ?: kind.name },
+                appIcon = runCatching { app.loadIcon(pm).toBitmap(96, 96) }.getOrNull(),
+                appType = app.listCleanerAppType(),
                 evidence = buildList {
-                    add("OBSERVED_${kind.name} source=system_server")
-                    activity.metaData?.getString(ObservedEntryProtocol.META_ACTIVITY)
-                        ?.takeIf { it.isNotBlank() }?.let { add("activity=$it") }
+                    add("OBSERVED_${kind.name} source=${if (observed.key in liveKeys) "live" else "cache"}")
+                    observed.activityClass?.takeIf { it.isNotBlank() }?.let { add("activity=$it") }
+                    add("observedAt=${observed.observedAt}")
                 },
             )
         }
