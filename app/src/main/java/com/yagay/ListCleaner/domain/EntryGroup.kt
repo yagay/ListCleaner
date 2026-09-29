@@ -45,4 +45,8 @@ fun IntentKind.entryGroup(): EntryGroup = when (this) {
     IntentKind.CALL_SCREENING -> EntryGroup.ADVANCED
 }
 
-fun EntryGroup.kinds(): List<IntentKind> = IntentKind.entries.filter { it.entryGroup() == this }
+/** LAUNCHER_SHORTCUT is retained only so old test backups/configs can still deserialize. */
+fun IntentKind.isSelectableEntryKind(): Boolean = this != IntentKind.LAUNCHER_SHORTCUT
+
+fun EntryGroup.kinds(): List<IntentKind> =
+    IntentKind.entries.filter { it.isSelectableEntryKind() && it.entryGroup() == this }
