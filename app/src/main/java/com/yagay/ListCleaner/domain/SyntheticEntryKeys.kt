@@ -19,6 +19,9 @@ object SyntheticEntryKeys {
         IntentKind.HOME -> "@home"
         IntentKind.BROWSER -> "@browser"
         IntentKind.CALL_SCREENING -> "@call_screening"
+        IntentKind.VPN -> "@vpn"
+        IntentKind.AUTOFILL -> "@autofill"
+        IntentKind.CREDENTIAL_PROVIDER -> "@credential_provider"
         else -> error("${kind.name} is not package-scoped")
     }
 
