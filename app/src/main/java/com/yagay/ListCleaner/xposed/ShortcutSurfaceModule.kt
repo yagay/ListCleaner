@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
+import android.content.pm.LauncherApps
 import android.content.pm.ResolveInfo
 import android.content.pm.ShortcutInfo
 import android.os.Binder
@@ -27,22 +28,18 @@ import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
 import kotlinx.serialization.json.Json
-import java.lang.reflect.Constructor
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
 
-/** Observes ShortcutInfo/Direct Share in system_server; only app-facing shortcut queries are filtered. */
+/** Observes launcher ShortcutInfo/Direct Share in system_server and filters only launcher-facing queries. */
 class ShortcutSurfaceModule : XposedModule() {
-    private data class ListResult(val values: List<*>, val rebuild: (List<*>) -> Any?)
-    private data class ParceledListAccessor(val getList: Method, val constructor: Constructor<*>)
-
     @Volatile private var processName = ""
     @Volatile private var fallbackMode = DisplayMode.HIDE_SELECTED
     @Volatile private var fallbackRules: Set<String> = emptySet()
     @Volatile private var fallbackPriorities: Map<IntentKind, List<String>> = emptyMap()
     @Volatile private var fallbackManagerAppId = -1
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
-    private val parceledListAccessorCache = ConcurrentHashMap<Class<*>, ParceledListAccessor>()
+    private val listResults = SafeListResultExtractor(::record)
 
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
@@ -110,20 +107,32 @@ class ShortcutSurfaceModule : XposedModule() {
             .flatMap { it.declaredMethods.asSequence() }
             .filter { it.name == "getShortcuts" && List::class.java.isAssignableFrom(it.returnType) }
             .distinctBy(Method::toGenericString)
-            .forEach { method -> install(method, SHORTCUT_HOOK_ID, shortcutHooker()) }
+            .forEach { method -> install(method, SHORTCUT_HOOK_ID, shortcutHooker(method)) }
     }
 
-    private fun shortcutHooker() = XposedInterface.Hooker { chain ->
+    private fun shortcutHooker(method: Method) = XposedInterface.Hooker { chain ->
         val original = chain.proceed()
         val values = original as? List<*> ?: return@Hooker original
-        values.filterIsInstance<ShortcutInfo>().forEach(RuntimeObservedEntryStore::observeShortcut)
         if (values.isEmpty()) return@Hooker original
 
-        val callerUid = Binder.getCallingUid()
-        if (!FilterPolicy.ordinaryAppCaller(callerUid)) return@Hooker original
+        val call = HookCallIdentity.shortcutCall(
+            parameterTypeNames = method.parameterTypes.map { it.name },
+            args = chain.args,
+            binderUid = Binder.getCallingUid(),
+        )
+        if (!FilterPolicy.ordinaryAppCaller(call.callerUid) || call.callingPackage == null) {
+            return@Hooker original
+        }
+        if (call.queryFlags != null && call.queryFlags and SHORTCUT_MATCH_MASK == 0) {
+            return@Hooker original
+        }
+
+        // Observe only launcher-facing manifest/dynamic queries. Internal/system queries must not
+        // pollute the manager's "recently observed shortcuts" catalog.
+        values.filterIsInstance<ShortcutInfo>().forEach(RuntimeObservedEntryStore::observeShortcut)
 
         val policy = effectivePolicy()
-        if (ManagerIdentity.matches(callerUid, policy.managerAppId)) return@Hooker original
+        if (ManagerIdentity.matches(call.callerUid, policy.managerAppId)) return@Hooker original
         val selected = selectedForKind(IntentKind.SHORTCUT_ITEM, policy)
         val priorities = policy.entryPriorities[IntentKind.SHORTCUT_ITEM].orEmpty()
         if (selected.isEmpty() && priorities.isEmpty()) return@Hooker original
@@ -134,7 +143,10 @@ class ShortcutSurfaceModule : XposedModule() {
             shouldInclude(rule, selected, policy)
         }
         if (values.isNotEmpty() && filtered.isEmpty()) {
-            record("RESTORE_ALL_SHORTCUTS callerUid=$callerUid before=${values.size}")
+            record(
+                "RESTORE_ALL_SHORTCUTS callerUid=${call.callerUid} callerPackage=${call.callingPackage} " +
+                    "before=${values.size}"
+            )
             return@Hooker original
         }
         val ordered = if (priorities.isEmpty() || filtered.size < 2) filtered else prioritizeApps(
@@ -162,7 +174,7 @@ class ShortcutSurfaceModule : XposedModule() {
     /** Direct Share filtering belongs to the Chooser process. system_server only observes targets. */
     private fun directShareObserver() = XposedInterface.Hooker { chain ->
         val original = chain.proceed()
-        val result = extractListResult(original) ?: return@Hooker original
+        val result = listResults.extract(original) ?: return@Hooker original
         result.values.forEach { value ->
             shareShortcut(value)?.let { (shortcut, target) ->
                 RuntimeObservedEntryStore.observeDirectShare(shortcut, target)
@@ -220,7 +232,7 @@ class ShortcutSurfaceModule : XposedModule() {
         if (!ManagerIdentity.matches(Binder.getCallingUid(), policy.managerAppId)) return@Hooker chain.proceed()
 
         val original = chain.proceed()
-        val result = extractListResult(original) ?: return@Hooker original
+        val result = listResults.extract(original) ?: return@Hooker original
         val synthetic = RuntimeObservedEntryStore.snapshot().map { entry ->
             ResolveInfo().apply {
                 nonLocalizedLabel = entry.label.ifBlank { entry.kind.name }
@@ -236,7 +248,7 @@ class ShortcutSurfaceModule : XposedModule() {
             }
         }
         record("DISCOVERY_RESULT count=${synthetic.size}")
-        runCatching { result.rebuild(synthetic) }.getOrElse { original }
+        result.rebuild(synthetic)
     }
 
     private fun install(method: Method, id: String, hooker: XposedInterface.Hooker) {
@@ -252,26 +264,6 @@ class ShortcutSurfaceModule : XposedModule() {
         }
     }
 
-    private fun extractListResult(original: Any?): ListResult? = when {
-        original is List<*> -> ListResult(original) { it }
-        original == null -> null
-        original.javaClass.name.endsWith("ParceledListSlice") -> extractParceledListSlice(original)
-        else -> null
-    }
-
-    private fun extractParceledListSlice(original: Any): ListResult? {
-        val accessor = parceledListAccessorCache.computeIfAbsent(original.javaClass) { clazz ->
-            val getList = clazz.methods.firstOrNull { it.name == "getList" && it.parameterCount == 0 }
-                ?.apply { isAccessible = true } ?: throw NoSuchMethodException("${clazz.name}#getList")
-            val constructor = clazz.declaredConstructors.firstOrNull { ctor ->
-                ctor.parameterTypes.size == 1 && List::class.java.isAssignableFrom(ctor.parameterTypes[0])
-            }?.apply { isAccessible = true } ?: throw NoSuchMethodException("${clazz.name}(List)")
-            ParceledListAccessor(getList, constructor)
-        }
-        val values = accessor.getList.invoke(original) as? List<*> ?: return null
-        return ListResult(values) { accessor.constructor.newInstance(it) }
-    }
-
     private fun record(message: String) {
         val line = "pid=${Process.myPid()} process=$processName $message"
         runCatching { Log.i(TAG, line) }
@@ -284,6 +276,8 @@ class ShortcutSurfaceModule : XposedModule() {
         const val DIRECT_HOOK_ID = "lc-direct-observer"
         const val DISCOVERY_HOOK_ID = "lc-observed-discovery"
         const val SHORTCUT_LOCAL_SERVICE = "com.android.server.pm.ShortcutService\$LocalService"
+        val SHORTCUT_MATCH_MASK = LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or
+            LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST
         val SHORTCUT_SERVICE_CLASSES = listOf(
             "com.android.server.pm.ShortcutService\$LocalService",
             "com.android.server.pm.ShortcutService",
