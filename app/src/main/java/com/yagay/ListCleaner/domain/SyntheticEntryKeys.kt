@@ -5,12 +5,8 @@ import java.security.MessageDigest
 
 /** Stable synthetic class-name keys for non-component shortcut surfaces. */
 object SyntheticEntryKeys {
-    private const val SHORTCUT_APP_CLASS = "@entry#shortcut-app"
     private const val SHORTCUT_MARKER = "#shortcut#"
     private const val DIRECT_SHARE_MARKER = "#direct#"
-
-    /** Package name is already part of ComponentRule.id, so one constant class key gives one row per app. */
-    fun launcherShortcutAppClass(): String = SHORTCUT_APP_CLASS
 
     fun shortcutItemClass(activityClass: String?, shortcutId: String): String =
         baseClass(activityClass) + SHORTCUT_MARKER + token(shortcutId)
