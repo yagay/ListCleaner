@@ -7,7 +7,6 @@ import java.security.MessageDigest
 object SyntheticEntryKeys {
     private const val SHORTCUT_MARKER = "#shortcut#"
     private const val DIRECT_SHARE_MARKER = "#direct#"
-    private const val ASSISTANT_PACKAGE_MARKER = "@assistant"
 
     fun shortcutItemClass(activityClass: String?, shortcutId: String): String =
         baseClass(activityClass) + SHORTCUT_MARKER + token(shortcutId)
@@ -15,16 +14,27 @@ object SyntheticEntryKeys {
     fun directShareClass(targetClass: String?, shortcutId: String): String =
         baseClass(targetClass) + DIRECT_SHARE_MARKER + token(shortcutId)
 
-    /** Assistant is an Android Role and is selected per package, not per activity/service component. */
-    fun assistantPackageClass(): String = ASSISTANT_PACKAGE_MARKER
+    fun packageScopedClass(kind: IntentKind): String = when (kind) {
+        IntentKind.ASSISTANT -> "@assistant"
+        IntentKind.HOME -> "@home"
+        IntentKind.BROWSER -> "@browser"
+        IntentKind.CALL_SCREENING -> "@call_screening"
+        else -> error("${kind.name} is not package-scoped")
+    }
+
+    fun packageScopedRule(kind: IntentKind, packageName: String): ComponentRule {
+        require(kind.isPackageScopedEntry()) { "${kind.name} is not package-scoped" }
+        return ComponentRule(kind, packageName, packageScopedClass(kind))
+    }
+
+    /** Compatibility helpers retained for existing callers/tests. */
+    fun assistantPackageClass(): String = packageScopedClass(IntentKind.ASSISTANT)
 
     fun assistantPackageRule(packageName: String): ComponentRule =
-        ComponentRule(IntentKind.ASSISTANT, packageName, ASSISTANT_PACKAGE_MARKER)
+        packageScopedRule(IntentKind.ASSISTANT, packageName)
 
-    fun normalizePackageScopedRule(rule: ComponentRule): ComponentRule = when (rule.kind) {
-        IntentKind.ASSISTANT -> assistantPackageRule(rule.packageName)
-        else -> rule
-    }
+    fun normalizePackageScopedRule(rule: ComponentRule): ComponentRule =
+        if (rule.kind.isPackageScopedEntry()) packageScopedRule(rule.kind, rule.packageName) else rule
 
     private fun baseClass(value: String?): String =
         value?.takeIf { it.isNotBlank() } ?: "@entry"
