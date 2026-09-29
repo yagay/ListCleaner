@@ -63,6 +63,11 @@ internal class CandidateController(
             mutableLoading.value = true
             mutableError.value = null
             try {
+                // Pull chooser-observed Direct Share entries before catalog discovery. This is a
+                // lightweight remote preference sync and keeps the list current without rebooting.
+                app.synchronizeObservedEntries()
+                if (currentGeneration != generation) return@launch
+
                 val configured = configuredRules()
                 mutableCandidates.value = app.catalog.completeConfigured(mutableCandidates.value, configured)
 
