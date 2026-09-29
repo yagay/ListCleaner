@@ -15,12 +15,11 @@ import com.yagay.ListCleaner.ListCleanerApp
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.RuntimeStatus
 import com.yagay.ListCleaner.data.CleanupKind
-import com.yagay.ListCleaner.data.BrowserLinkDiscovery
 import com.yagay.ListCleaner.data.RootComponent
 import com.yagay.ListCleaner.data.RuleRepository
+import com.yagay.ListCleaner.domain.BrowserLinkConfig
 import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.ComponentRule
-import com.yagay.ListCleaner.domain.BrowserLinkConfig
 import com.yagay.ListCleaner.domain.CustomOpenDefinition
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
@@ -29,11 +28,9 @@ import com.yagay.ListCleaner.domain.OpenSelectionSource
 import com.yagay.ListCleaner.domain.OpenTypeConfig
 import com.yagay.ListCleaner.domain.PriorityConfig
 import com.yagay.ListCleaner.domain.matchesOpenPreset
-import com.yagay.ListCleaner.domain.matchesBrowserHost
 import com.yagay.ListCleaner.domain.normalizeBrowserHost
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -41,7 +38,9 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -72,9 +71,7 @@ data class MainState(
     val uiFilter: UiFilter = UiFilter.ALL,
     val diagnosticMode: Boolean = false,
     val priorities: PriorityConfig = PriorityConfig(),
-    /** Effective per-type config after generic OPEN inheritance is projected for display. */
     val openTypes: OpenTypeConfig = OpenTypeConfig(),
-    /** Raw persisted per-type config used to distinguish inherited values from explicit values. */
     val openTypesExplicit: OpenTypeConfig = OpenTypeConfig(),
     val browserLinks: BrowserLinkConfig = BrowserLinkConfig(),
     val browserAvailableHosts: Set<String> = emptySet(),
@@ -89,8 +86,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as ListCleanerApp
     private val bulkLocks = BulkLockStore(app)
     private val rootComponents = RootComponentsController(app, viewModelScope)
-    private val browserLinkDiscovery = BrowserLinkDiscovery()
     private val moduleRuntime = ModuleRuntimeController(app, viewModelScope)
+    private val candidateController = CandidateController(app, viewModelScope)
     private val priorityEditor = PriorityEditorController(
         rules = app.rules,
         bulkLocks = bulkLocks,
@@ -114,10 +111,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (kind != null) {
             listOf(componentBulkLockScope(kind))
         } else {
-            listOf(
-                componentBulkLockScope(null),
-                componentBulkLockScope(item.kind)
-            ).distinct()
+            listOf(componentBulkLockScope(null), componentBulkLockScope(item.kind)).distinct()
         }
 
     internal fun isComponentBulkProtected(kind: CleanupKind?, item: RootComponent): Boolean =
@@ -133,9 +127,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val distinct = items.distinctBy { it.id }
         if (distinct.isEmpty()) return BulkLockState.NONE
         val protectedCount = distinct.count { item ->
-            componentScopes(kind, item).any { scope ->
-                bulkLocks.isProtected(scope, appId, item.id)
-            }
+            componentScopes(kind, item).any { scope -> bulkLocks.isProtected(scope, appId, item.id) }
         }
         return when {
             protectedCount == 0 -> BulkLockState.NONE
@@ -157,20 +149,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         val distinct = items.distinctBy { it.id }
         if (kind != null) {
-            bulkLocks.setAppLocked(
-                componentBulkLockScope(kind),
-                appId,
-                distinct.map { it.id },
-                locked
-            )
+            bulkLocks.setAppLocked(componentBulkLockScope(kind), appId, distinct.map { it.id }, locked)
             return
         }
-        bulkLocks.setAppLocked(
-            componentBulkLockScope(null),
-            appId,
-            distinct.map { it.id },
-            false
-        )
+        bulkLocks.setAppLocked(componentBulkLockScope(null), appId, distinct.map { it.id }, false)
         distinct.groupBy { it.kind }.forEach { (entryKind, scopedItems) ->
             bulkLocks.setAppLocked(
                 componentBulkLockScope(entryKind),
@@ -181,16 +163,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    internal fun setComponentItemLocked(
-        kind: CleanupKind?,
-        item: RootComponent,
-        locked: Boolean
-    ) {
+    internal fun setComponentItemLocked(kind: CleanupKind?, item: RootComponent, locked: Boolean) {
         if (kind != null) {
             bulkLocks.setItemLocked(componentBulkLockScope(kind), item.id, locked)
             return
         }
-        // Migrate old All-page item locks so a left swipe can always unlock them.
         bulkLocks.setItemLocked(componentBulkLockScope(null), item.id, false)
         bulkLocks.setItemLocked(componentBulkLockScope(item.kind), item.id, locked)
     }
@@ -208,8 +185,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val updating: StateFlow<Boolean> = moduleRuntime.updating
     val updateMessage: StateFlow<String?> = moduleRuntime.updateMessage
 
-    private val candidates = MutableStateFlow<List<ComponentCandidate>>(emptyList())
-    private val discoveredBrowserHosts = MutableStateFlow<Set<String>>(emptySet())
+    private val candidates = candidateController.candidates
+    private val discoveredBrowserHosts = candidateController.browserHosts
+    private val loading = candidateController.loading
+    private val error = candidateController.error
+
     private val mutableFileCheckStatus = MutableStateFlow<String?>(null)
     val fileCheckStatus: StateFlow<String?> = mutableFileCheckStatus
     private val mutableCheckingFile = MutableStateFlow(false)
@@ -232,8 +212,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             mutableFileCheckStatus.value = app.getString(R.string.file_preview_checking)
             try {
-                // File inspection is a local PackageManager/catalog operation. Runtime readiness
-                // only determines whether the current rules are already active in hooked processes.
                 val mime = app.contentResolver.getType(uri)
                 val found = app.catalog.inspectFile(uri)
                 val config = app.rules.remoteSnapshot()
@@ -284,13 +262,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private val loading = MutableStateFlow(true)
-    private val error = MutableStateFlow<String?>(null)
-    private val filter = MutableStateFlow<IntentKind?>(null)
-    private val ruleOpenPresetFilter = MutableStateFlow<OpenPreset?>(null)
-    val ruleOpenPreset: StateFlow<OpenPreset?> = ruleOpenPresetFilter
-    private val ruleBrowserHostFilter = MutableStateFlow<String?>(null)
-    val ruleBrowserHost: StateFlow<String?> = ruleBrowserHostFilter
+    private val entryContext = MutableStateFlow(EntryContext())
+    private val filter = entryContext.map { it.kind }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        null,
+    )
+    val ruleOpenPreset: StateFlow<OpenPreset?> = entryContext.map { it.openPreset }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        null,
+    )
+    val ruleBrowserHost: StateFlow<String?> = entryContext.map { it.browserHost }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        null,
+    )
+
     private val query = MutableStateFlow("")
     @OptIn(kotlinx.coroutines.FlowPreview::class)
     private val debouncedQuery = query.debounce(120).distinctUntilChanged()
@@ -298,9 +286,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val moduleStatus: StateFlow<ModuleStatus> = moduleRuntime.status
     private val destination = MutableStateFlow(Destination.RULES)
     private val expandedAppKey = MutableStateFlow<String?>(null)
-    private var refreshJob: Job? = null
-    private var browserRefreshJob: Job? = null
-    private var refreshGeneration = 0L
 
     private val mutableCollectingDiagnostics = MutableStateFlow(false)
     val collectingDiagnostics: StateFlow<Boolean> = mutableCollectingDiagnostics
@@ -454,23 +439,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             app.serviceSession.collectLatest { session ->
                 val status = moduleRuntime.readStatus(session)
                 refresh()
-                // Never hot-reload automatically during app startup. A hook-generation mismatch
-                // may require a full device restart; the manager UI must remain available so it can
-                // explain that state instead of touching old hooked processes before the first frame.
                 if (session != null && status.outdated) {
                     Log.i(TAG, "Older hook generation is still running; waiting for user action or reboot")
                 }
-            }
-        }
-        viewModelScope.launch {
-            var firstRevision = true
-            app.catalog.revision.collectLatest {
-                if (firstRevision) {
-                    firstRevision = false
-                    return@collectLatest
-                }
-                kotlinx.coroutines.delay(250)
-                refresh()
             }
         }
     }
@@ -492,74 +463,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun refresh(forceCatalog: Boolean = false) {
-        val generation = ++refreshGeneration
-        refreshJob?.cancel()
-        browserRefreshJob?.cancel()
-        refreshJob = viewModelScope.launch {
-            loading.value = true
-            error.value = null
-            try {
-                val configured = app.rules.rules.value +
-                    app.rules.openTypes.value.rules.values.flatten().mapNotNull(ComponentRule::fromId) +
-                    app.rules.browserLinks.value.rules.values.flatten().mapNotNull(ComponentRule::fromId)
-                candidates.value = app.catalog.completeConfigured(candidates.value, configured)
-
-                // Never block the primary rule/priority list on root App-Link discovery. Reuse the
-                // last enrichment snapshot for the fast scan, publish it immediately, then refresh
-                // domains in a separate job and merge any richer result later.
-                val cachedBrowserDiscovery = browserLinkDiscovery.snapshot()
-                if (generation == refreshGeneration) {
-                    discoveredBrowserHosts.value = cachedBrowserDiscovery.hosts
-                }
-                val baseResult = app.catalog.scan(
-                    app.rules.openTypes.value.customDefinitions,
-                    app.rules.browserLinks.value.hosts + cachedBrowserDiscovery.hosts,
-                    browserDiscovery = cachedBrowserDiscovery,
-                    force = forceCatalog
-                )
-                if (generation != refreshGeneration) return@launch
-                val updatedConfigured = app.rules.rules.value +
-                    app.rules.openTypes.value.rules.values.flatten().mapNotNull(ComponentRule::fromId) +
-                    app.rules.browserLinks.value.rules.values.flatten().mapNotNull(ComponentRule::fromId)
-                candidates.value = app.catalog.completeConfigured(baseResult, updatedConfigured)
-                error.value = app.catalog.scanWarning
-                loading.value = false
-
-                browserRefreshJob = viewModelScope.launch {
-                    try {
-                        val browserDiscovery = browserLinkDiscovery.discoverDetailed(forceCatalog)
-                        if (generation != refreshGeneration) return@launch
-                        discoveredBrowserHosts.value = browserDiscovery.hosts
-                        if (browserDiscovery != cachedBrowserDiscovery) {
-                            val enriched = app.catalog.scan(
-                                app.rules.openTypes.value.customDefinitions,
-                                app.rules.browserLinks.value.hosts + browserDiscovery.hosts,
-                                browserDiscovery = browserDiscovery,
-                                force = true
-                            )
-                            if (generation == refreshGeneration) {
-                                val latestConfigured = app.rules.rules.value +
-                                    app.rules.openTypes.value.rules.values.flatten().mapNotNull(ComponentRule::fromId) +
-                                    app.rules.browserLinks.value.rules.values.flatten().mapNotNull(ComponentRule::fromId)
-                                candidates.value = app.catalog.completeConfigured(enriched, latestConfigured)
-                                error.value = app.catalog.scanWarning
-                            }
-                        }
-                    } catch (cancelled: CancellationException) {
-                        throw cancelled
-                    } catch (failure: Throwable) {
-                        Log.w(TAG, "Background App Link enrichment failed", failure)
-                    }
-                }
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (failure: Throwable) {
-                Log.e(TAG, "Candidate scan failed", failure)
-                if (generation == refreshGeneration) error.value = app.getString(R.string.scan_failed)
-            } finally {
-                if (generation == refreshGeneration) loading.value = false
-            }
-        }
+        candidateController.refresh(forceCatalog)
         refreshModuleStatus()
     }
 
@@ -575,7 +479,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun applyModuleUpdate() = moduleRuntime.applyUpdate(::refresh)
 
     private fun canEdit(): Boolean = app.rules.hasLocalConfiguration().also {
-        if (!it) error.value = app.getString(R.string.editing_requires_recovery)
+        if (!it) candidateController.showError(app.getString(R.string.editing_requires_recovery))
     }
 
     private fun genericOpenSelected(): Set<ComponentRule> =
@@ -583,7 +487,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun genericDeepLinkSelected(): Set<ComponentRule> =
         app.rules.rules.value.filterTo(linkedSetOf()) { it.kind == IntentKind.DEEP_LINK }
-
 
     fun setBrowserHosts(hosts: Set<String>) {
         if (!canEdit()) return
@@ -631,111 +534,109 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun selectBrowserHostRules(host: String, rules: Collection<ComponentRule>, lockScope: String) {
-        if (!canEdit() || rules.isEmpty()) return
-        val editable = rules.distinct()
-            .filterNot { it in genericDeepLinkSelected() }
-            .filterNot { bulkLocks.isProtected(lockScope, it.packageName, it.id) }
-        if (editable.isNotEmpty()) {
-            val normalized = ensureBrowserHostConfigured(host) ?: return
-            app.rules.setBrowserHostSelected(normalized, editable, true)
-        }
+        mutateBrowserHostRules(host, rules, lockScope, SelectionOperation.SELECT)
     }
 
     fun deselectBrowserHostRules(host: String, rules: Collection<ComponentRule>, lockScope: String) {
-        if (!canEdit() || rules.isEmpty()) return
-        val editable = rules.distinct()
-            .filterNot { it in genericDeepLinkSelected() }
-            .filterNot { bulkLocks.isProtected(lockScope, it.packageName, it.id) }
-        if (editable.isNotEmpty()) {
-            val normalized = normalizeBrowserHost(host) ?: return
-            if (normalized !in app.rules.browserLinks.value.hosts) return
-            app.rules.setBrowserHostSelected(normalized, editable, false)
-        }
+        mutateBrowserHostRules(host, rules, lockScope, SelectionOperation.DESELECT)
     }
 
     fun invertBrowserHostRules(host: String, rules: Collection<ComponentRule>, lockScope: String) {
+        mutateBrowserHostRules(host, rules, lockScope, SelectionOperation.INVERT)
+    }
+
+    private fun mutateBrowserHostRules(
+        host: String,
+        rules: Collection<ComponentRule>,
+        lockScope: String,
+        operation: SelectionOperation,
+    ) {
         if (!canEdit() || rules.isEmpty()) return
         val editable = rules.distinct()
             .filterNot { it in genericDeepLinkSelected() }
             .filterNot { bulkLocks.isProtected(lockScope, it.packageName, it.id) }
-        if (editable.isNotEmpty()) {
-            val normalized = ensureBrowserHostConfigured(host) ?: return
-            app.rules.invertBrowserHostSelected(normalized, editable)
+        if (editable.isEmpty()) return
+        val normalized = when (operation) {
+            SelectionOperation.DESELECT -> normalizeBrowserHost(host)?.takeIf { it in app.rules.browserLinks.value.hosts }
+            else -> ensureBrowserHostConfigured(host)
+        } ?: return
+        when (operation) {
+            SelectionOperation.SELECT -> app.rules.setBrowserHostSelected(normalized, editable, true)
+            SelectionOperation.DESELECT -> app.rules.setBrowserHostSelected(normalized, editable, false)
+            SelectionOperation.INVERT -> app.rules.invertBrowserHostSelected(normalized, editable)
         }
     }
 
     fun selectOpenTypeRules(preset: OpenPreset, rules: Collection<ComponentRule>, lockScope: String) {
-        if (!canEdit() || rules.isEmpty()) return
-        val editable = rules.distinct()
-            .filterNot { it in genericOpenSelected() }
-            .filterNot { bulkLocks.isProtected(lockScope, it.packageName, it.id) }
-        if (editable.isNotEmpty()) app.rules.setOpenTypeSelected(preset, editable, true)
+        mutateOpenTypeRules(preset, rules, lockScope, SelectionOperation.SELECT)
     }
 
     fun deselectOpenTypeRules(preset: OpenPreset, rules: Collection<ComponentRule>, lockScope: String) {
-        if (!canEdit() || rules.isEmpty()) return
-        val editable = rules.distinct()
-            .filterNot { it in genericOpenSelected() }
-            .filterNot { bulkLocks.isProtected(lockScope, it.packageName, it.id) }
-        if (editable.isNotEmpty()) app.rules.setOpenTypeSelected(preset, editable, false)
+        mutateOpenTypeRules(preset, rules, lockScope, SelectionOperation.DESELECT)
     }
 
     fun invertOpenTypeRules(preset: OpenPreset, rules: Collection<ComponentRule>, lockScope: String) {
+        mutateOpenTypeRules(preset, rules, lockScope, SelectionOperation.INVERT)
+    }
+
+    private fun mutateOpenTypeRules(
+        preset: OpenPreset,
+        rules: Collection<ComponentRule>,
+        lockScope: String,
+        operation: SelectionOperation,
+    ) {
         if (!canEdit() || rules.isEmpty()) return
         val editable = rules.distinct()
             .filterNot { it in genericOpenSelected() }
             .filterNot { bulkLocks.isProtected(lockScope, it.packageName, it.id) }
-        if (editable.isNotEmpty()) app.rules.invertOpenTypeSelected(preset, editable)
+        if (editable.isEmpty()) return
+        when (operation) {
+            SelectionOperation.SELECT -> app.rules.setOpenTypeSelected(preset, editable, true)
+            SelectionOperation.DESELECT -> app.rules.setOpenTypeSelected(preset, editable, false)
+            SelectionOperation.INVERT -> app.rules.invertOpenTypeSelected(preset, editable)
+        }
     }
 
-    fun selectRules(
+    fun selectRules(rules: Collection<ComponentRule>, filter: IntentKind?, preset: OpenPreset?) {
+        mutateRules(rules, filter, preset, SelectionOperation.SELECT)
+    }
+
+    fun deselectRules(rules: Collection<ComponentRule>, filter: IntentKind?, preset: OpenPreset?) {
+        mutateRules(rules, filter, preset, SelectionOperation.DESELECT)
+    }
+
+    fun invertRules(rules: Collection<ComponentRule>, filter: IntentKind?, preset: OpenPreset?) {
+        mutateRules(rules, filter, preset, SelectionOperation.INVERT)
+    }
+
+    private fun mutateRules(
         rules: Collection<ComponentRule>,
         filter: IntentKind?,
-        preset: OpenPreset?
+        preset: OpenPreset?,
+        operation: SelectionOperation,
     ) {
         if (!canEdit() || rules.isEmpty()) return
         val editable = rules.distinct().filterNot { isRuleBulkProtected(filter, preset, it) }
-        if (editable.isNotEmpty()) app.rules.setSelected(editable, true)
+        if (editable.isEmpty()) return
+        when (operation) {
+            SelectionOperation.SELECT -> app.rules.setSelected(editable, true)
+            SelectionOperation.DESELECT -> app.rules.setSelected(editable, false)
+            SelectionOperation.INVERT -> app.rules.invertSelected(editable)
+        }
     }
 
-    fun deselectRules(
-        rules: Collection<ComponentRule>,
-        filter: IntentKind?,
-        preset: OpenPreset?
-    ) {
-        if (!canEdit() || rules.isEmpty()) return
-        val editable = rules.distinct().filterNot { isRuleBulkProtected(filter, preset, it) }
-        if (editable.isNotEmpty()) app.rules.setSelected(editable, false)
-    }
-
-    fun invertRules(
-        rules: Collection<ComponentRule>,
-        filter: IntentKind?,
-        preset: OpenPreset?
-    ) {
-        if (!canEdit() || rules.isEmpty()) return
-        val editable = rules.distinct().filterNot { isRuleBulkProtected(filter, preset, it) }
-        if (editable.isNotEmpty()) app.rules.invertSelected(editable)
-    }
+    private enum class SelectionOperation { SELECT, DESELECT, INVERT }
 
     internal fun bulkLockState(scope: String, appId: String, itemIds: Collection<String>): BulkLockState =
         bulkLocks.state(scope, appId, itemIds)
 
-    internal fun isBulkItemLocked(scope: String, itemId: String): Boolean =
-        bulkLocks.isItemLocked(scope, itemId)
-
-    internal fun isBulkAppLocked(scope: String, appId: String): Boolean =
-        bulkLocks.isAppLocked(scope, appId)
-
+    internal fun isBulkItemLocked(scope: String, itemId: String): Boolean = bulkLocks.isItemLocked(scope, itemId)
+    internal fun isBulkAppLocked(scope: String, appId: String): Boolean = bulkLocks.isAppLocked(scope, appId)
     internal fun isBulkProtected(scope: String, appId: String, itemId: String): Boolean =
         bulkLocks.isProtected(scope, appId, itemId)
 
-    internal fun setBulkAppLocked(
-        scope: String,
-        appId: String,
-        itemIds: Collection<String>,
-        locked: Boolean
-    ) = bulkLocks.setAppLocked(scope, appId, itemIds, locked)
+    internal fun setBulkAppLocked(scope: String, appId: String, itemIds: Collection<String>, locked: Boolean) =
+        bulkLocks.setAppLocked(scope, appId, itemIds, locked)
 
     internal fun setBulkItemLocked(scope: String, itemId: String, locked: Boolean) =
         bulkLocks.setItemLocked(scope, itemId, locked)
@@ -743,10 +644,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun ruleScopes(filter: IntentKind?, preset: OpenPreset?, rule: ComponentRule): List<String> {
         if (filter != null) return listOf(ruleBulkLockScope(filter, preset))
 
-        val scopes = linkedSetOf(
-            ruleBulkLockScope(null, null),
-            ruleBulkLockScope(rule.kind, null)
-        )
+        val scopes = linkedSetOf(ruleBulkLockScope(null, null), ruleBulkLockScope(rule.kind, null))
         if (rule.kind == IntentKind.OPEN) {
             val candidate = candidates.value.firstOrNull { it.rule.id == rule.id }
             if (candidate != null) {
@@ -770,9 +668,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val distinct = rules.distinctBy { it.id }
         if (distinct.isEmpty()) return BulkLockState.NONE
         val protectedCount = distinct.count { rule ->
-            ruleScopes(filter, preset, rule).any { scope ->
-                bulkLocks.isProtected(scope, appId, rule.id)
-            }
+            ruleScopes(filter, preset, rule).any { scope -> bulkLocks.isProtected(scope, appId, rule.id) }
         }
         return when {
             protectedCount == 0 -> BulkLockState.NONE
@@ -781,13 +677,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    internal fun isRuleBulkProtected(
-        filter: IntentKind?,
-        preset: OpenPreset?,
-        rule: ComponentRule
-    ): Boolean = ruleScopes(filter, preset, rule).any { scope ->
-        bulkLocks.isProtected(scope, rule.packageName, rule.id)
-    }
+    internal fun isRuleBulkProtected(filter: IntentKind?, preset: OpenPreset?, rule: ComponentRule): Boolean =
+        ruleScopes(filter, preset, rule).any { scope ->
+            bulkLocks.isProtected(scope, rule.packageName, rule.id)
+        }
 
     internal fun isRuleAppLocked(
         filter: IntentKind?,
@@ -801,13 +694,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         } && rules.isNotEmpty()
     }
 
-    internal fun isRuleAppLockedForRule(
-        filter: IntentKind?,
-        preset: OpenPreset?,
-        rule: ComponentRule
-    ): Boolean = ruleScopes(filter, preset, rule).any { scope ->
-        bulkLocks.isAppLocked(scope, rule.packageName)
-    }
+    internal fun isRuleAppLockedForRule(filter: IntentKind?, preset: OpenPreset?, rule: ComponentRule): Boolean =
+        ruleScopes(filter, preset, rule).any { scope -> bulkLocks.isAppLocked(scope, rule.packageName) }
 
     internal fun setRuleAppLocked(
         filter: IntentKind?,
@@ -818,17 +706,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         val distinct = rules.distinctBy { it.id }
         if (filter != null) {
-            bulkLocks.setAppLocked(
-                ruleBulkLockScope(filter, preset),
-                appId,
-                distinct.map { it.id },
-                locked
-            )
+            bulkLocks.setAppLocked(ruleBulkLockScope(filter, preset), appId, distinct.map { it.id }, locked)
             return
         }
-        // The All page is an aggregate view. Right swipe creates normal category-level locks.
-        // Left swipe clears every exact scope represented by these rules, including typed Open
-        // scopes, so a lock created on PDF/Image/etc. cannot be bypassed from All.
         val ids = distinct.map { it.id }
         if (!locked) {
             distinct.flatMap { ruleScopes(null, null, it) }.distinct().forEach { scope ->
@@ -839,31 +719,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         bulkLocks.setAppLocked(ruleBulkLockScope(null, null), appId, ids, false)
         distinct.groupBy { it.kind }.forEach { (kind, scopedRules) ->
-            bulkLocks.setAppLocked(
-                ruleBulkLockScope(kind, null),
-                appId,
-                scopedRules.map { it.id },
-                true
-            )
+            bulkLocks.setAppLocked(ruleBulkLockScope(kind, null), appId, scopedRules.map { it.id }, true)
         }
     }
 
-    internal fun setRuleItemLocked(
-        filter: IntentKind?,
-        preset: OpenPreset?,
-        rule: ComponentRule,
-        locked: Boolean
-    ) {
+    internal fun setRuleItemLocked(filter: IntentKind?, preset: OpenPreset?, rule: ComponentRule, locked: Boolean) {
         if (filter != null) {
             bulkLocks.setItemLocked(ruleBulkLockScope(filter, preset), rule.id, locked)
             return
         }
-        // All aggregates every exact scope for this candidate. Unlock clears typed Open locks
-        // too; locking from All still creates the normal category-level lock.
         if (!locked) {
-            ruleScopes(null, null, rule).forEach { scope ->
-                bulkLocks.setItemLocked(scope, rule.id, false)
-            }
+            ruleScopes(null, null, rule).forEach { scope -> bulkLocks.setItemLocked(scope, rule.id, false) }
             return
         }
         bulkLocks.setItemLocked(ruleBulkLockScope(null, null), rule.id, false)
@@ -876,13 +742,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     internal fun toggleBulkItemLock(scope: String, itemId: String) = bulkLocks.toggleItem(scope, itemId)
 
     fun setDisplayMode(value: DisplayMode) { if (canEdit()) app.rules.setDisplayMode(value) }
-    fun setFilter(value: IntentKind?) {
-        filter.value = value
-        if (value != IntentKind.OPEN) ruleOpenPresetFilter.value = null
-        if (value != IntentKind.DEEP_LINK) ruleBrowserHostFilter.value = null
-    }
-    fun setRuleOpenPreset(value: OpenPreset?) { ruleOpenPresetFilter.value = value }
-    fun setRuleBrowserHost(value: String?) { ruleBrowserHostFilter.value = value }
+    fun setFilter(value: IntentKind?) { entryContext.update { it.withKind(value) } }
+    fun setRuleOpenPreset(value: OpenPreset?) { entryContext.update { it.copy(openPreset = value) } }
+    fun setRuleBrowserHost(value: String?) { entryContext.update { it.copy(browserHost = value) } }
     fun setQuery(value: String) { query.value = value }
     fun setUiFilter(value: UiFilter) { uiFilter.value = value }
     fun setDestination(value: Destination) {
@@ -901,68 +763,45 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun selectPriorityApps(kind: IntentKind, packageNames: Collection<String>, lockScope: String) =
         priorityEditor.selectApps(kind, packageNames, lockScope)
-
     fun deselectPriorityApps(kind: IntentKind, packageNames: Collection<String>, lockScope: String) =
         priorityEditor.deselectApps(kind, packageNames, lockScope)
-
     fun invertPriorityApps(kind: IntentKind, packageNames: Collection<String>, lockScope: String) =
         priorityEditor.invertApps(kind, packageNames, lockScope)
-
     fun pinApp(kind: IntentKind, packageName: String) = priorityEditor.pin(kind, packageName)
     fun removePriority(kind: IntentKind, packageName: String) = priorityEditor.remove(kind, packageName)
     fun movePriority(kind: IntentKind, packageName: String, offset: Int, visible: List<String>) =
         priorityEditor.move(kind, packageName, offset, visible)
-
-    fun movePriorityTo(
-        kind: IntentKind, packageName: String, target: String, visible: List<String>, expected: List<String>
-    ) = priorityEditor.moveTo(kind, packageName, target, visible, expected)
+    fun movePriorityTo(kind: IntentKind, packageName: String, target: String, visible: List<String>, expected: List<String>) =
+        priorityEditor.moveTo(kind, packageName, target, visible, expected)
 
     fun selectBrowserHostPriorityApps(host: String, packageNames: Collection<String>, lockScope: String) =
         priorityEditor.selectBrowserHost(host, packageNames, lockScope)
-
     fun deselectBrowserHostPriorityApps(host: String, packageNames: Collection<String>, lockScope: String) =
         priorityEditor.deselectBrowserHost(host, packageNames, lockScope)
-
     fun invertBrowserHostPriorityApps(host: String, packageNames: Collection<String>, lockScope: String) =
         priorityEditor.invertBrowserHost(host, packageNames, lockScope)
-
-    fun pinBrowserHostApp(host: String, packageName: String) =
-        priorityEditor.pinBrowserHost(host, packageName)
-
-    fun removeBrowserHostPriority(host: String, packageName: String) =
-        priorityEditor.removeBrowserHost(host, packageName)
-
+    fun pinBrowserHostApp(host: String, packageName: String) = priorityEditor.pinBrowserHost(host, packageName)
+    fun removeBrowserHostPriority(host: String, packageName: String) = priorityEditor.removeBrowserHost(host, packageName)
     fun moveBrowserHostPriority(host: String, packageName: String, offset: Int, visible: List<String>) =
         priorityEditor.moveBrowserHost(host, packageName, offset, visible)
-
     fun moveBrowserHostPriorityTo(
         host: String, packageName: String, target: String, visible: List<String>, expected: List<String>
     ) = priorityEditor.moveBrowserHostTo(host, packageName, target, visible, expected)
-
     fun resetBrowserHostPriority(host: String) = priorityEditor.resetBrowserHost(host)
 
     fun selectOpenTypePriorityApps(preset: OpenPreset, packageNames: Collection<String>, lockScope: String) =
         priorityEditor.selectOpenType(preset, packageNames, lockScope)
-
     fun deselectOpenTypePriorityApps(preset: OpenPreset, packageNames: Collection<String>, lockScope: String) =
         priorityEditor.deselectOpenType(preset, packageNames, lockScope)
-
     fun invertOpenTypePriorityApps(preset: OpenPreset, packageNames: Collection<String>, lockScope: String) =
         priorityEditor.invertOpenType(preset, packageNames, lockScope)
-
-    fun pinOpenTypeApp(preset: OpenPreset, packageName: String) =
-        priorityEditor.pinOpenType(preset, packageName)
-
-    fun removeOpenTypePriority(preset: OpenPreset, packageName: String) =
-        priorityEditor.removeOpenType(preset, packageName)
-
+    fun pinOpenTypeApp(preset: OpenPreset, packageName: String) = priorityEditor.pinOpenType(preset, packageName)
+    fun removeOpenTypePriority(preset: OpenPreset, packageName: String) = priorityEditor.removeOpenType(preset, packageName)
     fun moveOpenTypePriority(preset: OpenPreset, packageName: String, offset: Int, visible: List<String>) =
         priorityEditor.moveOpenType(preset, packageName, offset, visible)
-
     fun moveOpenTypePriorityTo(
         preset: OpenPreset, packageName: String, target: String, visible: List<String>, expected: List<String>
     ) = priorityEditor.moveOpenTypeTo(preset, packageName, target, visible, expected)
-
     fun resetOpenTypePriority(preset: OpenPreset) = priorityEditor.resetOpenType(preset)
 
     fun requestScope() = moduleRuntime.requestScope()
@@ -972,4 +811,3 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private const val TAG = "ListCleaner.ViewModel"
     }
 }
-
