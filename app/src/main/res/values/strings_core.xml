@@ -38,6 +38,8 @@
     <string name="bulk_lock_none">Not protected from bulk actions</string>
     <string name="bulk_lock_partial">Partially protected from bulk actions</string>
     <string name="bulk_lock_full">Protected from bulk actions</string>
+    <string name="bulk_lock_action_lock">Lock</string>
+    <string name="bulk_lock_action_unlock">Unlock</string>
 
     <!-- Entry groups -->
     <string name="entry_group_share">Share</string>
