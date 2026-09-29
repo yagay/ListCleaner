@@ -2,14 +2,13 @@ package com.yagay.ListCleaner.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandLess
@@ -248,136 +247,157 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                 val expandLabel = stringResource(if (expanded) R.string.common_collapse else R.string.common_expand)
                 val kindTitles = CleanupKind.entries.filter { entry -> components.any { it.kind == entry } }
                     .map { stringResource(it.titleRes()) }
-                Row(
-                    Modifier.fillMaxWidth()
-                        .bulkLockSwipe(
-                            onLock = {
-                                vm.setComponentAppLocked(
-                                    kind,
-                                    appKey,
-                                    lockItemsByApp[appKey].orEmpty(),
-                                    true
-                                )
-                            },
-                            onUnlock = {
-                                vm.setComponentAppLocked(
-                                    kind,
-                                    appKey,
-                                    lockItemsByApp[appKey].orEmpty(),
-                                    false
-                                )
-                            }
+                val lockState = vm.componentBulkLockState(
+                    kind,
+                    appKey,
+                    lockItemsByApp[appKey].orEmpty()
+                )
+                var lockMenuExpanded by remember { mutableStateOf(false) }
+                Box(Modifier.fillMaxWidth()) {
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .combinedClickable(
+                                onClickLabel = expandLabel,
+                                onClick = onExpand,
+                                onLongClick = { lockMenuExpanded = true }
+                            )
+                            .heightIn(min = 64.dp).padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TriStateCheckbox(
+                            state = selectionState,
+                            enabled = !busy && editableComponents.isNotEmpty(),
+                            onClick = { vm.changeComponents(editableComponents, selectionState == ToggleableState.On) }
                         )
-                        .clickable(onClickLabel = expandLabel, onClick = onExpand)
-                        .heightIn(min = 64.dp).padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TriStateCheckbox(
-                        state = selectionState,
-                        enabled = !busy && editableComponents.isNotEmpty(),
-                        onClick = { vm.changeComponents(editableComponents, selectionState == ToggleableState.On) }
-                    )
-                    AppIcon(first.icon, first.owner)
-                    Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                        Text(first.owner, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
-                        Text(
-                            stringResource(
-                                R.string.root_disabled_summary,
-                                components.count { it.enabled == false },
-                                components.size,
-                                kindTitles.joinToString(" · ")
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        if (editableComponents.size < components.size) {
+                        AppIcon(first.icon, first.owner)
+                        Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                            Text(first.owner, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
                             Text(
-                                stringResource(R.string.root_display_only_count, components.size - editableComponents.size),
-                                style = MaterialTheme.typography.labelSmall,
+                                stringResource(
+                                    R.string.root_disabled_summary,
+                                    components.count { it.enabled == false },
+                                    components.size,
+                                    kindTitles.joinToString(" · ")
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            if (editableComponents.size < components.size) {
+                                Text(
+                                    stringResource(R.string.root_display_only_count, components.size - editableComponents.size),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        if (lockState != BulkLockState.NONE) {
+                            Icon(
+                                Icons.Rounded.Lock,
+                                contentDescription = stringResource(
+                                    if (lockState == BulkLockState.PARTIAL) R.string.bulk_lock_partial
+                                    else R.string.bulk_lock_full
+                                ),
+                                modifier = Modifier.padding(horizontal = 8.dp).size(20.dp),
+                                tint = if (lockState == BulkLockState.PARTIAL) MaterialTheme.colorScheme.tertiary
+                                else LocalContentColor.current
+                            )
+                        }
+                        IconButton(onClick = onExpand) {
+                            Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, expandLabel)
                         }
                     }
-                    val lockState = vm.componentBulkLockState(
-                        kind,
-                        appKey,
-                        lockItemsByApp[appKey].orEmpty()
+                    BulkLockContextMenu(
+                        expanded = lockMenuExpanded,
+                        onDismiss = { lockMenuExpanded = false },
+                        canLock = lockState != BulkLockState.FULL,
+                        canUnlock = lockState != BulkLockState.NONE,
+                        onLock = {
+                            vm.setComponentAppLocked(
+                                kind,
+                                appKey,
+                                lockItemsByApp[appKey].orEmpty(),
+                                true
+                            )
+                        },
+                        onUnlock = {
+                            vm.setComponentAppLocked(
+                                kind,
+                                appKey,
+                                lockItemsByApp[appKey].orEmpty(),
+                                false
+                            )
+                        }
                     )
-                    if (lockState != BulkLockState.NONE) {
-                        Icon(
-                            Icons.Rounded.Lock,
-                            contentDescription = stringResource(
-                                if (lockState == BulkLockState.PARTIAL) R.string.bulk_lock_partial
-                                else R.string.bulk_lock_full
-                            ),
-                            modifier = Modifier.padding(horizontal = 8.dp).size(20.dp),
-                            tint = if (lockState == BulkLockState.PARTIAL) MaterialTheme.colorScheme.tertiary
-                            else LocalContentColor.current
-                        )
-                    }
-                    IconButton(onClick = onExpand) {
-                        Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, expandLabel)
-                    }
                 }
                 HorizontalDivider()
             }
 
             if (expanded) items(components, key = { it.id }) { item ->
                 val editable = !busy && item.blocked == null && item.enabled != null
-                Row(
-                    Modifier.fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
-                        .bulkLockSwipe(
-                            enabled = !vm.isComponentAppLockedForItem(kind, item),
-                            onLock = { vm.setComponentItemLocked(kind, item, true) },
-                            onUnlock = { vm.setComponentItemLocked(kind, item, false) }
-                        )
-                        .toggleable(
-                            value = item.enabled == false,
-                            enabled = editable,
-                            role = Role.Checkbox,
-                            onValueChange = { checked -> vm.changeComponent(item, !checked) }
-                        )
-                        .heightIn(min = 48.dp).padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Checkbox(
-                        checked = item.enabled == false,
-                        enabled = editable,
-                        onCheckedChange = null,
-                        modifier = Modifier.padding(12.dp)
-                    )
-                    Column(Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(item.label, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            Text(stringResource(item.kind.titleRes()), style = MaterialTheme.typography.labelMedium)
-                        }
-                        Text(
-                            item.component.flattenToShortString(),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                        Text(
-                            item.blocked ?: stringResource(
-                                when (item.overrideState) {
-                                    0 -> if (item.enabled == true) R.string.root_default_enabled else R.string.root_default_disabled
-                                    1 -> R.string.root_explicit_enabled
-                                    2, 3, 4 -> R.string.root_disabled_unknown_source
-                                    else -> R.string.root_unknown_state
+                val lockToggleEnabled = !vm.isComponentAppLockedForItem(kind, item)
+                val itemLocked = vm.isComponentBulkProtected(kind, item)
+                var lockMenuExpanded by remember { mutableStateOf(false) }
+                Box(Modifier.fillMaxWidth()) {
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
+                            .combinedClickable(
+                                role = Role.Checkbox,
+                                onClick = {
+                                    if (editable) vm.changeComponent(item, item.enabled == false)
+                                },
+                                onLongClick = {
+                                    if (lockToggleEnabled) lockMenuExpanded = true
                                 }
-                            ),
-                            style = MaterialTheme.typography.bodySmall
+                            )
+                            .heightIn(min = 48.dp).padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = item.enabled == false,
+                            enabled = editable,
+                            onCheckedChange = null,
+                            modifier = Modifier.padding(12.dp)
                         )
+                        Column(Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(item.label, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Text(stringResource(item.kind.titleRes()), style = MaterialTheme.typography.labelMedium)
+                            }
+                            Text(
+                                item.component.flattenToShortString(),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                            Text(
+                                item.blocked ?: stringResource(
+                                    when (item.overrideState) {
+                                        0 -> if (item.enabled == true) R.string.root_default_enabled else R.string.root_default_disabled
+                                        1 -> R.string.root_explicit_enabled
+                                        2, 3, 4 -> R.string.root_disabled_unknown_source
+                                        else -> R.string.root_unknown_state
+                                    }
+                                ),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        if (itemLocked) {
+                            Icon(
+                                Icons.Rounded.Lock,
+                                contentDescription = stringResource(R.string.bulk_lock_full),
+                                modifier = Modifier.padding(horizontal = 8.dp).size(18.dp)
+                            )
+                        }
                     }
-                    val itemLocked = vm.isComponentBulkProtected(kind, item)
-                    if (itemLocked) {
-                        Icon(
-                            Icons.Rounded.Lock,
-                            contentDescription = stringResource(R.string.bulk_lock_full),
-                            modifier = Modifier.padding(horizontal = 8.dp).size(18.dp)
-                        )
-                    }
+                    BulkLockContextMenu(
+                        expanded = lockMenuExpanded,
+                        onDismiss = { lockMenuExpanded = false },
+                        canLock = lockToggleEnabled && !itemLocked,
+                        canUnlock = lockToggleEnabled && itemLocked,
+                        onLock = { vm.setComponentItemLocked(kind, item, true) },
+                        onUnlock = { vm.setComponentItemLocked(kind, item, false) }
+                    )
                 }
             }
         }
