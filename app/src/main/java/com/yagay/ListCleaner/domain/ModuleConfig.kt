@@ -38,30 +38,31 @@ data class ModuleConfig(
         require(rootDisabledComponents == null ||
             (rootDisabledComponents.size <= 20_000 && rootDisabledComponents.all(::validRootComponentKey)))
 
-        // Assistant is selected at package level by Android RoleController. Migrate historical
-        // component-level Assistant rules/titles to the single stable package-level identity.
-        val assistantIds = rules.asSequence()
-            .filter { it.kind == IntentKind.ASSISTANT }
-            .map { it.id to SyntheticEntryKeys.assistantPackageRule(it.packageName).id }
+        // Android role pickers expose package identities. Collapse historical component rules for
+        // every package-scoped surface to one stable synthetic key so manager discovery, resolver
+        // filtering and RoleController cannot disagree about what one checkbox means.
+        val packageScopedIds = rules.asSequence()
+            .filter { it.kind.isPackageScopedEntry() }
+            .map { rule -> rule.id to SyntheticEntryKeys.packageScopedRule(rule.kind, rule.packageName).id }
             .filter { (oldId, newId) -> oldId != newId }
             .toMap()
 
+        // Old per-host Browser rules represented Deep Links before DEEP_LINK became its own kind.
+        // Copy their titles to the migrated Deep Link component before the generic Browser role
+        // migration removes the obsolete component-scoped Browser title.
         val legacyDomainIds = browserLinks.rules.values.flatten().mapNotNull { id ->
             val parsed = ComponentRule.fromId(id) ?: return@mapNotNull null
             if (parsed.kind == IntentKind.BROWSER) parsed.id to parsed.copy(kind = IntentKind.DEEP_LINK).id
             else null
         }.toMap()
+
         val migratedTitles = cleanPriorities.titles.toMutableMap()
-        // Browser/Deep Link compatibility historically copies the title while retaining the old
-        // Browser key; do not change that established backup/UI behavior.
         legacyDomainIds.forEach { (oldId, newId) ->
             migratedTitles[oldId]?.let { title ->
                 if (newId !in migratedTitles) migratedTitles[newId] = title
             }
         }
-        // Assistant component identities are retired, so move the title to the package key and
-        // remove the obsolete component key to avoid duplicate unavailable entries after upgrade.
-        assistantIds.forEach { (oldId, newId) ->
+        packageScopedIds.forEach { (oldId, newId) ->
             migratedTitles[oldId]?.let { title ->
                 if (newId !in migratedTitles) migratedTitles[newId] = title
                 migratedTitles.remove(oldId)
