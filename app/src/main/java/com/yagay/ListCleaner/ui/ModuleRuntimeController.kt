@@ -169,7 +169,7 @@ class ModuleRuntimeController(
                 if (current()) {
                     mutableUpdateMessage.value = app.getString(
                         R.string.update_check_failed,
-                        failure.javaClass.simpleName
+                        app.getString(R.string.module_status_read_failed)
                     )
                 }
             } finally {
