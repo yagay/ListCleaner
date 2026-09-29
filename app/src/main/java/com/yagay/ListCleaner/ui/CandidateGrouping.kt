@@ -102,5 +102,10 @@ internal fun availableDeepLinkHosts(
     return configuredHosts.mapNotNull(::normalizeBrowserHost).toSet() + matched
 }
 
+/**
+ * Keep configured entries visible in the normal ALL view even when a refresh can no longer
+ * observe them. Refreshing must not make a rule disappear from the page where it was selected;
+ * only the explicit unselected-only filter is allowed to hide selected entries.
+ */
 internal fun catalogVisible(item: ComponentCandidate, selected: Boolean, uiFilter: UiFilter): Boolean =
-    item.isCatalogCandidate || (selected && (uiFilter == UiFilter.SHOW_SELECTED || uiFilter == UiFilter.LOCKED))
+    item.isCatalogCandidate || (selected && uiFilter != UiFilter.HIDE_SELECTED)
