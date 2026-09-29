@@ -49,6 +49,10 @@ internal object CandidateVisibilityPolicy {
     }
 }
 
+/** Compatibility facade for diagnostics; all decisions still come from CandidateVisibilityPolicy. */
+internal fun catalogVisible(item: ComponentCandidate, selected: Boolean, uiFilter: UiFilter): Boolean =
+    CandidateVisibilityPolicy.visible(item, selected, uiFilter)
+
 private fun appSelectionRank(group: AppGroup, selected: Set<ComponentRule>): Int {
     val selectedCount = group.components.count { it.rule in selected }
     return when {
