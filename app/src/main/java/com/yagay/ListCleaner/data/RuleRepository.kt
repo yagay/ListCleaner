@@ -2,20 +2,20 @@ package com.yagay.ListCleaner.data
 
 import android.content.Context
 import com.yagay.ListCleaner.R
+import com.yagay.ListCleaner.domain.BrowserLinkConfig
 import com.yagay.ListCleaner.domain.ComponentRule
-import com.yagay.ListCleaner.domain.RuleBackup
+import com.yagay.ListCleaner.domain.CustomOpenDefinition
 import com.yagay.ListCleaner.domain.DisplayMode
-import com.yagay.ListCleaner.domain.PriorityConfig
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.ModuleConfig
 import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.OpenTypeConfig
-import com.yagay.ListCleaner.domain.CustomOpenDefinition
-import com.yagay.ListCleaner.domain.BrowserLinkConfig
-import com.yagay.ListCleaner.domain.normalizeBrowserHost
 import com.yagay.ListCleaner.domain.PackageIdentity
+import com.yagay.ListCleaner.domain.PriorityConfig
+import com.yagay.ListCleaner.domain.RuleBackup
 import com.yagay.ListCleaner.domain.VisibilityCompatConfig
 import com.yagay.ListCleaner.domain.VisibilityScope
+import com.yagay.ListCleaner.domain.normalizeBrowserHost
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,27 +25,18 @@ class RuleRepository(context: Context) {
     private val appContext = context.applicationContext
     private val prefs = appContext.getSharedPreferences(LOCAL_PREFS, Context.MODE_PRIVATE)
     private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
-    private val mutableRules = MutableStateFlow(
-        prefs.getStringSet(KEY_RULES, emptySet()).orEmpty().mapNotNull(ComponentRule::fromId).toSet()
-    )
-    private val mutableMode = MutableStateFlow(DisplayMode.fromStored(prefs.getString(KEY_DISPLAY_MODE, null), prefs.getBoolean(KEY_BLACKLIST, true)))
-    private val mutablePriorities = MutableStateFlow(runCatching {
-        json.decodeFromString(PriorityConfig.serializer(), prefs.getString(KEY_PRIORITIES, null) ?: "{}").validated()
-    }.getOrDefault(PriorityConfig()))
-    private val mutableOpenTypes = MutableStateFlow(runCatching {
-        json.decodeFromString(OpenTypeConfig.serializer(), prefs.getString(KEY_OPEN_TYPES, null) ?: "{}").validated()
-    }.getOrDefault(OpenTypeConfig()))
-    private val mutableBrowserLinks = MutableStateFlow(runCatching {
-        json.decodeFromString(BrowserLinkConfig.serializer(), prefs.getString(KEY_BROWSER_LINKS, null) ?: "{}").validated()
-    }.getOrDefault(BrowserLinkConfig()))
-    private val mutableDiagnostic = MutableStateFlow(prefs.getBoolean(KEY_DIAGNOSTIC, false))
-    private val mutableHiddenFromApps = MutableStateFlow(prefs.getStringSet(KEY_HIDDEN_FROM_APPS, emptySet()).orEmpty().toSet())
-    private val mutableVisibilityScopes = MutableStateFlow(
-        prefs.getStringSet(KEY_VISIBILITY_SCOPES, emptySet()).orEmpty().mapNotNull { name ->
-            runCatching { VisibilityScope.valueOf(name) }.getOrNull()
-        }.toSet()
-    )
+    private val initialConfig = loadInitialConfig()
+
+    private val mutableRules = MutableStateFlow(initialConfig.rules)
+    private val mutableMode = MutableStateFlow(initialConfig.mode)
+    private val mutablePriorities = MutableStateFlow(initialConfig.priorities)
+    private val mutableOpenTypes = MutableStateFlow(initialConfig.openTypes)
+    private val mutableBrowserLinks = MutableStateFlow(initialConfig.browserLinks)
+    private val mutableDiagnostic = MutableStateFlow(initialConfig.diagnostic)
+    private val mutableHiddenFromApps = MutableStateFlow(initialConfig.hiddenFromApps)
+    private val mutableVisibilityScopes = MutableStateFlow(initialConfig.visibilityCompat.scopes)
     private val mutableVisibilityFullPackages = MutableStateFlow<Map<VisibilityScope, Set<String>>>(emptyMap())
+
     val openTypes: StateFlow<OpenTypeConfig> = mutableOpenTypes.asStateFlow()
     val browserLinks: StateFlow<BrowserLinkConfig> = mutableBrowserLinks.asStateFlow()
     val hiddenFromApps: StateFlow<Set<String>> = mutableHiddenFromApps.asStateFlow()
@@ -58,24 +49,75 @@ class RuleRepository(context: Context) {
     private val mutableRevision = MutableStateFlow(0L)
     val revision: StateFlow<Long> = mutableRevision.asStateFlow()
 
-    fun hasLocalConfiguration(): Boolean = prefs.contains(KEY_INITIALIZED) || prefs.contains(KEY_RULES) ||
-        prefs.contains(KEY_DISPLAY_MODE) || prefs.contains(KEY_BLACKLIST) || prefs.contains(KEY_PRIORITIES) ||
-        prefs.contains(KEY_HIDDEN_FROM_APPS) || prefs.contains(KEY_OPEN_TYPES) || prefs.contains(KEY_BROWSER_LINKS) || prefs.contains(KEY_VISIBILITY_SCOPES) ||
+    private fun loadInitialConfig(): ModuleConfig {
+        prefs.getString(KEY_LOCAL_CONFIG, null)?.let { encoded ->
+            if (encoded.length <= MAX_BACKUP_CHARS) {
+                runCatching {
+                    json.decodeFromString(ModuleConfig.serializer(), encoded)
+                        .copy(managerAppId = -1, rootDisabledComponents = null)
+                        .validated()
+                }.getOrNull()?.let { return it }
+            }
+        }
+
+        val legacyRules = prefs.getStringSet(KEY_RULES, emptySet()).orEmpty()
+            .mapNotNull(ComponentRule::fromId).toSet()
+        val legacyMode = DisplayMode.fromStored(
+            prefs.getString(KEY_DISPLAY_MODE, null),
+            prefs.getBoolean(KEY_BLACKLIST, true),
+        )
+        val legacyPriorities = runCatching {
+            json.decodeFromString(PriorityConfig.serializer(), prefs.getString(KEY_PRIORITIES, null) ?: "{}")
+                .validated()
+        }.getOrDefault(PriorityConfig())
+        val legacyOpenTypes = runCatching {
+            json.decodeFromString(OpenTypeConfig.serializer(), prefs.getString(KEY_OPEN_TYPES, null) ?: "{}")
+                .validated()
+        }.getOrDefault(OpenTypeConfig())
+        val legacyBrowserLinks = runCatching {
+            json.decodeFromString(BrowserLinkConfig.serializer(), prefs.getString(KEY_BROWSER_LINKS, null) ?: "{}")
+                .validated()
+        }.getOrDefault(BrowserLinkConfig())
+        val legacyHidden = sanitizeHiddenAppsForLoad(
+            prefs.getStringSet(KEY_HIDDEN_FROM_APPS, emptySet()).orEmpty()
+        )
+        val legacyScopes = prefs.getStringSet(KEY_VISIBILITY_SCOPES, emptySet()).orEmpty()
+            .mapNotNull { name -> runCatching { VisibilityScope.valueOf(name) }.getOrNull() }
+            .toSet()
+        return ModuleConfig(
+            rules = legacyRules,
+            mode = legacyMode,
+            priorities = legacyPriorities,
+            diagnostic = prefs.getBoolean(KEY_DIAGNOSTIC, false),
+            hiddenFromApps = legacyHidden,
+            openTypes = legacyOpenTypes,
+            browserLinks = legacyBrowserLinks,
+            visibilityCompat = VisibilityCompatConfig(scopes = legacyScopes),
+        ).validated()
+    }
+
+    fun hasLocalConfiguration(): Boolean = prefs.contains(KEY_LOCAL_CONFIG) || prefs.contains(KEY_INITIALIZED) ||
+        prefs.contains(KEY_RULES) || prefs.contains(KEY_DISPLAY_MODE) || prefs.contains(KEY_BLACKLIST) ||
+        prefs.contains(KEY_PRIORITIES) || prefs.contains(KEY_HIDDEN_FROM_APPS) || prefs.contains(KEY_OPEN_TYPES) ||
+        prefs.contains(KEY_BROWSER_LINKS) || prefs.contains(KEY_VISIBILITY_SCOPES) ||
         prefs.contains(KEY_TILES) || prefs.contains(KEY_DEFAULT_OPEN)
 
-    fun markInitialized() {
-        prefs.edit().putBoolean(KEY_INITIALIZED, true).remove(KEY_TILES).remove(KEY_DEFAULT_OPEN).apply()
+    @Synchronized fun markInitialized() {
+        persistLocalSnapshot()
     }
 
     @Synchronized fun restoreRemote(config: ModuleConfig) {
         applyConfig(config, config.mode != DisplayMode.SHOW_SELECTED)
     }
 
-    /** Legacy ModuleConfig fields remain deserializable, but new remote snapshots always use defaults. */
     @Synchronized fun remoteSnapshot(): ModuleConfig = ModuleConfig(
-        rules = mutableRules.value.toSet(), mode = mutableMode.value, priorities = mutablePriorities.value,
-        diagnostic = mutableDiagnostic.value, managerAppId = android.os.Process.myUid() % 100_000,
-        hiddenFromApps = mutableHiddenFromApps.value.toSet(), openTypes = mutableOpenTypes.value,
+        rules = mutableRules.value.toSet(),
+        mode = mutableMode.value,
+        priorities = mutablePriorities.value,
+        diagnostic = mutableDiagnostic.value,
+        managerAppId = android.os.Process.myUid() % 100_000,
+        hiddenFromApps = mutableHiddenFromApps.value.toSet(),
+        openTypes = mutableOpenTypes.value,
         browserLinks = mutableBrowserLinks.value,
         visibilityCompat = VisibilityCompatConfig(
             scopes = mutableVisibilityScopes.value.toSet(),
@@ -83,11 +125,38 @@ class RuleRepository(context: Context) {
         ).validated()
     )
 
+    private fun localSnapshot(): ModuleConfig = ModuleConfig(
+        rules = mutableRules.value.toSet(),
+        mode = mutableMode.value,
+        priorities = mutablePriorities.value,
+        diagnostic = mutableDiagnostic.value,
+        hiddenFromApps = mutableHiddenFromApps.value.toSet(),
+        openTypes = mutableOpenTypes.value,
+        browserLinks = mutableBrowserLinks.value,
+        visibilityCompat = VisibilityCompatConfig(scopes = mutableVisibilityScopes.value.toSet()),
+    ).validated()
+
+    private fun persistPrepared(config: ModuleConfig) {
+        val local = config.copy(
+            managerAppId = -1,
+            rootDisabledComponents = null,
+            visibilityCompat = VisibilityCompatConfig(scopes = config.visibilityCompat.scopes.toSet()),
+        ).validated()
+        prefs.edit()
+            .putString(KEY_LOCAL_CONFIG, json.encodeToString(ModuleConfig.serializer(), local))
+            .putBoolean(KEY_INITIALIZED, true)
+            .remove(KEY_TILES)
+            .remove(KEY_DEFAULT_OPEN)
+            .apply()
+    }
+
+    private fun persistLocalSnapshot() = persistPrepared(localSnapshot())
+
     @Synchronized fun setHiddenFromApps(packages: Set<String>) {
         val valid = normalizeHiddenApps(packages)
         if (valid == mutableHiddenFromApps.value) return
         mutableHiddenFromApps.value = valid
-        prefs.edit().putStringSet(KEY_HIDDEN_FROM_APPS, valid).apply()
+        persistLocalSnapshot()
         mutableRevision.value++
     }
 
@@ -95,7 +164,7 @@ class RuleRepository(context: Context) {
         val valid = scopes.toSet()
         if (valid == mutableVisibilityScopes.value) return
         mutableVisibilityScopes.value = valid
-        prefs.edit().putStringSet(KEY_VISIBILITY_SCOPES, valid.map { it.name }.toSet()).apply()
+        persistLocalSnapshot()
         mutableRevision.value++
     }
 
@@ -174,7 +243,7 @@ class RuleRepository(context: Context) {
         val next = value.validated()
         if (next == mutableOpenTypes.value) return
         mutableOpenTypes.value = next
-        prefs.edit().putString(KEY_OPEN_TYPES, json.encodeToString(OpenTypeConfig.serializer(), next)).apply()
+        persistLocalSnapshot()
         mutableRevision.value++
     }
 
@@ -238,14 +307,14 @@ class RuleRepository(context: Context) {
         val next = value.validated()
         if (next == mutableBrowserLinks.value) return
         mutableBrowserLinks.value = next
-        prefs.edit().putString(KEY_BROWSER_LINKS, json.encodeToString(BrowserLinkConfig.serializer(), next)).apply()
+        persistLocalSnapshot()
         mutableRevision.value++
     }
 
     @Synchronized fun setDiagnosticMode(enabled: Boolean) {
         if (mutableDiagnostic.value == enabled) return
         mutableDiagnostic.value = enabled
-        prefs.edit().putBoolean(KEY_DIAGNOSTIC, enabled).apply()
+        persistLocalSnapshot()
         mutableRevision.value++
     }
 
@@ -254,8 +323,8 @@ class RuleRepository(context: Context) {
             if (packages.isEmpty()) remove(kind) else put(kind, packages.toList())
         }).validated()
         if (next == mutablePriorities.value) return
-        prefs.edit().putString(KEY_PRIORITIES, encodePriorities(next)).apply()
         mutablePriorities.value = next
+        persistLocalSnapshot()
         mutableRevision.value++
     }
 
@@ -270,8 +339,8 @@ class RuleRepository(context: Context) {
         }
         val next = mutablePriorities.value.copy(titles = titles).validated()
         if (next == mutablePriorities.value) return
-        prefs.edit().putString(KEY_PRIORITIES, encodePriorities(next)).apply()
         mutablePriorities.value = next
+        persistLocalSnapshot()
         mutableRevision.value++
     }
 
@@ -303,7 +372,7 @@ class RuleRepository(context: Context) {
     @Synchronized fun setDisplayMode(value: DisplayMode) {
         if (mutableMode.value == value) return
         mutableMode.value = value
-        prefs.edit().putString(KEY_DISPLAY_MODE, value.name).apply()
+        persistLocalSnapshot()
         mutableRevision.value++
     }
 
@@ -367,44 +436,25 @@ class RuleRepository(context: Context) {
         )
     }
 
-    /**
-     * Applies a complete persisted configuration as one SharedPreferences transaction and exposes
-     * exactly one revision. Derived full-package visibility targets are intentionally discarded and
-     * rebuilt from the current catalog after restore/import.
-     */
     private fun applyConfig(config: ModuleConfig, legacyBlacklist: Boolean) {
         require(config.rules.size <= MAX_RULES) { appContext.getString(R.string.repo_backup_too_many_rules) }
         require(config.rules.all(ComponentRule::isValid)) { appContext.getString(R.string.repo_backup_invalid_component) }
 
         val canonicalRules = config.rules.mapNotNull { ComponentRule.fromId(it.id) }.toSet()
-        val priorities = config.priorities.validated()
-        val openTypes = config.openTypes.validated()
-        val browserLinks = config.browserLinks.validated()
-        val hiddenFromApps = normalizeHiddenApps(config.hiddenFromApps)
-        val visibilityScopes = config.visibilityCompat.scopes.toSet()
         val prepared = config.copy(
             rules = canonicalRules,
-            priorities = priorities,
-            hiddenFromApps = hiddenFromApps,
-            openTypes = openTypes,
-            browserLinks = browserLinks,
-            visibilityCompat = VisibilityCompatConfig(scopes = visibilityScopes)
+            priorities = config.priorities.validated(),
+            hiddenFromApps = normalizeHiddenApps(config.hiddenFromApps),
+            openTypes = config.openTypes.validated(),
+            browserLinks = config.browserLinks.validated(),
+            visibilityCompat = VisibilityCompatConfig(scopes = config.visibilityCompat.scopes.toSet()),
+            managerAppId = -1,
+            rootDisabledComponents = null,
         ).validated()
 
-        prefs.edit()
-            .putStringSet(KEY_RULES, prepared.rules.map(ComponentRule::id).toSet())
-            .putBoolean(KEY_BLACKLIST, legacyBlacklist)
-            .putString(KEY_DISPLAY_MODE, prepared.mode.name)
-            .putString(KEY_PRIORITIES, encodePriorities(prepared.priorities))
-            .putString(KEY_OPEN_TYPES, json.encodeToString(OpenTypeConfig.serializer(), prepared.openTypes))
-            .putString(KEY_BROWSER_LINKS, json.encodeToString(BrowserLinkConfig.serializer(), prepared.browserLinks))
-            .putBoolean(KEY_DIAGNOSTIC, prepared.diagnostic)
-            .putStringSet(KEY_HIDDEN_FROM_APPS, prepared.hiddenFromApps)
-            .putStringSet(KEY_VISIBILITY_SCOPES, visibilityScopes.map { it.name }.toSet())
-            .putBoolean(KEY_INITIALIZED, true)
-            .remove(KEY_TILES)
-            .remove(KEY_DEFAULT_OPEN)
-            .apply()
+        persistPrepared(prepared)
+        // Legacy blacklist is retained only for downgrade compatibility; config_v2 is authoritative.
+        prefs.edit().putBoolean(KEY_BLACKLIST, legacyBlacklist).apply()
 
         mutableRules.value = prepared.rules
         mutableMode.value = prepared.mode
@@ -413,27 +463,34 @@ class RuleRepository(context: Context) {
         mutableBrowserLinks.value = prepared.browserLinks
         mutableDiagnostic.value = prepared.diagnostic
         mutableHiddenFromApps.value = prepared.hiddenFromApps
-        mutableVisibilityScopes.value = visibilityScopes
+        mutableVisibilityScopes.value = prepared.visibilityCompat.scopes
         mutableVisibilityFullPackages.value = emptyMap()
         mutableRevision.value++
     }
 
     private fun normalizeHiddenApps(packages: Set<String>): Set<String> {
-        val self = "com.yagay.ListCleaner"
-        val valid = packages.asSequence()
-            .map(String::trim)
-            .filter { it != "android" && it != self && PackageIdentity.valid(it) }
-            .take(2_001)
-            .toSet()
+        val valid = sanitizeHiddenAppsForLoad(packages.asSequence()).toSet()
         require(valid.size <= 2_000) { appContext.getString(R.string.repo_hidden_apps_too_many) }
         return valid
+    }
+
+    private fun sanitizeHiddenAppsForLoad(packages: Iterable<String>): Set<String> =
+        sanitizeHiddenAppsForLoad(packages.asSequence())
+
+    private fun sanitizeHiddenAppsForLoad(packages: Sequence<String>): Set<String> {
+        val self = "com.yagay.ListCleaner"
+        return packages
+            .map(String::trim)
+            .filter { it != "android" && it != self && PackageIdentity.valid(it) }
+            .take(2_000)
+            .toSet()
     }
 
     private fun updateRules(next: Set<ComponentRule>) {
         require(next.size <= MAX_RULES) { appContext.getString(R.string.repo_too_many_rules) }
         if (next == mutableRules.value) return
         mutableRules.value = next
-        prefs.edit().putStringSet(KEY_RULES, next.map(ComponentRule::id).toSet()).apply()
+        persistLocalSnapshot()
         mutableRevision.value++
     }
 
@@ -445,7 +502,6 @@ class RuleRepository(context: Context) {
         const val KEY_PRIORITIES = "priority_apps"
         const val KEY_DIAGNOSTIC = "diagnostic_mode"
         const val KEY_CONFIG = "config_v1"
-        /** Legacy keys retained only so upgrades can detect and erase old local state. */
         const val KEY_TILES = "tile_config"
         const val KEY_DEFAULT_OPEN = "default_open"
         const val KEY_HIDDEN_FROM_APPS = "hidden_from_apps"
@@ -453,17 +509,11 @@ class RuleRepository(context: Context) {
         const val KEY_BROWSER_LINKS = "browser_link_config"
         const val KEY_VISIBILITY_SCOPES = "visibility_scopes"
         val SYNCED_KEYS = setOf(
-            KEY_RULES,
-            KEY_BLACKLIST,
-            KEY_DISPLAY_MODE,
-            KEY_PRIORITIES,
-            KEY_DIAGNOSTIC,
-            KEY_HIDDEN_FROM_APPS,
-            KEY_OPEN_TYPES,
-            KEY_BROWSER_LINKS,
-            KEY_VISIBILITY_SCOPES
+            KEY_RULES, KEY_BLACKLIST, KEY_DISPLAY_MODE, KEY_PRIORITIES, KEY_DIAGNOSTIC,
+            KEY_HIDDEN_FROM_APPS, KEY_OPEN_TYPES, KEY_BROWSER_LINKS, KEY_VISIBILITY_SCOPES
         )
         private const val LOCAL_PREFS = "rules_local"
+        private const val KEY_LOCAL_CONFIG = "config_v2"
         private const val KEY_INITIALIZED = "configuration_initialized"
         private const val MAX_RULES = 20_000
         const val MAX_BACKUP_CHARS = 2_000_000
