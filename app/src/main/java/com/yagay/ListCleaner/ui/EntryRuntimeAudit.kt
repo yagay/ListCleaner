@@ -1,6 +1,7 @@
 package com.yagay.ListCleaner.ui
 
 import com.yagay.ListCleaner.domain.EmptyResultBehavior
+import com.yagay.ListCleaner.domain.EntryRuntimeDefinition
 import com.yagay.ListCleaner.domain.EntryRuntimePath
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.isSelectableEntryKind
@@ -37,11 +38,12 @@ internal object EntryRuntimeAudit {
                 val unavailable = candidates.count { it.unavailable }
                 val selected = state.selected.count { it.kind == kind }
                 val selectedUnavailable = candidates.count { it.unavailable && it.rule in state.selected }
-                val evidence = collectEvidence(kind, definition?.coveredPaths.orEmpty(), lines)
+                val evidence = collectEvidence(kind, definition, lines)
                 val status = when {
                     selected == 0 -> "UNCONFIGURED"
-                    evidence.restoreObserved > 0 -> "EMPTY_RESULT_RESTORED"
+                    evidence.filterObserved > 0 && evidence.restoreObserved > 0 -> "FILTER_OBSERVED_RESTORE_HISTORY"
                     evidence.filterObserved > 0 -> "FILTER_OBSERVED"
+                    evidence.restoreObserved > 0 -> "EMPTY_RESULT_RESTORED"
                     evidence.failed > 0 && evidence.hookReady == 0 -> "HOOK_ERROR_SEEN"
                     evidence.queryObserved > 0 || evidence.hookReady > 0 -> "RUNTIME_SEEN_NOT_FILTER_CONFIRMED"
                     else -> "NO_RUNTIME_EVIDENCE"
@@ -86,12 +88,12 @@ internal object EntryRuntimeAudit {
 
     private fun collectEvidence(
         kind: IntentKind,
-        coveredPaths: Set<EntryRuntimePath>,
+        definition: EntryRuntimeDefinition?,
         lines: List<String>,
     ): Evidence {
         val evidence = Evidence()
         lines.forEach { line ->
-            if (!relevant(kind, coveredPaths, line)) return@forEach
+            if (!relevant(kind, definition, line)) return@forEach
             when {
                 isFailure(line) -> evidence.failed++
                 isRestore(line) -> evidence.restoreObserved++
@@ -103,12 +105,14 @@ internal object EntryRuntimeAudit {
         return evidence
     }
 
-    private fun relevant(kind: IntentKind, coveredPaths: Set<EntryRuntimePath>, line: String): Boolean {
+    private fun relevant(kind: IntentKind, definition: EntryRuntimeDefinition?, line: String): Boolean {
+        val coveredPaths = definition?.coveredPaths.orEmpty()
         if (Regex("\\bkind=${Regex.escape(kind.name)}\\b").containsMatchIn(line)) return true
 
-        if (kind == IntentKind.ASSISTANT &&
-            (line.contains("ListCleaner.AssistantRole") || line.contains("role=android.app.role.ASSISTANT"))) {
-            return true
+        val roleName = definition?.roleName
+        if (roleName != null &&
+            (line.contains("ListCleaner.RoleController") || line.contains("role=$roleName"))) {
+            return line.contains("kind=${kind.name}") || line.contains("role=$roleName") || line.contains("HOOK")
         }
         if (kind == IntentKind.DIRECT_SHARE) {
             if (line.contains("ListCleaner.DirectShare") || line.contains("ListCleaner.EmbeddedDirectShare")) return true
@@ -123,14 +127,16 @@ internal object EntryRuntimeAudit {
                 EntryRuntimePath.PACKAGE_MANAGER_PROVIDER in coveredPaths) &&
             line.contains("ListCleaner.PmEntries")
         ) {
-            return line.contains("HOOKS_READY") || line.contains("HOOK_INSTALLED")
+            return line.contains("HOOKS_READY") || line.contains("HOOK_INSTALLED") ||
+                line.contains("kind=${kind.name}")
         }
 
-        if (EntryRuntimePath.RESOLVER_ACTIVITY in coveredPaths &&
-            (line.contains("ListCleaner.Diagnostic") || line.contains("ListCleaner:")) &&
-            (line.contains("SYSTEM_HOOKS") || line.contains("RESOLVER_HOOKS") || line.contains("HOOK_INSTALLED"))
-        ) {
-            return true
+        if (EntryRuntimePath.RESOLVER_ACTIVITY in coveredPaths) {
+            if (line.contains(" SYSTEM ${kind.name} ") || line.contains(" RESOLVER ${kind.name} ")) return true
+            if ((line.contains("ListCleaner.Diagnostic") || line.contains("ListCleaner:")) &&
+                (line.contains("SYSTEM_HOOKS") || line.contains("RESOLVER_HOOKS") || line.contains("HOOK_INSTALLED"))) {
+                return true
+            }
         }
         return false
     }
@@ -146,7 +152,9 @@ internal object EntryRuntimeAudit {
 
     private fun isFilter(line: String): Boolean =
         line.contains(" FILTER ") || line.contains("DIRECT_FILTER") || line.contains("FILTERED") ||
-            line.contains("RESULT kind=") || line.contains(" before=") && line.contains(" after=")
+            line.contains("SHORTCUT_FILTER") || line.contains("RESULT kind=") ||
+            (line.contains(" before=") && line.contains(" after=")) ||
+            ARROW_FILTER.containsMatchIn(line)
 
     private fun isRestore(line: String): Boolean =
         line.contains("RESTORE_ALL") || line.contains("RESTORE_ORIGINAL")
@@ -154,5 +162,7 @@ internal object EntryRuntimeAudit {
     private fun isFailure(line: String): Boolean =
         line.contains("HOOK_FAILED") || line.contains("HOT_RELOAD_FAILED") ||
             line.contains("UNSUPPORTED") || line.contains("CLASS_UNAVAILABLE") ||
-            line.contains("ADAPTER_CLASS_UNAVAILABLE")
+            line.contains("ADAPTER_CLASS_UNAVAILABLE") || line.contains("ROLE_MODEL_UNAVAILABLE")
+
+    private val ARROW_FILTER = Regex("\\b\\d+\\s*->\\s*\\d+\\b")
 }
