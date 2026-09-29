@@ -28,22 +28,35 @@ data class ModuleConfig(
 ) {
     fun validated(): ModuleConfig {
         require(rules.size <= 20_000 && rules.all(ComponentRule::isValid))
-        val cleanRules = rules.filterTo(linkedSetOf()) { it.kind.isSelectableEntryKind() }
+        val cleanRules = rules.asSequence()
+            .filter { it.kind.isSelectableEntryKind() }
+            .map(SyntheticEntryKeys::normalizePackageScopedRule)
+            .toCollection(linkedSetOf())
         val cleanPriorities = priorities.validated()
         require(managerAppId == -1 || ManagerIdentity.valid(managerAppId))
         require(hiddenFromApps.size <= 2_000 && hiddenFromApps.all(PackageIdentity::valid))
         require(rootDisabledComponents == null ||
             (rootDisabledComponents.size <= 20_000 && rootDisabledComponents.all(::validRootComponentKey)))
 
+        // Assistant is selected at package level by Android RoleController. Migrate historical
+        // component-level Assistant rules/titles to the single stable package-level identity.
+        val assistantIds = rules.asSequence()
+            .filter { it.kind == IntentKind.ASSISTANT }
+            .map { it.id to SyntheticEntryKeys.assistantPackageRule(it.packageName).id }
+            .filter { (oldId, newId) -> oldId != newId }
+            .toMap()
+
         val legacyDomainIds = browserLinks.rules.values.flatten().mapNotNull { id ->
             val parsed = ComponentRule.fromId(id) ?: return@mapNotNull null
             if (parsed.kind == IntentKind.BROWSER) parsed.id to parsed.copy(kind = IntentKind.DEEP_LINK).id
             else null
         }.toMap()
+        val migratedIds = legacyDomainIds + assistantIds
         val migratedTitles = cleanPriorities.titles.toMutableMap()
-        legacyDomainIds.forEach { (oldId, newId) ->
+        migratedIds.forEach { (oldId, newId) ->
             migratedTitles[oldId]?.let { title ->
                 if (newId !in migratedTitles) migratedTitles[newId] = title
+                migratedTitles.remove(oldId)
             }
         }
         val migratedPriorities = if (migratedTitles == cleanPriorities.titles) cleanPriorities
