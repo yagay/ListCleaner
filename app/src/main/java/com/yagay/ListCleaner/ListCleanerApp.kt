@@ -1,6 +1,7 @@
 package com.yagay.ListCleaner
 
 import android.app.Application
+import android.content.SharedPreferences
 import android.util.Log
 import com.yagay.ListCleaner.data.IntentCatalog
 import com.yagay.ListCleaner.data.ObservedEntryCache
@@ -63,6 +64,14 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
     private var corruptRecovery = false
     private var acknowledgedSessionGeneration = -1L
     private var acknowledgedRevision = -1L
+    private var observedRemotePreferences: SharedPreferences? = null
+    private val observedPreferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key != ObservedEntryCache.REMOTE_KEY) return@OnSharedPreferenceChangeListener
+        applicationScope.launch {
+            synchronizeObservedEntries()
+            catalog.invalidate()
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -85,6 +94,14 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
         val session = sessionRegistry.bind(service)
         acknowledgedSessionGeneration = -1L
         acknowledgedRevision = -1L
+        observedRemotePreferences?.unregisterOnSharedPreferenceChangeListener(observedPreferenceListener)
+        observedRemotePreferences = runCatching {
+            service.getRemotePreferences(RuleRepository.REMOTE_PREFS).also {
+                it.registerOnSharedPreferenceChangeListener(observedPreferenceListener)
+            }
+        }.onFailure {
+            Log.w(TAG, "Observed preference listener registration failed", it)
+        }.getOrNull()
         this.service.value = service
         serviceSession.value = session
         applicationScope.launch {
@@ -96,6 +113,8 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
     override fun onServiceDied(service: XposedService) {
         val cleared = sessionRegistry.clear(service) ?: return
         if (serviceSession.value?.generation == cleared.generation) {
+            observedRemotePreferences?.unregisterOnSharedPreferenceChangeListener(observedPreferenceListener)
+            observedRemotePreferences = null
             acknowledgedSessionGeneration = -1L
             acknowledgedRevision = -1L
             serviceSession.value = null
@@ -117,7 +136,7 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
         }.getOrElse { observedEntryCache.snapshot().size }
     }
 
-    private fun syncObservedEntriesFrom(prefs: android.content.SharedPreferences) {
+    private fun syncObservedEntriesFrom(prefs: SharedPreferences) {
         runCatching {
             observedEntryCache.mergeEncoded(prefs.getString(ObservedEntryCache.REMOTE_KEY, null))
         }.onFailure {
@@ -313,7 +332,7 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
     }
 
     private fun writeRemoteSnapshot(
-        prefs: android.content.SharedPreferences,
+        prefs: SharedPreferences,
         encoded: String,
     ): Boolean = prefs.edit()
         .putString(RuleRepository.KEY_CONFIG, encoded)
