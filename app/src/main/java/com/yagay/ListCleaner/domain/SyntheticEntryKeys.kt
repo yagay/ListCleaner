@@ -5,8 +5,12 @@ import java.security.MessageDigest
 
 /** Stable synthetic class-name keys for non-component shortcut surfaces. */
 object SyntheticEntryKeys {
+    private const val SHORTCUT_APP_MARKER = "#shortcut-app"
     private const val SHORTCUT_MARKER = "#shortcut#"
     private const val DIRECT_SHARE_MARKER = "#direct#"
+
+    fun launcherShortcutAppClass(activityClass: String?): String =
+        baseClass(activityClass) + SHORTCUT_APP_MARKER
 
     fun shortcutItemClass(activityClass: String?, shortcutId: String): String =
         baseClass(activityClass) + SHORTCUT_MARKER + token(shortcutId)
