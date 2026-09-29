@@ -24,8 +24,9 @@ check(signingValues.all { it == null } || hasReleaseSigning) {
     "Incomplete Release signing configuration. See docs/RELEASE.md."
 }
 
-// system_server hook generation is unchanged; this build fixes app-process runtime policy delivery.
-val hookCompatVersionCode = 47
+// system_server filtering changed: Assistant voice-service coverage, Settings caller handling,
+// and shortcut empty-result semantics all require the new system hook generation.
+val hookCompatVersionCode = 55
 
 android {
     namespace = "com.yagay.ListCleaner"
@@ -37,8 +38,8 @@ android {
         applicationId = "com.yagay.ListCleaner"
         minSdk = 31
         targetSdk = 37
-        versionCode = 54
-        versionName = "1.6.29"
+        versionCode = 55
+        versionName = "1.6.30"
         buildConfigField("long", "HOOK_COMPAT_VERSION_CODE", "${hookCompatVersionCode}L")
     }
     buildFeatures { compose = true; buildConfig = true }
