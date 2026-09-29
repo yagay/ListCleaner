@@ -1,9 +1,15 @@
 package com.yagay.ListCleaner.data
 
+import android.Manifest
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.provider.DocumentsContract
+import android.service.voice.VoiceInteractionService
+import android.util.Xml
 import androidx.core.graphics.drawable.toBitmap
 import com.yagay.ListCleaner.domain.AppType
 import com.yagay.ListCleaner.domain.ComponentCandidate
@@ -13,6 +19,7 @@ import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.ObservedEntryProtocol
 import com.yagay.ListCleaner.domain.ObservedEntryRecord
 import com.yagay.ListCleaner.domain.SYSTEM_SERVICE_ENTRY_DEFINITIONS
+import com.yagay.ListCleaner.domain.SyntheticEntryKeys
 import com.yagay.ListCleaner.domain.listCleanerAppType
 
 /** Discovery for system-managed entry surfaces that are not ordinary Activity resolver results. */
@@ -23,6 +30,7 @@ internal class SpecialEntryDiscovery(private val context: Context) {
 
     fun scan(): List<ComponentCandidate> = (
         observedShortcutEntries() +
+            assistantEntries() +
             documentProviders() +
             systemServiceEntries()
         ).distinctBy { it.rule.id }
@@ -74,6 +82,106 @@ internal class SpecialEntryDiscovery(private val context: Context) {
                 },
             )
         }
+    }
+
+    /**
+     * Mirror Android PermissionController's AssistantRoleBehavior: qualified packages are the union
+     * of ACTION_ASSIST activities and VoiceInteractionService implementations that can really provide
+     * assist. The logical rule is package-scoped because RoleController also returns package names.
+     */
+    @Suppress("DEPRECATION")
+    private fun assistantEntries(): List<ComponentCandidate> {
+        val evidenceByPackage = linkedMapOf<String, MutableList<String>>()
+        val appByPackage = linkedMapOf<String, ApplicationInfo>()
+        fun observe(packageName: String, app: ApplicationInfo?, evidence: String) {
+            if (packageName.isBlank()) return
+            app?.let { appByPackage.putIfAbsent(packageName, it) }
+            evidenceByPackage.getOrPut(packageName) { mutableListOf("ASSISTANT_ROLE package_level=true") }
+                .add(evidence)
+        }
+
+        val activityFlags = PackageManager.MATCH_DEFAULT_ONLY or
+            PackageManager.MATCH_DIRECT_BOOT_AWARE or PackageManager.MATCH_DIRECT_BOOT_UNAWARE
+        runCatching { pm.queryIntentActivities(Intent(Intent.ACTION_ASSIST), activityFlags) }
+            .getOrDefault(emptyList())
+            .forEach { resolved ->
+                val activity = resolved.activityInfo ?: return@forEach
+                val app = activity.applicationInfo ?: return@forEach
+                if (!activity.enabled || !app.enabled) return@forEach
+                observe(
+                    activity.packageName,
+                    app,
+                    "ASSISTANT_ACTIVITY component=${activity.packageName}/${activity.name}"
+                )
+            }
+
+        val lowRam = runCatching {
+            context.getSystemService(ActivityManager::class.java)?.isLowRamDevice == true
+        }.getOrDefault(false)
+        if (!lowRam) {
+            val serviceFlags = PackageManager.GET_META_DATA or
+                PackageManager.MATCH_DIRECT_BOOT_AWARE or PackageManager.MATCH_DIRECT_BOOT_UNAWARE
+            runCatching { pm.queryIntentServices(Intent(VoiceInteractionService.SERVICE_INTERFACE), serviceFlags) }
+                .getOrDefault(emptyList())
+                .forEach { resolved ->
+                    val service = resolved.serviceInfo ?: return@forEach
+                    val app = service.applicationInfo ?: return@forEach
+                    if (!service.enabled || !app.enabled || !isAssistantVoiceInteractionService(service)) {
+                        return@forEach
+                    }
+                    observe(
+                        service.packageName,
+                        app,
+                        "ASSISTANT_VOICE_SERVICE component=${service.packageName}/${service.name} supportsAssist=true"
+                    )
+                }
+        }
+
+        return evidenceByPackage.mapNotNull { (packageName, evidence) ->
+            val app = appByPackage[packageName]
+                ?: runCatching { pm.getApplicationInfo(packageName, 0) }.getOrNull()
+                ?: return@mapNotNull null
+            val rule = SyntheticEntryKeys.assistantPackageRule(packageName)
+            if (!rule.isValid()) return@mapNotNull null
+            val label = runCatching { app.loadLabel(pm).toString() }.getOrDefault(packageName)
+            ComponentCandidate(
+                rule = rule,
+                appLabel = label,
+                activityLabel = label,
+                appIcon = runCatching { app.loadIcon(pm).toBitmap(96, 96) }.getOrNull(),
+                appType = app.listCleanerAppType(),
+                evidence = evidence.distinct(),
+                restricted = false,
+            )
+        }
+    }
+
+    private fun isAssistantVoiceInteractionService(service: ServiceInfo): Boolean {
+        if (service.permission != Manifest.permission.BIND_VOICE_INTERACTION) return false
+        return runCatching {
+            service.loadXmlMetaData(pm, VoiceInteractionService.SERVICE_META_DATA)?.use { parser ->
+                var type = parser.eventType
+                while (type != org.xmlpull.v1.XmlPullParser.END_DOCUMENT &&
+                    type != org.xmlpull.v1.XmlPullParser.START_TAG
+                ) {
+                    type = parser.next()
+                }
+                if (type != org.xmlpull.v1.XmlPullParser.START_TAG) return@use false
+
+                val attrs = Xml.asAttributeSet(parser)
+                var sessionService: String? = null
+                var recognitionService: String? = null
+                var supportsAssist = false
+                for (index in 0 until attrs.attributeCount) {
+                    when (attrs.getAttributeNameResource(index)) {
+                        android.R.attr.sessionService -> sessionService = attrs.getAttributeValue(index)
+                        android.R.attr.recognitionService -> recognitionService = attrs.getAttributeValue(index)
+                        android.R.attr.supportsAssist -> supportsAssist = attrs.getAttributeBooleanValue(index, false)
+                    }
+                }
+                sessionService != null && recognitionService != null && supportsAssist
+            } ?: false
+        }.getOrDefault(false)
     }
 
     @Suppress("DEPRECATION")
