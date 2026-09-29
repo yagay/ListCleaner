@@ -19,6 +19,15 @@ class EntryRuntimeDefinitionsTest {
         assertTrue(EntryRuntimePath.PACKAGE_MANAGER_SERVICE in IntentKind.ASSISTANT.runtimeDefinition()!!.coveredPaths)
     }
 
+    @Test fun finalSystemManagerPathsAreRegistered() {
+        assertTrue(EntryRuntimePath.ACCESSIBILITY_MANAGER in IntentKind.ACCESSIBILITY.runtimeDefinition()!!.coveredPaths)
+        assertTrue(EntryRuntimePath.INPUT_METHOD_MANAGER in IntentKind.INPUT_METHOD.runtimeDefinition()!!.coveredPaths)
+        assertTrue(EntryRuntimePath.PRINT_MANAGER in IntentKind.PRINT.runtimeDefinition()!!.coveredPaths)
+        assertTrue(IntentKind.ACCESSIBILITY.runtimeDefinition()!!.missingPaths.isEmpty())
+        assertTrue(IntentKind.INPUT_METHOD.runtimeDefinition()!!.missingPaths.isEmpty())
+        assertTrue(IntentKind.PRINT.runtimeDefinition()!!.missingPaths.isEmpty())
+    }
+
     @Test fun packageManagerServiceSurfacesExposeResidualSystemCallerRisk() {
         assertTrue(IntentKind.INPUT_METHOD.runtimeDefinition()!!.systemCallerBypassPossible)
         assertTrue(IntentKind.ACCESSIBILITY.runtimeDefinition()!!.systemCallerBypassPossible)
@@ -42,7 +51,7 @@ class EntryRuntimeDefinitionsTest {
         )
         assertEquals(
             EmptyResultBehavior.ALLOW_EMPTY,
-            IntentKind.INPUT_METHOD.runtimeDefinition()!!.emptyBehavior[EntryRuntimePath.PACKAGE_MANAGER_SERVICE]
+            IntentKind.INPUT_METHOD.runtimeDefinition()!!.emptyBehavior[EntryRuntimePath.INPUT_METHOD_MANAGER]
         )
     }
 }
