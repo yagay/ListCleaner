@@ -26,6 +26,7 @@ object DiagnosticCollector {
     private const val MAX_TEXT_BYTES = 8 * 1024 * 1024
     private const val MAX_LSPOSED_FILES = 12
     private const val MAX_LSPOSED_FILE_BYTES = 4 * 1024 * 1024
+    private const val MAX_RUNTIME_AUDIT_BYTES = 2 * 1024 * 1024
 
     suspend fun collect(context: Context, state: MainState, components: com.yagay.ListCleaner.data.RootComponentScan? = null, componentOperation: String = "not_observed"): File = runInterruptible(Dispatchers.IO) {
         val output = File.createTempFile("ListCleaner-diagnostic-", ".zip", context.cacheDir)
@@ -84,13 +85,19 @@ object DiagnosticCollector {
                     candidateEvidence.snapshot().toString(StandardCharsets.UTF_8))
                 zip.addCapture("logcat/buffer-state.txt", root("logcat -g -b all", 128 * 1024))
                 zip.addCapture("root/root-status.txt", root("id; getenforce; command -v su; echo KERNEL=$(uname -a)"))
-                zip.addCapture("logcat/ListCleaner.txt", root(
-                    "logcat -d -v threadtime -b all ListCleaner:V ListCleaner.Diagnostic:V " +
-                    "ListCleaner.ComponentGuard:V ListCleaner.DiscoveryFilter:V ListCleaner.BootReconcile:V " +
-                    "AndroidRuntime:E PackageManager:V PackageManagerService:V ActivityTaskManager:I " +
-                        "LSPosedFramework:V LSPosedService:V ResolverActivity:V ChooserActivity:V " +
-                        "ResolverListAdapter:V ResolverListController:V '*:S'"
-                ))
+
+                // Do not maintain a fragile per-tag allowlist. Every ListCleaner.* tag is relevant,
+                // and the additional framework tags explain which Android surface was actually used.
+                val moduleLog = root(
+                    "logcat -d -v threadtime -b all | grep -E 'ListCleaner|AndroidRuntime|PackageManager(Service)?|ActivityTaskManager|LSPosedFramework|LSPosedService|ResolverActivity|ChooserActivity|ResolverListAdapter|ResolverListController'"
+                )
+                zip.addCapture("logcat/ListCleaner.txt", moduleLog)
+                val runtimeEvidence = DiagnosticEvidence()
+                val moduleLogText = moduleLog.bytes.toString(StandardCharsets.UTF_8)
+                moduleLogText.lineSequence().forEach { line ->
+                    runtimeEvidence.accept("logcat/ListCleaner.txt", line)
+                }
+
                 zip.addCapture("logcat/activity-events.txt", root(
                     "logcat -d -v threadtime -b events am_proc_start:I am_proc_died:I am_crash:I " +
                         "am_anr:I wm_create_activity:I wm_new_intent:I wm_resume_activity:I '*:S'"
@@ -105,7 +112,12 @@ object DiagnosticCollector {
                         "echo ===\$(basename \"\$d\")===; " +
                         "sed -n '1,40p' \"\$d/module.prop\" 2>/dev/null; done"
                 ))
-                addRecentLsposedLogs(zip)
+                val lsposedRuntimeText = addRecentLsposedLogs(zip, runtimeEvidence)
+                zip.addText("analysis/module-evidence.txt", runtimeEvidence.report())
+                zip.addText(
+                    "analysis/entry-runtime-audit.txt",
+                    EntryRuntimeAudit.report(state, moduleLogText + "\n" + lsposedRuntimeText)
+                )
                 zip.addText("collection-finished.txt", "finishedAt=${Instant.now()}\n")
             }
             output
@@ -115,8 +127,8 @@ object DiagnosticCollector {
         }
     }
 
-    private fun addRecentLsposedLogs(zip: ZipOutputStream) {
-        val evidence = DiagnosticEvidence()
+    private fun addRecentLsposedLogs(zip: ZipOutputStream, evidence: DiagnosticEvidence): String {
+        val auditBuffer = DiagnosticBuffer(MAX_RUNTIME_AUDIT_BYTES)
         val listing = root("find /data/adb/lspd/log -type f -mmin -1440 -name '*.log' -exec stat -c '%Y %n' {} \\;", maxBytes = 512 * 1024)
         zip.addCapture("lsposed/listing.txt", listing)
         listing.bytes.toString(StandardCharsets.UTF_8).lineSequence().mapNotNull { line ->
@@ -130,9 +142,15 @@ object DiagnosticCollector {
             val source = "lsposed/${index.toString().padStart(2, '0')}-$safeName"
             val capture = root("cat -- '${path.replace("'", "'\\''")}'", MAX_LSPOSED_FILE_BYTES)
             zip.addCapture(source, capture)
-            capture.bytes.toString(StandardCharsets.UTF_8).lineSequence().forEach { line -> evidence.accept(source, line) }
+            capture.bytes.toString(StandardCharsets.UTF_8).lineSequence().forEach { line ->
+                evidence.accept(source, line)
+                if (line.contains("ListCleaner")) {
+                    val bytes = (line + "\n").toByteArray(StandardCharsets.UTF_8)
+                    auditBuffer.append(bytes, bytes.size)
+                }
+            }
         }
-        zip.addText("analysis/module-evidence.txt", evidence.report())
+        return auditBuffer.snapshot().toString(StandardCharsets.UTF_8)
     }
 
     private fun moduleState(state: MainState): String = buildString {
