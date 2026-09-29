@@ -60,10 +60,10 @@ class BehaviorRegressionTest {
         assertEquals(0, com.yagay.ListCleaner.data.IntentCatalog.queryFlags(IntentKind.PROCESS_TEXT, false))
     }
 
-    @Test fun unmatchedRulesOnlyAppearInSelectedView() {
+    @Test fun unmatchedSelectedRulesRemainVisibleInAllAndSelectedViews() {
         val old = candidate(IntentKind.BROWSER).copy(unavailable = true)
         val selected = setOf(old.rule)
-        assertTrue(groupCandidates(listOf(old), selected, null, "", UiFilter.ALL).isEmpty())
+        assertEquals(listOf(old), groupCandidates(listOf(old), selected, null, "", UiFilter.ALL).single().components)
         assertEquals(listOf(old), groupCandidates(listOf(old), selected, null, "", UiFilter.SHOW_SELECTED).single().components)
         assertTrue(groupCandidates(listOf(old), selected, null, "", UiFilter.HIDE_SELECTED).isEmpty())
         assertTrue(groupCandidates(listOf(old), emptySet(), null, "", UiFilter.SHOW_SELECTED).isEmpty())
