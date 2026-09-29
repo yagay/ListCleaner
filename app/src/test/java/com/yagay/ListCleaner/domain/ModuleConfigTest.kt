@@ -75,6 +75,26 @@ class ModuleConfigTest {
         assertEquals("Target", config.priorities.titles[deepLinkRule.id])
     }
 
+    @Test fun assistantComponentRulesCollapseToPackageRuleAndTitleMigrates() {
+        val packageName = "com.example.assistant"
+        val activity = ComponentRule(IntentKind.ASSISTANT, packageName, "$packageName.AssistActivity")
+        val voiceService = ComponentRule(IntentKind.ASSISTANT, packageName, "$packageName.VoiceService")
+        val packageRule = SyntheticEntryKeys.assistantPackageRule(packageName)
+        val config = ModuleConfig(
+            rules = setOf(activity, voiceService),
+            mode = DisplayMode.HIDE_SELECTED,
+            priorities = PriorityConfig(
+                titles = mapOf(activity.id to "Assistant label")
+            ),
+            diagnostic = false,
+        ).validated()
+
+        assertEquals(setOf(packageRule), config.rules)
+        assertEquals("Assistant label", config.priorities.titles[packageRule.id])
+        assertFalse(activity.id in config.priorities.titles)
+        assertFalse(voiceService.id in config.priorities.titles)
+    }
+
     @Test fun runtimeComponentPolicyRoundTrip() {
         val config = ModuleConfig(
             emptySet(), DisplayMode.HIDE_SELECTED, PriorityConfig(), false, 10715,
