@@ -10,16 +10,34 @@ class EntrySurfaceDefinitionsTest {
         assertEquals(selectable, ENTRY_SURFACE_DEFINITIONS.keys)
     }
 
-    @Test fun roleKindsUsePackageIdentity() {
-        assertEquals(EntryIdentityScope.PACKAGE, IntentKind.ASSISTANT.surfaceDefinition()!!.identity)
-        assertEquals(EntryIdentityScope.PACKAGE, IntentKind.HOME.surfaceDefinition()!!.identity)
-        assertEquals(EntryIdentityScope.PACKAGE, IntentKind.BROWSER.surfaceDefinition()!!.identity)
-        assertEquals(EntryIdentityScope.PACKAGE, IntentKind.CALL_SCREENING.surfaceDefinition()!!.identity)
+    @Test fun packageLevelAndroidSurfacesUsePackageIdentity() {
+        val packageKinds = setOf(
+            IntentKind.ASSISTANT,
+            IntentKind.HOME,
+            IntentKind.BROWSER,
+            IntentKind.CALL_SCREENING,
+            IntentKind.VPN,
+            IntentKind.AUTOFILL,
+            IntentKind.CREDENTIAL_PROVIDER,
+        )
+        packageKinds.forEach { kind ->
+            assertEquals("$kind", EntryIdentityScope.PACKAGE, kind.surfaceDefinition()!!.identity)
+        }
     }
 
-    @Test fun accessibilityDeclaresBothDiscoverySources() {
+    @Test fun managerBackedKindsDeclareTheirAndroidAuthority() {
+        assertEquals(EntryAuthority.INPUT_METHOD_MANAGER, IntentKind.INPUT_METHOD.entryAuthority())
+        assertEquals(EntryAuthority.ACCESSIBILITY_MANAGER, IntentKind.ACCESSIBILITY.entryAuthority())
+        assertEquals(EntryAuthority.PRINT_MANAGER, IntentKind.PRINT.entryAuthority())
+        assertEquals(EntryAuthority.VPN_APP_OPS, IntentKind.VPN.entryAuthority())
+        assertEquals(EntryAuthority.CREDENTIAL_MANAGER, IntentKind.CREDENTIAL_PROVIDER.entryAuthority())
+        assertEquals(EntryAuthority.COMBINED_PROVIDER_SETTINGS, IntentKind.AUTOFILL.entryAuthority())
+        assertEquals(EntryAuthority.NFC_CARD_EMULATION, IntentKind.NFC_HCE.entryAuthority())
+    }
+
+    @Test fun accessibilityDeclaresManagerAndShortcutSources() {
         val sources = IntentKind.ACCESSIBILITY.surfaceDefinition()!!.discoverySources
-        assertTrue(EntryDiscoverySource.SYSTEM_SERVICE in sources)
+        assertTrue(EntryDiscoverySource.ACCESSIBILITY_MANAGER in sources)
         assertTrue(EntryDiscoverySource.ACCESSIBILITY_SHORTCUT_ACTIVITY in sources)
     }
 
@@ -28,16 +46,16 @@ class EntrySurfaceDefinitionsTest {
         assertEquals(EntryIdentityScope.RUNTIME_ITEM, IntentKind.SHORTCUT_ITEM.surfaceDefinition()!!.identity)
     }
 
-    @Test fun logicalNormalizationCollapsesPackageRoleComponents() {
+    @Test fun logicalNormalizationCollapsesPackageAuthorityComponents() {
         val first = ComponentCandidate(
-            ComponentRule(IntentKind.HOME, "com.example.home", "com.example.home.One"),
-            "Home",
+            ComponentRule(IntentKind.VPN, "com.example.vpn", "com.example.vpn.One"),
+            "VPN",
             "One",
             evidence = listOf("one"),
         )
         val second = ComponentCandidate(
-            ComponentRule(IntentKind.HOME, "com.example.home", "com.example.home.Two"),
-            "Home",
+            ComponentRule(IntentKind.VPN, "com.example.vpn", "com.example.vpn.Two"),
+            "VPN",
             "Two",
             evidence = listOf("two"),
         )
@@ -45,7 +63,7 @@ class EntrySurfaceDefinitionsTest {
         val normalized = normalizeLogicalCandidates(listOf(first, second))
 
         assertEquals(1, normalized.size)
-        assertEquals(SyntheticEntryKeys.packageScopedRule(IntentKind.HOME, "com.example.home"), normalized.single().rule)
+        assertEquals(SyntheticEntryKeys.packageScopedRule(IntentKind.VPN, "com.example.vpn"), normalized.single().rule)
         assertTrue("one" in normalized.single().evidence)
         assertTrue("two" in normalized.single().evidence)
     }
