@@ -13,7 +13,7 @@ import org.junit.Test
 
 class RuntimeEntryPolicyTest {
     @Test
-    fun runtimeSnapshotPublishesOnlySpecialEntryRulesAndPrioritiesAtomically() {
+    fun runtimeSnapshotPublishesAllSelectableRulesAndPrioritiesAtomically() {
         val shortcut = ComponentRule(
             IntentKind.SHORTCUT_ITEM,
             "com.example.one",
@@ -34,9 +34,20 @@ class RuntimeEntryPolicyTest {
             "com.example.share",
             "com.example.share.ShareActivity",
         )
+        val assistant = ComponentRule(
+            IntentKind.ASSISTANT,
+            "com.example.assistant",
+            "com.example.assistant.AssistActivity",
+        )
 
         RuntimeRuleSnapshot(
-            configured = setOf(shortcut.id, legacyShortcutSurface.id, provider.id, ordinary.id),
+            configured = setOf(
+                shortcut.id,
+                legacyShortcutSurface.id,
+                provider.id,
+                ordinary.id,
+                assistant.id,
+            ),
             displayMode = DisplayMode.HIDE_SELECTED,
             priorities = PriorityConfig(
                 apps = mapOf(
@@ -44,6 +55,7 @@ class RuntimeEntryPolicyTest {
                     IntentKind.LAUNCHER_SHORTCUT to listOf("com.example.legacy"),
                     IntentKind.DOCUMENT_PROVIDER to listOf("com.example.drive"),
                     IntentKind.SHARE to listOf("com.example.share"),
+                    IntentKind.ASSISTANT to listOf("com.example.assistant"),
                 )
             ),
             openTypes = OpenTypeConfig(),
@@ -62,11 +74,13 @@ class RuntimeEntryPolicyTest {
         assertEquals(12345, policy.managerAppId)
         assertEquals("digest-a", policy.digest)
         assertEquals(DisplayMode.HIDE_SELECTED, policy.displayMode)
-        assertEquals(setOf(shortcut.id, provider.id), policy.entryRules)
+        assertEquals(setOf(shortcut.id, provider.id, ordinary.id, assistant.id), policy.entryRules)
+        assertEquals(setOf(assistant.id), policy.selected(IntentKind.ASSISTANT))
         assertEquals(listOf("com.example.one"), policy.entryPriorities[IntentKind.SHORTCUT_ITEM])
         assertEquals(listOf("com.example.drive"), policy.entryPriorities[IntentKind.DOCUMENT_PROVIDER])
+        assertEquals(listOf("com.example.share"), policy.entryPriorities[IntentKind.SHARE])
+        assertEquals(listOf("com.example.assistant"), policy.entryPriorities[IntentKind.ASSISTANT])
         assertTrue(IntentKind.LAUNCHER_SHORTCUT !in policy.entryPriorities)
-        assertTrue(IntentKind.SHARE !in policy.entryPriorities)
     }
 
     @Test
