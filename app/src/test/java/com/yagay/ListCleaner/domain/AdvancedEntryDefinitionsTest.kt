@@ -30,4 +30,12 @@ class AdvancedEntryDefinitionsTest {
         assertTrue(first.contains("#shortcut#"))
         assertTrue(direct.contains("#direct#"))
     }
+
+    @Test
+    fun legacyLauncherShortcutSurfaceIsNotSelectableOrRuntimeFiltered() {
+        assertFalse(IntentKind.LAUNCHER_SHORTCUT.isSelectableEntryKind())
+        assertFalse(IntentKind.LAUNCHER_SHORTCUT.isSpecialEntrySurface())
+        assertTrue(IntentKind.SHORTCUT_ITEM.isSelectableEntryKind())
+        assertTrue(IntentKind.SHORTCUT_ITEM.isSpecialEntrySurface())
+    }
 }
