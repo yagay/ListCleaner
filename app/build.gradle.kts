@@ -24,10 +24,9 @@ check(signingValues.all { it == null || hasReleaseSigning }) {
     "Incomplete Release signing configuration. See docs/RELEASE.md."
 }
 
-// Entry surfaces now share explicit discovery/identity/runtime-authority contracts. Package-scoped
-// HOME/BROWSER/CALL_SCREENING filtering and Accessibility/IME/Print final-manager hooks change
-// system_server behavior, so a new hook generation is required.
-val hookCompatVersionCode = 57
+// Package-scoped advanced entry identities alter system_server filtering, while manager lock gestures
+// now use long-press menus instead of horizontal swipes. The system hook generation must advance.
+val hookCompatVersionCode = 58
 
 android {
     namespace = "com.yagay.ListCleaner"
@@ -39,8 +38,8 @@ android {
         applicationId = "com.yagay.ListCleaner"
         minSdk = 31
         targetSdk = 37
-        versionCode = 57
-        versionName = "1.6.32"
+        versionCode = 58
+        versionName = "1.6.33"
         buildConfigField("long", "HOOK_COMPAT_VERSION_CODE", "${hookCompatVersionCode}L")
     }
     buildFeatures { compose = true; buildConfig = true }
