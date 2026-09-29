@@ -20,8 +20,8 @@ internal object EntryRuntimeAudit {
     fun report(state: MainState, runtimeLogText: String): String = buildString {
         appendLine("Entry runtime audit")
         appendLine("generatedFrom=current manager state + bounded historical runtime logs")
-        appendLine("IMPORTANT: missing runtime evidence means UNKNOWN until that surface is exercised; it is not proof of failure.")
-        appendLine("coverageGap is source-code architecture coverage, not a live-device observation.")
+        appendLine("IMPORTANT: missing runtime evidence means UNKNOWN until that authority surface is exercised; it is not proof of failure.")
+        appendLine("coverageGap is source-code authority coverage, not a live-device observation.")
         appendLine()
 
         val lines = runtimeLogText.lineSequence()
@@ -124,9 +124,13 @@ internal object EntryRuntimeAudit {
         }
 
         if (line.contains("ListCleaner.SystemManagers") && managerLogMatches(kind, line)) return true
+        if (kind == IntentKind.NFC_HCE && line.contains("ListCleaner.NfcPayment")) return true
+        if (kind in setOf(IntentKind.AUTOFILL, IntentKind.CREDENTIAL_PROVIDER) &&
+            line.contains("ListCleaner.CombinedProviders")) return true
 
         if ((EntryRuntimePath.PACKAGE_MANAGER_SERVICE in coveredPaths ||
-                EntryRuntimePath.PACKAGE_MANAGER_PROVIDER in coveredPaths) &&
+                EntryRuntimePath.PACKAGE_MANAGER_PROVIDER in coveredPaths ||
+                EntryRuntimePath.PACKAGE_MANAGER_ACTIVITY in coveredPaths) &&
             line.contains("ListCleaner.PmEntries")
         ) {
             return line.contains("HOOKS_READY") || line.contains("HOOK_INSTALLED") ||
@@ -147,6 +151,8 @@ internal object EntryRuntimeAudit {
         IntentKind.ACCESSIBILITY -> line.contains("kind=ACCESSIBILITY") || line.contains("lc-accessibility-manager")
         IntentKind.INPUT_METHOD -> line.contains("kind=INPUT_METHOD") || line.contains("lc-ime-manager") || line.contains("IME_BRIDGE")
         IntentKind.PRINT -> line.contains("kind=PRINT") || line.contains("lc-print-manager")
+        IntentKind.CREDENTIAL_PROVIDER -> line.contains("CREDENTIAL_") || line.contains("lc-credential-manager")
+        IntentKind.VPN -> line.contains("VPN_APPOPS") || line.contains("lc-vpn-appops")
         else -> false
     }
 
@@ -158,11 +164,12 @@ internal object EntryRuntimeAudit {
     private fun isQuery(line: String): Boolean =
         line.contains(" QUERY ") || line.contains(" HIT ") || line.contains("_HIT ") ||
             line.contains("MANAGER_HIT") || line.contains("IME_BRIDGE") ||
-            line.contains("LISTS_EMPTY")
+            line.contains("LISTS_EMPTY") || line.contains("AUTHORITY_OBSERVED")
 
     private fun isFilter(line: String): Boolean =
         line.contains(" FILTER ") || line.contains("DIRECT_FILTER") || line.contains("FILTERED") ||
             line.contains("SHORTCUT_FILTER") || line.contains("MANAGER_FILTER") ||
+            line.contains("CREDENTIAL_FILTER") || line.contains("VPN_APPOPS_FILTER") ||
             line.contains("RESULT kind=") ||
             (line.contains(" before=") && line.contains(" after=")) ||
             ARROW_FILTER.containsMatchIn(line)
@@ -173,7 +180,8 @@ internal object EntryRuntimeAudit {
     private fun isFailure(line: String): Boolean =
         line.contains("HOOK_FAILED") || line.contains("HOT_RELOAD_FAILED") ||
             line.contains("UNSUPPORTED") || line.contains("CLASS_UNAVAILABLE") ||
-            line.contains("ADAPTER_CLASS_UNAVAILABLE") || line.contains("ROLE_MODEL_UNAVAILABLE")
+            line.contains("ADAPTER_CLASS_UNAVAILABLE") || line.contains("ROLE_MODEL_UNAVAILABLE") ||
+            line.contains("VPN_OPS_UNAVAILABLE")
 
     private val ARROW_FILTER = Regex("\\b\\d+\\s*->\\s*\\d+\\b")
 }
