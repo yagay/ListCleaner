@@ -28,6 +28,7 @@
 
     <string name="update_detecting_targets">Checking running targets…</string>
     <string name="update_lsposed_disconnected">LSPosed is not connected</string>
+    <string name="update_target_restart_required">%1$s: running hook v%2$d is older than required hook generation v%3$d; fully restart the phone. Manager-only updates with the same hook generation do not require a restart.</string>
     <string name="update_target_reloading">%1$s: the framework is reloading; check again shortly</string>
     <string name="update_target_too_old">%1$s: old version %2$d does not support hot reload for this module; fully restart the phone</string>
     <string name="update_succeeded">Framework reports a successful update; verifying again</string>
@@ -39,8 +40,8 @@
     <string name="update_timeout">Timed out; this does not mean the request was cancelled. Check again and do not submit duplicate requests.</string>
     <string name="update_target_result">%1$s: %2$s</string>
     <string name="update_request_failed">%1$s: update request failed (%2$s); continuing with other targets</string>
-    <string name="update_nothing_pending">No running target needs a hot update; verifying configuration</string>
-    <string name="update_check_failed">Update check failed: %1$s; no system process was restarted</string>
+    <string name="update_nothing_pending">All running targets use a compatible hook generation; no restart is required. Configuration will be verified normally.</string>
+    <string name="update_check_failed">Hook generation check failed: %1$s; no system process was changed</string>
 
     <string name="module_target_detection_unsupported">The current framework does not support running-target detection</string>
     <string name="module_status_read_failed">Could not read LSPosed module status</string>
