@@ -24,9 +24,9 @@ check(signingValues.all { it == null } || hasReleaseSigning) {
     "Incomplete Release signing configuration. See docs/RELEASE.md."
 }
 
-// system_server filtering changed: Assistant voice-service coverage, Settings caller handling,
-// and shortcut empty-result semantics all require the new system hook generation.
-val hookCompatVersionCode = 55
+// Assistant is now package-scoped across ACTION_ASSIST, VoiceInteractionService and RoleController.
+// The added system_server ACTION_ASSIST PackageManager hook requires a new hook generation.
+val hookCompatVersionCode = 56
 
 android {
     namespace = "com.yagay.ListCleaner"
@@ -38,8 +38,8 @@ android {
         applicationId = "com.yagay.ListCleaner"
         minSdk = 31
         targetSdk = 37
-        versionCode = 55
-        versionName = "1.6.30"
+        versionCode = 56
+        versionName = "1.6.31"
         buildConfigField("long", "HOOK_COMPAT_VERSION_CODE", "${hookCompatVersionCode}L")
     }
     buildFeatures { compose = true; buildConfig = true }
