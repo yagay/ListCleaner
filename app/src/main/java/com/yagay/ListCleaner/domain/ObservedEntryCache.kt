@@ -3,6 +3,18 @@ package com.yagay.ListCleaner.domain
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
+/** Kinds whose exact runtime/system-manager result can be mirrored back to the manager catalog. */
+val OBSERVABLE_ENTRY_KINDS: Set<IntentKind> = setOf(
+    IntentKind.SHORTCUT_ITEM,
+    IntentKind.DIRECT_SHARE,
+    IntentKind.ACCESSIBILITY,
+    IntentKind.INPUT_METHOD,
+    IntentKind.PRINT,
+    IntentKind.CREDENTIAL_PROVIDER,
+    IntentKind.VPN,
+    IntentKind.NFC_HCE,
+)
+
 @Serializable
 data class ObservedEntryRecord(
     val kind: String,
@@ -16,7 +28,7 @@ data class ObservedEntryRecord(
 
     fun validatedOrNull(): ObservedEntryRecord? {
         val parsedKind = runCatching { IntentKind.valueOf(kind) }.getOrNull()
-            ?.takeIf { it == IntentKind.SHORTCUT_ITEM || it == IntentKind.DIRECT_SHARE }
+            ?.takeIf { it in OBSERVABLE_ENTRY_KINDS }
             ?: return null
         if (!PackageIdentity.valid(packageName)) return null
         if (syntheticClass.isBlank() || syntheticClass.length > 512 ||
