@@ -37,15 +37,8 @@ public final class DiagnosticEvidence {
         seen.add(hash);
         Matcher id = ID.matcher(line);
         if (id.find()) {
-            String stage = line.contains(" MODULE_LOADED ") ? "loaded" :
-                line.contains(" HOOK_INSTALLED ") || line.contains(" HOOKS_READY ") || line.contains(" PROFILE_READY ") ? "hookInstalled" :
-                line.contains(" QUERY ") ? "queryObserved" :
-                line.contains(" FILTER ") || line.contains("DIRECT_FILTER") || line.contains("FILTERED") ? "filterObserved" :
-                line.contains(" RESTORE_ALL") ? "restoreObserved" :
-                line.contains(" HIT ") || line.contains("_HIT ") ? "hitObserved" :
-                line.contains(" HOOK_FAILED ") || line.contains(" HOT_RELOAD_FAILED ") ? "hookFailed" :
-                line.contains(" ORDER_APPLIED ") ? "orderObserved" :
-                line.contains(" TILE_HOOK_INSTALLED ") ? "tileHookInstalled" :
+            // Specific subsystems must be classified before generic FILTER/HOOK tokens.
+            String stage = line.contains(" TILE_HOOK_INSTALLED ") ? "tileHookInstalled" :
                 line.contains(" TILE_CONFIG ") ? "tileConfigRead" :
                 line.contains(" TILE_EDITOR_SEEN ") ? "tileEditorSeen" :
                 line.contains(" TILE_FILTERED ") ? "tileFilterObserved" :
@@ -55,8 +48,16 @@ public final class DiagnosticEvidence {
                 line.contains(" ORDER_DELIVERED ") ? "orderDeliveredNotUiVerified" :
                 line.contains(" ORDER_HOOK_INSTALLED ") ? "orderHookInstalled" :
                 line.contains(" ORDER_CAPABILITY ") ? "orderCapabilityObserved" :
+                line.contains(" ORDER_APPLIED ") ? "orderObserved" :
                 line.contains(" ORDER_SKIP ") ? "orderSkipped" :
                 line.contains(" ORDER_FAILED ") || line.contains(" ORDER_HOOK_FAILED ") ? "orderFailed" :
+                line.contains(" MODULE_LOADED ") ? "loaded" :
+                line.contains(" HOOK_INSTALLED ") || line.contains(" HOOKS_READY ") || line.contains(" PROFILE_READY ") ? "hookInstalled" :
+                line.contains(" QUERY ") ? "queryObserved" :
+                line.contains(" FILTER ") || line.contains("DIRECT_FILTER") || line.contains("FILTERED") ? "filterObserved" :
+                line.contains(" RESTORE_ALL") ? "restoreObserved" :
+                line.contains(" HIT ") || line.contains("_HIT ") ? "hitObserved" :
+                line.contains(" HOOK_FAILED ") || line.contains(" HOT_RELOAD_FAILED ") ? "hookFailed" :
                 line.contains(" MANAGER_QUERY_BYPASS ") ? "managerBypass" :
                 line.contains(" CONFIG_ACK ") ? "configAcknowledged" :
                 line.contains(" HOT_RELOAD_READY ") ? "hotReloadReady" :
