@@ -64,7 +64,7 @@
     <string name="intent_home">Home candidates</string>
     <string name="intent_assistant">Assistant candidates</string>
     <string name="intent_launcher_shortcut">Long-press shortcut apps</string>
-    <string name="intent_shortcut_item">Shortcut items</string>
+    <string name="intent_shortcut_item">Long-press shortcut items</string>
     <string name="intent_document_provider">Storage locations</string>
     <string name="intent_input_method">Keyboards</string>
     <string name="intent_autofill">Autofill services</string>
@@ -86,7 +86,7 @@
     <!-- Root component kinds -->
     <string name="cleanup_launcher">Launcher icons</string>
     <string name="cleanup_tile">Tiles</string>
-    <string name="cleanup_shortcut">Shortcuts</string>
+    <string name="cleanup_shortcut">Create-shortcut entries</string>
     <string name="cleanup_widget">Widgets</string>
 
     <!-- Open presets -->
