@@ -10,6 +10,7 @@ import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.FilterPolicy
+import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.ManagerIdentity
 import com.yagay.ListCleaner.domain.ModuleConfig
 import com.yagay.ListCleaner.domain.SYSTEM_SERVICE_ENTRY_DEFINITIONS
@@ -22,22 +23,18 @@ import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
 import kotlinx.serialization.json.Json
-import java.lang.reflect.Constructor
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
 
 /** Generic non-destructive filter for Android's standard service-selection surfaces. */
 class SystemServiceEntryFilterModule : XposedModule() {
-    private data class ListResult(val values: List<*>, val rebuild: (List<*>) -> Any?)
-    private data class ParceledListAccessor(val getList: Method, val constructor: Constructor<*>)
-
     @Volatile private var processName = ""
     @Volatile private var fallbackMode = DisplayMode.HIDE_SELECTED
     @Volatile private var fallbackRules: Set<String> = emptySet()
-    @Volatile private var fallbackPriorities: Map<com.yagay.ListCleaner.domain.IntentKind, List<String>> = emptyMap()
+    @Volatile private var fallbackPriorities: Map<IntentKind, List<String>> = emptyMap()
     @Volatile private var fallbackManagerAppId = -1
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
-    private val parceledListAccessorCache = ConcurrentHashMap<Class<*>, ParceledListAccessor>()
+    private val listResults = SafeListResultExtractor(::record)
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
@@ -100,7 +97,7 @@ class SystemServiceEntryFilterModule : XposedModule() {
                     if (!installedMethods.add(key)) return@forEach
                     runCatching {
                         method.isAccessible = true
-                        hook(method).setId(HOOK_ID).intercept(serviceHooker())
+                        hook(method).setId(HOOK_ID).intercept(serviceHooker(method))
                         record("HOOK_INSTALLED method=$key")
                     }.onFailure {
                         installedMethods.remove(key)
@@ -110,14 +107,19 @@ class SystemServiceEntryFilterModule : XposedModule() {
         }
     }
 
-    private fun serviceHooker() = XposedInterface.Hooker { chain ->
+    private fun serviceHooker(method: Method) = XposedInterface.Hooker { chain ->
         val intent = chain.args.firstOrNull { it is Intent } as? Intent ?: return@Hooker chain.proceed()
         val effective = intent.selector ?: intent
         val kind = systemServiceEntryKind(effective.action) ?: return@Hooker chain.proceed()
         val definition = SYSTEM_SERVICE_ENTRY_DEFINITIONS.firstOrNull { it.action == effective.action }
             ?: return@Hooker chain.proceed()
 
-        val callerUid = Binder.getCallingUid()
+        val callerUid = HookCallIdentity.serviceCallerUid(
+            methodName = method.name,
+            parameterTypeNames = method.parameterTypes.map { it.name },
+            args = chain.args,
+            binderUid = Binder.getCallingUid(),
+        )
         if (!FilterPolicy.ordinaryAppCaller(callerUid)) return@Hooker chain.proceed()
 
         val policy = effectivePolicy()
@@ -128,7 +130,7 @@ class SystemServiceEntryFilterModule : XposedModule() {
         if (selected.isEmpty() && priorities.isEmpty()) return@Hooker chain.proceed()
 
         val original = chain.proceed()
-        val result = extractListResult(original) ?: return@Hooker original
+        val result = listResults.extract(original) ?: return@Hooker original
         val filtered = if (policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) result.values else result.values.filter { value ->
             val service = (value as? ResolveInfo)?.serviceInfo ?: return@filter true
             if (definition.requiredPermission != null && service.permission != definition.requiredPermission) return@filter true
@@ -148,27 +150,7 @@ class SystemServiceEntryFilterModule : XposedModule() {
             { value -> (value as? ResolveInfo)?.serviceInfo?.packageName ?: "" },
             { value -> ((value as? ResolveInfo)?.serviceInfo?.applicationInfo?.uid ?: 0) / PER_USER_RANGE },
         )
-        if (ordered == result.values) original else runCatching { result.rebuild(ordered) }.getOrElse { original }
-    }
-
-    private fun extractListResult(original: Any?): ListResult? = when {
-        original is List<*> -> ListResult(original) { it }
-        original == null -> null
-        original.javaClass.name.endsWith("ParceledListSlice") -> extractParceledListSlice(original)
-        else -> null
-    }
-
-    private fun extractParceledListSlice(original: Any): ListResult? {
-        val accessor = parceledListAccessorCache.computeIfAbsent(original.javaClass) { clazz ->
-            val getList = clazz.methods.firstOrNull { it.name == "getList" && it.parameterCount == 0 }
-                ?.apply { isAccessible = true } ?: throw NoSuchMethodException("${clazz.name}#getList")
-            val constructor = clazz.declaredConstructors.firstOrNull { ctor ->
-                ctor.parameterTypes.size == 1 && List::class.java.isAssignableFrom(ctor.parameterTypes[0])
-            }?.apply { isAccessible = true } ?: throw NoSuchMethodException("${clazz.name}(List)")
-            ParceledListAccessor(getList, constructor)
-        }
-        val values = accessor.getList.invoke(original) as? List<*> ?: return null
-        return ListResult(values) { accessor.constructor.newInstance(it) }
+        if (ordered == result.values) original else result.rebuild(ordered)
     }
 
     private fun record(message: String) {
