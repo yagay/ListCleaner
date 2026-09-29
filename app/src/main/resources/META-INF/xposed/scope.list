@@ -1,6 +1,7 @@
 system
 android
 com.android.intentresolver
+com.android.settings
 com.google.android.permissioncontroller
 com.android.permissioncontroller
 com.android.nfc
