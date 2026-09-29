@@ -1,14 +1,14 @@
 package com.yagay.ListCleaner.xposed
 
+import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
 
 /**
  * Process-local authoritative component/entry policy shared by the List Cleaner Xposed entries.
  *
- * Runtime Probe v2 commits one immutable snapshot. Entry-rule construction is staged until the
- * verified runtime config publishes its manager identity, root policy and digest, avoiding a
- * transient mix of new entry rules with an old authoritative component snapshot.
+ * Entry rules are indexed by kind when the verified config is published so hook hot paths never
+ * need to repeatedly parse ComponentRule ids and rebuild temporary Sets.
  */
 internal data class RuntimeComponentPolicySnapshot(
     val authoritative: Boolean = false,
@@ -16,14 +16,19 @@ internal data class RuntimeComponentPolicySnapshot(
     val protectedComponents: Set<String> = emptySet(),
     val displayMode: DisplayMode = DisplayMode.HIDE_SELECTED,
     val entryRules: Set<String> = emptySet(),
+    val entryRulesByKind: Map<IntentKind, Set<String>> = emptyMap(),
     val entryPriorities: Map<IntentKind, List<String>> = emptyMap(),
     val digest: String = "",
-)
+) {
+    fun selected(kind: IntentKind): Set<String> = entryRulesByKind[kind].orEmpty()
+    fun priorities(kind: IntentKind): List<String> = entryPriorities[kind].orEmpty()
+}
 
 internal object RuntimeComponentPolicy {
     private data class PendingEntryPolicy(
         val displayMode: DisplayMode = DisplayMode.HIDE_SELECTED,
         val entryRules: Set<String> = emptySet(),
+        val entryRulesByKind: Map<IntentKind, Set<String>> = emptyMap(),
         val entryPriorities: Map<IntentKind, List<String>> = emptyMap(),
     )
 
@@ -36,10 +41,18 @@ internal object RuntimeComponentPolicy {
         entryRules: Set<String>,
         entryPriorities: Map<IntentKind, List<String>>,
     ) {
+        val canonical = linkedSetOf<String>()
+        val byKind = linkedMapOf<IntentKind, MutableSet<String>>()
+        entryRules.forEach { id ->
+            val rule = ComponentRule.fromId(id) ?: return@forEach
+            canonical += rule.id
+            byKind.getOrPut(rule.kind) { linkedSetOf() } += rule.id
+        }
         pendingEntryPolicy = PendingEntryPolicy(
             displayMode = displayMode,
-            entryRules = entryRules.toSet(),
-            entryPriorities = entryPriorities.mapValues { it.value.toList() },
+            entryRules = canonical,
+            entryRulesByKind = byKind.mapValues { (_, rules) -> rules.toSet() },
+            entryPriorities = entryPriorities.mapValues { (_, packages) -> packages.toList() },
         )
     }
 
@@ -52,10 +65,33 @@ internal object RuntimeComponentPolicy {
             protectedComponents = protectedComponents.toSet(),
             displayMode = pending.displayMode,
             entryRules = pending.entryRules,
+            entryRulesByKind = pending.entryRulesByKind,
             entryPriorities = pending.entryPriorities,
             digest = digest,
         )
     }
 
     fun snapshot(): RuntimeComponentPolicySnapshot = value
+}
+
+internal fun fallbackRuntimePolicy(
+    managerAppId: Int,
+    displayMode: DisplayMode,
+    entryRules: Set<String>,
+    entryPriorities: Map<IntentKind, List<String>>,
+): RuntimeComponentPolicySnapshot {
+    val byKind = linkedMapOf<IntentKind, MutableSet<String>>()
+    val canonical = linkedSetOf<String>()
+    entryRules.forEach { id ->
+        val rule = ComponentRule.fromId(id) ?: return@forEach
+        canonical += rule.id
+        byKind.getOrPut(rule.kind) { linkedSetOf() } += rule.id
+    }
+    return RuntimeComponentPolicySnapshot(
+        managerAppId = managerAppId,
+        displayMode = displayMode,
+        entryRules = canonical,
+        entryRulesByKind = byKind.mapValues { (_, rules) -> rules.toSet() },
+        entryPriorities = entryPriorities.mapValues { (_, packages) -> packages.toList() },
+    )
 }
