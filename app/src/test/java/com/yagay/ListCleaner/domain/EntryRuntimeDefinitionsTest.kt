@@ -11,21 +11,23 @@ class EntryRuntimeDefinitionsTest {
         assertEquals(selectable, ENTRY_RUNTIME_DEFINITIONS.keys)
     }
 
-    @Test fun assistantRolePathIsCoveredButOtherKnownRolePathsAreVisibleAsGaps() {
+    @Test fun knownRolePathsUseSharedRoleControllerCoverage() {
         assertTrue(IntentKind.ASSISTANT.runtimeDefinition()!!.missingPaths.isEmpty())
-        assertTrue(EntryRuntimePath.ROLE_CONTROLLER in IntentKind.HOME.runtimeDefinition()!!.missingPaths)
-        assertTrue(EntryRuntimePath.ROLE_CONTROLLER in IntentKind.BROWSER.runtimeDefinition()!!.missingPaths)
-        assertTrue(EntryRuntimePath.ROLE_CONTROLLER in IntentKind.CALL_SCREENING.runtimeDefinition()!!.missingPaths)
+        assertTrue(IntentKind.HOME.runtimeDefinition()!!.missingPaths.isEmpty())
+        assertTrue(IntentKind.BROWSER.runtimeDefinition()!!.missingPaths.isEmpty())
+        assertTrue(IntentKind.CALL_SCREENING.runtimeDefinition()!!.missingPaths.isEmpty())
+        assertTrue(EntryRuntimePath.PACKAGE_MANAGER_SERVICE in IntentKind.ASSISTANT.runtimeDefinition()!!.coveredPaths)
     }
 
-    @Test fun packageManagerServiceSurfacesExposeSystemCallerRisk() {
+    @Test fun packageManagerServiceSurfacesExposeResidualSystemCallerRisk() {
         assertTrue(IntentKind.INPUT_METHOD.runtimeDefinition()!!.systemCallerBypassPossible)
         assertTrue(IntentKind.ACCESSIBILITY.runtimeDefinition()!!.systemCallerBypassPossible)
         assertTrue(IntentKind.DOCUMENT_PROVIDER.runtimeDefinition()!!.systemCallerBypassPossible)
+        assertFalse(IntentKind.ASSISTANT.runtimeDefinition()!!.systemCallerBypassPossible)
         assertFalse(IntentKind.SHARE.runtimeDefinition()!!.systemCallerBypassPossible)
     }
 
-    @Test fun emptyResultBehaviorMatchesCurrentSafetyGuards() {
+    @Test fun emptyResultBehaviorAllowsExplicitlyCleanableEntrySurfacesToBecomeEmpty() {
         assertEquals(
             EmptyResultBehavior.ALLOW_EMPTY,
             IntentKind.PROCESS_TEXT.runtimeDefinition()!!.emptyBehavior[EntryRuntimePath.RESOLVER_ACTIVITY]
@@ -35,8 +37,12 @@ class EntryRuntimeDefinitionsTest {
             IntentKind.SHARE.runtimeDefinition()!!.emptyBehavior[EntryRuntimePath.RESOLVER_ACTIVITY]
         )
         assertEquals(
-            EmptyResultBehavior.RESTORE_ORIGINAL,
+            EmptyResultBehavior.ALLOW_EMPTY,
             IntentKind.SHORTCUT_ITEM.runtimeDefinition()!!.emptyBehavior[EntryRuntimePath.SHORTCUT_SERVICE]
+        )
+        assertEquals(
+            EmptyResultBehavior.ALLOW_EMPTY,
+            IntentKind.INPUT_METHOD.runtimeDefinition()!!.emptyBehavior[EntryRuntimePath.PACKAGE_MANAGER_SERVICE]
         )
     }
 }
