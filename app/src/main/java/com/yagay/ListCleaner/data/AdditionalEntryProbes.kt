@@ -67,18 +67,8 @@ internal fun additionalEntryProbes(): List<AdditionalEntryProbe> = buildList {
         add(documentProbe(Intent.ACTION_CREATE_DOCUMENT, mime, "CREATE_DOCUMENT", create = true))
     }
 
-    add(
-        AdditionalEntryProbe(
-            Intent(Intent.ACTION_MAIN)
-                .addCategory(Intent.CATEGORY_HOME)
-                .addCategory(Intent.CATEGORY_DEFAULT),
-            broad = false,
-            label = "DEFAULT_HOME"
-        )
-    )
-    // Assistant is intentionally not a plain Activity probe here. Android's Assistant role merges
-    // ACTION_ASSIST activities and qualified VoiceInteractionService packages. SpecialEntryDiscovery
-    // mirrors that package-level qualification so the manager list matches the system role picker.
+    // HOME, Assistant and generic Browser role candidates are not sample resolver probes anymore.
+    // Their Android role qualification is package-scoped and is mirrored by SpecialEntryDiscovery.
 }
 
 private fun documentProbe(
