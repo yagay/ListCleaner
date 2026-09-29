@@ -1,15 +1,19 @@
 package com.yagay.ListCleaner.domain
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class EntryGroupTest {
     @Test
-    fun everyEntryKindBelongsToExactlyOneTopLevelGroup() {
+    fun selectableEntryKindsBelongToExactlyOneTopLevelGroup() {
         val grouped = EntryGroup.entries.flatMap { it.kinds() }
-        assertEquals(IntentKind.entries.size, grouped.size)
-        assertEquals(IntentKind.entries.toSet(), grouped.toSet())
+        val expected = IntentKind.entries.filter { it.isSelectableEntryKind() }
+
+        assertEquals(expected.size, grouped.size)
+        assertEquals(expected.toSet(), grouped.toSet())
+        assertFalse(grouped.contains(IntentKind.LAUNCHER_SHORTCUT))
     }
 
     @Test
