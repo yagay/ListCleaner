@@ -5,4 +5,5 @@ com.yagay.ListCleaner.xposed.DirectShareConsistencyModule
 com.yagay.ListCleaner.xposed.EmbeddedDirectShareModule
 com.yagay.ListCleaner.xposed.RoleControllerModule
 com.yagay.ListCleaner.xposed.PackageManagerEntryFilterModule
+com.yagay.ListCleaner.xposed.SystemManagerEntryFilterModule
 com.yagay.ListCleaner.xposed.ShortcutSurfaceModule
