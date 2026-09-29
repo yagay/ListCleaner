@@ -4,7 +4,6 @@ import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.pm.ServiceInfo
 import android.os.Binder
 import android.os.Process
-import android.printservice.PrintServiceInfo
 import android.util.Log
 import android.view.inputmethod.InputMethodInfo
 import com.yagay.ListCleaner.data.RuleRepository
@@ -230,10 +229,9 @@ class SystemManagerEntryFilterModule : XposedModule() {
         else -> reflectedResolveInfo(value)?.serviceInfo
     }
 
-    private fun printComponent(value: Any?): ServiceInfo? = when (value) {
-        is PrintServiceInfo -> value.resolveInfo?.serviceInfo
-        else -> reflectedResolveInfo(value)?.serviceInfo
-    }
+    /** PrintServiceInfo is hidden from the public SDK on some platform revisions; stay reflective. */
+    private fun printComponent(value: Any?): ServiceInfo? =
+        reflectedResolveInfo(value)?.serviceInfo
 
     private fun inputMethodComponent(value: Any?): ServiceInfo? = when (value) {
         is InputMethodInfo -> value.serviceInfo
