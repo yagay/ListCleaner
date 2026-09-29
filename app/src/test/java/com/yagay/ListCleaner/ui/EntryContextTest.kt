@@ -21,4 +21,14 @@ class EntryContextTest {
         val deepLink = EntryContext(kind = IntentKind.DEEP_LINK, browserHost = "example.com")
         assertEquals("example.com", deepLink.withKind(IntentKind.DEEP_LINK).browserHost)
     }
+
+    @Test
+    fun `switching between open and deep link clears the other subtype`() {
+        val open = EntryContext(kind = IntentKind.OPEN, openPreset = OpenPreset.IMAGE)
+        val deepLink = open.withKind(IntentKind.DEEP_LINK).copy(browserHost = "example.org")
+        assertNull(deepLink.openPreset)
+        assertEquals("example.org", deepLink.browserHost)
+        val openAgain = deepLink.withKind(IntentKind.OPEN)
+        assertNull(openAgain.browserHost)
+    }
 }
