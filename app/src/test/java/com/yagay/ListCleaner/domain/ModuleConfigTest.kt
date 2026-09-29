@@ -78,8 +78,16 @@ class ModuleConfigTest {
         assertEquals("Target", config.priorities.titles[deepLinkRule.id])
     }
 
-    @Test fun packageScopedRoleComponentsCollapseAndTitlesMigrate() {
-        val kinds = listOf(IntentKind.ASSISTANT, IntentKind.HOME, IntentKind.BROWSER, IntentKind.CALL_SCREENING)
+    @Test fun packageScopedAuthorityComponentsCollapseAndTitlesMigrate() {
+        val kinds = listOf(
+            IntentKind.ASSISTANT,
+            IntentKind.HOME,
+            IntentKind.BROWSER,
+            IntentKind.CALL_SCREENING,
+            IntentKind.VPN,
+            IntentKind.AUTOFILL,
+            IntentKind.CREDENTIAL_PROVIDER,
+        )
         kinds.forEach { kind ->
             val packageName = "com.example.${kind.name.lowercase()}"
             val first = ComponentRule(kind, packageName, "$packageName.First")
@@ -88,12 +96,12 @@ class ModuleConfigTest {
             val config = ModuleConfig(
                 rules = setOf(first, second),
                 mode = DisplayMode.HIDE_SELECTED,
-                priorities = PriorityConfig(titles = mapOf(first.id to "Role label")),
+                priorities = PriorityConfig(titles = mapOf(first.id to "Authority label")),
                 diagnostic = false,
             ).validated()
 
-            assertEquals(setOf(packageRule), config.rules)
-            assertEquals("Role label", config.priorities.titles[packageRule.id])
+            assertEquals("$kind", setOf(packageRule), config.rules)
+            assertEquals("$kind", "Authority label", config.priorities.titles[packageRule.id])
             assertFalse(first.id in config.priorities.titles)
             assertFalse(second.id in config.priorities.titles)
         }
