@@ -1,7 +1,6 @@
 package com.yagay.ListCleaner.xposed
 
 import android.content.Intent
-import android.content.SharedPreferences
 import android.content.pm.ComponentInfo
 import android.content.pm.ResolveInfo
 import android.os.Binder
@@ -14,7 +13,6 @@ import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.FilterPolicy
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.ManagerIdentity
-import com.yagay.ListCleaner.domain.ModuleConfig
 import com.yagay.ListCleaner.domain.SYSTEM_SERVICE_ENTRY_DEFINITIONS
 import com.yagay.ListCleaner.domain.isSystemServiceEntry
 import com.yagay.ListCleaner.domain.prioritizeApps
@@ -24,16 +22,10 @@ import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
-import kotlinx.serialization.json.Json
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
 
-/**
- * Shared non-destructive PackageManager entry filter.
- *
- * DocumentsProvider and framework-bound service surfaces use the same caller safety, runtime policy,
- * fail-open list handling, empty-result protection and package-priority ordering.
- */
+/** Shared non-destructive PackageManager entry filter for provider/service chooser surfaces. */
 class PackageManagerEntryFilterModule : XposedModule() {
     private data class QuerySpec(
         val kind: IntentKind,
@@ -42,18 +34,26 @@ class PackageManagerEntryFilterModule : XposedModule() {
     )
 
     @Volatile private var processName = ""
-    @Volatile private var fallbackMode = DisplayMode.HIDE_SELECTED
-    @Volatile private var fallbackRules: Set<String> = emptySet()
-    @Volatile private var fallbackPriorities: Map<IntentKind, List<String>> = emptyMap()
-    @Volatile private var fallbackManagerAppId = -1
-
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
     private val listResults = SafeListResultExtractor(::record)
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
-    private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == null || key == RuleRepository.KEY_CONFIG) refreshFallback("preference changed")
+    private val fallback by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        RemoteEntryPolicyFallback(
+            preferences = preferences,
+            selectRules = { config ->
+                config.rules.asSequence()
+                    .filter { it.kind == IntentKind.DOCUMENT_PROVIDER || it.kind.isSystemServiceEntry() }
+                    .mapTo(linkedSetOf()) { it.id }
+            },
+            selectPriorities = { config ->
+                config.priorities.apps.filterKeys { kind ->
+                    kind == IntentKind.DOCUMENT_PROVIDER || kind.isSystemServiceEntry()
+                }
+            },
+            record = ::record,
+        )
     }
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
@@ -65,39 +65,19 @@ class PackageManagerEntryFilterModule : XposedModule() {
 
     override fun onSystemServerStarting(param: SystemServerStartingParam) {
         processName = "system"
-        runCatching { preferences.registerOnSharedPreferenceChangeListener(preferenceListener) }
-            .onFailure { Log.w(TAG, "Unable to register entry preference listener", it) }
-        refreshFallback("init")
+        fallback.start()
         installHooks(param.classLoader)
-    }
-
-    @Synchronized
-    private fun refreshFallback(reason: String) {
-        runCatching {
-            val encoded = preferences.getString(RuleRepository.KEY_CONFIG, null) ?: return@runCatching
-            if (encoded.length > RuleRepository.MAX_BACKUP_CHARS) return@runCatching
-            val config = Json { ignoreUnknownKeys = true }
-                .decodeFromString(ModuleConfig.serializer(), encoded)
-                .validated()
-            fallbackMode = config.mode
-            fallbackManagerAppId = config.managerAppId
-            fallbackRules = config.rules.asSequence()
-                .filter { it.kind == IntentKind.DOCUMENT_PROVIDER || it.kind.isSystemServiceEntry() }
-                .mapTo(linkedSetOf()) { it.id }
-            fallbackPriorities = config.priorities.apps.filterKeys { kind ->
-                kind == IntentKind.DOCUMENT_PROVIDER || kind.isSystemServiceEntry()
-            }
-            record("POLICY_READ reason=$reason rules=${fallbackRules.size}")
-        }.onFailure { Log.w(TAG, "Unable to refresh PackageManager entry policy", it) }
     }
 
     private fun effectivePolicy(): RuntimeComponentPolicySnapshot {
         val runtime = RuntimeComponentPolicy.snapshot()
-        return if (runtime.authoritative) runtime else fallbackRuntimePolicy(
-            managerAppId = fallbackManagerAppId,
-            displayMode = fallbackMode,
-            entryRules = fallbackRules,
-            entryPriorities = fallbackPriorities,
+        if (runtime.authoritative) return runtime
+        val local = fallback.snapshot()
+        return fallbackRuntimePolicy(
+            managerAppId = local.managerAppId,
+            displayMode = local.displayMode,
+            entryRules = local.rules,
+            entryPriorities = local.priorities,
         )
     }
 
@@ -213,12 +193,8 @@ class PackageManagerEntryFilterModule : XposedModule() {
         const val HOOK_ID = "lc-pm-entry-filter"
         const val PER_USER_RANGE = 100_000
         val QUERY_METHODS = setOf(
-            "queryIntentServices",
-            "queryIntentServicesAsUser",
-            "queryIntentServicesInternal",
-            "queryIntentContentProviders",
-            "queryIntentContentProvidersAsUser",
-            "queryIntentContentProvidersInternal",
+            "queryIntentServices", "queryIntentServicesAsUser", "queryIntentServicesInternal",
+            "queryIntentContentProviders", "queryIntentContentProvidersAsUser", "queryIntentContentProvidersInternal",
         )
         val PMS_CLASSES = listOf(
             "com.android.server.pm.PackageManagerService\$IPackageManagerImpl",
