@@ -76,9 +76,10 @@ class CombinedProviderSettingsModule : XposedModule() {
     private fun mergedListHooker() = XposedInterface.Hooker { chain ->
         val original = chain.proceed()
         val values = original as? List<*> ?: return@Hooker original
-        if (values.isEmpty()) return@Hooker original
 
         persistObservations(values)
+        if (values.isEmpty()) return@Hooker original
+
         val policy = effectivePolicy()
         val selectedAutofill = selectedPackages(policy, IntentKind.AUTOFILL)
         val selectedCredential = selectedPackages(policy, IntentKind.CREDENTIAL_PROVIDER)
@@ -101,20 +102,36 @@ class CombinedProviderSettingsModule : XposedModule() {
 
     private fun persistObservations(values: List<*>) {
         val now = System.currentTimeMillis()
-        val records = buildList {
-            values.forEach { value ->
-                val pkg = packageName(value) ?: return@forEach
-                if (hasAutofill(value)) {
-                    val rule = SyntheticEntryKeys.packageScopedRule(IntentKind.AUTOFILL, pkg)
-                    add(ObservedEntryRecord(IntentKind.AUTOFILL.name, pkg, rule.className, observedAt = now))
-                }
-                if (hasCredential(value)) {
-                    val rule = SyntheticEntryKeys.packageScopedRule(IntentKind.CREDENTIAL_PROVIDER, pkg)
-                    add(ObservedEntryRecord(IntentKind.CREDENTIAL_PROVIDER.name, pkg, rule.className, observedAt = now))
-                }
+        val autofillRecords = mutableListOf<ObservedEntryRecord>()
+        val credentialRecords = mutableListOf<ObservedEntryRecord>()
+        values.forEach { value ->
+            val pkg = packageName(value) ?: return@forEach
+            if (hasAutofill(value)) {
+                val rule = SyntheticEntryKeys.packageScopedRule(IntentKind.AUTOFILL, pkg)
+                autofillRecords += ObservedEntryRecord(
+                    IntentKind.AUTOFILL.name,
+                    pkg,
+                    rule.className,
+                    observedAt = now,
+                )
+            }
+            if (hasCredential(value)) {
+                val rule = SyntheticEntryKeys.packageScopedRule(IntentKind.CREDENTIAL_PROVIDER, pkg)
+                credentialRecords += ObservedEntryRecord(
+                    IntentKind.CREDENTIAL_PROVIDER.name,
+                    pkg,
+                    rule.className,
+                    observedAt = now,
+                )
             }
         }
-        persistence.merge(records)
+        val autofillSaved = persistence.replaceKind(IntentKind.AUTOFILL, autofillRecords.distinctBy { it.key })
+        val credentialSaved = persistence.replaceKind(
+            IntentKind.CREDENTIAL_PROVIDER,
+            credentialRecords.distinctBy { it.key },
+        )
+        if (autofillSaved) record("AUTHORITY_SNAPSHOT kind=${IntentKind.AUTOFILL} count=${autofillRecords.distinctBy { it.key }.size}")
+        if (credentialSaved) record("AUTHORITY_SNAPSHOT kind=${IntentKind.CREDENTIAL_PROVIDER} count=${credentialRecords.distinctBy { it.key }.size}")
     }
 
     private fun selectedPackages(policy: RuntimeComponentPolicySnapshot, kind: IntentKind): Set<String> =
