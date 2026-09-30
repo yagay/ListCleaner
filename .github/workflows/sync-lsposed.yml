@@ -11,13 +11,6 @@ on:
     workflows: ['Complete Release Changelog']
     types: [completed]
     branches: [main]
-  push:
-    branches: [main]
-    paths:
-      - 'docs/lsposed/**'
-      - 'tools/sync-lsposed.py'
-      - 'tools/test_sync_lsposed.py'
-      - '.github/workflows/sync-lsposed.yml'
 
 permissions:
   contents: read
