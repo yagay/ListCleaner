@@ -8,6 +8,7 @@ import android.os.Process
 import android.util.Log
 import com.yagay.ListCleaner.data.PersistentComponentState
 import com.yagay.ListCleaner.data.RuleRepository
+import com.yagay.ListCleaner.domain.FilterPolicy
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
@@ -198,7 +199,7 @@ class ComponentStateGuardModule : XposedModule() {
         setting.javaClass.getMethod("getEnabledState").invoke(setting) as? Int
     }.getOrNull()
 
-    private fun shouldGuardCaller(uid: Int): Boolean = uid >= Process.FIRST_APPLICATION_UID
+    private fun shouldGuardCaller(uid: Int): Boolean = FilterPolicy.ordinaryAppCaller(uid)
 
     private fun isProtectedEnable(userId: Int, component: ComponentName, newState: Int): Boolean {
         if (newState != PackageManager.COMPONENT_ENABLED_STATE_DEFAULT &&
