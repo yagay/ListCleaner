@@ -32,6 +32,26 @@ class ObservedEntryCacheCodecTest {
     }
 
     @Test
+    fun normalizeKeepsNewestDuplicateInsideSameBatch() {
+        val newer = ObservedEntryRecord(
+            kind = IntentKind.VPN.name,
+            packageName = "com.example.vpn",
+            syntheticClass = "@vpn",
+            label = "New",
+            observedAt = 20L,
+        )
+        val older = newer.copy(label = "Old", observedAt = 10L)
+
+        val decoded = ObservedEntryCacheCodec.decode(
+            ObservedEntryCacheCodec.encode(listOf(older, newer))
+        )
+
+        assertEquals(1, decoded.size)
+        assertEquals("New", decoded.single().label)
+        assertEquals(20L, decoded.single().observedAt)
+    }
+
+    @Test
     fun reconcileRemoteReplacesAuthorityRowsButKeepsShortcutHistory() {
         val staleVpn = ObservedEntryRecord(
             IntentKind.VPN.name,
