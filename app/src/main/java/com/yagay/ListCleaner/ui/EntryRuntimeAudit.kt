@@ -127,6 +127,14 @@ internal object EntryRuntimeAudit {
         if (kind == IntentKind.NFC_HCE && line.contains("ListCleaner.NfcPayment")) return true
         if (kind in setOf(IntentKind.AUTOFILL, IntentKind.CREDENTIAL_PROVIDER) &&
             line.contains("ListCleaner.CombinedProviders")) return true
+        if (line.contains("ListCleaner.SettingsAuthority")) {
+            if (kind == IntentKind.VPN && line.contains("VPN_")) return true
+            if (kind == IntentKind.AUTOFILL && line.contains("AUTOFILL_")) return true
+            if (line.contains("HOOK") &&
+                (EntryRuntimePath.SETTINGS_VPN in coveredPaths ||
+                    EntryRuntimePath.SETTINGS_AUTOFILL_PICKER in coveredPaths)
+            ) return true
+        }
 
         if ((EntryRuntimePath.PACKAGE_MANAGER_SERVICE in coveredPaths ||
                 EntryRuntimePath.PACKAGE_MANAGER_PROVIDER in coveredPaths ||
@@ -156,20 +164,25 @@ internal object EntryRuntimeAudit {
         else -> false
     }
 
-    private fun isHookReady(line: String): Boolean =
-        line.contains("HOOK_INSTALLED") || line.contains("HOOKS_READY") ||
-            line.contains("SYSTEM_HOOKS") || line.contains("RESOLVER_HOOKS") ||
-            line.contains("PROFILE_READY") || line.contains("MODULE_LOADED")
+    private fun isHookReady(line: String): Boolean {
+        if (line.contains("HOOK_INSTALLED") || line.contains("SYSTEM_HOOKS") ||
+            line.contains("RESOLVER_HOOKS") || line.contains("PROFILE_READY")
+        ) return true
+        if (line.contains("HOOKS_READY")) return !ZERO_TOTAL.containsMatchIn(line)
+        return false
+    }
 
     private fun isQuery(line: String): Boolean =
         line.contains(" QUERY ") || line.contains(" HIT ") || line.contains("_HIT ") ||
             line.contains("MANAGER_HIT") || line.contains("IME_BRIDGE") ||
-            line.contains("LISTS_EMPTY") || line.contains("AUTHORITY_OBSERVED")
+            line.contains("LISTS_EMPTY") || line.contains("AUTHORITY_OBSERVED") ||
+            line.contains("AUTHORITY_SNAPSHOT")
 
     private fun isFilter(line: String): Boolean =
         line.contains(" FILTER ") || line.contains("DIRECT_FILTER") || line.contains("FILTERED") ||
             line.contains("SHORTCUT_FILTER") || line.contains("MANAGER_FILTER") ||
             line.contains("CREDENTIAL_FILTER") || line.contains("VPN_APPOPS_FILTER") ||
+            line.contains("VPN_FILTER") || line.contains("AUTOFILL_LEGACY_FILTER") ||
             line.contains("RESULT kind=") ||
             (line.contains(" before=") && line.contains(" after=")) ||
             ARROW_FILTER.containsMatchIn(line)
@@ -181,7 +194,8 @@ internal object EntryRuntimeAudit {
         line.contains("HOOK_FAILED") || line.contains("HOT_RELOAD_FAILED") ||
             line.contains("UNSUPPORTED") || line.contains("CLASS_UNAVAILABLE") ||
             line.contains("ADAPTER_CLASS_UNAVAILABLE") || line.contains("ROLE_MODEL_UNAVAILABLE") ||
-            line.contains("VPN_OPS_UNAVAILABLE")
+            line.contains("VPN_OPS_UNAVAILABLE") || line.contains("AUTHORITY_CLASSES_UNAVAILABLE")
 
+    private val ZERO_TOTAL = Regex("\\btotal=0\\b")
     private val ARROW_FILTER = Regex("\\b\\d+\\s*->\\s*\\d+\\b")
 }
