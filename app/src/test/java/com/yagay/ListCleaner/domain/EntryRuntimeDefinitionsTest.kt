@@ -11,33 +11,33 @@ class EntryRuntimeDefinitionsTest {
         assertEquals(selectable, ENTRY_RUNTIME_DEFINITIONS.keys)
     }
 
-    @Test fun knownRolePathsUseSharedRoleControllerCoverage() {
-        assertTrue(IntentKind.ASSISTANT.runtimeDefinition()!!.missingPaths.isEmpty())
-        assertTrue(IntentKind.HOME.runtimeDefinition()!!.missingPaths.isEmpty())
-        assertTrue(IntentKind.BROWSER.runtimeDefinition()!!.missingPaths.isEmpty())
-        assertTrue(IntentKind.CALL_SCREENING.runtimeDefinition()!!.missingPaths.isEmpty())
-        assertTrue(EntryRuntimePath.PACKAGE_MANAGER_SERVICE in IntentKind.ASSISTANT.runtimeDefinition()!!.coveredPaths)
+    @Test fun knownRolePathsDeclareSharedRoleControllerRuntime() {
+        val assistant = IntentKind.ASSISTANT.runtimeDefinition()!!
+        assertTrue(EntryRuntimePath.RESOLVER_ACTIVITY in assistant.expectedPaths)
+        assertTrue(EntryRuntimePath.ROLE_CONTROLLER in assistant.expectedPaths)
+        assertTrue(EntryRuntimePath.PACKAGE_MANAGER_SERVICE in assistant.expectedPaths)
+
+        listOf(IntentKind.HOME, IntentKind.BROWSER).forEach { kind ->
+            val definition = kind.runtimeDefinition()!!
+            assertTrue(EntryRuntimePath.RESOLVER_ACTIVITY in definition.expectedPaths)
+            assertTrue(EntryRuntimePath.ROLE_CONTROLLER in definition.expectedPaths)
+        }
+
+        val callScreening = IntentKind.CALL_SCREENING.runtimeDefinition()!!
+        assertTrue(EntryRuntimePath.PACKAGE_MANAGER_SERVICE in callScreening.expectedPaths)
+        assertTrue(EntryRuntimePath.ROLE_CONTROLLER in callScreening.expectedPaths)
     }
 
-    @Test fun finalSystemAuthoritiesAreRegistered() {
-        assertTrue(EntryRuntimePath.ACCESSIBILITY_MANAGER in IntentKind.ACCESSIBILITY.runtimeDefinition()!!.coveredPaths)
-        assertTrue(EntryRuntimePath.INPUT_METHOD_MANAGER in IntentKind.INPUT_METHOD.runtimeDefinition()!!.coveredPaths)
-        assertTrue(EntryRuntimePath.PRINT_MANAGER in IntentKind.PRINT.runtimeDefinition()!!.coveredPaths)
-        assertTrue(EntryRuntimePath.SETTINGS_VPN in IntentKind.VPN.runtimeDefinition()!!.coveredPaths)
-        assertFalse(EntryRuntimePath.VPN_APP_OPS in IntentKind.VPN.runtimeDefinition()!!.coveredPaths)
-        assertTrue(EntryRuntimePath.CREDENTIAL_MANAGER in IntentKind.CREDENTIAL_PROVIDER.runtimeDefinition()!!.coveredPaths)
-        assertTrue(EntryRuntimePath.COMBINED_PROVIDER_SETTINGS in IntentKind.AUTOFILL.runtimeDefinition()!!.coveredPaths)
-        assertTrue(EntryRuntimePath.SETTINGS_AUTOFILL_PICKER in IntentKind.AUTOFILL.runtimeDefinition()!!.coveredPaths)
-        assertTrue(EntryRuntimePath.NFC_CARD_EMULATION in IntentKind.NFC_HCE.runtimeDefinition()!!.coveredPaths)
-        listOf(
-            IntentKind.ACCESSIBILITY,
-            IntentKind.INPUT_METHOD,
-            IntentKind.PRINT,
-            IntentKind.VPN,
-            IntentKind.CREDENTIAL_PROVIDER,
-            IntentKind.AUTOFILL,
-            IntentKind.NFC_HCE,
-        ).forEach { assertTrue("$it", it.runtimeDefinition()!!.missingPaths.isEmpty()) }
+    @Test fun finalSystemAuthoritiesAreDeclaredAsExpectedPaths() {
+        assertTrue(EntryRuntimePath.ACCESSIBILITY_MANAGER in IntentKind.ACCESSIBILITY.runtimeDefinition()!!.expectedPaths)
+        assertTrue(EntryRuntimePath.INPUT_METHOD_MANAGER in IntentKind.INPUT_METHOD.runtimeDefinition()!!.expectedPaths)
+        assertTrue(EntryRuntimePath.PRINT_MANAGER in IntentKind.PRINT.runtimeDefinition()!!.expectedPaths)
+        assertTrue(EntryRuntimePath.SETTINGS_VPN in IntentKind.VPN.runtimeDefinition()!!.expectedPaths)
+        assertFalse(EntryRuntimePath.VPN_APP_OPS in IntentKind.VPN.runtimeDefinition()!!.expectedPaths)
+        assertTrue(EntryRuntimePath.CREDENTIAL_MANAGER in IntentKind.CREDENTIAL_PROVIDER.runtimeDefinition()!!.expectedPaths)
+        assertTrue(EntryRuntimePath.COMBINED_PROVIDER_SETTINGS in IntentKind.AUTOFILL.runtimeDefinition()!!.expectedPaths)
+        assertTrue(EntryRuntimePath.SETTINGS_AUTOFILL_PICKER in IntentKind.AUTOFILL.runtimeDefinition()!!.expectedPaths)
+        assertTrue(EntryRuntimePath.NFC_CARD_EMULATION in IntentKind.NFC_HCE.runtimeDefinition()!!.expectedPaths)
     }
 
     @Test fun onlyResidualPackageManagerSurfacesExposeSystemCallerRisk() {
