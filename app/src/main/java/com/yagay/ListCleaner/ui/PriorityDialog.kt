@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.IntentKind
@@ -76,11 +77,11 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     }
 
     val kind = state.filter ?: IntentKind.SHARE
-    val openPreset by vm.ruleOpenPreset.collectAsState()
-    val browserHost by vm.ruleBrowserHost.collectAsState()
+    val openPreset by vm.ruleOpenPreset.collectAsStateWithLifecycle()
+    val browserHost by vm.ruleBrowserHost.collectAsStateWithLifecycle()
     var viewFilter by rememberSaveable { mutableStateOf(UiFilter.ALL) }
     var appTypeFilter by rememberSaveable { mutableStateOf(AppTypeFilter.ALL) }
-    val bulkLockRevision by vm.bulkLockRevision.collectAsState()
+    val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
     var expandedKey by rememberSaveable { mutableStateOf<String?>(null) }
     var lockMenuPackage by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingLongPressY by remember { mutableStateOf<Float?>(null) }
