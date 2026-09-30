@@ -15,6 +15,9 @@ enum class EntryRuntimePath {
     PRINT_MANAGER,
     CREDENTIAL_MANAGER,
     COMBINED_PROVIDER_SETTINGS,
+    SETTINGS_AUTOFILL_PICKER,
+    SETTINGS_VPN,
+    /** Historical/raw source retained for diagnostics only; it is not the final Settings VPN list. */
     VPN_APP_OPS,
     NFC_CARD_EMULATION,
 }
@@ -172,20 +175,26 @@ val ENTRY_RUNTIME_DEFINITIONS: Map<IntentKind, EntryRuntimeDefinition> = buildMa
         IntentKind.VPN,
         EntryRuntimeDefinition(
             IntentKind.VPN,
-            setOf(EntryRuntimePath.VPN_APP_OPS),
-            setOf(EntryRuntimePath.VPN_APP_OPS),
-            mapOf(EntryRuntimePath.VPN_APP_OPS to EmptyResultBehavior.ALLOW_EMPTY),
+            setOf(EntryRuntimePath.SETTINGS_VPN),
+            setOf(EntryRuntimePath.SETTINGS_VPN),
+            mapOf(EntryRuntimePath.SETTINGS_VPN to EmptyResultBehavior.ALLOW_EMPTY),
         )
     )
     put(
         IntentKind.AUTOFILL,
         EntryRuntimeDefinition(
             IntentKind.AUTOFILL,
-            setOf(EntryRuntimePath.PACKAGE_MANAGER_SERVICE, EntryRuntimePath.COMBINED_PROVIDER_SETTINGS),
-            setOf(EntryRuntimePath.PACKAGE_MANAGER_SERVICE, EntryRuntimePath.COMBINED_PROVIDER_SETTINGS),
+            setOf(
+                EntryRuntimePath.COMBINED_PROVIDER_SETTINGS,
+                EntryRuntimePath.SETTINGS_AUTOFILL_PICKER,
+            ),
+            setOf(
+                EntryRuntimePath.COMBINED_PROVIDER_SETTINGS,
+                EntryRuntimePath.SETTINGS_AUTOFILL_PICKER,
+            ),
             mapOf(
-                EntryRuntimePath.PACKAGE_MANAGER_SERVICE to EmptyResultBehavior.ALLOW_EMPTY,
                 EntryRuntimePath.COMBINED_PROVIDER_SETTINGS to EmptyResultBehavior.ALLOW_EMPTY,
+                EntryRuntimePath.SETTINGS_AUTOFILL_PICKER to EmptyResultBehavior.ALLOW_EMPTY,
             ),
         )
     )
