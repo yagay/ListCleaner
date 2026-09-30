@@ -20,7 +20,7 @@ enum class EntryDiscoverySource {
     ACCESSIBILITY_SHORTCUT_ACTIVITY,
     INPUT_METHOD_MANAGER,
     PRINT_MANAGER,
-    VPN_APP_OPS,
+    SETTINGS_VPN,
     CREDENTIAL_MANAGER,
     AUTOFILL_PROVIDER_SETTINGS,
     NFC_CARD_EMULATION,
@@ -36,7 +36,7 @@ enum class EntryAuthority {
     ACCESSIBILITY_MANAGER,
     INPUT_METHOD_MANAGER,
     PRINT_MANAGER,
-    VPN_APP_OPS,
+    SETTINGS_VPN,
     CREDENTIAL_MANAGER,
     COMBINED_PROVIDER_SETTINGS,
     NFC_CARD_EMULATION,
@@ -182,8 +182,8 @@ val ENTRY_SURFACE_DEFINITIONS: Map<IntentKind, EntrySurfaceDefinition> = buildMa
         EntrySurfaceDefinition(
             IntentKind.VPN,
             EntryIdentityScope.PACKAGE,
-            EntryAuthority.VPN_APP_OPS,
-            setOf(EntryDiscoverySource.VPN_APP_OPS, EntryDiscoverySource.SYSTEM_SERVICE),
+            EntryAuthority.SETTINGS_VPN,
+            setOf(EntryDiscoverySource.SETTINGS_VPN, EntryDiscoverySource.SYSTEM_SERVICE),
         )
     )
     put(
@@ -249,7 +249,7 @@ fun IntentKind.entryAuthority(): EntryAuthority? = surfaceDefinition()?.authorit
 
 /**
  * Collapse physical components to the logical row identity before they enter UI state.
- * Android Role, VPN AppOps and Android 16's combined autofill/credential picker are package rows.
+ * Android Role, final Settings VPN and Android 16's combined autofill/credential picker are package rows.
  */
 fun normalizeLogicalCandidates(items: List<ComponentCandidate>): List<ComponentCandidate> {
     if (items.isEmpty()) return items
