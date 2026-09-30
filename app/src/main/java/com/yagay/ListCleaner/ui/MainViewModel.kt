@@ -241,6 +241,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val uiFilter: UiFilter = UiFilter.ALL
     )
 
+    private data class RuntimeInputs(
+        val module: ModuleStatus,
+        val loading: Boolean,
+        val error: String?,
+        val content: ListContent,
+        val runtime: RuntimeStatus,
+    )
+
+    private data class RuleInputs(
+        val displayMode: DisplayMode,
+        val priorities: PriorityConfig,
+        val diagnosticMode: Boolean,
+        val hiddenFromApps: Set<String>,
+        val openTypes: OpenTypeConfig,
+    )
+
+    private data class ShellInputs(
+        val syncStatus: String,
+        val destination: Destination,
+        val expandedAppKey: String?,
+        val browserLinks: BrowserLinkConfig,
+        val browserHosts: Set<String>,
+    )
+
     private val preparedCandidates = combine(candidates, app.rules.rules) { scanned, selected ->
         val items = retainConfiguredCandidates(
             scanned,
@@ -268,54 +292,57 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         ListContent(emptyList(), null, emptyList())
     )
 
-    val state: StateFlow<MainState> = combine(
-        moduleStatus,
-        loading,
-        error,
-        grouped,
-        app.runtime,
+    private val runtimeInputs = combine(moduleStatus, loading, error, grouped, app.runtime) {
+            module, isLoading, currentError, content, runtime ->
+        RuntimeInputs(module, isLoading, currentError, content, runtime)
+    }
+
+    private val ruleInputs = combine(
         app.rules.displayMode,
         app.rules.priorities,
         app.rules.diagnosticMode,
+        app.rules.hiddenFromApps,
+        app.rules.openTypes,
+    ) { displayMode, priorities, diagnosticMode, hiddenFromApps, openTypes ->
+        RuleInputs(displayMode, priorities, diagnosticMode, hiddenFromApps, openTypes)
+    }
+
+    private val shellInputs = combine(
         app.syncStatus,
         destination,
         expandedAppKey,
-        app.rules.hiddenFromApps,
-        app.rules.openTypes,
         app.rules.browserLinks,
         discoveredBrowserHosts,
-        query
-    ) { values ->
-        @Suppress("UNCHECKED_CAST")
-        val content = values[3] as ListContent
-        val priorityConfig = values[6] as PriorityConfig
-        val rawOpenTypes = values[12] as OpenTypeConfig
-        val browserLinks = values[13] as BrowserLinkConfig
-        @Suppress("UNCHECKED_CAST")
-        val discoveredHosts = values[14] as Set<String>
+    ) { syncStatus, currentDestination, expanded, browserLinks, browserHosts ->
+        ShellInputs(syncStatus, currentDestination, expanded, browserLinks, browserHosts)
+    }
+
+    val state: StateFlow<MainState> = combine(runtimeInputs, ruleInputs, shellInputs, query) {
+            runtime, rules, shell, queryText ->
+        val content = runtime.content
         MainState(
-            module = values[0] as ModuleStatus,
-            loading = values[1] as Boolean,
-            error = values[2] as String?,
+            module = runtime.module,
+            loading = runtime.loading,
+            error = runtime.error,
             candidates = content.candidates,
             selected = content.selected,
-            runtime = values[4] as RuntimeStatus,
-            displayMode = values[5] as DisplayMode,
+            runtime = runtime.runtime,
+            displayMode = rules.displayMode,
             filter = content.filter,
-            query = values[15] as String,
-            priorities = priorityConfig,
+            query = queryText,
+            priorities = rules.priorities,
             groups = content.groups,
-            diagnosticMode = values[7] as Boolean,
-            syncStatus = values[8] as String,
-            destination = values[9] as Destination,
-            expandedAppKey = values[10] as String?,
-            hiddenFromApps = values[11] as Set<String>,
-            openTypes = effectiveOpenTypes(rawOpenTypes, content.selected, priorityConfig),
-            openTypesExplicit = rawOpenTypes,
-            browserLinks = browserLinks,
+            diagnosticMode = rules.diagnosticMode,
+            syncStatus = shell.syncStatus,
+            destination = shell.destination,
+            expandedAppKey = shell.expandedAppKey,
+            hiddenFromApps = rules.hiddenFromApps,
+            openTypes = effectiveOpenTypes(rules.openTypes, content.selected, rules.priorities),
+            openTypesExplicit = rules.openTypes,
+            browserLinks = shell.browserLinks,
             browserAvailableHosts = availableDeepLinkHosts(
-                browserLinks.hosts,
-                discoveredHosts,
+                shell.browserLinks.hosts,
+                shell.browserHosts,
                 content.candidates
             ),
             uiFilter = content.uiFilter

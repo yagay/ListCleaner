@@ -77,6 +77,7 @@ class IntentCatalog(private val context: Context) {
 
     private val appIconCache = LruCache<String, Bitmap>(192)
     private val appLabelCache = LruCache<String, String>(256)
+    @Volatile private var cachedInputFingerprint: String? = null
     @Volatile private var cachedDefinitionFingerprint: String? = null
     @Volatile private var invalidated = true
     @Volatile private var cacheHitsSinceLastScan = 0L
@@ -119,23 +120,27 @@ class IntentCatalog(private val context: Context) {
             .joinToString(";") { (host, packages) ->
                 host + "=" + packages.sorted().joinToString(",")
             }
+        val inputFingerprint = customDefinitions.entries
+            .sortedBy { it.key.ordinal }
+            .joinToString("|") { (preset, definition) -> "$preset=$definition" } +
+            "|browserHosts=" + normalizedBrowserHosts.joinToString(",") +
+            "|declaredHandlers=" + discoveryFingerprint +
+            "|declaredPackages=" + packageFingerprint
+        val cached = mutableCandidates.value
+        // Normal state/UI refreshes are frequent. If inputs have not changed and no package/runtime
+        // invalidation was observed, return before expensive manager/AppOps discovery. Explicit user
+        // refresh passes force=true and still performs a complete authority scan immediately.
+        if (!force && !invalidated && inputFingerprint == cachedInputFingerprint) {
+            cacheHitsSinceLastScan++
+            return@withContext cached
+        }
+
         val specialCandidates = runCatching { specialEntryDiscovery.scan() }.getOrDefault(emptyList())
         val specialFingerprint = specialCandidates.asSequence()
             .map { it.rule.id }
             .sorted()
             .joinToString(",")
-        val fingerprint = customDefinitions.entries
-            .sortedBy { it.key.ordinal }
-            .joinToString("|") { (preset, definition) -> "$preset=$definition" } +
-            "|browserHosts=" + normalizedBrowserHosts.joinToString(",") +
-            "|declaredHandlers=" + discoveryFingerprint +
-            "|declaredPackages=" + packageFingerprint +
-            "|specialEntries=" + specialFingerprint
-        val cached = mutableCandidates.value
-        if (!force && !invalidated && fingerprint == cachedDefinitionFingerprint) {
-            cacheHitsSinceLastScan++
-            return@withContext cached
-        }
+        val fingerprint = inputFingerprint + "|specialEntries=" + specialFingerprint
 
         val previousCacheHits = cacheHitsSinceLastScan
         cacheHitsSinceLastScan = 0L
@@ -202,6 +207,7 @@ class IntentCatalog(private val context: Context) {
         lastReport = report.toString()
         if (failures > 0) scanWarning = context.getString(R.string.catalog_partial_scan_failed, failures)
         mutableCandidates.value = result
+        cachedInputFingerprint = inputFingerprint
         cachedDefinitionFingerprint = fingerprint
         invalidated = false
         result
@@ -454,11 +460,6 @@ class IntentCatalog(private val context: Context) {
         val webHosts = linkedSetOf("example.com").apply { addAll(browserHosts) }
         for (host in webHosts) {
             for (scheme in listOf("http", "https")) {
-                // Use a real root path instead of an empty path. Many App Link handlers
-                // (GitHub is a common example) constrain VIEW filters with pathPattern="/.*"
-                // or an equivalent path matcher, so "$scheme://$host" does not enumerate them.
-                // Runtime filtering still uses the actual incoming URL; this only improves
-                // discovery of handlers available for the configured host.
                 add(Probe(
                     Intent(Intent.ACTION_VIEW, Uri.parse("$scheme://$host/"))
                         .addCategory(Intent.CATEGORY_BROWSABLE),
