@@ -6,12 +6,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
 
 @Composable
 internal fun RuntimePanel(state: MainState, vm: MainViewModel, showUpdateTools: Boolean = true) {
-    val updating by vm.updating.collectAsState()
-    val result by vm.updateMessage.collectAsState()
+    val updating by vm.updating.collectAsStateWithLifecycle()
+    val result by vm.updateMessage.collectAsStateWithLifecycle()
     var confirmReset by remember { mutableStateOf(false) }
     if (confirmReset) {
         AlertDialog(
