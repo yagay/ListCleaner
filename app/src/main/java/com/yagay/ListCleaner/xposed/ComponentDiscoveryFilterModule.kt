@@ -10,6 +10,7 @@ import android.os.Process
 import android.util.Log
 import com.yagay.ListCleaner.data.PersistentComponentState
 import com.yagay.ListCleaner.data.RuleRepository
+import com.yagay.ListCleaner.domain.AndroidUid
 import com.yagay.ListCleaner.domain.ManagerIdentity
 import com.yagay.ListCleaner.domain.ModuleConfig
 import io.github.libxposed.api.XposedInterface
@@ -201,7 +202,7 @@ class ComponentDiscoveryFilterModule : XposedModule() {
 
     private fun componentUserId(info: android.content.pm.ComponentInfo, fallback: Int?): Int? {
         val uid = info.applicationInfo?.uid ?: -1
-        if (uid >= 0) return uid / PER_USER_RANGE
+        if (uid >= 0) return AndroidUid.userId(uid)
         return fallback?.takeIf { it >= 0 }
     }
 
@@ -274,7 +275,6 @@ class ComponentDiscoveryFilterModule : XposedModule() {
         const val PMS_HOOK_ID = "lc-component-discovery-pm"
         const val WIDGET_HOOK_ID = "lc-component-discovery-widget"
         const val APP_WIDGET_SERVICE = "com.android.server.appwidget.AppWidgetServiceImpl"
-        const val PER_USER_RANGE = 100_000
 
         val PMS_CLASSES = listOf(
             "com.android.server.pm.PackageManagerService\$IPackageManagerImpl",
