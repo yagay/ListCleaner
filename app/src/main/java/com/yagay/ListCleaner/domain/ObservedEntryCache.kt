@@ -20,6 +20,21 @@ val OBSERVABLE_ENTRY_KINDS: Set<IntentKind> = setOf(
     IntentKind.NFC_HCE,
 )
 
+/**
+ * RemotePreferences writers for these kinds publish complete authority snapshots, not deltas.
+ * Missing rows therefore mean the authority no longer exposes them and must remove stale cache rows.
+ */
+val REMOTE_AUTHORITY_SNAPSHOT_KINDS: Set<IntentKind> = setOf(
+    IntentKind.ASSISTANT,
+    IntentKind.HOME,
+    IntentKind.BROWSER,
+    IntentKind.CALL_SCREENING,
+    IntentKind.AUTOFILL,
+    IntentKind.CREDENTIAL_PROVIDER,
+    IntentKind.VPN,
+    IntentKind.NFC_HCE,
+)
+
 @Serializable
 data class ObservedEntryRecord(
     val kind: String,
@@ -96,6 +111,17 @@ object ObservedEntryCacheCodec {
         return byKey.values
             .sortedByDescending { it.observedAt }
             .take(MAX_ENTRIES)
+    }
+
+    fun reconcileRemote(
+        existing: Collection<ObservedEntryRecord>,
+        remote: Collection<ObservedEntryRecord>,
+        snapshotKinds: Set<IntentKind> = REMOTE_AUTHORITY_SNAPSHOT_KINDS,
+    ): List<ObservedEntryRecord> {
+        val retained = normalize(existing).filter { record ->
+            runCatching { IntentKind.valueOf(record.kind) }.getOrNull() !in snapshotKinds
+        }
+        return merge(retained, remote)
     }
 
     private fun normalize(entries: Collection<ObservedEntryRecord>): List<ObservedEntryRecord> =
