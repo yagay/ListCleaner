@@ -28,7 +28,7 @@ internal class RootComponentsController(
 ) {
     private class RootPolicyPersistenceException : IllegalStateException()
 
-    private val catalog = RootComponentCatalog(app)
+    private val catalog = RootComponentCatalog(app) { app.runtime.value.componentDiscoveryProtocol }
     private val persistentComponents = PersistentComponentStore(app)
 
     private val mutableScan = MutableStateFlow(
