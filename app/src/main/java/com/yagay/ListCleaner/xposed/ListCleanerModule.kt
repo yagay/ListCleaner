@@ -7,6 +7,8 @@ import android.content.pm.ResolveInfo
 import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
 import com.yagay.ListCleaner.BuildConfig
+import com.yagay.ListCleaner.domain.AndroidUid
+import com.yagay.ListCleaner.domain.RuntimeAckCodec
 import com.yagay.ListCleaner.domain.RuntimeProtocol
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.HotReloadedParam
@@ -161,11 +163,11 @@ class ListCleanerModule : XposedModule() {
                             handle.unhook()
                         }
                     }
-                    method != null && handle.id == "ic-final-order" -> {
+                    method != null && handle.id == FINAL_ORDER_HOOK_ID -> {
                         handle.replaceHook(orderHooker())
                         installedMethods.add("ORDER#${method.toGenericString()}")
                     }
-                    method != null && handle.id == "ic-alpha-order" -> {
+                    method != null && handle.id == ALPHA_ORDER_HOOK_ID -> {
                         handle.replaceHook(alphabeticalOrderHooker())
                         installedMethods.add("ALPHA#${method.toGenericString()}")
                     }
@@ -405,7 +407,7 @@ class ListCleanerModule : XposedModule() {
             record("CONFIG_PROBE_IDENTITY uid=$callerUid verified=false")
             return null
         }
-        val appId = callerUid % PER_USER_RANGE
+        val appId = AndroidUid.appId(callerUid)
         return appId.takeIf(ManagerIdentity::valid)?.also {
             if (tracedActions.add("config_identity:$callerUid")) {
                 record("CONFIG_PROBE_IDENTITY uid=$callerUid appId=$it verified=true")
@@ -474,7 +476,7 @@ class ListCleanerModule : XposedModule() {
                     val key = "ORDER#${method.toGenericString()}"
                     if (installedMethods.add(key)) {
                         try {
-                            hook(method).setId("ic-final-order").intercept(orderHooker())
+                            hook(method).setId(FINAL_ORDER_HOOK_ID).intercept(orderHooker())
                             record("ORDER_HOOK_INSTALLED method=${method.toGenericString()}")
                         } catch (failure: Throwable) {
                             installedMethods.remove(key)
@@ -490,7 +492,7 @@ class ListCleanerModule : XposedModule() {
             val key = "ALPHA#${method.toGenericString()}"
             if (installedMethods.add(key)) {
                 try {
-                    hook(method).setId("ic-alpha-order").intercept(alphabeticalOrderHooker())
+                    hook(method).setId(ALPHA_ORDER_HOOK_ID).intercept(alphabeticalOrderHooker())
                     record("ORDER_HOOK_INSTALLED stage=alpha method=${method.toGenericString()}")
                 } catch (failure: Throwable) {
                     installedMethods.remove(key)
@@ -765,10 +767,18 @@ class ListCleanerModule : XposedModule() {
                         uid = callerUid
                     }
                 }
-                nonLocalizedLabel =
-                    "${BuildConfig.HOOK_COMPAT_VERSION_CODE}:${applied.digest}:" +
-                        "${queryHits.get()}:${visibilityHits.get()}:${orderingHits.get()}:" +
-                        "$COMPONENT_DISCOVERY_PROTOCOL:${RuntimeProtocol.VERSION}:$appliedRuntimeRevision"
+                nonLocalizedLabel = RuntimeAckCodec.encode(
+                    hookCompatVersion = BuildConfig.HOOK_COMPAT_VERSION_CODE.toLong(),
+                    ack = RuntimeAckCodec.Ack(
+                        digest = applied.digest,
+                        queryHits = queryHits.get(),
+                        visibilityHits = visibilityHits.get(),
+                        orderingHits = orderingHits.get(),
+                        componentDiscoveryProtocol = COMPONENT_DISCOVERY_PROTOCOL,
+                        runtimeProtocol = RuntimeProtocol.VERSION,
+                        revision = appliedRuntimeRevision,
+                    ),
+                )
             }
             record(
                 "CONFIG_ACK moduleVersion=${BuildConfig.VERSION_CODE} " +
@@ -1406,11 +1416,12 @@ class ListCleanerModule : XposedModule() {
         const val TAG = "ListCleaner"
         const val DIAGNOSTIC_TAG = "ListCleaner.Diagnostic"
         const val HOOK_ID = "ic-query-filter"
+        const val FINAL_ORDER_HOOK_ID = "ic-final-order"
+        const val ALPHA_ORDER_HOOK_ID = "ic-alpha-order"
         const val FRAMEWORK_PACKAGE = "android"
         const val INTENT_RESOLVER_PACKAGE = "com.android.intentresolver"
         const val SYSTEM_SCOPE_PACKAGE = "system"
         const val SYSTEM_UI_PACKAGE = "com.android.systemui"
-        const val PER_USER_RANGE = 100_000
         const val COMPONENT_DISCOVERY_PROTOCOL = 2
         const val VISIBILITY_HOOK_ID = "ic-system-package-visibility"
         const val MANAGER_PACKAGE = "com.yagay.ListCleaner"
