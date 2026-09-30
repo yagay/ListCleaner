@@ -4,7 +4,6 @@ import android.content.ComponentName
 import android.os.Binder
 import android.os.Process
 import android.util.Log
-import com.yagay.ListCleaner.data.ObservedEntryCache
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.DisplayMode
@@ -119,9 +118,8 @@ class NfcPaymentModule : XposedModule() {
     }.getOrNull()
 
     private fun persistObservations(components: List<ComponentName>) {
-        if (components.isEmpty()) return
         val now = System.currentTimeMillis()
-        persistence.merge(components.distinct().map { component ->
+        val records = components.distinct().map { component ->
             ObservedEntryRecord(
                 kind = IntentKind.NFC_HCE.name,
                 packageName = component.packageName,
@@ -129,7 +127,10 @@ class NfcPaymentModule : XposedModule() {
                 activityClass = component.className,
                 observedAt = now,
             )
-        })
+        }
+        if (persistence.replaceKind(IntentKind.NFC_HCE, records)) {
+            record("AUTHORITY_SNAPSHOT kind=${IntentKind.NFC_HCE} count=${records.size}")
+        }
     }
 
     private fun startPolicyOnce() {
