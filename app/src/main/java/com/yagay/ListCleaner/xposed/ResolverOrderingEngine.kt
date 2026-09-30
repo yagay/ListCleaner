@@ -1,6 +1,7 @@
 package com.yagay.ListCleaner.xposed
 
 import android.content.pm.ResolveInfo
+import com.yagay.ListCleaner.domain.AndroidUid
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.RuntimeProtocol
@@ -64,7 +65,7 @@ internal class ResolverOrderingEngine(
             }
             if (movable.size < 2) return
             movable.groupBy { index ->
-                requireNotNull(infos[index].activityInfo.applicationInfo).uid / PER_USER_RANGE
+                AndroidUid.userId(requireNotNull(infos[index].activityInfo.applicationInfo).uid)
             }.values.forEach { profilePositions ->
                 val sorted = profilePositions.sortedBy { index ->
                     val meta = infos[index].activityInfo.metaData
@@ -113,7 +114,7 @@ internal class ResolverOrderingEngine(
                 movable,
                 priorities,
                 { index -> requireNotNull(infos[index].activityInfo).packageName },
-                { index -> requireNotNull(infos[index].activityInfo.applicationInfo).uid / PER_USER_RANGE },
+                { index -> AndroidUid.userId(requireNotNull(infos[index].activityInfo.applicationInfo).uid) },
             )
             movable.forEachIndexed { orderIndex, position -> positions[position] = sorted[orderIndex] }
         }
@@ -147,8 +148,4 @@ internal class ResolverOrderingEngine(
         info.activityInfo?.metaData
             ?.getString(RuntimeProtocol.META_POLICY_DIGEST)
             ?.takeIf(RuntimeProtocol::validDigest)
-
-    private companion object {
-        const val PER_USER_RANGE = 100_000
-    }
 }
