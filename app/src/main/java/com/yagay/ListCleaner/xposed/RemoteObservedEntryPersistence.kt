@@ -11,30 +11,54 @@ internal class RemoteObservedEntryPersistence(
     private val preferences: SharedPreferences,
     private val record: (String) -> Unit,
 ) {
-    @Synchronized
+    /**
+     * Delta-style observations are isolated by kind so independent Xposed processes never race on
+     * one aggregate JSON value. The read/merge/write cycle is now scoped to one logical surface.
+     */
     fun merge(entries: Collection<ObservedEntryRecord>): Boolean {
         if (entries.isEmpty()) return true
-        return update { previous -> ObservedEntryCacheCodec.merge(previous, entries) }
+        val grouped = entries.mapNotNull { candidate ->
+            val validated = candidate.validatedOrNull() ?: return@mapNotNull null
+            val kind = runCatching { IntentKind.valueOf(validated.kind) }.getOrNull()
+                ?: return@mapNotNull null
+            kind to validated
+        }.groupBy({ it.first }, { it.second })
+        return grouped.all { (kind, values) ->
+            update(ObservedEntryCache.remoteKey(kind)) { previous ->
+                ObservedEntryCacheCodec.merge(previous, values)
+            }
+        }
     }
 
     /**
-     * Replace one authority surface atomically instead of accumulating stale rows forever.
-     * Empty snapshots are meaningful: they clear the previous rows for that kind.
+     * Replace one authority surface without reading or rewriting other kinds. Empty snapshots are
+     * meaningful and therefore still write an encoded empty list for this kind.
      */
-    @Synchronized
-    fun replaceKind(kind: IntentKind, entries: Collection<ObservedEntryRecord>): Boolean = update { previous ->
-        val retained = previous.filterNot { it.kind == kind.name }
-        ObservedEntryCacheCodec.merge(retained, entries)
-    }
+    fun replaceKind(kind: IntentKind, entries: Collection<ObservedEntryRecord>): Boolean = runCatching {
+        val encoded = ObservedEntryCacheCodec.encode(
+            entries.mapNotNull(ObservedEntryRecord::validatedOrNull)
+                .filter { it.kind == kind.name }
+        )
+        check(encoded.length <= ObservedEntryCacheCodec.MAX_ENCODED_CHARS)
+        preferences.edit()
+            .putString(ObservedEntryCache.remoteKey(kind), encoded)
+            .commit()
+    }.onFailure {
+        record("OBSERVED_CACHE_WRITE_FAILED kind=${kind.name} error=${it.javaClass.name}")
+    }.getOrDefault(false)
 
-    private fun update(transform: (List<ObservedEntryRecord>) -> List<ObservedEntryRecord>): Boolean = runCatching {
-        val previousEncoded = preferences.getString(ObservedEntryCache.REMOTE_KEY, null)
+    @Synchronized
+    private fun update(
+        key: String,
+        transform: (List<ObservedEntryRecord>) -> List<ObservedEntryRecord>,
+    ): Boolean = runCatching {
+        val previousEncoded = preferences.getString(key, null)
         val previous = ObservedEntryCacheCodec.decode(previousEncoded)
         val encoded = ObservedEntryCacheCodec.encode(transform(previous))
         if (encoded == previousEncoded) return@runCatching true
         check(encoded.length <= ObservedEntryCacheCodec.MAX_ENCODED_CHARS)
-        preferences.edit().putString(ObservedEntryCache.REMOTE_KEY, encoded).commit()
+        preferences.edit().putString(key, encoded).commit()
     }.onFailure {
-        record("OBSERVED_CACHE_WRITE_FAILED error=${it.javaClass.name}")
+        record("OBSERVED_CACHE_WRITE_FAILED key=$key error=${it.javaClass.name}")
     }.getOrDefault(false)
 }
