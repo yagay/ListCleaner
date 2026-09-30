@@ -38,8 +38,13 @@ internal class RemoteEntryPolicyFallback(
     @Synchronized
     private fun refresh(reason: String) {
         runCatching {
-            val encoded = preferences.getString(RuleRepository.KEY_CONFIG, null) ?: return@runCatching
-            if (encoded.length > RuleRepository.MAX_BACKUP_CHARS) return@runCatching
+            val encoded = preferences.getString(RuleRepository.KEY_CONFIG, null)
+            if (encoded == null) {
+                value = Snapshot()
+                record("POLICY_CLEARED reason=$reason source=config_missing")
+                return@runCatching
+            }
+            require(encoded.length <= RuleRepository.MAX_BACKUP_CHARS) { "Config too large" }
             val config = json.decodeFromString(ModuleConfig.serializer(), encoded).validated()
             value = Snapshot(
                 managerAppId = config.managerAppId,
@@ -49,7 +54,10 @@ internal class RemoteEntryPolicyFallback(
             )
             record("POLICY_READ reason=$reason rules=${value.rules.size}")
         }.onFailure {
-            record("POLICY_READ_FAILED reason=$reason error=${it.javaClass.name}")
+            // Fallback filtering is destructive. Invalid/missing policy must fail open instead of
+            // retaining a stale snapshot after the manager has reset or replaced its config.
+            value = Snapshot()
+            record("POLICY_READ_FAILED reason=$reason error=${it.javaClass.name} cleared=true")
         }
     }
 }
