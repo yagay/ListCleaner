@@ -14,6 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -56,7 +57,7 @@ data class ModuleStatus(
 }
 
 /** Owns LSPosed service/session state, scope requests and hook-generation restart checks. */
-class ModuleRuntimeController(
+internal class ModuleRuntimeController(
     private val app: ListCleanerApp,
     private val scope: CoroutineScope
 ) {
@@ -70,13 +71,13 @@ class ModuleRuntimeController(
     private var cachedDetection: ScopeDetection? = null
 
     private val mutableStatus = MutableStateFlow(ModuleStatus())
-    val status: StateFlow<ModuleStatus> = mutableStatus
+    val status: StateFlow<ModuleStatus> = mutableStatus.asStateFlow()
 
     private val mutableUpdating = MutableStateFlow(false)
-    val updating: StateFlow<Boolean> = mutableUpdating
+    val updating: StateFlow<Boolean> = mutableUpdating.asStateFlow()
 
     private val mutableUpdateMessage = MutableStateFlow<String?>(null)
-    val updateMessage: StateFlow<String?> = mutableUpdateMessage
+    val updateMessage: StateFlow<String?> = mutableUpdateMessage.asStateFlow()
 
     suspend fun readStatus(
         session: ServiceSession? = app.currentSession(),
