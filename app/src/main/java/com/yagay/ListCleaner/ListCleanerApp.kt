@@ -11,6 +11,7 @@ import com.yagay.ListCleaner.data.readLegacyRemoteConfig
 import com.yagay.ListCleaner.domain.AuthorityCandidatePolicy
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.ModuleConfig
+import com.yagay.ListCleaner.domain.OBSERVABLE_ENTRY_KINDS
 import com.yagay.ListCleaner.domain.PriorityConfig
 import com.yagay.ListCleaner.domain.RuntimeProtocol
 import com.yagay.ListCleaner.domain.deriveFullySelectedPackages
@@ -71,7 +72,7 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
     private var acknowledgedRevision = -1L
     private var observedRemotePreferences: SharedPreferences? = null
     private val observedPreferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key != ObservedEntryCache.REMOTE_KEY) return@OnSharedPreferenceChangeListener
+        if (!ObservedEntryCache.isRemoteKey(key)) return@OnSharedPreferenceChangeListener
         applicationScope.launch {
             synchronizeObservedEntries()
             catalog.invalidate()
@@ -143,22 +144,20 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
         val session = currentSession() ?: return@withContext observedEntryCache.snapshot().size
         runCatching {
             val prefs = session.service.getRemotePreferences(RuleRepository.REMOTE_PREFS)
-            observedEntryCache.synchronizeRemoteEncoded(
-                prefs.getString(ObservedEntryCache.REMOTE_KEY, null)
-            ).size
+            syncObservedEntriesFrom(prefs)
         }.onFailure {
             Log.w(TAG, "Observed entry cache synchronization failed", it)
         }.getOrElse { observedEntryCache.snapshot().size }
     }
 
-    private fun syncObservedEntriesFrom(prefs: SharedPreferences) {
-        runCatching {
-            observedEntryCache.synchronizeRemoteEncoded(
-                prefs.getString(ObservedEntryCache.REMOTE_KEY, null)
-            )
-        }.onFailure {
-            Log.w(TAG, "Observed entry cache read failed", it)
-        }
+    private fun syncObservedEntriesFrom(prefs: SharedPreferences): Int {
+        val segmented = OBSERVABLE_ENTRY_KINDS.asSequence()
+            .filter { kind -> prefs.contains(ObservedEntryCache.remoteKey(kind)) }
+            .associateWith { kind -> prefs.getString(ObservedEntryCache.remoteKey(kind), null) }
+        return observedEntryCache.synchronizeRemoteEncoded(
+            legacyEncoded = prefs.getString(ObservedEntryCache.REMOTE_KEY, null),
+            segmentedEncoded = segmented,
+        ).size
     }
 
     private fun publish(status: RuntimeStatus): Boolean {
