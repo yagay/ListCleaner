@@ -127,8 +127,8 @@ object ObservedEntryCacheCodec {
     private fun normalize(entries: Collection<ObservedEntryRecord>): List<ObservedEntryRecord> =
         entries.asSequence()
             .mapNotNull(ObservedEntryRecord::validatedOrNull)
-            .distinctBy { it.key }
             .sortedByDescending { it.observedAt }
+            .distinctBy { it.key }
             .take(MAX_ENTRIES)
             .toList()
 }
