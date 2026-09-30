@@ -1,35 +1,31 @@
-# 列表清理 / List Cleaner 1.6.18
+# 列表清理 / List Cleaner 1.6.34
 
-版本码 / Version code: 43
+版本码 / Version code: 59
 
 ## 中文
 
-- Root 磁贴、快捷方式和小组件的持久保护状态现在与主规则一起进入 Runtime Probe 原子配置；`ComponentStateGuardModule` 与 `ComponentDiscoveryFilterModule` 优先使用同一份 system_server 进程内权威快照，不再依赖 RemotePreferences 是否及时刷新。
-- Runtime Probe 的 BEGIN、CHUNK、COMMIT 全部先验证管理器 UID；非管理器调用不能中断正在进行的配置分块传输。
-- Probe v2 成功后停止在 PackageManager / Resolver 查询热路径轮询 RemotePreferences，减少查询时的配置读取和 SHA-256 计算。
-- Root 组件批量操作完成后只进行一次运行时同步，同时 digest 会包含 Root 保护集合，因此即使普通规则 revision 未变化也能正确更新 Hook。
-- App Link 自动发现现在会缓存“成功但为空”的扫描结果，并对失败增加短时间退避，避免每次刷新重复启动 root shell 和 `dumpsys package`。
-- 修正 `ComponentReconcileJobService` 的取消与替换 Job 生命周期，避免旧 Job 在被停止后错误结束新的 Job。
-- 收紧组件重协调广播接收器为非导出。
-- 修正 GitHub Actions：Release PR 校验现在真正有 `pull_request` 触发器；Debug PR 也会在 Gradle/wrapper 配置变化时编译。
-- 重构高风险大文件：候选分组与历史候选逻辑移出 `MainViewModel`，优先级编辑移入独立 `PriorityEditorController`，Xposed 运行时快照与组件策略也拆成独立模型。
-- 规则页和优先级页不再使用 `openPreset!!` / `browserHost!!`，改为基于当前分类捕获稳定作用域值，降低状态切换时的空指针风险。
-- 删除已无运行时用途的 `TileConfig` / `TilePolicy` 和 forced-default transient 配置外壳；旧备份/配置中的这些字段仍会作为未知字段安全忽略。
-- 本次修改涉及 Xposed 运行时合同，Hook compatibility 提升到 43。
+- 高级系统入口改为“系统最终权威列表优先”：PackageManager、Manifest 和 AppOps 的候选只作为发现证据，未经最终系统列表确认的条目不再混入正常列表。
+- VPN 改为 Hook Android Settings 的最终 `VpnSettings.getVpnApps()` 列表，不再把原始 AppOps 结果当作最终 VPN 列表；同时只 Hook 最终重载，避免嵌套重载覆盖原始快照。
+- `SystemManagerEntryFilterModule` 现在始终先观察 Accessibility、输入法、打印、Credential 等系统管理器的原始结果，再判断是否允许过滤；系统调用被安全策略放行时也不会丢失真实候选证据。
+- Assistant、Home、Browser、Call Screening 的 RoleController 原始资格包列表会回传到管理器并作为 package-level 权威快照，减少管理端自行重建资格列表带来的差异。
+- Android 16 Combined Provider 的 Autofill / Credential 列表改为整类权威快照，同时兼容旧 `DefaultAutofillPicker` 的组件列表，用同一包级规则过滤。
+- NFC Payment 的 `CATEGORY_PAYMENT` 列表改为整类快照，已从系统支付列表消失的服务不会继续作为当前候选保留。
+- observed-entry 本地缓存新增“权威快照替换”语义：Role、VPN、Autofill、Credential、NFC 的远端删除会同步清除本地旧条目；Shortcut / Direct Share 仍保留增量历史。
+- Runtime Audit 不再把单纯 `MODULE_LOADED` 当作 Hook 已就绪；现在区分模块加载、Hook 安装、权威查询和实际过滤，并识别新的 Settings authority 路径。
+- 发布流程文档与当前 Actions 对齐：正式 Release 只允许手动启动；清理旧 Telegram push 标记。
+- 本次修改改变 Xposed/Settings/Role/NFC 运行时合同，Hook compatibility 提升到 59。
 
 ---
 
 ## English
 
-- Root tile, shortcut, and widget protection is now carried in the same atomic Runtime Probe configuration as resolver rules. `ComponentStateGuardModule` and `ComponentDiscoveryFilterModule` prefer the shared authoritative in-process system_server snapshot instead of depending on RemotePreferences cache freshness.
-- Runtime Probe now verifies the manager UID before BEGIN, CHUNK, and COMMIT operations, preventing non-manager callers from disrupting an in-flight chunk transfer.
-- After Probe v2 becomes authoritative, PackageManager/Resolver hot paths stop polling RemotePreferences, reducing configuration reads and SHA-256 work during resolver queries.
-- Root component batches perform one runtime synchronization after mutation, and the runtime digest includes the protected component set so hook state updates even when the normal rule revision is unchanged.
-- App Link discovery now caches successful empty scans and backs off briefly after failures, avoiding repeated root shell and `dumpsys package` work on every refresh.
-- Fixed `ComponentReconcileJobService` cancellation/replacement lifecycle so a stopped stale job cannot finish or remove its replacement.
-- Restricted the reconcile broadcast receiver from external export.
-- Fixed GitHub Actions so release validation actually runs for pull requests and debug PR builds also cover Gradle/wrapper changes.
-- Split high-risk large files: candidate grouping/history logic moved out of `MainViewModel`, priority editing moved into `PriorityEditorController`, and Xposed runtime snapshots/component policy now live in dedicated models.
-- Removed `openPreset!!` / `browserHost!!` assertions from the rules and priority Compose screens by capturing stable scope values for the current category.
-- Removed obsolete `TileConfig` / `TilePolicy` and forced-default transient compatibility shells; legacy JSON fields remain safely ignored as unknown fields.
-- This release changes Xposed runtime behavior, so hook compatibility is bumped to 43.
+- Advanced system-entry discovery now prefers each Android subsystem's final authoritative list. PackageManager, manifest, and AppOps results remain discovery evidence but no longer enter the normal list without final-authority confirmation.
+- VPN filtering now hooks Android Settings' final `VpnSettings.getVpnApps()` result instead of treating raw AppOps packages as the final VPN list. Only the terminal overload is hooked so nested overloads cannot overwrite the pristine authority snapshot with an already filtered result.
+- `SystemManagerEntryFilterModule` now observes the original Accessibility, input-method, print, and Credential manager results before deciding whether a caller may be filtered, preserving real candidate evidence even when system calls are intentionally left untouched.
+- Assistant, Home, Browser, and Call Screening now mirror RoleController's unfiltered qualifying-package lists back to the manager as package-level authority snapshots instead of relying only on manager-side reconstruction.
+- Android 16 Combined Provider Autofill/Credential results are stored as complete authority snapshots, while the legacy `DefaultAutofillPicker` component list remains compatible with the same package-level rules.
+- NFC Payment `CATEGORY_PAYMENT` observations are now complete snapshots so services removed from the real payment list no longer remain current candidates.
+- The manager's observed-entry cache now reconciles complete remote authority snapshots: removed Role, VPN, Autofill, Credential, and NFC entries are deleted locally, while Shortcut and Direct Share keep incremental history.
+- Runtime Audit no longer treats `MODULE_LOADED` alone as proof that a hook is ready. Module load, hook installation, authority queries, and actual filtering are tracked separately, including the new Settings authority paths.
+- Release documentation now matches the current Actions policy: official Releases are manual-only, and the obsolete Telegram push marker was removed.
+- This release changes Xposed/Settings/Role/NFC runtime behavior, so hook compatibility is bumped to 59.
