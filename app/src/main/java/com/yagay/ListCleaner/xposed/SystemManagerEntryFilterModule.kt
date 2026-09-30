@@ -8,6 +8,7 @@ import android.os.Process
 import android.util.Log
 import android.view.inputmethod.InputMethodInfo
 import com.yagay.ListCleaner.data.RuleRepository
+import com.yagay.ListCleaner.domain.AndroidUid
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.ENTRY_RUNTIME_DEFINITIONS
@@ -260,7 +261,7 @@ class SystemManagerEntryFilterModule : XposedModule() {
             filtered,
             priorities,
             { value -> componentOf(value)?.packageName ?: "" },
-            { value -> (componentOf(value)?.applicationInfo?.uid ?: 0) / PER_USER_RANGE },
+            { value -> AndroidUid.userId(componentOf(value)?.applicationInfo?.uid ?: 0) },
         )
         if (removed == 0 && ordered == result.values) return original
         record(
@@ -360,7 +361,6 @@ class SystemManagerEntryFilterModule : XposedModule() {
         const val IME_INTERNAL_HOOK_ID = "lc-ime-manager-internal"
         const val PRINT_HOOK_ID = "lc-print-manager-entries"
         const val CREDENTIAL_HOOK_ID = "lc-credential-manager-entries"
-        const val PER_USER_RANGE = 100_000
 
         val MANAGER_PATHS = setOf(
             EntryRuntimePath.ACCESSIBILITY_MANAGER,
