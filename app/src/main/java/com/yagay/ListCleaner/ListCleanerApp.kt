@@ -27,6 +27,8 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
@@ -55,17 +57,21 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
     lateinit var catalog: IntentCatalog; private set
 
     private val sessionRegistry = ServiceSessionRegistry()
-    val serviceSession = MutableStateFlow<ServiceSession?>(null)
+    private val mutableServiceSession = MutableStateFlow<ServiceSession?>(null)
+    val serviceSession: StateFlow<ServiceSession?> = mutableServiceSession.asStateFlow()
     /** Compatibility surface for existing UI code. New async work should capture [serviceSession]. */
-    val service = MutableStateFlow<XposedService?>(null)
-    val syncStatus = MutableStateFlow("")
-    val runtime = MutableStateFlow(RuntimeStatus())
+    private val mutableService = MutableStateFlow<XposedService?>(null)
+    val service: StateFlow<XposedService?> = mutableService.asStateFlow()
+    private val mutableSyncStatus = MutableStateFlow("")
+    val syncStatus: StateFlow<String> = mutableSyncStatus.asStateFlow()
+    private val mutableRuntime = MutableStateFlow(RuntimeStatus())
+    val runtime: StateFlow<RuntimeStatus> = mutableRuntime.asStateFlow()
 
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val syncMutex = Mutex()
     private val json = Json { ignoreUnknownKeys = true }
-    private val runtimeTransport by lazy(LazyThreadSafetyMode.NONE) { RuntimeConfigTransport(this) }
-    private val observedEntryCache by lazy(LazyThreadSafetyMode.NONE) { ObservedEntryCache(this) }
+    private val runtimeTransport by lazy { RuntimeConfigTransport(this) }
+    private val observedEntryCache by lazy { ObservedEntryCache(this) }
     private var pendingRecovery: ModuleConfig? = null
     private var corruptRecovery = false
     private var acknowledgedSessionGeneration = -1L
@@ -81,8 +87,8 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
 
     override fun onCreate() {
         super.onCreate()
-        syncStatus.value = getString(R.string.runtime_waiting_connection)
-        runtime.value = RuntimeStatus(message = getString(R.string.runtime_waiting_verify))
+        mutableSyncStatus.value = getString(R.string.runtime_waiting_connection)
+        mutableRuntime.value = RuntimeStatus(message = getString(R.string.runtime_waiting_verify))
         rules = RuleRepository(this)
         catalog = IntentCatalog(this)
         XposedServiceHelper.registerListener(this)
@@ -116,8 +122,8 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
         }.onFailure {
             Log.w(TAG, "Observed preference listener registration failed", it)
         }.getOrNull()
-        this.service.value = service
-        serviceSession.value = session
+        mutableService.value = service
+        mutableServiceSession.value = session
         applicationScope.launch {
             PersistentComponentStore(this@ListCleanerApp).syncRemote()
             synchronizeObservedEntries()
@@ -131,8 +137,8 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
             observedRemotePreferences = null
             acknowledgedSessionGeneration = -1L
             acknowledgedRevision = -1L
-            serviceSession.value = null
-            this.service.value = null
+            mutableServiceSession.value = null
+            mutableService.value = null
             publish(RuntimeStatus(message = getString(R.string.runtime_connection_lost)))
         }
     }
@@ -161,8 +167,8 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
     }
 
     private fun publish(status: RuntimeStatus): Boolean {
-        runtime.value = status
-        syncStatus.value = status.message
+        mutableRuntime.value = status
+        mutableSyncStatus.value = status.message
         return status.ready
     }
 
