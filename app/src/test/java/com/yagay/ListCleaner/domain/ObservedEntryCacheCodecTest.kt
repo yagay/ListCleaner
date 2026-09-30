@@ -83,6 +83,33 @@ class ObservedEntryCacheCodecTest {
     }
 
     @Test
+    fun segmentedReconcileOnlyReplacesRequestedAuthorityKind() {
+        val staleVpn = ObservedEntryRecord(
+            IntentKind.VPN.name,
+            "com.example.oldvpn",
+            "@vpn",
+            observedAt = 10L,
+        )
+        val assistant = ObservedEntryRecord(
+            IntentKind.ASSISTANT.name,
+            "com.example.assistant",
+            "@assistant",
+            observedAt = 11L,
+        )
+        val currentVpn = staleVpn.copy(packageName = "com.example.currentvpn", observedAt = 20L)
+
+        val reconciled = ObservedEntryCacheCodec.reconcileRemote(
+            existing = listOf(staleVpn, assistant),
+            remote = listOf(currentVpn),
+            snapshotKinds = setOf(IntentKind.VPN),
+        )
+
+        assertFalse(reconciled.any { it.packageName == staleVpn.packageName })
+        assertTrue(reconciled.any { it.packageName == currentVpn.packageName })
+        assertTrue(reconciled.any { it.key == assistant.key })
+    }
+
+    @Test
     fun reconcileEmptyRemoteClearsAuthorityRows() {
         val assistant = ObservedEntryRecord(
             IntentKind.ASSISTANT.name,
