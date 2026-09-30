@@ -1,5 +1,6 @@
 package com.yagay.ListCleaner.domain
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -24,6 +25,16 @@ class FilterPolicyTest {
         assertFalse(FilterPolicy.ordinaryAppCaller(201000))
         assertTrue(FilterPolicy.ordinaryAppCaller(110123))
         assertTrue(FilterPolicy.ordinaryAppCaller(210123))
+    }
+
+    @Test fun sharedUidHelpersHandleProfilesConsistently() {
+        assertEquals(0, AndroidUid.userId(10123))
+        assertEquals(1, AndroidUid.userId(110123))
+        assertEquals(2, AndroidUid.userId(210123))
+        assertEquals(10123, AndroidUid.appId(110123))
+        assertEquals(1000, AndroidUid.appId(101000))
+        assertEquals(-1, AndroidUid.userId(-1))
+        assertEquals(-1, AndroidUid.appId(-1))
     }
 
     @Test fun ordinaryAppsOnlyPreserveTheirOwnUid() {
