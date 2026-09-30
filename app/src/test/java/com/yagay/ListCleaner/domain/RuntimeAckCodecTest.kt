@@ -7,6 +7,30 @@ import org.junit.Test
 class RuntimeAckCodecTest {
     private val digest = "a".repeat(64)
 
+    @Test fun encodesCurrentAckAndRoundTrips() {
+        val expected = RuntimeAckCodec.Ack(
+            digest = digest,
+            queryHits = 12,
+            visibilityHits = 34,
+            orderingHits = 56,
+            componentDiscoveryProtocol = 2,
+            runtimeProtocol = 2,
+            revision = 99,
+        )
+        val encoded = RuntimeAckCodec.encode(59, expected)
+
+        assertEquals("59:$digest:12:34:56:2:2:99", encoded)
+        assertEquals(expected, RuntimeAckCodec.parse(encoded, 59, digest))
+    }
+
+    @Test fun encodeNormalizesNonNegativeMetricsAndProtocols() {
+        val encoded = RuntimeAckCodec.encode(
+            59,
+            RuntimeAckCodec.Ack(digest, -1, -2, -3, -1, 0, -1),
+        )
+        assertEquals("59:$digest:0:0:0:0:1:-1", encoded)
+    }
+
     @Test fun parsesCurrentAck() {
         val ack = RuntimeAckCodec.parse(
             "59:$digest:12:34:56:2:2:99",
