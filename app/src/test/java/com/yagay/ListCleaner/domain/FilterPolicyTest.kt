@@ -8,6 +8,7 @@ class FilterPolicyTest {
     @Test fun privilegedCallersAreAlwaysPreservedByResolverFilter() {
         assertTrue(FilterPolicy.sameCaller(1000, 10123))
         assertTrue(FilterPolicy.sameCaller(0, 10123))
+        assertTrue(FilterPolicy.sameCaller(101000, 110123))
     }
 
     @Test fun packageManagerFilteringOnlyAllowsOrdinaryApplicationCallers() {
@@ -18,9 +19,18 @@ class FilterPolicyTest {
         assertTrue(FilterPolicy.ordinaryAppCaller(10123))
     }
 
+    @Test fun multiUserUidsAreClassifiedByAppId() {
+        assertFalse(FilterPolicy.ordinaryAppCaller(101000))
+        assertFalse(FilterPolicy.ordinaryAppCaller(201000))
+        assertTrue(FilterPolicy.ordinaryAppCaller(110123))
+        assertTrue(FilterPolicy.ordinaryAppCaller(210123))
+    }
+
     @Test fun ordinaryAppsOnlyPreserveTheirOwnUid() {
         assertTrue(FilterPolicy.sameCaller(10123, 10123))
         assertFalse(FilterPolicy.sameCaller(10123, 10124))
+        assertTrue(FilterPolicy.sameCaller(110123, 110123))
+        assertFalse(FilterPolicy.sameCaller(110123, 10123))
     }
 
     @Test fun catalogPrivacyStillUsesExactUidEquality() {
