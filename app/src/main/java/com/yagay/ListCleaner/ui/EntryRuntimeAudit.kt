@@ -175,7 +175,7 @@ internal object EntryRuntimeAudit {
             EntryRuntimePath.SHORTCUT_SERVICE -> {
                 if (!line.contains("ListCleaner.ShortcutSurface")) false
                 else if (kind == IntentKind.DIRECT_SHARE) line.contains("DIRECT_") || line.contains("getShareTargets")
-                else line.contains("SHORTCUT_") || line.contains("getShortcuts")
+                else line.contains("SHORTCUT_") || line.contains("getShortcuts") || line.contains("RESTORE_ALL_SHORTCUTS")
             }
             EntryRuntimePath.PACKAGE_MANAGER_ACTIVITY,
             EntryRuntimePath.PACKAGE_MANAGER_PROVIDER,
