@@ -84,16 +84,29 @@ jobs:
           test -s "${ANDROID_HOME}/platforms/android-37.0/android.jar"
           test -x "${ANDROID_HOME}/build-tools/36.0.0/aapt2"
 
-      - name: Build Debug APK
+      - name: Build arm64-v8a Debug APK
         run: |
           set -o pipefail
-          bash ./gradlew --no-daemon --console=plain --stacktrace :app:assembleDebug 2>&1 | tee debug-build.log
+          bash ./gradlew --no-daemon --console=plain --stacktrace -PciArm64Only=true :app:assembleDebug 2>&1 | tee debug-build.log
+
+      - name: Prepare fixed APK name
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          APK="$(find app/build/outputs/apk -type f -name '*.apk' -path '*/debug/*' | head -n 1)"
+          test -n "$APK"
+          ABIS="$(unzip -l "$APK" | awk '{print $4}' | sed -n 's#^lib/\([^/]*\)/.*#\1#p' | sort -u)"
+          if [ -n "$ABIS" ] && [ "$ABIS" != "arm64-v8a" ]; then
+            echo "Unexpected ABIs in APK: $ABIS"
+            exit 1
+          fi
+          cp "$APK" artifacts/ListCleaner-debug-arm64-v8a.apk
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: ListCleaner-debug-${{ github.run_number }}-${{ github.run_attempt }}
-          path: app/build/outputs/apk/debug/*.apk
+          name: ListCleaner-debug-arm64-v8a
+          path: artifacts/ListCleaner-debug-arm64-v8a.apk
           if-no-files-found: error
           retention-days: 14
 
@@ -106,7 +119,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: debug-build-log-${{ github.run_number }}-${{ github.run_attempt }}
+          name: ListCleaner-debug-build-log
           path: |
             sdk-tools.log
             sdk-packages.log
