@@ -7,6 +7,10 @@ import kotlinx.serialization.json.Json
 val OBSERVABLE_ENTRY_KINDS: Set<IntentKind> = setOf(
     IntentKind.SHORTCUT_ITEM,
     IntentKind.DIRECT_SHARE,
+    IntentKind.ASSISTANT,
+    IntentKind.HOME,
+    IntentKind.BROWSER,
+    IntentKind.CALL_SCREENING,
     IntentKind.ACCESSIBILITY,
     IntentKind.INPUT_METHOD,
     IntentKind.PRINT,
