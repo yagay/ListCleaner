@@ -26,6 +26,7 @@ import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.data.RootComponent
@@ -44,10 +45,10 @@ private fun componentAppSelectionRank(items: List<RootComponent>): Int {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
-    val scan by vm.componentScan.collectAsState()
-    val busy by vm.componentBusy.collectAsState()
-    val message by vm.componentMessage.collectAsState()
-    val rootNotice by vm.componentRootNotice.collectAsState()
+    val scan by vm.componentScan.collectAsStateWithLifecycle()
+    val busy by vm.componentBusy.collectAsStateWithLifecycle()
+    val message by vm.componentMessage.collectAsStateWithLifecycle()
+    val rootNotice by vm.componentRootNotice.collectAsStateWithLifecycle()
     rootNotice?.let { notice ->
         AlertDialog(
             onDismissRequest = vm::dismissComponentRootNotice,
@@ -62,7 +63,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
     }
 
     var kind by remember { mutableStateOf<CleanupKind?>(null) }
-    val bulkLockRevision by vm.bulkLockRevision.collectAsState()
+    val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
     var viewFilter by rememberSaveable { mutableStateOf(UiFilter.ALL) }
     var appTypeFilter by rememberSaveable { mutableStateOf(AppTypeFilter.ALL) }
     var filterMenu by remember { mutableStateOf(false) }
