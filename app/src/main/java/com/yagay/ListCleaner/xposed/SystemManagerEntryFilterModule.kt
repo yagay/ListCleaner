@@ -1,7 +1,6 @@
 package com.yagay.ListCleaner.xposed
 
 import android.accessibilityservice.AccessibilityServiceInfo
-import android.app.AppOpsManager
 import android.content.ComponentName
 import android.content.pm.ServiceInfo
 import android.os.Binder
@@ -14,7 +13,6 @@ import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.FilterPolicy
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.ManagerIdentity
-import com.yagay.ListCleaner.domain.SyntheticEntryKeys
 import com.yagay.ListCleaner.domain.prioritizeApps
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
@@ -26,12 +24,11 @@ import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.util.concurrent.ConcurrentHashMap
 
-/** Filters Android's final manager/app-ops lists instead of assuming PackageManager is authoritative. */
+/** Filters Android's final manager lists while always observing the unmodified authority result first. */
 class SystemManagerEntryFilterModule : XposedModule() {
     private data class CallerContext(val uid: Int, val pid: Int, val process: String?)
 
     @Volatile private var processName = ""
-    @Volatile private var vpnOps: Set<Int> = emptySet()
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
     private val listResults = SafeListResultExtractor(::record)
     private val imeCallerContext = ThreadLocal<CallerContext?>()
@@ -60,12 +57,10 @@ class SystemManagerEntryFilterModule : XposedModule() {
     override fun onSystemServerStarting(param: SystemServerStartingParam) {
         processName = "system"
         fallback.start()
-        vpnOps = resolveVpnOps()
         installAccessibilityHooks(param.classLoader)
         installInputMethodHooks(param.classLoader)
         installPrintHooks(param.classLoader)
         installCredentialHooks(param.classLoader)
-        installVpnAppOpsHooks(param.classLoader)
     }
 
     private fun effectivePolicy(): RuntimeComponentPolicySnapshot {
@@ -123,22 +118,6 @@ class SystemManagerEntryFilterModule : XposedModule() {
         }
     }
 
-    private fun installVpnAppOpsHooks(classLoader: ClassLoader) {
-        if (vpnOps.isEmpty()) {
-            record("VPN_OPS_UNAVAILABLE")
-            return
-        }
-        APP_OPS_CLASSES.forEach { className ->
-            val clazz = runCatching { Class.forName(className, false, classLoader) }.getOrNull()
-                ?: return@forEach
-            methods(clazz)
-                .filter { it.name == "getPackagesForOps" }
-                .filter { List::class.java.isAssignableFrom(it.returnType) }
-                .filter { it.parameterTypes.any { type -> type == IntArray::class.java } }
-                .forEach { method -> install(method, VPN_HOOK_ID, vpnAppOpsHooker()) }
-        }
-    }
-
     /** Android 15+ may return InputMethodInfoSafeList; bridge caller identity to the internal List. */
     private fun installInputMethodHooks(classLoader: ClassLoader) {
         IME_CLASSES.forEach { className ->
@@ -163,16 +142,18 @@ class SystemManagerEntryFilterModule : XposedModule() {
     ) = XposedInterface.Hooker { chain ->
         val caller = currentCaller()
         val original = chain.proceed()
+        observeComponentResult(original, kind, componentOf)
         val policy = effectivePolicy()
-        if (!shouldFilter(caller, policy)) return@Hooker original
+        if (!shouldFilter(caller, policy)) {
+            record("AUTHORITY_OBSERVED kind=$kind callerUid=${caller.uid} filterAllowed=false")
+            return@Hooker original
+        }
         filterComponentResult(original, kind, caller.uid, policy, componentOf)
     }
 
     private fun credentialHooker() = XposedInterface.Hooker { chain ->
         val caller = currentCaller()
         val original = chain.proceed()
-        val policy = effectivePolicy()
-        if (!shouldFilter(caller, policy)) return@Hooker original
         val values = original as? List<*> ?: return@Hooker original
         if (values.isEmpty()) return@Hooker original
 
@@ -180,10 +161,19 @@ class SystemManagerEntryFilterModule : XposedModule() {
             RuntimeObservedEntryStore.observePackage(IntentKind.CREDENTIAL_PROVIDER, component.packageName)
         } }
 
+        val policy = effectivePolicy()
+        if (!shouldFilter(caller, policy)) {
+            record("AUTHORITY_OBSERVED kind=${IntentKind.CREDENTIAL_PROVIDER} callerUid=${caller.uid} filterAllowed=false count=${values.size}")
+            return@Hooker original
+        }
+
         val selectedPackages = policy.selected(IntentKind.CREDENTIAL_PROVIDER)
             .mapNotNull(ComponentRule::fromId)
             .mapTo(linkedSetOf()) { it.packageName }
-        if (policy.displayMode == DisplayMode.SHOW_ALL || selectedPackages.isEmpty()) return@Hooker original
+        if (policy.displayMode == DisplayMode.SHOW_ALL || selectedPackages.isEmpty()) {
+            record("MANAGER_HIT kind=${IntentKind.CREDENTIAL_PROVIDER} callerUid=${caller.uid} count=${values.size}")
+            return@Hooker original
+        }
 
         val filtered = values.filter { value ->
             val component = credentialComponent(value) ?: return@filter true
@@ -197,50 +187,21 @@ class SystemManagerEntryFilterModule : XposedModule() {
         ArrayList(filtered)
     }
 
-    private fun vpnAppOpsHooker() = XposedInterface.Hooker { chain ->
-        val requested = chain.args.firstOrNull { it is IntArray } as? IntArray
-            ?: return@Hooker chain.proceed()
-        if (requested.isEmpty() || requested.any { it !in vpnOps }) return@Hooker chain.proceed()
-
-        val caller = currentCaller()
-        val original = chain.proceed()
-        val values = original as? List<*> ?: return@Hooker original
-        val policy = effectivePolicy()
-        if (!shouldFilter(caller, policy)) return@Hooker original
-
-        values.forEach { value ->
-            val packageName = reflectedString(value, "getPackageName") ?: return@forEach
-            if (hasAllowedVpnOp(value)) RuntimeObservedEntryStore.observePackage(IntentKind.VPN, packageName)
-        }
-
-        val selectedPackages = policy.selected(IntentKind.VPN)
-            .mapNotNull(ComponentRule::fromId)
-            .mapTo(linkedSetOf()) { it.packageName }
-        if (policy.displayMode == DisplayMode.SHOW_ALL || selectedPackages.isEmpty()) return@Hooker original
-
-        val filtered = values.filter { value ->
-            val packageName = reflectedString(value, "getPackageName") ?: return@filter true
-            policy.displayMode.includes(packageName in selectedPackages, selectedPackages.isNotEmpty())
-        }
-        if (filtered.size == values.size) return@Hooker original
-        record(
-            "VPN_APPOPS_FILTER callerUid=${caller.uid} before=${values.size} after=${filtered.size} " +
-                "requested=${requested.joinToString(",")} selectedPackages=${selectedPackages.size}"
-        )
-        ArrayList(filtered)
-    }
-
     private fun imeOuterHooker() = XposedInterface.Hooker { chain ->
         val caller = currentCaller()
-        val policy = effectivePolicy()
-        if (!shouldFilter(caller, policy)) return@Hooker chain.proceed()
-
         val previous = imeCallerContext.get()
         imeCallerContext.set(caller)
         try {
             val original = chain.proceed()
+            val policy = effectivePolicy()
             if (original is List<*>) {
-                filterComponentResult(original, IntentKind.INPUT_METHOD, caller.uid, policy, ::inputMethodComponent)
+                observeComponentResult(original, IntentKind.INPUT_METHOD, ::inputMethodComponent)
+                if (shouldFilter(caller, policy)) {
+                    filterComponentResult(original, IntentKind.INPUT_METHOD, caller.uid, policy, ::inputMethodComponent)
+                } else {
+                    record("AUTHORITY_OBSERVED kind=${IntentKind.INPUT_METHOD} callerUid=${caller.uid} filterAllowed=false")
+                    original
+                }
             } else {
                 record(
                     "IME_BRIDGE outerResult=${original?.javaClass?.name ?: "null"} callerUid=${caller.uid} " +
@@ -255,9 +216,27 @@ class SystemManagerEntryFilterModule : XposedModule() {
 
     private fun imeInternalHooker() = XposedInterface.Hooker { chain ->
         val caller = imeCallerContext.get() ?: return@Hooker chain.proceed()
-        val policy = effectivePolicy()
         val original = chain.proceed()
+        observeComponentResult(original, IntentKind.INPUT_METHOD, ::inputMethodComponent)
+        val policy = effectivePolicy()
+        if (!shouldFilter(caller, policy)) return@Hooker original
         filterComponentResult(original, IntentKind.INPUT_METHOD, caller.uid, policy, ::inputMethodComponent)
+    }
+
+    private fun observeComponentResult(
+        original: Any?,
+        kind: IntentKind,
+        componentOf: (Any?) -> ServiceInfo?,
+    ) {
+        val result = listResults.extract(original) ?: return
+        result.values.forEach { value ->
+            componentOf(value)?.let { service ->
+                RuntimeObservedEntryStore.observeComponent(
+                    kind,
+                    ComponentName(service.packageName, service.name),
+                )
+            }
+        }
     }
 
     private fun filterComponentResult(
@@ -269,15 +248,6 @@ class SystemManagerEntryFilterModule : XposedModule() {
     ): Any? {
         val result = listResults.extract(original) ?: return original
         if (result.values.isEmpty()) return original
-
-        result.values.forEach { value ->
-            componentOf(value)?.let { service ->
-                RuntimeObservedEntryStore.observeComponent(
-                    kind,
-                    ComponentName(service.packageName, service.name),
-                )
-            }
-        }
 
         val selected = policy.selected(kind)
         val priorities = policy.priorities(kind)
@@ -342,40 +312,11 @@ class SystemManagerEntryFilterModule : XposedModule() {
         findNoArgMethod(value?.javaClass, "getResolveInfo")?.invoke(value) as? android.content.pm.ResolveInfo
     }.getOrNull()
 
-    private fun reflectedString(value: Any?, methodName: String): String? = runCatching {
-        findNoArgMethod(value?.javaClass, methodName)?.invoke(value) as? String
-    }.getOrNull()
-
-    private fun hasAllowedVpnOp(packageOps: Any?): Boolean {
-        val ops = runCatching {
-            findNoArgMethod(packageOps?.javaClass, "getOps")?.invoke(packageOps) as? List<*>
-        }.getOrNull().orEmpty()
-        return ops.any { entry ->
-            val op = reflectedInt(entry, "getOp") ?: return@any false
-            val mode = reflectedInt(entry, "getMode") ?: return@any false
-            op in vpnOps && mode == AppOpsManager.MODE_ALLOWED
-        }
-    }
-
-    private fun reflectedInt(value: Any?, methodName: String): Int? = runCatching {
-        (findNoArgMethod(value?.javaClass, methodName)?.invoke(value) as? Number)?.toInt()
-    }.getOrNull()
-
     private fun findNoArgMethod(clazz: Class<*>?, name: String): Method? = clazz?.let {
         generateSequence(it as Class<*>?) { type -> type.superclass }
             .flatMap { type -> type.declaredMethods.asSequence() }
             .firstOrNull { method -> method.name == name && method.parameterCount == 0 }
             ?.apply { isAccessible = true }
-    }
-
-    private fun resolveVpnOps(): Set<Int> = buildSet {
-        listOf("OP_ACTIVATE_VPN", "OP_ACTIVATE_PLATFORM_VPN").forEach { fieldName ->
-            runCatching {
-                val field = AppOpsManager::class.java.getDeclaredField(fieldName)
-                field.isAccessible = true
-                add(field.getInt(null))
-            }.onFailure { record("VPN_OP_RESOLVE_FAILED field=$fieldName error=${it.javaClass.simpleName}") }
-        }
     }
 
     private fun shouldFilter(caller: CallerContext, policy: RuntimeComponentPolicySnapshot): Boolean {
@@ -444,7 +385,6 @@ class SystemManagerEntryFilterModule : XposedModule() {
         const val IME_INTERNAL_HOOK_ID = "lc-ime-manager-internal"
         const val PRINT_HOOK_ID = "lc-print-manager-entries"
         const val CREDENTIAL_HOOK_ID = "lc-credential-manager-entries"
-        const val VPN_HOOK_ID = "lc-vpn-appops-entries"
         const val PER_USER_RANGE = 100_000
 
         val MANAGER_KINDS = setOf(
@@ -452,7 +392,6 @@ class SystemManagerEntryFilterModule : XposedModule() {
             IntentKind.INPUT_METHOD,
             IntentKind.PRINT,
             IntentKind.CREDENTIAL_PROVIDER,
-            IntentKind.VPN,
         )
         val ACCESSIBILITY_CLASSES = listOf("com.android.server.accessibility.AccessibilityManagerService")
         val IME_CLASSES = listOf(
@@ -462,6 +401,5 @@ class SystemManagerEntryFilterModule : XposedModule() {
         val IME_OUTER_METHODS = setOf("getInputMethodList", "getInputMethodListLegacy")
         val PRINT_CLASSES = listOf("com.android.server.print.PrintManagerService")
         val CREDENTIAL_CLASSES = listOf("com.android.server.credentials.CredentialManagerService")
-        val APP_OPS_CLASSES = listOf("com.android.server.appop.AppOpsService")
     }
 }
