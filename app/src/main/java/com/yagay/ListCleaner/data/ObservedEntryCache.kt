@@ -4,7 +4,7 @@ import android.content.Context
 import com.yagay.ListCleaner.domain.ObservedEntryCacheCodec
 import com.yagay.ListCleaner.domain.ObservedEntryRecord
 
-/** Manager-side persistent cache for runtime-observed shortcut surfaces. */
+/** Manager-side persistent cache for runtime-observed surfaces. */
 internal class ObservedEntryCache(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
@@ -21,10 +21,16 @@ internal class ObservedEntryCache(context: Context) {
         return merged
     }
 
+    /**
+     * RemotePreferences contains both delta-like shortcut observations and complete authority
+     * snapshots. Reconciliation replaces the complete kinds while retaining local shortcut history.
+     */
     @Synchronized
-    fun mergeEncoded(encoded: String?): List<ObservedEntryRecord> {
+    fun synchronizeRemoteEncoded(encoded: String?): List<ObservedEntryRecord> {
         val remote = ObservedEntryCacheCodec.decode(encoded)
-        return if (remote.isEmpty()) snapshot() else merge(remote)
+        val reconciled = ObservedEntryCacheCodec.reconcileRemote(snapshot(), remote)
+        persist(reconciled)
+        return reconciled
     }
 
     @Synchronized
