@@ -1,6 +1,6 @@
 package com.yagay.ListCleaner.data;
 
-import com.yagay.ListCleaner.ui.DiagnosticBuffer;
+import com.yagay.ListCleaner.diagnostics.DiagnosticBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
