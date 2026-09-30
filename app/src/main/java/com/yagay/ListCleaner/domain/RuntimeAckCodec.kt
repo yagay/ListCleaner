@@ -1,6 +1,6 @@
 package com.yagay.ListCleaner.domain
 
-/** Pure parser for the resolver-label runtime ACK wire format. */
+/** Pure codec for the resolver-label runtime ACK wire format. */
 object RuntimeAckCodec {
     data class Ack(
         val digest: String,
@@ -11,6 +11,20 @@ object RuntimeAckCodec {
         val runtimeProtocol: Int,
         val revision: Long,
     )
+
+    fun encode(
+        hookCompatVersion: Long,
+        ack: Ack,
+    ): String = buildString {
+        append(hookCompatVersion)
+        append(':').append(ack.digest)
+        append(':').append(ack.queryHits.coerceAtLeast(0L))
+        append(':').append(ack.visibilityHits.coerceAtLeast(0L))
+        append(':').append(ack.orderingHits.coerceAtLeast(0L))
+        append(':').append(ack.componentDiscoveryProtocol.coerceAtLeast(0))
+        append(':').append(ack.runtimeProtocol.coerceAtLeast(1))
+        append(':').append(ack.revision)
+    }
 
     /**
      * Parses both the current ACK and older short ACKs. Missing or malformed optional counters keep
