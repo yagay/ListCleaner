@@ -10,25 +10,13 @@ on:
       - 'gradlew'
       - '.github/workflows/build-release.yml'
   workflow_dispatch:
-    inputs:
-      publish:
-        description: 'Publish GitHub Release and dispatch LSPosed sync'
-        required: false
-        type: boolean
-        default: false
-  push:
-    branches:
-      - main
-    paths:
-      - 'app/build.gradle.kts'
-      - 'RELEASE_NOTES.md'
 
 permissions:
   contents: read
 
 concurrency:
   group: release-${{ github.repository }}-${{ github.ref }}
-  # PR validation should keep only the newest commit; main publication must never be cancelled.
+  # PR validation should keep only the newest commit; manual main publication must never be cancelled.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -73,8 +61,7 @@ jobs:
   release:
     permissions:
       contents: write
-      actions: write
-    if: (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     defaults:
@@ -86,26 +73,6 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 2
-
-      - name: Decide publication mode
-        id: publication
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          MANUAL_PUBLISH: ${{ inputs.publish || false }}
-        run: |
-          set -euo pipefail
-          publish=false
-          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            if [[ "$MANUAL_PUBLISH" == "true" ]]; then
-              publish=true
-            fi
-          elif [[ "$EVENT_NAME" == "push" ]]; then
-            changed_files="$(git diff --name-only HEAD^ HEAD)"
-            if grep -Fxq 'app/build.gradle.kts' <<< "$changed_files" || grep -Fxq 'RELEASE_NOTES.md' <<< "$changed_files"; then
-              publish=true
-            fi
-          fi
-          echo "publish=$publish" >> "$GITHUB_OUTPUT"
 
       - name: Set up Java 17
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
@@ -149,7 +116,6 @@ jobs:
           retention-days: 30
 
       - name: Require the fixed signing key before publication
-        if: steps.publication.outputs.publish == 'true'
         env:
           SIGNING_CONFIGURED: ${{ steps.signing.outputs.configured }}
         run: |
@@ -159,7 +125,6 @@ jobs:
           fi
 
       - name: Verify signature and prepare release assets
-        if: steps.publication.outputs.publish == 'true'
         id: assets
         run: |
           set -euo pipefail
@@ -214,7 +179,6 @@ jobs:
           PY
 
       - name: Upload signed APK artifact
-        if: steps.publication.outputs.publish == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: ListCleaner-release-${{ steps.assets.outputs.version }}
@@ -223,7 +187,6 @@ jobs:
           retention-days: 30
 
       - name: Publish or refresh GitHub Release
-        if: steps.publication.outputs.publish == 'true'
         id: publish
         env:
           GH_TOKEN: ${{ github.token }}
@@ -247,15 +210,6 @@ jobs:
               --target "$GITHUB_SHA" --title "List Cleaner $RELEASE_VERSION" --notes-file release-notes.md
             echo "created=true" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Dispatch LSPosed publication
-        if: steps.publication.outputs.publish == 'true' && steps.publish.outputs.created == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.assets.outputs.tag }}
-        run: |
-          set -euo pipefail
-          gh workflow run sync-lsposed.yml --ref main -f tag="$RELEASE_TAG"
 
       - name: Remove private signing material
         if: always()
