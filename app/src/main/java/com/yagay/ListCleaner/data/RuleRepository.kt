@@ -2,6 +2,7 @@ package com.yagay.ListCleaner.data
 
 import android.content.Context
 import com.yagay.ListCleaner.R
+import com.yagay.ListCleaner.domain.AndroidUid
 import com.yagay.ListCleaner.domain.BrowserLinkConfig
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.CustomOpenDefinition
@@ -124,7 +125,7 @@ class RuleRepository(context: Context) {
         mode = mutableMode.value,
         priorities = mutablePriorities.value,
         diagnostic = mutableDiagnostic.value,
-        managerAppId = android.os.Process.myUid() % 100_000,
+        managerAppId = AndroidUid.appId(android.os.Process.myUid()),
         hiddenFromApps = mutableHiddenFromApps.value.toSet(),
         openTypes = mutableOpenTypes.value,
         browserLinks = mutableBrowserLinks.value,
