@@ -6,8 +6,8 @@ import android.util.Log
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Dashboard
 import androidx.compose.material.icons.rounded.GridView
-import androidx.compose.material.icons.rounded.List
-import androidx.compose.material.icons.rounded.Sort
+import androidx.compose.material.icons.automirrored.rounded.List
+import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.yagay.ListCleaner.ListCleanerApp
@@ -40,8 +40,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 enum class Destination(val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    RULES(Icons.Rounded.List),
-    PRIORITY(Icons.Rounded.Sort),
+    RULES(Icons.AutoMirrored.Rounded.List),
+    PRIORITY(Icons.AutoMirrored.Rounded.Sort),
     TILES(Icons.Rounded.GridView),
     DASHBOARD(Icons.Rounded.Dashboard)
 }

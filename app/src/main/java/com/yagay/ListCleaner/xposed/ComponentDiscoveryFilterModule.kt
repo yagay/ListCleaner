@@ -35,6 +35,7 @@ class ComponentDiscoveryFilterModule : XposedModule() {
 
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
     private val listResults = SafeListResultExtractor(::record)
+    private val configJson = Json { ignoreUnknownKeys = true }
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
@@ -69,8 +70,7 @@ class ComponentDiscoveryFilterModule : XposedModule() {
         runCatching {
             val config = preferences.getString(RuleRepository.KEY_CONFIG, null)?.let { encoded ->
                 if (encoded.length > RuleRepository.MAX_BACKUP_CHARS) return@let null
-                Json { ignoreUnknownKeys = true }
-                    .decodeFromString(ModuleConfig.serializer(), encoded)
+                configJson.decodeFromString(ModuleConfig.serializer(), encoded)
                     .validated()
             }
             protectedComponents = if (config?.rootDisabledComponents != null) {

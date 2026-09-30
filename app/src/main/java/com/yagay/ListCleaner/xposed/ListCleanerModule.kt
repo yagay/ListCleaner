@@ -92,6 +92,7 @@ class ListCleanerModule : XposedModule() {
     private val listResults = SafeListResultExtractor(::record)
     private val runtimeTransfers = RuntimeConfigTransferStore(::record)
     private val orderingEngine = ResolverOrderingEngine(::diagnostic)
+    private val configJson = Json { ignoreUnknownKeys = true }
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
@@ -1190,8 +1191,7 @@ class ListCleanerModule : XposedModule() {
             return true
         }
 
-        val config = Json { ignoreUnknownKeys = true }
-            .decodeFromString(ModuleConfig.serializer(), encoded)
+        val config = configJson.decodeFromString(ModuleConfig.serializer(), encoded)
             .validated()
 
         if (expectedManagerAppId != null && config.managerAppId != expectedManagerAppId) {
@@ -1261,21 +1261,20 @@ class ListCleanerModule : XposedModule() {
             sourcePreferences.getString(RuleRepository.KEY_DISPLAY_MODE, null),
             sourcePreferences.getBoolean(RuleRepository.KEY_BLACKLIST, true),
         )
-        val json = Json { ignoreUnknownKeys = true }
         val priorities = runCatching {
-            json.decodeFromString(
+            configJson.decodeFromString(
                 PriorityConfig.serializer(),
                 sourcePreferences.getString(RuleRepository.KEY_PRIORITIES, null) ?: "{}"
             ).validated()
         }.getOrDefault(PriorityConfig())
         val openTypes = runCatching {
-            json.decodeFromString(
+            configJson.decodeFromString(
                 OpenTypeConfig.serializer(),
                 sourcePreferences.getString(RuleRepository.KEY_OPEN_TYPES, null) ?: "{}"
             ).validated()
         }.getOrDefault(OpenTypeConfig())
         val browserLinks = runCatching {
-            json.decodeFromString(
+            configJson.decodeFromString(
                 BrowserLinkConfig.serializer(),
                 sourcePreferences.getString(RuleRepository.KEY_BROWSER_LINKS, null) ?: "{}"
             ).validated()
