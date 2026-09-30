@@ -14,6 +14,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -24,16 +25,16 @@ internal class CandidateController(
 ) {
     private val browserLinkDiscovery = BrowserLinkDiscovery()
     private val mutableCandidates = MutableStateFlow<List<ComponentCandidate>>(emptyList())
-    val candidates: StateFlow<List<ComponentCandidate>> = mutableCandidates
+    val candidates: StateFlow<List<ComponentCandidate>> = mutableCandidates.asStateFlow()
 
     private val mutableBrowserHosts = MutableStateFlow<Set<String>>(emptySet())
-    val browserHosts: StateFlow<Set<String>> = mutableBrowserHosts
+    val browserHosts: StateFlow<Set<String>> = mutableBrowserHosts.asStateFlow()
 
     private val mutableLoading = MutableStateFlow(true)
-    val loading: StateFlow<Boolean> = mutableLoading
+    val loading: StateFlow<Boolean> = mutableLoading.asStateFlow()
 
     private val mutableError = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = mutableError
+    val error: StateFlow<String?> = mutableError.asStateFlow()
 
     private var refreshJob: Job? = null
     private var browserRefreshJob: Job? = null
@@ -107,13 +108,13 @@ internal class CandidateController(
                         }
                     } catch (cancelled: CancellationException) {
                         throw cancelled
-                    } catch (failure: Throwable) {
+                    } catch (failure: Exception) {
                         Log.w(TAG, "Background App Link enrichment failed", failure)
                     }
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (failure: Throwable) {
+            } catch (failure: Exception) {
                 Log.e(TAG, "Candidate scan failed", failure)
                 if (currentGeneration == generation) mutableError.value = app.getString(R.string.scan_failed)
             } finally {
