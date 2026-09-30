@@ -6,6 +6,8 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+val ciArm64Only = providers.gradleProperty("ciArm64Only").orNull == "true"
+
 // Private local configuration or CI environment; no private key is tracked.
 val releaseKeyProperties = Properties().apply {
     val propertiesFile = rootProject.file("keystore.properties")
@@ -43,6 +45,13 @@ android {
         versionCode = 43
         versionName = "1.6.18"
         buildConfigField("long", "HOOK_COMPAT_VERSION_CODE", "${hookCompatVersionCode}L")
+
+        if (ciArm64Only) {
+            ndk {
+                abiFilters.clear()
+                abiFilters += "arm64-v8a"
+            }
+        }
     }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
