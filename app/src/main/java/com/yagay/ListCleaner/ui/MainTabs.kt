@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.BuildConfig
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.DisplayMode
@@ -29,7 +30,7 @@ import com.yagay.ListCleaner.domain.matchesBrowserHost
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RulesTab(state: MainState, vm: MainViewModel) {
-    val bulkLockRevision by vm.bulkLockRevision.collectAsState()
+    val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
     var editingTitle by remember { mutableStateOf<com.yagay.ListCleaner.domain.ComponentCandidate?>(null) }
     var showCustomTypes by rememberSaveable { mutableStateOf(false) }
     var showBrowserHosts by rememberSaveable { mutableStateOf(false) }
@@ -57,8 +58,8 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
         )
     }
 
-    val openPreset by vm.ruleOpenPreset.collectAsState()
-    val browserHost by vm.ruleBrowserHost.collectAsState()
+    val openPreset by vm.ruleOpenPreset.collectAsStateWithLifecycle()
+    val browserHost by vm.ruleBrowserHost.collectAsStateWithLifecycle()
     LaunchedEffect(state.filter) {
         if (state.filter != IntentKind.OPEN) vm.setRuleOpenPreset(null)
         if (state.filter != IntentKind.DEEP_LINK) vm.setRuleBrowserHost(null)
@@ -430,8 +431,8 @@ fun DashboardTabContent(
     onCollectDiagnostics: () -> Unit,
     onInspectFile: () -> Unit
 ) {
-    val fileCheckStatus by vm.fileCheckStatus.collectAsState()
-    val checkingFile by vm.checkingFile.collectAsState()
+    val fileCheckStatus by vm.fileCheckStatus.collectAsStateWithLifecycle()
+    val checkingFile by vm.checkingFile.collectAsStateWithLifecycle()
     var menu by remember { mutableStateOf(false) }
     var showScopeDetails by remember { mutableStateOf(false) }
     var showAppScopePicker by remember { mutableStateOf(false) }
