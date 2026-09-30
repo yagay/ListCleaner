@@ -37,6 +37,29 @@ class EntryRuntimeAuditTest {
         assertTrue(line.contains("filterObserved=1"))
     }
 
+    @Test fun settingsVpnAuthorityEvidenceIsRecognized() {
+        val item = candidate(IntentKind.VPN)
+        val state = MainState(candidates = listOf(item), selected = setOf(item.rule))
+        val logs = """
+            I/ListCleaner.SettingsAuthority: pid=55 process=com.android.settings HOOK_INSTALLED id=lc-settings-vpn-authority method=x
+            I/ListCleaner.SettingsAuthority: pid=55 process=com.android.settings VPN_FILTER before=3 after=1 selectedPackages=2
+        """.trimIndent()
+        val line = EntryRuntimeAudit.report(state, logs)
+            .lineSequence().first { it.startsWith("kind=VPN ") }
+        assertTrue(line.contains("status=FILTER_OBSERVED"))
+        assertTrue(line.contains("filterObserved=1"))
+    }
+
+    @Test fun moduleLoadedAloneIsNotTreatedAsHookReady() {
+        val item = candidate(IntentKind.VPN)
+        val state = MainState(candidates = listOf(item), selected = setOf(item.rule))
+        val logs = "I/ListCleaner.SettingsAuthority: pid=55 process=com.android.settings MODULE_LOADED"
+        val line = EntryRuntimeAudit.report(state, logs)
+            .lineSequence().first { it.startsWith("kind=VPN ") }
+        assertTrue(line.contains("hookReady=0"))
+        assertTrue(line.contains("NO_RUNTIME_EVIDENCE"))
+    }
+
     @Test fun knownRolePathsNoLongerReportArchitectureGaps() {
         val item = candidate(IntentKind.HOME)
         val state = MainState(candidates = listOf(item), selected = setOf(item.rule))
