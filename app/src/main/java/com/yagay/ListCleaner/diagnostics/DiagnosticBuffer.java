@@ -4,7 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 
 /** Bounded head+tail retention. Draining a noisy process never grows a temporary file. */
-public final class DiagnosticBuffer {
+public class DiagnosticBuffer {
     private final byte[] head;
     private final byte[] tail;
     private int headSize, tailSize, tailNext;
