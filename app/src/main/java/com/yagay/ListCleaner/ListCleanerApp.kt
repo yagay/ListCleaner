@@ -8,6 +8,7 @@ import com.yagay.ListCleaner.data.ObservedEntryCache
 import com.yagay.ListCleaner.data.PersistentComponentStore
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.data.readLegacyRemoteConfig
+import com.yagay.ListCleaner.domain.AuthorityCandidatePolicy
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.ModuleConfig
 import com.yagay.ListCleaner.domain.PriorityConfig
@@ -86,7 +87,7 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
         XposedServiceHelper.registerListener(this)
         applicationScope.launch {
             combine(rules.rules, catalog.candidates) { selected, candidates ->
-                deriveFullySelectedPackages(candidates, selected)
+                deriveFullySelectedPackages(AuthorityCandidatePolicy.normalize(candidates), selected)
             }.collect(rules::setVisibilityFullPackages)
         }
         // Service lifecycle changes must synchronize immediately. Rule edits are debounced so a
@@ -142,7 +143,9 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
         val session = currentSession() ?: return@withContext observedEntryCache.snapshot().size
         runCatching {
             val prefs = session.service.getRemotePreferences(RuleRepository.REMOTE_PREFS)
-            observedEntryCache.mergeEncoded(prefs.getString(ObservedEntryCache.REMOTE_KEY, null)).size
+            observedEntryCache.synchronizeRemoteEncoded(
+                prefs.getString(ObservedEntryCache.REMOTE_KEY, null)
+            ).size
         }.onFailure {
             Log.w(TAG, "Observed entry cache synchronization failed", it)
         }.getOrElse { observedEntryCache.snapshot().size }
@@ -150,7 +153,9 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
 
     private fun syncObservedEntriesFrom(prefs: SharedPreferences) {
         runCatching {
-            observedEntryCache.mergeEncoded(prefs.getString(ObservedEntryCache.REMOTE_KEY, null))
+            observedEntryCache.synchronizeRemoteEncoded(
+                prefs.getString(ObservedEntryCache.REMOTE_KEY, null)
+            )
         }.onFailure {
             Log.w(TAG, "Observed entry cache read failed", it)
         }
