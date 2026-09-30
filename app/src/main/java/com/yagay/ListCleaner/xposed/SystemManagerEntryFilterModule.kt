@@ -154,7 +154,8 @@ class SystemManagerEntryFilterModule : XposedModule() {
     private fun credentialHooker() = XposedInterface.Hooker { chain ->
         val caller = currentCaller()
         val original = chain.proceed()
-        val values = original as? List<*> ?: return@Hooker original
+        val result = listResults.extract(original) ?: return@Hooker original
+        val values = result.values
         if (values.isEmpty()) return@Hooker original
 
         values.forEach { value -> credentialComponent(value)?.let { component ->
@@ -184,7 +185,7 @@ class SystemManagerEntryFilterModule : XposedModule() {
             "CREDENTIAL_FILTER callerUid=${caller.uid} before=${values.size} after=${filtered.size} " +
                 "selectedPackages=${selectedPackages.size}"
         )
-        ArrayList(filtered)
+        result.rebuild(filtered)
     }
 
     private fun imeOuterHooker() = XposedInterface.Hooker { chain ->
@@ -194,7 +195,7 @@ class SystemManagerEntryFilterModule : XposedModule() {
         try {
             val original = chain.proceed()
             val policy = effectivePolicy()
-            if (original is List<*>) {
+            if (listResults.extract(original) != null) {
                 observeComponentResult(original, IntentKind.INPUT_METHOD, ::inputMethodComponent)
                 if (shouldFilter(caller, policy)) {
                     filterComponentResult(original, IntentKind.INPUT_METHOD, caller.uid, policy, ::inputMethodComponent)
