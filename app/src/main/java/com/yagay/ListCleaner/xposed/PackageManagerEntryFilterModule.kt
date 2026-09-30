@@ -12,10 +12,12 @@ import android.util.Log
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.DisplayMode
+import com.yagay.ListCleaner.domain.EntryAuthority
 import com.yagay.ListCleaner.domain.FilterPolicy
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.ManagerIdentity
 import com.yagay.ListCleaner.domain.SYSTEM_SERVICE_ENTRY_DEFINITIONS
+import com.yagay.ListCleaner.domain.entryAuthority
 import com.yagay.ListCleaner.domain.isPackageScopedEntry
 import com.yagay.ListCleaner.domain.isSystemServiceEntry
 import com.yagay.ListCleaner.domain.prioritizeApps
@@ -201,11 +203,13 @@ class PackageManagerEntryFilterModule : XposedModule() {
         val callerProcess = callerProcessName(binderPid)
         val ordinaryCaller = FilterPolicy.ordinaryAppCaller(callerUid)
         val privilegedConfigurationUi = !ordinaryCaller && isExternalConfigurationUiCaller(binderPid, callerProcess)
-        if (!ordinaryCaller && !privilegedConfigurationUi) {
+        val packageManagerIsAuthority = spec.kind.entryAuthority() == EntryAuthority.PACKAGE_MANAGER
+        val mayFilterPrivilegedUi = privilegedConfigurationUi && packageManagerIsAuthority
+        if (!ordinaryCaller && !mayFilterPrivilegedUi) {
             record(
-                "SYSTEM_CALLER_BYPASS kind=${spec.kind} action=${(intent.selector ?: intent).action} " +
-                    "callerUid=$callerUid binderUid=$binderUid callerPid=$binderPid " +
-                    "callerProcess=${callerProcess ?: "unknown"}"
+                "SYSTEM_CALLER_BYPASS kind=${spec.kind} authority=${spec.kind.entryAuthority()} " +
+                    "action=${(intent.selector ?: intent).action} callerUid=$callerUid binderUid=$binderUid " +
+                    "callerPid=$binderPid callerProcess=${callerProcess ?: "unknown"}"
             )
             return@Hooker chain.proceed()
         }
