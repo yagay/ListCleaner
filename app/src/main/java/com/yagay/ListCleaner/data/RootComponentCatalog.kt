@@ -11,8 +11,8 @@ import android.graphics.Bitmap
 import android.os.Process
 import android.util.Log
 import androidx.core.graphics.drawable.toBitmap
-import com.yagay.ListCleaner.ListCleanerApp
 import com.yagay.ListCleaner.R
+import com.yagay.ListCleaner.domain.AndroidUid
 import com.yagay.ListCleaner.domain.AppType
 import com.yagay.ListCleaner.domain.ComponentStatePolicy
 import com.yagay.ListCleaner.domain.listCleanerAppType
@@ -64,9 +64,12 @@ data class RootComponentScan(
  *
  * Root is requested only for an explicit component state change.
  */
-class RootComponentCatalog(private val context: Context) {
+class RootComponentCatalog(
+    private val context: Context,
+    private val componentDiscoveryProtocol: () -> Int = { 0 },
+) {
     private val pm = context.packageManager
-    private val user = Process.myUid() / PER_USER_RANGE
+    private val user = AndroidUid.userId(Process.myUid())
     private val icons = android.util.LruCache<String, Bitmap>(128)
     private val ownerLabels = android.util.LruCache<String, String>(256)
     private val flags = PackageManager.MATCH_DISABLED_COMPONENTS or
@@ -176,8 +179,7 @@ class RootComponentCatalog(private val context: Context) {
 
     @Suppress("DEPRECATION")
     private fun queryRegisteredWidgets(): List<DiscoveredComponent> {
-        val runtimeProtocol = (context.applicationContext as? ListCleanerApp)
-            ?.runtime?.value?.componentDiscoveryProtocol ?: 0
+        val runtimeProtocol = componentDiscoveryProtocol()
         if (runtimeProtocol < SAFE_COMPONENT_DISCOVERY_PROTOCOL) {
             Log.i(
                 TAG,
@@ -291,7 +293,7 @@ class RootComponentCatalog(private val context: Context) {
             info.packageName == context.packageName ||
                 info.packageName == "android" ||
                 info.packageName == "com.android.systemui" ||
-                info.applicationInfo.uid % PER_USER_RANGE < Process.FIRST_APPLICATION_UID ->
+                !AndroidUid.isApplicationUid(info.applicationInfo.uid) ->
                 context.getString(R.string.root_component_protected)
             raw == null || enabled == null || appEnabled == null ->
                 context.getString(R.string.root_state_read_failed)
@@ -384,10 +386,8 @@ class RootComponentCatalog(private val context: Context) {
 
     private companion object {
         const val TAG = "ListCleaner.RootCatalog"
-        const val PER_USER_RANGE = 100_000
         const val BIND_QUICK_SETTINGS_TILE = "android.permission.BIND_QUICK_SETTINGS_TILE"
         const val APP_WIDGET_PROVIDER_META_DATA = "android.appwidget.provider"
         const val SAFE_COMPONENT_DISCOVERY_PROTOCOL = 2
-
     }
 }
