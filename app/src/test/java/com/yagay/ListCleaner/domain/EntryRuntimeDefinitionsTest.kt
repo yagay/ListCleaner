@@ -23,9 +23,11 @@ class EntryRuntimeDefinitionsTest {
         assertTrue(EntryRuntimePath.ACCESSIBILITY_MANAGER in IntentKind.ACCESSIBILITY.runtimeDefinition()!!.coveredPaths)
         assertTrue(EntryRuntimePath.INPUT_METHOD_MANAGER in IntentKind.INPUT_METHOD.runtimeDefinition()!!.coveredPaths)
         assertTrue(EntryRuntimePath.PRINT_MANAGER in IntentKind.PRINT.runtimeDefinition()!!.coveredPaths)
-        assertTrue(EntryRuntimePath.VPN_APP_OPS in IntentKind.VPN.runtimeDefinition()!!.coveredPaths)
+        assertTrue(EntryRuntimePath.SETTINGS_VPN in IntentKind.VPN.runtimeDefinition()!!.coveredPaths)
+        assertFalse(EntryRuntimePath.VPN_APP_OPS in IntentKind.VPN.runtimeDefinition()!!.coveredPaths)
         assertTrue(EntryRuntimePath.CREDENTIAL_MANAGER in IntentKind.CREDENTIAL_PROVIDER.runtimeDefinition()!!.coveredPaths)
         assertTrue(EntryRuntimePath.COMBINED_PROVIDER_SETTINGS in IntentKind.AUTOFILL.runtimeDefinition()!!.coveredPaths)
+        assertTrue(EntryRuntimePath.SETTINGS_AUTOFILL_PICKER in IntentKind.AUTOFILL.runtimeDefinition()!!.coveredPaths)
         assertTrue(EntryRuntimePath.NFC_CARD_EMULATION in IntentKind.NFC_HCE.runtimeDefinition()!!.coveredPaths)
         listOf(
             IntentKind.ACCESSIBILITY,
@@ -62,7 +64,7 @@ class EntryRuntimeDefinitionsTest {
         )
         assertEquals(
             EmptyResultBehavior.ALLOW_EMPTY,
-            IntentKind.VPN.runtimeDefinition()!!.emptyBehavior[EntryRuntimePath.VPN_APP_OPS]
+            IntentKind.VPN.runtimeDefinition()!!.emptyBehavior[EntryRuntimePath.SETTINGS_VPN]
         )
         assertEquals(
             EmptyResultBehavior.ALLOW_EMPTY,
