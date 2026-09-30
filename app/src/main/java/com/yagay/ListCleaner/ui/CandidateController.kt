@@ -4,6 +4,7 @@ import android.util.Log
 import com.yagay.ListCleaner.ListCleanerApp
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.BrowserLinkDiscovery
+import com.yagay.ListCleaner.domain.AuthorityCandidatePolicy
 import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.normalizeLogicalCandidates
@@ -124,8 +125,10 @@ internal class CandidateController(
     private suspend fun completeLogical(
         items: List<ComponentCandidate>,
         configured: Set<ComponentRule>,
-    ): List<ComponentCandidate> =
-        app.catalog.completeConfigured(normalizeLogicalCandidates(items), configured)
+    ): List<ComponentCandidate> = app.catalog.completeConfigured(
+        normalizeLogicalCandidates(AuthorityCandidatePolicy.normalize(items)),
+        configured,
+    )
 
     private fun configuredRules(): Set<ComponentRule> = buildSet {
         addAll(app.rules.rules.value)
