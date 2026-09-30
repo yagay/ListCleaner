@@ -1,5 +1,6 @@
 package com.yagay.ListCleaner.ui;
 
+import com.yagay.ListCleaner.diagnostics.DiagnosticBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
