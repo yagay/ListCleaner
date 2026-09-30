@@ -14,6 +14,8 @@ import android.util.Log
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.DisplayMode
+import com.yagay.ListCleaner.domain.ENTRY_RUNTIME_DEFINITIONS
+import com.yagay.ListCleaner.domain.EntryRuntimePath
 import com.yagay.ListCleaner.domain.FilterPolicy
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.ManagerIdentity
@@ -38,19 +40,11 @@ class ShortcutSurfaceModule : XposedModule() {
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
-    private val fallback by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        RemoteEntryPolicyFallback(
+    private val policyProvider by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        EntryPolicyProvider(
             preferences = preferences,
-            selectRules = { config ->
-                config.rules.filter {
-                    it.kind == IntentKind.SHORTCUT_ITEM || it.kind == IntentKind.DIRECT_SHARE
-                }.mapTo(linkedSetOf()) { it.id }
-            },
-            selectPriorities = { config ->
-                config.priorities.apps.filterKeys {
-                    it == IntentKind.SHORTCUT_ITEM || it == IntentKind.DIRECT_SHARE
-                }
-            },
+            kinds = SHORTCUT_KINDS,
+            includePriorities = true,
             record = ::record,
         )
     }
@@ -64,28 +58,15 @@ class ShortcutSurfaceModule : XposedModule() {
 
     override fun onSystemServerStarting(param: SystemServerStartingParam) {
         processName = "system"
-        fallback.start()
+        policyProvider.start()
         installShortcutHooks(param.classLoader)
         installShareTargetHooks(param.classLoader)
         installObservedDiscoveryHooks(param.classLoader)
     }
 
-    private fun effectivePolicy(): RuntimeComponentPolicySnapshot {
-        val runtime = RuntimeComponentPolicy.snapshot()
-        if (runtime.authoritative) return runtime
-        val local = fallback.snapshot()
-        return fallbackRuntimePolicy(
-            managerAppId = local.managerAppId,
-            displayMode = local.displayMode,
-            entryRules = local.rules,
-            entryPriorities = local.priorities,
-        )
-    }
-
     private fun installShortcutHooks(classLoader: ClassLoader) {
         val clazz = runCatching { Class.forName(SHORTCUT_LOCAL_SERVICE, false, classLoader) }.getOrNull() ?: return
-        generateSequence(clazz as Class<*>?) { it.superclass }
-            .flatMap { it.declaredMethods.asSequence() }
+        ReflectionAccess.hierarchyMethods(clazz)
             .filter { it.name == "getShortcuts" && List::class.java.isAssignableFrom(it.returnType) }
             .distinctBy(Method::toGenericString)
             .forEach { method -> install(method, SHORTCUT_HOOK_ID, shortcutHooker(method)) }
@@ -110,7 +91,7 @@ class ShortcutSurfaceModule : XposedModule() {
 
         values.filterIsInstance<ShortcutInfo>().forEach(RuntimeObservedEntryStore::observeShortcut)
 
-        val policy = effectivePolicy()
+        val policy = policyProvider.snapshot()
         if (ManagerIdentity.matches(call.callerUid, policy.managerAppId)) return@Hooker original
         val selected = policy.selected(IntentKind.SHORTCUT_ITEM)
         val priorities = policy.priorities(IntentKind.SHORTCUT_ITEM)
@@ -141,8 +122,7 @@ class ShortcutSurfaceModule : XposedModule() {
     private fun installShareTargetHooks(classLoader: ClassLoader) {
         SHORTCUT_SERVICE_CLASSES.forEach { className ->
             val clazz = runCatching { Class.forName(className, false, classLoader) }.getOrNull() ?: return@forEach
-            generateSequence(clazz as Class<*>?) { it.superclass }
-                .flatMap { it.declaredMethods.asSequence() }
+            ReflectionAccess.hierarchyMethods(clazz)
                 .filter { method ->
                     method.name == "getShareTargets" &&
                         (List::class.java.isAssignableFrom(method.returnType) || method.returnType.name.endsWith("ParceledListSlice"))
@@ -152,11 +132,7 @@ class ShortcutSurfaceModule : XposedModule() {
         }
     }
 
-    /**
-     * OxygenOS/other OEM resolvers can render Direct Share straight from ShortcutService and never
-     * call ChooserActivity.sendShareShortcutInfoList(). Filter here as a second, lower-level path;
-     * the Chooser hook remains in place for AOSP variants where it is actually used.
-     */
+    /** OEM resolvers can render Direct Share straight from ShortcutService. */
     private fun directShareHooker() = XposedInterface.Hooker { chain ->
         val original = chain.proceed()
         val result = listResults.extract(original) ?: return@Hooker original
@@ -172,7 +148,7 @@ class ShortcutSurfaceModule : XposedModule() {
         if (!isDirectShareResolverCaller(callingPackage)) return@Hooker original
 
         val callerUid = Binder.getCallingUid()
-        val policy = effectivePolicy()
+        val policy = policyProvider.snapshot()
         if (ManagerIdentity.matches(callerUid, policy.managerAppId)) return@Hooker original
 
         val selected = policy.selected(IntentKind.DIRECT_SHARE)
@@ -188,11 +164,10 @@ class ShortcutSurfaceModule : XposedModule() {
             pair?.let { (shortcut, target) -> directShareRule(shortcut, target)?.id }
         }
 
-        val queryPackages = targetPackages.filterNotNull().toSet()
         val keptIndices = directShareFilteredIndices(
             targetPackages = targetPackages,
             ruleIds = ruleIds,
-            visibleSharePackages = queryPackages,
+            visibleSharePackages = targetPackages.filterNotNull().toSet(),
             selectedRuleIds = selected,
             displayMode = policy.displayMode,
             priorities = priorities,
@@ -229,20 +204,10 @@ class ShortcutSurfaceModule : XposedModule() {
 
     private fun shareShortcut(value: Any?): Pair<ShortcutInfo, ComponentName?>? {
         value ?: return null
-        val shortcut = runCatching {
-            findNoArgMethod(value.javaClass, "getShortcutInfo")?.invoke(value) as? ShortcutInfo
-        }.getOrNull() ?: return null
-        val target = runCatching {
-            findNoArgMethod(value.javaClass, "getTargetComponent")?.invoke(value) as? ComponentName
-        }.getOrNull()
+        val shortcut = ReflectionAccess.invokeNoArg(value, "getShortcutInfo") as? ShortcutInfo ?: return null
+        val target = ReflectionAccess.invokeNoArg(value, "getTargetComponent") as? ComponentName
         return shortcut to target
     }
-
-    private fun findNoArgMethod(clazz: Class<*>, name: String): Method? =
-        generateSequence(clazz as Class<*>?) { it.superclass }
-            .flatMap { it.declaredMethods.asSequence() }
-            .firstOrNull { it.name == name && it.parameterCount == 0 }
-            ?.apply { isAccessible = true }
 
     private fun isDirectShareResolverCaller(packageName: String?): Boolean =
         packageName == INTENT_RESOLVER_PACKAGE ||
@@ -253,8 +218,7 @@ class ShortcutSurfaceModule : XposedModule() {
     private fun installObservedDiscoveryHooks(classLoader: ClassLoader) {
         PMS_CLASSES.forEach { className ->
             val clazz = runCatching { Class.forName(className, false, classLoader) }.getOrNull() ?: return@forEach
-            generateSequence(clazz as Class<*>?) { it.superclass }
-                .flatMap { it.declaredMethods.asSequence() }
+            ReflectionAccess.hierarchyMethods(clazz)
                 .filter { method ->
                     method.name in setOf("queryIntentActivities", "queryIntentActivitiesAsUser", "queryIntentActivitiesInternal") &&
                         method.parameterTypes.any { Intent::class.java.isAssignableFrom(it) } &&
@@ -277,7 +241,7 @@ class ShortcutSurfaceModule : XposedModule() {
             args = chain.args,
             binderUid = Binder.getCallingUid(),
         )
-        val policy = effectivePolicy()
+        val policy = policyProvider.snapshot()
         if (!ManagerIdentity.matches(callerUid, policy.managerAppId)) return@Hooker chain.proceed()
 
         val original = chain.proceed()
@@ -336,6 +300,9 @@ class ShortcutSurfaceModule : XposedModule() {
         const val FRAMEWORK_PACKAGE = "android"
         const val OPLUS_RESOLVER_PACKAGE = "com.oplus.resolver"
         const val COLOROS_RESOLVER_PACKAGE = "com.coloros.resolver"
+        val SHORTCUT_KINDS = ENTRY_RUNTIME_DEFINITIONS.values.asSequence()
+            .filter { EntryRuntimePath.SHORTCUT_SERVICE in it.expectedPaths }
+            .mapTo(linkedSetOf()) { it.kind }
         val SHORTCUT_MATCH_MASK = LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or
             LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST
         val SHORTCUT_SERVICE_CLASSES = listOf(

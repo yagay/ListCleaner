@@ -42,7 +42,6 @@ import com.yagay.ListCleaner.domain.VisibilityLayout
 import com.yagay.ListCleaner.domain.VisibilitySignature
 import com.yagay.ListCleaner.domain.VisibilityScope
 import kotlinx.serialization.json.Json
-import java.lang.reflect.Constructor
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
@@ -54,10 +53,8 @@ import java.util.concurrent.atomic.AtomicLong
  * Third-party apps do not need LSPosed scope. Real package/component state is never changed.
  */
 class ListCleanerModule : XposedModule() {
-    private data class ListResult(val values: List<*>, val rebuild: (List<*>) -> Any?)
     private data class MethodAccessor(val method: Method?)
     private data class PackageNameAccessor(val getter: Method?, val field: Field?)
-    private data class ParceledListAccessor(val getList: Method, val constructor: Constructor<*>)
     private data class RuntimeTransfer(
         val callerUid: Int,
         val managerAppId: Int,
@@ -106,7 +103,7 @@ class ListCleanerModule : XposedModule() {
     private val packagesForUidCache = ConcurrentHashMap<Class<*>, MethodAccessor>()
     private val packageNameAccessorCache = ConcurrentHashMap<Class<*>, PackageNameAccessor>()
     private val callerPackageFieldsCache = ConcurrentHashMap<Class<*>, List<Field>>()
-    private val parceledListAccessorCache = ConcurrentHashMap<Class<*>, ParceledListAccessor>()
+    private val listResults = SafeListResultExtractor(::record)
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
@@ -219,8 +216,6 @@ class ListCleanerModule : XposedModule() {
     }
 
     @Synchronized private fun pollPreferences() {
-        // Probe v2 owns the live snapshot once a verified runtime config has been applied.
-        // Avoid SharedPreferences reads and config hashing on PackageManager/Resolver hot paths.
         if (runtimeTransportActive) return
         val now = SystemClock.elapsedRealtime()
         if (now < nextPreferencePoll) return
@@ -328,7 +323,7 @@ class ListCleanerModule : XposedModule() {
 
         val args = chain.args
         val callingUid = args.getOrNull(adapter.uidIndex) as? Int ?: return@Hooker chain.proceed()
-        if (callingUid < 10_000) return@Hooker chain.proceed()
+        if (!FilterPolicy.ordinaryAppCaller(callingUid)) return@Hooker chain.proceed()
 
         val computer = args.firstOrNull { value -> value != null && hasGetPackagesForUid(value.javaClass) }
         val callers = if (computer != null) packagesForUid(computer, callingUid)
@@ -1219,18 +1214,16 @@ class ListCleanerModule : XposedModule() {
         val kind = intent?.intentKind(resolvedType)
         val explicit = intent?.component != null || intent?.`package` != null ||
             outerIntent?.component != null || outerIntent?.`package` != null
-        val privilegedSystem =
-            layer == Layer.SYSTEM && !FilterPolicy.ordinaryAppCaller(callerUid)
-        val resolverSystemRequest =
-            privilegedSystem &&
-                outerIntent?.getBooleanExtra(RuntimeProtocol.EXTRA_RESOLVER_REQUEST, false) == true
+        val privilegedSystem = layer == Layer.SYSTEM && !FilterPolicy.ordinaryAppCaller(callerUid)
+        val resolverSystemRequest = privilegedSystem &&
+            outerIntent?.getBooleanExtra(RuntimeProtocol.EXTRA_RESOLVER_REQUEST, false) == true
 
         if (intent != null && kind != null) {
             if (!privilegedSystem) queryHits.incrementAndGet()
             val traceKey = "$layer|$kind|$callerUid"
             if (
                 !explicit &&
-                (callerUid >= 10_000 || layer == Layer.RESOLVER) &&
+                (FilterPolicy.ordinaryAppCaller(callerUid) || layer == Layer.RESOLVER) &&
                 snapshot.diagnostic &&
                 tracedActions.size < 128 &&
                 tracedActions.add(traceKey)
@@ -1281,10 +1274,7 @@ class ListCleanerModule : XposedModule() {
                 fileNameOrPath = data?.lastPathSegment ?: data?.path,
                 browserHost = data?.host,
             ) ?: return original
-            return runCatching { extracted.rebuild(annotated) }.getOrElse {
-                diagnostic("RESOLVER_POLICY_REBUILD_FAILED error=${it.javaClass.name}")
-                original
-            }
+            return extracted.rebuild(annotated)
         }
 
         if (layer == Layer.RESOLVER && hasResolverPolicyMetadata(extracted.values, "query")) {
@@ -1306,10 +1296,7 @@ class ListCleanerModule : XposedModule() {
                     "RESOLVER_POLICY_APPLIED kind=$kind before=${extracted.values.size} " +
                         "after=${ordered.size}"
                 )
-                return runCatching { extracted.rebuild(ordered) }.getOrElse {
-                    diagnostic("RESOLVER_POLICY_REBUILD_FAILED error=${it.javaClass.name}")
-                    original
-                }
+                return extracted.rebuild(ordered)
             }
             return original
         }
@@ -1324,24 +1311,13 @@ class ListCleanerModule : XposedModule() {
             data?.lastPathSegment ?: data?.path,
             data?.host,
         ) ?: return original
-        return runCatching { extracted.rebuild(replacement) }.getOrElse {
-            Log.e(TAG, "Failed to rebuild ${original?.javaClass?.name}; keeping original", it)
-            original
-        }
+        return extracted.rebuild(replacement)
     }
 
     private fun safeExtension(fileNameOrPath: String?): String? {
         val clean = fileNameOrPath?.substringBefore('?')?.substringBefore('#')?.substringAfterLast('/') ?: return null
         val extension = clean.substringAfterLast('.', "").lowercase()
         return extension.takeIf { it.length in 1..16 && it.all { ch -> ch.isLetterOrDigit() } }
-    }
-
-    private fun isSelectedCandidate(kind: IntentKind, activity: ActivityInfo, current: RuntimeRuleSnapshot, layer: Layer): Boolean {
-        val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
-            activity.packageName, activity.name, activity.targetActivity
-        )
-        if ("${kind.name}|${activity.packageName}|$canonicalClass" in current.configured) return true
-        return false
     }
 
     private fun transform(
@@ -1461,22 +1437,7 @@ class ListCleanerModule : XposedModule() {
         return if (replaced > 0) result to replaced else values to 0
     }
 
-    private fun extractListResult(original: Any?): ListResult? = when {
-        original is List<*> -> ListResult(original) { it }
-        original == null -> null
-        original.javaClass.name.endsWith("ParceledListSlice") -> extractParceledListSlice(original)
-        else -> null
-    }
-
-    private fun extractParceledListSlice(original: Any): ListResult? {
-        val accessor = parceledListAccessorCache.computeIfAbsent(original.javaClass) { clazz ->
-            val getList = clazz.getMethod("getList").apply { isAccessible = true }
-            val constructor = clazz.getDeclaredConstructor(List::class.java).apply { isAccessible = true }
-            ParceledListAccessor(getList, constructor)
-        }
-        val values = runCatching { accessor.getList.invoke(original) as? List<*> }.getOrNull() ?: return null
-        return ListResult(values) { accessor.constructor.newInstance(it) }
-    }
+    private fun extractListResult(original: Any?): SafeListResult? = listResults.extract(original)
 
     @Synchronized private fun initializePreferences() {
         if (listenerRegistered) return
@@ -1494,9 +1455,7 @@ class ListCleanerModule : XposedModule() {
         expectedDigest: String?,
         expectedManagerAppId: Int? = null,
     ): Boolean {
-        require(encoded.length <= RuleRepository.MAX_BACKUP_CHARS) {
-            "Config too large"
-        }
+        require(encoded.length <= RuleRepository.MAX_BACKUP_CHARS) { "Config too large" }
         val digest = RuntimeProtocol.digest(encoded)
         if (!expectedDigest.isNullOrBlank() && digest != expectedDigest) {
             record(
@@ -1506,10 +1465,7 @@ class ListCleanerModule : XposedModule() {
             return false
         }
         if (lastEncodedConfig == encoded && snapshot.digest == digest) {
-            if (
-                expectedManagerAppId != null &&
-                snapshot.managerAppId != expectedManagerAppId
-            ) {
+            if (expectedManagerAppId != null && snapshot.managerAppId != expectedManagerAppId) {
                 record(
                     "CONFIG_IDENTITY_REJECT source=$source expectedAppId=$expectedManagerAppId " +
                         "actualAppId=${snapshot.managerAppId}"
@@ -1519,17 +1475,11 @@ class ListCleanerModule : XposedModule() {
             return true
         }
 
-        val config = Json {
-            ignoreUnknownKeys = true
-        }.decodeFromString(
-            ModuleConfig.serializer(),
-            encoded,
-        ).validated()
+        val config = Json { ignoreUnknownKeys = true }
+            .decodeFromString(ModuleConfig.serializer(), encoded)
+            .validated()
 
-        if (
-            expectedManagerAppId != null &&
-            config.managerAppId != expectedManagerAppId
-        ) {
+        if (expectedManagerAppId != null && config.managerAppId != expectedManagerAppId) {
             record(
                 "CONFIG_IDENTITY_REJECT source=$source expectedAppId=$expectedManagerAppId " +
                     "actualAppId=${config.managerAppId}"
@@ -1537,7 +1487,7 @@ class ListCleanerModule : XposedModule() {
             return false
         }
 
-        snapshot = RuntimeRuleSnapshot(
+        val nextSnapshot = RuntimeRuleSnapshot(
             configured = config.rules.map { it.id }.toSet(),
             displayMode = config.mode,
             priorities = config.priorities,
@@ -1549,14 +1499,20 @@ class ListCleanerModule : XposedModule() {
             hiddenFromApps = config.hiddenFromApps,
             visibilityCompat = config.visibilityCompat,
         )
-        lastEncodedConfig = encoded
-        RuntimeComponentPolicy.publish(
+        val protected = config.rootDisabledComponents ?: PersistentComponentState.sanitize(
+            preferences.getStringSet(PersistentComponentState.REMOTE_KEY, emptySet()).orEmpty()
+        )
+        val compiledPolicy = RuntimePolicyCompiler.compile(
             managerAppId = config.managerAppId,
-            protectedComponents = config.rootDisabledComponents ?: PersistentComponentState.sanitize(
-                preferences.getStringSet(PersistentComponentState.REMOTE_KEY, emptySet()).orEmpty()
-            ),
+            protectedComponents = protected,
+            displayMode = config.mode,
+            entryRules = nextSnapshot.configured,
+            entryPriorities = config.priorities.apps,
             digest = digest,
         )
+        snapshot = nextSnapshot
+        RuntimeComponentPolicy.publish(compiledPolicy)
+        lastEncodedConfig = encoded
 
         record("MANAGER_IDENTITY appId=${config.managerAppId} source=$source")
         record(
@@ -1567,7 +1523,7 @@ class ListCleanerModule : XposedModule() {
                 "typedPriorities=${config.openTypes.priorities.mapValues { it.value.size }} " +
                 "browserHosts=${config.browserLinks.hosts.size} " +
                 "browserRules=${config.browserLinks.rules.mapValues { it.value.size }} " +
-                "rootProtected=${config.rootDisabledComponents?.size ?: -1} " +
+                "rootProtected=${protected.size} " +
                 "titles=${config.priorities.titles.size} hiddenFromApps=${config.hiddenFromApps.size} " +
                 "visibilityScopes=${config.visibilityCompat.scopes.map { it.name }.sorted()} " +
                 "visibilityTargets=${snapshot.allSelectedPackages.size} digest=$digest"
@@ -1580,96 +1536,72 @@ class ListCleanerModule : XposedModule() {
         reason: String,
         source: String,
     ): Boolean {
-        val hasMirror =
-            sourcePreferences.contains(
-                RuleRepository.KEY_DISPLAY_MODE
-            ) ||
-                sourcePreferences.contains(
-                    RuleRepository.KEY_RULES
-                ) ||
-                sourcePreferences.contains(
-                    RuleRepository.KEY_PRIORITIES
-                )
+        val hasMirror = sourcePreferences.contains(RuleRepository.KEY_DISPLAY_MODE) ||
+            sourcePreferences.contains(RuleRepository.KEY_RULES) ||
+            sourcePreferences.contains(RuleRepository.KEY_PRIORITIES)
         if (!hasMirror) return false
 
-        val rules =
-            sourcePreferences.getStringSet(
-                RuleRepository.KEY_RULES,
-                emptySet()
-            ).orEmpty().toSet()
+        val rules = sourcePreferences.getStringSet(RuleRepository.KEY_RULES, emptySet()).orEmpty().toSet()
         val mode = DisplayMode.fromStored(
-            sourcePreferences.getString(
-                RuleRepository.KEY_DISPLAY_MODE,
-                null
-            ),
-            sourcePreferences.getBoolean(
-                RuleRepository.KEY_BLACKLIST,
-                true
-            )
+            sourcePreferences.getString(RuleRepository.KEY_DISPLAY_MODE, null),
+            sourcePreferences.getBoolean(RuleRepository.KEY_BLACKLIST, true),
         )
-        val json = Json {
-            ignoreUnknownKeys = true
-        }
+        val json = Json { ignoreUnknownKeys = true }
         val priorities = runCatching {
             json.decodeFromString(
                 PriorityConfig.serializer(),
-                sourcePreferences.getString(
-                    RuleRepository.KEY_PRIORITIES,
-                    null
-                ) ?: "{}"
+                sourcePreferences.getString(RuleRepository.KEY_PRIORITIES, null) ?: "{}"
             ).validated()
         }.getOrDefault(PriorityConfig())
         val openTypes = runCatching {
             json.decodeFromString(
                 OpenTypeConfig.serializer(),
-                sourcePreferences.getString(
-                    RuleRepository.KEY_OPEN_TYPES,
-                    null
-                ) ?: "{}"
+                sourcePreferences.getString(RuleRepository.KEY_OPEN_TYPES, null) ?: "{}"
             ).validated()
         }.getOrDefault(OpenTypeConfig())
         val browserLinks = runCatching {
             json.decodeFromString(
                 BrowserLinkConfig.serializer(),
-                sourcePreferences.getString(
-                    RuleRepository.KEY_BROWSER_LINKS,
-                    null
-                ) ?: "{}"
+                sourcePreferences.getString(RuleRepository.KEY_BROWSER_LINKS, null) ?: "{}"
             ).validated()
         }.getOrDefault(BrowserLinkConfig())
-        val hiddenFromApps =
-            sourcePreferences.getStringSet(
-                RuleRepository.KEY_HIDDEN_FROM_APPS,
-                emptySet()
-            ).orEmpty().toSet()
-        val visibilityScopes =
-            sourcePreferences.getStringSet(
-                RuleRepository.KEY_VISIBILITY_SCOPES,
-                emptySet()
-            ).orEmpty().mapNotNull { name ->
-                runCatching {
-                    VisibilityScope.valueOf(name)
-                }.getOrNull()
-            }.toSet()
+        val hiddenFromApps = sourcePreferences.getStringSet(
+            RuleRepository.KEY_HIDDEN_FROM_APPS,
+            emptySet()
+        ).orEmpty().toSet()
+        val visibilityScopes = sourcePreferences.getStringSet(
+            RuleRepository.KEY_VISIBILITY_SCOPES,
+            emptySet()
+        ).orEmpty().mapNotNull { name ->
+            runCatching { VisibilityScope.valueOf(name) }.getOrNull()
+        }.toSet()
 
-        snapshot = RuntimeRuleSnapshot(
+        val nextSnapshot = RuntimeRuleSnapshot(
             configured = rules,
             displayMode = mode,
             priorities = priorities,
             openTypes = openTypes,
             browserLinks = browserLinks,
-            diagnostic =
-                sourcePreferences.getBoolean(
-                    RuleRepository.KEY_DIAGNOSTIC,
-                    false
-                ),
+            diagnostic = sourcePreferences.getBoolean(RuleRepository.KEY_DIAGNOSTIC, false),
             managerAppId = -1,
             digest = "",
             hiddenFromApps = hiddenFromApps,
-            visibilityCompat =
-                VisibilityCompatConfig(
-                    scopes = visibilityScopes
-                ).validated(),
+            visibilityCompat = VisibilityCompatConfig(scopes = visibilityScopes).validated(),
+        )
+        val protected = PersistentComponentState.sanitize(
+            sourcePreferences.getStringSet(PersistentComponentState.REMOTE_KEY, emptySet()).orEmpty()
+        )
+        snapshot = nextSnapshot
+        RuntimeComponentPolicy.publish(
+            RuntimePolicyCompiler.compile(
+                managerAppId = -1,
+                protectedComponents = protected,
+                displayMode = mode,
+                entryRules = rules,
+                entryPriorities = priorities.apps,
+                digest = "",
+                authoritative = false,
+            )
         )
         lastEncodedConfig = null
         record(
@@ -1689,12 +1621,7 @@ class ListCleanerModule : XposedModule() {
             val cachedEncoded = cached.getString(RuleRepository.KEY_CONFIG, null)
             val cachedDigest = cachedEncoded?.let(RuntimeProtocol::digest)
 
-            // Once Probe v2 has applied a verified config, RemotePreferences is only persistent
-            // storage. A stale framework cache must never roll the running snapshot backwards.
-            if (
-                runtimeTransportActive &&
-                cachedDigest != snapshot.digest
-            ) {
+            if (runtimeTransportActive && cachedDigest != snapshot.digest) {
                 record(
                     "REMOTE_CONFIG_IGNORED reason=$reason runtimeAuthoritative=true " +
                         "current=${snapshot.digest.ifEmpty { "none" }} " +
@@ -1703,9 +1630,7 @@ class ListCleanerModule : XposedModule() {
                 return@runCatching
             }
 
-            if (
-                cachedEncoded != null &&
-                applyAtomicConfig(
+            if (cachedEncoded != null && applyAtomicConfig(
                     encoded = cachedEncoded,
                     reason = reason,
                     source = "remote-preferences",
@@ -1727,11 +1652,7 @@ class ListCleanerModule : XposedModule() {
                 "RULES_READ_FAILED reason=$reason error=${it.javaClass.name} " +
                     "message=${it.message?.take(160) ?: "none"}"
             )
-            Log.e(
-                TAG,
-                "Rules refresh failed; keeping previous snapshot",
-                it,
-            )
+            Log.e(TAG, "Rules refresh failed; keeping previous snapshot", it)
         }
     }
 

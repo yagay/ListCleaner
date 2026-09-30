@@ -4,7 +4,6 @@ import android.content.Intent
 import android.content.pm.ComponentInfo
 import android.content.pm.ResolveInfo
 import android.content.pm.ServiceInfo
-import android.net.Uri
 import android.os.Binder
 import android.os.Process
 import android.provider.DocumentsContract
@@ -47,24 +46,11 @@ class PackageManagerEntryFilterModule : XposedModule() {
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
-    private val fallback by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        RemoteEntryPolicyFallback(
+    private val policyProvider by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        EntryPolicyProvider(
             preferences = preferences,
-            selectRules = { config ->
-                config.rules.asSequence()
-                    .filter {
-                        it.kind.isPackageScopedEntry() ||
-                            it.kind == IntentKind.DOCUMENT_PROVIDER ||
-                            it.kind.isSystemServiceEntry()
-                    }
-                    .mapTo(linkedSetOf()) { it.id }
-            },
-            selectPriorities = { config ->
-                config.priorities.apps.filterKeys { kind ->
-                    kind.isPackageScopedEntry() ||
-                        kind == IntentKind.DOCUMENT_PROVIDER || kind.isSystemServiceEntry()
-                }
-            },
+            kinds = PM_ENTRY_KINDS,
+            includePriorities = true,
             record = ::record,
         )
     }
@@ -78,28 +64,15 @@ class PackageManagerEntryFilterModule : XposedModule() {
 
     override fun onSystemServerStarting(param: SystemServerStartingParam) {
         processName = "system"
-        fallback.start()
+        policyProvider.start()
         installHooks(param.classLoader)
-    }
-
-    private fun effectivePolicy(): RuntimeComponentPolicySnapshot {
-        val runtime = RuntimeComponentPolicy.snapshot()
-        if (runtime.authoritative) return runtime
-        val local = fallback.snapshot()
-        return fallbackRuntimePolicy(
-            managerAppId = local.managerAppId,
-            displayMode = local.displayMode,
-            entryRules = local.rules,
-            entryPriorities = local.priorities,
-        )
     }
 
     private fun installHooks(classLoader: ClassLoader) {
         PMS_CLASSES.forEach { className ->
             val clazz = runCatching { Class.forName(className, false, classLoader) }.getOrNull()
                 ?: return@forEach
-            generateSequence(clazz as Class<*>?) { it.superclass }
-                .flatMap { it.declaredMethods.asSequence() }
+            ReflectionAccess.hierarchyMethods(clazz)
                 .filter(::isSupportedQuery)
                 .distinctBy(Method::toGenericString)
                 .forEach { method ->
@@ -151,8 +124,6 @@ class PackageManagerEntryFilterModule : XposedModule() {
                 kind = IntentKind.BROWSER,
                 component = { it.activityInfo },
                 matchByPackage = true,
-                // A web query may contain both generic browsers and host-specific Deep Links.
-                // Browser package rules must not accidentally consume the Deep Link component rows.
                 eligible = { resolved, _ -> resolved.webTargetKind() == IntentKind.BROWSER },
             )
         }
@@ -194,7 +165,7 @@ class PackageManagerEntryFilterModule : XposedModule() {
             binderUid = binderUid,
         )
 
-        val policy = effectivePolicy()
+        val policy = policyProvider.snapshot()
         if (ManagerIdentity.matches(callerUid, policy.managerAppId)) return@Hooker chain.proceed()
         val selected = policy.selected(spec.kind)
         val priorities = policy.priorities(spec.kind)
@@ -214,11 +185,7 @@ class PackageManagerEntryFilterModule : XposedModule() {
             return@Hooker chain.proceed()
         }
 
-        val selectedPackages = if (spec.matchByPackage) {
-            selected.asSequence()
-                .mapNotNull(ComponentRule::fromId)
-                .mapTo(linkedSetOf()) { it.packageName }
-        } else emptySet()
+        val selectedPackages = if (spec.matchByPackage) policy.selectedPackages(spec.kind) else emptySet()
         record(
             "QUERY kind=${spec.kind} action=${(intent.selector ?: intent).action} callerUid=$callerUid " +
                 "callerPid=$binderPid callerProcess=${callerProcess ?: "unknown"} " +
@@ -297,6 +264,9 @@ class PackageManagerEntryFilterModule : XposedModule() {
         const val VOICE_INTERACTION_SERVICE_INTERFACE = "android.service.voice.VoiceInteractionService"
         const val BIND_VOICE_INTERACTION_PERMISSION = "android.permission.BIND_VOICE_INTERACTION"
         val WEB_SCHEMES = setOf("http", "https")
+        val PM_ENTRY_KINDS = IntentKind.entries.filterTo(linkedSetOf()) { kind ->
+            kind.isPackageScopedEntry() || kind == IntentKind.DOCUMENT_PROVIDER || kind.isSystemServiceEntry()
+        }
         val QUERY_METHODS = setOf(
             "queryIntentActivities", "queryIntentActivitiesAsUser", "queryIntentActivitiesInternal",
             "queryIntentServices", "queryIntentServicesAsUser", "queryIntentServicesInternal",

@@ -10,6 +10,8 @@ import android.view.inputmethod.InputMethodInfo
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.DisplayMode
+import com.yagay.ListCleaner.domain.ENTRY_RUNTIME_DEFINITIONS
+import com.yagay.ListCleaner.domain.EntryRuntimePath
 import com.yagay.ListCleaner.domain.FilterPolicy
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.ManagerIdentity
@@ -36,13 +38,11 @@ class SystemManagerEntryFilterModule : XposedModule() {
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
-    private val fallback by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        RemoteEntryPolicyFallback(
+    private val policyProvider by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        EntryPolicyProvider(
             preferences = preferences,
-            selectRules = { config ->
-                config.rules.filter { it.kind in MANAGER_KINDS }.mapTo(linkedSetOf()) { it.id }
-            },
-            selectPriorities = { config -> config.priorities.apps.filterKeys { it in MANAGER_KINDS } },
+            kinds = MANAGER_KINDS,
+            includePriorities = true,
             record = ::record,
         )
     }
@@ -56,23 +56,11 @@ class SystemManagerEntryFilterModule : XposedModule() {
 
     override fun onSystemServerStarting(param: SystemServerStartingParam) {
         processName = "system"
-        fallback.start()
+        policyProvider.start()
         installAccessibilityHooks(param.classLoader)
         installInputMethodHooks(param.classLoader)
         installPrintHooks(param.classLoader)
         installCredentialHooks(param.classLoader)
-    }
-
-    private fun effectivePolicy(): RuntimeComponentPolicySnapshot {
-        val runtime = RuntimeComponentPolicy.snapshot()
-        if (runtime.authoritative) return runtime
-        val local = fallback.snapshot()
-        return fallbackRuntimePolicy(
-            managerAppId = local.managerAppId,
-            displayMode = local.displayMode,
-            entryRules = local.rules,
-            entryPriorities = local.priorities,
-        )
     }
 
     private fun installAccessibilityHooks(classLoader: ClassLoader) {
@@ -143,7 +131,7 @@ class SystemManagerEntryFilterModule : XposedModule() {
         val caller = currentCaller()
         val original = chain.proceed()
         observeComponentResult(original, kind, componentOf)
-        val policy = effectivePolicy()
+        val policy = policyProvider.snapshot()
         if (!shouldFilter(caller, policy)) {
             record("AUTHORITY_OBSERVED kind=$kind callerUid=${caller.uid} filterAllowed=false")
             return@Hooker original
@@ -162,15 +150,13 @@ class SystemManagerEntryFilterModule : XposedModule() {
             RuntimeObservedEntryStore.observePackage(IntentKind.CREDENTIAL_PROVIDER, component.packageName)
         } }
 
-        val policy = effectivePolicy()
+        val policy = policyProvider.snapshot()
         if (!shouldFilter(caller, policy)) {
             record("AUTHORITY_OBSERVED kind=${IntentKind.CREDENTIAL_PROVIDER} callerUid=${caller.uid} filterAllowed=false count=${values.size}")
             return@Hooker original
         }
 
-        val selectedPackages = policy.selected(IntentKind.CREDENTIAL_PROVIDER)
-            .mapNotNull(ComponentRule::fromId)
-            .mapTo(linkedSetOf()) { it.packageName }
+        val selectedPackages = policy.selectedPackages(IntentKind.CREDENTIAL_PROVIDER)
         if (policy.displayMode == DisplayMode.SHOW_ALL || selectedPackages.isEmpty()) {
             record("MANAGER_HIT kind=${IntentKind.CREDENTIAL_PROVIDER} callerUid=${caller.uid} count=${values.size}")
             return@Hooker original
@@ -194,7 +180,7 @@ class SystemManagerEntryFilterModule : XposedModule() {
         imeCallerContext.set(caller)
         try {
             val original = chain.proceed()
-            val policy = effectivePolicy()
+            val policy = policyProvider.snapshot()
             if (listResults.extract(original) != null) {
                 observeComponentResult(original, IntentKind.INPUT_METHOD, ::inputMethodComponent)
                 if (shouldFilter(caller, policy)) {
@@ -219,7 +205,7 @@ class SystemManagerEntryFilterModule : XposedModule() {
         val caller = imeCallerContext.get() ?: return@Hooker chain.proceed()
         val original = chain.proceed()
         observeComponentResult(original, IntentKind.INPUT_METHOD, ::inputMethodComponent)
-        val policy = effectivePolicy()
+        val policy = policyProvider.snapshot()
         if (!shouldFilter(caller, policy)) return@Hooker original
         filterComponentResult(original, IntentKind.INPUT_METHOD, caller.uid, policy, ::inputMethodComponent)
     }
@@ -297,28 +283,17 @@ class SystemManagerEntryFilterModule : XposedModule() {
     }
 
     private fun credentialComponent(value: Any?): ComponentName? {
-        val direct = runCatching {
-            findNoArgMethod(value?.javaClass, "getComponentName")?.invoke(value) as? ComponentName
-        }.getOrNull()
+        val direct = ReflectionAccess.invokeNoArg(value, "getComponentName") as? ComponentName
         if (direct != null) return direct
         val service = reflectedServiceInfo(value) ?: return null
         return ComponentName(service.packageName, service.name)
     }
 
-    private fun reflectedServiceInfo(value: Any?): ServiceInfo? = runCatching {
-        findNoArgMethod(value?.javaClass, "getServiceInfo")?.invoke(value) as? ServiceInfo
-    }.getOrNull()
+    private fun reflectedServiceInfo(value: Any?): ServiceInfo? =
+        ReflectionAccess.invokeNoArg(value, "getServiceInfo") as? ServiceInfo
 
-    private fun reflectedResolveInfo(value: Any?): android.content.pm.ResolveInfo? = runCatching {
-        findNoArgMethod(value?.javaClass, "getResolveInfo")?.invoke(value) as? android.content.pm.ResolveInfo
-    }.getOrNull()
-
-    private fun findNoArgMethod(clazz: Class<*>?, name: String): Method? = clazz?.let {
-        generateSequence(it as Class<*>?) { type -> type.superclass }
-            .flatMap { type -> type.declaredMethods.asSequence() }
-            .firstOrNull { method -> method.name == name && method.parameterCount == 0 }
-            ?.apply { isAccessible = true }
-    }
+    private fun reflectedResolveInfo(value: Any?): android.content.pm.ResolveInfo? =
+        ReflectionAccess.invokeNoArg(value, "getResolveInfo") as? android.content.pm.ResolveInfo
 
     private fun shouldFilter(caller: CallerContext, policy: RuntimeComponentPolicySnapshot): Boolean {
         if (ManagerIdentity.matches(caller.uid, policy.managerAppId)) return false
@@ -348,8 +323,7 @@ class SystemManagerEntryFilterModule : XposedModule() {
     }
 
     private fun methods(clazz: Class<*>): Sequence<Method> =
-        generateSequence(clazz as Class<*>?) { it.superclass }
-            .flatMap { it.declaredMethods.asSequence() }
+        ReflectionAccess.hierarchyMethods(clazz)
             .filterNot { Modifier.isAbstract(it.modifiers) || it.declaringClass.isInterface }
             .distinctBy(Method::toGenericString)
 
@@ -388,12 +362,15 @@ class SystemManagerEntryFilterModule : XposedModule() {
         const val CREDENTIAL_HOOK_ID = "lc-credential-manager-entries"
         const val PER_USER_RANGE = 100_000
 
-        val MANAGER_KINDS = setOf(
-            IntentKind.ACCESSIBILITY,
-            IntentKind.INPUT_METHOD,
-            IntentKind.PRINT,
-            IntentKind.CREDENTIAL_PROVIDER,
+        val MANAGER_PATHS = setOf(
+            EntryRuntimePath.ACCESSIBILITY_MANAGER,
+            EntryRuntimePath.INPUT_METHOD_MANAGER,
+            EntryRuntimePath.PRINT_MANAGER,
+            EntryRuntimePath.CREDENTIAL_MANAGER,
         )
+        val MANAGER_KINDS = ENTRY_RUNTIME_DEFINITIONS.values.asSequence()
+            .filter { definition -> definition.expectedPaths.any { it in MANAGER_PATHS } }
+            .mapTo(linkedSetOf()) { it.kind }
         val ACCESSIBILITY_CLASSES = listOf("com.android.server.accessibility.AccessibilityManagerService")
         val IME_CLASSES = listOf(
             "com.android.server.inputmethod.InputMethodManagerService",

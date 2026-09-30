@@ -1,10 +1,8 @@
 package com.yagay.ListCleaner.xposed
 
-import com.yagay.ListCleaner.domain.BrowserLinkConfig
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
-import com.yagay.ListCleaner.domain.OpenTypeConfig
 import com.yagay.ListCleaner.domain.PriorityConfig
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -13,61 +11,28 @@ import org.junit.Test
 
 class RuntimeEntryPolicyTest {
     @Test
-    fun runtimeSnapshotPublishesAllSelectableRulesAndPrioritiesAtomically() {
-        val shortcut = ComponentRule(
-            IntentKind.SHORTCUT_ITEM,
-            "com.example.one",
-            "com.example.one.MainActivity#shortcut#scan",
-        )
-        val legacyShortcutSurface = ComponentRule(
-            IntentKind.LAUNCHER_SHORTCUT,
-            "com.example.one",
-            "com.example.one.MainActivity",
-        )
-        val provider = ComponentRule(
-            IntentKind.DOCUMENT_PROVIDER,
-            "com.example.drive",
-            "com.example.drive.DocumentsProvider",
-        )
-        val ordinary = ComponentRule(
-            IntentKind.SHARE,
-            "com.example.share",
-            "com.example.share.ShareActivity",
-        )
-        val assistant = ComponentRule(
-            IntentKind.ASSISTANT,
-            "com.example.assistant",
-            "com.example.assistant.AssistActivity",
-        )
+    fun runtimeCompilerPublishesAllSelectableRulesAndPrioritiesAtomically() {
+        val shortcut = ComponentRule(IntentKind.SHORTCUT_ITEM, "com.example.one", "Shortcut#scan")
+        val provider = ComponentRule(IntentKind.DOCUMENT_PROVIDER, "com.example.drive", "DocumentsProvider")
+        val ordinary = ComponentRule(IntentKind.SHARE, "com.example.share", "ShareActivity")
+        val assistant = ComponentRule(IntentKind.ASSISTANT, "com.example.assistant", "AssistActivity")
 
-        RuntimeRuleSnapshot(
-            configured = setOf(
-                shortcut.id,
-                legacyShortcutSurface.id,
-                provider.id,
-                ordinary.id,
-                assistant.id,
-            ),
+        val compiled = RuntimePolicyCompiler.compile(
+            managerAppId = 12345,
+            protectedComponents = setOf("0|com.example|com.example.Protected"),
             displayMode = DisplayMode.HIDE_SELECTED,
-            priorities = PriorityConfig(
+            entryRules = setOf(shortcut.id, provider.id, ordinary.id, assistant.id),
+            entryPriorities = PriorityConfig(
                 apps = mapOf(
                     IntentKind.SHORTCUT_ITEM to listOf("com.example.one"),
-                    IntentKind.LAUNCHER_SHORTCUT to listOf("com.example.legacy"),
                     IntentKind.DOCUMENT_PROVIDER to listOf("com.example.drive"),
                     IntentKind.SHARE to listOf("com.example.share"),
                     IntentKind.ASSISTANT to listOf("com.example.assistant"),
                 )
-            ),
-            openTypes = OpenTypeConfig(),
-            browserLinks = BrowserLinkConfig(),
-            diagnostic = false,
-        )
-
-        RuntimeComponentPolicy.publish(
-            managerAppId = 12345,
-            protectedComponents = setOf("0|com.example|com.example.Protected"),
+            ).apps,
             digest = "digest-a",
         )
+        RuntimeComponentPolicy.publish(compiled)
 
         val policy = RuntimeComponentPolicy.snapshot()
         assertTrue(policy.authoritative)
@@ -76,34 +41,38 @@ class RuntimeEntryPolicyTest {
         assertEquals(DisplayMode.HIDE_SELECTED, policy.displayMode)
         assertEquals(setOf(shortcut.id, provider.id, ordinary.id, assistant.id), policy.entryRules)
         assertEquals(setOf(assistant.id), policy.selected(IntentKind.ASSISTANT))
+        assertEquals(setOf("com.example.assistant"), policy.selectedPackages(IntentKind.ASSISTANT))
         assertEquals(listOf("com.example.one"), policy.entryPriorities[IntentKind.SHORTCUT_ITEM])
         assertEquals(listOf("com.example.drive"), policy.entryPriorities[IntentKind.DOCUMENT_PROVIDER])
         assertEquals(listOf("com.example.share"), policy.entryPriorities[IntentKind.SHARE])
         assertEquals(listOf("com.example.assistant"), policy.entryPriorities[IntentKind.ASSISTANT])
-        assertTrue(IntentKind.LAUNCHER_SHORTCUT !in policy.entryPriorities)
     }
 
     @Test
-    fun stagedEntryRulesDoNotPartiallyReplaceAuthoritativeSnapshot() {
-        RuntimeComponentPolicy.publishEntryRules(
+    fun compilingNextPolicyDoesNotPartiallyReplaceCurrentSnapshot() {
+        val baseline = RuntimePolicyCompiler.compile(
+            managerAppId = 10001,
+            protectedComponents = emptySet(),
             displayMode = DisplayMode.HIDE_SELECTED,
             entryRules = emptySet(),
             entryPriorities = emptyMap(),
+            digest = "baseline",
         )
-        RuntimeComponentPolicy.publish(10001, emptySet(), "baseline")
-        val baseline = RuntimeComponentPolicy.snapshot()
+        RuntimeComponentPolicy.publish(baseline)
 
-        RuntimeComponentPolicy.publishEntryRules(
+        val next = RuntimePolicyCompiler.compile(
+            managerAppId = 10002,
+            protectedComponents = setOf("0|pkg|pkg.Component"),
             displayMode = DisplayMode.SHOW_SELECTED,
             entryRules = setOf("DIRECT_SHARE|com.example|com.example.Target"),
             entryPriorities = mapOf(IntentKind.DIRECT_SHARE to listOf("com.example")),
+            digest = "next",
         )
 
-        val staged = RuntimeComponentPolicy.snapshot()
-        assertEquals(baseline, staged)
-        assertFalse(staged.displayMode == DisplayMode.SHOW_SELECTED)
+        assertEquals(baseline, RuntimeComponentPolicy.snapshot())
+        assertFalse(RuntimeComponentPolicy.snapshot().displayMode == DisplayMode.SHOW_SELECTED)
 
-        RuntimeComponentPolicy.publish(10002, setOf("0|pkg|pkg.Component"), "next")
+        RuntimeComponentPolicy.publish(next)
         val committed = RuntimeComponentPolicy.snapshot()
         assertEquals(DisplayMode.SHOW_SELECTED, committed.displayMode)
         assertEquals(10002, committed.managerAppId)

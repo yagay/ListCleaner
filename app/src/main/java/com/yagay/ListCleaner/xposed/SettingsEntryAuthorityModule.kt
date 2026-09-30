@@ -4,11 +4,10 @@ import android.content.ComponentName
 import android.os.Process
 import android.util.Log
 import com.yagay.ListCleaner.data.RuleRepository
-import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.DisplayMode
+import com.yagay.ListCleaner.domain.ENTRY_RUNTIME_DEFINITIONS
+import com.yagay.ListCleaner.domain.EntryRuntimePath
 import com.yagay.ListCleaner.domain.IntentKind
-import com.yagay.ListCleaner.domain.ObservedEntryRecord
-import com.yagay.ListCleaner.domain.SyntheticEntryKeys
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
@@ -25,23 +24,20 @@ import java.util.concurrent.ConcurrentHashMap
 class SettingsEntryAuthorityModule : XposedModule() {
     @Volatile private var processName = ""
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
-    private var policyStarted = false
 
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
-    private val persistence by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        RemoteObservedEntryPersistence(preferences, ::record)
-    }
-    private val fallback by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        RemoteEntryPolicyFallback(
+    private val policyProvider by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        EntryPolicyProvider(
             preferences = preferences,
-            selectRules = { config ->
-                config.rules.filter { it.kind in SETTINGS_KINDS }.mapTo(linkedSetOf()) { it.id }
-            },
-            selectPriorities = { emptyMap() },
+            kinds = SETTINGS_KINDS,
+            includePriorities = false,
             record = ::record,
         )
+    }
+    private val authorityWriter by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        AuthoritySnapshotWriter(preferences, ::record)
     }
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
@@ -57,7 +53,7 @@ class SettingsEntryAuthorityModule : XposedModule() {
         installed += installVpnHooks(param.classLoader)
         installed += installLegacyAutofillHooks(param.classLoader)
         if (installed > 0) {
-            startPolicyOnce()
+            policyProvider.start()
             record("HOOKS_READY package=${param.packageName} new=$installed total=${installedMethods.size}")
         } else {
             record("AUTHORITY_CLASSES_UNAVAILABLE package=${param.packageName}")
@@ -74,9 +70,6 @@ class SettingsEntryAuthorityModule : XposedModule() {
             }
             .maxByOrNull(Method::getParameterCount)
             ?: return 0
-        // AOSP exposes a convenience overload that delegates to the longer implementation. Hooking
-        // both would observe the inner unfiltered list and then overwrite it with the outer filtered
-        // result. Install only the terminal overload so the authority snapshot is always pristine.
         return if (install(terminal, VPN_HOOK_ID, vpnHooker())) 1 else 0
     }
 
@@ -98,10 +91,11 @@ class SettingsEntryAuthorityModule : XposedModule() {
     private fun vpnHooker() = XposedInterface.Hooker { chain ->
         val original = chain.proceed()
         val values = original as? List<*> ?: return@Hooker original
-        persistVpnSnapshot(values)
+        val packages = values.mapNotNull(::vpnPackageName)
+        authorityWriter.replacePackages(IntentKind.VPN, packages)
 
-        val policy = effectivePolicy()
-        val selectedPackages = selectedPackages(policy, IntentKind.VPN)
+        val policy = policyProvider.snapshot()
+        val selectedPackages = policy.selectedPackages(IntentKind.VPN)
         record(
             "VPN_QUERY before=${values.size} selectedPackages=${selectedPackages.size} mode=${policy.displayMode}"
         )
@@ -116,16 +110,12 @@ class SettingsEntryAuthorityModule : XposedModule() {
         ArrayList(filtered)
     }
 
-    /**
-     * Android still exposes the legacy component picker on some builds. The main AUTOFILL catalog
-     * stays package-scoped for the modern combined-provider page, while this compatibility path
-     * applies the same package decision to every component row belonging to that package.
-     */
+    /** Compatibility path for builds that still expose the legacy component picker. */
     private fun legacyAutofillHooker() = XposedInterface.Hooker { chain ->
         val original = chain.proceed()
         val values = original as? List<*> ?: return@Hooker original
-        val policy = effectivePolicy()
-        val selectedPackages = selectedPackages(policy, IntentKind.AUTOFILL)
+        val policy = policyProvider.snapshot()
+        val selectedPackages = policy.selectedPackages(IntentKind.AUTOFILL)
         record(
             "AUTOFILL_LEGACY_QUERY before=${values.size} selectedPackages=${selectedPackages.size} mode=${policy.displayMode}"
         )
@@ -143,98 +133,24 @@ class SettingsEntryAuthorityModule : XposedModule() {
         ArrayList(filtered)
     }
 
-    private fun persistVpnSnapshot(values: List<*>) {
-        val now = System.currentTimeMillis()
-        val records = values.asSequence()
-            .mapNotNull(::vpnPackageName)
-            .distinct()
-            .mapNotNull { packageName ->
-                val rule = runCatching { SyntheticEntryKeys.packageScopedRule(IntentKind.VPN, packageName) }.getOrNull()
-                    ?: return@mapNotNull null
-                if (!rule.isValid()) return@mapNotNull null
-                ObservedEntryRecord(
-                    kind = IntentKind.VPN.name,
-                    packageName = packageName,
-                    syntheticClass = rule.className,
-                    observedAt = now,
-                )
-            }
-            .toList()
-        if (persistence.replaceKind(IntentKind.VPN, records)) {
-            record("AUTHORITY_SNAPSHOT kind=${IntentKind.VPN} count=${records.size}")
-        }
-    }
-
-    private fun selectedPackages(policy: RuntimeComponentPolicySnapshot, kind: IntentKind): Set<String> =
-        policy.selected(kind).mapNotNull(ComponentRule::fromId).mapTo(linkedSetOf()) { it.packageName }
-
     private fun vpnPackageName(value: Any?): String? =
-        reflectedString(value, "getPackageName")
-            ?: reflectedField(value, "packageName") as? String
-            ?: reflectedField(value, "mPackageName") as? String
+        ReflectionAccess.readString(value, "getPackageName")
+            ?: ReflectionAccess.readField(value, "packageName", "mPackageName") as? String
 
     private fun autofillPackageName(value: Any?): String? {
-        val direct = invokeNoArg(value, "getComponentName") as? ComponentName
-            ?: reflectedField(value, "mComponentName") as? ComponentName
-            ?: reflectedField(value, "componentName") as? ComponentName
+        val direct = ReflectionAccess.invokeNoArg(value, "getComponentName") as? ComponentName
+            ?: ReflectionAccess.readField(value, "mComponentName", "componentName") as? ComponentName
         if (direct != null) return direct.packageName
 
-        val key = reflectedString(value, "getKey")
-            ?: reflectedField(value, "mKey") as? String
-            ?: reflectedField(value, "key") as? String
+        val key = ReflectionAccess.readString(value, "getKey")
+            ?: ReflectionAccess.readField(value, "mKey", "key") as? String
             ?: return null
         return ComponentName.unflattenFromString(key)?.packageName
             ?: key.substringBefore('/').takeIf { it.contains('.') }
     }
 
-    private fun reflectedString(value: Any?, methodName: String): String? =
-        invokeNoArg(value, methodName) as? String
-
-    private fun invokeNoArg(value: Any?, methodName: String): Any? = runCatching {
-        val clazz = value?.javaClass ?: return@runCatching null
-        val method = generateSequence(clazz as Class<*>?) { it.superclass }
-            .flatMap { it.declaredMethods.asSequence() }
-            .firstOrNull { it.name == methodName && it.parameterCount == 0 }
-            ?: return@runCatching null
-        method.isAccessible = true
-        method.invoke(value)
-    }.getOrNull()
-
-    private fun reflectedField(value: Any?, fieldName: String): Any? = runCatching {
-        val clazz = value?.javaClass ?: return@runCatching null
-        val field = generateSequence(clazz as Class<*>?) { it.superclass }
-            .flatMap { it.declaredFields.asSequence() }
-            .firstOrNull { it.name == fieldName }
-            ?: return@runCatching null
-        field.isAccessible = true
-        field.get(value)
-    }.getOrNull()
-
-    private fun startPolicyOnce() {
-        if (policyStarted) return
-        synchronized(this) {
-            if (policyStarted) return
-            fallback.start()
-            policyStarted = true
-        }
-    }
-
-    private fun effectivePolicy(): RuntimeComponentPolicySnapshot {
-        val runtime = RuntimeComponentPolicy.snapshot()
-        if (runtime.authoritative) return runtime
-        val local = fallback.snapshot()
-        return fallbackRuntimePolicy(
-            managerAppId = local.managerAppId,
-            displayMode = local.displayMode,
-            entryRules = local.rules,
-            entryPriorities = emptyMap(),
-        )
-    }
-
     private fun methods(clazz: Class<*>): Sequence<Method> =
-        generateSequence(clazz as Class<*>?) { it.superclass }
-            .flatMap { it.declaredMethods.asSequence() }
-            .distinctBy(Method::toGenericString)
+        ReflectionAccess.hierarchyMethods(clazz).distinctBy(Method::toGenericString)
 
     private fun install(method: Method, id: String, hooker: XposedInterface.Hooker): Boolean {
         val key = "$id#${method.toGenericString()}"
@@ -264,6 +180,10 @@ class SettingsEntryAuthorityModule : XposedModule() {
             "com.android.settings.applications.defaultapps.DefaultAutofillPicker"
         const val VPN_HOOK_ID = "lc-settings-vpn-authority"
         const val AUTOFILL_HOOK_ID = "lc-settings-autofill-picker"
-        val SETTINGS_KINDS = setOf(IntentKind.VPN, IntentKind.AUTOFILL)
+
+        val SETTINGS_PATHS = setOf(EntryRuntimePath.SETTINGS_VPN, EntryRuntimePath.SETTINGS_AUTOFILL_PICKER)
+        val SETTINGS_KINDS = ENTRY_RUNTIME_DEFINITIONS.values.asSequence()
+            .filter { definition -> definition.expectedPaths.any { it in SETTINGS_PATHS } }
+            .mapTo(linkedSetOf()) { it.kind }
     }
 }

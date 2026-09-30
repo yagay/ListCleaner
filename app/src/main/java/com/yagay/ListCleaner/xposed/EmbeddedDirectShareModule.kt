@@ -30,12 +30,7 @@ import java.util.Collections
 import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 
-/**
- * Vendor-neutral compatibility layer for apps that embed their own Direct Share row.
- *
- * OEM-specific knowledge is declarative in [EmbeddedDirectShareProfiles]. The filtering,
- * observation, ordering, empty-surface collapsing and rule-id logic stay shared.
- */
+/** Vendor-neutral compatibility layer for apps that embed their own Direct Share row. */
 class EmbeddedDirectShareModule : XposedModule() {
     private data class ParsedTarget(
         val packageName: String?,
@@ -58,18 +53,11 @@ class EmbeddedDirectShareModule : XposedModule() {
     private val observedPersistence by lazy(LazyThreadSafetyMode.PUBLICATION) {
         RemoteObservedEntryPersistence(preferences, ::record)
     }
-    private val fallback by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        RemoteEntryPolicyFallback(
+    private val policyProvider by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        EntryPolicyProvider(
             preferences = preferences,
-            selectRules = { config ->
-                config.rules.filter { it.kind == IntentKind.DIRECT_SHARE }
-                    .mapTo(linkedSetOf()) { it.id }
-            },
-            selectPriorities = { config ->
-                config.priorities.apps[IntentKind.DIRECT_SHARE]
-                    ?.let { mapOf(IntentKind.DIRECT_SHARE to it) }
-                    .orEmpty()
-            },
+            kinds = setOf(IntentKind.DIRECT_SHARE),
+            includePriorities = true,
             record = ::record,
         )
     }
@@ -84,20 +72,8 @@ class EmbeddedDirectShareModule : XposedModule() {
     override fun onPackageReady(param: PackageReadyParam) {
         val profiles = EmbeddedDirectShareProfiles.matching(param.packageName)
         if (profiles.isEmpty()) return
-        fallback.start()
+        policyProvider.start()
         profiles.forEach { profile -> installProfileHooks(profile, param.classLoader) }
-    }
-
-    private fun effectivePolicy(): RuntimeComponentPolicySnapshot {
-        val runtime = RuntimeComponentPolicy.snapshot()
-        if (runtime.authoritative) return runtime
-        val local = fallback.snapshot()
-        return fallbackRuntimePolicy(
-            managerAppId = local.managerAppId,
-            displayMode = local.displayMode,
-            entryRules = local.rules,
-            entryPriorities = local.priorities,
-        )
     }
 
     private fun installProfileHooks(profile: EmbeddedDirectShareHostProfile, classLoader: ClassLoader) {
@@ -140,19 +116,18 @@ class EmbeddedDirectShareModule : XposedModule() {
     private fun matchesRefreshSignature(profile: EmbeddedDirectShareHostProfile, method: Method): Boolean {
         val parameters = method.parameterTypes.map { it.name }
         return profile.refreshMethods.any { signature ->
-            method.returnType.name == signature.returnTypeName &&
-                parameters == signature.parameterTypeNames
+            method.returnType.name == signature.returnTypeName && parameters == signature.parameterTypeNames
         }
     }
 
     private fun adapterRefreshHooker(profile: EmbeddedDirectShareHostProfile) = XposedInterface.Hooker { chain ->
         val original = chain.proceed()
         val adapter = chain.thisObject ?: return@Hooker original
-        val policy = effectivePolicy()
+        val policy = policyProvider.snapshot()
         val selected = policy.selected(IntentKind.DIRECT_SHARE)
         val priorities = policy.priorities(IntentKind.DIRECT_SHARE)
         val filteringActive =
-            policy.displayMode != DisplayMode.SHOW_ALL && selected.isNotEmpty() || priorities.isNotEmpty()
+            (policy.displayMode != DisplayMode.SHOW_ALL && selected.isNotEmpty()) || priorities.isNotEmpty()
         if (!filteringActive) {
             updateEmptySurface(profile, adapter, empty = false)
             return@Hooker original
@@ -208,11 +183,8 @@ class EmbeddedDirectShareModule : XposedModule() {
 
         val persisted = observedPersistence.merge(observed)
         if (changedLists > 0) {
-            runCatching {
-                findNoArgMethod(adapter.javaClass, "notifyDataSetChanged")?.invoke(adapter)
-            }.onFailure {
-                record("NOTIFY_FAILED profile=${profile.id} error=${it.javaClass.name}")
-            }
+            runCatching { ReflectionAccess.noArgMethod(adapter.javaClass, "notifyDataSetChanged")?.invoke(adapter) }
+                .onFailure { record("NOTIFY_FAILED profile=${profile.id} error=${it.javaClass.name}") }
             record(
                 "FILTER profile=${profile.id} lists=$changedLists before=$beforeCount after=$afterCount " +
                     "parsed=$parsedCount selected=${selected.size} priorities=${priorities.size} " +
@@ -242,47 +214,35 @@ class EmbeddedDirectShareModule : XposedModule() {
             if (didChange) changed++
         }
 
-        if (changed > 0) {
-            record("EMPTY_SURFACE profile=${profile.id} empty=$empty changedViews=$changed")
-        }
+        if (changed > 0) record("EMPTY_SURFACE profile=${profile.id} empty=$empty changedViews=$changed")
     }
 
     private fun hideView(view: View): Boolean {
         synchronized(hiddenViews) {
             if (hiddenViews.containsKey(view)) return false
-            hiddenViews[view] = HiddenViewState(
-                visibility = view.visibility,
-                layoutHeight = view.layoutParams?.height,
-            )
+            hiddenViews[view] = HiddenViewState(view.visibility, view.layoutParams?.height)
         }
         view.visibility = View.GONE
-        view.layoutParams?.let { params ->
-            params.height = 0
-            view.layoutParams = params
-        }
+        view.layoutParams?.let { params -> params.height = 0; view.layoutParams = params }
         view.requestLayout()
         return true
     }
 
     private fun restoreView(view: View): Boolean {
         val state = synchronized(hiddenViews) { hiddenViews.remove(view) } ?: return false
-        view.layoutParams?.let { params ->
-            state.layoutHeight?.let { params.height = it }
-            view.layoutParams = params
-        }
+        view.layoutParams?.let { params -> state.layoutHeight?.let { params.height = it }; view.layoutParams = params }
         view.visibility = state.visibility
         view.requestLayout()
         return true
     }
 
     private fun findHostRoot(adapter: Any): View? {
-        allFields(adapter.javaClass).forEach { field ->
+        ReflectionAccess.hierarchyFields(adapter.javaClass).forEach { field ->
             if (!View::class.java.isAssignableFrom(field.type)) return@forEach
             val view = readField(field, adapter) as? View
             if (view != null) return view.rootView ?: view
         }
-
-        allFields(adapter.javaClass).forEach { field ->
+        ReflectionAccess.hierarchyFields(adapter.javaClass).forEach { field ->
             if (!Context::class.java.isAssignableFrom(field.type)) return@forEach
             val context = readField(field, adapter) as? Context ?: return@forEach
             val activity = unwrapActivity(context) ?: return@forEach
@@ -312,18 +272,13 @@ class EmbeddedDirectShareModule : XposedModule() {
         field.get(receiver)
     }.getOrNull()
 
-    private fun allFields(clazz: Class<*>): Sequence<Field> =
-        generateSequence(clazz as Class<*>?) { it.superclass }
-            .flatMap { it.declaredFields.asSequence() }
-
-    private fun adapterItemCount(adapter: Any): Int? = runCatching {
-        (findNoArgMethod(adapter.javaClass, "getItemCount")?.invoke(adapter) as? Number)?.toInt()
-    }.getOrNull()
+    private fun adapterItemCount(adapter: Any): Int? =
+        (ReflectionAccess.invokeNoArg(adapter, "getItemCount") as? Number)?.toInt()
 
     @Suppress("UNCHECKED_CAST")
     private fun mutableTargetLists(adapter: Any): List<MutableList<Any?>> {
         val result = mutableListOf<MutableList<Any?>>()
-        allFields(adapter.javaClass)
+        ReflectionAccess.hierarchyFields(adapter.javaClass)
             .filter { java.util.List::class.java.isAssignableFrom(it.type) }
             .forEach { field ->
                 val value = readField(field, adapter) as? MutableList<Any?> ?: return@forEach
@@ -335,10 +290,10 @@ class EmbeddedDirectShareModule : XposedModule() {
     private fun parseTarget(value: Any?): ParsedTarget {
         if (value == null) return ParsedTarget(null, null, null)
 
-        val shortcut = invokeFirstNoArg(value, SHORTCUT_ACCESSORS) as? ShortcutInfo
-        val resolveInfo = invokeFirstNoArg(value, RESOLVE_INFO_ACCESSORS) as? ResolveInfo
-        val explicitComponent = invokeFirstNoArg(value, COMPONENT_ACCESSORS) as? ComponentName
-        val targetIntent = invokeFirstNoArg(value, INTENT_ACCESSORS) as? Intent
+        val shortcut = ReflectionAccess.invokeFirstNoArg(value, SHORTCUT_ACCESSORS) as? ShortcutInfo
+        val resolveInfo = ReflectionAccess.invokeFirstNoArg(value, RESOLVE_INFO_ACCESSORS) as? ResolveInfo
+        val explicitComponent = ReflectionAccess.invokeFirstNoArg(value, COMPONENT_ACCESSORS) as? ComponentName
+        val targetIntent = ReflectionAccess.invokeFirstNoArg(value, INTENT_ACCESSORS) as? Intent
         val component = explicitComponent
             ?: targetIntent?.component
             ?: resolveInfo?.activityInfo?.let { activity ->
@@ -376,20 +331,6 @@ class EmbeddedDirectShareModule : XposedModule() {
         return ParsedTarget(packageName, rule, observed)
     }
 
-    private fun invokeFirstNoArg(value: Any, names: List<String>): Any? {
-        names.forEach { name ->
-            val result = runCatching { findNoArgMethod(value.javaClass, name)?.invoke(value) }.getOrNull()
-            if (result != null) return result
-        }
-        return null
-    }
-
-    private fun findNoArgMethod(clazz: Class<*>, name: String): Method? =
-        generateSequence(clazz as Class<*>?) { it.superclass }
-            .flatMap { it.declaredMethods.asSequence() }
-            .firstOrNull { it.name == name && it.parameterCount == 0 }
-            ?.apply { isAccessible = true }
-
     private fun record(message: String) {
         val line = "pid=${Process.myPid()} process=$processName $message"
         runCatching { Log.i(TAG, line) }
@@ -400,21 +341,13 @@ class EmbeddedDirectShareModule : XposedModule() {
         const val TAG = "ListCleaner.EmbeddedDirectShare"
         const val HOOK_ID = "lc-embedded-direct-share"
 
-        val SHORTCUT_ACCESSORS = listOf(
-            "getDirectShareShortcutInfo",
-            "getShortcutInfo",
-        )
-        val RESOLVE_INFO_ACCESSORS = listOf(
-            "getResolveInfo",
-        )
+        val SHORTCUT_ACCESSORS = listOf("getDirectShareShortcutInfo", "getShortcutInfo")
+        val RESOLVE_INFO_ACCESSORS = listOf("getResolveInfo")
         val COMPONENT_ACCESSORS = listOf(
             "getChooserTargetComponentName",
             "getResolvedComponentName",
             "getTargetComponent",
         )
-        val INTENT_ACCESSORS = listOf(
-            "getTargetIntent",
-            "getResolvedIntent",
-        )
+        val INTENT_ACCESSORS = listOf("getTargetIntent", "getResolvedIntent")
     }
 }

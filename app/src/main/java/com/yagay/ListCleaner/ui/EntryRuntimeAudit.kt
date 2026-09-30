@@ -7,7 +7,7 @@ import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.isSelectableEntryKind
 import com.yagay.ListCleaner.domain.runtimeDefinition
 
-/** Builds a machine-friendly cross-check between manager discovery/config and real hook evidence. */
+/** Builds a machine-friendly cross-check between declared runtime paths and real hook evidence. */
 internal object EntryRuntimeAudit {
     private data class Evidence(
         var hookReady: Int = 0,
@@ -20,8 +20,8 @@ internal object EntryRuntimeAudit {
     fun report(state: MainState, runtimeLogText: String): String = buildString {
         appendLine("Entry runtime audit")
         appendLine("generatedFrom=current manager state + bounded historical runtime logs")
-        appendLine("IMPORTANT: missing runtime evidence means UNKNOWN until that authority surface is exercised; it is not proof of failure.")
-        appendLine("coverageGap is source-code authority coverage, not a live-device observation.")
+        appendLine("IMPORTANT: expectedPaths come from source definitions; installedPaths/observedPaths require log evidence from this device.")
+        appendLine("Missing installation evidence is UNKNOWN when old startup logs have already rotated; it is not proof of failure.")
         appendLine()
 
         val lines = runtimeLogText.lineSequence()
@@ -39,13 +39,19 @@ internal object EntryRuntimeAudit {
                 val selected = state.selected.count { it.kind == kind }
                 val selectedUnavailable = candidates.count { it.unavailable && it.rule in state.selected }
                 val evidence = collectEvidence(kind, definition, lines)
+                val installedPaths = definition?.expectedPaths.orEmpty().filterTo(linkedSetOf()) { path ->
+                    installationSeen(kind, path, lines)
+                }
+                val observedPaths = definition?.expectedPaths.orEmpty().filterTo(linkedSetOf()) { path ->
+                    runtimeSeen(kind, path, lines)
+                }
                 val status = when {
                     selected == 0 -> "UNCONFIGURED"
                     evidence.filterObserved > 0 && evidence.restoreObserved > 0 -> "FILTER_OBSERVED_RESTORE_HISTORY"
                     evidence.filterObserved > 0 -> "FILTER_OBSERVED"
                     evidence.restoreObserved > 0 -> "EMPTY_RESULT_RESTORED"
-                    evidence.failed > 0 && evidence.hookReady == 0 -> "HOOK_ERROR_SEEN"
-                    evidence.queryObserved > 0 || evidence.hookReady > 0 -> "RUNTIME_SEEN_NOT_FILTER_CONFIRMED"
+                    evidence.failed > 0 && installedPaths.isEmpty() -> "HOOK_ERROR_SEEN"
+                    observedPaths.isNotEmpty() || installedPaths.isNotEmpty() -> "RUNTIME_SEEN_NOT_FILTER_CONFIRMED"
                     else -> "NO_RUNTIME_EVIDENCE"
                 }
 
@@ -53,28 +59,31 @@ internal object EntryRuntimeAudit {
                 if (definition == null) {
                     risks += "NO_RUNTIME_DEFINITION"
                 } else {
-                    definition.missingPaths.forEach { risks += "COVERAGE_GAP_${it.name}" }
                     if (definition.systemCallerBypassPossible) risks += "SYSTEM_CALLER_BYPASS_POSSIBLE"
-                    val canRestoreEmpty = definition.coveredPaths.any { path ->
+                    val canRestoreEmpty = definition.expectedPaths.any { path ->
                         definition.emptyBehavior[path] == EmptyResultBehavior.RESTORE_ORIGINAL
                     }
                     if (selected > 0 && discovered > 0 && selected >= discovered && canRestoreEmpty) {
                         risks += "EMPTY_RESULT_GUARD_MAY_RESTORE"
+                    }
+                    if (selected > 0) {
+                        (definition.expectedPaths - installedPaths).forEach { path ->
+                            risks += "INSTALL_EVIDENCE_MISSING_${path.name}"
+                        }
                     }
                 }
                 if (selected > 0 && discovered == 0) risks += "CONFIGURED_NOT_DISCOVERED"
                 if (selectedUnavailable > 0) risks += "SELECTED_UNAVAILABLE=$selectedUnavailable"
                 if (evidence.restoreObserved > 0) risks += "RESTORE_ALL_SEEN_IN_LOG"
                 if (evidence.failed > 0) risks += "HOOK_FAILURE_SEEN"
-                if (selected > 0 && evidence.hookReady == 0 && evidence.queryObserved == 0 && evidence.filterObserved == 0) {
-                    risks += "NO_RUNTIME_EVIDENCE"
-                }
+                if (selected > 0 && installedPaths.isEmpty() && observedPaths.isEmpty()) risks += "NO_RUNTIME_EVIDENCE"
 
                 append("kind=${kind.name}")
                 append(" discovered=$discovered unavailable=$unavailable selected=$selected")
                 append(" status=$status")
                 append(" expectedPaths=${definition?.expectedPaths?.joinToString("+") { it.name } ?: "none"}")
-                append(" coveredPaths=${definition?.coveredPaths?.joinToString("+") { it.name } ?: "none"}")
+                append(" installedPaths=${installedPaths.joinToString("+") { it.name }.ifEmpty { "none" }}")
+                append(" observedPaths=${observedPaths.joinToString("+") { it.name }.ifEmpty { "none" }}")
                 append(" hookReady=${evidence.hookReady}")
                 append(" queryObserved=${evidence.queryObserved}")
                 append(" filterObserved=${evidence.filterObserved}")
@@ -105,54 +114,97 @@ internal object EntryRuntimeAudit {
         return evidence
     }
 
-    private fun relevant(kind: IntentKind, definition: EntryRuntimeDefinition?, line: String): Boolean {
-        val coveredPaths = definition?.coveredPaths.orEmpty()
-        if (Regex("\\bkind=${Regex.escape(kind.name)}\\b").containsMatchIn(line)) return true
+    private fun installationSeen(kind: IntentKind, path: EntryRuntimePath, lines: List<String>): Boolean =
+        lines.any { line -> pathInstallationLine(kind, path, line) }
 
-        val roleName = definition?.roleName
-        if (roleName != null &&
-            (line.contains("ListCleaner.RoleController") || line.contains("role=$roleName"))) {
-            return line.contains("kind=${kind.name}") || line.contains("role=$roleName") || line.contains("HOOK")
-        }
-        if (kind == IntentKind.DIRECT_SHARE) {
-            if (line.contains("ListCleaner.DirectShare") || line.contains("ListCleaner.EmbeddedDirectShare")) return true
-            if (line.contains("ListCleaner.ShortcutSurface") &&
-                (line.contains("DIRECT_") || line.contains("DIRECT_SHARE") || line.contains("getShareTargets"))) return true
-        }
-        if (kind == IntentKind.SHORTCUT_ITEM && line.contains("ListCleaner.ShortcutSurface")) {
-            return !line.contains("DIRECT_") && !line.contains("DIRECT_SHARE") && !line.contains("getShareTargets")
-        }
+    private fun runtimeSeen(kind: IntentKind, path: EntryRuntimePath, lines: List<String>): Boolean =
+        lines.any { line -> pathRuntimeLine(kind, path, line) }
 
-        if (line.contains("ListCleaner.SystemManagers") && managerLogMatches(kind, line)) return true
-        if (kind == IntentKind.NFC_HCE && line.contains("ListCleaner.NfcPayment")) return true
-        if (kind in setOf(IntentKind.AUTOFILL, IntentKind.CREDENTIAL_PROVIDER) &&
-            line.contains("ListCleaner.CombinedProviders")) return true
-        if (line.contains("ListCleaner.SettingsAuthority")) {
-            if (kind == IntentKind.VPN && line.contains("VPN_")) return true
-            if (kind == IntentKind.AUTOFILL && line.contains("AUTOFILL_")) return true
-            if (line.contains("HOOK") &&
-                (EntryRuntimePath.SETTINGS_VPN in coveredPaths ||
-                    EntryRuntimePath.SETTINGS_AUTOFILL_PICKER in coveredPaths)
-            ) return true
-        }
+    private fun pathInstallationLine(kind: IntentKind, path: EntryRuntimePath, line: String): Boolean = when (path) {
+        EntryRuntimePath.RESOLVER_ACTIVITY ->
+            (line.contains("ListCleaner.Diagnostic") || line.contains("ListCleaner:")) &&
+                (line.contains("SYSTEM_HOOKS") || line.contains("RESOLVER_HOOKS") || line.contains("ic-query-filter"))
+        EntryRuntimePath.ROLE_CONTROLLER ->
+            line.contains("ListCleaner.RoleController") && isHookReady(line)
+        EntryRuntimePath.DIRECT_SHARE_CHOOSER ->
+            line.contains("ListCleaner.DirectShare") && isHookReady(line)
+        EntryRuntimePath.DIRECT_SHARE_EMBEDDED ->
+            line.contains("ListCleaner.EmbeddedDirectShare") && isHookReady(line)
+        EntryRuntimePath.SHORTCUT_SERVICE ->
+            line.contains("ListCleaner.ShortcutSurface") && isHookReady(line)
+        EntryRuntimePath.PACKAGE_MANAGER_ACTIVITY,
+        EntryRuntimePath.PACKAGE_MANAGER_PROVIDER,
+        EntryRuntimePath.PACKAGE_MANAGER_SERVICE ->
+            line.contains("ListCleaner.PmEntries") && isHookReady(line)
+        EntryRuntimePath.ACCESSIBILITY_MANAGER ->
+            line.contains("ListCleaner.SystemManagers") &&
+                (line.contains("lc-accessibility-manager") || line.contains("kind=ACCESSIBILITY")) && isHookReady(line)
+        EntryRuntimePath.INPUT_METHOD_MANAGER ->
+            line.contains("ListCleaner.SystemManagers") &&
+                (line.contains("lc-ime-manager") || line.contains("kind=INPUT_METHOD")) && isHookReady(line)
+        EntryRuntimePath.PRINT_MANAGER ->
+            line.contains("ListCleaner.SystemManagers") &&
+                (line.contains("lc-print-manager") || line.contains("kind=PRINT")) && isHookReady(line)
+        EntryRuntimePath.CREDENTIAL_MANAGER ->
+            line.contains("ListCleaner.SystemManagers") &&
+                (line.contains("lc-credential-manager") || line.contains("CREDENTIAL_")) && isHookReady(line)
+        EntryRuntimePath.COMBINED_PROVIDER_SETTINGS ->
+            line.contains("ListCleaner.CombinedProviders") && isHookReady(line)
+        EntryRuntimePath.SETTINGS_AUTOFILL_PICKER ->
+            line.contains("ListCleaner.SettingsAuthority") &&
+                (line.contains("lc-settings-autofill-picker") || line.contains("AUTOFILL_")) && isHookReady(line)
+        EntryRuntimePath.SETTINGS_VPN ->
+            line.contains("ListCleaner.SettingsAuthority") &&
+                (line.contains("lc-settings-vpn-authority") || line.contains("VPN_")) && isHookReady(line)
+        EntryRuntimePath.VPN_APP_OPS -> line.contains("VPN_APPOPS") && isHookReady(line)
+        EntryRuntimePath.NFC_CARD_EMULATION -> line.contains("ListCleaner.NfcPayment") && isHookReady(line)
+    }
 
-        if ((EntryRuntimePath.PACKAGE_MANAGER_SERVICE in coveredPaths ||
-                EntryRuntimePath.PACKAGE_MANAGER_PROVIDER in coveredPaths ||
-                EntryRuntimePath.PACKAGE_MANAGER_ACTIVITY in coveredPaths) &&
-            line.contains("ListCleaner.PmEntries")
-        ) {
-            return line.contains("HOOKS_READY") || line.contains("HOOK_INSTALLED") ||
-                line.contains("kind=${kind.name}")
-        }
-
-        if (EntryRuntimePath.RESOLVER_ACTIVITY in coveredPaths) {
-            if (line.contains(" SYSTEM ${kind.name} ") || line.contains(" RESOLVER ${kind.name} ")) return true
-            if ((line.contains("ListCleaner.Diagnostic") || line.contains("ListCleaner:")) &&
-                (line.contains("SYSTEM_HOOKS") || line.contains("RESOLVER_HOOKS") || line.contains("HOOK_INSTALLED"))) {
-                return true
+    private fun pathRuntimeLine(kind: IntentKind, path: EntryRuntimePath, line: String): Boolean {
+        if (pathInstallationLine(kind, path, line) && !isQuery(line) && !isFilter(line)) return false
+        return when (path) {
+            EntryRuntimePath.RESOLVER_ACTIVITY ->
+                (line.contains("ListCleaner.Diagnostic") || line.contains("ListCleaner:")) &&
+                    (line.contains(" $kind ") || line.contains("kind=$kind")) && (isQuery(line) || isFilter(line))
+            EntryRuntimePath.ROLE_CONTROLLER ->
+                line.contains("ListCleaner.RoleController") && line.contains("kind=$kind") && (isQuery(line) || isFilter(line))
+            EntryRuntimePath.DIRECT_SHARE_CHOOSER ->
+                line.contains("ListCleaner.DirectShare") && (isQuery(line) || isFilter(line))
+            EntryRuntimePath.DIRECT_SHARE_EMBEDDED ->
+                line.contains("ListCleaner.EmbeddedDirectShare") && (isQuery(line) || isFilter(line))
+            EntryRuntimePath.SHORTCUT_SERVICE -> {
+                if (!line.contains("ListCleaner.ShortcutSurface")) false
+                else if (kind == IntentKind.DIRECT_SHARE) line.contains("DIRECT_") || line.contains("getShareTargets")
+                else line.contains("SHORTCUT_") || line.contains("getShortcuts")
             }
+            EntryRuntimePath.PACKAGE_MANAGER_ACTIVITY,
+            EntryRuntimePath.PACKAGE_MANAGER_PROVIDER,
+            EntryRuntimePath.PACKAGE_MANAGER_SERVICE ->
+                line.contains("ListCleaner.PmEntries") && line.contains("kind=$kind") && (isQuery(line) || isFilter(line))
+            EntryRuntimePath.ACCESSIBILITY_MANAGER,
+            EntryRuntimePath.INPUT_METHOD_MANAGER,
+            EntryRuntimePath.PRINT_MANAGER,
+            EntryRuntimePath.CREDENTIAL_MANAGER ->
+                line.contains("ListCleaner.SystemManagers") && managerLogMatches(kind, line) && (isQuery(line) || isFilter(line))
+            EntryRuntimePath.COMBINED_PROVIDER_SETTINGS ->
+                line.contains("ListCleaner.CombinedProviders") && (isQuery(line) || isFilter(line))
+            EntryRuntimePath.SETTINGS_AUTOFILL_PICKER ->
+                line.contains("ListCleaner.SettingsAuthority") && line.contains("AUTOFILL_") && (isQuery(line) || isFilter(line))
+            EntryRuntimePath.SETTINGS_VPN ->
+                line.contains("ListCleaner.SettingsAuthority") && line.contains("VPN_") && (isQuery(line) || isFilter(line))
+            EntryRuntimePath.VPN_APP_OPS -> line.contains("VPN_APPOPS") && (isQuery(line) || isFilter(line))
+            EntryRuntimePath.NFC_CARD_EMULATION ->
+                line.contains("ListCleaner.NfcPayment") && (isQuery(line) || isFilter(line) || line.contains("AUTHORITY_SNAPSHOT"))
         }
-        return false
+    }
+
+    private fun relevant(kind: IntentKind, definition: EntryRuntimeDefinition?, line: String): Boolean {
+        if (Regex("\\bkind=${Regex.escape(kind.name)}\\b").containsMatchIn(line)) return true
+        val roleName = definition?.roleName
+        if (roleName != null && line.contains("ListCleaner.RoleController") && line.contains(roleName)) return true
+        return definition?.expectedPaths.orEmpty().any { path ->
+            pathInstallationLine(kind, path, line) || pathRuntimeLine(kind, path, line)
+        }
     }
 
     private fun managerLogMatches(kind: IntentKind, line: String): Boolean = when (kind) {

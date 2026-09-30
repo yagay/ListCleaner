@@ -46,18 +46,11 @@ class DirectShareConsistencyModule : XposedModule() {
     private val observedPersistence by lazy(LazyThreadSafetyMode.PUBLICATION) {
         RemoteObservedEntryPersistence(preferences, ::record)
     }
-    private val fallback by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        RemoteEntryPolicyFallback(
+    private val policyProvider by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        EntryPolicyProvider(
             preferences = preferences,
-            selectRules = { config ->
-                config.rules.filter { it.kind == IntentKind.DIRECT_SHARE }
-                    .mapTo(linkedSetOf()) { it.id }
-            },
-            selectPriorities = { config ->
-                config.priorities.apps[IntentKind.DIRECT_SHARE]
-                    ?.let { mapOf(IntentKind.DIRECT_SHARE to it) }
-                    .orEmpty()
-            },
+            kinds = setOf(IntentKind.DIRECT_SHARE),
+            includePriorities = true,
             record = ::record,
         )
     }
@@ -71,21 +64,9 @@ class DirectShareConsistencyModule : XposedModule() {
 
     override fun onPackageReady(param: PackageReadyParam) {
         if (param.packageName != FRAMEWORK_PACKAGE && param.packageName != INTENT_RESOLVER_PACKAGE) return
-        fallback.start()
+        policyProvider.start()
         installChooserHooks(param.classLoader)
         installChooserGridHooks(param.classLoader)
-    }
-
-    private fun effectivePolicy(): RuntimeComponentPolicySnapshot {
-        val runtime = RuntimeComponentPolicy.snapshot()
-        if (runtime.authoritative) return runtime
-        val local = fallback.snapshot()
-        return fallbackRuntimePolicy(
-            managerAppId = local.managerAppId,
-            displayMode = local.displayMode,
-            entryRules = local.rules,
-            entryPriorities = local.priorities,
-        )
     }
 
     private fun installChooserHooks(classLoader: ClassLoader) {
@@ -95,8 +76,7 @@ class DirectShareConsistencyModule : XposedModule() {
                 record("CHOOSER_CLASS_UNAVAILABLE class=$className")
                 return@forEach
             }
-            generateSequence(clazz as Class<*>?) { it.superclass }
-                .flatMap { it.declaredMethods.asSequence() }
+            ReflectionAccess.hierarchyMethods(clazz)
                 .filter(::isDirectShareDeliveryMethod)
                 .distinctBy(Method::toGenericString)
                 .forEach { method ->
@@ -116,11 +96,6 @@ class DirectShareConsistencyModule : XposedModule() {
         record("HOOKS_READY new=$installed total=${installedMethods.size}")
     }
 
-    /**
-     * AOSP intentionally renders a dedicated "no direct share targets" placeholder row when its
-     * direct-share adapter becomes empty. Collapse the whole DirectShareViewHolder only when our
-     * filtering produced/maintains that empty state. No localized text matching is required.
-     */
     private fun installChooserGridHooks(classLoader: ClassLoader) {
         var installed = 0
         GRID_ADAPTER_CLASSES.forEach { className ->
@@ -128,8 +103,7 @@ class DirectShareConsistencyModule : XposedModule() {
                 record("GRID_CLASS_UNAVAILABLE class=$className")
                 return@forEach
             }
-            generateSequence(clazz as Class<*>?) { it.superclass }
-                .flatMap { it.declaredMethods.asSequence() }
+            ReflectionAccess.hierarchyMethods(clazz)
                 .filter { method ->
                     method.name == "bindItemGroupViewHolder" &&
                         method.returnType == Void.TYPE &&
@@ -163,7 +137,7 @@ class DirectShareConsistencyModule : XposedModule() {
         val targets = chain.args.getOrNull(0) as? List<*>
             ?: return@Hooker chain.proceed()
         if (targets.isEmpty()) {
-            val selected = effectivePolicy().selected(IntentKind.DIRECT_SHARE)
+            val selected = policyProvider.snapshot().selected(IntentKind.DIRECT_SHARE)
             collapseEmptyDirectShare = selected.isNotEmpty()
             record("DELIVERY_HIT count=0 collapse=$collapseEmptyDirectShare")
             return@Hooker chain.proceed()
@@ -181,7 +155,7 @@ class DirectShareConsistencyModule : XposedModule() {
         val visibleSharePackages = visibleSharePackages(receiver, chain.args)
             ?: return@Hooker chain.proceed()
 
-        val policy = effectivePolicy()
+        val policy = policyProvider.snapshot()
         val selected = policy.selected(IntentKind.DIRECT_SHARE)
         val priorities = policy.priorities(IntentKind.DIRECT_SHARE)
         val keptIndices = directShareFilteredIndices(
@@ -218,24 +192,16 @@ class DirectShareConsistencyModule : XposedModule() {
         if (!holder.javaClass.name.contains("DirectShareViewHolder")) return@Hooker result
         val itemView = viewHolderItemView(holder) ?: return@Hooker result
         val changed = if (collapseEmptyDirectShare) hideRow(itemView) else restoreRow(itemView)
-        if (changed) {
-            record("EMPTY_ROW collapse=$collapseEmptyDirectShare holder=${holder.javaClass.name}")
-        }
+        if (changed) record("EMPTY_ROW collapse=$collapseEmptyDirectShare holder=${holder.javaClass.name}")
         result
     }
 
     private fun viewHolderItemView(holder: Any): View? =
-        generateSequence(holder.javaClass as Class<*>?) { it.superclass }
-            .flatMap { it.declaredFields.asSequence() }
+        ReflectionAccess.hierarchyFields(holder.javaClass)
             .firstOrNull { field ->
                 field.name == "itemView" && View::class.java.isAssignableFrom(field.type)
             }
-            ?.let { field ->
-                runCatching {
-                    field.isAccessible = true
-                    field.get(holder) as? View
-                }.getOrNull()
-            }
+            ?.let { field -> runCatching { field.isAccessible = true; field.get(holder) as? View }.getOrNull() }
 
     private fun hideRow(view: View): Boolean {
         synchronized(hiddenRows) {
@@ -243,20 +209,14 @@ class DirectShareConsistencyModule : XposedModule() {
             hiddenRows[view] = HiddenRowState(view.visibility, view.layoutParams?.height)
         }
         view.visibility = View.GONE
-        view.layoutParams?.let { params ->
-            params.height = 0
-            view.layoutParams = params
-        }
+        view.layoutParams?.let { params -> params.height = 0; view.layoutParams = params }
         view.requestLayout()
         return true
     }
 
     private fun restoreRow(view: View): Boolean {
         val state = synchronized(hiddenRows) { hiddenRows.remove(view) } ?: return false
-        view.layoutParams?.let { params ->
-            state.layoutHeight?.let { params.height = it }
-            view.layoutParams = params
-        }
+        view.layoutParams?.let { params -> state.layoutHeight?.let { params.height = it }; view.layoutParams = params }
         view.visibility = state.visibility
         view.requestLayout()
         return true
@@ -264,12 +224,8 @@ class DirectShareConsistencyModule : XposedModule() {
 
     private fun parseDirectShareTarget(value: Any?): ParsedTarget {
         if (value == null) return ParsedTarget(null, null, null)
-        val shortcut = runCatching {
-            findNoArgMethod(value.javaClass, "getShortcutInfo")?.invoke(value) as? ShortcutInfo
-        }.getOrNull()
-        val target = runCatching {
-            findNoArgMethod(value.javaClass, "getTargetComponent")?.invoke(value) as? ComponentName
-        }.getOrNull()
+        val shortcut = ReflectionAccess.invokeNoArg(value, "getShortcutInfo") as? ShortcutInfo
+        val target = ReflectionAccess.invokeNoArg(value, "getTargetComponent") as? ComponentName
         val packageName = target?.packageName ?: shortcut?.`package`
         val shortcutId = shortcut?.id?.takeIf { it.isNotBlank() }
         val shortcutPackage = shortcut?.`package`?.takeIf { it.isNotBlank() }
@@ -293,12 +249,6 @@ class DirectShareConsistencyModule : XposedModule() {
         return ParsedTarget(packageName, rule, observed)
     }
 
-    private fun findNoArgMethod(clazz: Class<*>, name: String): Method? =
-        generateSequence(clazz as Class<*>?) { it.superclass }
-            .flatMap { it.declaredMethods.asSequence() }
-            .firstOrNull { it.name == name && it.parameterCount == 0 }
-            ?.apply { isAccessible = true }
-
     private fun visibleSharePackages(receiver: Any, args: List<Any?>): Set<String>? {
         val second = args.getOrNull(1)
         if (second is List<*>) return second.mapNotNull(::displayTargetPackage).toSet()
@@ -307,8 +257,7 @@ class DirectShareConsistencyModule : XposedModule() {
             ?: args.drop(1).firstOrNull { it?.javaClass?.name?.contains("ChooserListAdapter") == true }
             ?: return null
 
-        val method = generateSequence(receiver.javaClass as Class<*>?) { it.superclass }
-            .flatMap { it.declaredMethods.asSequence() }
+        val method = ReflectionAccess.hierarchyMethods(receiver.javaClass)
             .firstOrNull { candidate ->
                 candidate.name == "getDisplayResolveInfos" &&
                     candidate.parameterTypes.size == 1 &&
@@ -327,24 +276,9 @@ class DirectShareConsistencyModule : XposedModule() {
             is ComponentName -> return value.packageName
             null -> return null
         }
-
-        runCatching {
-            val method = value.javaClass.methods.firstOrNull {
-                it.name == "getResolveInfo" && it.parameterCount == 0
-            } ?: value.javaClass.declaredMethods.firstOrNull {
-                it.name == "getResolveInfo" && it.parameterCount == 0
-            }?.apply { isAccessible = true }
-            (method?.invoke(value) as? ResolveInfo)?.activityInfo?.packageName
-        }.getOrNull()?.let { return it }
-
-        return runCatching {
-            val method = value.javaClass.methods.firstOrNull {
-                it.name == "getResolvedComponentName" && it.parameterCount == 0
-            } ?: value.javaClass.declaredMethods.firstOrNull {
-                it.name == "getResolvedComponentName" && it.parameterCount == 0
-            }?.apply { isAccessible = true }
-            (method?.invoke(value) as? ComponentName)?.packageName
-        }.getOrNull()
+        (ReflectionAccess.invokeNoArg(value, "getResolveInfo") as? ResolveInfo)
+            ?.activityInfo?.packageName?.let { return it }
+        return (ReflectionAccess.invokeNoArg(value, "getResolvedComponentName") as? ComponentName)?.packageName
     }
 
     private fun pairedPredictionListIndex(args: List<Any?>, expectedSize: Int): Int? =

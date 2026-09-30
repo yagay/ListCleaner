@@ -5,7 +5,6 @@ import android.content.pm.ResolveInfo
 import android.os.Process
 import android.util.Log
 import com.yagay.ListCleaner.data.RuleRepository
-import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.FilterPolicy
 import com.yagay.ListCleaner.domain.IntentKind
@@ -21,30 +20,20 @@ import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.util.concurrent.ConcurrentHashMap
 
-/**
- * Small compatibility layer for Android's resolver client process.
- *
- * PackageManagerEntryFilterModule covers system_server queries and RoleControllerModule covers role
- * settings, but legacy Resolver metadata paths historically matched physical component IDs. This
- * module makes package-scoped role identities authoritative in ApplicationPackageManager as well.
- */
+/** Package-scoped role compatibility layer for Android's resolver client process. */
 class PackageScopedResolverFilterModule : XposedModule() {
     @Volatile private var processName = ""
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
     private val listResults = SafeListResultExtractor(::record)
-    private var policyStarted = false
 
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
-    private val fallback by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        RemoteEntryPolicyFallback(
+    private val policyProvider by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        EntryPolicyProvider(
             preferences = preferences,
-            selectRules = { config ->
-                config.rules.filter { it.kind in RESOLVER_PACKAGE_KINDS }
-                    .mapTo(linkedSetOf()) { it.id }
-            },
-            selectPriorities = { emptyMap() },
+            kinds = RESOLVER_PACKAGE_KINDS,
+            includePriorities = false,
             record = ::record,
         )
     }
@@ -65,8 +54,7 @@ class PackageScopedResolverFilterModule : XposedModule() {
             return
         }
         var installed = 0
-        generateSequence(clazz as Class<*>?) { it.superclass }
-            .flatMap { it.declaredMethods.asSequence() }
+        ReflectionAccess.hierarchyMethods(clazz)
             .filter(::isActivityQuery)
             .distinctBy(Method::toGenericString)
             .forEach { method ->
@@ -83,17 +71,8 @@ class PackageScopedResolverFilterModule : XposedModule() {
                 }
             }
         if (installed > 0) {
-            startPolicyOnce()
+            policyProvider.start()
             record("HOOKS_READY package=${param.packageName} new=$installed total=${installedMethods.size}")
-        }
-    }
-
-    private fun startPolicyOnce() {
-        if (policyStarted) return
-        synchronized(this) {
-            if (policyStarted) return
-            fallback.start()
-            policyStarted = true
         }
     }
 
@@ -115,13 +94,9 @@ class PackageScopedResolverFilterModule : XposedModule() {
         val kind = intent.intentKind() ?: return@Hooker chain.proceed()
         if (kind !in RESOLVER_PACKAGE_KINDS) return@Hooker chain.proceed()
 
-        startPolicyOnce()
-        val local = fallback.snapshot()
-        val selected = local.rules.asSequence()
-            .mapNotNull(ComponentRule::fromId)
-            .filter { it.kind == kind && it.kind.isPackageScopedEntry() }
-            .mapTo(linkedSetOf()) { it.packageName }
-        if (local.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) {
+        val policy = policyProvider.snapshot()
+        val selected = policy.selectedPackages(kind)
+        if (policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) {
             return@Hooker chain.proceed()
         }
 
@@ -134,7 +109,7 @@ class PackageScopedResolverFilterModule : XposedModule() {
             val activity = resolved.activityInfo ?: return@filter true
             val effectiveKind = if (kind == IntentKind.BROWSER) resolved.webTargetKind() else kind
             if (effectiveKind != kind) return@filter true
-            local.displayMode.includes(activity.packageName in selected, selected.isNotEmpty())
+            policy.displayMode.includes(activity.packageName in selected, selected.isNotEmpty())
         }
         if (FilterPolicy.restoreEmpty(kind.name, result.values.size, filtered.size)) {
             record("RESTORE_ORIGINAL kind=$kind before=${result.values.size} callerProcess=$processName")
@@ -146,7 +121,7 @@ class PackageScopedResolverFilterModule : XposedModule() {
         }
         record(
             "FILTER kind=$kind before=${result.values.size} after=${filtered.size} " +
-                "selectedPackages=${selected.size} mode=${local.displayMode}"
+                "selectedPackages=${selected.size} mode=${policy.displayMode}"
         )
         result.rebuild(filtered)
     }
@@ -162,7 +137,9 @@ class PackageScopedResolverFilterModule : XposedModule() {
         const val HOOK_ID = "lc-package-role-resolver"
         const val APPLICATION_PM_CLASS = "android.app.ApplicationPackageManager"
         val RESOLVER_PACKAGES = setOf("android", "com.android.intentresolver")
-        val RESOLVER_PACKAGE_KINDS = setOf(IntentKind.ASSISTANT, IntentKind.HOME, IntentKind.BROWSER)
+        val RESOLVER_PACKAGE_KINDS = IntentKind.entries.filterTo(linkedSetOf()) {
+            it.isPackageScopedEntry() && it in setOf(IntentKind.ASSISTANT, IntentKind.HOME, IntentKind.BROWSER)
+        }
         val QUERY_METHODS = setOf("queryIntentActivities", "queryIntentActivitiesAsUser")
     }
 }

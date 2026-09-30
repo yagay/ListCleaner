@@ -3,17 +3,15 @@ package com.yagay.ListCleaner.xposed
 import android.os.Process
 import android.util.Log
 import com.yagay.ListCleaner.data.RuleRepository
-import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.DisplayMode
+import com.yagay.ListCleaner.domain.ENTRY_RUNTIME_DEFINITIONS
+import com.yagay.ListCleaner.domain.EntryRuntimePath
 import com.yagay.ListCleaner.domain.IntentKind
-import com.yagay.ListCleaner.domain.ObservedEntryRecord
-import com.yagay.ListCleaner.domain.SyntheticEntryKeys
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
-import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.util.concurrent.ConcurrentHashMap
 
@@ -21,23 +19,20 @@ import java.util.concurrent.ConcurrentHashMap
 class CombinedProviderSettingsModule : XposedModule() {
     @Volatile private var processName = ""
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
-    private var policyStarted = false
 
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
-    private val persistence by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        RemoteObservedEntryPersistence(preferences, ::record)
-    }
-    private val fallback by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        RemoteEntryPolicyFallback(
+    private val policyProvider by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        EntryPolicyProvider(
             preferences = preferences,
-            selectRules = { config ->
-                config.rules.filter { it.kind in PROVIDER_KINDS }.mapTo(linkedSetOf()) { it.id }
-            },
-            selectPriorities = { emptyMap() },
+            kinds = PROVIDER_KINDS,
+            includePriorities = false,
             record = ::record,
         )
+    }
+    private val authorityWriter by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        AuthoritySnapshotWriter(preferences, ::record)
     }
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
@@ -49,6 +44,7 @@ class CombinedProviderSettingsModule : XposedModule() {
 
     override fun onPackageReady(param: PackageReadyParam) {
         if (param.packageName != SETTINGS_PACKAGE) return
+        var installed = 0
         COMBINED_INFO_CLASSES.forEach { className ->
             val clazz = runCatching { Class.forName(className, false, param.classLoader) }.getOrNull()
                 ?: return@forEach
@@ -63,13 +59,17 @@ class CombinedProviderSettingsModule : XposedModule() {
                     runCatching {
                         method.isAccessible = true
                         hook(method).setId(HOOK_ID).intercept(mergedListHooker())
-                        startPolicyOnce()
+                        installed++
                         record("HOOK_INSTALLED class=$className method=$key")
                     }.onFailure {
                         installedMethods.remove(key)
                         record("HOOK_FAILED class=$className method=$key error=${it.javaClass.name}")
                     }
                 }
+        }
+        if (installed > 0) {
+            policyProvider.start()
+            record("HOOKS_READY package=${param.packageName} new=$installed total=${installedMethods.size}")
         }
     }
 
@@ -80,9 +80,9 @@ class CombinedProviderSettingsModule : XposedModule() {
         persistObservations(values)
         if (values.isEmpty()) return@Hooker original
 
-        val policy = effectivePolicy()
-        val selectedAutofill = selectedPackages(policy, IntentKind.AUTOFILL)
-        val selectedCredential = selectedPackages(policy, IntentKind.CREDENTIAL_PROVIDER)
+        val policy = policyProvider.snapshot()
+        val selectedAutofill = policy.selectedPackages(IntentKind.AUTOFILL)
+        val selectedCredential = policy.selectedPackages(IntentKind.CREDENTIAL_PROVIDER)
         val hasSelection = selectedAutofill.isNotEmpty() || selectedCredential.isNotEmpty()
         if (policy.displayMode == DisplayMode.SHOW_ALL || !hasSelection) return@Hooker original
 
@@ -101,79 +101,25 @@ class CombinedProviderSettingsModule : XposedModule() {
     }
 
     private fun persistObservations(values: List<*>) {
-        val now = System.currentTimeMillis()
-        val autofillRecords = mutableListOf<ObservedEntryRecord>()
-        val credentialRecords = mutableListOf<ObservedEntryRecord>()
+        val autofill = linkedSetOf<String>()
+        val credential = linkedSetOf<String>()
         values.forEach { value ->
             val pkg = packageName(value) ?: return@forEach
-            if (hasAutofill(value)) {
-                val rule = SyntheticEntryKeys.packageScopedRule(IntentKind.AUTOFILL, pkg)
-                autofillRecords += ObservedEntryRecord(
-                    IntentKind.AUTOFILL.name,
-                    pkg,
-                    rule.className,
-                    observedAt = now,
-                )
-            }
-            if (hasCredential(value)) {
-                val rule = SyntheticEntryKeys.packageScopedRule(IntentKind.CREDENTIAL_PROVIDER, pkg)
-                credentialRecords += ObservedEntryRecord(
-                    IntentKind.CREDENTIAL_PROVIDER.name,
-                    pkg,
-                    rule.className,
-                    observedAt = now,
-                )
-            }
+            if (hasAutofill(value)) autofill += pkg
+            if (hasCredential(value)) credential += pkg
         }
-        val autofillSaved = persistence.replaceKind(IntentKind.AUTOFILL, autofillRecords.distinctBy { it.key })
-        val credentialSaved = persistence.replaceKind(
-            IntentKind.CREDENTIAL_PROVIDER,
-            credentialRecords.distinctBy { it.key },
-        )
-        if (autofillSaved) record("AUTHORITY_SNAPSHOT kind=${IntentKind.AUTOFILL} count=${autofillRecords.distinctBy { it.key }.size}")
-        if (credentialSaved) record("AUTHORITY_SNAPSHOT kind=${IntentKind.CREDENTIAL_PROVIDER} count=${credentialRecords.distinctBy { it.key }.size}")
+        authorityWriter.replacePackages(IntentKind.AUTOFILL, autofill)
+        authorityWriter.replacePackages(IntentKind.CREDENTIAL_PROVIDER, credential)
     }
 
-    private fun selectedPackages(policy: RuntimeComponentPolicySnapshot, kind: IntentKind): Set<String> =
-        policy.selected(kind).mapNotNull(ComponentRule::fromId).mapTo(linkedSetOf()) { it.packageName }
+    private fun packageName(value: Any?): String? =
+        ReflectionAccess.invokeNoArg(value, "getPackageName") as? String
 
-    private fun packageName(value: Any?): String? = invokeNoArg(value, "getPackageName") as? String
-
-    private fun hasAutofill(value: Any?): Boolean = invokeNoArg(value, "getAutofillServiceInfo") != null
+    private fun hasAutofill(value: Any?): Boolean =
+        ReflectionAccess.invokeNoArg(value, "getAutofillServiceInfo") != null
 
     private fun hasCredential(value: Any?): Boolean =
-        (invokeNoArg(value, "getCredentialProviderInfos") as? Collection<*>)?.isNotEmpty() == true
-
-    private fun invokeNoArg(value: Any?, name: String): Any? = runCatching {
-        val clazz = value?.javaClass ?: return@runCatching null
-        val method = generateSequence(clazz as Class<*>?) { it.superclass }
-            .flatMap { it.declaredMethods.asSequence() }
-            .firstOrNull { it.name == name && it.parameterCount == 0 }
-            ?: return@runCatching null
-        method.isAccessible = true
-        method.invoke(value)
-    }.getOrNull()
-
-    private fun startPolicyOnce() {
-        if (policyStarted) return
-        synchronized(this) {
-            if (policyStarted) return
-            fallback.start()
-            policyStarted = true
-        }
-    }
-
-    private fun effectivePolicy(): RuntimeComponentPolicySnapshot {
-        val runtime = RuntimeComponentPolicy.snapshot()
-        if (runtime.authoritative) return runtime
-        val local = fallback.snapshot()
-        return fallbackRuntimePolicy(
-            managerAppId = local.managerAppId,
-            displayMode = local.displayMode,
-            entryRules = local.rules,
-            entryPriorities = emptyMap(),
-        )
-    }
+        (ReflectionAccess.invokeNoArg(value, "getCredentialProviderInfos") as? Collection<*>)?.isNotEmpty() == true
 
     private fun record(message: String) {
         val line = "pid=${Process.myPid()} process=$processName $message"
@@ -185,7 +131,9 @@ class CombinedProviderSettingsModule : XposedModule() {
         const val TAG = "ListCleaner.CombinedProviders"
         const val HOOK_ID = "lc-combined-provider-settings"
         const val SETTINGS_PACKAGE = "com.android.settings"
-        val PROVIDER_KINDS = setOf(IntentKind.AUTOFILL, IntentKind.CREDENTIAL_PROVIDER)
+        val PROVIDER_KINDS = ENTRY_RUNTIME_DEFINITIONS.values.asSequence()
+            .filter { EntryRuntimePath.COMBINED_PROVIDER_SETTINGS in it.expectedPaths }
+            .mapTo(linkedSetOf()) { it.kind }
         val COMBINED_INFO_CLASSES = listOf(
             "com.android.settings.applications.credentials.CombinedProviderInfo",
         )
