@@ -1,6 +1,7 @@
 package com.yagay.ListCleaner.domain
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -31,6 +32,51 @@ class ObservedEntryCacheCodecTest {
     }
 
     @Test
+    fun reconcileRemoteReplacesAuthorityRowsButKeepsShortcutHistory() {
+        val staleVpn = ObservedEntryRecord(
+            IntentKind.VPN.name,
+            "com.example.oldvpn",
+            "@vpn",
+            observedAt = 10L,
+        )
+        val currentVpn = ObservedEntryRecord(
+            IntentKind.VPN.name,
+            "com.example.currentvpn",
+            "@vpn",
+            observedAt = 20L,
+        )
+        val shortcut = ObservedEntryRecord(
+            IntentKind.SHORTCUT_ITEM.name,
+            "com.example.chat",
+            "com.example.chat.Main#shortcut#def",
+            observedAt = 15L,
+        )
+
+        val reconciled = ObservedEntryCacheCodec.reconcileRemote(
+            listOf(staleVpn, shortcut),
+            listOf(currentVpn),
+        )
+
+        assertFalse(reconciled.any { it.packageName == staleVpn.packageName })
+        assertTrue(reconciled.any { it.packageName == currentVpn.packageName })
+        assertTrue(reconciled.any { it.key == shortcut.key })
+    }
+
+    @Test
+    fun reconcileEmptyRemoteClearsAuthorityRows() {
+        val assistant = ObservedEntryRecord(
+            IntentKind.ASSISTANT.name,
+            "com.example.assistant",
+            "@assistant",
+            observedAt = 10L,
+        )
+
+        val reconciled = ObservedEntryCacheCodec.reconcileRemote(listOf(assistant), emptyList())
+
+        assertTrue(reconciled.isEmpty())
+    }
+
+    @Test
     fun encodeRoundTripRejectsUnsupportedKinds() {
         val valid = ObservedEntryRecord(
             kind = IntentKind.DIRECT_SHARE.name,
@@ -45,6 +91,18 @@ class ObservedEntryCacheCodecTest {
         val decoded = ObservedEntryCacheCodec.decode(encoded)
 
         assertEquals(listOf(valid), decoded)
+    }
+
+    @Test
+    fun roleAuthorityKindsRoundTrip() {
+        val assistant = ObservedEntryRecord(
+            IntentKind.ASSISTANT.name,
+            "com.example.assistant",
+            "@assistant",
+            observedAt = 2L,
+        )
+
+        assertEquals(listOf(assistant), ObservedEntryCacheCodec.decode(ObservedEntryCacheCodec.encode(listOf(assistant))))
     }
 
     @Test
