@@ -5,6 +5,8 @@ import android.util.Log
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.ObservedEntryRecord
+import com.yagay.ListCleaner.domain.SyntheticEntryKeys
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
@@ -21,6 +23,9 @@ class RoleControllerModule : XposedModule() {
 
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
+    }
+    private val persistence by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        RemoteObservedEntryPersistence(preferences, ::record)
     }
     private val fallback by lazy(LazyThreadSafetyMode.PUBLICATION) {
         RemoteEntryPolicyFallback(
@@ -108,19 +113,23 @@ class RoleControllerModule : XposedModule() {
         val kind = ROLE_KIND_BY_NAME[roleName] ?: return@Hooker original
 
         startPolicyOnce()
+        persistAuthoritySnapshot(kind, values)
+
         val policy = effectivePolicy()
         val selectedPackages = policy.selected(kind)
             .mapNotNull(ComponentRule::fromId)
             .mapTo(linkedSetOf()) { it.packageName }
-        if (selectedPackages.isEmpty()) return@Hooker original
+        if (selectedPackages.isEmpty()) {
+            record("HIT role=$roleName kind=$kind count=${values.size} selectedPackages=0 mode=${policy.displayMode}")
+            return@Hooker original
+        }
 
-        val hasSelection = selectedPackages.isNotEmpty()
         record(
             "QUERY role=$roleName kind=$kind before=${values.size} " +
                 "selectedPackages=${selectedPackages.size} mode=${policy.displayMode}"
         )
         val filtered = values.filter { value ->
-            value !is String || policy.displayMode.includes(value in selectedPackages, hasSelection)
+            value !is String || policy.displayMode.includes(value in selectedPackages, selectedPackages.isNotEmpty())
         }
         if (filtered.size == values.size) {
             record(
@@ -135,6 +144,29 @@ class RoleControllerModule : XposedModule() {
                 "selectedPackages=${selectedPackages.size} mode=${policy.displayMode}"
         )
         ArrayList(filtered)
+    }
+
+    private fun persistAuthoritySnapshot(kind: IntentKind, values: List<*>) {
+        val now = System.currentTimeMillis()
+        val records = values.asSequence()
+            .filterIsInstance<String>()
+            .distinct()
+            .mapNotNull { packageName ->
+                val rule = runCatching { SyntheticEntryKeys.packageScopedRule(kind, packageName) }.getOrNull()
+                    ?: return@mapNotNull null
+                if (!rule.isValid()) return@mapNotNull null
+                RuntimeObservedEntryStore.observePackage(kind, packageName)
+                ObservedEntryRecord(
+                    kind = kind.name,
+                    packageName = packageName,
+                    syntheticClass = rule.className,
+                    observedAt = now,
+                )
+            }
+            .toList()
+        if (persistence.replaceKind(kind, records)) {
+            record("AUTHORITY_SNAPSHOT kind=$kind count=${records.size}")
+        }
     }
 
     private fun roleName(role: Any): String? {
