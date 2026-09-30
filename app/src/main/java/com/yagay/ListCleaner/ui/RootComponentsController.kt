@@ -16,6 +16,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.coroutineContext
@@ -33,16 +34,16 @@ internal class RootComponentsController(
     private val mutableScan = MutableStateFlow(
         RootComponentScan(warning = app.getString(R.string.root_not_scanned))
     )
-    val scan: StateFlow<RootComponentScan> = mutableScan
+    val scan: StateFlow<RootComponentScan> = mutableScan.asStateFlow()
 
     private val mutableBusy = MutableStateFlow(false)
-    val busy: StateFlow<Boolean> = mutableBusy
+    val busy: StateFlow<Boolean> = mutableBusy.asStateFlow()
 
     private val mutableMessage = MutableStateFlow<String?>(null)
-    val message: StateFlow<String?> = mutableMessage
+    val message: StateFlow<String?> = mutableMessage.asStateFlow()
 
     private val mutableRootNotice = MutableStateFlow<String?>(null)
-    val rootNotice: StateFlow<String?> = mutableRootNotice
+    val rootNotice: StateFlow<String?> = mutableRootNotice.asStateFlow()
     private var refreshPending = false
 
     val lastOperation: String get() = catalog.lastOperation
