@@ -67,16 +67,17 @@ class SettingsEntryAuthorityModule : XposedModule() {
     private fun installVpnHooks(classLoader: ClassLoader): Int {
         val clazz = runCatching { Class.forName(VPN_SETTINGS_CLASS, false, classLoader) }.getOrNull()
             ?: return 0
-        var installed = 0
-        methods(clazz)
+        val terminal = methods(clazz)
             .filter { method ->
                 method.name == "getVpnApps" && Modifier.isStatic(method.modifiers) &&
                     List::class.java.isAssignableFrom(method.returnType)
             }
-            .forEach { method ->
-                if (install(method, VPN_HOOK_ID, vpnHooker())) installed++
-            }
-        return installed
+            .maxByOrNull(Method::getParameterCount)
+            ?: return 0
+        // AOSP exposes a convenience overload that delegates to the longer implementation. Hooking
+        // both would observe the inner unfiltered list and then overwrite it with the outer filtered
+        // result. Install only the terminal overload so the authority snapshot is always pristine.
+        return if (install(terminal, VPN_HOOK_ID, vpnHooker())) 1 else 0
     }
 
     private fun installLegacyAutofillHooks(classLoader: ClassLoader): Int {
