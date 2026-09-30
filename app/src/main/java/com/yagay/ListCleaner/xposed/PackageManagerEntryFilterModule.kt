@@ -9,6 +9,7 @@ import android.os.Process
 import android.provider.DocumentsContract
 import android.util.Log
 import com.yagay.ListCleaner.data.RuleRepository
+import com.yagay.ListCleaner.domain.AndroidUid
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.EntryAuthority
@@ -221,7 +222,7 @@ class PackageManagerEntryFilterModule : XposedModule() {
             { value -> (value as? ResolveInfo)?.let(spec.component)?.packageName ?: "" },
             { value ->
                 val uid = (value as? ResolveInfo)?.let(spec.component)?.applicationInfo?.uid ?: 0
-                uid / PER_USER_RANGE
+                AndroidUid.userId(uid)
             },
         )
         if (removed == 0 && ordered == result.values) return@Hooker original
@@ -260,7 +261,6 @@ class PackageManagerEntryFilterModule : XposedModule() {
     private companion object {
         const val TAG = "ListCleaner.PmEntries"
         const val HOOK_ID = "lc-pm-entry-filter"
-        const val PER_USER_RANGE = 100_000
         const val VOICE_INTERACTION_SERVICE_INTERFACE = "android.service.voice.VoiceInteractionService"
         const val BIND_VOICE_INTERACTION_PERMISSION = "android.permission.BIND_VOICE_INTERACTION"
         val WEB_SCHEMES = setOf("http", "https")
