@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Process
 import android.util.Log
 import com.yagay.ListCleaner.ListCleanerApp
+import com.yagay.ListCleaner.domain.AndroidUid
 import com.yagay.ListCleaner.domain.ComponentStatePolicy
 
 data class ComponentReconcileResult(
@@ -65,7 +66,6 @@ object ComponentReconcileState {
 
 object ComponentStateReconciler {
     private const val TAG = "ListCleaner.BootReconcile"
-    private const val PER_USER_RANGE = 100_000
     private const val MAX_BATCH = 100
 
     fun reconcile(context: Context, reason: String): ComponentReconcileResult {
@@ -73,7 +73,7 @@ object ComponentStateReconciler {
         val app = context.applicationContext as ListCleanerApp
         val store = PersistentComponentStore(app)
         val keys = store.disabledKeys()
-        val currentUser = Process.myUid() / PER_USER_RANGE
+        val currentUser = AndroidUid.userId(Process.myUid())
         val refs = keys.asSequence()
             .mapNotNull(PersistentComponentState::parse)
             .filter { it.user == currentUser }
