@@ -29,7 +29,7 @@ class EntrySurfaceDefinitionsTest {
         assertEquals(EntryAuthority.INPUT_METHOD_MANAGER, IntentKind.INPUT_METHOD.entryAuthority())
         assertEquals(EntryAuthority.ACCESSIBILITY_MANAGER, IntentKind.ACCESSIBILITY.entryAuthority())
         assertEquals(EntryAuthority.PRINT_MANAGER, IntentKind.PRINT.entryAuthority())
-        assertEquals(EntryAuthority.VPN_APP_OPS, IntentKind.VPN.entryAuthority())
+        assertEquals(EntryAuthority.SETTINGS_VPN, IntentKind.VPN.entryAuthority())
         assertEquals(EntryAuthority.CREDENTIAL_MANAGER, IntentKind.CREDENTIAL_PROVIDER.entryAuthority())
         assertEquals(EntryAuthority.COMBINED_PROVIDER_SETTINGS, IntentKind.AUTOFILL.entryAuthority())
         assertEquals(EntryAuthority.NFC_CARD_EMULATION, IntentKind.NFC_HCE.entryAuthority())
