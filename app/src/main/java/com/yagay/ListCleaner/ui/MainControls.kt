@@ -183,7 +183,7 @@ internal fun ListControls(
                     )
                 }
             }
-            EntryGroup.entries.forEach { group ->
+            EntryGroup.entries.filter { includeAllKinds || it != EntryGroup.DESKTOP }.forEach { group ->
                 EntryGroupButton(group, state.filter, onFilter)
             }
         }
