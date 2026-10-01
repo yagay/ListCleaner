@@ -49,11 +49,10 @@ class NfcPaymentModule : XposedModule() {
     override fun onPackageReady(param: PackageReadyParam) {
         if (param.packageName != NFC_PACKAGE) return
         var installed = 0
-        NFC_MANAGER_CLASSES.forEach { className ->
-            val clazz = runCatching { Class.forName(className, false, param.classLoader) }.getOrNull()
-                ?: return@forEach
-            clazz.declaredMethods.asSequence()
-                .filter(::isPaymentServicesMethod)
+        val classes = discoverManagerClasses(param.classLoader)
+        classes.forEach { clazz ->
+            runCatching { clazz.declaredMethods.asSequence().filter(::isPaymentServicesMethod).toList() }
+                .getOrDefault(emptyList())
                 .forEach { method ->
                     val key = method.toGenericString()
                     if (!installedMethods.add(key)) return@forEach
@@ -61,17 +60,43 @@ class NfcPaymentModule : XposedModule() {
                         method.isAccessible = true
                         hook(method).setId(HOOK_ID).intercept(paymentServicesHooker())
                         installed++
-                        record("HOOK_INSTALLED class=$className method=$key")
+                        record("HOOK_INSTALLED class=${clazz.name} method=$key")
                     }.onFailure {
                         installedMethods.remove(key)
-                        record("HOOK_FAILED class=$className method=$key error=${it.javaClass.name}")
+                        record("HOOK_FAILED class=${clazz.name} method=$key error=${it.javaClass.name}")
                     }
                 }
         }
         if (installed > 0) {
             policyProvider.start()
             record("HOOKS_READY package=${param.packageName} new=$installed total=${installedMethods.size}")
+        } else if (installedMethods.isEmpty()) {
+            record("HOOK_FAILED package=${param.packageName} reason=payment_getServices_not_found classes=${classes.joinToString { it.name }}")
         }
+    }
+
+    /**
+     * AOSP exposes INfcCardEmulation#getServices from CardEmulationManager$CardEmulationInterface,
+     * not from the outer manager itself. Walk nested classes so OEM builds keep working even when
+     * the Binder implementation class name changes while the manager structure remains compatible.
+     */
+    private fun discoverManagerClasses(classLoader: ClassLoader): List<Class<*>> {
+        val discovered = linkedSetOf<Class<*>>()
+        fun collect(clazz: Class<*>) {
+            if (!discovered.add(clazz)) return
+            runCatching { clazz.declaredClasses.toList() }
+                .getOrDefault(emptyList())
+                .forEach(::collect)
+        }
+        NFC_MANAGER_ROOT_CLASSES.forEach { className ->
+            val root = runCatching { Class.forName(className, false, classLoader) }.getOrNull()
+            if (root == null) {
+                record("CLASS_UNAVAILABLE class=$className")
+            } else {
+                collect(root)
+            }
+        }
+        return discovered.toList()
     }
 
     private fun isPaymentServicesMethod(method: Method): Boolean =
@@ -127,7 +152,7 @@ class NfcPaymentModule : XposedModule() {
         val NFC_KINDS = ENTRY_SURFACE_DEFINITIONS.values.asSequence()
             .filter { it.authority == EntryAuthority.NFC_CARD_EMULATION }
             .mapTo(linkedSetOf()) { it.kind }
-        val NFC_MANAGER_CLASSES = listOf(
+        val NFC_MANAGER_ROOT_CLASSES = listOf(
             "com.android.nfc.cardemulation.CardEmulationManager",
         )
     }
