@@ -114,6 +114,9 @@ class SettingsEntryAuthorityModule : XposedModule() {
     private fun legacyAutofillHooker() = XposedInterface.Hooker { chain ->
         val original = chain.proceed()
         val values = original as? List<*> ?: return@Hooker original
+        val packages = values.mapNotNull(::autofillPackageName)
+        authorityWriter.replacePackages(IntentKind.AUTOFILL, packages)
+
         val policy = policyProvider.snapshot()
         val selectedPackages = policy.selectedPackages(IntentKind.AUTOFILL)
         record(

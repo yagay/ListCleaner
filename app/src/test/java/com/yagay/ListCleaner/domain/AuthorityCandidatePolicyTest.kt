@@ -5,14 +5,16 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AuthorityCandidatePolicyTest {
-    @Test fun rawVpnAppOpsCandidateIsNotTreatedAsFinalSettingsAuthority() {
+    @Test fun rawVpnAppOpsCandidateRemainsVisibleAsProvisional() {
         val item = candidate(
             IntentKind.VPN,
             "pkg.vpn",
             "@vpn",
             listOf("VPN_APP_OPS mode=allow package_level=true"),
         )
-        assertTrue(AuthorityCandidatePolicy.normalize(listOf(item), 1_000L).single().unavailable)
+        val normalized = AuthorityCandidatePolicy.normalize(listOf(item), 1_000L).single()
+        assertFalse(normalized.unavailable)
+        assertTrue(normalized.evidence.any { "provisional=true" in it })
     }
 
     @Test fun recentObservedAuthoritySnapshotBecomesLive() {
@@ -45,24 +47,37 @@ class AuthorityCandidatePolicyTest {
         assertTrue(AuthorityCandidatePolicy.normalize(listOf(item), now).single().unavailable)
     }
 
-    @Test fun inputMethodManagerResultIsAlreadyAuthoritative() {
-        val item = candidate(
-            IntentKind.INPUT_METHOD,
-            "pkg.ime",
-            "pkg.ime.Service",
-            listOf("INPUT_METHOD_MANAGER id=pkg.ime/.Service"),
-        )
-        assertFalse(AuthorityCandidatePolicy.normalize(listOf(item), 1_000L).single().unavailable)
+    @Test fun activeScanKindsRemainUntouched() {
+        listOf(IntentKind.INPUT_METHOD, IntentKind.ACCESSIBILITY, IntentKind.NOTIFICATION_LISTENER).forEach { kind ->
+            val item = candidate(
+                kind,
+                "pkg.$kind",
+                "pkg.$kind.Service",
+                listOf("ACTIVE_DISCOVERY"),
+            )
+            val normalized = AuthorityCandidatePolicy.normalize(listOf(item), 1_000L).single()
+            assertFalse("$kind should remain visible", normalized.unavailable)
+            assertFalse(normalized.evidence.any { "provisional=true" in it })
+        }
     }
 
-    @Test fun packageManagerAuthoritativeKindsRemainUntouched() {
-        val item = candidate(
-            IntentKind.NOTIFICATION_LISTENER,
-            "pkg.notify",
-            "pkg.notify.Listener",
-            listOf("SERVICE_ENTRY action=android.service.notification.NotificationListenerService"),
-        )
-        assertFalse(AuthorityCandidatePolicy.normalize(listOf(item), 1_000L).single().unavailable)
+    @Test fun everyAuthorityUpgradeKindKeepsActiveFallbackVisible() {
+        ENTRY_SURFACE_DEFINITIONS.values
+            .filter { it.availabilityMode == EntryAvailabilityMode.AUTHORITY_UPGRADE }
+            .forEach { definition ->
+                val item = candidate(
+                    definition.kind,
+                    "pkg.${definition.kind.name.lowercase()}",
+                    "pkg.${definition.kind.name.lowercase()}.Entry",
+                    listOf("ACTIVE_FALLBACK"),
+                )
+                val normalized = AuthorityCandidatePolicy.normalize(listOf(item), 1_000L).single()
+                assertFalse("${definition.kind} fallback must remain visible", normalized.unavailable)
+                assertTrue(
+                    "${definition.kind} must be marked provisional",
+                    normalized.evidence.any { "provisional=true" in it },
+                )
+            }
     }
 
     private fun candidate(

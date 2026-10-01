@@ -1,6 +1,7 @@
 package com.yagay.ListCleaner.domain
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -8,6 +9,37 @@ class EntrySurfaceDefinitionsTest {
     @Test fun everySelectableKindHasSurfaceDefinition() {
         val selectable = IntentKind.entries.filter { it.isSelectableEntryKind() }.toSet()
         assertEquals(selectable, ENTRY_SURFACE_DEFINITIONS.keys)
+    }
+
+    @Test fun everySelectableKindDeclaresAtLeastOneDiscoverySource() {
+        ENTRY_SURFACE_DEFINITIONS.values.forEach { definition ->
+            assertFalse("${definition.kind} must declare discovery sources", definition.discoverySources.isEmpty())
+        }
+    }
+
+    @Test fun onlyRuntimeObservedSurfacesAreObservationOnly() {
+        val observationOnly = ENTRY_SURFACE_DEFINITIONS.values
+            .filter { it.availabilityMode == EntryAvailabilityMode.OBSERVATION_ONLY }
+            .mapTo(linkedSetOf()) { it.kind }
+        assertEquals(setOf(IntentKind.DIRECT_SHARE, IntentKind.SHORTCUT_ITEM), observationOnly)
+    }
+
+    @Test fun managerRoleFallbackSurfacesUseAuthorityUpgradeMode() {
+        val expected = setOf(
+            IntentKind.ASSISTANT,
+            IntentKind.HOME,
+            IntentKind.BROWSER,
+            IntentKind.CALL_SCREENING,
+            IntentKind.PRINT,
+            IntentKind.VPN,
+            IntentKind.AUTOFILL,
+            IntentKind.CREDENTIAL_PROVIDER,
+            IntentKind.NFC_HCE,
+        )
+        val actual = ENTRY_SURFACE_DEFINITIONS.values
+            .filter { it.availabilityMode == EntryAvailabilityMode.AUTHORITY_UPGRADE }
+            .mapTo(linkedSetOf()) { it.kind }
+        assertEquals(expected, actual)
     }
 
     @Test fun packageLevelAndroidSurfacesUsePackageIdentity() {

@@ -14,6 +14,12 @@ internal class ObservedEntryCache(context: Context) {
     fun snapshot(): List<ObservedEntryRecord> =
         ObservedEntryCacheCodec.decode(prefs.getString(KEY_ENTRIES, null))
 
+    /** Stable token for catalog cache invalidation when observed authority content changes. */
+    fun revisionToken(): Long {
+        val encoded = prefs.getString(KEY_ENTRIES, null).orEmpty()
+        return (encoded.length.toLong() shl 32) xor (encoded.hashCode().toLong() and 0xffffffffL)
+    }
+
     @Synchronized
     fun merge(entries: Collection<ObservedEntryRecord>): List<ObservedEntryRecord> {
         if (entries.isEmpty()) return snapshot()
@@ -63,7 +69,9 @@ internal class ObservedEntryCache(context: Context) {
 
     private fun persist(entries: Collection<ObservedEntryRecord>) {
         val encoded = ObservedEntryCacheCodec.encode(entries)
-        if (encoded.length <= ObservedEntryCacheCodec.MAX_ENCODED_CHARS) {
+        if (encoded.length <= ObservedEntryCacheCodec.MAX_ENCODED_CHARS &&
+            prefs.getString(KEY_ENTRIES, null) != encoded
+        ) {
             prefs.edit().putString(KEY_ENTRIES, encoded).apply()
         }
     }

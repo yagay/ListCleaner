@@ -43,17 +43,32 @@ enum class EntryAuthority {
     SHORTCUT_SERVICE,
 }
 
+/**
+ * Defines whether discovery itself is enough to show a candidate.
+ *
+ * ACTIVE_SCAN: the active discovery source is sufficient for the normal list.
+ * AUTHORITY_UPGRADE: active fallback candidates stay visible while a manager/role observation may
+ * later confirm the exact Android authority result.
+ * OBSERVATION_ONLY: there is no meaningful active fallback; rows appear only after runtime evidence.
+ */
+enum class EntryAvailabilityMode {
+    ACTIVE_SCAN,
+    AUTHORITY_UPGRADE,
+    OBSERVATION_ONLY,
+}
+
 data class EntrySurfaceDefinition(
     val kind: IntentKind,
     val identity: EntryIdentityScope,
     val authority: EntryAuthority,
     val discoverySources: Set<EntryDiscoverySource>,
+    val availabilityMode: EntryAvailabilityMode = EntryAvailabilityMode.ACTIVE_SCAN,
 )
 
 /**
  * Single contract for what one row means, where Android gets it from and where candidates come from.
- * PackageManager probes are deliberately not treated as authoritative for manager/app-ops backed
- * Settings surfaces.
+ * PackageManager/AppOps fallbacks remain visible for AUTHORITY_UPGRADE surfaces; they are marked as
+ * provisional until the owning Android subsystem produces a final observation.
  */
 val ENTRY_SURFACE_DEFINITIONS: Map<IntentKind, EntrySurfaceDefinition> = buildMap {
     val resolverComponents = setOf(
@@ -89,6 +104,7 @@ val ENTRY_SURFACE_DEFINITIONS: Map<IntentKind, EntrySurfaceDefinition> = buildMa
             EntryIdentityScope.PACKAGE,
             EntryAuthority.ROLE_CONTROLLER,
             setOf(EntryDiscoverySource.BROWSER_ACTIVITY, EntryDiscoverySource.RESOLVER_ACTIVITY),
+            EntryAvailabilityMode.AUTHORITY_UPGRADE,
         )
     )
     put(
@@ -107,6 +123,7 @@ val ENTRY_SURFACE_DEFINITIONS: Map<IntentKind, EntrySurfaceDefinition> = buildMa
             EntryIdentityScope.PACKAGE,
             EntryAuthority.ROLE_CONTROLLER,
             setOf(EntryDiscoverySource.HOME_ACTIVITY),
+            EntryAvailabilityMode.AUTHORITY_UPGRADE,
         )
     )
     put(
@@ -116,6 +133,7 @@ val ENTRY_SURFACE_DEFINITIONS: Map<IntentKind, EntrySurfaceDefinition> = buildMa
             EntryIdentityScope.PACKAGE,
             EntryAuthority.ROLE_CONTROLLER,
             setOf(EntryDiscoverySource.ASSISTANT_ACTIVITY, EntryDiscoverySource.VOICE_INTERACTION_SERVICE),
+            EntryAvailabilityMode.AUTHORITY_UPGRADE,
         )
     )
     put(
@@ -125,6 +143,7 @@ val ENTRY_SURFACE_DEFINITIONS: Map<IntentKind, EntrySurfaceDefinition> = buildMa
             EntryIdentityScope.RUNTIME_ITEM,
             EntryAuthority.SHORTCUT_SERVICE,
             setOf(EntryDiscoverySource.OBSERVED_DIRECT_SHARE),
+            EntryAvailabilityMode.OBSERVATION_ONLY,
         )
     )
     put(
@@ -134,6 +153,7 @@ val ENTRY_SURFACE_DEFINITIONS: Map<IntentKind, EntrySurfaceDefinition> = buildMa
             EntryIdentityScope.RUNTIME_ITEM,
             EntryAuthority.SHORTCUT_SERVICE,
             setOf(EntryDiscoverySource.OBSERVED_SHORTCUT),
+            EntryAvailabilityMode.OBSERVATION_ONLY,
         )
     )
     put(
@@ -175,6 +195,7 @@ val ENTRY_SURFACE_DEFINITIONS: Map<IntentKind, EntrySurfaceDefinition> = buildMa
             EntryIdentityScope.COMPONENT,
             EntryAuthority.PRINT_MANAGER,
             setOf(EntryDiscoverySource.PRINT_MANAGER, EntryDiscoverySource.SYSTEM_SERVICE),
+            EntryAvailabilityMode.AUTHORITY_UPGRADE,
         )
     )
     put(
@@ -184,6 +205,7 @@ val ENTRY_SURFACE_DEFINITIONS: Map<IntentKind, EntrySurfaceDefinition> = buildMa
             EntryIdentityScope.PACKAGE,
             EntryAuthority.SETTINGS_VPN,
             setOf(EntryDiscoverySource.SETTINGS_VPN, EntryDiscoverySource.SYSTEM_SERVICE),
+            EntryAvailabilityMode.AUTHORITY_UPGRADE,
         )
     )
     put(
@@ -193,6 +215,7 @@ val ENTRY_SURFACE_DEFINITIONS: Map<IntentKind, EntrySurfaceDefinition> = buildMa
             EntryIdentityScope.PACKAGE,
             EntryAuthority.CREDENTIAL_MANAGER,
             setOf(EntryDiscoverySource.CREDENTIAL_MANAGER, EntryDiscoverySource.SYSTEM_SERVICE),
+            EntryAvailabilityMode.AUTHORITY_UPGRADE,
         )
     )
     put(
@@ -202,6 +225,7 @@ val ENTRY_SURFACE_DEFINITIONS: Map<IntentKind, EntrySurfaceDefinition> = buildMa
             EntryIdentityScope.PACKAGE,
             EntryAuthority.COMBINED_PROVIDER_SETTINGS,
             setOf(EntryDiscoverySource.AUTOFILL_PROVIDER_SETTINGS, EntryDiscoverySource.SYSTEM_SERVICE),
+            EntryAvailabilityMode.AUTHORITY_UPGRADE,
         )
     )
     put(
@@ -211,6 +235,7 @@ val ENTRY_SURFACE_DEFINITIONS: Map<IntentKind, EntrySurfaceDefinition> = buildMa
             EntryIdentityScope.COMPONENT,
             EntryAuthority.NFC_CARD_EMULATION,
             setOf(EntryDiscoverySource.NFC_CARD_EMULATION, EntryDiscoverySource.SYSTEM_SERVICE),
+            EntryAvailabilityMode.AUTHORITY_UPGRADE,
         )
     )
     put(
@@ -220,6 +245,7 @@ val ENTRY_SURFACE_DEFINITIONS: Map<IntentKind, EntrySurfaceDefinition> = buildMa
             EntryIdentityScope.PACKAGE,
             EntryAuthority.ROLE_CONTROLLER,
             setOf(EntryDiscoverySource.SYSTEM_SERVICE),
+            EntryAvailabilityMode.AUTHORITY_UPGRADE,
         )
     )
 
@@ -246,6 +272,8 @@ fun IntentKind.isPackageScopedEntry(): Boolean =
     surfaceDefinition()?.identity == EntryIdentityScope.PACKAGE
 
 fun IntentKind.entryAuthority(): EntryAuthority? = surfaceDefinition()?.authority
+
+fun IntentKind.entryAvailabilityMode(): EntryAvailabilityMode? = surfaceDefinition()?.availabilityMode
 
 /**
  * Collapse physical components to the logical row identity before they enter UI state.

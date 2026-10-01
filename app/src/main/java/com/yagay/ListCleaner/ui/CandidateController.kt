@@ -4,6 +4,7 @@ import android.util.Log
 import com.yagay.ListCleaner.ListCleanerApp
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.BrowserLinkDiscovery
+import com.yagay.ListCleaner.data.ObservedEntryCache
 import com.yagay.ListCleaner.domain.AuthorityCandidatePolicy
 import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.ComponentRule
@@ -24,6 +25,7 @@ internal class CandidateController(
     private val scope: CoroutineScope,
 ) {
     private val browserLinkDiscovery = BrowserLinkDiscovery()
+    private val observedEntryCache = ObservedEntryCache(app)
     private val mutableCandidates = MutableStateFlow<List<ComponentCandidate>>(emptyList())
     val candidates: StateFlow<List<ComponentCandidate>> = mutableCandidates.asStateFlow()
 
@@ -66,9 +68,14 @@ internal class CandidateController(
             mutableLoading.value = true
             mutableError.value = null
             try {
-                // Pull chooser-observed Direct Share entries before catalog discovery. This is a
-                // lightweight remote preference sync and keeps the list current without rebooting.
+                // Pull runtime authority observations before catalog discovery. When the observed
+                // cache changes, invalidate the catalog so an old empty special-entry result cannot
+                // mask newly observed Role/Settings/NFC/manager candidates.
+                val observedBefore = observedEntryCache.revisionToken()
                 app.synchronizeObservedEntries()
+                if (observedEntryCache.revisionToken() != observedBefore) {
+                    app.catalog.invalidate()
+                }
                 if (currentGeneration != generation) return@launch
 
                 val configured = configuredRules()
