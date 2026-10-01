@@ -21,9 +21,10 @@ class EntryGroupTest {
         assertEquals(EntryGroup.SHARE, IntentKind.DIRECT_SHARE.entryGroup())
         assertEquals(EntryGroup.OPEN, IntentKind.OPEN_DOCUMENT.entryGroup())
         assertEquals(EntryGroup.OPEN, IntentKind.ASSISTANT.entryGroup())
-        assertEquals(EntryGroup.DESKTOP, IntentKind.HOME.entryGroup())
+        assertEquals(EntryGroup.ADVANCED, IntentKind.HOME.entryGroup())
         assertEquals(EntryGroup.DESKTOP, IntentKind.SHORTCUT_ITEM.entryGroup())
         assertEquals(EntryGroup.ADVANCED, IntentKind.CREDENTIAL_PROVIDER.entryGroup())
+        assertTrue(EntryGroup.ADVANCED.kinds().contains(IntentKind.HOME))
         assertTrue(EntryGroup.ADVANCED.kinds().contains(IntentKind.NFC_HCE))
     }
 }
