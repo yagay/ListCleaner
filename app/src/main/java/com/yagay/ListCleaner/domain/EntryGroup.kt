@@ -27,10 +27,10 @@ fun IntentKind.entryGroup(): EntryGroup = when (this) {
     IntentKind.PROCESS_TEXT,
     IntentKind.ASSISTANT -> EntryGroup.OPEN
 
-    IntentKind.HOME,
     IntentKind.LAUNCHER_SHORTCUT,
     IntentKind.SHORTCUT_ITEM -> EntryGroup.DESKTOP
 
+    IntentKind.HOME,
     IntentKind.DOCUMENT_PROVIDER,
     IntentKind.INPUT_METHOD,
     IntentKind.AUTOFILL,
