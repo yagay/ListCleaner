@@ -84,4 +84,11 @@
     <string name="rules_empty_clear_filters">Clear search and filters</string>
     <string name="dashboard_manage_app_visibility_plain">Manage app visibility list</string>
     <string name="app_row_unavailable_warning">Some entries are unavailable or restricted</string>
+
+    <string name="ui_appearance_title">Appearance</string>
+    <string name="ui_appearance_theme_choice">Interface style</string>
+    <string name="ui_appearance_material">Material 3</string>
+    <string name="ui_appearance_miuix">MIUIX style</string>
+    <string name="ui_appearance_material_help">Native Android Material 3 styling with wallpaper dynamic colors. Follows system light and dark mode.</string>
+    <string name="ui_appearance_miuix_help">MIUIX-inspired colors, rounded shapes and typography. Uses shared Material 3 controls, not the upstream MIUIX component library. Follows system light and dark mode.</string>
 </resources>

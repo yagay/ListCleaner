@@ -45,17 +45,27 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            val colors = if (androidx.compose.foundation.isSystemInDarkTheme()) {
-                dynamicDarkColorScheme(this)
-            } else {
-                dynamicLightColorScheme(this)
+            var themeStyle by remember { mutableStateOf(UiAppearanceStore.read(this@MainActivity)) }
+            ListCleanerUiTheme(themeStyle) {
+                ListCleanerScreen(
+                    themeStyle = themeStyle,
+                    onThemeStyleChange = { style ->
+                        if (themeStyle != style) {
+                            UiAppearanceStore.write(this@MainActivity, style)
+                            themeStyle = style
+                        }
+                    }
+                )
             }
-            MaterialTheme(colorScheme = colors) { ListCleanerScreen() }
         }
     }
 
     @Composable
-    private fun ListCleanerScreen(vm: MainViewModel = viewModel()) {
+    private fun ListCleanerScreen(
+        themeStyle: UiThemeStyle,
+        onThemeStyleChange: (UiThemeStyle) -> Unit,
+        vm: MainViewModel = viewModel()
+    ) {
         val state by vm.state.collectAsStateWithLifecycle()
         var searchExpanded by rememberSaveable { mutableStateOf(false) }
         var restartPromptDismissed by rememberSaveable { mutableStateOf(false) }
@@ -221,7 +231,13 @@ class MainActivity : ComponentActivity() {
                 )
             },
             bottomBar = {
-                NavigationBar {
+                NavigationBar(
+                    containerColor = if (themeStyle == UiThemeStyle.MIUIX_STYLE) {
+                        MaterialTheme.colorScheme.surfaceContainerLow
+                    } else {
+                        NavigationBarDefaults.containerColor
+                    }
+                ) {
                     Destination.entries.forEach { dest ->
                         NavigationBarItem(
                             selected = state.destination == dest,
@@ -248,7 +264,9 @@ class MainActivity : ComponentActivity() {
                             val stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
                             diagnosticExport.launch("ListCleaner-diagnostic-$stamp.zip")
                         },
-                        { fileCheck.launch(arrayOf("*/*")) }
+                        { fileCheck.launch(arrayOf("*/*")) },
+                        themeStyle = themeStyle,
+                        onThemeStyleChange = onThemeStyleChange
                     )
                 }
             }

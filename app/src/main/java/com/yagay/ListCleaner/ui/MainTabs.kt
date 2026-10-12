@@ -398,7 +398,9 @@ fun DashboardTabContent(
     onExport: () -> Unit,
     collectingDiagnostics: Boolean,
     onCollectDiagnostics: () -> Unit,
-    onInspectFile: () -> Unit
+    onInspectFile: () -> Unit,
+    themeStyle: UiThemeStyle,
+    onThemeStyleChange: (UiThemeStyle) -> Unit,
 ) {
     val fileCheckStatus by vm.fileCheckStatus.collectAsStateWithLifecycle()
     val checkingFile by vm.checkingFile.collectAsStateWithLifecycle()
@@ -418,6 +420,44 @@ fun DashboardTabContent(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         RuntimePanel(state, vm)
+
+        Text(stringResource(R.string.ui_appearance_title), style = MaterialTheme.typography.titleMedium)
+        Card(Modifier.fillMaxWidth()) {
+            Column(
+                Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(stringResource(R.string.ui_appearance_theme_choice), fontWeight = FontWeight.Medium)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    UiThemeStyle.entries.forEach { option ->
+                        FilterChip(
+                            selected = themeStyle == option,
+                            onClick = { onThemeStyleChange(option) },
+                            label = {
+                                Text(stringResource(
+                                    if (option == UiThemeStyle.MATERIAL) R.string.ui_appearance_material
+                                    else R.string.ui_appearance_miuix
+                                ))
+                            },
+                            leadingIcon = if (themeStyle == option) {
+                                { Icon(Icons.Rounded.Check, contentDescription = null) }
+                            } else null,
+                        )
+                    }
+                }
+                Text(
+                    stringResource(
+                        if (themeStyle == UiThemeStyle.MATERIAL) R.string.ui_appearance_material_help
+                        else R.string.ui_appearance_miuix_help
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
 
         Text(stringResource(R.string.dashboard_global_mode), style = MaterialTheme.typography.titleMedium)
         Card(Modifier.fillMaxWidth()) {
