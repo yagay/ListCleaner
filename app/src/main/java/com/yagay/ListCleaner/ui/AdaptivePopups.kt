@@ -1,5 +1,7 @@
 package com.yagay.ListCleaner.ui
 
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -86,12 +88,13 @@ internal fun AdaptiveDropdownMenu(
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
     offset: DpOffset = DpOffset.Zero,
+    scrollState: ScrollState = rememberScrollState(),
     content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit
 ) {
     when (LocalUiThemeStyle.current) {
         UiThemeStyle.MATERIAL -> MaterialDropdownMenu(
             expanded = expanded, onDismissRequest = onDismissRequest, modifier = modifier,
-            offset = offset, content = content
+            offset = offset, scrollState = scrollState, content = content
         )
         UiThemeStyle.MIUIX_STYLE -> {
             val show = remember { mutableStateOf(expanded) }
