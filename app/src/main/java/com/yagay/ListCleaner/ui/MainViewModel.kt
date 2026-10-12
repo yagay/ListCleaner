@@ -102,6 +102,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val componentScan = rootComponents.scan
     val componentBusy = rootComponents.busy
     val componentMessage = rootComponents.message
+    val componentBatchProgress = rootComponents.batchProgress
+    fun cancelComponentBatch() = rootComponents.cancelBatch()
     val componentRootNotice = rootComponents.rootNotice
     val bulkLockRevision: StateFlow<Long> = bulkLocks.revision
 

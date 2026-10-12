@@ -31,4 +31,6 @@
     <string name="priority_drag_target">松手移动到优先第 %1$s 位</string>
     <string name="component_shown_as">显示为：%1$s</string>
     <string name="component_edit_display_name">修改显示名称</string>
+    <string name="priority_reset_confirm_title">确认恢复继承排序？</string>
+    <string name="priority_reset_confirm_body">将删除当前文件类型或域名的专用排序，恢复使用通用排序。此操作不能自动撤销。</string>
 </resources>

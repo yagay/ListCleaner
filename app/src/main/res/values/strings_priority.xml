@@ -31,4 +31,6 @@
     <string name="priority_drag_target">Release to move to priority #%1$s</string>
     <string name="component_shown_as">Shown as: %1$s</string>
     <string name="component_edit_display_name">Edit display name</string>
+    <string name="priority_reset_confirm_title">Restore inherited sorting?</string>
+    <string name="priority_reset_confirm_body">Remove the custom priority order for this file type or domain and return to the general order? This cannot be undone automatically.</string>
 </resources>

@@ -328,14 +328,24 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
         }
         if (!state.loading && shownGroups.isEmpty()) {
             item {
-                Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                    Text(
-                        stringResource(
-                            if (state.filter == IntentKind.DIRECT_SHARE || state.filter == IntentKind.SHORTCUT_ITEM)
-                                R.string.observed_entry_empty_help
-                            else R.string.no_matching_components
-                        )
-                    )
+                Column(
+                    Modifier.fillMaxWidth().padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(stringResource(when {
+                        state.error != null -> R.string.rules_empty_scan_failed
+                        state.candidates.isEmpty() -> R.string.rules_empty_unscanned
+                        state.query.isNotBlank() || state.uiFilter != UiFilter.ALL -> R.string.rules_empty_filtered
+                        state.filter == IntentKind.DIRECT_SHARE || state.filter == IntentKind.SHORTCUT_ITEM ->
+                            R.string.observed_entry_empty_help
+                        else -> R.string.no_matching_components
+                    }))
+                    if (state.query.isNotBlank() || state.uiFilter != UiFilter.ALL) {
+                        TextButton(onClick = {
+                            vm.setQuery("")
+                            vm.setUiFilter(UiFilter.ALL)
+                        }) { Text(stringResource(R.string.rules_empty_clear_filters)) }
+                    }
                 }
             }
         }

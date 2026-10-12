@@ -50,6 +50,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
     val scan by vm.componentScan.collectAsStateWithLifecycle()
     val busy by vm.componentBusy.collectAsStateWithLifecycle()
     val message by vm.componentMessage.collectAsStateWithLifecycle()
+    val batchProgress by vm.componentBatchProgress.collectAsStateWithLifecycle()
     val rootNotice by vm.componentRootNotice.collectAsStateWithLifecycle()
     rootNotice?.let { notice ->
         AlertDialog(
@@ -90,7 +91,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
             title = { Text(stringResource(R.string.root_batch_confirm_title)) },
             text = { Text(stringResource(R.string.root_batch_confirm_body, action, eligible.size, skipped)) },
             confirmButton = {
-                TextButton(enabled = eligible.isNotEmpty(), onClick = {
+                TextButton(enabled = eligible.isNotEmpty() && !busy, onClick = {
                     pendingBatch = null
                     if (batch.enable == null) vm.invertComponentsBulk(kind, eligible)
                     else vm.changeComponentsBulk(kind, eligible, batch.enable)
@@ -220,7 +221,24 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             contentPadding = PaddingValues(horizontal = 6.dp)
                         ) { Text(stringResource(R.string.invert_selection)) }
                     }
-                    if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    if (batchProgress != null) {
+                        val current = requireNotNull(batchProgress)
+                        LinearProgressIndicator(
+                            progress = { current.completed.toFloat() / current.total.coerceAtLeast(1) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(stringResource(R.string.root_batch_progress_count, current.completed, current.total),
+                                style = MaterialTheme.typography.labelSmall)
+                            TextButton(onClick = vm::cancelComponentBatch) {
+                                Text(stringResource(R.string.root_batch_stop_remaining))
+                            }
+                        }
+                    } else if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                     HorizontalDivider()
                 }
             }
@@ -439,7 +457,23 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
             }
         }
         if (visible.isEmpty() && !busy) {
-            item { Text(stringResource(R.string.root_no_components), Modifier.padding(vertical = 16.dp)) }
+            item {
+                Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(stringResource(
+                        if (kindItems.isNotEmpty()) R.string.root_empty_filtered else R.string.root_no_components
+                    ))
+                    if (kind != null || viewFilter != UiFilter.ALL ||
+                        appTypeFilter != AppTypeFilter.ALL || state.query.isNotBlank()
+                    ) {
+                        TextButton(onClick = {
+                            kind = null
+                            viewFilter = UiFilter.ALL
+                            appTypeFilter = AppTypeFilter.ALL
+                            vm.setQuery("")
+                        }) { Text(stringResource(R.string.root_clear_filters)) }
+                    }
+                }
+            }
         }
     }
 }

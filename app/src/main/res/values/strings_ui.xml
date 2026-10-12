@@ -79,4 +79,8 @@
     <string name="entry_group_count">%1$s · %2$d</string>
     <string name="entry_kind_count">%1$s (%2$d)</string>
     <string name="selection_batch_count">%1$s (%2$d)</string>
+    <string name="rules_empty_scan_failed">Some candidates could not be scanned. Refresh to retry.</string>
+    <string name="rules_empty_unscanned">No candidates have been discovered yet. Refresh or check module permissions.</string>
+    <string name="rules_empty_filtered">No entries match the current filters.</string>
+    <string name="rules_empty_clear_filters">Clear search and filters</string>
 </resources>

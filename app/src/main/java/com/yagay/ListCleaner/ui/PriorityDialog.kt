@@ -79,6 +79,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     val kind = state.filter ?: IntentKind.SHARE
     val openPreset by vm.ruleOpenPreset.collectAsStateWithLifecycle()
     val browserHost by vm.ruleBrowserHost.collectAsStateWithLifecycle()
+    var confirmPriorityReset by remember { mutableStateOf(false) }
     var viewFilter by rememberSaveable { mutableStateOf(UiFilter.ALL) }
     var appTypeFilter by rememberSaveable { mutableStateOf(AppTypeFilter.ALL) }
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
@@ -99,6 +100,25 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
 
     val typedOpenPreset = openPreset.takeIf { kind == IntentKind.OPEN }
     val deepLinkHost = browserHost.takeIf { kind == IntentKind.DEEP_LINK }
+    if (confirmPriorityReset) {
+        AlertDialog(
+            onDismissRequest = { confirmPriorityReset = false },
+            title = { Text(stringResource(R.string.priority_reset_confirm_title)) },
+            text = { Text(stringResource(R.string.priority_reset_confirm_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmPriorityReset = false
+                    if (typedOpenPreset != null) vm.resetOpenTypePriority(typedOpenPreset)
+                    else if (deepLinkHost != null) vm.resetBrowserHostPriority(deepLinkHost)
+                }) { Text(stringResource(R.string.common_ok)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmPriorityReset = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            }
+        )
+    }
 
     val typedSelected = typedOpenPreset?.let { state.openTypes.selectedRules(it) }.orEmpty()
     val explicitDeepLinkSelected = deepLinkHost?.let { state.browserLinks.selectedRules(it) }.orEmpty()
@@ -361,7 +381,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 color = if (inheritsOpenPriority) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             if (hasExplicitOpenPriority) {
-                                TextButton(onClick = { vm.resetOpenTypePriority(typedOpenPreset) }) {
+                                TextButton(onClick = { confirmPriorityReset = true }) {
                                     Text(stringResource(R.string.priority_restore_inheritance))
                                 }
                             }
@@ -384,7 +404,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 color = if (inheritsDeepLinkPriority) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             if (hasExplicitDeepLinkPriority) {
-                                TextButton(onClick = { vm.resetBrowserHostPriority(deepLinkHost) }) {
+                                TextButton(onClick = { confirmPriorityReset = true }) {
                                     Text(stringResource(R.string.priority_restore_inheritance))
                                 }
                             }

@@ -13,6 +13,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +21,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.coroutineContext
+
+internal data class RootBatchProgress(val completed: Int, val total: Int)
 
 /** Owns Root component scanning/mutation state so MainViewModel can focus on resolver rules and module state. */
 internal class RootComponentsController(
@@ -45,6 +48,11 @@ internal class RootComponentsController(
     private val mutableRootNotice = MutableStateFlow<String?>(null)
     val rootNotice: StateFlow<String?> = mutableRootNotice.asStateFlow()
     private var refreshPending = false
+    private var mutationJob: Job? = null
+    private val mutableBatchProgress = MutableStateFlow<RootBatchProgress?>(null)
+    val batchProgress: StateFlow<RootBatchProgress?> = mutableBatchProgress.asStateFlow()
+
+    fun cancelBatch() { mutationJob?.cancel() }
 
     val lastOperation: String get() = catalog.lastOperation
 
@@ -183,7 +191,8 @@ internal class RootComponentsController(
         mutableRootNotice.value = null
         mutableBusy.value = true
         mutableMessage.value = initialMessage
-        scope.launch {
+        mutableBatchProgress.value = RootBatchProgress(0, targets.size)
+        mutationJob = scope.launch {
             withContext(Dispatchers.IO) {
                 val completedTargets = mutableListOf<RootComponent>()
                 var lastResult = ""
@@ -200,10 +209,12 @@ internal class RootComponentsController(
                         lastResult = withContext(NonCancellable) { catalog.change(target, enable) }
                         persistConfirmedState(target, disabled = !enable)
                         completedTargets += target
+                        mutableBatchProgress.value = RootBatchProgress(completedTargets.size, targets.size)
                     }
                     mutableMessage.value = successMessage(completedTargets.size, lastResult)
                 } catch (cancelled: CancellationException) {
                     Log.i(TAG, "Root component $operationName cancelled after ${completedTargets.size}/${targets.size}")
+                    mutableMessage.value = app.getString(R.string.root_batch_cancelled, completedTargets.size, targets.size)
                     throw cancelled
                 } catch (failure: ComponentRootCommand.RootAccessException) {
                     val message = rootAccessMessage(failure)
@@ -222,6 +233,8 @@ internal class RootComponentsController(
                         refreshAfterMutation(completedTargets)
                     }
                     mutableBusy.value = false
+                    mutableBatchProgress.value = null
+                    mutationJob = null
                 }
             }
         }

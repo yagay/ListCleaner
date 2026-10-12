@@ -71,4 +71,9 @@
     <string name="root_batch_action_invert">反选</string>
     <string name="root_help_expand">展开组件使用说明</string>
     <string name="root_help_collapse">收起组件使用说明</string>
+    <string name="root_batch_cancelled">已在 %2$d 项中完成 %1$d 项后停止；当前执行中的命令仍可能完成。</string>
+    <string name="root_batch_progress_count">已处理 %1$d / %2$d 个组件</string>
+    <string name="root_batch_stop_remaining">停止后续操作</string>
+    <string name="root_empty_filtered">当前筛选条件下没有匹配的组件。</string>
+    <string name="root_clear_filters">清除筛选条件</string>
 </resources>
