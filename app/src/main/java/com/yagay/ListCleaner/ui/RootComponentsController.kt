@@ -136,22 +136,19 @@ internal class RootComponentsController(
             visibleTargets = targets,
             initialMessage = app.getString(R.string.root_requesting_verify),
             targetEnable = { enable },
-            progressMessage = { index, total, target ->
+            progressMessage = { _, _, target ->
                 app.getString(
-                    if (enable) R.string.root_progress_enable else R.string.root_progress_disable,
-                    index,
-                    total,
+                    if (enable) R.string.root_progress_enable_plain else R.string.root_progress_disable_plain,
                     target.label
                 )
             },
-            successMessage = { completed, lastResult ->
+            successMessage = { _, lastResult ->
                 if (targets.distinctRootTargets().size == 1) lastResult else app.getString(
-                    if (enable) R.string.root_batch_enabled else R.string.root_batch_disabled,
-                    completed
+                    if (enable) R.string.root_batch_enabled_plain else R.string.root_batch_disabled_plain
                 )
             },
-            stoppedMessage = { completed, total, reason ->
-                app.getString(R.string.root_batch_stopped, completed, total, reason)
+            stoppedMessage = { _, _, reason ->
+                app.getString(R.string.root_batch_stopped_plain, reason)
             },
             operationName = "mutation",
         )
@@ -162,12 +159,12 @@ internal class RootComponentsController(
             visibleTargets = visibleTargets.filter { it.blocked == null && it.enabled != null },
             initialMessage = app.getString(R.string.root_requesting_invert),
             targetEnable = { it.enabled == false },
-            progressMessage = { index, total, target ->
-                app.getString(R.string.root_progress_invert, index, total, target.label)
+            progressMessage = { _, _, target ->
+                app.getString(R.string.root_progress_invert_plain, target.label)
             },
-            successMessage = { completed, _ -> app.getString(R.string.root_batch_inverted, completed) },
-            stoppedMessage = { completed, total, reason ->
-                app.getString(R.string.root_invert_stopped, completed, total, reason)
+            successMessage = { _, _ -> app.getString(R.string.root_batch_inverted_plain) },
+            stoppedMessage = { _, _, reason ->
+                app.getString(R.string.root_invert_stopped_plain, reason)
             },
             operationName = "inversion",
         )
@@ -214,7 +211,7 @@ internal class RootComponentsController(
                     mutableMessage.value = successMessage(completedTargets.size, lastResult)
                 } catch (cancelled: CancellationException) {
                     Log.i(TAG, "Root component $operationName cancelled after ${completedTargets.size}/${targets.size}")
-                    mutableMessage.value = app.getString(R.string.root_batch_cancelled, completedTargets.size, targets.size)
+                    mutableMessage.value = app.getString(R.string.root_batch_cancelled_plain)
                     throw cancelled
                 } catch (failure: ComponentRootCommand.RootAccessException) {
                     val message = rootAccessMessage(failure)

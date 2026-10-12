@@ -81,4 +81,13 @@
     <string name="root_partially_disabled">Partially disabled</string>
     <string name="root_component_status_categories">%1$s · %2$s</string>
     <string name="root_display_only_warning">Some entries are display-only and excluded from bulk operations</string>
+    <string name="root_progress_enable_plain">Enabling: %1$s</string>
+    <string name="root_progress_disable_plain">Disabling: %1$s</string>
+    <string name="root_progress_invert_plain">Updating: %1$s</string>
+    <string name="root_batch_enabled_plain">Verified: components enabled; reopen the target surface</string>
+    <string name="root_batch_disabled_plain">Verified: components disabled; reopen the target surface</string>
+    <string name="root_batch_inverted_plain">Verified: component states updated; reopen the target surface</string>
+    <string name="root_batch_stopped_plain">Operation stopped: %1$s. Completed changes are retained; remaining entries were not processed.</string>
+    <string name="root_invert_stopped_plain">Inversion stopped: %1$s. Completed changes are retained.</string>
+    <string name="root_batch_cancelled_plain">Stopped remaining operations. An in-flight component command may still finish.</string>
 </resources>

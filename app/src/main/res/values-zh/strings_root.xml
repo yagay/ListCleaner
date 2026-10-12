@@ -81,4 +81,13 @@
     <string name="root_partially_disabled">部分禁用</string>
     <string name="root_component_status_categories">%1$s · %2$s</string>
     <string name="root_display_only_warning">部分项目仅展示，不参与批量操作</string>
+    <string name="root_progress_enable_plain">正在启用：%1$s</string>
+    <string name="root_progress_disable_plain">正在禁用：%1$s</string>
+    <string name="root_progress_invert_plain">正在调整：%1$s</string>
+    <string name="root_batch_enabled_plain">已核验组件启用状态；请重新打开目标界面</string>
+    <string name="root_batch_disabled_plain">已核验组件禁用状态；请重新打开目标界面</string>
+    <string name="root_batch_inverted_plain">已核验组件状态变更；请重新打开目标界面</string>
+    <string name="root_batch_stopped_plain">操作已停止：%1$s。已完成的修改保留，其余项目未执行。</string>
+    <string name="root_invert_stopped_plain">反选已停止：%1$s。已完成的修改保留。</string>
+    <string name="root_batch_cancelled_plain">已停止后续操作，正在执行中的组件命令仍可能完成。</string>
 </resources>
