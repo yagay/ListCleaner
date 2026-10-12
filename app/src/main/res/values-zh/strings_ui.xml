@@ -78,6 +78,8 @@
     <string name="observed_entry_empty_help">暂未观察到相关入口。请先使用目标应用的分享面板或桌面长按快捷方式，再返回刷新。</string>
     <string name="entry_group_count">%1$s · %2$d</string>
     <string name="entry_kind_count">%1$s（%2$d）</string>
+    <string name="entry_group_app_count">%1$s · %2$d 个应用</string>
+    <string name="entry_kind_app_count">%1$s（%2$d 个应用）</string>
     <string name="selection_batch_count">%1$s（%2$d）</string>
     <string name="rules_empty_scan_failed">部分候选扫描失败，请刷新重试。</string>
     <string name="rules_empty_unscanned">尚未扫描到候选项目，请刷新或检查模块权限。</string>

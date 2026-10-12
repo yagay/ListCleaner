@@ -94,4 +94,54 @@ class PriorityVisibilityTest {
         assertEquals(saved, moveVisiblePriorityTo(saved, visible, "a", "unselected"))
         assertEquals(saved, moveVisiblePriorityTo(saved, emptyList(), "a", "b"))
     }
+    @Test fun categoryCountsCountAppsNotComponentsAndExcludeUnavailableSources() {
+        val shareOne = item(IntentKind.SHARE, pkg = "same", cls = "First")
+        val shareTwo = item(IntentKind.SHARE, pkg = "same", cls = "Second")
+        val shareOther = item(IntentKind.SHARE, pkg = "other", cls = "Third")
+        val open = item(IntentKind.OPEN, pkg = "same", cls = "Viewer")
+        val unavailable = item(IntentKind.SHARE, pkg = "missing", cls = "Old").copy(unavailable = true)
+        val restricted = item(IntentKind.SHARE, pkg = "restricted", cls = "Private").copy(restricted = true)
+        val list = listOf(shareOne, shareTwo, shareOther, open, unavailable, restricted)
+        val counts = priorityCategoryAppCounts(list, emptySet(), DisplayMode.HIDE_SELECTED)
+        assertEquals(2, counts[IntentKind.SHARE])
+        assertEquals(1, counts[IntentKind.OPEN])
+        assertEquals(0, counts[IntentKind.GET_CONTENT])
+    }
+
+    @Test fun categoryCountsMatchActualPriorityRuleVisibility() {
+        val shareA = item(IntentKind.SHARE, pkg = "a", cls = "A")
+        val shareB = item(IntentKind.SHARE, pkg = "b", cls = "B")
+        val list = listOf(shareA, shareB)
+        val chosen = setOf(shareA.rule)
+        assertEquals(1, priorityCategoryAppCounts(list, chosen, DisplayMode.HIDE_SELECTED)[IntentKind.SHARE])
+        assertEquals(1, priorityCategoryAppCounts(list, chosen, DisplayMode.SHOW_SELECTED)[IntentKind.SHARE])
+        assertEquals(2, priorityCategoryAppCounts(list, chosen, DisplayMode.SHOW_ALL)[IntentKind.SHARE])
+    }
+
+    @Test fun categoryCountsUseFocusedOpenScopeWithoutChangingOtherKinds() {
+        val openA = item(IntentKind.OPEN, pkg = "a", cls = "OpenA")
+        val openB = item(IntentKind.OPEN, pkg = "b", cls = "OpenB")
+        val share = item(IntentKind.SHARE, pkg = "share", cls = "Share")
+        val all = listOf(openA, openB, share)
+        val counts = priorityCategoryAppCounts(
+            candidates = all,
+            selected = emptySet(),
+            mode = DisplayMode.HIDE_SELECTED,
+            focusedKind = IntentKind.OPEN,
+            focusedCandidates = listOf(openA),
+        )
+        assertEquals(1, counts[IntentKind.OPEN])
+        assertEquals(1, counts[IntentKind.SHARE])
+        val extraHidden = priorityCategoryAppCounts(
+            candidates = all,
+            selected = emptySet(),
+            mode = DisplayMode.HIDE_SELECTED,
+            focusedKind = IntentKind.OPEN,
+            focusedCandidates = listOf(openA),
+            focusedExtraSelected = setOf(openA.rule),
+        )
+        assertEquals(0, extraHidden[IntentKind.OPEN])
+        assertEquals(1, extraHidden[IntentKind.SHARE])
+    }
+
 }

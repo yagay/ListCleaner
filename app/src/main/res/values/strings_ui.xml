@@ -78,6 +78,8 @@
     <string name="observed_entry_empty_help">No observed entries yet. Use the target app share panel or launcher shortcuts first, then refresh.</string>
     <string name="entry_group_count">%1$s · %2$d</string>
     <string name="entry_kind_count">%1$s (%2$d)</string>
+    <string name="entry_group_app_count">%1$s · %2$d apps</string>
+    <string name="entry_kind_app_count">%1$s (%2$d apps)</string>
     <string name="selection_batch_count">%1$s (%2$d)</string>
     <string name="rules_empty_scan_failed">Some candidates could not be scanned. Refresh to retry.</string>
     <string name="rules_empty_unscanned">No candidates have been discovered yet. Refresh or check module permissions.</string>

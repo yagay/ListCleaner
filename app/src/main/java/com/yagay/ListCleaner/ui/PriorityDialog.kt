@@ -45,6 +45,7 @@ import com.yagay.ListCleaner.domain.matchesOpenPreset
 import com.yagay.ListCleaner.domain.matchesBrowserHost
 import com.yagay.ListCleaner.domain.priorityAppGroups
 import com.yagay.ListCleaner.domain.priorityCandidates
+import com.yagay.ListCleaner.domain.priorityCategoryAppCounts
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -150,6 +151,16 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     }
     val lockScope = deepLinkHost?.let(::browserPriorityBulkLockScope) ?: priorityBulkLockScope(kind, openPreset)
     val scopedExtraSelected = if (deepLinkScoped) explicitDeepLinkSelected else typedSelected
+    val categoryAppCounts = remember(state.candidates, state.selected, state.displayMode, kind, scopedCandidates, scopedExtraSelected) {
+        priorityCategoryAppCounts(
+            candidates = state.candidates,
+            selected = state.selected,
+            mode = state.displayMode,
+            focusedKind = kind,
+            focusedCandidates = scopedCandidates,
+            focusedExtraSelected = scopedExtraSelected,
+        )
+    }
     val baseGroups = remember(scopedCandidates, state.selected, scopedExtraSelected, state.displayMode, kind, openPreset, browserHost, rankedRaw, state.query, viewFilter, bulkLockRevision) {
         priorityAppGroups(
             scopedCandidates,
@@ -310,6 +321,8 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 }
                             },
                             batchCount = groups.size,
+                            categoryCounts = categoryAppCounts,
+                            countApps = true,
                             onSelectAll = {
                                 when {
                                     typedOpenPreset != null ->
