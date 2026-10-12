@@ -1,21 +1,29 @@
 package com.yagay.ListCleaner.ui
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.material3.TextButton as MaterialTextButton
-import androidx.compose.material3.OutlinedButton as MaterialOutlinedButton
-import androidx.compose.material3.IconButton as MaterialIconButton
-import androidx.compose.material3.FilterChip as MaterialFilterChip
-import androidx.compose.material3.TriStateCheckbox as MaterialTriStateCheckbox
-import androidx.compose.material3.HorizontalDivider as MaterialDivider
-import androidx.compose.material3.LinearProgressIndicator as MaterialLinearProgress
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button as MaterialButton
+import androidx.compose.material3.Card as MaterialCard
+import androidx.compose.material3.Checkbox as MaterialCheckbox
 import androidx.compose.material3.CircularProgressIndicator as MaterialCircularProgress
+import androidx.compose.material3.FilterChip as MaterialFilterChip
+import androidx.compose.material3.HorizontalDivider as MaterialDivider
+import androidx.compose.material3.IconButton as MaterialIconButton
+import androidx.compose.material3.LinearProgressIndicator as MaterialLinearProgress
+import androidx.compose.material3.OutlinedButton as MaterialOutlinedButton
+import androidx.compose.material3.Switch as MaterialSwitch
+import androidx.compose.material3.TextButton as MaterialTextButton
+import androidx.compose.material3.TriStateCheckbox as MaterialTriStateCheckbox
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,11 +31,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import top.yukonga.miuix.kmp.basic.IconButton as NativeIconButton
+import top.yukonga.miuix.kmp.basic.Button as MiuixButton
 import top.yukonga.miuix.kmp.basic.ButtonDefaults as NativeButtonDefaults
-import top.yukonga.miuix.kmp.basic.HorizontalDivider as NativeDivider
-import top.yukonga.miuix.kmp.basic.LinearProgressIndicator as NativeLinearProgress
+import top.yukonga.miuix.kmp.basic.Card as MiuixCard
+import top.yukonga.miuix.kmp.basic.Checkbox as MiuixCheckbox
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator as NativeCircularProgress
+import top.yukonga.miuix.kmp.basic.HorizontalDivider as NativeDivider
+import top.yukonga.miuix.kmp.basic.IconButton as NativeIconButton
+import top.yukonga.miuix.kmp.basic.LinearProgressIndicator as NativeLinearProgress
+import top.yukonga.miuix.kmp.basic.Surface as MiuixSurface
+import top.yukonga.miuix.kmp.basic.Switch as MiuixSwitch
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -117,7 +130,7 @@ internal fun AdaptiveTriStateCheckbox(
                 enabled = enabled
             )
             if (state == ToggleableState.Indeterminate) {
-                androidx.compose.foundation.Canvas(Modifier.padding(8.dp).fillMaxWidth()) {
+                androidx.compose.foundation.Canvas(Modifier.size(24.dp)) {
                     drawLine(color = Color.White, start = androidx.compose.ui.geometry.Offset(size.width * .25f, size.height * .5f),
                         end = androidx.compose.ui.geometry.Offset(size.width * .75f, size.height * .5f),
                         strokeWidth = 3.dp.toPx())
@@ -160,18 +173,6 @@ internal fun AdaptiveCircularProgressIndicator(
         MaterialCircularProgress(modifier = modifier, strokeWidth = strokeWidth)
     else NativeCircularProgress(modifier = modifier, strokeWidth = strokeWidth)
 }
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.RowScope
-import androidx.compose.material3.Button as MaterialButton
-import androidx.compose.material3.Card as MaterialCard
-import androidx.compose.material3.Checkbox as MaterialCheckbox
-import androidx.compose.material3.Switch as MaterialSwitch
-import androidx.compose.foundation.shape.RoundedCornerShape
-import top.yukonga.miuix.kmp.basic.Surface as MiuixSurface
-import top.yukonga.miuix.kmp.basic.Button as MiuixButton
-import top.yukonga.miuix.kmp.basic.Card as MiuixCard
-import top.yukonga.miuix.kmp.basic.Checkbox as MiuixCheckbox
-import top.yukonga.miuix.kmp.basic.Switch as MiuixSwitch
 
 /** Shared callbacks, with separate native UI components selected at the theme boundary. */
 @Composable
