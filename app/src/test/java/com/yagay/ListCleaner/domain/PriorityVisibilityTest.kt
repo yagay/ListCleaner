@@ -144,4 +144,16 @@ class PriorityVisibilityTest {
         assertEquals(1, extraHidden[IntentKind.SHARE])
     }
 
+    @Test fun topLevelGroupCountsDeduplicateAppsAcrossShareActions() {
+        val appA = item(IntentKind.SHARE, pkg = "a", cls = "Send")
+        val appAMultiple = item(IntentKind.SHARE_MULTIPLE, pkg = "a", cls = "SendMultiple")
+        val appBMultiple = item(IntentKind.SHARE_MULTIPLE, pkg = "b", cls = "SendMultiple")
+        val appsByCategory = priorityCategoryAppPackages(
+            listOf(appA, appAMultiple, appBMultiple), emptySet(), DisplayMode.HIDE_SELECTED
+        )
+        assertEquals(1, appsByCategory[IntentKind.SHARE]?.size)
+        assertEquals(2, appsByCategory[IntentKind.SHARE_MULTIPLE]?.size)
+        assertEquals(2, priorityGroupAppCounts(appsByCategory)[EntryGroup.SHARE])
+    }
+
 }

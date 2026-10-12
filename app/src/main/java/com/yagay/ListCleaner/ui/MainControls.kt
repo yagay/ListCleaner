@@ -132,6 +132,7 @@ private fun EntryGroupButton(
     onFilter: (IntentKind?) -> Unit,
     kindCounts: Map<IntentKind, Int>,
     countApps: Boolean,
+    groupCount: Int?,
 ) {
     var expanded by remember(group) { mutableStateOf(false) }
     val active = activeKind?.entryGroup() == group
@@ -141,7 +142,7 @@ private fun EntryGroupButton(
                 stringResource(
                     if (countApps) R.string.entry_group_app_count else R.string.entry_group_count,
                     stringResource(group.titleRes()),
-                    group.kinds().sumOf { kindCounts[it] ?: 0 },
+                    groupCount ?: group.kinds().sumOf { kindCounts[it] ?: 0 },
                 ),
                 fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
                 color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -180,6 +181,7 @@ internal fun ListControls(
     onInvert: (() -> Unit)? = null,
     batchCount: Int? = null,
     categoryCounts: Map<IntentKind, Int>? = null,
+    groupCounts: Map<EntryGroup, Int>? = null,
     countApps: Boolean = false,
 ) {
     var menu by remember { mutableStateOf(false) }
@@ -206,7 +208,7 @@ internal fun ListControls(
                 }
             }
             EntryGroup.entries.filter { includeAllKinds || it != EntryGroup.DESKTOP }.forEach { group ->
-                EntryGroupButton(group, state.filter, onFilter, kindCounts, countApps)
+                EntryGroupButton(group, state.filter, onFilter, kindCounts, countApps, groupCounts?.get(group))
             }
         }
         Row(

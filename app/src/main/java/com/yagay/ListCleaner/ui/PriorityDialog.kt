@@ -45,7 +45,8 @@ import com.yagay.ListCleaner.domain.matchesOpenPreset
 import com.yagay.ListCleaner.domain.matchesBrowserHost
 import com.yagay.ListCleaner.domain.priorityAppGroups
 import com.yagay.ListCleaner.domain.priorityCandidates
-import com.yagay.ListCleaner.domain.priorityCategoryAppCounts
+import com.yagay.ListCleaner.domain.priorityCategoryAppPackages
+import com.yagay.ListCleaner.domain.priorityGroupAppCounts
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -151,8 +152,8 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     }
     val lockScope = deepLinkHost?.let(::browserPriorityBulkLockScope) ?: priorityBulkLockScope(kind, openPreset)
     val scopedExtraSelected = if (deepLinkScoped) explicitDeepLinkSelected else typedSelected
-    val categoryAppCounts = remember(state.candidates, state.selected, state.displayMode, kind, scopedCandidates, scopedExtraSelected) {
-        priorityCategoryAppCounts(
+    val categoryAppPackages = remember(state.candidates, state.selected, state.displayMode, kind, scopedCandidates, scopedExtraSelected) {
+        priorityCategoryAppPackages(
             candidates = state.candidates,
             selected = state.selected,
             mode = state.displayMode,
@@ -160,6 +161,12 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
             focusedCandidates = scopedCandidates,
             focusedExtraSelected = scopedExtraSelected,
         )
+    }
+    val categoryAppCounts = remember(categoryAppPackages) {
+        categoryAppPackages.mapValues { it.value.size }
+    }
+    val groupAppCounts = remember(categoryAppPackages) {
+        priorityGroupAppCounts(categoryAppPackages)
     }
     val baseGroups = remember(scopedCandidates, state.selected, scopedExtraSelected, state.displayMode, kind, openPreset, browserHost, rankedRaw, state.query, viewFilter, bulkLockRevision) {
         priorityAppGroups(
@@ -322,6 +329,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                             },
                             batchCount = groups.size,
                             categoryCounts = categoryAppCounts,
+                            groupCounts = groupAppCounts,
                             countApps = true,
                             onSelectAll = {
                                 when {
