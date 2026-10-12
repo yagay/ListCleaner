@@ -55,6 +55,7 @@ internal class SpecialEntryDiscovery(private val context: Context) {
             addAll(vpnEntries())
             addAll(autofillEntries())
             addAll(documentProviders())
+            addAll(cloudMediaProviders())
 
             // These managers are hidden from a normal app. Once their final system result has been
             // observed, do not mix PackageManager guesses back into the live catalog.
@@ -117,7 +118,10 @@ internal class SpecialEntryDiscovery(private val context: Context) {
             if (!rule.isValid()) return@mapNotNull null
             val app = runCatching { pm.getApplicationInfo(observed.packageName, 0) }.getOrNull()
                 ?: return@mapNotNull null
-            val live = observed.key in liveKeys
+            // DocumentsUI runs in a different process; RootInfo has no bridge Activity.
+            val live = observed.key in liveKeys ||
+                (kind == IntentKind.DOCUMENT_ROOT &&
+                    observed.observedAt > System.currentTimeMillis() - DOCUMENT_ROOT_OBSERVATION_WINDOW_MS)
             ComponentCandidate(
                 rule = rule,
                 appLabel = runCatching { app.loadLabel(pm).toString() }.getOrDefault(observed.packageName),
@@ -333,6 +337,27 @@ internal class SpecialEntryDiscovery(private val context: Context) {
                 )
             }
     }
+
+    /** Scanning this interface does not imply control of the privileged Photo Picker. */
+    @Suppress("DEPRECATION")
+    private fun cloudMediaProviders(): List<ComponentCandidate> =
+        runCatching { pm.queryIntentContentProviders(Intent(CLOUD_MEDIA_PROVIDER_INTERFACE), flags) }
+            .getOrDefault(emptyList()).mapNotNull { resolved ->
+                val provider = resolved.providerInfo ?: return@mapNotNull null
+                val app = provider.applicationInfo ?: return@mapNotNull null
+                if (provider.permission != CLOUD_MEDIA_PERMISSION) return@mapNotNull null
+                val rule = ComponentRule(IntentKind.PHOTO_SOURCE, provider.packageName, provider.name)
+                if (!rule.isValid()) return@mapNotNull null
+                componentCandidate(
+                    rule, app,
+                    runCatching { provider.loadLabel(pm).toString() }.getOrDefault(provider.name.substringAfterLast('.')),
+                    buildList {
+                        add("PHOTO_SOURCE authority=PackageManager action=$CLOUD_MEDIA_PROVIDER_INTERFACE")
+                        provider.authority?.takeIf(String::isNotBlank)?.let { add("authority=$it") }
+                        add("picker_selection=not_verified")
+                    },
+                )
+            }
 
     /** CredentialManager is authoritative; this PM result is only used before a live manager result is observed. */
     private fun credentialProviderFallback(): List<ComponentCandidate> =
@@ -561,6 +586,10 @@ internal class SpecialEntryDiscovery(private val context: Context) {
     }.getOrNull()
 
     private companion object {
+        const val CLOUD_MEDIA_PROVIDER_INTERFACE = "android.content.action.CLOUD_MEDIA_PROVIDER"
+        const val CLOUD_MEDIA_PERMISSION =
+            "com.android.providers.media.permission.MANAGE_CLOUD_MEDIA_PROVIDERS"
+        const val DOCUMENT_ROOT_OBSERVATION_WINDOW_MS = 7L * 24 * 60 * 60 * 1000
         const val ACCESSIBILITY_SHORTCUT_META = "android.accessibilityshortcut.target"
         const val ACCESSIBILITY_SHORTCUT_TAG = "accessibility-shortcut-target"
         const val NFC_HOST_ACTION = "android.nfc.cardemulation.action.HOST_APDU_SERVICE"

@@ -131,6 +131,12 @@ class PackageManagerEntryFilterModule : XposedModule() {
         if (action == DocumentsContract.PROVIDER_INTERFACE && "ContentProvider" in method.name) {
             return QuerySpec(IntentKind.DOCUMENT_PROVIDER, { it.providerInfo })
         }
+        if (action == CLOUD_MEDIA_PROVIDER_INTERFACE && "ContentProvider" in method.name) {
+            return QuerySpec(
+                IntentKind.PHOTO_SOURCE, { it.providerInfo },
+                eligible = { _, info -> info is android.content.pm.ProviderInfo && info.permission == CLOUD_MEDIA_PERMISSION },
+            )
+        }
         if ("Service" !in method.name) return null
         if (action == VOICE_INTERACTION_SERVICE_INTERFACE) {
             return QuerySpec(
@@ -260,12 +266,16 @@ class PackageManagerEntryFilterModule : XposedModule() {
 
     private companion object {
         const val TAG = "ListCleaner.PmEntries"
+        const val CLOUD_MEDIA_PROVIDER_INTERFACE = "android.content.action.CLOUD_MEDIA_PROVIDER"
+        const val CLOUD_MEDIA_PERMISSION =
+            "com.android.providers.media.permission.MANAGE_CLOUD_MEDIA_PROVIDERS"
         const val HOOK_ID = "lc-pm-entry-filter"
         const val VOICE_INTERACTION_SERVICE_INTERFACE = "android.service.voice.VoiceInteractionService"
         const val BIND_VOICE_INTERACTION_PERMISSION = "android.permission.BIND_VOICE_INTERACTION"
         val WEB_SCHEMES = setOf("http", "https")
         val PM_ENTRY_KINDS = IntentKind.entries.filterTo(linkedSetOf()) { kind ->
-            kind.isPackageScopedEntry() || kind == IntentKind.DOCUMENT_PROVIDER || kind.isSystemServiceEntry()
+            kind.isPackageScopedEntry() || kind == IntentKind.DOCUMENT_PROVIDER ||
+                kind == IntentKind.PHOTO_SOURCE || kind.isSystemServiceEntry()
         }
         val QUERY_METHODS = setOf(
             "queryIntentActivities", "queryIntentActivitiesAsUser", "queryIntentActivitiesInternal",

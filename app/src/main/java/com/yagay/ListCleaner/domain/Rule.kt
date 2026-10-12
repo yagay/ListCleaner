@@ -39,7 +39,9 @@ enum class IntentKind(val action: String) {
     WALLPAPER("android.service.wallpaper.WallpaperService"),
     DREAM("android.service.dreams.DreamService"),
     NFC_HCE("android.nfc.cardemulation.action.HOST_APDU_SERVICE"),
-    CALL_SCREENING("android.telecom.CallScreeningService")
+    CALL_SCREENING("android.telecom.CallScreeningService"),
+    DOCUMENT_ROOT("com.yagay.ListCleaner.action.DOCUMENT_ROOT"),
+    PHOTO_SOURCE("android.content.action.CLOUD_MEDIA_PROVIDER")
 }
 
 @Serializable

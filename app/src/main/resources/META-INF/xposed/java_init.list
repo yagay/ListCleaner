@@ -11,3 +11,4 @@ com.yagay.ListCleaner.xposed.CombinedProviderSettingsModule
 com.yagay.ListCleaner.xposed.SettingsEntryAuthorityModule
 com.yagay.ListCleaner.xposed.PackageScopedResolverFilterModule
 com.yagay.ListCleaner.xposed.ShortcutSurfaceModule
+com.yagay.ListCleaner.xposed.DocumentsUiRootsModule

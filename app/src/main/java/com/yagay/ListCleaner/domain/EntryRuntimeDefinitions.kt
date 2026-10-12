@@ -20,6 +20,7 @@ enum class EntryRuntimePath {
     /** Historical/raw source retained for diagnostics only; it is not the final Settings VPN list. */
     VPN_APP_OPS,
     NFC_CARD_EMULATION,
+    DOCUMENTS_UI_ROOTS,
 }
 
 enum class EmptyResultBehavior {
@@ -132,6 +133,12 @@ val ENTRY_RUNTIME_DEFINITIONS: Map<IntentKind, EntryRuntimeDefinition> = buildMa
         systemCallerBypassPossible = true,
     )
 
+    add(IntentKind.DOCUMENT_ROOT, setOf(EntryRuntimePath.DOCUMENTS_UI_ROOTS))
+    add(
+        kind = IntentKind.PHOTO_SOURCE,
+        paths = setOf(EntryRuntimePath.PACKAGE_MANAGER_PROVIDER),
+        systemCallerBypassPossible = true,
+    )
     add(IntentKind.INPUT_METHOD, setOf(EntryRuntimePath.INPUT_METHOD_MANAGER))
     add(
         IntentKind.ACCESSIBILITY,

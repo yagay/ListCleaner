@@ -5,3 +5,5 @@ com.android.settings
 com.google.android.permissioncontroller
 com.android.permissioncontroller
 com.android.nfc
+com.android.documentsui
+com.google.android.documentsui

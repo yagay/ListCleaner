@@ -18,6 +18,7 @@ val OBSERVABLE_ENTRY_KINDS: Set<IntentKind> = setOf(
     IntentKind.CREDENTIAL_PROVIDER,
     IntentKind.VPN,
     IntentKind.NFC_HCE,
+    IntentKind.DOCUMENT_ROOT,
 )
 
 /**

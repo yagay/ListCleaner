@@ -14,6 +14,12 @@ object SyntheticEntryKeys {
     fun directShareClass(targetClass: String?, shortcutId: String): String =
         baseClass(targetClass) + DIRECT_SHARE_MARKER + token(shortcutId)
 
+    /** Stable per-root identity without storing a raw provider root ID in rules. */
+    fun documentRootClass(authority: String, rootId: String): String {
+        require(authority.isNotBlank() && rootId.isNotBlank())
+        return "@docroot_" + token(authority.length.toString() + ":" + authority + ":" + rootId.length + ":" + rootId)
+    }
+
     fun packageScopedClass(kind: IntentKind): String = when (kind) {
         IntentKind.ASSISTANT -> "@assistant"
         IntentKind.HOME -> "@home"

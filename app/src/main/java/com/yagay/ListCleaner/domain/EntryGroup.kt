@@ -32,6 +32,8 @@ fun IntentKind.entryGroup(): EntryGroup = when (this) {
 
     IntentKind.HOME,
     IntentKind.DOCUMENT_PROVIDER,
+    IntentKind.DOCUMENT_ROOT,
+    IntentKind.PHOTO_SOURCE,
     IntentKind.INPUT_METHOD,
     IntentKind.AUTOFILL,
     IntentKind.CREDENTIAL_PROVIDER,

@@ -25,6 +25,8 @@ enum class EntryDiscoverySource {
     AUTOFILL_PROVIDER_SETTINGS,
     NFC_CARD_EMULATION,
     DOCUMENT_PROVIDER,
+    OBSERVED_DOCUMENT_ROOT,
+    CLOUD_MEDIA_PROVIDER,
     OBSERVED_SHORTCUT,
     OBSERVED_DIRECT_SHARE,
 }
@@ -41,6 +43,7 @@ enum class EntryAuthority {
     COMBINED_PROVIDER_SETTINGS,
     NFC_CARD_EMULATION,
     SHORTCUT_SERVICE,
+    DOCUMENTS_UI,
 }
 
 /**
@@ -164,6 +167,18 @@ val ENTRY_SURFACE_DEFINITIONS: Map<IntentKind, EntrySurfaceDefinition> = buildMa
             EntryAuthority.PACKAGE_MANAGER,
             setOf(EntryDiscoverySource.DOCUMENT_PROVIDER),
         )
+    )
+
+    put(
+        IntentKind.DOCUMENT_ROOT,
+        EntrySurfaceDefinition(IntentKind.DOCUMENT_ROOT, EntryIdentityScope.RUNTIME_ITEM,
+            EntryAuthority.DOCUMENTS_UI, setOf(EntryDiscoverySource.OBSERVED_DOCUMENT_ROOT),
+            EntryAvailabilityMode.OBSERVATION_ONLY),
+    )
+    put(
+        IntentKind.PHOTO_SOURCE,
+        EntrySurfaceDefinition(IntentKind.PHOTO_SOURCE, EntryIdentityScope.COMPONENT,
+            EntryAuthority.PACKAGE_MANAGER, setOf(EntryDiscoverySource.CLOUD_MEDIA_PROVIDER)),
     )
 
     put(
