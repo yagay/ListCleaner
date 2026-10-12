@@ -80,17 +80,17 @@ class MainActivity : ComponentActivity() {
             if (!state.module.outdated) restartPromptDismissed = false
         }
         if (state.module.outdated && !restartPromptDismissed) {
-            AlertDialog(
+            AdaptiveAlertDialog(
                 onDismissRequest = { restartPromptDismissed = true },
                 title = { Text(stringResource(R.string.restart_required_title)) },
                 text = { Text(stringResource(R.string.restart_required_message)) },
                 confirmButton = {
-                    TextButton(onClick = { restartPromptDismissed = true }) {
+                    AdaptiveTextButton(onClick = { restartPromptDismissed = true }) {
                         Text(stringResource(R.string.common_ok))
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = {
+                    AdaptiveTextButton(onClick = {
                         restartPromptDismissed = true
                         vm.setDestination(Destination.DASHBOARD)
                     }) {
@@ -100,7 +100,7 @@ class MainActivity : ComponentActivity() {
             )
         }
         pendingImport?.let { (content, preview) ->
-            AlertDialog(
+            AdaptiveAlertDialog(
                 onDismissRequest = { pendingImport = null },
                 title = { Text(stringResource(R.string.backup_import_confirm_title)) },
                 text = {
@@ -110,7 +110,7 @@ class MainActivity : ComponentActivity() {
                     ))
                 },
                 confirmButton = {
-                    TextButton(onClick = {
+                    AdaptiveTextButton(onClick = {
                         pendingImport = null
                         lifecycleScope.launch {
                             try {
@@ -136,7 +136,7 @@ class MainActivity : ComponentActivity() {
                     }) { Text(stringResource(R.string.backup_import_apply)) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { pendingImport = null }) {
+                    AdaptiveTextButton(onClick = { pendingImport = null }) {
                         Text(stringResource(R.string.common_cancel))
                     }
                 }

@@ -15,17 +15,17 @@ internal fun RuntimePanel(state: MainState, vm: MainViewModel, showUpdateTools: 
     val result by vm.updateMessage.collectAsStateWithLifecycle()
     var confirmReset by remember { mutableStateOf(false) }
     if (confirmReset) {
-        AlertDialog(
+        AdaptiveAlertDialog(
             onDismissRequest = { confirmReset = false },
             title = { Text(stringResource(R.string.runtime_reset_title)) },
             text = { Text(stringResource(R.string.runtime_reset_help)) },
             confirmButton = {
-                TextButton(onClick = { confirmReset = false; vm.resolveRecovery(false) }) {
+                AdaptiveTextButton(onClick = { confirmReset = false; vm.resolveRecovery(false) }) {
                     Text(stringResource(R.string.runtime_confirm_reset))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { confirmReset = false }) { Text(stringResource(R.string.common_cancel)) }
+                AdaptiveTextButton(onClick = { confirmReset = false }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
     }
@@ -41,7 +41,7 @@ internal fun RuntimePanel(state: MainState, vm: MainViewModel, showUpdateTools: 
                 AdaptiveButton(onClick = { vm.resolveRecovery(true) }, enabled = !state.runtime.recoveryCorrupt) {
                     Text(stringResource(R.string.runtime_restore_remote))
                 }
-                OutlinedButton(onClick = { confirmReset = true }) {
+                AdaptiveOutlinedButton(onClick = { confirmReset = true }) {
                     Text(stringResource(R.string.runtime_reset_pause))
                 }
             }
@@ -68,7 +68,7 @@ internal fun RuntimePanel(state: MainState, vm: MainViewModel, showUpdateTools: 
         }
 
         if (showUpdateTools) {
-            OutlinedButton(onClick = vm::applyModuleUpdate, enabled = state.module.connected && !updating) {
+            AdaptiveOutlinedButton(onClick = vm::applyModuleUpdate, enabled = state.module.connected && !updating) {
                 Text(stringResource(if (updating) R.string.runtime_checking_update else R.string.runtime_apply_update))
             }
         }

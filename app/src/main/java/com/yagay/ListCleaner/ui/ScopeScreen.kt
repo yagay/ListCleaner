@@ -77,12 +77,12 @@ internal fun ScopeDialog(status: ModuleStatus, requestScope: () -> Unit, refresh
                 status.detection.warnings.forEach { Text(it, color = MaterialTheme.colorScheme.error) }
                 status.message?.let { Text(it) }
                 status.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                TextButton(onClick = refresh, enabled = !status.requesting) { Text(stringResource(R.string.scope_recheck)) }
+                AdaptiveTextButton(onClick = refresh, enabled = !status.requesting) { Text(stringResource(R.string.scope_recheck)) }
                 Text(stringResource(R.string.scope_advanced))
             }
         },
         confirmButton = {
-            TextButton(
+            AdaptiveTextButton(
                 onClick = requestScope,
                 enabled = status.connected && status.scopeKnown && !status.requesting && status.missingScope.isNotEmpty()
             ) {
@@ -96,7 +96,7 @@ internal fun ScopeDialog(status: ModuleStatus, requestScope: () -> Unit, refresh
                 )
             }
         },
-        dismissButton = { TextButton(onClick = dismiss) { Text(stringResource(R.string.common_close)) } }
+        dismissButton = { AdaptiveTextButton(onClick = dismiss) { Text(stringResource(R.string.common_close)) } }
     )
 }
 
@@ -119,7 +119,7 @@ private fun FullScreenDetails(
                 TopAppBar(
                     title = title,
                     navigationIcon = {
-                        IconButton(onClick = onDismissRequest) {
+                        AdaptiveIconButton(onClick = onDismissRequest) {
                             Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.common_back))
                         }
                     }

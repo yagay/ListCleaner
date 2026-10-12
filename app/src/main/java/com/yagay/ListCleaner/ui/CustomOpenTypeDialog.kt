@@ -44,7 +44,7 @@ internal fun CustomOpenTypeDialog(
         return
     }
 
-    AlertDialog(
+    AdaptiveAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.custom_open_title)) },
         text = {
@@ -88,17 +88,17 @@ internal fun CustomOpenTypeDialog(
                                 )
                             },
                             trailingContent = {
-                                TextButton(onClick = { editing = slot }) {
+                                AdaptiveTextButton(onClick = { editing = slot }) {
                                     Text(stringResource(if (definition == null) R.string.common_add else R.string.common_edit))
                                 }
                             }
                         )
-                        HorizontalDivider()
+                        AdaptiveHorizontalDivider()
                     }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_done)) } }
+        confirmButton = { AdaptiveTextButton(onClick = onDismiss) { Text(stringResource(R.string.common_done)) } }
     )
 }
 
@@ -122,7 +122,7 @@ private fun CustomOpenTypeEditor(
         .toSet()
 
     val presetTitle = stringResource(preset.titleRes())
-    AlertDialog(
+    AdaptiveAlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
@@ -132,21 +132,21 @@ private fun CustomOpenTypeEditor(
         },
         text = {
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
+                AdaptiveOutlinedTextField(
                     title,
                     { title = it; errorRes = null },
                     label = { Text(stringResource(R.string.custom_open_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
+                AdaptiveOutlinedTextField(
                     mimeText,
                     { mimeText = it; errorRes = null },
                     label = { Text(stringResource(R.string.custom_open_mime_label)) },
                     supportingText = { Text(stringResource(R.string.custom_open_mime_example)) },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp)
                 )
-                OutlinedTextField(
+                AdaptiveOutlinedTextField(
                     extensionText,
                     { extensionText = it; errorRes = null },
                     label = { Text(stringResource(R.string.custom_open_extension_label)) },
@@ -161,11 +161,11 @@ private fun CustomOpenTypeEditor(
         confirmButton = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 onDelete?.let { delete ->
-                    TextButton(onClick = delete) {
+                    AdaptiveTextButton(onClick = delete) {
                         Text(stringResource(R.string.common_delete), color = MaterialTheme.colorScheme.error)
                     }
                 }
-                TextButton(
+                AdaptiveTextButton(
                     onClick = {
                         runCatching {
                             CustomOpenDefinition(title, parseSet(mimeText), parseSet(extensionText)).validated()
@@ -176,6 +176,6 @@ private fun CustomOpenTypeEditor(
                 }
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } }
+        dismissButton = { AdaptiveTextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } }
     )
 }

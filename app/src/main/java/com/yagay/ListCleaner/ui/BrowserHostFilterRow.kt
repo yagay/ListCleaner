@@ -53,7 +53,7 @@ fun BrowserHostFilterMenu(
     }
 
     Box {
-        TextButton(
+        AdaptiveTextButton(
             onClick = { expanded = true },
             modifier = Modifier.onSizeChanged { anchorWidthPx = it.width },
             contentPadding = PaddingValues(horizontal = 6.dp)
@@ -70,7 +70,7 @@ fun BrowserHostFilterMenu(
             )
             Icon(Icons.Rounded.ExpandMore, null)
         }
-        DropdownMenu(
+        AdaptiveDropdownMenu(
             expanded = expanded,
             onDismissRequest = { hostQuery = ""; expanded = false },
             modifier = Modifier
@@ -120,8 +120,8 @@ fun BrowserHostFilterMenu(
                 Spacer(Modifier.width(24.dp))
                 Text(stringResource(R.string.browser_hosts_manage))
             }
-            HorizontalDivider()
-            OutlinedTextField(
+            AdaptiveHorizontalDivider()
+            AdaptiveOutlinedTextField(
                 value = hostQuery,
                 onValueChange = { hostQuery = it },
                 modifier = Modifier
@@ -193,7 +193,7 @@ fun BrowserHostDialog(
     val normalized = normalizeBrowserHost(input)
     val canAdd = normalized != null && normalized !in hosts && hosts.size < BrowserLinkConfig.MAX_HOSTS
 
-    AlertDialog(
+    AdaptiveAlertDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
         modifier = Modifier.fillMaxWidth().padding(20.dp),
@@ -207,7 +207,7 @@ fun BrowserHostDialog(
                 )
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
+                    AdaptiveOutlinedTextField(
                         value = input,
                         onValueChange = { input = it },
                         modifier = Modifier.weight(1f),
@@ -248,23 +248,23 @@ fun BrowserHostDialog(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(host, Modifier.weight(1f))
-                                IconButton(onClick = { hosts = hosts - host }) {
+                                AdaptiveIconButton(onClick = { hosts = hosts - host }) {
                                     Icon(Icons.Rounded.Delete, stringResource(R.string.common_delete))
                                 }
                             }
-                            HorizontalDivider()
+                            AdaptiveHorizontalDivider()
                         }
                     }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSave(hosts.toSet()); onDismiss() }) {
+            AdaptiveTextButton(onClick = { onSave(hosts.toSet()); onDismiss() }) {
                 Text(stringResource(R.string.common_save))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+            AdaptiveTextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
         }
     )
 }

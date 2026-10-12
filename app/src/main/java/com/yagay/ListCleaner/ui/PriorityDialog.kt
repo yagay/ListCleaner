@@ -100,19 +100,19 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     val typedOpenPreset = openPreset.takeIf { kind == IntentKind.OPEN }
     val deepLinkHost = browserHost.takeIf { kind == IntentKind.DEEP_LINK }
     if (confirmPriorityReset) {
-        AlertDialog(
+        AdaptiveAlertDialog(
             onDismissRequest = { confirmPriorityReset = false },
             title = { Text(stringResource(R.string.priority_reset_confirm_title)) },
             text = { Text(stringResource(R.string.priority_reset_confirm_body)) },
             confirmButton = {
-                TextButton(onClick = {
+                AdaptiveTextButton(onClick = {
                     confirmPriorityReset = false
                     if (typedOpenPreset != null) vm.resetOpenTypePriority(typedOpenPreset)
                     else if (deepLinkHost != null) vm.resetBrowserHostPriority(deepLinkHost)
                 }) { Text(stringResource(R.string.common_ok)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmPriorityReset = false }) {
+                AdaptiveTextButton(onClick = { confirmPriorityReset = false }) {
                     Text(stringResource(R.string.common_cancel))
                 }
             }
@@ -369,7 +369,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 color = if (inheritsOpenPriority) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             if (hasExplicitOpenPriority) {
-                                TextButton(onClick = { confirmPriorityReset = true }) {
+                                AdaptiveTextButton(onClick = { confirmPriorityReset = true }) {
                                     Text(stringResource(R.string.priority_restore_inheritance))
                                 }
                             }
@@ -392,7 +392,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 color = if (inheritsDeepLinkPriority) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             if (hasExplicitDeepLinkPriority) {
-                                TextButton(onClick = { confirmPriorityReset = true }) {
+                                AdaptiveTextButton(onClick = { confirmPriorityReset = true }) {
                                     Text(stringResource(R.string.priority_restore_inheritance))
                                 }
                             }
@@ -505,7 +505,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     modifier = Modifier.padding(horizontal = 8.dp).size(20.dp)
                                 )
                             }
-                            IconButton(onClick = onExpand) {
+                            AdaptiveIconButton(onClick = onExpand) {
                                 Icon(
                                     if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                                     expandLabel
@@ -521,7 +521,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                             onUnlock = { vm.setBulkAppLocked(lockScope, packageName, emptyList(), false) }
                         )
                     }
-                    HorizontalDivider()
+                    AdaptiveHorizontalDivider()
                 }
                 if (expanded) {
                     if (group.rank != null) {
@@ -539,7 +539,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     Modifier.weight(1f),
                                     style = MaterialTheme.typography.labelMedium
                                 )
-                                TextButton(
+                                AdaptiveTextButton(
                                     onClick = {
                                         when {
                                             typedOpenPreset != null ->
@@ -554,7 +554,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     Icon(Icons.Rounded.ArrowUpward, null, Modifier.size(18.dp))
                                     Text(stringResource(R.string.priority_move_up))
                                 }
-                                TextButton(
+                                AdaptiveTextButton(
                                     onClick = {
                                         when {
                                             typedOpenPreset != null ->
@@ -656,7 +656,7 @@ private fun ComponentInfoRow(item: ComponentCandidate, customTitle: String?, onE
         if (item.rule.kind != IntentKind.LAUNCHER_SHORTCUT &&
             item.rule.kind != IntentKind.DOCUMENT_PROVIDER
         ) {
-            IconButton(onClick = onEditTitle) {
+            AdaptiveIconButton(onClick = onEditTitle) {
                 Icon(Icons.Rounded.Edit, stringResource(R.string.component_edit_display_name))
             }
         }

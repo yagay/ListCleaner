@@ -123,7 +123,7 @@ internal fun AppScopePickerDialog(
                 TopAppBar(
                     title = { Text(stringResource(R.string.visibility_title)) },
                     navigationIcon = {
-                        IconButton(onClick = dismiss) {
+                        AdaptiveIconButton(onClick = dismiss) {
                             Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.common_back))
                         }
                     },
@@ -144,7 +144,7 @@ internal fun AppScopePickerDialog(
                 ) {
                     items(VisibilityScope.entries, key = { it.name }) { scope ->
                         val checked = scope in visibilityScopes
-                        FilterChip(
+                        AdaptiveFilterChip(
                             selected = checked,
                             onClick = {
                                 app.rules.setVisibilityScopes(
@@ -165,7 +165,7 @@ internal fun AppScopePickerDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
+                AdaptiveOutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
                     label = { Text(stringResource(R.string.visibility_search_sources)) },
@@ -178,7 +178,7 @@ internal fun AppScopePickerDialog(
                 }
                 Spacer(Modifier.height(6.dp))
                 if (loading) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { AdaptiveCircularProgressIndicator() }
                 } else {
                     LazyColumn(Modifier.fillMaxSize()) {
                         items(visible, key = { it.packageName }) { entry ->
@@ -216,7 +216,7 @@ internal fun AppScopePickerDialog(
                                     )
                                 }
                             }
-                            HorizontalDivider()
+                            AdaptiveHorizontalDivider()
                         }
                     }
                 }

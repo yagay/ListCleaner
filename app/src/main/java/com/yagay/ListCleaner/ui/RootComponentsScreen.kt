@@ -53,12 +53,12 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
     val batchProgress by vm.componentBatchProgress.collectAsStateWithLifecycle()
     val rootNotice by vm.componentRootNotice.collectAsStateWithLifecycle()
     rootNotice?.let { notice ->
-        AlertDialog(
+        AdaptiveAlertDialog(
             onDismissRequest = vm::dismissComponentRootNotice,
             title = { Text(stringResource(R.string.root_permission_required)) },
             text = { Text(notice) },
             confirmButton = {
-                TextButton(onClick = vm::dismissComponentRootNotice) {
+                AdaptiveTextButton(onClick = vm::dismissComponentRootNotice) {
                     Text(stringResource(R.string.root_permission_ack))
                 }
             }
@@ -85,19 +85,19 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
             false -> R.string.root_batch_action_disable
             null -> R.string.root_batch_action_invert
         })
-        AlertDialog(
+        AdaptiveAlertDialog(
             onDismissRequest = { pendingBatch = null },
             title = { Text(stringResource(R.string.root_batch_confirm_title)) },
             text = { Text(stringResource(R.string.root_batch_confirmation_text, action)) },
             confirmButton = {
-                TextButton(enabled = eligible.isNotEmpty() && !busy, onClick = {
+                AdaptiveTextButton(enabled = eligible.isNotEmpty() && !busy, onClick = {
                     pendingBatch = null
                     if (batch.enable == null) vm.invertComponentsBulk(kind, eligible)
                     else vm.changeComponentsBulk(kind, eligible, batch.enable)
                 }) { Text(stringResource(R.string.common_ok)) }
             },
             dismissButton = {
-                TextButton(onClick = { pendingBatch = null }) {
+                AdaptiveTextButton(onClick = { pendingBatch = null }) {
                     Text(stringResource(R.string.common_cancel))
                 }
             }
@@ -142,7 +142,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                     LazyRow(contentPadding = PaddingValues(horizontal = 12.dp)) {
                         items(listOf<CleanupKind?>(null) + CleanupKind.entries) { entry ->
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                TextButton(onClick = { kind = entry }) {
+                                AdaptiveTextButton(onClick = { kind = entry }) {
                                     Text(
                                         entry?.let { stringResource(it.titleRes()) } ?: stringResource(R.string.common_all),
                                         fontWeight = if (kind == entry) FontWeight.Bold else FontWeight.Normal,
@@ -162,7 +162,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box {
-                            TextButton(
+                            AdaptiveTextButton(
                                 onClick = { appTypeMenu = true },
                                 contentPadding = PaddingValues(horizontal = 6.dp)
                             ) {
@@ -175,9 +175,9 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                                 )
                                 Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
                             }
-                            DropdownMenu(expanded = appTypeMenu, onDismissRequest = { appTypeMenu = false }) {
+                            AdaptiveDropdownMenu(expanded = appTypeMenu, onDismissRequest = { appTypeMenu = false }) {
                                 AppTypeFilter.entries.forEach { filter ->
-                                    DropdownMenuItem(
+                                    AdaptiveDropdownMenuItem(
                                         text = { Text(stringResource(filter.titleRes())) },
                                         leadingIcon = { if (appTypeFilter == filter) Icon(Icons.Rounded.Check, null) },
                                         onClick = { appTypeFilter = filter; appTypeMenu = false }
@@ -186,7 +186,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             }
                         }
                         Box {
-                            TextButton(
+                            AdaptiveTextButton(
                                 onClick = { filterMenu = true },
                                 contentPadding = PaddingValues(horizontal = 6.dp)
                             ) {
@@ -199,9 +199,9 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                                 )
                                 Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
                             }
-                            DropdownMenu(expanded = filterMenu, onDismissRequest = { filterMenu = false }) {
+                            AdaptiveDropdownMenu(expanded = filterMenu, onDismissRequest = { filterMenu = false }) {
                                 UiFilter.entries.forEach { filter ->
-                                    DropdownMenuItem(
+                                    AdaptiveDropdownMenuItem(
                                         text = { Text(stringResource(filter.titleRes())) },
                                         leadingIcon = { if (viewFilter == filter) Icon(Icons.Rounded.Check, null) },
                                         onClick = { viewFilter = filter; filterMenu = false }
@@ -209,12 +209,12 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                                 }
                             }
                         }
-                        TextButton(
+                        AdaptiveTextButton(
                             onClick = { pendingBatch = PendingRootBatch(visible, false) },
                             enabled = !busy && visible.any { it.blocked == null && it.enabled == true },
                             contentPadding = PaddingValues(horizontal = 6.dp)
                         ) { Text(stringResource(R.string.select_all)) }
-                        TextButton(
+                        AdaptiveTextButton(
                             onClick = { pendingBatch = PendingRootBatch(visible, null) },
                             enabled = !busy && visible.any { it.blocked == null && it.enabled != null },
                             contentPadding = PaddingValues(horizontal = 6.dp)
@@ -222,7 +222,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                     }
                     if (batchProgress != null) {
                         val current = requireNotNull(batchProgress)
-                        LinearProgressIndicator(
+                        AdaptiveLinearProgressIndicator(
                             progress = { current.completed.toFloat() / current.total.coerceAtLeast(1) },
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -233,18 +233,18 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                         ) {
                             Text(stringResource(R.string.root_batch_processing),
                                 style = MaterialTheme.typography.labelSmall)
-                            TextButton(onClick = vm::cancelComponentBatch) {
+                            AdaptiveTextButton(onClick = vm::cancelComponentBatch) {
                                 Text(stringResource(R.string.root_batch_stop_remaining))
                             }
                         }
-                    } else if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                    HorizontalDivider()
+                    } else if (busy) AdaptiveLinearProgressIndicator(Modifier.fillMaxWidth())
+                    AdaptiveHorizontalDivider()
                 }
             }
         }
         item(key = "summary") {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                TextButton(onClick = { detailsExpanded = !detailsExpanded }) {
+                AdaptiveTextButton(onClick = { detailsExpanded = !detailsExpanded }) {
                     Text(stringResource(if (detailsExpanded) R.string.root_help_collapse else R.string.root_help_expand))
                     Icon(if (detailsExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null)
                 }
@@ -314,7 +314,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             .heightIn(min = 64.dp).padding(horizontal = 8.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        TriStateCheckbox(
+                        AdaptiveTriStateCheckbox(
                             state = selectionState,
                             enabled = !busy && editableComponents.isNotEmpty(),
                             onClick = { pendingBatch = PendingRootBatch(editableComponents, selectionState == ToggleableState.On) }
@@ -353,7 +353,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                                 else LocalContentColor.current
                             )
                         }
-                        IconButton(onClick = onExpand) {
+                        AdaptiveIconButton(onClick = onExpand) {
                             Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, expandLabel)
                         }
                     }
@@ -380,7 +380,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                         }
                     )
                 }
-                HorizontalDivider()
+                AdaptiveHorizontalDivider()
             }
 
             if (expanded) items(components, key = { it.id }) { item ->
@@ -461,7 +461,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                     if (kind != null || viewFilter != UiFilter.ALL ||
                         appTypeFilter != AppTypeFilter.ALL || state.query.isNotBlank()
                     ) {
-                        TextButton(onClick = {
+                        AdaptiveTextButton(onClick = {
                             kind = null
                             viewFilter = UiFilter.ALL
                             appTypeFilter = AppTypeFilter.ALL

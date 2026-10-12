@@ -71,7 +71,7 @@ internal fun AppRow(
                 .padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TriStateCheckbox(state = selectionState, onClick = { onSelect(selectionState != ToggleableState.On) })
+            AdaptiveTriStateCheckbox(state = selectionState, onClick = { onSelect(selectionState != ToggleableState.On) })
             AppIcon(bitmap = group.appIcon, appLabel = group.appLabel)
             Column(Modifier.weight(1f).padding(start = 10.dp)) {
                 Text(group.appLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
@@ -103,7 +103,7 @@ internal fun AppRow(
                     else LocalContentColor.current
                 )
             }
-            IconButton(onClick = onExpand) {
+            AdaptiveIconButton(onClick = onExpand) {
                 Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, expandLabel)
             }
         }
@@ -116,7 +116,7 @@ internal fun AppRow(
             onUnlock = onUnlock,
         )
     }
-    HorizontalDivider()
+    AdaptiveHorizontalDivider()
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -207,7 +207,7 @@ internal fun ComponentRow(
                     modifier = Modifier.padding(horizontal = 8.dp).size(18.dp)
                 )
             }
-            IconButton(onClick = onEditTitle) {
+            AdaptiveIconButton(onClick = onEditTitle) {
                 Icon(Icons.Rounded.Edit, contentDescription = stringResource(R.string.component_edit_display_name))
             }
         }
@@ -231,8 +231,8 @@ internal fun BulkLockContextMenu(
     onLock: () -> Unit,
     onUnlock: () -> Unit,
 ) {
-    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
-        DropdownMenuItem(
+    AdaptiveDropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        AdaptiveDropdownMenuItem(
             text = { Text(stringResource(R.string.bulk_lock_action_lock)) },
             enabled = canLock,
             onClick = {
@@ -240,7 +240,7 @@ internal fun BulkLockContextMenu(
                 onLock()
             }
         )
-        DropdownMenuItem(
+        AdaptiveDropdownMenuItem(
             text = { Text(stringResource(R.string.bulk_lock_action_unlock)) },
             enabled = canUnlock,
             onClick = {

@@ -99,25 +99,25 @@ internal fun MainToolbar(
             else Text(stringResource(R.string.app_name), fontWeight = FontWeight.Bold, maxLines = 1)
         },
         navigationIcon = {
-            if (expanded) IconButton(onClick = onClose) {
+            if (expanded) AdaptiveIconButton(onClick = onClose) {
                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.close_search))
             }
         },
         actions = {
             if (expanded) {
-                if (query.isNotEmpty()) IconButton(onClick = { onQuery("") }) {
+                if (query.isNotEmpty()) AdaptiveIconButton(onClick = { onQuery("") }) {
                     Icon(Icons.Rounded.Close, stringResource(R.string.clear_search))
                 }
             } else {
-                if (showSearch) IconButton(onClick = onSearch) {
+                if (showSearch) AdaptiveIconButton(onClick = onSearch) {
                     Icon(Icons.Rounded.Search, stringResource(R.string.common_search))
                 }
-                IconButton(onClick = onRefresh) { Icon(Icons.Rounded.Refresh, stringResource(R.string.common_refresh)) }
+                AdaptiveIconButton(onClick = onRefresh) { Icon(Icons.Rounded.Refresh, stringResource(R.string.common_refresh)) }
                 Box {
-                    IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.common_more)) }
-                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        DropdownMenuItem(text = { Text(stringResource(R.string.restore_backup)) }, onClick = { menu = false; onRestore() })
-                        DropdownMenuItem(text = { Text(stringResource(R.string.export_backup)) }, onClick = { menu = false; onBackup() })
+                    AdaptiveIconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.common_more)) }
+                    AdaptiveDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        AdaptiveDropdownMenuItem(text = { Text(stringResource(R.string.restore_backup)) }, onClick = { menu = false; onRestore() })
+                        AdaptiveDropdownMenuItem(text = { Text(stringResource(R.string.export_backup)) }, onClick = { menu = false; onBackup() })
                     }
                 }
             }
@@ -134,7 +134,7 @@ private fun EntryGroupButton(
     var expanded by remember(group) { mutableStateOf(false) }
     val active = activeKind?.entryGroup() == group
     Box {
-        TextButton(onClick = { expanded = true }) {
+        AdaptiveTextButton(onClick = { expanded = true }) {
             Text(
                 stringResource(group.titleRes()),
                 fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
@@ -142,9 +142,9 @@ private fun EntryGroupButton(
             )
             Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        AdaptiveDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             group.kinds().forEach { kind ->
-                DropdownMenuItem(
+                AdaptiveDropdownMenuItem(
                     text = {
                         Text(
                             stringResource(kind.titleRes())
@@ -183,7 +183,7 @@ internal fun ListControls(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (includeAllKinds) {
-                TextButton(onClick = { onFilter(null) }) {
+                AdaptiveTextButton(onClick = { onFilter(null) }) {
                     Text(
                         stringResource(R.string.common_all),
                         fontWeight = if (state.filter == null) FontWeight.Bold else FontWeight.Normal,
@@ -200,13 +200,13 @@ internal fun ListControls(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box {
-                TextButton(onClick = { appTypeMenu = true }, contentPadding = PaddingValues(horizontal = 6.dp)) {
+                AdaptiveTextButton(onClick = { appTypeMenu = true }, contentPadding = PaddingValues(horizontal = 6.dp)) {
                     Text(stringResource(R.string.compact_filter_format, stringResource(R.string.app_type_filter), stringResource(appTypeFilter.titleRes())))
                     Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
                 }
-                DropdownMenu(expanded = appTypeMenu, onDismissRequest = { appTypeMenu = false }) {
+                AdaptiveDropdownMenu(expanded = appTypeMenu, onDismissRequest = { appTypeMenu = false }) {
                     AppTypeFilter.entries.forEach { mode ->
-                        DropdownMenuItem(
+                        AdaptiveDropdownMenuItem(
                             text = { Text(stringResource(mode.titleRes())) },
                             leadingIcon = { if (mode == appTypeFilter) Icon(Icons.Rounded.Check, null) },
                             onClick = { appTypeMenu = false; onAppTypeFilter(mode) }
@@ -215,13 +215,13 @@ internal fun ListControls(
                 }
             }
             Box {
-                TextButton(onClick = { menu = true }, contentPadding = PaddingValues(horizontal = 6.dp)) {
+                AdaptiveTextButton(onClick = { menu = true }, contentPadding = PaddingValues(horizontal = 6.dp)) {
                     Text(stringResource(R.string.compact_filter_format, stringResource(R.string.view_filter), viewTitle(state.uiFilter)))
                     Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
                 }
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                AdaptiveDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     UiFilter.entries.forEach { mode ->
-                        DropdownMenuItem(
+                        AdaptiveDropdownMenuItem(
                             text = { Text(viewTitle(mode)) },
                             leadingIcon = { if (mode == state.uiFilter) Icon(Icons.Rounded.Check, null) },
                             onClick = { menu = false; onUiFilter(mode) }
@@ -232,7 +232,7 @@ internal fun ListControls(
             extraFilter?.invoke()
             if (onSelectAll != null || onSelectNone != null || onInvert != null) {
                 Box {
-                    TextButton(
+                    AdaptiveTextButton(
                         onClick = { selectionMenu = true },
                         enabled = batchCount == null || batchCount > 0,
                         contentPadding = PaddingValues(horizontal = 6.dp)
@@ -240,22 +240,22 @@ internal fun ListControls(
                         Text(stringResource(R.string.selection_actions))
                         Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
                     }
-                    DropdownMenu(expanded = selectionMenu, onDismissRequest = { selectionMenu = false }) {
+                    AdaptiveDropdownMenu(expanded = selectionMenu, onDismissRequest = { selectionMenu = false }) {
                         onSelectAll?.let { action ->
-                            DropdownMenuItem(text = { Text(stringResource(R.string.select_all)) }, onClick = { selectionMenu = false; action() })
+                            AdaptiveDropdownMenuItem(text = { Text(stringResource(R.string.select_all)) }, onClick = { selectionMenu = false; action() })
                         }
                         onSelectNone?.let { action ->
-                            DropdownMenuItem(text = { Text(stringResource(R.string.select_none)) }, onClick = { selectionMenu = false; action() })
+                            AdaptiveDropdownMenuItem(text = { Text(stringResource(R.string.select_none)) }, onClick = { selectionMenu = false; action() })
                         }
                         onInvert?.let { action ->
-                            DropdownMenuItem(text = { Text(stringResource(R.string.invert_selection)) }, onClick = { selectionMenu = false; action() })
+                            AdaptiveDropdownMenuItem(text = { Text(stringResource(R.string.invert_selection)) }, onClick = { selectionMenu = false; action() })
                         }
                     }
                 }
             }
         }
         val selectedKind = state.filter
-        TextButton(
+        AdaptiveTextButton(
             onClick = { helpExpanded = !helpExpanded },
             modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 2.dp),
@@ -292,8 +292,8 @@ internal fun ListControls(
                 }
             }
         }
-        if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
-        HorizontalDivider()
+        if (state.loading) AdaptiveLinearProgressIndicator(Modifier.fillMaxWidth())
+        AdaptiveHorizontalDivider()
     }
 }
 
@@ -321,7 +321,7 @@ internal fun ModuleStatusRow(state: MainState, compact: Boolean = false, onClick
                 color = if (status.outdated || !state.runtime.ready) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        TextButton(onClick = onClick) {
+        AdaptiveTextButton(onClick = onClick) {
             Icon(Icons.Rounded.ExpandMore, stringResource(R.string.module_view_status))
         }
     }

@@ -203,7 +203,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
             if (openPreset == null && state.uiFilter != UiFilter.SHOW_SELECTED && state.candidates.any {
                     it.rule in state.selected && (it.unavailable || it.restricted)
                 }) {
-                TextButton(
+                AdaptiveTextButton(
                     onClick = {
                         vm.setFilter(null)
                         vm.setQuery("")
@@ -341,7 +341,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                         else -> R.string.no_matching_components
                     }))
                     if (state.query.isNotBlank() || state.uiFilter != UiFilter.ALL) {
-                        TextButton(onClick = {
+                        AdaptiveTextButton(onClick = {
                             vm.setQuery("")
                             vm.setUiFilter(UiFilter.ALL)
                         }) { Text(stringResource(R.string.rules_empty_clear_filters)) }
@@ -433,7 +433,7 @@ internal fun DashboardTabContent(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     UiThemeStyle.entries.forEach { option ->
-                        FilterChip(
+                        AdaptiveFilterChip(
                             selected = themeStyle == option,
                             onClick = { onThemeStyleChange(option) },
                             label = {
@@ -467,13 +467,13 @@ internal fun DashboardTabContent(
                     Text(stringResource(R.string.dashboard_global_mode_help), style = MaterialTheme.typography.bodySmall)
                 }
                 Box {
-                    TextButton(onClick = { menu = true }) {
+                    AdaptiveTextButton(onClick = { menu = true }) {
                         Text(stringResource(R.string.dashboard_switch))
                         Icon(Icons.Rounded.ExpandMore, null, Modifier.size(18.dp))
                     }
-                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    AdaptiveDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DisplayMode.entries.forEach { mode ->
-                            DropdownMenuItem(
+                            AdaptiveDropdownMenuItem(
                                 text = { Text(stringResource(mode.titleRes())) },
                                 leadingIcon = { if (mode == state.displayMode) Icon(Icons.Rounded.Check, null) },
                                 onClick = { menu = false; vm.setDisplayMode(mode) }
@@ -507,7 +507,7 @@ internal fun DashboardTabContent(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                OutlinedButton(onClick = vm::refreshModuleStatus, modifier = Modifier.fillMaxWidth()) {
+                AdaptiveOutlinedButton(onClick = vm::refreshModuleStatus, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.dashboard_refresh_runtime))
                 }
             }
@@ -518,7 +518,7 @@ internal fun DashboardTabContent(
             AdaptiveButton(onClick = onRestore, modifier = Modifier.weight(1f)) {
                 Text(stringResource(R.string.dashboard_restore_json))
             }
-            OutlinedButton(onClick = onExport, modifier = Modifier.weight(1f)) {
+            AdaptiveOutlinedButton(onClick = onExport, modifier = Modifier.weight(1f)) {
                 Text(stringResource(R.string.dashboard_export_json))
             }
         }
@@ -544,7 +544,7 @@ internal fun DashboardTabContent(
         AdaptiveCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.dashboard_scan_disclaimer), style = MaterialTheme.typography.labelSmall)
-                OutlinedButton(
+                AdaptiveOutlinedButton(
                     onClick = onInspectFile,
                     enabled = !checkingFile,
                     modifier = Modifier.fillMaxWidth()
@@ -570,7 +570,7 @@ internal fun DashboardTabContent(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     if (collectingDiagnostics) {
-                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        AdaptiveCircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                         Spacer(Modifier.width(8.dp))
                     }
                     Text(stringResource(if (collectingDiagnostics) R.string.dashboard_collecting else R.string.dashboard_export_diagnostics))

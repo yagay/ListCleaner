@@ -40,7 +40,7 @@ fun OpenPresetFilterMenu(
     val selectedTitle = if (selected == null) stringResource(R.string.common_all) else config.localizedTitle(selected)
 
     Box {
-        TextButton(
+        AdaptiveTextButton(
             onClick = { expanded = true },
             contentPadding = PaddingValues(horizontal = 6.dp)
         ) {
@@ -57,13 +57,13 @@ fun OpenPresetFilterMenu(
             Icon(Icons.Rounded.ExpandMore, null)
         }
 
-        DropdownMenu(
+        AdaptiveDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
             modifier = Modifier.heightIn(max = 420.dp),
             scrollState = menuScroll
         ) {
-            DropdownMenuItem(
+            AdaptiveDropdownMenuItem(
                 text = { Text(stringResource(R.string.common_all)) },
                 leadingIcon = { if (selected == null) Icon(Icons.Rounded.Check, null) },
                 onClick = {
@@ -71,16 +71,16 @@ fun OpenPresetFilterMenu(
                     onSelected(null)
                 }
             )
-            DropdownMenuItem(
+            AdaptiveDropdownMenuItem(
                 text = { Text(stringResource(R.string.open_manage_custom)) },
                 onClick = {
                     expanded = false
                     onManageCustom()
                 }
             )
-            HorizontalDivider()
+            AdaptiveHorizontalDivider()
             config.configuredPresets().forEach { preset ->
-                DropdownMenuItem(
+                AdaptiveDropdownMenuItem(
                     text = {
                         Text(
                             config.localizedTitle(preset),

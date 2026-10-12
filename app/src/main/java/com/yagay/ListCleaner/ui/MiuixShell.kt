@@ -81,12 +81,12 @@ internal fun MiuixMainShell(
                                 MiuixIconButton(onClick = { moreExpanded = true }) {
                                     Icon(Icons.Rounded.MoreVert, stringResource(R.string.common_more))
                                 }
-                                DropdownMenu(expanded = moreExpanded, onDismissRequest = { moreExpanded = false }) {
-                                    DropdownMenuItem(
+                                AdaptiveDropdownMenu(expanded = moreExpanded, onDismissRequest = { moreExpanded = false }) {
+                                    AdaptiveDropdownMenuItem(
                                         text = { Text(stringResource(R.string.restore_backup)) },
                                         onClick = { moreExpanded = false; onRestore() }
                                     )
-                                    DropdownMenuItem(
+                                    AdaptiveDropdownMenuItem(
                                         text = { Text(stringResource(R.string.export_backup)) },
                                         onClick = { moreExpanded = false; onBackup() }
                                     )
