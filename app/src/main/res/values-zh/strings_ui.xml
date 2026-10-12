@@ -73,13 +73,10 @@
     <string name="app_version_format">%1$s v%2$s</string>
 
     <string name="rules_scan_summary">已扫描 %1$d 个入口 · 当前显示 %2$d 个应用</string>
-    <string name="priority_rule_scope_summary">按规则可排序 %1$d 个应用 · 当前显示 %2$d 个</string>
     <string name="root_scan_total">筛选前已扫描 %1$d 个组件</string>
     <string name="observed_entry_empty_help">暂未观察到相关入口。请先使用目标应用的分享面板或桌面长按快捷方式，再返回刷新。</string>
     <string name="entry_group_count">%1$s · %2$d</string>
     <string name="entry_kind_count">%1$s（%2$d）</string>
-    <string name="entry_group_app_count">%1$s · %2$d 个应用</string>
-    <string name="entry_kind_app_count">%1$s（%2$d 个应用）</string>
     <string name="selection_batch_count">%1$s（%2$d）</string>
     <string name="rules_empty_scan_failed">部分候选扫描失败，请刷新重试。</string>
     <string name="rules_empty_unscanned">尚未扫描到候选项目，请刷新或检查模块权限。</string>

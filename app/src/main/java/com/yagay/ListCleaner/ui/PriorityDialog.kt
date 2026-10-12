@@ -44,10 +44,7 @@ import com.yagay.ListCleaner.domain.PriorityListFilter
 import com.yagay.ListCleaner.domain.matchesOpenPreset
 import com.yagay.ListCleaner.domain.matchesBrowserHost
 import com.yagay.ListCleaner.domain.priorityAppGroups
-import com.yagay.ListCleaner.domain.priorityCandidates
-import com.yagay.ListCleaner.domain.priorityCategoryAppPackages
-import com.yagay.ListCleaner.domain.priorityGroupAppCounts
-import kotlin.math.roundToInt
+ import kotlin.math.roundToInt
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -152,22 +149,6 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     }
     val lockScope = deepLinkHost?.let(::browserPriorityBulkLockScope) ?: priorityBulkLockScope(kind, openPreset)
     val scopedExtraSelected = if (deepLinkScoped) explicitDeepLinkSelected else typedSelected
-    val categoryAppPackages = remember(state.candidates, state.selected, state.displayMode, kind, scopedCandidates, scopedExtraSelected) {
-        priorityCategoryAppPackages(
-            candidates = state.candidates,
-            selected = state.selected,
-            mode = state.displayMode,
-            focusedKind = kind,
-            focusedCandidates = scopedCandidates,
-            focusedExtraSelected = scopedExtraSelected,
-        )
-    }
-    val categoryAppCounts = remember(categoryAppPackages) {
-        categoryAppPackages.mapValues { it.value.size }
-    }
-    val groupAppCounts = remember(categoryAppPackages) {
-        priorityGroupAppCounts(categoryAppPackages)
-    }
     val baseGroups = remember(scopedCandidates, state.selected, scopedExtraSelected, state.displayMode, kind, openPreset, browserHost, rankedRaw, state.query, viewFilter, bulkLockRevision) {
         priorityAppGroups(
             scopedCandidates,
@@ -192,9 +173,6 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     }
     val groups = lockFilteredGroups.filter { appTypeFilter.matches(it.appType) }
     val moveTargets = groups.filter { it.rank != null }.sortedBy { it.rank }.map { it.packageName }
-    val visibleSaved = priorityCandidates(scopedCandidates, state.selected, state.displayMode, kind, scopedExtraSelected)
-        .map { it.rule.packageName }.toSet()
-    val hiddenSavedCount = rankedRaw.count { it !in visibleSaved }
 
     val listState = rememberLazyListState()
     val dragState = remember(listState) { PriorityDragState(listState) }
@@ -327,10 +305,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     else -> Unit
                                 }
                             },
-                            batchCount = groups.size,
-                            categoryCounts = categoryAppCounts,
-                            groupCounts = groupAppCounts,
-                            countApps = true,
+                            showCategoryCounts = false,
                             onSelectAll = {
                                 when {
                                     typedOpenPreset != null ->
@@ -370,14 +345,9 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                         else -> null
                     }
                     Text(
-                        if (presetTitle == null) stringResource(R.string.app_list_count, groups.size)
-                        else stringResource(R.string.app_list_count_type, groups.size, presetTitle),
+                        if (state.loading) stringResource(R.string.priority_count_scanning)
+                        else stringResource(R.string.priority_count_visible, groups.size),
                         style = MaterialTheme.typography.labelLarge
-                    )
-                    Text(
-                        stringResource(R.string.priority_rule_scope_summary, visibleSaved.size, groups.size),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         stringResource(R.string.priority_intro),
@@ -459,9 +429,6 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (hiddenSavedCount > 0) {
-                        Text(stringResource(R.string.priority_hidden_saved, hiddenSavedCount), style = MaterialTheme.typography.bodySmall)
-                    }
                     if (rankedRaw.size >= 200) {
                         Text(
                             stringResource(R.string.priority_limit_reached),

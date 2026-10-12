@@ -33,4 +33,6 @@
     <string name="component_edit_display_name">Edit display name</string>
     <string name="priority_reset_confirm_title">Restore inherited sorting?</string>
     <string name="priority_reset_confirm_body">Remove the custom priority order for this file type or domain and return to the general order? This cannot be undone automatically.</string>
+    <string name="priority_count_visible">Currently showing %1$d apps</string>
+    <string name="priority_count_scanning">Scanning candidates…</string>
 </resources>

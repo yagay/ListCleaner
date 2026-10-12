@@ -12,51 +12,6 @@ fun priorityCandidates(
     }
 }
 
-/**
- * Count distinct applications the priority editor can actually reorder in each category.
- *
- * The rule page counts individual components; reusing those counts in the priority editor
- * inflates totals when an app exposes multiple resolver activities. Respect the same mode,
- * candidate availability and optional OPEN/domain scope as [priorityAppGroups].
- * Search, app-type and prioritized/unprioritized filters are intentionally excluded: these
- * category totals describe the full editable scope, not just the currently displayed rows.
- */
-fun priorityCategoryAppPackages(
-    candidates: List<ComponentCandidate>,
-    selected: Set<ComponentRule>,
-    mode: DisplayMode,
-    focusedKind: IntentKind? = null,
-    focusedCandidates: List<ComponentCandidate>? = null,
-    focusedExtraSelected: Set<ComponentRule> = emptySet(),
-): Map<IntentKind, Set<String>> =
-    IntentKind.entries.filter { it.isSelectableEntryKind() }.associateWith { kind ->
-        val inFocusedScope = kind == focusedKind && focusedCandidates != null
-        priorityCandidates(
-            candidates = if (inFocusedScope) requireNotNull(focusedCandidates) else candidates,
-            selected = selected,
-            mode = mode,
-            kind = kind,
-            extraSelected = if (inFocusedScope) focusedExtraSelected else emptySet(),
-        ).asSequence().map { it.rule.packageName }.toSet()
-    }
-
-/** An app with entries in several kinds must count only once in its top-level group. */
-fun priorityGroupAppCounts(categoryApps: Map<IntentKind, Set<String>>): Map<EntryGroup, Int> =
-    EntryGroup.entries.associateWith { group ->
-        group.kinds().asSequence().flatMap { categoryApps[it].orEmpty().asSequence() }.toSet().size
-    }
-
-fun priorityCategoryAppCounts(
-    candidates: List<ComponentCandidate>,
-    selected: Set<ComponentRule>,
-    mode: DisplayMode,
-    focusedKind: IntentKind? = null,
-    focusedCandidates: List<ComponentCandidate>? = null,
-    focusedExtraSelected: Set<ComponentRule> = emptySet(),
-): Map<IntentKind, Int> =
-    priorityCategoryAppPackages(candidates, selected, mode, focusedKind, focusedCandidates, focusedExtraSelected)
-        .mapValues { it.value.size }
-
 /** Swap visible neighbors while preserving hidden saved entries and their slots. */
 fun moveVisiblePriority(current: List<String>, visible: List<String>, pkg: String, offset: Int): List<String> {
     if (offset != -1 && offset != 1) return current

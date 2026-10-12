@@ -131,19 +131,18 @@ private fun EntryGroupButton(
     activeKind: IntentKind?,
     onFilter: (IntentKind?) -> Unit,
     kindCounts: Map<IntentKind, Int>,
-    countApps: Boolean,
-    groupCount: Int?,
+    showCount: Boolean,
 ) {
     var expanded by remember(group) { mutableStateOf(false) }
     val active = activeKind?.entryGroup() == group
     Box {
         TextButton(onClick = { expanded = true }) {
             Text(
-                stringResource(
-                    if (countApps) R.string.entry_group_app_count else R.string.entry_group_count,
+                if (showCount) stringResource(
+                    R.string.entry_group_count,
                     stringResource(group.titleRes()),
-                    groupCount ?: group.kinds().sumOf { kindCounts[it] ?: 0 },
-                ),
+                    group.kinds().sumOf { kindCounts[it] ?: 0 }
+                ) else stringResource(group.titleRes()),
                 fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
                 color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -153,10 +152,12 @@ private fun EntryGroupButton(
             group.kinds().forEach { kind ->
                 DropdownMenuItem(
                     text = {
-                        Text(stringResource(
-                            if (countApps) R.string.entry_kind_app_count else R.string.entry_kind_count,
-                            stringResource(kind.titleRes()), kindCounts[kind] ?: 0
-                        ))
+                        Text(
+                            if (showCount) stringResource(
+                                R.string.entry_kind_count,
+                                stringResource(kind.titleRes()), kindCounts[kind] ?: 0
+                            ) else stringResource(kind.titleRes())
+                        )
                     },
                     leadingIcon = { if (kind == activeKind) Icon(Icons.Rounded.Check, null) },
                     onClick = { expanded = false; onFilter(kind) },
@@ -180,19 +181,17 @@ internal fun ListControls(
     onSelectNone: (() -> Unit)? = null,
     onInvert: (() -> Unit)? = null,
     batchCount: Int? = null,
-    categoryCounts: Map<IntentKind, Int>? = null,
-    groupCounts: Map<EntryGroup, Int>? = null,
-    countApps: Boolean = false,
+    showCategoryCounts: Boolean = true,
 ) {
     var menu by remember { mutableStateOf(false) }
     var appTypeMenu by remember { mutableStateOf(false) }
     var selectionMenu by remember { mutableStateOf(false) }
     var helpExpanded by remember(state.filter) { mutableStateOf(false) }
-    val scannedComponentCounts = remember(state.candidates) {
-        state.candidates.asSequence().filter { it.isCatalogCandidate }
+    val kindCounts = remember(state.candidates, showCategoryCounts) {
+        if (showCategoryCounts) state.candidates.asSequence().filter { it.isCatalogCandidate }
             .groupingBy { it.rule.kind }.eachCount()
+        else emptyMap()
     }
-    val kindCounts = categoryCounts ?: scannedComponentCounts
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
@@ -208,7 +207,7 @@ internal fun ListControls(
                 }
             }
             EntryGroup.entries.filter { includeAllKinds || it != EntryGroup.DESKTOP }.forEach { group ->
-                EntryGroupButton(group, state.filter, onFilter, kindCounts, countApps, groupCounts?.get(group))
+                EntryGroupButton(group, state.filter, onFilter, kindCounts, showCategoryCounts)
             }
         }
         Row(
