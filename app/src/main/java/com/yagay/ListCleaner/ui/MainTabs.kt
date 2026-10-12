@@ -391,7 +391,7 @@ fun PriorityTab(state: MainState, vm: MainViewModel) {
 }
 
 @Composable
-fun DashboardTabContent(
+internal fun DashboardTabContent(
     state: MainState,
     vm: MainViewModel,
     onRestore: () -> Unit,
