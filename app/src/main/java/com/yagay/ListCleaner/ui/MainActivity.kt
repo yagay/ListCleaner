@@ -251,12 +251,12 @@ class MainActivity : ComponentActivity() {
                 onBackup = { export.launch("ListCleaner-backup.json") },
                 destination = state.destination,
                 onDestination = vm::setDestination,
-                snackbarHost = { SnackbarHost(backupSnackbar) },
+                snackbarHost = { AdaptiveSnackbarHost(backupSnackbar) },
                 content = pageContent
             )
         } else {
         Scaffold(
-            snackbarHost = { SnackbarHost(backupSnackbar) },
+            snackbarHost = { AdaptiveSnackbarHost(backupSnackbar) },
             topBar = {
                 MainToolbar(
                     state.query,
