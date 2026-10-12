@@ -217,10 +217,10 @@ fun BrowserHostDialog(
                         isError = input.isNotBlank() && normalized == null
                     )
                     Spacer(Modifier.width(8.dp))
-                    Button(
+                    AdaptiveButton(
                         enabled = canAdd,
                         onClick = {
-                            val host = normalized ?: return@Button
+                            val host = normalized ?: return@AdaptiveButton
                             hosts = (hosts + host).distinct().sorted()
                             input = ""
                         }

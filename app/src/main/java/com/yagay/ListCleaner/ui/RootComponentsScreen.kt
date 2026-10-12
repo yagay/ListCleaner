@@ -137,7 +137,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
             }
         }
         stickyHeader(key = "controls") {
-            Surface(tonalElevation = 2.dp) {
+            AdaptiveSurface(tonalElevation = 2.dp) {
                 Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
                     LazyRow(contentPadding = PaddingValues(horizontal = 12.dp)) {
                         items(listOf<CleanupKind?>(null) + CleanupKind.entries) { entry ->

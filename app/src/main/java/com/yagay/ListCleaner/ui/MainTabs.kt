@@ -140,7 +140,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
             if (state.runtime.needsDecision) RuntimePanel(state, vm, showUpdateTools = false)
         }
         stickyHeader(key = "list-controls") {
-            Surface(tonalElevation = 2.dp) {
+            AdaptiveSurface(tonalElevation = 2.dp) {
                 Column {
                     ListControls(
                         state,

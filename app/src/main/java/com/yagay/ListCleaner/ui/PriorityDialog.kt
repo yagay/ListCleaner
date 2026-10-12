@@ -268,7 +268,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                 if (state.runtime.needsDecision) RuntimePanel(state, vm, showUpdateTools = false)
             }
             stickyHeader(key = "controls") {
-                Surface(tonalElevation = 2.dp) {
+                AdaptiveSurface(tonalElevation = 2.dp) {
                     Column {
                         ListControls(
                             state.copy(filter = kind, uiFilter = viewFilter),
@@ -600,7 +600,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
         drag?.let { moving ->
             groups.firstOrNull { it.packageName == moving.packageName }?.let { group ->
                 val first = group.components.first()
-                Surface(
+                AdaptiveSurface(
                     Modifier.fillMaxWidth().offset { IntOffset(0, moving.top.roundToInt()) }.zIndex(1f),
                     tonalElevation = 6.dp,
                     shadowElevation = 8.dp
