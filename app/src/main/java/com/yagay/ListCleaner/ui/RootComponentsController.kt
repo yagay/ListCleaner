@@ -84,6 +84,7 @@ internal class RootComponentsController(
             return
         }
         mutableBusy.value = true
+        mutableMessage.value = null
         scope.launch {
             try {
                 val protocolBefore = app.runtime.value.componentDiscoveryProtocol

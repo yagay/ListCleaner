@@ -118,25 +118,14 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
     }
     val lockFilteredGroups = if (state.uiFilter == UiFilter.LOCKED) {
         bulkLockRevision
-        baseShownGroups.filter { group ->
-            if (deepLinkScoped) {
-                vm.bulkLockState(
-                    lockScope,
-                    group.packageName,
-                    lockRulesByPackage[group.packageName].orEmpty().map { it.id }
-                ) != BulkLockState.NONE
-            } else {
-                vm.ruleBulkLockState(
-                    state.filter,
-                    openPreset,
-                    group.packageName,
-                    lockRulesByPackage[group.packageName].orEmpty()
-                ) != BulkLockState.NONE
+        baseShownGroups.mapNotNull { group ->
+            val locked = group.components.filter { item ->
+                if (deepLinkScoped) vm.isBulkProtected(lockScope, item.rule.packageName, item.rule.id)
+                else vm.isRuleBulkProtected(state.filter, openPreset, item.rule)
             }
+            if (locked.isEmpty()) null else group.copy(components = locked)
         }
-    } else {
-        baseShownGroups
-    }
+    } else baseShownGroups
     val shownGroups = lockFilteredGroups.filter { appTypeFilter.matches(it.appType) }
     val activeSelected = when {
         typedOpenPreset != null -> typedSelected
@@ -250,7 +239,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                                 vm.setOpenTypeGroupSelected(typedOpenPreset, group, selected)
                             deepLinkHost != null ->
                                 vm.setBrowserHostGroupSelected(deepLinkHost, group, selected)
-                            else -> vm.setGroupSelected(group, selected)
+                            else -> vm.setGroupSelected(group, selected, state.filter, openPreset)
                         }
                     },
                     {

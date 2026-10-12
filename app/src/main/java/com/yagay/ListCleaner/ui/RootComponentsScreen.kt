@@ -32,6 +32,8 @@ import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.data.RootComponent
 import com.yagay.ListCleaner.domain.AppTypeFilter
 
+private data class PendingRootBatch(val targets: List<RootComponent>, val enable: Boolean?)
+
 private fun componentAppSelectionRank(items: List<RootComponent>): Int {
     val editable = items.filter { it.blocked == null && it.enabled != null }
     val disabledCount = editable.count { it.enabled == false }
@@ -69,6 +71,37 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
     var filterMenu by remember { mutableStateOf(false) }
     var appTypeMenu by remember { mutableStateOf(false) }
     var expandedAppKey by remember { mutableStateOf<String?>(null) }
+    var pendingBatch by remember { mutableStateOf<PendingRootBatch?>(null) }
+    pendingBatch?.let { batch ->
+        val eligible = batch.targets.filter { item ->
+            item.blocked == null && item.enabled != null &&
+                !vm.isComponentBulkProtected(kind, item) &&
+                (batch.enable == null || item.enabled != batch.enable)
+        }.distinctBy { "${it.user}|${it.component.flattenToString()}" }
+        val skipped = batch.targets.size - eligible.size
+        val action = stringResource(when (batch.enable) {
+            true -> R.string.root_batch_action_enable
+            false -> R.string.root_batch_action_disable
+            null -> R.string.root_batch_action_invert
+        })
+        AlertDialog(
+            onDismissRequest = { pendingBatch = null },
+            title = { Text(stringResource(R.string.root_batch_confirm_title)) },
+            text = { Text(stringResource(R.string.root_batch_confirm_body, action, eligible.size, skipped)) },
+            confirmButton = {
+                TextButton(enabled = eligible.isNotEmpty(), onClick = {
+                    pendingBatch = null
+                    if (batch.enable == null) vm.invertComponentsBulk(kind, eligible)
+                    else vm.changeComponentsBulk(kind, eligible, batch.enable)
+                }) { Text(stringResource(R.string.common_ok)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingBatch = null }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            }
+        )
+    }
     LaunchedEffect(Unit) { vm.refreshComponents() }
 
     val kindItems = scan.items.filter { kind == null || it.kind == kind }
@@ -84,20 +117,16 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
             }) &&
             (state.query.isBlank() || listOf(it.label, it.owner, it.component.flattenToString()).any { text -> text.contains(state.query, true) })
     }
-    val baseGroups = baseVisible.groupBy { "${it.user}|${it.component.packageName}" }.entries
+    val lockVisible = if (viewFilter == UiFilter.LOCKED) {
+        baseVisible.filter { vm.isComponentBulkProtected(kind, it) }
+    } else baseVisible
+    val baseGroups = lockVisible.groupBy { "${it.user}|${it.component.packageName}" }.entries
         .sortedWith(
             compareBy<Map.Entry<String, List<RootComponent>>> { componentAppSelectionRank(it.value) }
                 .thenBy { it.value.first().owner.lowercase() }
                 .thenBy { it.key }
         )
-    val groups = if (viewFilter == UiFilter.LOCKED) {
-        bulkLockRevision
-        baseGroups.filter { (appKey, _) ->
-            vm.componentBulkLockState(kind, appKey, lockItemsByApp[appKey].orEmpty()) != BulkLockState.NONE
-        }
-    } else {
-        baseGroups
-    }
+    val groups = baseGroups
     val visible = groups.flatMap { it.value }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
@@ -180,12 +209,12 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             }
                         }
                         TextButton(
-                            onClick = { vm.changeComponentsBulk(kind, visible, enable = false) },
+                            onClick = { pendingBatch = PendingRootBatch(visible, false) },
                             enabled = !busy && visible.any { it.blocked == null && it.enabled == true },
                             contentPadding = PaddingValues(horizontal = 6.dp)
                         ) { Text(stringResource(R.string.select_all)) }
                         TextButton(
-                            onClick = { vm.invertComponentsBulk(kind, visible) },
+                            onClick = { pendingBatch = PendingRootBatch(visible, null) },
                             enabled = !busy && visible.any { it.blocked == null && it.enabled != null },
                             contentPadding = PaddingValues(horizontal = 6.dp)
                         ) { Text(stringResource(R.string.invert_selection)) }
@@ -268,7 +297,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                         TriStateCheckbox(
                             state = selectionState,
                             enabled = !busy && editableComponents.isNotEmpty(),
-                            onClick = { vm.changeComponents(editableComponents, selectionState == ToggleableState.On) }
+                            onClick = { pendingBatch = PendingRootBatch(editableComponents, selectionState == ToggleableState.On) }
                         )
                         AppIcon(first.icon, first.owner)
                         Column(Modifier.weight(1f).padding(start = 10.dp)) {

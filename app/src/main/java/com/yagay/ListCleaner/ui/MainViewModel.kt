@@ -420,8 +420,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun toggle(rule: ComponentRule) { if (canEdit()) app.rules.toggle(rule) }
 
-    fun setGroupSelected(group: AppGroup, selected: Boolean) {
-        if (canEdit()) app.rules.setSelected(group.components.map { it.rule }, selected)
+    fun setGroupSelected(group: AppGroup, selected: Boolean, filter: IntentKind?, preset: OpenPreset?) {
+        if (!canEdit()) return
+        val editable = group.components.map { it.rule }
+            .filterNot { isRuleBulkProtected(filter, preset, it) }
+        if (editable.isNotEmpty()) app.rules.setSelected(editable, selected)
     }
 
     fun toggleOpenType(preset: OpenPreset, rule: ComponentRule) {
@@ -430,7 +433,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setOpenTypeGroupSelected(preset: OpenPreset, group: AppGroup, selected: Boolean) {
         if (!canEdit()) return
-        val editable = group.components.map { it.rule }.filterNot { it in genericOpenSelected() }
+        val editable = group.components.map { it.rule }
+            .filterNot { it in genericOpenSelected() || isRuleBulkProtected(IntentKind.OPEN, preset, it) }
         if (editable.isNotEmpty()) app.rules.setOpenTypeSelected(preset, editable, selected)
     }
 
@@ -442,7 +446,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setBrowserHostGroupSelected(host: String, group: AppGroup, selected: Boolean) {
         if (!canEdit()) return
-        val editable = group.components.map { it.rule }.filterNot { it in genericDeepLinkSelected() }
+        val lockScope = browserRuleBulkLockScope(host)
+        val editable = group.components.map { it.rule }.filterNot {
+            it in genericDeepLinkSelected() || bulkLocks.isProtected(lockScope, it.packageName, it.id)
+        }
         if (editable.isEmpty()) return
         val normalized = ensureBrowserHostConfigured(host) ?: return
         app.rules.setBrowserHostSelected(normalized, editable, selected)
