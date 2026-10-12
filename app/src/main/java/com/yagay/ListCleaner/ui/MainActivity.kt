@@ -209,46 +209,14 @@ class MainActivity : ComponentActivity() {
             uri?.let(vm::inspectFile)
         }
 
-        Scaffold(
-            snackbarHost = { SnackbarHost(backupSnackbar) },
-            topBar = {
-                MainToolbar(
-                    state.query,
-                    searchExpanded,
-                    vm::setQuery,
-                    { searchExpanded = true },
-                    closeSearch,
-                    {
-                        when (state.destination) {
-                            Destination.RULES, Destination.PRIORITY -> vm.refresh(forceCatalog = true)
-                            Destination.TILES -> vm.refreshComponents()
-                            Destination.DASHBOARD -> vm.refreshModuleStatus()
-                        }
-                    },
-                    { restore.launch(arrayOf("application/json", "text/plain")) },
-                    { export.launch("ListCleaner-backup.json") },
-                    showSearch = state.destination != Destination.DASHBOARD
-                )
-            },
-            bottomBar = {
-                NavigationBar(
-                    containerColor = if (themeStyle == UiThemeStyle.MIUIX_STYLE) {
-                        MaterialTheme.colorScheme.surfaceContainerLow
-                    } else {
-                        NavigationBarDefaults.containerColor
-                    }
-                ) {
-                    Destination.entries.forEach { dest ->
-                        NavigationBarItem(
-                            selected = state.destination == dest,
-                            onClick = { vm.setDestination(dest) },
-                            icon = { Icon(dest.icon, null) },
-                            label = { Text(stringResource(dest.labelRes())) }
-                        )
-                    }
-                }
+        val onRefresh: () -> Unit = {
+            when (state.destination) {
+                Destination.RULES, Destination.PRIORITY -> vm.refresh(forceCatalog = true)
+                Destination.TILES -> vm.refreshComponents()
+                Destination.DASHBOARD -> vm.refreshModuleStatus()
             }
-        ) { padding ->
+        }
+        val pageContent: @Composable (androidx.compose.foundation.layout.PaddingValues) -> Unit = { padding ->
             Box(Modifier.padding(padding).fillMaxSize()) {
                 when (state.destination) {
                     Destination.RULES -> RulesTab(state, vm)
@@ -269,7 +237,52 @@ class MainActivity : ComponentActivity() {
                         onThemeStyleChange = onThemeStyleChange
                     )
                 }
+            }        }
+        if (themeStyle == UiThemeStyle.MIUIX_STYLE) {
+            MiuixMainShell(
+                query = state.query,
+                searchExpanded = searchExpanded,
+                showSearch = state.destination != Destination.DASHBOARD,
+                onQuery = vm::setQuery,
+                onSearch = { searchExpanded = true },
+                onCloseSearch = closeSearch,
+                onRefresh = onRefresh,
+                onRestore = { restore.launch(arrayOf("application/json", "text/plain")) },
+                onBackup = { export.launch("ListCleaner-backup.json") },
+                destination = state.destination,
+                onDestination = vm::setDestination,
+                snackbarHost = { SnackbarHost(backupSnackbar) },
+                content = pageContent
+            )
+        } else {
+        Scaffold(
+            snackbarHost = { SnackbarHost(backupSnackbar) },
+            topBar = {
+                MainToolbar(
+                    state.query,
+                    searchExpanded,
+                    vm::setQuery,
+                    { searchExpanded = true },
+                    closeSearch,
+                    onRefresh,
+                    { restore.launch(arrayOf("application/json", "text/plain")) },
+                    { export.launch("ListCleaner-backup.json") },
+                    showSearch = state.destination != Destination.DASHBOARD
+                )
+            },
+            bottomBar = {
+                NavigationBar {
+                    Destination.entries.forEach { dest ->
+                        NavigationBarItem(
+                            selected = state.destination == dest,
+                            onClick = { vm.setDestination(dest) },
+                            icon = { Icon(dest.icon, null) },
+                            label = { Text(stringResource(dest.labelRes())) }
+                        )
+                    }
+                }
             }
+        ) { padding -> pageContent(padding) }
         }
     }
 
