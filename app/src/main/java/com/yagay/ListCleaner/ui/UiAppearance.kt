@@ -11,6 +11,12 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.remember
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.theme.ThemeController
+import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -22,8 +28,9 @@ import androidx.compose.ui.unit.sp
  * UI-only presentation preference. Kept separate from LSPosed/Root configuration:
  * switching a style must not cause new rules, Hook revisions or a system restart.
  *
- * MIUIX_STYLE is an AndroidX Material3-based visual adaptation, not the upstream
- * Miuix Compose widget library. Components share one behavior and data flow.
+ * MIUIX_STYLE uses the genuine upstream Miuix Compose library for the native
+ * application chrome and adaptive controls. Complex menus can be migrated
+ * independently without creating a second copy of application business logic.
  */
 internal enum class UiThemeStyle {
     MATERIAL, MIUIX_STYLE;
@@ -48,6 +55,8 @@ internal object UiAppearanceStore {
             .putString(STYLE_KEY, style.name).apply()
     }
 }
+
+internal val LocalUiThemeStyle = staticCompositionLocalOf { UiThemeStyle.MATERIAL }
 
 private val MiuixLightColors = lightColorScheme(
     primary = Color(0xFF347DF4),
@@ -118,16 +127,24 @@ private val MiuixTypography = Typography(
 internal fun ListCleanerUiTheme(style: UiThemeStyle, content: @Composable () -> Unit) {
     val context = LocalContext.current
     val dark = isSystemInDarkTheme()
-    when (style) {
-        UiThemeStyle.MATERIAL -> MaterialTheme(
-            colorScheme = if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context),
-            content = content
-        )
-        UiThemeStyle.MIUIX_STYLE -> MaterialTheme(
-            colorScheme = if (dark) MiuixDarkColors else MiuixLightColors,
-            shapes = MiuixShapes,
-            typography = MiuixTypography,
-            content = content
-        )
+    CompositionLocalProvider(LocalUiThemeStyle provides style) {
+        when (style) {
+            UiThemeStyle.MATERIAL -> MaterialTheme(
+                colorScheme = if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context),
+                content = content
+            )
+            UiThemeStyle.MIUIX_STYLE -> {
+                val controller = remember { ThemeController(ColorSchemeMode.System) }
+                MiuixTheme(controller = controller) {
+                    // M3-only widgets remain legible while the native Miuix migration proceeds.
+                    MaterialTheme(
+                        colorScheme = if (dark) MiuixDarkColors else MiuixLightColors,
+                        shapes = MiuixShapes,
+                        typography = MiuixTypography,
+                        content = content
+                    )
+                }
+            }
+        }
     }
 }

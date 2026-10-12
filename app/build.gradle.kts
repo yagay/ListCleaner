@@ -37,8 +37,8 @@ android {
         applicationId = "com.yagay.ListCleaner"
         minSdk = 31
         targetSdk = 37
-        versionCode = 65
-        versionName = "1.6.40"
+        versionCode = 66
+        versionName = "1.6.41"
         buildConfigField("long", "HOOK_COMPAT_VERSION_CODE", "${hookCompatVersionCode}L")
     }
     buildFeatures { compose = true; buildConfig = true }
@@ -96,6 +96,8 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.12.4")
     implementation(platform("androidx.compose:compose-bom:2026.08.00"))
     implementation("androidx.compose.material3:material3")
+    // Real Miuix Compose library pinned to a Kotlin 2.2.21-compatible release.
+    implementation("top.yukonga.miuix.kmp:miuix-android:0.7.1")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
