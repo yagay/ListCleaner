@@ -29,6 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yagay.ListCleaner.R
+import com.yagay.ListCleaner.data.BackupImportPreview
 import com.yagay.ListCleaner.data.readBackupText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -57,6 +58,8 @@ class MainActivity : ComponentActivity() {
         val state by vm.state.collectAsStateWithLifecycle()
         var searchExpanded by rememberSaveable { mutableStateOf(false) }
         var restartPromptDismissed by rememberSaveable { mutableStateOf(false) }
+        var pendingImport by remember { mutableStateOf<Pair<String, BackupImportPreview>?>(null) }
+        val backupSnackbar = remember { SnackbarHostState() }
         val collectingDiagnostics by vm.collectingDiagnostics.collectAsStateWithLifecycle()
         val exportMessage by vm.exportMessage.collectAsStateWithLifecycle()
         LaunchedEffect(exportMessage) {
@@ -81,6 +84,49 @@ class MainActivity : ComponentActivity() {
                         vm.setDestination(Destination.DASHBOARD)
                     }) {
                         Text(stringResource(R.string.restart_required_open_status))
+                    }
+                }
+            )
+        }
+        pendingImport?.let { (content, preview) ->
+            AlertDialog(
+                onDismissRequest = { pendingImport = null },
+                title = { Text(stringResource(R.string.backup_import_confirm_title)) },
+                text = {
+                    Text(stringResource(
+                        R.string.backup_import_confirm_summary,
+                        preview.version, preview.total, preview.added, preview.removed
+                    ))
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        pendingImport = null
+                        lifecycleScope.launch {
+                            try {
+                                val previous = withContext(Dispatchers.IO) { vm.exportJson() }
+                                withContext(Dispatchers.IO) { vm.importJson(content) }
+                                val action = backupSnackbar.showSnackbar(
+                                    getString(R.string.backup_restored),
+                                    actionLabel = getString(R.string.backup_undo),
+                                    withDismissAction = true,
+                                    duration = SnackbarDuration.Long,
+                                )
+                                if (action == SnackbarResult.ActionPerformed) {
+                                    withContext(Dispatchers.IO) { vm.importJson(previous) }
+                                    toast(getString(R.string.backup_undo_done))
+                                }
+                            } catch (cancelled: CancellationException) {
+                                throw cancelled
+                            } catch (failure: Exception) {
+                                Log.e(TAG, "Backup import failed", failure)
+                                toast(getString(R.string.backup_restore_failed), true)
+                            }
+                        }
+                    }) { Text(stringResource(R.string.backup_import_apply)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingImport = null }) {
+                        Text(stringResource(R.string.common_cancel))
                     }
                 }
             )
@@ -118,10 +164,11 @@ class MainActivity : ComponentActivity() {
             uri ?: return@rememberLauncherForActivityResult
             lifecycleScope.launch {
                 try {
-                    withContext(Dispatchers.IO) {
-                        vm.importJson(readLimitedText(uri, MainViewModel.MAX_BACKUP_CHARS))
+                    val content = withContext(Dispatchers.IO) {
+                        readLimitedText(uri, MainViewModel.MAX_BACKUP_CHARS)
                     }
-                    toast(getString(R.string.backup_restored))
+                    val preview = withContext(Dispatchers.IO) { vm.previewImportJson(content) }
+                    pendingImport = content to preview
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (failure: Exception) {
@@ -139,6 +186,7 @@ class MainActivity : ComponentActivity() {
         }
 
         Scaffold(
+            snackbarHost = { SnackbarHost(backupSnackbar) },
             topBar = {
                 MainToolbar(
                     state.query,

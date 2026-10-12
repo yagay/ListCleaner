@@ -662,6 +662,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         destination.value = value
     }
     fun toggleExpandedApp(key: String) { expandedAppKey.value = if (expandedAppKey.value == key) null else key }
+    fun previewImportJson(content: String) = app.rules.previewImportJson(content)
     fun exportJson(): String = app.rules.exportJson()
     fun importJson(content: String) = app.rules.importJson(content)
     fun setComponentTitle(ruleId: String, title: String?) {

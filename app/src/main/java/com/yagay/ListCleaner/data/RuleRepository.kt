@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
 
+data class BackupImportPreview(val total: Int, val added: Int, val removed: Int, val version: Int)
+
 class RuleRepository(context: Context) {
     private val appContext = context.applicationContext
     private val prefs = appContext.getSharedPreferences(LOCAL_PREFS, Context.MODE_PRIVATE)
@@ -419,6 +421,23 @@ class RuleRepository(context: Context) {
             visibilityScopes = mutableVisibilityScopes.value
         )
     )
+
+    @Synchronized fun previewImportJson(content: String): BackupImportPreview {
+        require(content.length <= MAX_BACKUP_CHARS) { appContext.getString(R.string.repo_backup_too_large) }
+        val backup = json.decodeFromString(RuleBackup.serializer(), content)
+        require(backup.version in 1..11) {
+            appContext.getString(R.string.repo_backup_unsupported_version, backup.version)
+        }
+        if (backup.version >= 3) requireNotNull(backup.displayMode) {
+            appContext.getString(R.string.repo_backup_missing_display_mode)
+        }
+        require(backup.rules.all(ComponentRule::isValid)) {
+            appContext.getString(R.string.repo_backup_invalid_component)
+        }
+        val incoming = backup.rules.mapNotNull { ComponentRule.fromId(it.id) }.toSet()
+        val existing = mutableRules.value
+        return BackupImportPreview(incoming.size, (incoming - existing).size, (existing - incoming).size, backup.version)
+    }
 
     @Synchronized fun importJson(content: String) {
         require(content.length <= MAX_BACKUP_CHARS) { appContext.getString(R.string.repo_backup_too_large) }
