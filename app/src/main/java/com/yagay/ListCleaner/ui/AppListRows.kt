@@ -76,12 +76,7 @@ internal fun AppRow(
             Column(Modifier.weight(1f).padding(start = 10.dp)) {
                 Text(group.appLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
                 Text(
-                    stringResource(
-                        R.string.app_row_selection_summary,
-                        selectedCount,
-                        group.components.size,
-                        kindTitles.joinToString(" · ")
-                    ),
+                    kindTitles.joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -90,7 +85,7 @@ internal fun AppRow(
                 val missing = group.components.count { it.unavailable || it.restricted }
                 if (missing > 0) {
                     Text(
-                        stringResource(R.string.app_row_unavailable_rules, missing),
+                        stringResource(R.string.app_row_unavailable_warning),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error
                     )

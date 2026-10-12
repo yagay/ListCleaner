@@ -76,4 +76,9 @@
     <string name="root_batch_stop_remaining">停止后续操作</string>
     <string name="root_empty_filtered">当前筛选条件下没有匹配的组件。</string>
     <string name="root_clear_filters">清除筛选条件</string>
+    <string name="root_batch_confirmation_text">确定要%1$s当前范围内可操作的组件吗？锁定、不可用及无需变更的项目会跳过；修改立即生效。</string>
+    <string name="root_batch_processing">正在处理组件…</string>
+    <string name="root_partially_disabled">部分禁用</string>
+    <string name="root_component_status_categories">%1$s · %2$s</string>
+    <string name="root_display_only_warning">部分项目仅展示，不参与批量操作</string>
 </resources>

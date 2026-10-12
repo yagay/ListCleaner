@@ -9,4 +9,5 @@
     <string name="visibility_show_system">Show system apps</string>
     <string name="visibility_summary">Showing %1$d/%2$d source apps · %3$d added</string>
     <string name="visibility_added">Added</string>
+    <string name="visibility_active_targets_plain">Only fully selected app rows from the chosen categories are used; partially selected rows are excluded.</string>
 </resources>

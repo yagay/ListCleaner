@@ -199,7 +199,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
             }
         }
         item(key = "list-summary") {
-            SummaryRow(state, shownGroups.size, openPreset, browserHost)
+            SummaryRow(state)
             if (openPreset == null && state.uiFilter != UiFilter.SHOW_SELECTED && state.candidates.any {
                     it.rule in state.selected && (it.unavailable || it.restricted)
                 }) {
@@ -353,28 +353,8 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
 }
 
 @Composable
-private fun SummaryRow(
-    state: MainState,
-    groupCount: Int = state.groups.size,
-    openPreset: OpenPreset? = null,
-    browserHost: String? = null
-) {
-    val presetTitle = when {
-        openPreset != null -> state.openTypes.localizedTitle(openPreset)
-        browserHost != null -> browserHost
-        else -> null
-    }
+private fun SummaryRow(state: MainState) {
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text(
-            if (presetTitle == null) stringResource(R.string.app_list_count, groupCount)
-            else stringResource(R.string.app_list_count_type, groupCount, presetTitle),
-            style = MaterialTheme.typography.labelLarge
-        )
-        Text(
-            stringResource(R.string.rules_scan_summary, state.candidates.count { it.isCatalogCandidate }, groupCount),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
         Text(
             stringResource(
                 when (state.displayMode) {
@@ -510,7 +490,7 @@ fun DashboardTabContent(
                 Text(stringResource(R.string.dashboard_app_visibility), fontWeight = FontWeight.Bold)
                 Text(stringResource(R.string.dashboard_app_visibility_help), style = MaterialTheme.typography.bodySmall)
                 Button(onClick = { showAppScopePicker = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.dashboard_manage_app_visibility, state.hiddenFromApps.size))
+                    Text(stringResource(R.string.dashboard_manage_app_visibility_plain))
                 }
                 Text(
                     stringResource(R.string.dashboard_app_visibility_warning),

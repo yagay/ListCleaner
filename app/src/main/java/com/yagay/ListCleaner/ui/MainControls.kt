@@ -130,19 +130,13 @@ private fun EntryGroupButton(
     group: EntryGroup,
     activeKind: IntentKind?,
     onFilter: (IntentKind?) -> Unit,
-    kindCounts: Map<IntentKind, Int>,
-    showCount: Boolean,
 ) {
     var expanded by remember(group) { mutableStateOf(false) }
     val active = activeKind?.entryGroup() == group
     Box {
         TextButton(onClick = { expanded = true }) {
             Text(
-                if (showCount) stringResource(
-                    R.string.entry_group_count,
-                    stringResource(group.titleRes()),
-                    group.kinds().sumOf { kindCounts[it] ?: 0 }
-                ) else stringResource(group.titleRes()),
+                stringResource(group.titleRes()),
                 fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
                 color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -153,10 +147,7 @@ private fun EntryGroupButton(
                 DropdownMenuItem(
                     text = {
                         Text(
-                            if (showCount) stringResource(
-                                R.string.entry_kind_count,
-                                stringResource(kind.titleRes()), kindCounts[kind] ?: 0
-                            ) else stringResource(kind.titleRes())
+                            stringResource(kind.titleRes())
                         )
                     },
                     leadingIcon = { if (kind == activeKind) Icon(Icons.Rounded.Check, null) },
@@ -181,17 +172,11 @@ internal fun ListControls(
     onSelectNone: (() -> Unit)? = null,
     onInvert: (() -> Unit)? = null,
     batchCount: Int? = null,
-    showCategoryCounts: Boolean = true,
 ) {
     var menu by remember { mutableStateOf(false) }
     var appTypeMenu by remember { mutableStateOf(false) }
     var selectionMenu by remember { mutableStateOf(false) }
     var helpExpanded by remember(state.filter) { mutableStateOf(false) }
-    val kindCounts = remember(state.candidates, showCategoryCounts) {
-        if (showCategoryCounts) state.candidates.asSequence().filter { it.isCatalogCandidate }
-            .groupingBy { it.rule.kind }.eachCount()
-        else emptyMap()
-    }
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
@@ -207,7 +192,7 @@ internal fun ListControls(
                 }
             }
             EntryGroup.entries.filter { includeAllKinds || it != EntryGroup.DESKTOP }.forEach { group ->
-                EntryGroupButton(group, state.filter, onFilter, kindCounts, showCategoryCounts)
+                EntryGroupButton(group, state.filter, onFilter)
             }
         }
         Row(
@@ -252,8 +237,7 @@ internal fun ListControls(
                         enabled = batchCount == null || batchCount > 0,
                         contentPadding = PaddingValues(horizontal = 6.dp)
                     ) {
-                        Text(if (batchCount == null) stringResource(R.string.selection_actions)
-                             else stringResource(R.string.selection_batch_count, stringResource(R.string.selection_actions), batchCount))
+                        Text(stringResource(R.string.selection_actions))
                         Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
                     }
                     DropdownMenu(expanded = selectionMenu, onDismissRequest = { selectionMenu = false }) {

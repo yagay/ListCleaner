@@ -82,4 +82,6 @@
     <string name="rules_empty_unscanned">No candidates have been discovered yet. Refresh or check module permissions.</string>
     <string name="rules_empty_filtered">No entries match the current filters.</string>
     <string name="rules_empty_clear_filters">Clear search and filters</string>
+    <string name="dashboard_manage_app_visibility_plain">Manage app visibility list</string>
+    <string name="app_row_unavailable_warning">Some entries are unavailable or restricted</string>
 </resources>

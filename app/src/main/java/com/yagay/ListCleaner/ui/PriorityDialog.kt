@@ -305,7 +305,6 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     else -> Unit
                                 }
                             },
-                            showCategoryCounts = false,
                             onSelectAll = {
                                 when {
                                     typedOpenPreset != null ->
@@ -344,11 +343,9 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                         deepLinkHost != null -> deepLinkHost
                         else -> null
                     }
-                    Text(
-                        if (state.loading) stringResource(R.string.priority_count_scanning)
-                        else stringResource(R.string.priority_count_visible, groups.size),
-                        style = MaterialTheme.typography.labelLarge
-                    )
+                    if (state.loading) {
+                        Text(stringResource(R.string.priority_count_scanning), style = MaterialTheme.typography.labelLarge)
+                    }
                     Text(
                         stringResource(R.string.priority_intro),
                         style = MaterialTheme.typography.labelSmall,
@@ -496,7 +493,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     )
                                 } ?: stringResource(R.string.priority_not_prioritized)
                                 Text(
-                                    stringResource(R.string.priority_app_summary, rankText, group.components.size),
+                                    rankText,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

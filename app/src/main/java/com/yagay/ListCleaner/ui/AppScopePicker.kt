@@ -91,7 +91,6 @@ internal fun AppScopePickerDialog(
     val context = LocalContext.current
     val app = context.applicationContext as ListCleanerApp
     val visibilityScopes by app.rules.visibilityScopes.collectAsStateWithLifecycle()
-    val fullPackages by app.rules.visibilityFullPackages.collectAsStateWithLifecycle()
     var query by remember { mutableStateOf("") }
     var showSystem by remember { mutableStateOf(true) }
     var apps by remember { mutableStateOf<List<ScopeAppEntry>>(emptyList()) }
@@ -112,9 +111,6 @@ internal fun AppScopePickerDialog(
                 .thenBy { it.normalizedLabel }
                 .thenBy { it.packageName }
         )
-    }
-    val activeTargets = remember(visibilityScopes, fullPackages) {
-        com.yagay.ListCleaner.domain.VisibilityCompatConfig(visibilityScopes, fullPackages).activePackages()
     }
 
     Dialog(
@@ -163,7 +159,7 @@ internal fun AppScopePickerDialog(
                     if (visibilityScopes.isEmpty()) {
                         stringResource(R.string.visibility_no_categories)
                     } else {
-                        stringResource(R.string.visibility_active_targets, activeTargets.size)
+                        stringResource(R.string.visibility_active_targets_plain)
                     },
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -180,11 +176,6 @@ internal fun AppScopePickerDialog(
                     Text(stringResource(R.string.visibility_show_system), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                     Switch(checked = showSystem, onCheckedChange = { showSystem = it })
                 }
-                Text(
-                    stringResource(R.string.visibility_summary, visible.size, apps.size, selected.size),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
                 Spacer(Modifier.height(6.dp))
                 if (loading) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }

@@ -9,4 +9,5 @@
     <string name="visibility_show_system">显示系统应用</string>
     <string name="visibility_summary">显示 %1$d/%2$d 个来源应用 · 已加入 %3$d 个</string>
     <string name="visibility_added">已加入</string>
+    <string name="visibility_active_targets_plain">只使用所选分类中完整勾选的应用，部分勾选的应用不加入。</string>
 </resources>

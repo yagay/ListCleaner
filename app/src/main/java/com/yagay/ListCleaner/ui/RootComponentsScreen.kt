@@ -80,7 +80,6 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                 !vm.isComponentBulkProtected(kind, item) &&
                 (batch.enable == null || item.enabled != batch.enable)
         }.distinctBy { "${it.user}|${it.component.flattenToString()}" }
-        val skipped = batch.targets.size - eligible.size
         val action = stringResource(when (batch.enable) {
             true -> R.string.root_batch_action_enable
             false -> R.string.root_batch_action_disable
@@ -89,7 +88,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
         AlertDialog(
             onDismissRequest = { pendingBatch = null },
             title = { Text(stringResource(R.string.root_batch_confirm_title)) },
-            text = { Text(stringResource(R.string.root_batch_confirm_body, action, eligible.size, skipped)) },
+            text = { Text(stringResource(R.string.root_batch_confirmation_text, action)) },
             confirmButton = {
                 TextButton(enabled = eligible.isNotEmpty() && !busy, onClick = {
                     pendingBatch = null
@@ -232,7 +231,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(stringResource(R.string.root_batch_progress_count, current.completed, current.total),
+                            Text(stringResource(R.string.root_batch_processing),
                                 style = MaterialTheme.typography.labelSmall)
                             TextButton(onClick = vm::cancelComponentBatch) {
                                 Text(stringResource(R.string.root_batch_stop_remaining))
@@ -245,10 +244,6 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
         }
         item(key = "summary") {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Text(stringResource(R.string.root_summary, groups.size, visible.size), style = MaterialTheme.typography.labelLarge)
-                if (scan.items.size != visible.size) {
-                    Text(stringResource(R.string.root_scan_total, scan.items.size), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
                 TextButton(onClick = { detailsExpanded = !detailsExpanded }) {
                     Text(stringResource(if (detailsExpanded) R.string.root_help_collapse else R.string.root_help_expand))
                     Icon(if (detailsExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null)
@@ -327,19 +322,20 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                         AppIcon(first.icon, first.owner)
                         Column(Modifier.weight(1f).padding(start = 10.dp)) {
                             Text(first.owner, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
+                            val componentStatus = stringResource(when {
+                                components.all { it.enabled == false } -> R.string.root_disabled
+                                components.all { it.enabled == true } -> R.string.root_enabled
+                                components.any { it.enabled == false } -> R.string.root_partially_disabled
+                                else -> R.string.root_unknown_state
+                            })
                             Text(
-                                stringResource(
-                                    R.string.root_disabled_summary,
-                                    components.count { it.enabled == false },
-                                    components.size,
-                                    kindTitles.joinToString(" · ")
-                                ),
+                                stringResource(R.string.root_component_status_categories, componentStatus, kindTitles.joinToString(" · ")),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             if (editableComponents.size < components.size) {
                                 Text(
-                                    stringResource(R.string.root_display_only_count, components.size - editableComponents.size),
+                                    stringResource(R.string.root_display_only_warning),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
