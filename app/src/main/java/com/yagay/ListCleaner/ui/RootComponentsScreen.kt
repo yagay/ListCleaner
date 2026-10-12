@@ -404,7 +404,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             .heightIn(min = 48.dp).padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Checkbox(
+                        AdaptiveCheckbox(
                             checked = item.enabled == false,
                             enabled = editable,
                             onCheckedChange = null,

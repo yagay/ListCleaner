@@ -465,7 +465,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 .padding(horizontal = 8.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Checkbox(
+                            AdaptiveCheckbox(
                                 checked = group.rank != null,
                                 enabled = group.rank != null || rankedRaw.size < 200,
                                 onCheckedChange = { checked ->

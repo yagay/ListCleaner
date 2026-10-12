@@ -422,7 +422,7 @@ internal fun DashboardTabContent(
         RuntimePanel(state, vm)
 
         Text(stringResource(R.string.ui_appearance_title), style = MaterialTheme.typography.titleMedium)
-        Card(Modifier.fillMaxWidth()) {
+        AdaptiveCard(Modifier.fillMaxWidth()) {
             Column(
                 Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -460,7 +460,7 @@ internal fun DashboardTabContent(
         }
 
         Text(stringResource(R.string.dashboard_global_mode), style = MaterialTheme.typography.titleMedium)
-        Card(Modifier.fillMaxWidth()) {
+        AdaptiveCard(Modifier.fillMaxWidth()) {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(state.displayMode.titleRes()), fontWeight = FontWeight.Bold)
@@ -485,7 +485,7 @@ internal fun DashboardTabContent(
         }
 
         Text(stringResource(R.string.dashboard_sync_status), style = MaterialTheme.typography.titleMedium)
-        Card(Modifier.fillMaxWidth()) {
+        AdaptiveCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp)) {
                 Text(state.syncStatus, fontWeight = FontWeight.Bold)
                 Text(stringResource(R.string.dashboard_sync_help), style = MaterialTheme.typography.bodySmall)
@@ -493,7 +493,7 @@ internal fun DashboardTabContent(
         }
 
         Text(stringResource(R.string.dashboard_runtime_hits), style = MaterialTheme.typography.titleMedium)
-        Card(Modifier.fillMaxWidth()) {
+        AdaptiveCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
                     stringResource(if (state.runtime.ready) R.string.dashboard_ack_confirmed else R.string.dashboard_ack_missing),
@@ -515,7 +515,7 @@ internal fun DashboardTabContent(
 
         Text(stringResource(R.string.dashboard_data_backup), style = MaterialTheme.typography.titleMedium)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = onRestore, modifier = Modifier.weight(1f)) {
+            AdaptiveButton(onClick = onRestore, modifier = Modifier.weight(1f)) {
                 Text(stringResource(R.string.dashboard_restore_json))
             }
             OutlinedButton(onClick = onExport, modifier = Modifier.weight(1f)) {
@@ -525,11 +525,11 @@ internal fun DashboardTabContent(
 
         Text(stringResource(R.string.dashboard_module_status), style = MaterialTheme.typography.titleMedium)
         ModuleStatusRow(state) { showScopeDetails = true; vm.refreshModuleStatus() }
-        Card(Modifier.fillMaxWidth()) {
+        AdaptiveCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.dashboard_app_visibility), fontWeight = FontWeight.Bold)
                 Text(stringResource(R.string.dashboard_app_visibility_help), style = MaterialTheme.typography.bodySmall)
-                Button(onClick = { showAppScopePicker = true }, modifier = Modifier.fillMaxWidth()) {
+                AdaptiveButton(onClick = { showAppScopePicker = true }, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.dashboard_manage_app_visibility_plain))
                 }
                 Text(
@@ -541,7 +541,7 @@ internal fun DashboardTabContent(
         }
 
         Text(stringResource(R.string.dashboard_diagnostics), style = MaterialTheme.typography.titleMedium)
-        Card(Modifier.fillMaxWidth()) {
+        AdaptiveCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.dashboard_scan_disclaimer), style = MaterialTheme.typography.labelSmall)
                 OutlinedButton(
@@ -554,7 +554,7 @@ internal fun DashboardTabContent(
                 fileCheckStatus?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.diagnostic_mode), Modifier.weight(1f))
-                    Switch(state.diagnosticMode, vm::setDiagnosticMode)
+                    AdaptiveSwitch(state.diagnosticMode, vm::setDiagnosticMode)
                 }
                 Text(
                     stringResource(R.string.diagnostic_mode_help),
@@ -564,7 +564,7 @@ internal fun DashboardTabContent(
                 if (state.diagnosticMode) {
                     Text(stringResource(R.string.diagnostic_enabled_help), style = MaterialTheme.typography.bodySmall)
                 }
-                Button(
+                AdaptiveButton(
                     onClick = onCollectDiagnostics,
                     enabled = !collectingDiagnostics,
                     modifier = Modifier.fillMaxWidth()

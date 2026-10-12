@@ -174,7 +174,7 @@ internal fun AppScopePickerDialog(
                 )
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.visibility_show_system), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                    Switch(checked = showSystem, onCheckedChange = { showSystem = it })
+                    AdaptiveSwitch(checked = showSystem, onCheckedChange = { showSystem = it })
                 }
                 Spacer(Modifier.height(6.dp))
                 if (loading) {
@@ -198,7 +198,7 @@ internal fun AppScopePickerDialog(
                                     )
                                     Spacer(Modifier.width(10.dp))
                                 }
-                                Checkbox(
+                                AdaptiveCheckbox(
                                     checked = checked,
                                     onCheckedChange = { value ->
                                         onSelectedChange(if (value) selected + entry.packageName else selected - entry.packageName)

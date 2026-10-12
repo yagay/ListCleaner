@@ -38,7 +38,7 @@ internal fun RuntimePanel(state: MainState, vm: MainViewModel, showUpdateTools: 
         }
         if (state.runtime.needsDecision) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { vm.resolveRecovery(true) }, enabled = !state.runtime.recoveryCorrupt) {
+                AdaptiveButton(onClick = { vm.resolveRecovery(true) }, enabled = !state.runtime.recoveryCorrupt) {
                     Text(stringResource(R.string.runtime_restore_remote))
                 }
                 OutlinedButton(onClick = { confirmReset = true }) {
