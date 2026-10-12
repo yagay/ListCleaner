@@ -68,7 +68,7 @@ fun BrowserHostFilterMenu(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Icon(Icons.Rounded.ExpandMore, null)
+            AdaptiveIcon(Icons.Rounded.ExpandMore, null)
         }
         AdaptiveDropdownMenu(
             expanded = expanded,
@@ -96,7 +96,7 @@ fun BrowserHostFilterMenu(
                     contentAlignment = Alignment.CenterStart
                 ) {
                     if (selected == null) {
-                        Icon(
+                        AdaptiveIcon(
                             Icons.Rounded.Check,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp)
@@ -129,7 +129,7 @@ fun BrowserHostFilterMenu(
                     .padding(horizontal = 8.dp, vertical = 2.dp),
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyLarge,
-                leadingIcon = { Icon(Icons.Rounded.Search, null, Modifier.size(24.dp)) },
+                leadingIcon = { AdaptiveIcon(Icons.Rounded.Search, null, Modifier.size(24.dp)) },
                 placeholder = {
                     AdaptiveText(
                         stringResource(R.string.browser_domain_search),
@@ -163,7 +163,7 @@ fun BrowserHostFilterMenu(
                             contentAlignment = Alignment.CenterStart
                         ) {
                             if (selected == host) {
-                                Icon(
+                                AdaptiveIcon(
                                     Icons.Rounded.Check,
                                     contentDescription = null,
                                     modifier = Modifier.size(16.dp)
@@ -249,7 +249,7 @@ fun BrowserHostDialog(
                             ) {
                                 AdaptiveText(host, Modifier.weight(1f))
                                 AdaptiveIconButton(onClick = { hosts = hosts - host }) {
-                                    Icon(Icons.Rounded.Delete, stringResource(R.string.common_delete))
+                                    AdaptiveIcon(Icons.Rounded.Delete, stringResource(R.string.common_delete))
                                 }
                             }
                             AdaptiveHorizontalDivider()

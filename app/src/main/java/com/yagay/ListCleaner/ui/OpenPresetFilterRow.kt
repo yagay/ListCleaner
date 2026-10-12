@@ -54,7 +54,7 @@ fun OpenPresetFilterMenu(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Icon(Icons.Rounded.ExpandMore, null)
+            AdaptiveIcon(Icons.Rounded.ExpandMore, null)
         }
 
         AdaptiveDropdownMenu(
@@ -65,7 +65,7 @@ fun OpenPresetFilterMenu(
         ) {
             AdaptiveDropdownMenuItem(
                 text = { AdaptiveText(stringResource(R.string.common_all)) },
-                leadingIcon = { if (selected == null) Icon(Icons.Rounded.Check, null) },
+                leadingIcon = { if (selected == null) AdaptiveIcon(Icons.Rounded.Check, null) },
                 onClick = {
                     expanded = false
                     onSelected(null)
@@ -88,7 +88,7 @@ fun OpenPresetFilterMenu(
                             overflow = TextOverflow.Ellipsis
                         )
                     },
-                    leadingIcon = { if (selected == preset) Icon(Icons.Rounded.Check, null) },
+                    leadingIcon = { if (selected == preset) AdaptiveIcon(Icons.Rounded.Check, null) },
                     onClick = {
                         expanded = false
                         onSelected(preset)

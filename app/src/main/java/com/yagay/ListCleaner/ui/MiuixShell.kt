@@ -61,25 +61,25 @@ internal fun MiuixMainShell(
                     navigationIcon = {
                         if (searchExpanded) {
                             MiuixIconButton(onClick = onCloseSearch) {
-                                Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.close_search))
+                                AdaptiveIcon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.close_search))
                             }
                         }
                     },
                     actions = {
                         if (searchExpanded) {
                             MiuixIconButton(onClick = { onQuery("") }) {
-                                Icon(Icons.Rounded.Close, stringResource(R.string.clear_search))
+                                AdaptiveIcon(Icons.Rounded.Close, stringResource(R.string.clear_search))
                             }
                         } else {
                             if (showSearch) MiuixIconButton(onClick = onSearch) {
-                                Icon(Icons.Rounded.Search, stringResource(R.string.common_search))
+                                AdaptiveIcon(Icons.Rounded.Search, stringResource(R.string.common_search))
                             }
                             MiuixIconButton(onClick = onRefresh) {
-                                Icon(Icons.Rounded.Refresh, stringResource(R.string.common_refresh))
+                                AdaptiveIcon(Icons.Rounded.Refresh, stringResource(R.string.common_refresh))
                             }
                             Box {
                                 MiuixIconButton(onClick = { moreExpanded = true }) {
-                                    Icon(Icons.Rounded.MoreVert, stringResource(R.string.common_more))
+                                    AdaptiveIcon(Icons.Rounded.MoreVert, stringResource(R.string.common_more))
                                 }
                                 AdaptiveDropdownMenu(expanded = moreExpanded, onDismissRequest = { moreExpanded = false }) {
                                     AdaptiveDropdownMenuItem(

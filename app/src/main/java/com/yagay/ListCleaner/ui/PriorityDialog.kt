@@ -499,14 +499,14 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 )
                             }
                             if (lockState != BulkLockState.NONE) {
-                                Icon(
+                                AdaptiveIcon(
                                     Icons.Rounded.Lock,
                                     contentDescription = stringResource(R.string.bulk_lock_full),
                                     modifier = Modifier.padding(horizontal = 8.dp).size(20.dp)
                                 )
                             }
                             AdaptiveIconButton(onClick = onExpand) {
-                                Icon(
+                                AdaptiveIcon(
                                     if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                                     expandLabel
                                 )
@@ -551,7 +551,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     },
                                     enabled = index > 0
                                 ) {
-                                    Icon(Icons.Rounded.ArrowUpward, null, Modifier.size(18.dp))
+                                    AdaptiveIcon(Icons.Rounded.ArrowUpward, null, Modifier.size(18.dp))
                                     AdaptiveText(stringResource(R.string.priority_move_up))
                                 }
                                 AdaptiveTextButton(
@@ -566,7 +566,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     },
                                     enabled = index >= 0 && index < moveTargets.lastIndex
                                 ) {
-                                    Icon(Icons.Rounded.ArrowDownward, null, Modifier.size(18.dp))
+                                    AdaptiveIcon(Icons.Rounded.ArrowDownward, null, Modifier.size(18.dp))
                                     AdaptiveText(stringResource(R.string.priority_move_down))
                                 }
                             }
@@ -657,7 +657,7 @@ private fun ComponentInfoRow(item: ComponentCandidate, customTitle: String?, onE
             item.rule.kind != IntentKind.DOCUMENT_PROVIDER
         ) {
             AdaptiveIconButton(onClick = onEditTitle) {
-                Icon(Icons.Rounded.Edit, stringResource(R.string.component_edit_display_name))
+                AdaptiveIcon(Icons.Rounded.Edit, stringResource(R.string.component_edit_display_name))
             }
         }
     }

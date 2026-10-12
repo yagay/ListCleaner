@@ -120,7 +120,7 @@ private fun FullScreenDetails(
                     title = title,
                     navigationIcon = {
                         AdaptiveIconButton(onClick = onDismissRequest) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.common_back))
+                            AdaptiveIcon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.common_back))
                         }
                     }
                 )

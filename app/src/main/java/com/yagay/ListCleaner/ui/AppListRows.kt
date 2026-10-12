@@ -92,7 +92,7 @@ internal fun AppRow(
                 }
             }
             if (lockState != BulkLockState.NONE) {
-                Icon(
+                AdaptiveIcon(
                     Icons.Rounded.Lock,
                     contentDescription = stringResource(
                         if (lockState == BulkLockState.PARTIAL) R.string.bulk_lock_partial
@@ -104,7 +104,7 @@ internal fun AppRow(
                 )
             }
             AdaptiveIconButton(onClick = onExpand) {
-                Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, expandLabel)
+                AdaptiveIcon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, expandLabel)
             }
         }
         BulkLockContextMenu(
@@ -201,14 +201,14 @@ internal fun ComponentRow(
                 }
             }
             if (locked) {
-                Icon(
+                AdaptiveIcon(
                     Icons.Rounded.Lock,
                     contentDescription = stringResource(R.string.bulk_lock_full),
                     modifier = Modifier.padding(horizontal = 8.dp).size(18.dp)
                 )
             }
             AdaptiveIconButton(onClick = onEditTitle) {
-                Icon(Icons.Rounded.Edit, contentDescription = stringResource(R.string.component_edit_display_name))
+                AdaptiveIcon(Icons.Rounded.Edit, contentDescription = stringResource(R.string.component_edit_display_name))
             }
         }
         BulkLockContextMenu(
@@ -262,7 +262,7 @@ private fun ComponentSelectionMark(checked: Boolean) {
             contentAlignment = Alignment.Center
         ) {
             if (checked) {
-                Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(14.dp), tint = colors.onPrimary)
+                AdaptiveIcon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(14.dp), tint = colors.onPrimary)
             }
         }
     }
@@ -271,7 +271,7 @@ private fun ComponentSelectionMark(checked: Boolean) {
 @Composable
 internal fun AppIcon(bitmap: Bitmap?, appLabel: String) {
     if (bitmap == null) {
-        Icon(Icons.Rounded.Apps, null, Modifier.size(40.dp))
+        AdaptiveIcon(Icons.Rounded.Apps, null, Modifier.size(40.dp))
         return
     }
     Image(

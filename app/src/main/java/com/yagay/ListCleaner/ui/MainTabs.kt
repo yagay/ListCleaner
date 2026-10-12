@@ -443,7 +443,7 @@ internal fun DashboardTabContent(
                                 ))
                             },
                             leadingIcon = if (themeStyle == option) {
-                                { Icon(Icons.Rounded.Check, contentDescription = null) }
+                                { AdaptiveIcon(Icons.Rounded.Check, contentDescription = null) }
                             } else null,
                         )
                     }
@@ -469,13 +469,13 @@ internal fun DashboardTabContent(
                 Box {
                     AdaptiveTextButton(onClick = { menu = true }) {
                         AdaptiveText(stringResource(R.string.dashboard_switch))
-                        Icon(Icons.Rounded.ExpandMore, null, Modifier.size(18.dp))
+                        AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(18.dp))
                     }
                     AdaptiveDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DisplayMode.entries.forEach { mode ->
                             AdaptiveDropdownMenuItem(
                                 text = { AdaptiveText(stringResource(mode.titleRes())) },
-                                leadingIcon = { if (mode == state.displayMode) Icon(Icons.Rounded.Check, null) },
+                                leadingIcon = { if (mode == state.displayMode) AdaptiveIcon(Icons.Rounded.Check, null) },
                                 onClick = { menu = false; vm.setDisplayMode(mode) }
                             )
                         }

@@ -173,13 +173,13 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                                         stringResource(appTypeFilter.titleRes())
                                     )
                                 )
-                                Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
+                                AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
                             }
                             AdaptiveDropdownMenu(expanded = appTypeMenu, onDismissRequest = { appTypeMenu = false }) {
                                 AppTypeFilter.entries.forEach { filter ->
                                     AdaptiveDropdownMenuItem(
                                         text = { AdaptiveText(stringResource(filter.titleRes())) },
-                                        leadingIcon = { if (appTypeFilter == filter) Icon(Icons.Rounded.Check, null) },
+                                        leadingIcon = { if (appTypeFilter == filter) AdaptiveIcon(Icons.Rounded.Check, null) },
                                         onClick = { appTypeFilter = filter; appTypeMenu = false }
                                     )
                                 }
@@ -197,13 +197,13 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                                         stringResource(viewFilter.titleRes())
                                     )
                                 )
-                                Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
+                                AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
                             }
                             AdaptiveDropdownMenu(expanded = filterMenu, onDismissRequest = { filterMenu = false }) {
                                 UiFilter.entries.forEach { filter ->
                                     AdaptiveDropdownMenuItem(
                                         text = { AdaptiveText(stringResource(filter.titleRes())) },
-                                        leadingIcon = { if (viewFilter == filter) Icon(Icons.Rounded.Check, null) },
+                                        leadingIcon = { if (viewFilter == filter) AdaptiveIcon(Icons.Rounded.Check, null) },
                                         onClick = { viewFilter = filter; filterMenu = false }
                                     )
                                 }
@@ -246,7 +246,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 AdaptiveTextButton(onClick = { detailsExpanded = !detailsExpanded }) {
                     AdaptiveText(stringResource(if (detailsExpanded) R.string.root_help_collapse else R.string.root_help_expand))
-                    Icon(if (detailsExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null)
+                    AdaptiveIcon(if (detailsExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null)
                 }
                 if (detailsExpanded) {
                 AdaptiveText(
@@ -342,7 +342,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             }
                         }
                         if (lockState != BulkLockState.NONE) {
-                            Icon(
+                            AdaptiveIcon(
                                 Icons.Rounded.Lock,
                                 contentDescription = stringResource(
                                     if (lockState == BulkLockState.PARTIAL) R.string.bulk_lock_partial
@@ -354,7 +354,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             )
                         }
                         AdaptiveIconButton(onClick = onExpand) {
-                            Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, expandLabel)
+                            AdaptiveIcon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, expandLabel)
                         }
                     }
                     BulkLockContextMenu(
@@ -434,7 +434,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             )
                         }
                         if (itemLocked) {
-                            Icon(
+                            AdaptiveIcon(
                                 Icons.Rounded.Lock,
                                 contentDescription = stringResource(R.string.bulk_lock_full),
                                 modifier = Modifier.padding(horizontal = 8.dp).size(18.dp)

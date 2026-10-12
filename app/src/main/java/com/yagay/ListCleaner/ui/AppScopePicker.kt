@@ -124,7 +124,7 @@ internal fun AppScopePickerDialog(
                     title = { AdaptiveText(stringResource(R.string.visibility_title)) },
                     navigationIcon = {
                         AdaptiveIconButton(onClick = dismiss) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.common_back))
+                            AdaptiveIcon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.common_back))
                         }
                     },
                 )

@@ -276,7 +276,7 @@ class MainActivity : ComponentActivity() {
                         NavigationBarItem(
                             selected = state.destination == dest,
                             onClick = { vm.setDestination(dest) },
-                            icon = { Icon(dest.icon, null) },
+                            icon = { AdaptiveIcon(dest.icon, null) },
                             label = { AdaptiveText(stringResource(dest.labelRes())) }
                         )
                     }
