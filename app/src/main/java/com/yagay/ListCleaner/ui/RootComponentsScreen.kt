@@ -71,6 +71,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
     var filterMenu by remember { mutableStateOf(false) }
     var appTypeMenu by remember { mutableStateOf(false) }
     var expandedAppKey by remember { mutableStateOf<String?>(null) }
+    var detailsExpanded by rememberSaveable { mutableStateOf(false) }
     var pendingBatch by remember { mutableStateOf<PendingRootBatch?>(null) }
     pendingBatch?.let { batch ->
         val eligible = batch.targets.filter { item ->
@@ -230,6 +231,11 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                 if (scan.items.size != visible.size) {
                     Text(stringResource(R.string.root_scan_total, scan.items.size), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                TextButton(onClick = { detailsExpanded = !detailsExpanded }) {
+                    Text(stringResource(if (detailsExpanded) R.string.root_help_collapse else R.string.root_help_expand))
+                    Icon(if (detailsExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null)
+                }
+                if (detailsExpanded) {
                 Text(
                     stringResource(R.string.root_filter_help),
                     style = MaterialTheme.typography.labelSmall,
@@ -254,6 +260,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                }
                 if (scan.warning.isNotBlank()) Text(scan.warning, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             }

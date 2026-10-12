@@ -82,7 +82,7 @@ fun BrowserHostFilterMenu(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(28.dp)
+                    .heightIn(min = 48.dp)
                     .clickable {
                         hostQuery = ""
                         expanded = false
@@ -108,7 +108,7 @@ fun BrowserHostFilterMenu(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(28.dp)
+                    .heightIn(min = 48.dp)
                     .clickable {
                         hostQuery = ""
                         expanded = false
@@ -149,7 +149,7 @@ fun BrowserHostFilterMenu(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(28.dp)
+                            .heightIn(min = 48.dp)
                             .clickable {
                                 hostQuery = ""
                                 expanded = false

@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -138,6 +139,19 @@ class MainActivity : ComponentActivity() {
             keyboard?.hide()
         }
         BackHandler(enabled = searchExpanded, onBack = closeSearch)
+        BackHandler(enabled = !searchExpanded && (state.filter != null || state.destination != Destination.RULES)) {
+            when {
+                state.destination != Destination.RULES && state.destination != Destination.PRIORITY ->
+                    vm.setDestination(Destination.RULES)
+                vm.ruleOpenPreset.value != null -> vm.setRuleOpenPreset(null)
+                vm.ruleBrowserHost.value != null -> vm.setRuleBrowserHost(null)
+                state.filter != null -> vm.setFilter(null)
+                else -> vm.setDestination(Destination.RULES)
+            }
+        }
+        LaunchedEffect(state.destination) {
+            if (state.destination == Destination.DASHBOARD) closeSearch()
+        }
         LifecycleResumeEffect(vm) {
             vm.refreshModuleStatus()
             onPauseOrDispose { }
@@ -202,7 +216,8 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     { restore.launch(arrayOf("application/json", "text/plain")) },
-                    { export.launch("ListCleaner-backup.json") }
+                    { export.launch("ListCleaner-backup.json") },
+                    showSearch = state.destination != Destination.DASHBOARD
                 )
             },
             bottomBar = {

@@ -89,7 +89,8 @@ internal fun MainToolbar(
     onClose: () -> Unit,
     onRefresh: () -> Unit,
     onRestore: () -> Unit,
-    onBackup: () -> Unit
+    onBackup: () -> Unit,
+    showSearch: Boolean = true,
 ) {
     var menu by remember { mutableStateOf(false) }
     TopAppBar(
@@ -108,7 +109,9 @@ internal fun MainToolbar(
                     Icon(Icons.Rounded.Close, stringResource(R.string.clear_search))
                 }
             } else {
-                IconButton(onClick = onSearch) { Icon(Icons.Rounded.Search, stringResource(R.string.common_search)) }
+                if (showSearch) IconButton(onClick = onSearch) {
+                    Icon(Icons.Rounded.Search, stringResource(R.string.common_search))
+                }
                 IconButton(onClick = onRefresh) { Icon(Icons.Rounded.Refresh, stringResource(R.string.common_refresh)) }
                 Box {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.common_more)) }
@@ -127,13 +130,14 @@ private fun EntryGroupButton(
     group: EntryGroup,
     activeKind: IntentKind?,
     onFilter: (IntentKind?) -> Unit,
+    kindCounts: Map<IntentKind, Int>,
 ) {
     var expanded by remember(group) { mutableStateOf(false) }
     val active = activeKind?.entryGroup() == group
     Box {
         TextButton(onClick = { expanded = true }) {
             Text(
-                stringResource(group.titleRes()),
+                "${stringResource(group.titleRes())} · ${group.kinds().sumOf { kindCounts[it] ?: 0 }}",
                 fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
                 color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -142,7 +146,7 @@ private fun EntryGroupButton(
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             group.kinds().forEach { kind ->
                 DropdownMenuItem(
-                    text = { Text(stringResource(kind.titleRes())) },
+                    text = { Text("${stringResource(kind.titleRes())} (${kindCounts[kind] ?: 0})") },
                     leadingIcon = { if (kind == activeKind) Icon(Icons.Rounded.Check, null) },
                     onClick = { expanded = false; onFilter(kind) },
                 )
@@ -163,12 +167,17 @@ internal fun ListControls(
     extraFilter: (@Composable () -> Unit)? = null,
     onSelectAll: (() -> Unit)? = null,
     onSelectNone: (() -> Unit)? = null,
-    onInvert: (() -> Unit)? = null
+    onInvert: (() -> Unit)? = null,
+    batchCount: Int? = null,
 ) {
     var menu by remember { mutableStateOf(false) }
     var appTypeMenu by remember { mutableStateOf(false) }
     var selectionMenu by remember { mutableStateOf(false) }
     var helpExpanded by remember(state.filter) { mutableStateOf(false) }
+    val kindCounts = remember(state.candidates) {
+        state.candidates.asSequence().filter { it.isCatalogCandidate }
+            .groupingBy { it.rule.kind }.eachCount()
+    }
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
@@ -184,7 +193,7 @@ internal fun ListControls(
                 }
             }
             EntryGroup.entries.filter { includeAllKinds || it != EntryGroup.DESKTOP }.forEach { group ->
-                EntryGroupButton(group, state.filter, onFilter)
+                EntryGroupButton(group, state.filter, onFilter, kindCounts)
             }
         }
         Row(
@@ -224,8 +233,13 @@ internal fun ListControls(
             extraFilter?.invoke()
             if (onSelectAll != null || onSelectNone != null || onInvert != null) {
                 Box {
-                    TextButton(onClick = { selectionMenu = true }, contentPadding = PaddingValues(horizontal = 6.dp)) {
-                        Text(stringResource(R.string.selection_actions))
+                    TextButton(
+                        onClick = { selectionMenu = true },
+                        enabled = batchCount == null || batchCount > 0,
+                        contentPadding = PaddingValues(horizontal = 6.dp)
+                    ) {
+                        Text(if (batchCount == null) stringResource(R.string.selection_actions)
+                             else "${stringResource(R.string.selection_actions)} ($batchCount)")
                         Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
                     }
                     DropdownMenu(expanded = selectionMenu, onDismissRequest = { selectionMenu = false }) {

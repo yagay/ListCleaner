@@ -166,6 +166,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                                 else -> Unit
                             }
                         },
+                        batchCount = visibleRules.size,
                         onSelectAll = {
                             when {
                                 typedOpenPreset != null ->
@@ -365,11 +366,6 @@ private fun SummaryRow(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
-            stringResource(R.string.rules_page_intro),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
             stringResource(
                 when (state.displayMode) {
                     DisplayMode.HIDE_SELECTED -> R.string.rules_mode_hide_selected
@@ -377,12 +373,6 @@ private fun SummaryRow(
                     DisplayMode.SHOW_ALL -> R.string.rules_mode_show_all
                 }
             ),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            if (presetTitle == null) stringResource(R.string.rules_usage_help)
-            else stringResource(R.string.rules_typed_help, presetTitle),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

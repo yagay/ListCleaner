@@ -289,6 +289,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     else -> Unit
                                 }
                             },
+                            batchCount = groups.size,
                             onSelectAll = {
                                 when {
                                     typedOpenPreset != null ->
