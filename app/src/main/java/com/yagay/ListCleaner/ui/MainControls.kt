@@ -137,7 +137,7 @@ private fun EntryGroupButton(
     Box {
         TextButton(onClick = { expanded = true }) {
             Text(
-                "${stringResource(group.titleRes())} · ${group.kinds().sumOf { kindCounts[it] ?: 0 }}",
+                stringResource(R.string.entry_group_count, stringResource(group.titleRes()), group.kinds().sumOf { kindCounts[it] ?: 0 }),
                 fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
                 color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -146,7 +146,7 @@ private fun EntryGroupButton(
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             group.kinds().forEach { kind ->
                 DropdownMenuItem(
-                    text = { Text("${stringResource(kind.titleRes())} (${kindCounts[kind] ?: 0})") },
+                    text = { Text(stringResource(R.string.entry_kind_count, stringResource(kind.titleRes()), kindCounts[kind] ?: 0)) },
                     leadingIcon = { if (kind == activeKind) Icon(Icons.Rounded.Check, null) },
                     onClick = { expanded = false; onFilter(kind) },
                 )
@@ -239,7 +239,7 @@ internal fun ListControls(
                         contentPadding = PaddingValues(horizontal = 6.dp)
                     ) {
                         Text(if (batchCount == null) stringResource(R.string.selection_actions)
-                             else "${stringResource(R.string.selection_actions)} ($batchCount)")
+                             else stringResource(R.string.selection_batch_count, stringResource(R.string.selection_actions), batchCount))
                         Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
                     }
                     DropdownMenu(expanded = selectionMenu, onDismissRequest = { selectionMenu = false }) {
