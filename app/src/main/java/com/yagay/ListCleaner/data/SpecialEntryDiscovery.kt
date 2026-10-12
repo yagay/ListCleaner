@@ -345,7 +345,7 @@ internal class SpecialEntryDiscovery(private val context: Context) {
             .getOrDefault(emptyList()).mapNotNull { resolved ->
                 val provider = resolved.providerInfo ?: return@mapNotNull null
                 val app = provider.applicationInfo ?: return@mapNotNull null
-                if (provider.permission != CLOUD_MEDIA_PERMISSION) return@mapNotNull null
+                if (provider.readPermission != CLOUD_MEDIA_PERMISSION) return@mapNotNull null
                 val rule = ComponentRule(IntentKind.PHOTO_SOURCE, provider.packageName, provider.name)
                 if (!rule.isValid()) return@mapNotNull null
                 componentCandidate(

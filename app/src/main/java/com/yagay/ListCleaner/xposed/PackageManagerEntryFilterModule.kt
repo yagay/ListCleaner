@@ -134,7 +134,7 @@ class PackageManagerEntryFilterModule : XposedModule() {
         if (action == CLOUD_MEDIA_PROVIDER_INTERFACE && "ContentProvider" in method.name) {
             return QuerySpec(
                 IntentKind.PHOTO_SOURCE, { it.providerInfo },
-                eligible = { _, info -> info is android.content.pm.ProviderInfo && info.permission == CLOUD_MEDIA_PERMISSION },
+                eligible = { _, info -> info is android.content.pm.ProviderInfo && info.readPermission == CLOUD_MEDIA_PERMISSION },
             )
         }
         if ("Service" !in method.name) return null
