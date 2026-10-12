@@ -28,6 +28,12 @@ class EntryRuntimeDefinitionsTest {
         assertTrue(EntryRuntimePath.ROLE_CONTROLLER in callScreening.expectedPaths)
     }
 
+    @Test fun documentsUiHasAnIndependentRootSurface() {
+        assertEquals(EntryIdentityScope.RUNTIME_ITEM, IntentKind.DOCUMENT_ROOT.surfaceDefinition()!!.identity)
+        assertTrue(EntryRuntimePath.DOCUMENTS_UI_ROOTS in IntentKind.DOCUMENT_ROOT.runtimeDefinition()!!.expectedPaths)
+        assertTrue(IntentKind.PHOTO_SOURCE.runtimeDefinition()!!.systemCallerBypassPossible)
+    }
+
     @Test fun finalSystemAuthoritiesAreDeclaredAsExpectedPaths() {
         assertTrue(EntryRuntimePath.ACCESSIBILITY_MANAGER in IntentKind.ACCESSIBILITY.runtimeDefinition()!!.expectedPaths)
         assertTrue(EntryRuntimePath.INPUT_METHOD_MANAGER in IntentKind.INPUT_METHOD.runtimeDefinition()!!.expectedPaths)

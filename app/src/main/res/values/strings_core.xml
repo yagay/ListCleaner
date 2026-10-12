@@ -45,7 +45,7 @@
     <string name="entry_group_share">Share</string>
     <string name="entry_group_open">Actions</string>
     <string name="entry_group_desktop">Desktop</string>
-    <string name="entry_group_advanced">Advanced</string>
+    <string name="entry_group_advanced">Extension cleanup</string>
 
     <!-- Intent kinds -->
     <string name="intent_share">Share</string>
@@ -68,6 +68,8 @@
     <string name="intent_launcher_shortcut">Legacy shortcut</string>
     <string name="intent_shortcut_item">Long-press shortcuts</string>
     <string name="intent_document_provider">Storage providers</string>
+    <string name="intent_document_root">File sidebar</string>
+    <string name="intent_photo_source">Cloud photo sources</string>
     <string name="intent_input_method">Keyboards</string>
     <string name="intent_autofill">Autofill</string>
     <string name="intent_credential_provider">Credential services</string>

@@ -24,6 +24,8 @@
     <string name="intent_desc_launcher_shortcut">旧配置兼容枚举，现已退休；旧规则、排序和标题会在读取时自动丢弃，不再显示或执行。</string>
     <string name="intent_desc_shortcut_item">运行时观察到的已启用 Manifest / Dynamic ShortcutInfo，用于桌面长按菜单。Pinned-only 和 Cached Shortcut 不再混入。列表按 App 分组，可整组选中，也可展开逐项选择；不会删除底层 Shortcut 数据。</string>
     <string name="intent_desc_document_provider">Storage Access Framework 的 DocumentsProvider，例如云盘、文件管理器或 NAS Provider。这里显示的是 Provider 组件，不等于 Provider 内每一个存储 Root；隐藏规则不会删除文件。</string>
+    <string name="intent_desc_document_root">原生文件选择器 DocumentsUI 左侧的第三方存储根入口。先打开一次系统文件选择器，再刷新列表识别。勾选只隐藏侧栏显示，不停用文件服务、不删除文件。修改后可能需要重启文件选择器；不兼容的厂商界面保持原状。</string>
+    <string name="intent_desc_photo_source">通过 Android CloudMediaProvider 接口识别云端照片提供者。规则仅过滤符合条件的 PackageManager 查询；系统照片选择器的特权查询可能绕过过滤。不会修改当前照片来源，也不会删除照片。</string>
     <string name="intent_desc_input_method">普通应用查询到的 InputMethodService 候选。不会启用、停用或切换当前输入法；系统设置页列表不保证受此规则影响。</string>
     <string name="intent_desc_autofill">普通应用查询到的 AutofillService 候选。不会启用/停用自动填充，也不会修改当前默认自动填充服务。</string>
     <string name="intent_desc_credential_provider">CredentialProviderService 凭据/Passkey 服务候选，与 AutofillService 分开管理。不会删除密码或修改当前凭据提供程序。</string>

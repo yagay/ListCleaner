@@ -41,7 +41,7 @@
     <string name="entry_group_share">分享</string>
     <string name="entry_group_open">操作</string>
     <string name="entry_group_desktop">桌面</string>
-    <string name="entry_group_advanced">高级</string>
+    <string name="entry_group_advanced">扩展清理</string>
 
     <string name="intent_share">分享</string>
     <string name="intent_share_multiple">多项分享</string>
@@ -63,6 +63,8 @@
     <string name="intent_launcher_shortcut">旧快捷方式</string>
     <string name="intent_shortcut_item">长按快捷方式</string>
     <string name="intent_document_provider">存储提供器</string>
+    <string name="intent_document_root">文件侧栏</string>
+    <string name="intent_photo_source">云端照片来源</string>
     <string name="intent_input_method">输入法</string>
     <string name="intent_autofill">自动填充</string>
     <string name="intent_credential_provider">凭据服务</string>

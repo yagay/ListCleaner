@@ -73,6 +73,8 @@ internal fun IntentKind.titleRes(): Int = when (this) {
     IntentKind.LAUNCHER_SHORTCUT -> R.string.intent_launcher_shortcut
     IntentKind.SHORTCUT_ITEM -> R.string.intent_shortcut_item
     IntentKind.DOCUMENT_PROVIDER -> R.string.intent_document_provider
+    IntentKind.DOCUMENT_ROOT -> R.string.intent_document_root
+    IntentKind.PHOTO_SOURCE -> R.string.intent_photo_source
     IntentKind.INPUT_METHOD -> R.string.intent_input_method
     IntentKind.AUTOFILL -> R.string.intent_autofill
     IntentKind.CREDENTIAL_PROVIDER -> R.string.intent_credential_provider
@@ -108,6 +110,8 @@ internal fun IntentKind.descriptionRes(): Int = when (this) {
     IntentKind.LAUNCHER_SHORTCUT -> R.string.intent_desc_launcher_shortcut
     IntentKind.SHORTCUT_ITEM -> R.string.intent_desc_shortcut_item
     IntentKind.DOCUMENT_PROVIDER -> R.string.intent_desc_document_provider
+    IntentKind.DOCUMENT_ROOT -> R.string.intent_desc_document_root
+    IntentKind.PHOTO_SOURCE -> R.string.intent_desc_photo_source
     IntentKind.INPUT_METHOD -> R.string.intent_desc_input_method
     IntentKind.AUTOFILL -> R.string.intent_desc_autofill
     IntentKind.CREDENTIAL_PROVIDER -> R.string.intent_desc_credential_provider

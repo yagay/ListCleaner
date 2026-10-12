@@ -21,7 +21,7 @@ class EntrySurfaceDefinitionsTest {
         val observationOnly = ENTRY_SURFACE_DEFINITIONS.values
             .filter { it.availabilityMode == EntryAvailabilityMode.OBSERVATION_ONLY }
             .mapTo(linkedSetOf()) { it.kind }
-        assertEquals(setOf(IntentKind.DIRECT_SHARE, IntentKind.SHORTCUT_ITEM), observationOnly)
+        assertEquals(setOf(IntentKind.DIRECT_SHARE, IntentKind.SHORTCUT_ITEM, IntentKind.DOCUMENT_ROOT), observationOnly)
     }
 
     @Test fun managerRoleFallbackSurfacesUseAuthorityUpgradeMode() {

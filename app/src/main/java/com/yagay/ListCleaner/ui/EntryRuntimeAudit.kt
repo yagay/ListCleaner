@@ -158,6 +158,8 @@ internal object EntryRuntimeAudit {
                 (line.contains("lc-settings-vpn-authority") || line.contains("VPN_")) && isHookReady(line)
         EntryRuntimePath.VPN_APP_OPS -> line.contains("VPN_APPOPS") && isHookReady(line)
         EntryRuntimePath.NFC_CARD_EMULATION -> line.contains("ListCleaner.NfcPayment") && isHookReady(line)
+        EntryRuntimePath.DOCUMENTS_UI_ROOTS ->
+            line.contains("ListCleaner.DocumentsUI") && isHookReady(line)
     }
 
     private fun pathRuntimeLine(kind: IntentKind, path: EntryRuntimePath, line: String): Boolean {
@@ -195,6 +197,8 @@ internal object EntryRuntimeAudit {
             EntryRuntimePath.VPN_APP_OPS -> line.contains("VPN_APPOPS") && (isQuery(line) || isFilter(line))
             EntryRuntimePath.NFC_CARD_EMULATION ->
                 line.contains("ListCleaner.NfcPayment") && (isQuery(line) || isFilter(line) || line.contains("AUTHORITY_SNAPSHOT"))
+            EntryRuntimePath.DOCUMENTS_UI_ROOTS ->
+                line.contains("ListCleaner.DocumentsUI") && (isQuery(line) || isFilter(line))
         }
     }
 
