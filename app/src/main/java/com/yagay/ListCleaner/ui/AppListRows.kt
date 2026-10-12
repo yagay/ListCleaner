@@ -59,7 +59,7 @@ internal fun AppRow(
     }
     var lockMenuExpanded by remember { mutableStateOf(false) }
 
-    Box(Modifier.fillMaxWidth()) {
+    AdaptiveGroupSurface(Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth()
                 .combinedClickable(
@@ -134,7 +134,7 @@ internal fun ComponentRow(
     onEditTitle: () -> Unit
 ) {
     var lockMenuExpanded by remember { mutableStateOf(false) }
-    Box(Modifier.fillMaxWidth()) {
+    AdaptiveGroupSurface(Modifier.fillMaxWidth()) {
         Row(
             Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
                 .combinedClickable(

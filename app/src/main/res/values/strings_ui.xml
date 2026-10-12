@@ -88,7 +88,7 @@
     <string name="ui_appearance_title">Appearance</string>
     <string name="ui_appearance_theme_choice">Interface style</string>
     <string name="ui_appearance_material">Material 3</string>
-    <string name="ui_appearance_miuix">MIUIX style</string>
+    <string name="ui_appearance_miuix">MIUIX native</string>
     <string name="ui_appearance_material_help">Native Android Material 3 styling with wallpaper dynamic colors. Follows system light and dark mode.</string>
-    <string name="ui_appearance_miuix_help">MIUIX-inspired colors, rounded shapes and typography. Uses shared Material 3 controls, not the upstream MIUIX component library. Follows system light and dark mode.</string>
+    <string name="ui_appearance_miuix_help">Uses the real Miuix Compose theme, navigation, app chrome, cards, buttons, switches and checkboxes. Complex popup menus still use Material 3 where MIUIX migration is not finished.</string>
 </resources>

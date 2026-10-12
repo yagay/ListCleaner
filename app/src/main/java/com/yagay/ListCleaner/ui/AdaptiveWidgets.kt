@@ -1,5 +1,8 @@
 package com.yagay.ListCleaner.ui
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material3.Button as MaterialButton
@@ -8,6 +11,10 @@ import androidx.compose.material3.Checkbox as MaterialCheckbox
 import androidx.compose.material3.Switch as MaterialSwitch
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.dp
+import top.yukonga.miuix.kmp.basic.Surface as MiuixSurface
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.Button as MiuixButton
 import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 import top.yukonga.miuix.kmp.basic.Checkbox as MiuixCheckbox
@@ -54,5 +61,24 @@ internal fun AdaptiveCheckbox(
     when (LocalUiThemeStyle.current) {
         UiThemeStyle.MATERIAL -> MaterialCheckbox(checked, onCheckedChange, modifier, enabled = enabled)
         UiThemeStyle.MIUIX_STYLE -> MiuixCheckbox(checked, onCheckedChange, modifier, enabled = enabled)
+    }
+}
+
+/**
+ * Native Miuix container for candidate, priority and component application rows.
+ * Material mode keeps the historical structure and hit targets unchanged.
+ */
+@Composable
+internal fun AdaptiveGroupSurface(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    when (LocalUiThemeStyle.current) {
+        UiThemeStyle.MATERIAL -> Box(modifier = modifier, content = { content() })
+        UiThemeStyle.MIUIX_STYLE -> MiuixSurface(
+            modifier = modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+            shape = RoundedCornerShape(18.dp),
+            color = MiuixTheme.colorScheme.surfaceContainer
+        ) { content() }
     }
 }

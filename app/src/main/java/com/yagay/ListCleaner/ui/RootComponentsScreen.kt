@@ -303,7 +303,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                     lockItemsByApp[appKey].orEmpty()
                 )
                 var lockMenuExpanded by remember { mutableStateOf(false) }
-                Box(Modifier.fillMaxWidth()) {
+                AdaptiveGroupSurface(Modifier.fillMaxWidth()) {
                     Row(
                         Modifier.fillMaxWidth()
                             .combinedClickable(
@@ -388,7 +388,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                 val lockToggleEnabled = !vm.isComponentAppLockedForItem(kind, item)
                 val itemLocked = vm.isComponentBulkProtected(kind, item)
                 var lockMenuExpanded by remember { mutableStateOf(false) }
-                Box(Modifier.fillMaxWidth()) {
+                AdaptiveGroupSurface(Modifier.fillMaxWidth()) {
                     Row(
                         Modifier.fillMaxWidth()
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))

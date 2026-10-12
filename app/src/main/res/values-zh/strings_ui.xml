@@ -88,7 +88,7 @@
     <string name="ui_appearance_title">界面外观</string>
     <string name="ui_appearance_theme_choice">主题风格</string>
     <string name="ui_appearance_material">Material 3</string>
-    <string name="ui_appearance_miuix">MIUIX 风格</string>
+    <string name="ui_appearance_miuix">MIUIX 原生</string>
     <string name="ui_appearance_material_help">使用 Android Material 3 原生风格及壁纸动态取色，明暗模式跟随系统。</string>
-    <string name="ui_appearance_miuix_help">使用 MIUIX 风格的配色、圆角和字体层级；底层仍共用 Material 3 控件，并非完整移植 MIUIX 原生组件。明暗模式跟随系统。</string>
+    <string name="ui_appearance_miuix_help">使用真正的 Miuix Compose 主题、导航栏、顶部栏、列表卡片、按钮、开关和复选框；部分复杂弹窗菜单仍在迁移。</string>
 </resources>

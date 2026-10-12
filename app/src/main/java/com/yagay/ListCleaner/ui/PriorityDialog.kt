@@ -449,7 +449,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                     val marker = MaterialTheme.colorScheme.primary
                     val expandLabel = stringResource(if (expanded) R.string.common_collapse else R.string.common_expand)
                     val lockState = vm.bulkLockState(lockScope, packageName, emptyList())
-                    Box(Modifier.fillMaxWidth()) {
+                    AdaptiveGroupSurface(Modifier.fillMaxWidth()) {
                         Row(
                             Modifier.fillMaxWidth()
                                 .alpha(if (drag?.packageName == packageName) 0.3f else 1f)
