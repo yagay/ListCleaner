@@ -102,18 +102,18 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     if (confirmPriorityReset) {
         AdaptiveAlertDialog(
             onDismissRequest = { confirmPriorityReset = false },
-            title = { Text(stringResource(R.string.priority_reset_confirm_title)) },
-            text = { Text(stringResource(R.string.priority_reset_confirm_body)) },
+            title = { AdaptiveText(stringResource(R.string.priority_reset_confirm_title)) },
+            text = { AdaptiveText(stringResource(R.string.priority_reset_confirm_body)) },
             confirmButton = {
                 AdaptiveTextButton(onClick = {
                     confirmPriorityReset = false
                     if (typedOpenPreset != null) vm.resetOpenTypePriority(typedOpenPreset)
                     else if (deepLinkHost != null) vm.resetBrowserHostPriority(deepLinkHost)
-                }) { Text(stringResource(R.string.common_ok)) }
+                }) { AdaptiveText(stringResource(R.string.common_ok)) }
             },
             dismissButton = {
                 AdaptiveTextButton(onClick = { confirmPriorityReset = false }) {
-                    Text(stringResource(R.string.common_cancel))
+                    AdaptiveText(stringResource(R.string.common_cancel))
                 }
             }
         )
@@ -344,21 +344,21 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                         else -> null
                     }
                     if (state.loading) {
-                        Text(stringResource(R.string.priority_count_scanning), style = MaterialTheme.typography.labelLarge)
+                        AdaptiveText(stringResource(R.string.priority_count_scanning), style = MaterialTheme.typography.labelLarge)
                     }
-                    Text(
+                    AdaptiveText(
                         stringResource(R.string.priority_intro),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Text(
+                    AdaptiveText(
                         stringResource(R.string.priority_drag_help),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (typedOpenPreset != null) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(
+                            AdaptiveText(
                                 when {
                                     inheritsOpenPriority -> stringResource(R.string.priority_source_inherited)
                                     hasExplicitOpenPriority -> stringResource(R.string.priority_source_dedicated, presetTitle.orEmpty())
@@ -370,18 +370,18 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                             )
                             if (hasExplicitOpenPriority) {
                                 AdaptiveTextButton(onClick = { confirmPriorityReset = true }) {
-                                    Text(stringResource(R.string.priority_restore_inheritance))
+                                    AdaptiveText(stringResource(R.string.priority_restore_inheritance))
                                 }
                             }
                         }
-                        Text(
+                        AdaptiveText(
                             stringResource(R.string.priority_inheritance_help),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     } else if (deepLinkHost != null) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(
+                            AdaptiveText(
                                 when {
                                     inheritsDeepLinkPriority -> stringResource(R.string.priority_browser_source_inherited)
                                     hasExplicitDeepLinkPriority -> stringResource(R.string.priority_source_dedicated, deepLinkHost)
@@ -393,17 +393,17 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                             )
                             if (hasExplicitDeepLinkPriority) {
                                 AdaptiveTextButton(onClick = { confirmPriorityReset = true }) {
-                                    Text(stringResource(R.string.priority_restore_inheritance))
+                                    AdaptiveText(stringResource(R.string.priority_restore_inheritance))
                                 }
                             }
                         }
-                        Text(
+                        AdaptiveText(
                             stringResource(R.string.priority_browser_inheritance_help),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     } else {
-                        Text(
+                        AdaptiveText(
                             stringResource(R.string.priority_general_help),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -419,7 +419,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                         } -> stringResource(R.string.priority_compat_vendor_path)
                         else -> stringResource(R.string.priority_compat_aosp)
                     }
-                    Text(
+                    AdaptiveText(
                         if (!state.runtime.ready) state.runtime.message
                         else if (kind == IntentKind.PROCESS_TEXT) stringResource(R.string.priority_process_text_note)
                         else compatibility,
@@ -427,14 +427,14 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (rankedRaw.size >= 200) {
-                        Text(
+                        AdaptiveText(
                             stringResource(R.string.priority_limit_reached),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error
                         )
                     }
                     if (state.error != null) {
-                        Text(stringResource(R.string.rules_refresh_incomplete), color = MaterialTheme.colorScheme.error)
+                        AdaptiveText(stringResource(R.string.rules_refresh_incomplete), color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
@@ -485,14 +485,14 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                             )
                             AppIcon(first.appIcon, first.appLabel)
                             Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                                Text(first.appLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
+                                AdaptiveText(first.appLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
                                 val rankText = group.rank?.let {
                                     stringResource(
                                         if (inheritsOpenPriority || inheritsDeepLinkPriority) R.string.priority_rank_inherited else R.string.priority_rank,
                                         it
                                     )
                                 } ?: stringResource(R.string.priority_not_prioritized)
-                                Text(
+                                AdaptiveText(
                                     rankText,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -531,7 +531,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 Modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
+                                AdaptiveText(
                                     stringResource(
                                         if (inheritsOpenPriority) R.string.priority_rank_inherited_short else R.string.priority_rank,
                                         group.rank
@@ -552,7 +552,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     enabled = index > 0
                                 ) {
                                     Icon(Icons.Rounded.ArrowUpward, null, Modifier.size(18.dp))
-                                    Text(stringResource(R.string.priority_move_up))
+                                    AdaptiveText(stringResource(R.string.priority_move_up))
                                 }
                                 AdaptiveTextButton(
                                     onClick = {
@@ -567,7 +567,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     enabled = index >= 0 && index < moveTargets.lastIndex
                                 ) {
                                     Icon(Icons.Rounded.ArrowDownward, null, Modifier.size(18.dp))
-                                    Text(stringResource(R.string.priority_move_down))
+                                    AdaptiveText(stringResource(R.string.priority_move_down))
                                 }
                             }
                         }
@@ -581,7 +581,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
             if (!state.loading && groups.isEmpty()) {
                 item(key = "empty") {
                     Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                        Text(
+                        AdaptiveText(
                             stringResource(
                                 when {
                                     state.query.isNotBlank() -> R.string.priority_empty_search
@@ -611,8 +611,8 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                     ) {
                         AppIcon(first.appIcon, first.appLabel)
                         Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                            Text(first.appLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
-                            Text(
+                            AdaptiveText(first.appLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
+                            AdaptiveText(
                                 stringResource(
                                     R.string.priority_drag_target,
                                     groups.firstOrNull { it.packageName == moving.target }?.rank?.toString() ?: "?"
@@ -635,9 +635,9 @@ private fun ComponentInfoRow(item: ComponentCandidate, customTitle: String?, onE
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
-            Text(item.activityLabel, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            AdaptiveText(item.activityLabel, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (!customTitle.isNullOrBlank()) {
-                Text(
+                AdaptiveText(
                     stringResource(R.string.component_shown_as, customTitle),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
@@ -645,7 +645,7 @@ private fun ComponentInfoRow(item: ComponentCandidate, customTitle: String?, onE
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            Text(
+            AdaptiveText(
                 item.rule.className,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -211,7 +211,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                     },
                     modifier = Modifier.padding(horizontal = 16.dp)
                 ) {
-                    Text(stringResource(R.string.rules_view_unmatched))
+                    AdaptiveText(stringResource(R.string.rules_view_unmatched))
                 }
             }
         }
@@ -332,7 +332,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                     Modifier.fillMaxWidth().padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(stringResource(when {
+                    AdaptiveText(stringResource(when {
                         state.error != null -> R.string.rules_empty_scan_failed
                         state.candidates.isEmpty() -> R.string.rules_empty_unscanned
                         state.query.isNotBlank() || state.uiFilter != UiFilter.ALL -> R.string.rules_empty_filtered
@@ -344,7 +344,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                         AdaptiveTextButton(onClick = {
                             vm.setQuery("")
                             vm.setUiFilter(UiFilter.ALL)
-                        }) { Text(stringResource(R.string.rules_empty_clear_filters)) }
+                        }) { AdaptiveText(stringResource(R.string.rules_empty_clear_filters)) }
                     }
                 }
             }
@@ -355,7 +355,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
 @Composable
 private fun SummaryRow(state: MainState) {
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text(
+        AdaptiveText(
             stringResource(
                 when (state.displayMode) {
                     DisplayMode.HIDE_SELECTED -> R.string.rules_mode_hide_selected
@@ -367,20 +367,20 @@ private fun SummaryRow(state: MainState) {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         if (state.displayMode == DisplayMode.SHOW_ALL) {
-            Text(
+            AdaptiveText(
                 stringResource(if (state.runtime.ready) R.string.rules_pause_confirmed else R.string.rules_pause_pending),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary
             )
         } else if (state.displayMode == DisplayMode.SHOW_SELECTED) {
-            Text(
+            AdaptiveText(
                 stringResource(R.string.rules_show_selected_empty),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary
             )
         }
         state.error?.let {
-            Text(stringResource(R.string.rules_refresh_incomplete), color = MaterialTheme.colorScheme.error)
+            AdaptiveText(stringResource(R.string.rules_refresh_incomplete), color = MaterialTheme.colorScheme.error)
         }
     }
 }
@@ -421,13 +421,13 @@ internal fun DashboardTabContent(
     ) {
         RuntimePanel(state, vm)
 
-        Text(stringResource(R.string.ui_appearance_title), style = MaterialTheme.typography.titleMedium)
+        AdaptiveText(stringResource(R.string.ui_appearance_title), style = MaterialTheme.typography.titleMedium)
         AdaptiveCard(Modifier.fillMaxWidth()) {
             Column(
                 Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(stringResource(R.string.ui_appearance_theme_choice), fontWeight = FontWeight.Medium)
+                AdaptiveText(stringResource(R.string.ui_appearance_theme_choice), fontWeight = FontWeight.Medium)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -437,7 +437,7 @@ internal fun DashboardTabContent(
                             selected = themeStyle == option,
                             onClick = { onThemeStyleChange(option) },
                             label = {
-                                Text(stringResource(
+                                AdaptiveText(stringResource(
                                     if (option == UiThemeStyle.MATERIAL) R.string.ui_appearance_material
                                     else R.string.ui_appearance_miuix
                                 ))
@@ -448,7 +448,7 @@ internal fun DashboardTabContent(
                         )
                     }
                 }
-                Text(
+                AdaptiveText(
                     stringResource(
                         if (themeStyle == UiThemeStyle.MATERIAL) R.string.ui_appearance_material_help
                         else R.string.ui_appearance_miuix_help
@@ -459,22 +459,22 @@ internal fun DashboardTabContent(
             }
         }
 
-        Text(stringResource(R.string.dashboard_global_mode), style = MaterialTheme.typography.titleMedium)
+        AdaptiveText(stringResource(R.string.dashboard_global_mode), style = MaterialTheme.typography.titleMedium)
         AdaptiveCard(Modifier.fillMaxWidth()) {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(stringResource(state.displayMode.titleRes()), fontWeight = FontWeight.Bold)
-                    Text(stringResource(R.string.dashboard_global_mode_help), style = MaterialTheme.typography.bodySmall)
+                    AdaptiveText(stringResource(state.displayMode.titleRes()), fontWeight = FontWeight.Bold)
+                    AdaptiveText(stringResource(R.string.dashboard_global_mode_help), style = MaterialTheme.typography.bodySmall)
                 }
                 Box {
                     AdaptiveTextButton(onClick = { menu = true }) {
-                        Text(stringResource(R.string.dashboard_switch))
+                        AdaptiveText(stringResource(R.string.dashboard_switch))
                         Icon(Icons.Rounded.ExpandMore, null, Modifier.size(18.dp))
                     }
                     AdaptiveDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DisplayMode.entries.forEach { mode ->
                             AdaptiveDropdownMenuItem(
-                                text = { Text(stringResource(mode.titleRes())) },
+                                text = { AdaptiveText(stringResource(mode.titleRes())) },
                                 leadingIcon = { if (mode == state.displayMode) Icon(Icons.Rounded.Check, null) },
                                 onClick = { menu = false; vm.setDisplayMode(mode) }
                             )
@@ -484,55 +484,55 @@ internal fun DashboardTabContent(
             }
         }
 
-        Text(stringResource(R.string.dashboard_sync_status), style = MaterialTheme.typography.titleMedium)
+        AdaptiveText(stringResource(R.string.dashboard_sync_status), style = MaterialTheme.typography.titleMedium)
         AdaptiveCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp)) {
-                Text(state.syncStatus, fontWeight = FontWeight.Bold)
-                Text(stringResource(R.string.dashboard_sync_help), style = MaterialTheme.typography.bodySmall)
+                AdaptiveText(state.syncStatus, fontWeight = FontWeight.Bold)
+                AdaptiveText(stringResource(R.string.dashboard_sync_help), style = MaterialTheme.typography.bodySmall)
             }
         }
 
-        Text(stringResource(R.string.dashboard_runtime_hits), style = MaterialTheme.typography.titleMedium)
+        AdaptiveText(stringResource(R.string.dashboard_runtime_hits), style = MaterialTheme.typography.titleMedium)
         AdaptiveCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
+                AdaptiveText(
                     stringResource(if (state.runtime.ready) R.string.dashboard_ack_confirmed else R.string.dashboard_ack_missing),
                     fontWeight = FontWeight.Bold
                 )
-                Text(stringResource(R.string.dashboard_query_hits, state.runtime.queryHits), style = MaterialTheme.typography.bodySmall)
-                Text(stringResource(R.string.dashboard_visibility_hits, state.runtime.visibilityHits), style = MaterialTheme.typography.bodySmall)
-                Text(stringResource(R.string.dashboard_ordering_hits, state.runtime.orderingHits), style = MaterialTheme.typography.bodySmall)
-                Text(
+                AdaptiveText(stringResource(R.string.dashboard_query_hits, state.runtime.queryHits), style = MaterialTheme.typography.bodySmall)
+                AdaptiveText(stringResource(R.string.dashboard_visibility_hits, state.runtime.visibilityHits), style = MaterialTheme.typography.bodySmall)
+                AdaptiveText(stringResource(R.string.dashboard_ordering_hits, state.runtime.orderingHits), style = MaterialTheme.typography.bodySmall)
+                AdaptiveText(
                     stringResource(R.string.dashboard_hits_help),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 AdaptiveOutlinedButton(onClick = vm::refreshModuleStatus, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.dashboard_refresh_runtime))
+                    AdaptiveText(stringResource(R.string.dashboard_refresh_runtime))
                 }
             }
         }
 
-        Text(stringResource(R.string.dashboard_data_backup), style = MaterialTheme.typography.titleMedium)
+        AdaptiveText(stringResource(R.string.dashboard_data_backup), style = MaterialTheme.typography.titleMedium)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AdaptiveButton(onClick = onRestore, modifier = Modifier.weight(1f)) {
-                Text(stringResource(R.string.dashboard_restore_json))
+                AdaptiveText(stringResource(R.string.dashboard_restore_json))
             }
             AdaptiveOutlinedButton(onClick = onExport, modifier = Modifier.weight(1f)) {
-                Text(stringResource(R.string.dashboard_export_json))
+                AdaptiveText(stringResource(R.string.dashboard_export_json))
             }
         }
 
-        Text(stringResource(R.string.dashboard_module_status), style = MaterialTheme.typography.titleMedium)
+        AdaptiveText(stringResource(R.string.dashboard_module_status), style = MaterialTheme.typography.titleMedium)
         ModuleStatusRow(state) { showScopeDetails = true; vm.refreshModuleStatus() }
         AdaptiveCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.dashboard_app_visibility), fontWeight = FontWeight.Bold)
-                Text(stringResource(R.string.dashboard_app_visibility_help), style = MaterialTheme.typography.bodySmall)
+                AdaptiveText(stringResource(R.string.dashboard_app_visibility), fontWeight = FontWeight.Bold)
+                AdaptiveText(stringResource(R.string.dashboard_app_visibility_help), style = MaterialTheme.typography.bodySmall)
                 AdaptiveButton(onClick = { showAppScopePicker = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.dashboard_manage_app_visibility_plain))
+                    AdaptiveText(stringResource(R.string.dashboard_manage_app_visibility_plain))
                 }
-                Text(
+                AdaptiveText(
                     stringResource(R.string.dashboard_app_visibility_warning),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -540,29 +540,29 @@ internal fun DashboardTabContent(
             }
         }
 
-        Text(stringResource(R.string.dashboard_diagnostics), style = MaterialTheme.typography.titleMedium)
+        AdaptiveText(stringResource(R.string.dashboard_diagnostics), style = MaterialTheme.typography.titleMedium)
         AdaptiveCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.dashboard_scan_disclaimer), style = MaterialTheme.typography.labelSmall)
+                AdaptiveText(stringResource(R.string.dashboard_scan_disclaimer), style = MaterialTheme.typography.labelSmall)
                 AdaptiveOutlinedButton(
                     onClick = onInspectFile,
                     enabled = !checkingFile,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(stringResource(if (checkingFile) R.string.dashboard_inspecting_file else R.string.dashboard_inspect_file))
+                    AdaptiveText(stringResource(if (checkingFile) R.string.dashboard_inspecting_file else R.string.dashboard_inspect_file))
                 }
-                fileCheckStatus?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                fileCheckStatus?.let { AdaptiveText(it, style = MaterialTheme.typography.bodySmall) }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.diagnostic_mode), Modifier.weight(1f))
+                    AdaptiveText(stringResource(R.string.diagnostic_mode), Modifier.weight(1f))
                     AdaptiveSwitch(state.diagnosticMode, vm::setDiagnosticMode)
                 }
-                Text(
+                AdaptiveText(
                     stringResource(R.string.diagnostic_mode_help),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 if (state.diagnosticMode) {
-                    Text(stringResource(R.string.diagnostic_enabled_help), style = MaterialTheme.typography.bodySmall)
+                    AdaptiveText(stringResource(R.string.diagnostic_enabled_help), style = MaterialTheme.typography.bodySmall)
                 }
                 AdaptiveButton(
                     onClick = onCollectDiagnostics,
@@ -573,14 +573,14 @@ internal fun DashboardTabContent(
                         AdaptiveCircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                         Spacer(Modifier.width(8.dp))
                     }
-                    Text(stringResource(if (collectingDiagnostics) R.string.dashboard_collecting else R.string.dashboard_export_diagnostics))
+                    AdaptiveText(stringResource(if (collectingDiagnostics) R.string.dashboard_collecting else R.string.dashboard_export_diagnostics))
                 }
-                Text(stringResource(R.string.diagnostic_export_help), style = MaterialTheme.typography.labelSmall)
+                AdaptiveText(stringResource(R.string.diagnostic_export_help), style = MaterialTheme.typography.labelSmall)
             }
         }
 
         Spacer(Modifier.height(32.dp))
-        Text(
+        AdaptiveText(
             stringResource(R.string.app_version_format, stringResource(R.string.app_name), BuildConfig.VERSION_NAME),
             modifier = Modifier.align(Alignment.CenterHorizontally),
             style = MaterialTheme.typography.labelSmall,

@@ -55,11 +55,11 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
     rootNotice?.let { notice ->
         AdaptiveAlertDialog(
             onDismissRequest = vm::dismissComponentRootNotice,
-            title = { Text(stringResource(R.string.root_permission_required)) },
-            text = { Text(notice) },
+            title = { AdaptiveText(stringResource(R.string.root_permission_required)) },
+            text = { AdaptiveText(notice) },
             confirmButton = {
                 AdaptiveTextButton(onClick = vm::dismissComponentRootNotice) {
-                    Text(stringResource(R.string.root_permission_ack))
+                    AdaptiveText(stringResource(R.string.root_permission_ack))
                 }
             }
         )
@@ -87,18 +87,18 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
         })
         AdaptiveAlertDialog(
             onDismissRequest = { pendingBatch = null },
-            title = { Text(stringResource(R.string.root_batch_confirm_title)) },
-            text = { Text(stringResource(R.string.root_batch_confirmation_text, action)) },
+            title = { AdaptiveText(stringResource(R.string.root_batch_confirm_title)) },
+            text = { AdaptiveText(stringResource(R.string.root_batch_confirmation_text, action)) },
             confirmButton = {
                 AdaptiveTextButton(enabled = eligible.isNotEmpty() && !busy, onClick = {
                     pendingBatch = null
                     if (batch.enable == null) vm.invertComponentsBulk(kind, eligible)
                     else vm.changeComponentsBulk(kind, eligible, batch.enable)
-                }) { Text(stringResource(R.string.common_ok)) }
+                }) { AdaptiveText(stringResource(R.string.common_ok)) }
             },
             dismissButton = {
                 AdaptiveTextButton(onClick = { pendingBatch = null }) {
-                    Text(stringResource(R.string.common_cancel))
+                    AdaptiveText(stringResource(R.string.common_cancel))
                 }
             }
         )
@@ -133,7 +133,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item(key = "title") {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Text(stringResource(R.string.root_screen_title), style = MaterialTheme.typography.titleLarge)
+                AdaptiveText(stringResource(R.string.root_screen_title), style = MaterialTheme.typography.titleLarge)
             }
         }
         stickyHeader(key = "controls") {
@@ -143,7 +143,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                         items(listOf<CleanupKind?>(null) + CleanupKind.entries) { entry ->
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 AdaptiveTextButton(onClick = { kind = entry }) {
-                                    Text(
+                                    AdaptiveText(
                                         entry?.let { stringResource(it.titleRes()) } ?: stringResource(R.string.common_all),
                                         fontWeight = if (kind == entry) FontWeight.Bold else FontWeight.Normal,
                                         color = if (kind == entry) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
@@ -166,7 +166,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                                 onClick = { appTypeMenu = true },
                                 contentPadding = PaddingValues(horizontal = 6.dp)
                             ) {
-                                Text(
+                                AdaptiveText(
                                     stringResource(
                                         R.string.compact_filter_format,
                                         stringResource(R.string.app_type_filter),
@@ -178,7 +178,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             AdaptiveDropdownMenu(expanded = appTypeMenu, onDismissRequest = { appTypeMenu = false }) {
                                 AppTypeFilter.entries.forEach { filter ->
                                     AdaptiveDropdownMenuItem(
-                                        text = { Text(stringResource(filter.titleRes())) },
+                                        text = { AdaptiveText(stringResource(filter.titleRes())) },
                                         leadingIcon = { if (appTypeFilter == filter) Icon(Icons.Rounded.Check, null) },
                                         onClick = { appTypeFilter = filter; appTypeMenu = false }
                                     )
@@ -190,7 +190,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                                 onClick = { filterMenu = true },
                                 contentPadding = PaddingValues(horizontal = 6.dp)
                             ) {
-                                Text(
+                                AdaptiveText(
                                     stringResource(
                                         R.string.compact_filter_format,
                                         stringResource(R.string.view_filter),
@@ -202,7 +202,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             AdaptiveDropdownMenu(expanded = filterMenu, onDismissRequest = { filterMenu = false }) {
                                 UiFilter.entries.forEach { filter ->
                                     AdaptiveDropdownMenuItem(
-                                        text = { Text(stringResource(filter.titleRes())) },
+                                        text = { AdaptiveText(stringResource(filter.titleRes())) },
                                         leadingIcon = { if (viewFilter == filter) Icon(Icons.Rounded.Check, null) },
                                         onClick = { viewFilter = filter; filterMenu = false }
                                     )
@@ -213,12 +213,12 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             onClick = { pendingBatch = PendingRootBatch(visible, false) },
                             enabled = !busy && visible.any { it.blocked == null && it.enabled == true },
                             contentPadding = PaddingValues(horizontal = 6.dp)
-                        ) { Text(stringResource(R.string.select_all)) }
+                        ) { AdaptiveText(stringResource(R.string.select_all)) }
                         AdaptiveTextButton(
                             onClick = { pendingBatch = PendingRootBatch(visible, null) },
                             enabled = !busy && visible.any { it.blocked == null && it.enabled != null },
                             contentPadding = PaddingValues(horizontal = 6.dp)
-                        ) { Text(stringResource(R.string.invert_selection)) }
+                        ) { AdaptiveText(stringResource(R.string.invert_selection)) }
                     }
                     if (batchProgress != null) {
                         val current = requireNotNull(batchProgress)
@@ -231,10 +231,10 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(stringResource(R.string.root_batch_processing),
+                            AdaptiveText(stringResource(R.string.root_batch_processing),
                                 style = MaterialTheme.typography.labelSmall)
                             AdaptiveTextButton(onClick = vm::cancelComponentBatch) {
-                                Text(stringResource(R.string.root_batch_stop_remaining))
+                                AdaptiveText(stringResource(R.string.root_batch_stop_remaining))
                             }
                         }
                     } else if (busy) AdaptiveLinearProgressIndicator(Modifier.fillMaxWidth())
@@ -245,22 +245,22 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
         item(key = "summary") {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 AdaptiveTextButton(onClick = { detailsExpanded = !detailsExpanded }) {
-                    Text(stringResource(if (detailsExpanded) R.string.root_help_collapse else R.string.root_help_expand))
+                    AdaptiveText(stringResource(if (detailsExpanded) R.string.root_help_collapse else R.string.root_help_expand))
                     Icon(if (detailsExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null)
                 }
                 if (detailsExpanded) {
-                Text(
+                AdaptiveText(
                     stringResource(R.string.root_filter_help),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Text(stringResource(R.string.root_selection_semantics), style = MaterialTheme.typography.bodySmall)
-                Text(
+                AdaptiveText(stringResource(R.string.root_selection_semantics), style = MaterialTheme.typography.bodySmall)
+                AdaptiveText(
                     stringResource(R.string.root_change_semantics),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Text(
+                AdaptiveText(
                     stringResource(
                         when (kind) {
                             null -> R.string.root_kind_all_help
@@ -274,8 +274,8 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 }
-                if (scan.warning.isNotBlank()) Text(scan.warning, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                if (scan.warning.isNotBlank()) AdaptiveText(scan.warning, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                message?.let { AdaptiveText(it, style = MaterialTheme.typography.bodySmall) }
             }
         }
 
@@ -321,20 +321,20 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                         )
                         AppIcon(first.icon, first.owner)
                         Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                            Text(first.owner, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
+                            AdaptiveText(first.owner, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
                             val componentStatus = stringResource(when {
                                 components.all { it.enabled == false } -> R.string.root_disabled
                                 components.all { it.enabled == true } -> R.string.root_enabled
                                 components.any { it.enabled == false } -> R.string.root_partially_disabled
                                 else -> R.string.root_unknown_state
                             })
-                            Text(
+                            AdaptiveText(
                                 stringResource(R.string.root_component_status_categories, componentStatus, kindTitles.joinToString(" · ")),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             if (editableComponents.size < components.size) {
-                                Text(
+                                AdaptiveText(
                                     stringResource(R.string.root_display_only_warning),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -412,16 +412,16 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                         )
                         Column(Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(item.label, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                Text(stringResource(item.kind.titleRes()), style = MaterialTheme.typography.labelMedium)
+                                AdaptiveText(item.label, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                AdaptiveText(stringResource(item.kind.titleRes()), style = MaterialTheme.typography.labelMedium)
                             }
-                            Text(
+                            AdaptiveText(
                                 item.component.flattenToShortString(),
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.labelSmall
                             )
-                            Text(
+                            AdaptiveText(
                                 item.blocked ?: stringResource(
                                     when (item.overrideState) {
                                         0 -> if (item.enabled == true) R.string.root_default_enabled else R.string.root_default_disabled
@@ -455,7 +455,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
         if (visible.isEmpty() && !busy) {
             item {
                 Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(stringResource(
+                    AdaptiveText(stringResource(
                         if (kindItems.isNotEmpty()) R.string.root_empty_filtered else R.string.root_no_components
                     ))
                     if (kind != null || viewFilter != UiFilter.ALL ||
@@ -466,7 +466,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             viewFilter = UiFilter.ALL
                             appTypeFilter = AppTypeFilter.ALL
                             vm.setQuery("")
-                        }) { Text(stringResource(R.string.root_clear_filters)) }
+                        }) { AdaptiveText(stringResource(R.string.root_clear_filters)) }
                     }
                 }
             }

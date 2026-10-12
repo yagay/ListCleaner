@@ -44,7 +44,7 @@ fun OpenPresetFilterMenu(
             onClick = { expanded = true },
             contentPadding = PaddingValues(horizontal = 6.dp)
         ) {
-            Text(
+            AdaptiveText(
                 stringResource(
                     R.string.compact_filter_format,
                     stringResource(R.string.open_type_filter),
@@ -64,7 +64,7 @@ fun OpenPresetFilterMenu(
             scrollState = menuScroll
         ) {
             AdaptiveDropdownMenuItem(
-                text = { Text(stringResource(R.string.common_all)) },
+                text = { AdaptiveText(stringResource(R.string.common_all)) },
                 leadingIcon = { if (selected == null) Icon(Icons.Rounded.Check, null) },
                 onClick = {
                     expanded = false
@@ -72,7 +72,7 @@ fun OpenPresetFilterMenu(
                 }
             )
             AdaptiveDropdownMenuItem(
-                text = { Text(stringResource(R.string.open_manage_custom)) },
+                text = { AdaptiveText(stringResource(R.string.open_manage_custom)) },
                 onClick = {
                     expanded = false
                     onManageCustom()
@@ -82,7 +82,7 @@ fun OpenPresetFilterMenu(
             config.configuredPresets().forEach { preset ->
                 AdaptiveDropdownMenuItem(
                     text = {
-                        Text(
+                        AdaptiveText(
                             config.localizedTitle(preset),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis

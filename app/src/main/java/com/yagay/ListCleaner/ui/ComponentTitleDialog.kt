@@ -34,19 +34,19 @@ internal fun ComponentTitleDialog(
     val changed = trimmed != normalizedCurrent
     AdaptiveAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.component_title_dialog_title)) },
+        title = { AdaptiveText(stringResource(R.string.component_title_dialog_title)) },
         text = {
             Column {
-                Text(
+                AdaptiveText(
                     stringResource(R.string.component_title_original, item.activityLabel),
                     style = MaterialTheme.typography.bodyMedium
                 )
-                Text(
+                AdaptiveText(
                     stringResource(R.string.component_title_help, stringResource(item.rule.kind.titleRes())),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Text(
+                AdaptiveText(
                     item.rule.className,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -55,8 +55,8 @@ internal fun ComponentTitleDialog(
                 AdaptiveOutlinedTextField(
                     value = text,
                     onValueChange = { if (it.length <= 64 && it.none(Char::isISOControl)) text = it },
-                    label = { Text(stringResource(R.string.component_title_field)) },
-                    supportingText = { Text(stringResource(R.string.component_title_support, text.length)) },
+                    label = { AdaptiveText(stringResource(R.string.component_title_field)) },
+                    supportingText = { AdaptiveText(stringResource(R.string.component_title_support, text.length)) },
                     singleLine = true
                 )
             }
@@ -66,11 +66,11 @@ internal fun ComponentTitleDialog(
                 onClick = { onSave(trimmed.ifEmpty { null }); onDismiss() },
                 enabled = changed
             ) {
-                Text(stringResource(R.string.common_save))
+                AdaptiveText(stringResource(R.string.common_save))
             }
         },
         dismissButton = {
-            AdaptiveTextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+            AdaptiveTextButton(onClick = onDismiss) { AdaptiveText(stringResource(R.string.common_cancel)) }
         }
     )
 }

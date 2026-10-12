@@ -121,7 +121,7 @@ internal fun AppScopePickerDialog(
             modifier = Modifier.fillMaxSize(),
             topBar = {
                 TopAppBar(
-                    title = { Text(stringResource(R.string.visibility_title)) },
+                    title = { AdaptiveText(stringResource(R.string.visibility_title)) },
                     navigationIcon = {
                         AdaptiveIconButton(onClick = dismiss) {
                             Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.common_back))
@@ -131,13 +131,13 @@ internal fun AppScopePickerDialog(
             },
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp)) {
-                Text(
+                AdaptiveText(
                     stringResource(R.string.visibility_help),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(8.dp))
-                Text(stringResource(R.string.visibility_match_categories), style = MaterialTheme.typography.labelLarge)
+                AdaptiveText(stringResource(R.string.visibility_match_categories), style = MaterialTheme.typography.labelLarge)
                 LazyRow(
                     contentPadding = PaddingValues(vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -151,11 +151,11 @@ internal fun AppScopePickerDialog(
                                     if (checked) visibilityScopes - scope else visibilityScopes + scope
                                 )
                             },
-                            label = { Text(stringResource(scope.titleRes())) },
+                            label = { AdaptiveText(stringResource(scope.titleRes())) },
                         )
                     }
                 }
-                Text(
+                AdaptiveText(
                     if (visibilityScopes.isEmpty()) {
                         stringResource(R.string.visibility_no_categories)
                     } else {
@@ -168,12 +168,12 @@ internal fun AppScopePickerDialog(
                 AdaptiveOutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    label = { Text(stringResource(R.string.visibility_search_sources)) },
+                    label = { AdaptiveText(stringResource(R.string.visibility_search_sources)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.visibility_show_system), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                    AdaptiveText(stringResource(R.string.visibility_show_system), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                     AdaptiveSwitch(checked = showSystem, onCheckedChange = { showSystem = it })
                 }
                 Spacer(Modifier.height(6.dp))
@@ -205,11 +205,11 @@ internal fun AppScopePickerDialog(
                                     },
                                 )
                                 Column(Modifier.weight(1f)) {
-                                    Text(entry.label, fontWeight = FontWeight.Medium)
-                                    Text(entry.packageName, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    AdaptiveText(entry.label, fontWeight = FontWeight.Medium)
+                                    AdaptiveText(entry.packageName, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 if (checked) {
-                                    Text(
+                                    AdaptiveText(
                                         stringResource(R.string.visibility_added),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.primary

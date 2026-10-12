@@ -64,7 +64,7 @@ internal fun CompactSearchField(query: String, onQueryChange: (String) -> Unit) 
                 Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(20.dp), tint = colors.onSurfaceVariant)
                 Box(Modifier.weight(1f)) {
                     if (query.isEmpty()) {
-                        Text(
+                        AdaptiveText(
                             stringResource(R.string.search_apps_components_packages),
                             style = MaterialTheme.typography.bodyMedium,
                             color = colors.onSurfaceVariant,
@@ -96,7 +96,7 @@ internal fun MainToolbar(
     TopAppBar(
         title = {
             if (expanded) CompactSearchField(query, onQuery)
-            else Text(stringResource(R.string.app_name), fontWeight = FontWeight.Bold, maxLines = 1)
+            else AdaptiveText(stringResource(R.string.app_name), fontWeight = FontWeight.Bold, maxLines = 1)
         },
         navigationIcon = {
             if (expanded) AdaptiveIconButton(onClick = onClose) {
@@ -116,8 +116,8 @@ internal fun MainToolbar(
                 Box {
                     AdaptiveIconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.common_more)) }
                     AdaptiveDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        AdaptiveDropdownMenuItem(text = { Text(stringResource(R.string.restore_backup)) }, onClick = { menu = false; onRestore() })
-                        AdaptiveDropdownMenuItem(text = { Text(stringResource(R.string.export_backup)) }, onClick = { menu = false; onBackup() })
+                        AdaptiveDropdownMenuItem(text = { AdaptiveText(stringResource(R.string.restore_backup)) }, onClick = { menu = false; onRestore() })
+                        AdaptiveDropdownMenuItem(text = { AdaptiveText(stringResource(R.string.export_backup)) }, onClick = { menu = false; onBackup() })
                     }
                 }
             }
@@ -135,7 +135,7 @@ private fun EntryGroupButton(
     val active = activeKind?.entryGroup() == group
     Box {
         AdaptiveTextButton(onClick = { expanded = true }) {
-            Text(
+            AdaptiveText(
                 stringResource(group.titleRes()),
                 fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
                 color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -146,7 +146,7 @@ private fun EntryGroupButton(
             group.kinds().forEach { kind ->
                 AdaptiveDropdownMenuItem(
                     text = {
-                        Text(
+                        AdaptiveText(
                             stringResource(kind.titleRes())
                         )
                     },
@@ -184,7 +184,7 @@ internal fun ListControls(
         ) {
             if (includeAllKinds) {
                 AdaptiveTextButton(onClick = { onFilter(null) }) {
-                    Text(
+                    AdaptiveText(
                         stringResource(R.string.common_all),
                         fontWeight = if (state.filter == null) FontWeight.Bold else FontWeight.Normal,
                         color = if (state.filter == null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -201,13 +201,13 @@ internal fun ListControls(
         ) {
             Box {
                 AdaptiveTextButton(onClick = { appTypeMenu = true }, contentPadding = PaddingValues(horizontal = 6.dp)) {
-                    Text(stringResource(R.string.compact_filter_format, stringResource(R.string.app_type_filter), stringResource(appTypeFilter.titleRes())))
+                    AdaptiveText(stringResource(R.string.compact_filter_format, stringResource(R.string.app_type_filter), stringResource(appTypeFilter.titleRes())))
                     Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
                 }
                 AdaptiveDropdownMenu(expanded = appTypeMenu, onDismissRequest = { appTypeMenu = false }) {
                     AppTypeFilter.entries.forEach { mode ->
                         AdaptiveDropdownMenuItem(
-                            text = { Text(stringResource(mode.titleRes())) },
+                            text = { AdaptiveText(stringResource(mode.titleRes())) },
                             leadingIcon = { if (mode == appTypeFilter) Icon(Icons.Rounded.Check, null) },
                             onClick = { appTypeMenu = false; onAppTypeFilter(mode) }
                         )
@@ -216,13 +216,13 @@ internal fun ListControls(
             }
             Box {
                 AdaptiveTextButton(onClick = { menu = true }, contentPadding = PaddingValues(horizontal = 6.dp)) {
-                    Text(stringResource(R.string.compact_filter_format, stringResource(R.string.view_filter), viewTitle(state.uiFilter)))
+                    AdaptiveText(stringResource(R.string.compact_filter_format, stringResource(R.string.view_filter), viewTitle(state.uiFilter)))
                     Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
                 }
                 AdaptiveDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     UiFilter.entries.forEach { mode ->
                         AdaptiveDropdownMenuItem(
-                            text = { Text(viewTitle(mode)) },
+                            text = { AdaptiveText(viewTitle(mode)) },
                             leadingIcon = { if (mode == state.uiFilter) Icon(Icons.Rounded.Check, null) },
                             onClick = { menu = false; onUiFilter(mode) }
                         )
@@ -237,18 +237,18 @@ internal fun ListControls(
                         enabled = batchCount == null || batchCount > 0,
                         contentPadding = PaddingValues(horizontal = 6.dp)
                     ) {
-                        Text(stringResource(R.string.selection_actions))
+                        AdaptiveText(stringResource(R.string.selection_actions))
                         Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
                     }
                     AdaptiveDropdownMenu(expanded = selectionMenu, onDismissRequest = { selectionMenu = false }) {
                         onSelectAll?.let { action ->
-                            AdaptiveDropdownMenuItem(text = { Text(stringResource(R.string.select_all)) }, onClick = { selectionMenu = false; action() })
+                            AdaptiveDropdownMenuItem(text = { AdaptiveText(stringResource(R.string.select_all)) }, onClick = { selectionMenu = false; action() })
                         }
                         onSelectNone?.let { action ->
-                            AdaptiveDropdownMenuItem(text = { Text(stringResource(R.string.select_none)) }, onClick = { selectionMenu = false; action() })
+                            AdaptiveDropdownMenuItem(text = { AdaptiveText(stringResource(R.string.select_none)) }, onClick = { selectionMenu = false; action() })
                         }
                         onInvert?.let { action ->
-                            AdaptiveDropdownMenuItem(text = { Text(stringResource(R.string.invert_selection)) }, onClick = { selectionMenu = false; action() })
+                            AdaptiveDropdownMenuItem(text = { AdaptiveText(stringResource(R.string.invert_selection)) }, onClick = { selectionMenu = false; action() })
                         }
                     }
                 }
@@ -260,7 +260,7 @@ internal fun ListControls(
             modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 2.dp),
         ) {
-            Text(
+            AdaptiveText(
                 if (selectedKind == null) stringResource(R.string.entry_help_title)
                 else stringResource(selectedKind.titleRes()),
                 modifier = Modifier.weight(1f),
@@ -276,7 +276,7 @@ internal fun ListControls(
         }
         if (helpExpanded) {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) {
-                Text(
+                AdaptiveText(
                     if (selectedKind == null) stringResource(R.string.entry_rules_general_help)
                     else stringResource(selectedKind.descriptionRes()),
                     style = MaterialTheme.typography.labelSmall,
@@ -284,7 +284,7 @@ internal fun ListControls(
                 )
                 if (selectedKind?.entryGroup() == EntryGroup.ADVANCED) {
                     Spacer(Modifier.height(4.dp))
-                    Text(
+                    AdaptiveText(
                         stringResource(R.string.entry_advanced_safety_note),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -312,8 +312,8 @@ internal fun ModuleStatusRow(state: MainState, compact: Boolean = false, onClick
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
-            Text(stringResource(titleRes), style = MaterialTheme.typography.labelLarge)
-            Text(
+            AdaptiveText(stringResource(titleRes), style = MaterialTheme.typography.labelLarge)
+            AdaptiveText(
                 if (!compact) state.syncStatus
                 else if (state.runtime.ready) stringResource(R.string.module_system_confirmed)
                 else stringResource(R.string.module_check_status),

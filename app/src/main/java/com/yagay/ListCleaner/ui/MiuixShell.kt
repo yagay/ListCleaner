@@ -83,11 +83,11 @@ internal fun MiuixMainShell(
                                 }
                                 AdaptiveDropdownMenu(expanded = moreExpanded, onDismissRequest = { moreExpanded = false }) {
                                     AdaptiveDropdownMenuItem(
-                                        text = { Text(stringResource(R.string.restore_backup)) },
+                                        text = { AdaptiveText(stringResource(R.string.restore_backup)) },
                                         onClick = { moreExpanded = false; onRestore() }
                                     )
                                     AdaptiveDropdownMenuItem(
-                                        text = { Text(stringResource(R.string.export_backup)) },
+                                        text = { AdaptiveText(stringResource(R.string.export_backup)) },
                                         onClick = { moreExpanded = false; onBackup() }
                                     )
                                 }

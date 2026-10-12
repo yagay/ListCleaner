@@ -82,11 +82,11 @@ class MainActivity : ComponentActivity() {
         if (state.module.outdated && !restartPromptDismissed) {
             AdaptiveAlertDialog(
                 onDismissRequest = { restartPromptDismissed = true },
-                title = { Text(stringResource(R.string.restart_required_title)) },
-                text = { Text(stringResource(R.string.restart_required_message)) },
+                title = { AdaptiveText(stringResource(R.string.restart_required_title)) },
+                text = { AdaptiveText(stringResource(R.string.restart_required_message)) },
                 confirmButton = {
                     AdaptiveTextButton(onClick = { restartPromptDismissed = true }) {
-                        Text(stringResource(R.string.common_ok))
+                        AdaptiveText(stringResource(R.string.common_ok))
                     }
                 },
                 dismissButton = {
@@ -94,7 +94,7 @@ class MainActivity : ComponentActivity() {
                         restartPromptDismissed = true
                         vm.setDestination(Destination.DASHBOARD)
                     }) {
-                        Text(stringResource(R.string.restart_required_open_status))
+                        AdaptiveText(stringResource(R.string.restart_required_open_status))
                     }
                 }
             )
@@ -102,9 +102,9 @@ class MainActivity : ComponentActivity() {
         pendingImport?.let { (content, preview) ->
             AdaptiveAlertDialog(
                 onDismissRequest = { pendingImport = null },
-                title = { Text(stringResource(R.string.backup_import_confirm_title)) },
+                title = { AdaptiveText(stringResource(R.string.backup_import_confirm_title)) },
                 text = {
-                    Text(stringResource(
+                    AdaptiveText(stringResource(
                         R.string.backup_import_confirm_summary,
                         preview.version, preview.total, preview.added, preview.removed
                     ))
@@ -133,11 +133,11 @@ class MainActivity : ComponentActivity() {
                                 toast(getString(R.string.backup_restore_failed), true)
                             }
                         }
-                    }) { Text(stringResource(R.string.backup_import_apply)) }
+                    }) { AdaptiveText(stringResource(R.string.backup_import_apply)) }
                 },
                 dismissButton = {
                     AdaptiveTextButton(onClick = { pendingImport = null }) {
-                        Text(stringResource(R.string.common_cancel))
+                        AdaptiveText(stringResource(R.string.common_cancel))
                     }
                 }
             )
@@ -277,7 +277,7 @@ class MainActivity : ComponentActivity() {
                             selected = state.destination == dest,
                             onClick = { vm.setDestination(dest) },
                             icon = { Icon(dest.icon, null) },
-                            label = { Text(stringResource(dest.labelRes())) }
+                            label = { AdaptiveText(stringResource(dest.labelRes())) }
                         )
                     }
                 }

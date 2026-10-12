@@ -74,8 +74,8 @@ internal fun AppRow(
             AdaptiveTriStateCheckbox(state = selectionState, onClick = { onSelect(selectionState != ToggleableState.On) })
             AppIcon(bitmap = group.appIcon, appLabel = group.appLabel)
             Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                Text(group.appLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
-                Text(
+                AdaptiveText(group.appLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
+                AdaptiveText(
                     kindTitles.joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -84,7 +84,7 @@ internal fun AppRow(
                 )
                 val missing = group.components.count { it.unavailable || it.restricted }
                 if (missing > 0) {
-                    Text(
+                    AdaptiveText(
                         stringResource(R.string.app_row_unavailable_warning),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error
@@ -150,13 +150,13 @@ internal fun ComponentRow(
             ComponentSelectionMark(checked)
             Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
+                    AdaptiveText(
                         item.activityLabel,
                         modifier = Modifier.weight(1f).padding(end = 12.dp),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Text(
+                    AdaptiveText(
                         stringResource(item.rule.kind.titleRes()),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -165,7 +165,7 @@ internal fun ComponentRow(
                     )
                 }
                 selectionNote?.let {
-                    Text(
+                    AdaptiveText(
                         it,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
@@ -174,7 +174,7 @@ internal fun ComponentRow(
                     )
                 }
                 if (!customTitle.isNullOrBlank()) {
-                    Text(
+                    AdaptiveText(
                         stringResource(R.string.component_shown_as, customTitle),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
@@ -182,7 +182,7 @@ internal fun ComponentRow(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Text(
+                AdaptiveText(
                     item.rule.className,
                     modifier = Modifier.padding(top = 2.dp),
                     style = MaterialTheme.typography.labelSmall,
@@ -191,13 +191,13 @@ internal fun ComponentRow(
                     overflow = TextOverflow.Ellipsis
                 )
                 if (item.unavailable) {
-                    Text(
+                    AdaptiveText(
                         stringResource(R.string.component_unavailable),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error
                     )
                 } else if (item.restricted) {
-                    Text(stringResource(R.string.component_restricted), style = MaterialTheme.typography.labelSmall)
+                    AdaptiveText(stringResource(R.string.component_restricted), style = MaterialTheme.typography.labelSmall)
                 }
             }
             if (locked) {
@@ -233,7 +233,7 @@ internal fun BulkLockContextMenu(
 ) {
     AdaptiveDropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
         AdaptiveDropdownMenuItem(
-            text = { Text(stringResource(R.string.bulk_lock_action_lock)) },
+            text = { AdaptiveText(stringResource(R.string.bulk_lock_action_lock)) },
             enabled = canLock,
             onClick = {
                 onDismiss()
@@ -241,7 +241,7 @@ internal fun BulkLockContextMenu(
             }
         )
         AdaptiveDropdownMenuItem(
-            text = { Text(stringResource(R.string.bulk_lock_action_unlock)) },
+            text = { AdaptiveText(stringResource(R.string.bulk_lock_action_unlock)) },
             enabled = canUnlock,
             onClick = {
                 onDismiss()

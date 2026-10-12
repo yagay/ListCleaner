@@ -24,17 +24,17 @@ import com.yagay.ListCleaner.R
 internal fun ScopeDialog(status: ModuleStatus, requestScope: () -> Unit, refresh: () -> Unit, dismiss: () -> Unit) {
     FullScreenDetails(
         onDismissRequest = dismiss,
-        title = { Text(stringResource(R.string.scope_title)) },
+        title = { AdaptiveText(stringResource(R.string.scope_title)) },
         text = {
             Column(
                 Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(stringResource(R.string.scope_intro))
-                Text(stringResource(R.string.scope_detected_hosts), fontWeight = FontWeight.Bold)
-                if (status.detection.hosts.isEmpty()) Text(stringResource(R.string.scope_no_hosts))
+                AdaptiveText(stringResource(R.string.scope_intro))
+                AdaptiveText(stringResource(R.string.scope_detected_hosts), fontWeight = FontWeight.Bold)
+                if (status.detection.hosts.isEmpty()) AdaptiveText(stringResource(R.string.scope_no_hosts))
                 status.detection.hosts.forEach { host ->
-                    Text(
+                    AdaptiveText(
                         stringResource(
                             R.string.scope_host_details,
                             host.packageName,
@@ -44,25 +44,25 @@ internal fun ScopeDialog(status: ModuleStatus, requestScope: () -> Unit, refresh
                         )
                     )
                     if (host.requiresManualScope) {
-                        Text(stringResource(R.string.scope_manual_host_warning), color = MaterialTheme.colorScheme.error)
+                        AdaptiveText(stringResource(R.string.scope_manual_host_warning), color = MaterialTheme.colorScheme.error)
                     } else if (host.packageName == "android") {
-                        Text(stringResource(R.string.scope_android_system_note))
+                        AdaptiveText(stringResource(R.string.scope_android_system_note))
                     }
                 }
                 val unconfirmed = status.detection.installedCandidates - status.detection.hosts.map { it.packageName }.toSet()
                 if (unconfirmed.isNotEmpty()) {
-                    Text(stringResource(R.string.scope_unconfirmed_installed, unconfirmed.sorted().joinToString("\n")))
+                    AdaptiveText(stringResource(R.string.scope_unconfirmed_installed, unconfirmed.sorted().joinToString("\n")))
                 }
-                Text(stringResource(R.string.scope_granted), fontWeight = FontWeight.Bold)
-                Text(
+                AdaptiveText(stringResource(R.string.scope_granted), fontWeight = FontWeight.Bold)
+                AdaptiveText(
                     if (!status.scopeKnown) stringResource(R.string.scope_grant_unknown)
                     else status.grantedScope.sorted().joinToString("\n").ifEmpty { stringResource(R.string.common_none) }
                 )
                 if (status.scopeKnown && status.extraScope.isNotEmpty()) {
-                    Text(stringResource(R.string.scope_extra_grants, status.extraScope.sorted().joinToString("\n")))
+                    AdaptiveText(stringResource(R.string.scope_extra_grants, status.extraScope.sorted().joinToString("\n")))
                 }
-                Text(stringResource(R.string.scope_running_targets), fontWeight = FontWeight.Bold)
-                if (status.runningTargets.isEmpty()) Text(stringResource(R.string.scope_no_running_targets))
+                AdaptiveText(stringResource(R.string.scope_running_targets), fontWeight = FontWeight.Bold)
+                if (status.runningTargets.isEmpty()) AdaptiveText(stringResource(R.string.scope_no_running_targets))
                 status.runningTargets.forEach { target ->
                     val stateLabel = when (target.state) {
                         "UP_TO_DATE" -> stringResource(R.string.scope_target_up_to_date)
@@ -71,14 +71,14 @@ internal fun ScopeDialog(status: ModuleStatus, requestScope: () -> Unit, refresh
                         "FAILED" -> stringResource(R.string.scope_target_failed)
                         else -> target.state
                     }
-                    Text(stringResource(R.string.scope_target_details, target.processName, stateLabel, target.version))
+                    AdaptiveText(stringResource(R.string.scope_target_details, target.processName, stateLabel, target.version))
                 }
-                Text(stringResource(R.string.scope_runtime_warning))
-                status.detection.warnings.forEach { Text(it, color = MaterialTheme.colorScheme.error) }
-                status.message?.let { Text(it) }
-                status.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                AdaptiveTextButton(onClick = refresh, enabled = !status.requesting) { Text(stringResource(R.string.scope_recheck)) }
-                Text(stringResource(R.string.scope_advanced))
+                AdaptiveText(stringResource(R.string.scope_runtime_warning))
+                status.detection.warnings.forEach { AdaptiveText(it, color = MaterialTheme.colorScheme.error) }
+                status.message?.let { AdaptiveText(it) }
+                status.error?.let { AdaptiveText(it, color = MaterialTheme.colorScheme.error) }
+                AdaptiveTextButton(onClick = refresh, enabled = !status.requesting) { AdaptiveText(stringResource(R.string.scope_recheck)) }
+                AdaptiveText(stringResource(R.string.scope_advanced))
             }
         },
         confirmButton = {
@@ -86,7 +86,7 @@ internal fun ScopeDialog(status: ModuleStatus, requestScope: () -> Unit, refresh
                 onClick = requestScope,
                 enabled = status.connected && status.scopeKnown && !status.requesting && status.missingScope.isNotEmpty()
             ) {
-                Text(
+                AdaptiveText(
                     when {
                         status.requesting -> stringResource(R.string.scope_requesting)
                         status.detection.recommended.isEmpty() -> stringResource(R.string.scope_no_recommended)
@@ -96,7 +96,7 @@ internal fun ScopeDialog(status: ModuleStatus, requestScope: () -> Unit, refresh
                 )
             }
         },
-        dismissButton = { AdaptiveTextButton(onClick = dismiss) { Text(stringResource(R.string.common_close)) } }
+        dismissButton = { AdaptiveTextButton(onClick = dismiss) { AdaptiveText(stringResource(R.string.common_close)) } }
     )
 }
 

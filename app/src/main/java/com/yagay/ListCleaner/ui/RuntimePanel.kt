@@ -17,37 +17,37 @@ internal fun RuntimePanel(state: MainState, vm: MainViewModel, showUpdateTools: 
     if (confirmReset) {
         AdaptiveAlertDialog(
             onDismissRequest = { confirmReset = false },
-            title = { Text(stringResource(R.string.runtime_reset_title)) },
-            text = { Text(stringResource(R.string.runtime_reset_help)) },
+            title = { AdaptiveText(stringResource(R.string.runtime_reset_title)) },
+            text = { AdaptiveText(stringResource(R.string.runtime_reset_help)) },
             confirmButton = {
                 AdaptiveTextButton(onClick = { confirmReset = false; vm.resolveRecovery(false) }) {
-                    Text(stringResource(R.string.runtime_confirm_reset))
+                    AdaptiveText(stringResource(R.string.runtime_confirm_reset))
                 }
             },
             dismissButton = {
-                AdaptiveTextButton(onClick = { confirmReset = false }) { Text(stringResource(R.string.common_cancel)) }
+                AdaptiveTextButton(onClick = { confirmReset = false }) { AdaptiveText(stringResource(R.string.common_cancel)) }
             }
         )
     }
     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (!state.runtime.ready) {
-            Text(state.runtime.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            AdaptiveText(state.runtime.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             if (showUpdateTools) {
-                Text(stringResource(R.string.runtime_validation_failed_help), style = MaterialTheme.typography.labelSmall)
+                AdaptiveText(stringResource(R.string.runtime_validation_failed_help), style = MaterialTheme.typography.labelSmall)
             }
         }
         if (state.runtime.needsDecision) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AdaptiveButton(onClick = { vm.resolveRecovery(true) }, enabled = !state.runtime.recoveryCorrupt) {
-                    Text(stringResource(R.string.runtime_restore_remote))
+                    AdaptiveText(stringResource(R.string.runtime_restore_remote))
                 }
                 AdaptiveOutlinedButton(onClick = { confirmReset = true }) {
-                    Text(stringResource(R.string.runtime_reset_pause))
+                    AdaptiveText(stringResource(R.string.runtime_reset_pause))
                 }
             }
         }
 
-        Text(stringResource(R.string.capability_title), style = MaterialTheme.typography.titleSmall)
+        AdaptiveText(stringResource(R.string.capability_title), style = MaterialTheme.typography.titleSmall)
         runtimeCapabilities(state.module, state.runtime).forEach { capability ->
             val name = stringResource(
                 when (capability.capability) {
@@ -64,14 +64,14 @@ internal fun RuntimePanel(state: MainState, vm: MainViewModel, showUpdateTools: 
                 CapabilityState.DISCONNECTED -> stringResource(R.string.capability_disconnected)
                 CapabilityState.NOT_READY -> stringResource(R.string.capability_not_ready)
             }
-            Text(stringResource(R.string.capability_row, name, status), style = MaterialTheme.typography.bodySmall)
+            AdaptiveText(stringResource(R.string.capability_row, name, status), style = MaterialTheme.typography.bodySmall)
         }
 
         if (showUpdateTools) {
             AdaptiveOutlinedButton(onClick = vm::applyModuleUpdate, enabled = state.module.connected && !updating) {
-                Text(stringResource(if (updating) R.string.runtime_checking_update else R.string.runtime_apply_update))
+                AdaptiveText(stringResource(if (updating) R.string.runtime_checking_update else R.string.runtime_apply_update))
             }
         }
-        if (showUpdateTools) result?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+        if (showUpdateTools) result?.let { AdaptiveText(it, style = MaterialTheme.typography.bodySmall) }
     }
 }

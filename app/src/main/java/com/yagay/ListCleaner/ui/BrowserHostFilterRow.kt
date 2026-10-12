@@ -58,7 +58,7 @@ fun BrowserHostFilterMenu(
             modifier = Modifier.onSizeChanged { anchorWidthPx = it.width },
             contentPadding = PaddingValues(horizontal = 6.dp)
         ) {
-            Text(
+            AdaptiveText(
                 stringResource(
                     R.string.compact_filter_format,
                     stringResource(R.string.browser_domain_filter),
@@ -103,7 +103,7 @@ fun BrowserHostFilterMenu(
                         )
                     }
                 }
-                Text(stringResource(R.string.common_all))
+                AdaptiveText(stringResource(R.string.common_all))
             }
             Row(
                 modifier = Modifier
@@ -118,7 +118,7 @@ fun BrowserHostFilterMenu(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Spacer(Modifier.width(24.dp))
-                Text(stringResource(R.string.browser_hosts_manage))
+                AdaptiveText(stringResource(R.string.browser_hosts_manage))
             }
             AdaptiveHorizontalDivider()
             AdaptiveOutlinedTextField(
@@ -131,14 +131,14 @@ fun BrowserHostFilterMenu(
                 textStyle = MaterialTheme.typography.bodyLarge,
                 leadingIcon = { Icon(Icons.Rounded.Search, null, Modifier.size(24.dp)) },
                 placeholder = {
-                    Text(
+                    AdaptiveText(
                         stringResource(R.string.browser_domain_search),
                         style = MaterialTheme.typography.bodyLarge
                     )
                 }
             )
             if (visibleHosts.isEmpty()) {
-                Text(
+                AdaptiveText(
                     stringResource(R.string.browser_domain_search_empty),
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 3.dp),
                     style = MaterialTheme.typography.labelSmall,
@@ -170,7 +170,7 @@ fun BrowserHostFilterMenu(
                                 )
                             }
                         }
-                        Text(
+                        AdaptiveText(
                             host,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -197,10 +197,10 @@ fun BrowserHostDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
         modifier = Modifier.fillMaxWidth().padding(20.dp),
-        title = { Text(stringResource(R.string.browser_hosts_title)) },
+        title = { AdaptiveText(stringResource(R.string.browser_hosts_title)) },
         text = {
             Column(Modifier.fillMaxWidth()) {
-                Text(
+                AdaptiveText(
                     stringResource(R.string.browser_hosts_help),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -212,8 +212,8 @@ fun BrowserHostDialog(
                         onValueChange = { input = it },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
-                        label = { Text(stringResource(R.string.browser_host_input)) },
-                        placeholder = { Text(stringResource(R.string.browser_host_example)) },
+                        label = { AdaptiveText(stringResource(R.string.browser_host_input)) },
+                        placeholder = { AdaptiveText(stringResource(R.string.browser_host_example)) },
                         isError = input.isNotBlank() && normalized == null
                     )
                     Spacer(Modifier.width(8.dp))
@@ -224,10 +224,10 @@ fun BrowserHostDialog(
                             hosts = (hosts + host).distinct().sorted()
                             input = ""
                         }
-                    ) { Text(stringResource(R.string.common_add)) }
+                    ) { AdaptiveText(stringResource(R.string.common_add)) }
                 }
                 if (input.isNotBlank() && normalized == null) {
-                    Text(
+                    AdaptiveText(
                         stringResource(R.string.browser_host_invalid),
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.labelSmall
@@ -235,7 +235,7 @@ fun BrowserHostDialog(
                 }
                 Spacer(Modifier.height(8.dp))
                 if (hosts.isEmpty()) {
-                    Text(
+                    AdaptiveText(
                         stringResource(R.string.browser_hosts_empty),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -247,7 +247,7 @@ fun BrowserHostDialog(
                                 Modifier.fillMaxWidth().heightIn(min = 48.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(host, Modifier.weight(1f))
+                                AdaptiveText(host, Modifier.weight(1f))
                                 AdaptiveIconButton(onClick = { hosts = hosts - host }) {
                                     Icon(Icons.Rounded.Delete, stringResource(R.string.common_delete))
                                 }
@@ -260,11 +260,11 @@ fun BrowserHostDialog(
         },
         confirmButton = {
             AdaptiveTextButton(onClick = { onSave(hosts.toSet()); onDismiss() }) {
-                Text(stringResource(R.string.common_save))
+                AdaptiveText(stringResource(R.string.common_save))
             }
         },
         dismissButton = {
-            AdaptiveTextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+            AdaptiveTextButton(onClick = onDismiss) { AdaptiveText(stringResource(R.string.common_cancel)) }
         }
     )
 }
