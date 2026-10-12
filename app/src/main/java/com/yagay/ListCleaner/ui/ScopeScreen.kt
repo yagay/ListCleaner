@@ -19,6 +19,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.R
+import top.yukonga.miuix.kmp.basic.Scaffold as NativeMiuixScaffold
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar as NativeMiuixTopBar
+import top.yukonga.miuix.kmp.basic.Surface as NativeMiuixSurface
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 internal fun ScopeDialog(status: ModuleStatus, requestScope: () -> Unit, refresh: () -> Unit, dismiss: () -> Unit) {
@@ -113,7 +117,35 @@ private fun FullScreenDetails(
         onDismissRequest = onDismissRequest,
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
-        Scaffold(
+        if (LocalUiThemeStyle.current == UiThemeStyle.MIUIX_STYLE) {
+            NativeMiuixScaffold(
+                modifier = Modifier.fillMaxSize(),
+                topBar = {
+                    NativeMiuixTopBar(
+                        title = stringResource(R.string.scope_title),
+                        navigationIcon = {
+                            AdaptiveIconButton(onClick = onDismissRequest) {
+                                AdaptiveIcon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.common_back))
+                            }
+                        }
+                    )
+                },
+                bottomBar = {
+                    NativeMiuixSurface {
+                        Row(
+                            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            dismissButton()
+                            confirmButton()
+                        }
+                    }
+                },
+                containerColor = MiuixTheme.colorScheme.background
+            ) { padding ->
+                Box(Modifier.padding(padding).padding(horizontal = 16.dp)) { text() }
+            }
+        } else Scaffold(
             modifier = Modifier.fillMaxSize(),
             topBar = {
                 TopAppBar(
