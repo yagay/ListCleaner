@@ -70,8 +70,6 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
     var viewFilter by rememberSaveable { mutableStateOf(UiFilter.ALL) }
     var appTypeFilter by rememberSaveable { mutableStateOf(AppTypeFilter.ALL) }
-    var filterMenu by remember { mutableStateOf(false) }
-    var appTypeMenu by remember { mutableStateOf(false) }
     var expandedAppKey by remember { mutableStateOf<String?>(null) }
     var detailsExpanded by rememberSaveable { mutableStateOf(false) }
     var pendingBatch by remember { mutableStateOf<PendingRootBatch?>(null) }
@@ -168,54 +166,12 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box {
-                            AdaptiveTextButton(
-                                onClick = { appTypeMenu = true },
-                                contentPadding = PaddingValues(horizontal = 6.dp)
-                            ) {
-                                AdaptiveText(
-                                    stringResource(
-                                        R.string.compact_filter_format,
-                                        stringResource(R.string.app_type_filter),
-                                        stringResource(appTypeFilter.titleRes())
-                                    )
-                                )
-                                AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
-                            }
-                            AdaptiveDropdownMenu(expanded = appTypeMenu, onDismissRequest = { appTypeMenu = false }) {
-                                AppTypeFilter.entries.forEach { filter ->
-                                    AdaptiveDropdownMenuItem(
-                                        text = { AdaptiveText(stringResource(filter.titleRes())) },
-                                        leadingIcon = { if (appTypeFilter == filter) AdaptiveIcon(Icons.Rounded.Check, null) },
-                                        onClick = { appTypeFilter = filter; appTypeMenu = false }
-                                    )
-                                }
-                            }
-                        }
-                        Box {
-                            AdaptiveTextButton(
-                                onClick = { filterMenu = true },
-                                contentPadding = PaddingValues(horizontal = 6.dp)
-                            ) {
-                                AdaptiveText(
-                                    stringResource(
-                                        R.string.compact_filter_format,
-                                        stringResource(R.string.view_filter),
-                                        stringResource(viewFilter.titleRes())
-                                    )
-                                )
-                                AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
-                            }
-                            AdaptiveDropdownMenu(expanded = filterMenu, onDismissRequest = { filterMenu = false }) {
-                                UiFilter.entries.forEach { filter ->
-                                    AdaptiveDropdownMenuItem(
-                                        text = { AdaptiveText(stringResource(filter.titleRes())) },
-                                        leadingIcon = { if (viewFilter == filter) AdaptiveIcon(Icons.Rounded.Check, null) },
-                                        onClick = { viewFilter = filter; filterMenu = false }
-                                    )
-                                }
-                            }
-                        }
+                        UnifiedListFilters(
+                            appType = appTypeFilter,
+                            onAppTypeChange = { appTypeFilter = it },
+                            view = viewFilter,
+                            onViewChange = { viewFilter = it }
+                        )
                         AdaptiveTextButton(
                             onClick = { pendingBatch = PendingRootBatch(visible, false) },
                             enabled = !busy && visible.any { it.blocked == null && it.enabled == true },
