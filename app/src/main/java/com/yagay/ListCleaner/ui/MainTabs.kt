@@ -141,6 +141,17 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item(key = "module-indicator") {
             ModuleStatusRow(state, compact = true) { vm.setDestination(Destination.DASHBOARD) }
+            AdaptiveTextButton(
+                onClick = { vm.setDestination(Destination.TILES) },
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                AdaptiveText(
+                    stringResource(R.string.root_screen_title),
+                    modifier = Modifier.weight(1f)
+                )
+                AdaptiveIcon(Icons.Rounded.ExpandMore, null)
+            }
             if (state.runtime.needsDecision) RuntimePanel(state, vm, showUpdateTools = false)
         }
         stickyHeader(key = "list-controls") {
