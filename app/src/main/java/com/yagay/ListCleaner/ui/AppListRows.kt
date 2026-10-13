@@ -73,17 +73,13 @@ internal fun AppRow(
         ) {
             AdaptiveTriStateCheckbox(state = selectionState, onClick = { onSelect(selectionState != ToggleableState.On) })
             SharedAppIdentity(icon = group.appIcon, title = group.appLabel) {
-                AdaptiveText(
+                SharedAppSupportingText(
                     stringResource(
                         R.string.app_row_selection_summary,
                         selectedCount,
                         group.components.size,
                         kindTitles.joinToString(" · ")
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    )
                 )
                 val missing = group.components.count { it.unavailable || it.restricted }
                 if (missing > 0) {
