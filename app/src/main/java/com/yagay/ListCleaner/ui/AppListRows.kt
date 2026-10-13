@@ -68,7 +68,7 @@ internal fun AppRow(
                     onLongClick = { lockMenuExpanded = true }
                 )
                 .heightIn(min = 64.dp)
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             AdaptiveTriStateCheckbox(state = selectionState, onClick = { onSelect(selectionState != ToggleableState.On) })
@@ -90,16 +90,20 @@ internal fun AppRow(
                     )
                 }
             }
-            AdaptiveIconButton(onClick = { lockMenuExpanded = true }) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                AdaptiveIconButton(onClick = { lockMenuExpanded = true }) {
+                    AdaptiveIcon(
+                        if (lockState == BulkLockState.NONE) Icons.Rounded.MoreVert else Icons.Rounded.Lock,
+                        contentDescription = stringResource(R.string.bulk_lock_options),
+                        tint = if (lockState == BulkLockState.PARTIAL) MaterialTheme.colorScheme.tertiary
+                        else LocalContentColor.current
+                    )
+                }
                 AdaptiveIcon(
-                    if (lockState == BulkLockState.NONE) Icons.Rounded.MoreVert else Icons.Rounded.Lock,
-                    contentDescription = stringResource(R.string.bulk_lock_options),
-                    tint = if (lockState == BulkLockState.PARTIAL) MaterialTheme.colorScheme.tertiary
-                    else LocalContentColor.current
+                    if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    contentDescription = expandLabel,
+                    modifier = Modifier.size(18.dp)
                 )
-            }
-            AdaptiveIconButton(onClick = onExpand) {
-                AdaptiveIcon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, expandLabel)
             }
         }
         BulkLockContextMenu(
@@ -111,7 +115,6 @@ internal fun AppRow(
             onUnlock = onUnlock,
         )
     }
-    if (LocalUiThemeStyle.current == UiThemeStyle.MATERIAL) AdaptiveHorizontalDivider()
 }
 
 @OptIn(ExperimentalFoundationApi::class)
