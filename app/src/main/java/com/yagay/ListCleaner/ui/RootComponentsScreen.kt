@@ -132,10 +132,11 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item(key = "title") {
-            if (LocalUiThemeStyle.current == UiThemeStyle.MATERIAL) {
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    AdaptiveText(stringResource(R.string.root_screen_title), style = MaterialTheme.typography.titleLarge)
-                }
+            PageOverviewSection(stringResource(R.string.root_screen_title)) {
+                AdaptiveText(
+                    stringResource(R.string.root_summary, groups.size, visible.size),
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
         }
         stickyHeader(key = "controls") {
