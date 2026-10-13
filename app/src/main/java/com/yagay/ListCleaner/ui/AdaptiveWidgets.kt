@@ -229,7 +229,10 @@ internal fun AdaptiveGroupSurface(
     content: @Composable () -> Unit
 ) {
     when (LocalUiThemeStyle.current) {
-        UiThemeStyle.MATERIAL -> Box(modifier = modifier, content = { content() })
+        UiThemeStyle.MATERIAL -> MaterialCard(
+            modifier = modifier.padding(horizontal = 12.dp).padding(position.verticalPadding()),
+            shape = position.shape()
+        ) { content() }
         UiThemeStyle.MIUIX_STYLE -> MiuixSurface(
             modifier = modifier.padding(horizontal = 14.dp).padding(position.verticalPadding()),
             shape = position.shape(),
