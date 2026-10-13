@@ -146,14 +146,12 @@ private fun EntryGroupButton(
     var expanded by remember(group) { mutableStateOf(false) }
     val active = activeKind?.entryGroup() == group
     Box {
-        AdaptiveTextButton(onClick = { expanded = true }) {
-            AdaptiveText(
-                stringResource(group.titleRes()),
-                fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
-                color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
-        }
+        AdaptiveFilterChip(
+            selected = active,
+            onClick = { expanded = true },
+            label = { AdaptiveText(stringResource(group.titleRes())) },
+            leadingIcon = { AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp)) }
+        )
         AdaptiveDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             group.kinds().forEach { kind ->
                 AdaptiveDropdownMenuItem(
@@ -196,13 +194,11 @@ internal fun ListControls(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (includeAllKinds) {
-                AdaptiveTextButton(onClick = { onFilter(null) }) {
-                    AdaptiveText(
-                        stringResource(R.string.common_all),
-                        fontWeight = if (state.filter == null) FontWeight.Bold else FontWeight.Normal,
-                        color = if (state.filter == null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                AdaptiveFilterChip(
+                    selected = state.filter == null,
+                    onClick = { onFilter(null) },
+                    label = { AdaptiveText(stringResource(R.string.common_all)) }
+                )
             }
             EntryGroup.entries.filter { includeAllKinds || it != EntryGroup.DESKTOP }.forEach { group ->
                 EntryGroupButton(group, state.filter, onFilter)
