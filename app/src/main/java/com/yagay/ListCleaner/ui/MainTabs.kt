@@ -425,8 +425,8 @@ internal fun DashboardTabContent(
     val fileCheckStatus by vm.fileCheckStatus.collectAsStateWithLifecycle()
     val checkingFile by vm.checkingFile.collectAsStateWithLifecycle()
     var menu by remember { mutableStateOf(false) }
-    var showScopeDetails by remember { mutableStateOf(false) }
-    var showAppScopePicker by remember { mutableStateOf(false) }
+    var showScopeDetails by rememberSaveable { mutableStateOf(false) }
+    var showAppScopePicker by rememberSaveable { mutableStateOf(false) }
     if (showScopeDetails) ScopeDialog(state.module, vm::requestScope, vm::refreshModuleStatus) { showScopeDetails = false }
     if (showAppScopePicker) {
         AppScopePickerDialog(
