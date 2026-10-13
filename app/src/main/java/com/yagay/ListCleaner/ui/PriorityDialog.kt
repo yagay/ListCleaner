@@ -513,10 +513,8 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                         it
                                     )
                                 } ?: stringResource(R.string.priority_not_prioritized)
-                                AdaptiveText(
-                                    stringResource(R.string.priority_app_summary, rankText, group.components.size),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                SharedAppSupportingText(
+                                    stringResource(R.string.priority_app_summary, rankText, group.components.size)
                                 )
                             }
                             if (lockState != BulkLockState.NONE) {
