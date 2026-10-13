@@ -145,4 +145,7 @@
     <string name="open_desc_mailto">mailto:</string>
     <string name="open_desc_tel">tel:</string>
     <string name="open_desc_sms">sms: / smsto:</string>
+    <string name="ui_section_apps">应用列表</string>
+    <string name="ui_section_priorities">排序列表</string>
+    <string name="ui_section_components">组件列表</string>
 </resources>
