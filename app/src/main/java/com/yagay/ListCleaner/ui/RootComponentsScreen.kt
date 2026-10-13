@@ -72,6 +72,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
     var appTypeFilter by rememberSaveable { mutableStateOf(AppTypeFilter.ALL) }
     var expandedAppKey by remember { mutableStateOf<String?>(null) }
     var detailsExpanded by rememberSaveable { mutableStateOf(false) }
+    var batchMenuExpanded by remember { mutableStateOf(false) }
     var pendingBatch by remember { mutableStateOf<PendingRootBatch?>(null) }
     pendingBatch?.let { batch ->
         val eligible = batch.targets.filter { item ->
@@ -172,16 +173,44 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             view = viewFilter,
                             onViewChange = { viewFilter = it }
                         )
-                        AdaptiveTextButton(
-                            onClick = { pendingBatch = PendingRootBatch(visible, false) },
-                            enabled = !busy && visible.any { it.blocked == null && it.enabled == true },
-                            contentPadding = PaddingValues(horizontal = 6.dp)
-                        ) { AdaptiveText(stringResource(R.string.select_all)) }
-                        AdaptiveTextButton(
-                            onClick = { pendingBatch = PendingRootBatch(visible, null) },
-                            enabled = !busy && visible.any { it.blocked == null && it.enabled != null },
-                            contentPadding = PaddingValues(horizontal = 6.dp)
-                        ) { AdaptiveText(stringResource(R.string.invert_selection)) }
+                        Box {
+                            AdaptiveTextButton(
+                                onClick = { batchMenuExpanded = true },
+                                enabled = !busy && visible.any { it.blocked == null && it.enabled != null },
+                                contentPadding = PaddingValues(horizontal = 6.dp)
+                            ) {
+                                AdaptiveText(stringResource(R.string.selection_actions))
+                                AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
+                            }
+                            AdaptiveDropdownMenu(
+                                expanded = batchMenuExpanded,
+                                onDismissRequest = { batchMenuExpanded = false }
+                            ) {
+                                AdaptiveDropdownMenuItem(
+                                    text = { AdaptiveText(stringResource(R.string.root_disable_visible)) },
+                                    enabled = visible.any { it.blocked == null && it.enabled == true },
+                                    onClick = {
+                                        batchMenuExpanded = false
+                                        pendingBatch = PendingRootBatch(visible, false)
+                                    }
+                                )
+                                AdaptiveDropdownMenuItem(
+                                    text = { AdaptiveText(stringResource(R.string.root_batch_action_enable)) },
+                                    enabled = visible.any { it.blocked == null && it.enabled == false },
+                                    onClick = {
+                                        batchMenuExpanded = false
+                                        pendingBatch = PendingRootBatch(visible, true)
+                                    }
+                                )
+                                AdaptiveDropdownMenuItem(
+                                    text = { AdaptiveText(stringResource(R.string.invert_selection)) },
+                                    onClick = {
+                                        batchMenuExpanded = false
+                                        pendingBatch = PendingRootBatch(visible, null)
+                                    }
+                                )
+                            }
+                        }
                     }
                     if (batchProgress != null) {
                         val current = requireNotNull(batchProgress)
