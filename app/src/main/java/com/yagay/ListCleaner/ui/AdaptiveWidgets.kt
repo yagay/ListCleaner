@@ -225,13 +225,14 @@ internal fun AdaptiveCheckbox(
 @Composable
 internal fun AdaptiveGroupSurface(
     modifier: Modifier = Modifier,
+    position: MiuixRowPosition = MiuixRowPosition.SINGLE,
     content: @Composable () -> Unit
 ) {
     when (LocalUiThemeStyle.current) {
         UiThemeStyle.MATERIAL -> Box(modifier = modifier, content = { content() })
         UiThemeStyle.MIUIX_STYLE -> MiuixSurface(
-            modifier = modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-            shape = RoundedCornerShape(18.dp),
+            modifier = modifier.padding(horizontal = 14.dp).padding(position.verticalPadding()),
+            shape = position.shape(),
             color = MiuixTheme.colorScheme.surfaceContainer
         ) { content() }
     }

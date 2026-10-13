@@ -28,6 +28,7 @@ import top.yukonga.miuix.kmp.basic.NavigationBar as MiuixNavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationItem as MiuixNavigationItem
 import top.yukonga.miuix.kmp.basic.Scaffold as MiuixScaffold
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 
 /** Separate native Miuix app chrome; dispatches to the shared business ViewModel. */
@@ -56,8 +57,9 @@ internal fun MiuixMainShell(
         topBar = {
             Column {
                 var moreExpanded by remember { mutableStateOf(false) }
-                SmallTopAppBar(
-                    title = stringResource(R.string.app_name),
+                if (searchExpanded) {
+                    SmallTopAppBar(
+                    title = stringResource(destination.labelRes()),
                     navigationIcon = {
                         if (searchExpanded) {
                             MiuixIconButton(onClick = onCloseSearch) {
@@ -94,7 +96,49 @@ internal fun MiuixMainShell(
                             }
                         }
                     }
-                )
+                    )
+                } else {
+                    TopAppBar(
+                        largeTitle = stringResource(destination.labelRes()),
+                    title = stringResource(destination.labelRes()),
+                    navigationIcon = {
+                        if (searchExpanded) {
+                            MiuixIconButton(onClick = onCloseSearch) {
+                                AdaptiveIcon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.close_search))
+                            }
+                        }
+                    },
+                    actions = {
+                        if (searchExpanded) {
+                            MiuixIconButton(onClick = { onQuery("") }) {
+                                AdaptiveIcon(Icons.Rounded.Close, stringResource(R.string.clear_search))
+                            }
+                        } else {
+                            if (showSearch) MiuixIconButton(onClick = onSearch) {
+                                AdaptiveIcon(Icons.Rounded.Search, stringResource(R.string.common_search))
+                            }
+                            MiuixIconButton(onClick = onRefresh) {
+                                AdaptiveIcon(Icons.Rounded.Refresh, stringResource(R.string.common_refresh))
+                            }
+                            Box {
+                                MiuixIconButton(onClick = { moreExpanded = true }) {
+                                    AdaptiveIcon(Icons.Rounded.MoreVert, stringResource(R.string.common_more))
+                                }
+                                AdaptiveDropdownMenu(expanded = moreExpanded, onDismissRequest = { moreExpanded = false }) {
+                                    AdaptiveDropdownMenuItem(
+                                        text = { AdaptiveText(stringResource(R.string.restore_backup)) },
+                                        onClick = { moreExpanded = false; onRestore() }
+                                    )
+                                    AdaptiveDropdownMenuItem(
+                                        text = { AdaptiveText(stringResource(R.string.export_backup)) },
+                                        onClick = { moreExpanded = false; onBackup() }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    )
+                }
                 if (searchExpanded) {
                     Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
                         CompactSearchField(query, onQuery)
