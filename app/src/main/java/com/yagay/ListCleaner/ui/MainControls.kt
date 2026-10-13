@@ -205,7 +205,12 @@ internal fun ListControls(
                 EntryGroupButton(group, state.filter, onFilter)
             }
             AdaptiveTextButton(onClick = { secondaryExpanded = !secondaryExpanded }) {
-                AdaptiveText(stringResource(R.string.ui_filters_actions))
+                AdaptiveText(
+                    if (appTypeFilter != AppTypeFilter.ALL || state.uiFilter != UiFilter.ALL)
+                        stringResource(R.string.ui_filters_actions) + " · " +
+                            stringResource(R.string.view_filter)
+                    else stringResource(R.string.ui_filters_actions)
+                )
                 AdaptiveIcon(
                     if (secondaryExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                     null,
