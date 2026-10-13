@@ -231,6 +231,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Keep independent navigation state for each top-level page.
     private val pageQueries = mutableMapOf<Destination, String>()
     private val pageExpandedApps = mutableMapOf<Destination, String?>()
+    private val pageViewFilters = mutableMapOf<Destination, UiFilter>()
 
     private data class PreparedCandidates(
         val candidates: List<ComponentCandidate>,
@@ -661,15 +662,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         query.value = value
         pageQueries[destination.value] = value
     }
-    fun setUiFilter(value: UiFilter) { uiFilter.value = value }
+    fun setUiFilter(value: UiFilter) {
+        uiFilter.value = value
+        pageViewFilters[destination.value] = value
+    }
     fun setDestination(value: Destination) {
         val previous = destination.value
         if (previous == value) return
         pageQueries[previous] = query.value
         pageExpandedApps[previous] = expandedAppKey.value
+        pageViewFilters[previous] = uiFilter.value
         destination.value = value
         query.value = pageQueries[value].orEmpty()
         expandedAppKey.value = pageExpandedApps[value]
+        uiFilter.value = pageViewFilters[value] ?: UiFilter.ALL
     }
     fun toggleExpandedApp(key: String) {
         val next = if (expandedAppKey.value == key) null else key
