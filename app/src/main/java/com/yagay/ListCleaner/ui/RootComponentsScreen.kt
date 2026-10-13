@@ -146,22 +146,21 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                         top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.surfaceContainer
                     else MaterialTheme.colorScheme.surface
                 )) {
-                    LazyRow(contentPadding = PaddingValues(horizontal = 12.dp)) {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
                         items(listOf<CleanupKind?>(null) + CleanupKind.entries) { entry ->
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                AdaptiveTextButton(onClick = { kind = entry }) {
+                            AdaptiveFilterChip(
+                                selected = kind == entry,
+                                onClick = { kind = entry },
+                                label = {
                                     AdaptiveText(
-                                        entry?.let { stringResource(it.titleRes()) } ?: stringResource(R.string.common_all),
-                                        fontWeight = if (kind == entry) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (kind == entry) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                        entry?.let { stringResource(it.titleRes()) }
+                                            ?: stringResource(R.string.common_all)
                                     )
                                 }
-                                Box(
-                                    Modifier.height(2.dp).width(24.dp).background(
-                                        if (kind == entry) MaterialTheme.colorScheme.primary else Color.Transparent
-                                    )
-                                )
-                            }
+                            )
                         }
                     }
                     Row(
