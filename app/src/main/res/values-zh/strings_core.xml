@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="bulk_lock_options">锁定选项</string>
     <string name="nav_rules">规则</string>
     <string name="nav_priority">排序</string>
     <string name="nav_components">组件</string>
