@@ -47,11 +47,7 @@ internal fun AppRow(
     onUnlock: () -> Unit
 ) {
     val selectedCount = group.components.count { it.rule in selected }
-    val selectionState = when {
-        selectedCount == 0 -> ToggleableState.Off
-        selectedCount == group.components.size -> ToggleableState.On
-        else -> ToggleableState.Indeterminate
-    }
+    val selectionState = listSelectionState(selectedCount, group.components.size)
     val expandLabel = stringResource(if (expanded) R.string.common_collapse else R.string.common_expand)
     val kindTitles = mutableListOf<String>()
     for (kind in IntentKind.entries) {
