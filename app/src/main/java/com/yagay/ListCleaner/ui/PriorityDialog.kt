@@ -505,9 +505,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     }
                                 }
                             )
-                            AppIcon(first.appIcon, first.appLabel)
-                            Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                                AdaptiveText(first.appLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
+                            SharedAppIdentity(icon = first.appIcon, title = first.appLabel) {
                                 val rankText = group.rank?.let {
                                     stringResource(
                                         if (inheritsOpenPriority || inheritsDeepLinkPriority) R.string.priority_rank_inherited else R.string.priority_rank,
