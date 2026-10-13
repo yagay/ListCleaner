@@ -161,7 +161,9 @@ class MainActivity : ComponentActivity() {
             }
         }
         LaunchedEffect(state.destination) {
-            if (state.destination == Destination.DASHBOARD) closeSearch()
+            // Collapsing the search bar must not discard the last query for another page.
+            searchExpanded = false
+            keyboard?.hide()
         }
         LifecycleResumeEffect(vm) {
             vm.refreshModuleStatus()
