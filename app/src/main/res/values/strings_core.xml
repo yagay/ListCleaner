@@ -153,4 +153,7 @@
     <string name="open_desc_mailto">mailto:</string>
     <string name="open_desc_tel">tel:</string>
     <string name="open_desc_sms">sms: / smsto:</string>
+    <string name="ui_section_apps">Applications</string>
+    <string name="ui_section_priorities">Ordering list</string>
+    <string name="ui_section_components">Components</string>
 </resources>
