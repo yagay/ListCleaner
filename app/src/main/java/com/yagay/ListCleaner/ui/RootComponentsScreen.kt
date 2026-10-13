@@ -314,9 +314,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             enabled = !busy && editableComponents.isNotEmpty(),
                             onClick = { pendingBatch = PendingRootBatch(editableComponents, selectionState == ToggleableState.On) }
                         )
-                        AppIcon(first.icon, first.owner)
-                        Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                            AdaptiveText(first.owner, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
+                        SharedAppIdentity(icon = first.icon, title = first.owner) {
                             AdaptiveText(
                                 stringResource(
                                     R.string.root_disabled_summary,
