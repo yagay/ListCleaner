@@ -183,8 +183,6 @@ internal fun ListControls(
     onInvert: (() -> Unit)? = null,
     batchCount: Int? = null,
 ) {
-    var menu by remember { mutableStateOf(false) }
-    var appTypeMenu by remember { mutableStateOf(false) }
     var selectionMenu by remember { mutableStateOf(false) }
     var helpExpanded by remember(state.filter) { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().background(
@@ -213,36 +211,13 @@ internal fun ListControls(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box {
-                AdaptiveTextButton(onClick = { appTypeMenu = true }, contentPadding = PaddingValues(horizontal = 6.dp)) {
-                    AdaptiveText(stringResource(R.string.compact_filter_format, stringResource(R.string.app_type_filter), stringResource(appTypeFilter.titleRes())))
-                    AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
-                }
-                AdaptiveDropdownMenu(expanded = appTypeMenu, onDismissRequest = { appTypeMenu = false }) {
-                    AppTypeFilter.entries.forEach { mode ->
-                        AdaptiveDropdownMenuItem(
-                            text = { AdaptiveText(stringResource(mode.titleRes())) },
-                            leadingIcon = { if (mode == appTypeFilter) AdaptiveIcon(Icons.Rounded.Check, null) },
-                            onClick = { appTypeMenu = false; onAppTypeFilter(mode) }
-                        )
-                    }
-                }
-            }
-            Box {
-                AdaptiveTextButton(onClick = { menu = true }, contentPadding = PaddingValues(horizontal = 6.dp)) {
-                    AdaptiveText(stringResource(R.string.compact_filter_format, stringResource(R.string.view_filter), viewTitle(state.uiFilter)))
-                    AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
-                }
-                AdaptiveDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    UiFilter.entries.forEach { mode ->
-                        AdaptiveDropdownMenuItem(
-                            text = { AdaptiveText(viewTitle(mode)) },
-                            leadingIcon = { if (mode == state.uiFilter) AdaptiveIcon(Icons.Rounded.Check, null) },
-                            onClick = { menu = false; onUiFilter(mode) }
-                        )
-                    }
-                }
-            }
+            UnifiedListFilters(
+                appType = appTypeFilter,
+                onAppTypeChange = onAppTypeFilter,
+                view = state.uiFilter,
+                onViewChange = onUiFilter,
+                viewTitle = viewTitle
+            )
             extraFilter?.invoke()
             if (onSelectAll != null || onSelectNone != null || onInvert != null) {
                 Box {
