@@ -20,6 +20,7 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -184,7 +185,7 @@ internal fun ListControls(
     onInvert: (() -> Unit)? = null,
     batchCount: Int? = null,
 ) {
-    var helpExpanded by remember(state.filter) { mutableStateOf(false) }
+    var helpExpanded by rememberSaveable(state.filter) { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().background(
         if (LocalUiThemeStyle.current == UiThemeStyle.MIUIX_STYLE)
             top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.surfaceContainer
