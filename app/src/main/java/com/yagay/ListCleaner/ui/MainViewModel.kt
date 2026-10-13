@@ -222,20 +222,20 @@ class MainViewModel(application: Application, private val savedStateHandle: Save
         null,
     )
 
-    private val query = MutableStateFlow(savedStateHandle.get<String>("ui.query.RULES").orEmpty())
+    private val restoredDestination = savedStateHandle.get<String>("ui.destination")
+        ?.let { name -> Destination.entries.firstOrNull { it.name == name } } ?: Destination.RULES
+    private val query = MutableStateFlow(
+        savedStateHandle.get<String>("ui.query.${restoredDestination.name}").orEmpty()
+    )
     @OptIn(kotlinx.coroutines.FlowPreview::class)
     private val debouncedQuery = query.debounce(120).distinctUntilChanged()
     private val uiFilter = MutableStateFlow(
-        savedStateHandle.get<String>("ui.filter.RULES")?.let { name ->
+        savedStateHandle.get<String>("ui.filter.${restoredDestination.name}")?.let { name ->
             UiFilter.entries.firstOrNull { it.name == name }
         } ?: UiFilter.ALL
     )
     private val moduleStatus: StateFlow<ModuleStatus> = moduleRuntime.status
-    private val destination = MutableStateFlow(
-        savedStateHandle.get<String>("ui.destination")?.let { name ->
-            Destination.entries.firstOrNull { it.name == name }
-        } ?: Destination.RULES
-    )
+    private val destination = MutableStateFlow(restoredDestination)
     private val expandedAppKey = MutableStateFlow(
         savedStateHandle.get<String>("ui.expanded.${destination.value.name}")
     )
