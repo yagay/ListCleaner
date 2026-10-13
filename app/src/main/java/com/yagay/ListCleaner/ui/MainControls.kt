@@ -184,6 +184,7 @@ internal fun ListControls(
     batchCount: Int? = null,
 ) {
     var helpExpanded by rememberSaveable(state.filter) { mutableStateOf(false) }
+    var secondaryExpanded by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().background(
         if (LocalUiThemeStyle.current == UiThemeStyle.MIUIX_STYLE)
             top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.surfaceContainer
@@ -203,8 +204,16 @@ internal fun ListControls(
             EntryGroup.entries.filter { includeAllKinds || it != EntryGroup.DESKTOP }.forEach { group ->
                 EntryGroupButton(group, state.filter, onFilter)
             }
+            AdaptiveTextButton(onClick = { secondaryExpanded = !secondaryExpanded }) {
+                AdaptiveText(stringResource(R.string.ui_filters_actions))
+                AdaptiveIcon(
+                    if (secondaryExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    null,
+                    Modifier.size(18.dp)
+                )
+            }
         }
-        Row(
+        if (secondaryExpanded) Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
