@@ -29,8 +29,12 @@ internal fun UnifiedListFilters(
                 onClick = { appMenu = true },
                 contentPadding = PaddingValues(horizontal = 6.dp)
             ) {
-                AdaptiveText(stringResource(R.string.compact_filter_format,
-                    stringResource(R.string.app_type_filter), stringResource(appType.titleRes())))
+                AdaptiveText(
+                    stringResource(R.string.compact_filter_format,
+                        stringResource(R.string.app_type_filter), stringResource(appType.titleRes())),
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
                 AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
             }
             AdaptiveDropdownMenu(expanded = appMenu, onDismissRequest = { appMenu = false }) {
@@ -48,8 +52,12 @@ internal fun UnifiedListFilters(
                 onClick = { viewMenu = true },
                 contentPadding = PaddingValues(horizontal = 6.dp)
             ) {
-                AdaptiveText(stringResource(R.string.compact_filter_format,
-                    stringResource(R.string.view_filter), viewTitle(view)))
+                AdaptiveText(
+                    stringResource(R.string.compact_filter_format,
+                        stringResource(R.string.view_filter), viewTitle(view)),
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
                 AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
             }
             AdaptiveDropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
