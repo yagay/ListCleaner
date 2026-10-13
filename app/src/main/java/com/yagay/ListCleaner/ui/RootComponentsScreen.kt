@@ -265,87 +265,58 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
             val onExpand = { expandedAppKey = if (expandedAppKey == expansionKey) null else expansionKey }
 
             item(key = "app|$expansionKey") {
-                val expandLabel = stringResource(if (expanded) R.string.common_collapse else R.string.common_expand)
-                val kindTitles = CleanupKind.entries.filter { entry -> components.any { it.kind == entry } }
-                    .map { stringResource(it.titleRes()) }
+                val kindTitles = CleanupKind.entries.filter { entry ->
+                    components.any { it.kind == entry }
+                }.map { stringResource(it.titleRes()) }
                 val lockState = vm.componentBulkLockState(
-                    kind,
-                    appKey,
-                    lockItemsByApp[appKey].orEmpty()
+                    kind, appKey, lockItemsByApp[appKey].orEmpty()
                 )
-                var lockMenuExpanded by remember { mutableStateOf(false) }
-                AdaptiveGroupSurface(
-                    Modifier.fillMaxWidth(),
-                    position = if (expanded) MiuixRowPosition.FIRST else MiuixRowPosition.SINGLE
-                ) {
-                    Row(
-                        Modifier.fillMaxWidth()
-                            .combinedClickable(
-                                onClickLabel = expandLabel,
-                                onClick = onExpand,
-                                onLongClick = { lockMenuExpanded = true }
-                            )
-                            .heightIn(min = 64.dp).padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                WorkspaceAppRow(
+                    icon = first.icon,
+                    title = first.owner,
+                    subtitle = stringResource(
+                        R.string.root_disabled_summary,
+                        components.count { it.enabled == false },
+                        components.size,
+                        kindTitles.joinToString(" · ")
+                    ),
+                    expanded = expanded,
+                    lockState = lockState,
+                    onExpand = onExpand,
+                    onLock = {
+                        vm.setComponentAppLocked(
+                            kind, appKey, lockItemsByApp[appKey].orEmpty(), true
+                        )
+                    },
+                    onUnlock = {
+                        vm.setComponentAppLocked(
+                            kind, appKey, lockItemsByApp[appKey].orEmpty(), false
+                        )
+                    },
+                    selection = {
                         AdaptiveTriStateCheckbox(
                             state = selectionState,
                             enabled = !busy && editableComponents.isNotEmpty(),
-                            onClick = { pendingBatch = PendingRootBatch(kind, editableComponents, selectionState == ToggleableState.On) }
-                        )
-                        SharedAppIdentity(icon = first.icon, title = first.owner) {
-                            SharedAppSupportingText(
-                                stringResource(
-                                    R.string.root_disabled_summary,
-                                    components.count { it.enabled == false },
-                                    components.size,
-                                    kindTitles.joinToString(" · ")
-                                )
-                            )
-                            if (editableComponents.size < components.size) {
-                                AdaptiveText(
-                                    stringResource(R.string.root_display_only_count, components.size - editableComponents.size),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                            onClick = {
+                                pendingBatch = PendingRootBatch(
+                                    kind, editableComponents, selectionState == ToggleableState.On
                                 )
                             }
-                        }
-                                    AdaptiveIconButton(onClick = { lockMenuExpanded = true }) {
-                            AdaptiveIcon(
-                                if (lockState == BulkLockState.NONE) Icons.Rounded.MoreVert else Icons.Rounded.Lock,
-                                contentDescription = stringResource(R.string.bulk_lock_options),
-                                tint = if (lockState == BulkLockState.PARTIAL) MaterialTheme.colorScheme.tertiary
-                                else LocalContentColor.current
+                        )
+                    },
+                    details = {
+                        if (editableComponents.size < components.size) {
+                            AdaptiveText(
+                                stringResource(
+                                    R.string.root_display_only_count,
+                                    components.size - editableComponents.size
+                                ),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        }
-                        AdaptiveIconButton(onClick = onExpand) {
-                            AdaptiveIcon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, expandLabel)
                         }
                     }
-                    BulkLockContextMenu(
-                        expanded = lockMenuExpanded,
-                        onDismiss = { lockMenuExpanded = false },
-                        canLock = lockState != BulkLockState.FULL,
-                        canUnlock = lockState != BulkLockState.NONE,
-                        onLock = {
-                            vm.setComponentAppLocked(
-                                kind,
-                                appKey,
-                                lockItemsByApp[appKey].orEmpty(),
-                                true
-                            )
-                        },
-                        onUnlock = {
-                            vm.setComponentAppLocked(
-                                kind,
-                                appKey,
-                                lockItemsByApp[appKey].orEmpty(),
-                                false
-                            )
-                        }
-                    )
-                }
-                if (LocalUiThemeStyle.current == UiThemeStyle.MATERIAL) AdaptiveHorizontalDivider()
+                )
             }
 
             if (expanded) itemsIndexed(components, key = { _, item -> item.id }) { componentIndex, item ->

@@ -416,27 +416,43 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                 val first = group.components.first()
                 item(key = "app|$key", contentType = "app") {
                     val marker = MaterialTheme.colorScheme.primary
-                    val expandLabel = stringResource(if (expanded) R.string.common_collapse else R.string.common_expand)
                     val lockState = vm.bulkLockState(lockScope, packageName, emptyList())
-                    AdaptiveGroupSurface(
-                        Modifier.fillMaxWidth(),
-                        position = if (expanded) MiuixRowPosition.FIRST else MiuixRowPosition.SINGLE
-                    ) {
-                        Row(
-                            Modifier.fillMaxWidth()
-                                .alpha(if (drag?.packageName == packageName) 0.3f else 1f)
-                                .drawWithContent {
-                                    drawContent()
-                                    if (drag?.target == packageName && drag.packageName != packageName) {
-                                        val y = if (drag.movingDown) size.height - 2.dp.toPx() else 2.dp.toPx()
-                                        drawLine(marker, Offset(0f, y), Offset(size.width, y), 3.dp.toPx())
-                                    }
+                    val rankText = group.rank?.let {
+                        stringResource(
+                            if (inheritsOpenPriority || inheritsDeepLinkPriority)
+                                R.string.priority_rank_inherited else R.string.priority_rank,
+                            it
+                        )
+                    } ?: stringResource(R.string.priority_not_prioritized)
+                    WorkspaceAppRow(
+                        icon = first.appIcon,
+                        title = first.appLabel,
+                        subtitle = stringResource(
+                            R.string.priority_app_summary, rankText, group.components.size
+                        ),
+                        expanded = expanded,
+                        lockState = lockState,
+                        onExpand = onExpand,
+                        onLock = {
+                            vm.setBulkAppLocked(lockScope, packageName, emptyList(), true)
+                        },
+                        onUnlock = {
+                            vm.setBulkAppLocked(lockScope, packageName, emptyList(), false)
+                        },
+                        modifier = Modifier
+                            .alpha(if (drag?.packageName == packageName) 0.3f else 1f)
+                            .drawWithContent {
+                                drawContent()
+                                if (drag?.target == packageName &&
+                                    drag.packageName != packageName) {
+                                    val y = if (drag.movingDown) size.height - 2.dp.toPx()
+                                    else 2.dp.toPx()
+                                    drawLine(
+                                        marker, Offset(0f, y), Offset(size.width, y), 3.dp.toPx()
+                                    )
                                 }
-                                .clickable(onClickLabel = expandLabel, onClick = onExpand)
-                                .heightIn(min = 64.dp)
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                            },
+                        selection = {
                             AdaptiveCheckbox(
                                 checked = group.rank != null,
                                 enabled = group.rank != null || rankedRaw.size < 200,
@@ -455,103 +471,71 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     }
                                 }
                             )
-                            SharedAppIdentity(icon = first.appIcon, title = first.appLabel) {
-                                val rankText = group.rank?.let {
-                                    stringResource(
-                                        if (inheritsOpenPriority || inheritsDeepLinkPriority) R.string.priority_rank_inherited else R.string.priority_rank,
-                                        it
-                                    )
-                                } ?: stringResource(R.string.priority_not_prioritized)
-                                SharedAppSupportingText(
-                                    stringResource(R.string.priority_app_summary, rankText, group.components.size)
-                                )
-                            }
-                            AdaptiveIconButton(onClick = { lockMenuPackage = packageName }) {
-                                AdaptiveIcon(
-                                    if (lockState == BulkLockState.NONE) Icons.Rounded.MoreVert else Icons.Rounded.Lock,
-                                    contentDescription = stringResource(R.string.bulk_lock_options),
-                                    tint = if (lockState == BulkLockState.PARTIAL) MaterialTheme.colorScheme.tertiary
-                                        else LocalContentColor.current
-                                )
-                            }
-                            if (group.rank != null) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .pointerInput(packageName, moveTargets, rankedRaw, kind, openPreset, browserHost) {
-                                            detectDragGesturesAfterLongPress(
-                                                onDragStart = { touch ->
-                                                    val rowKey = "app|$key"
-                                                    val info = listState.layoutInfo.visibleItemsInfo
-                                                        .firstOrNull { it.key == rowKey }
-                                                    // The handle is centred within the app row: use the
-                                                    // actual touch offset rather than forcing the row centre.
-                                                    val rowY = info?.let {
-                                                        it.offset + (it.size - 40.dp.toPx()) / 2f + touch.y
-                                                    }
-                                                    if (rowY != null && dragState.start(
-                                                            rowY,
-                                                            kind.name,
-                                                            currentVisible,
-                                                            currentSaved
+                        },
+                        trailing = {
+                        if (group.rank != null) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .pointerInput(packageName, moveTargets, rankedRaw, kind, openPreset, browserHost) {
+                                        detectDragGesturesAfterLongPress(
+                                            onDragStart = { touch ->
+                                                val rowKey = "app|$key"
+                                                val info = listState.layoutInfo.visibleItemsInfo
+                                                    .firstOrNull { it.key == rowKey }
+                                                // The handle is centred within the app row: use the
+                                                // actual touch offset rather than forcing the row centre.
+                                                val rowY = info?.let {
+                                                    it.offset + (it.size - 40.dp.toPx()) / 2f + touch.y
+                                                }
+                                                if (rowY != null && dragState.start(
+                                                        rowY,
+                                                        kind.name,
+                                                        currentVisible,
+                                                        currentSaved
+                                                    )
+                                                ) {
+                                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                }
+                                            },
+                                            onDrag = { change, delta ->
+                                                if (dragState.session != null) {
+                                                    change.consume()
+                                                    dragState.move(delta.y)
+                                                }
+                                            },
+                                            onDragCancel = { dragState.cancel() },
+                                            onDragEnd = {
+                                                dragState.finish()?.let { finished ->
+                                                    when {
+                                                        typedOpenPreset != null -> vm.moveOpenTypePriorityTo(
+                                                            typedOpenPreset, finished.packageName,
+                                                            finished.target, finished.visible, finished.saved
                                                         )
-                                                    ) {
-                                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                    }
-                                                },
-                                                onDrag = { change, delta ->
-                                                    if (dragState.session != null) {
-                                                        change.consume()
-                                                        dragState.move(delta.y)
-                                                    }
-                                                },
-                                                onDragCancel = { dragState.cancel() },
-                                                onDragEnd = {
-                                                    dragState.finish()?.let { finished ->
-                                                        when {
-                                                            typedOpenPreset != null -> vm.moveOpenTypePriorityTo(
-                                                                typedOpenPreset, finished.packageName,
-                                                                finished.target, finished.visible, finished.saved
-                                                            )
-                                                            deepLinkHost != null -> vm.moveBrowserHostPriorityTo(
-                                                                deepLinkHost, finished.packageName,
-                                                                finished.target, finished.visible, finished.saved
-                                                            )
-                                                            else -> vm.movePriorityTo(
-                                                                kind, finished.packageName,
-                                                                finished.target, finished.visible, finished.saved
-                                                            )
-                                                        }
+                                                        deepLinkHost != null -> vm.moveBrowserHostPriorityTo(
+                                                            deepLinkHost, finished.packageName,
+                                                            finished.target, finished.visible, finished.saved
+                                                        )
+                                                        else -> vm.movePriorityTo(
+                                                            kind, finished.packageName,
+                                                            finished.target, finished.visible, finished.saved
+                                                        )
                                                     }
                                                 }
-                                            )
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    AdaptiveIcon(
-                                        Icons.Rounded.DragHandle,
-                                        contentDescription = stringResource(R.string.priority_drag_help),
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                }
-                            }
-                            AdaptiveIconButton(onClick = onExpand) {
+                                            }
+                                        )
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
                                 AdaptiveIcon(
-                                    if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                                    expandLabel
+                                    Icons.Rounded.DragHandle,
+                                    contentDescription = stringResource(R.string.priority_drag_help),
+                                    modifier = Modifier.size(22.dp)
                                 )
                             }
                         }
-                        BulkLockContextMenu(
-                            expanded = lockMenuPackage == packageName,
-                            onDismiss = { if (lockMenuPackage == packageName) lockMenuPackage = null },
-                            canLock = lockState != BulkLockState.FULL,
-                            canUnlock = lockState != BulkLockState.NONE,
-                            onLock = { vm.setBulkAppLocked(lockScope, packageName, emptyList(), true) },
-                            onUnlock = { vm.setBulkAppLocked(lockScope, packageName, emptyList(), false) }
-                        )
-                    }
-                    if (LocalUiThemeStyle.current == UiThemeStyle.MATERIAL) AdaptiveHorizontalDivider()
+                        }
+                    )
                 }
                 if (expanded) {
                     if (group.rank != null) {

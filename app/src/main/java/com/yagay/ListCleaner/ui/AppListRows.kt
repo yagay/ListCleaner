@@ -54,67 +54,37 @@ internal fun AppRow(
     for (kind in IntentKind.entries) {
         if (group.components.any { it.rule.kind == kind }) kindTitles += stringResource(kind.titleRes())
     }
-    var lockMenuExpanded by remember { mutableStateOf(false) }
-
-    AdaptiveGroupSurface(
-        Modifier.fillMaxWidth(),
-        position = if (expanded) MiuixRowPosition.FIRST else MiuixRowPosition.SINGLE
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth()
-                .combinedClickable(
-                    onClickLabel = expandLabel,
-                    onClick = onExpand,
-                    onLongClick = { lockMenuExpanded = true }
-                )
-                .heightIn(min = 64.dp)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            AdaptiveTriStateCheckbox(state = selectionState, onClick = { onSelect(selectionState != ToggleableState.On) })
-            SharedAppIdentity(icon = group.appIcon, title = group.appLabel) {
-                SharedAppSupportingText(
-                    stringResource(
-                        R.string.app_row_selection_summary,
-                        selectedCount,
-                        group.components.size,
-                        kindTitles.joinToString(" · ")
-                    )
-                )
-                val missing = group.components.count { it.unavailable || it.restricted }
-                if (missing > 0) {
-                    AdaptiveText(
-                        stringResource(R.string.app_row_unavailable_warning),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                AdaptiveIconButton(onClick = { lockMenuExpanded = true }) {
-                    AdaptiveIcon(
-                        if (lockState == BulkLockState.NONE) Icons.Rounded.MoreVert else Icons.Rounded.Lock,
-                        contentDescription = stringResource(R.string.bulk_lock_options),
-                        tint = if (lockState == BulkLockState.PARTIAL) MaterialTheme.colorScheme.tertiary
-                        else LocalContentColor.current
-                    )
-                }
-                AdaptiveIcon(
-                    if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                    contentDescription = expandLabel,
-                    modifier = Modifier.size(18.dp)
+    WorkspaceAppRow(
+        icon = group.appIcon,
+        title = group.appLabel,
+        subtitle = stringResource(
+            R.string.app_row_selection_summary,
+            selectedCount,
+            group.components.size,
+            kindTitles.joinToString(" · ")
+        ),
+        expanded = expanded,
+        lockState = lockState,
+        onExpand = onExpand,
+        onLock = onLock,
+        onUnlock = onUnlock,
+        selection = {
+            AdaptiveTriStateCheckbox(
+                state = selectionState,
+                onClick = { onSelect(selectionState != ToggleableState.On) }
+            )
+        },
+        details = {
+            val missing = group.components.count { it.unavailable || it.restricted }
+            if (missing > 0) {
+                AdaptiveText(
+                    stringResource(R.string.app_row_unavailable_warning),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error
                 )
             }
         }
-        BulkLockContextMenu(
-            expanded = lockMenuExpanded,
-            onDismiss = { lockMenuExpanded = false },
-            canLock = lockState != BulkLockState.FULL,
-            canUnlock = lockState != BulkLockState.NONE,
-            onLock = onLock,
-            onUnlock = onUnlock,
-        )
-    }
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)
