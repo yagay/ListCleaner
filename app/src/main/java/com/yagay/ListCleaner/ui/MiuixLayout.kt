@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card as MaterialCard
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -52,7 +53,12 @@ internal fun PageFilterSection(content: @Composable () -> Unit) {
             Column(Modifier.padding(vertical = 8.dp)) { content() }
         }
     } else {
-        AdaptiveSurface(tonalElevation = 2.dp) { content() }
+        MaterialCard(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+            shape = RoundedCornerShape(18.dp)
+        ) {
+            Column(Modifier.padding(vertical = 6.dp)) { content() }
+        }
     }
 }
 
