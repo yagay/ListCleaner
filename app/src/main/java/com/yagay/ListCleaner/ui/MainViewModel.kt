@@ -228,6 +228,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val moduleStatus: StateFlow<ModuleStatus> = moduleRuntime.status
     private val destination = MutableStateFlow(Destination.RULES)
     private val expandedAppKey = MutableStateFlow<String?>(null)
+    // Keep independent navigation state for each top-level page.
+    private val pageQueries = mutableMapOf<Destination, String>()
+    private val pageExpandedApps = mutableMapOf<Destination, String?>()
 
     private data class PreparedCandidates(
         val candidates: List<ComponentCandidate>,
@@ -654,16 +657,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setFilter(value: IntentKind?) { entryContext.update { it.withKind(value) } }
     fun setRuleOpenPreset(value: OpenPreset?) { entryContext.update { it.copy(openPreset = value) } }
     fun setRuleBrowserHost(value: String?) { entryContext.update { it.copy(browserHost = value) } }
-    fun setQuery(value: String) { query.value = value }
+    fun setQuery(value: String) {
+        query.value = value
+        pageQueries[destination.value] = value
+    }
     fun setUiFilter(value: UiFilter) { uiFilter.value = value }
     fun setDestination(value: Destination) {
-        if (destination.value != value) {
-            query.value = ""
-            expandedAppKey.value = null
-        }
+        val previous = destination.value
+        if (previous == value) return
+        pageQueries[previous] = query.value
+        pageExpandedApps[previous] = expandedAppKey.value
         destination.value = value
+        query.value = pageQueries[value].orEmpty()
+        expandedAppKey.value = pageExpandedApps[value]
     }
-    fun toggleExpandedApp(key: String) { expandedAppKey.value = if (expandedAppKey.value == key) null else key }
+    fun toggleExpandedApp(key: String) {
+        val next = if (expandedAppKey.value == key) null else key
+        expandedAppKey.value = next
+        pageExpandedApps[destination.value] = next
+    }
     fun previewImportJson(content: String) = app.rules.previewImportJson(content)
     fun exportJson(): String = app.rules.exportJson()
     fun importJson(content: String) = app.rules.importJson(content)
