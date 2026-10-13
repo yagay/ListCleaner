@@ -228,6 +228,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val moduleStatus: StateFlow<ModuleStatus> = moduleRuntime.status
     private val destination = MutableStateFlow(Destination.RULES)
     private val expandedAppKey = MutableStateFlow<String?>(null)
+    // Keep transient list navigation state separate for each bottom navigation page.
+    // Configuration, hooks and stored rule definitions are not affected.
+    private val pageQueries = mutableMapOf<Destination, String>()
+    private val pageExpandedKeys = mutableMapOf<Destination, String?>()
+
 
     private data class PreparedCandidates(
         val candidates: List<ComponentCandidate>,
@@ -657,10 +662,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setQuery(value: String) { query.value = value }
     fun setUiFilter(value: UiFilter) { uiFilter.value = value }
     fun setDestination(value: Destination) {
-        if (destination.value != value) {
-            query.value = ""
-            expandedAppKey.value = null
-        }
+        val previous = destination.value
+        if (previous == value) return
+        pageQueries[previous] = query.value
+        pageExpandedKeys[previous] = expandedAppKey.value
+        // Switching tabs should not transfer searches or expanded apps to another page.
+        query.value = pageQueries[value].orEmpty()
+        expandedAppKey.value = pageExpandedKeys[value]
         destination.value = value
     }
     fun toggleExpandedApp(key: String) { expandedAppKey.value = if (expandedAppKey.value == key) null else key }
