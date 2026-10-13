@@ -102,12 +102,13 @@ internal fun MainToolbar(
     onRestore: () -> Unit,
     onBackup: () -> Unit,
     showSearch: Boolean = true,
+    destination: Destination = Destination.RULES,
 ) {
     var menu by remember { mutableStateOf(false) }
     TopAppBar(
         title = {
             if (expanded) CompactSearchField(query, onQuery)
-            else AdaptiveText(stringResource(R.string.app_name), fontWeight = FontWeight.Bold, maxLines = 1)
+            else AdaptiveText(stringResource(destination.labelRes()), fontWeight = FontWeight.Bold, maxLines = 1)
         },
         navigationIcon = {
             if (expanded) AdaptiveIconButton(onClick = onClose) {
