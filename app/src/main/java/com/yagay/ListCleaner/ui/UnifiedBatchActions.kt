@@ -23,6 +23,9 @@ internal fun UnifiedBatchActions(
     enabled: Boolean = true
 ) {
     var expanded by remember { mutableStateOf(false) }
+    LaunchedEffect(enabled, actions.any { it.enabled }) {
+        if (!enabled || actions.none { it.enabled }) expanded = false
+    }
     Box {
         AdaptiveTextButton(
             onClick = { expanded = true },
