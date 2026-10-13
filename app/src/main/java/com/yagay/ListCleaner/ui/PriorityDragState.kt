@@ -21,6 +21,17 @@ internal data class PriorityDragSession(
     val movingDown: Boolean get() = visible.indexOf(target) > visible.indexOf(packageName)
 }
 
+/** Match only rows in the current ordering scope, including newly scrolled-in rows. */
+internal fun priorityDragTargetPackage(
+    key: Any?,
+    prefix: String,
+    visible: Collection<String>
+): String? {
+    val rowKey = key as? String ?: return null
+    if (!rowKey.startsWith(prefix)) return null
+    return rowKey.removePrefix(prefix).takeIf { it in visible }
+}
+
 internal class PriorityDragState(private val list: LazyListState) {
     var session by mutableStateOf<PriorityDragSession?>(null)
         private set
@@ -74,10 +85,9 @@ internal class PriorityDragState(private val list: LazyListState) {
         val sourceKey = drag.keys.entries.firstOrNull { it.value == drag.packageName }?.key ?: return
         val prefix = sourceKey.substringBeforeLast('|') + "|"
         val target = layout.visibleItemsInfo.mapNotNull { info ->
-            val key = info.key as? String ?: return@mapNotNull null
-            val pkg = key.takeIf { it.startsWith(prefix) }?.removePrefix(prefix)
+            val pkg = priorityDragTargetPackage(info.key, prefix, drag.visible)
                 ?: return@mapNotNull null
-            if (pkg !in drag.visible || info.offset + info.size <= top ||
+            if (info.offset + info.size <= top ||
                 info.offset >= layout.viewportEndOffset) return@mapNotNull null
             info to pkg
         }.minByOrNull { (info, _) ->
