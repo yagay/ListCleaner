@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -67,6 +68,7 @@ class MainActivity : ComponentActivity() {
         vm: MainViewModel = viewModel()
     ) {
         val state by vm.state.collectAsStateWithLifecycle()
+        val screenStates = rememberSaveableStateHolder()
         var searchExpanded by rememberSaveable { mutableStateOf(false) }
         var restartPromptDismissed by rememberSaveable { mutableStateOf(false) }
         var pendingImport by remember { mutableStateOf<Pair<String, BackupImportPreview>?>(null) }
@@ -151,12 +153,10 @@ class MainActivity : ComponentActivity() {
         BackHandler(enabled = searchExpanded, onBack = closeSearch)
         BackHandler(enabled = !searchExpanded && (state.filter != null || state.destination != Destination.RULES)) {
             when {
-                state.destination != Destination.RULES && state.destination != Destination.PRIORITY ->
-                    vm.setDestination(Destination.RULES)
                 vm.ruleOpenPreset.value != null -> vm.setRuleOpenPreset(null)
                 vm.ruleBrowserHost.value != null -> vm.setRuleBrowserHost(null)
                 state.filter != null -> vm.setFilter(null)
-                else -> vm.setDestination(Destination.RULES)
+                state.destination != Destination.RULES -> vm.setDestination(Destination.RULES)
             }
         }
         LaunchedEffect(state.destination) {
@@ -218,6 +218,7 @@ class MainActivity : ComponentActivity() {
         }
         val pageContent: @Composable (androidx.compose.foundation.layout.PaddingValues) -> Unit = { padding ->
             Box(Modifier.padding(padding).fillMaxSize()) {
+                screenStates.SaveableStateProvider(state.destination.name) {
                 when (state.destination) {
                     Destination.RULES -> RulesTab(state, vm)
                     Destination.PRIORITY -> PriorityTab(state, vm)
@@ -237,7 +238,9 @@ class MainActivity : ComponentActivity() {
                         onThemeStyleChange = onThemeStyleChange
                     )
                 }
-            }        }
+                }
+            }
+        }
         if (themeStyle == UiThemeStyle.MIUIX_STYLE) {
             MiuixMainShell(
                 query = state.query,
