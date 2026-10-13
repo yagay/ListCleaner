@@ -153,6 +153,7 @@ class MainActivity : ComponentActivity() {
         BackHandler(enabled = searchExpanded, onBack = closeSearch)
         BackHandler(enabled = !searchExpanded && (state.filter != null || state.destination != Destination.RULES)) {
             when {
+                state.destination == Destination.TILES -> vm.setDestination(Destination.RULES)
                 vm.ruleOpenPreset.value != null -> vm.setRuleOpenPreset(null)
                 vm.ruleBrowserHost.value != null -> vm.setRuleBrowserHost(null)
                 state.filter != null -> vm.setFilter(null)
