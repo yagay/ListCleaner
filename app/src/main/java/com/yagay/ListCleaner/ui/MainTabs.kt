@@ -218,7 +218,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
             }
         }
         item(key = "list-summary") {
-            PageResultsSection(stringResource(R.string.nav_rules))
+            PageResultsSection(stringResource(R.string.ui_section_apps))
             SummaryRow(state, shownGroups.size)
             if (openPreset == null && state.uiFilter != UiFilter.SHOW_SELECTED && state.candidates.any {
                     it.rule in state.selected && (it.unavailable || it.restricted)
