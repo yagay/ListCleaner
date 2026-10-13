@@ -5,6 +5,7 @@
     <string name="nav_priority">Ordering</string>
     <string name="nav_components">Components</string>
     <string name="nav_status">Status</string>
+    <string name="nav_manage">Manage</string>
 
     <!-- Common -->
     <string name="common_all">All</string>
