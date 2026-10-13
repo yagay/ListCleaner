@@ -308,11 +308,6 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    AdaptiveText(
-                        stringResource(R.string.priority_drag_help),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                     if (typedOpenPreset != null) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             AdaptiveText(
