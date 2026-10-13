@@ -173,7 +173,9 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
         baseGroups
     }
     val groups = lockFilteredGroups.filter { appTypeFilter.matches(it.appType) }
-    val moveTargets = groups.filter { it.rank != null }.sortedBy { it.rank }.map { it.packageName }
+    val prioritizedGroups = groups.filter { it.rank != null }.sortedBy { it.rank }
+    val displayGroups = prioritizedGroups + groups.filter { it.rank == null }
+    val moveTargets = prioritizedGroups.map { it.packageName }
 
     val listState = rememberLazyListState()
     val dragState = remember(listState) { PriorityDragState(listState) }
@@ -441,8 +443,8 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
             }
 
             // Visually separate the ordered area from the remaining system candidates.
-            groups.forEachIndexed { index, group ->
-                if (index == 0 || groups[index - 1].rank?.let { true } != group.rank?.let { true }) {
+            displayGroups.forEachIndexed { index, group ->
+                if (index == 0 || (displayGroups[index - 1].rank != null) != (group.rank != null)) {
                     item(key = "section|${if (group.rank != null) "prioritized" else "other"}") {
                         AdaptiveText(
                             stringResource(
