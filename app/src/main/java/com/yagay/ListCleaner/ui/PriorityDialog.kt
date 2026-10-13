@@ -87,8 +87,6 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
     var expandedKey by rememberSaveable { mutableStateOf<String?>(null) }
     var lockMenuPackage by rememberSaveable { mutableStateOf<String?>(null) }
-    var pendingLongPressY by remember { mutableStateOf<Float?>(null) }
-    var longPressMoved by remember { mutableStateOf(false) }
     LaunchedEffect(kind) {
         if (kind != IntentKind.OPEN) vm.setRuleOpenPreset(null)
         if (kind != IntentKind.DEEP_LINK) vm.setRuleBrowserHost(null)
@@ -188,17 +186,6 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     val density = LocalDensity.current
     val edge = with(density) { 56.dp.toPx() }
     val speed = with(density) { 640.dp.toPx() }
-    val scopeToken = openPreset?.name ?: browserHost ?: "ALL"
-    val appRowsByKey = remember(groups, kind, scopeToken) {
-        groups.associateBy { group -> "app|${kind.name}|$scopeToken|${group.packageName}" }
-    }
-    fun packageAt(y: Float): String? {
-        val row = listState.layoutInfo.visibleItemsInfo.firstOrNull { info ->
-            info.key in appRowsByKey && y >= info.offset && y < info.offset + info.size
-        } ?: return null
-        return appRowsByKey[row.key]?.packageName
-    }
-
     LaunchedEffect(kind, openPreset, browserHost, viewFilter, appTypeFilter, state.query, rankedRaw, moveTargets) {
         dragState.cancel()
         lockMenuPackage = null
@@ -222,49 +209,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
-            Modifier.fillMaxSize().pointerInput(kind, openPreset, browserHost, viewFilter, appTypeFilter, state.query, groups) {
-                detectDragGesturesAfterLongPress(
-                    onDragStart = { position ->
-                        pendingLongPressY = position.y
-                        longPressMoved = false
-                    },
-                    onDrag = { change, amount ->
-                        if (!longPressMoved) {
-                            longPressMoved = true
-                            val startY = pendingLongPressY ?: change.position.y
-                            if (dragState.start(startY, kind.name, currentVisible, currentSaved)) {
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                change.consume()
-                                dragState.move(amount.y)
-                            }
-                        } else if (dragState.session != null) {
-                            change.consume()
-                            dragState.move(amount.y)
-                        }
-                    },
-                    onDragCancel = {
-                        pendingLongPressY = null
-                        longPressMoved = false
-                        dragState.cancel()
-                    },
-                    onDragEnd = {
-                        val finished = dragState.finish()
-                        if (finished != null) {
-                            when {
-                                typedOpenPreset != null ->
-                                    vm.moveOpenTypePriorityTo(typedOpenPreset, finished.packageName, finished.target, finished.visible, finished.saved)
-                                deepLinkHost != null ->
-                                    vm.moveBrowserHostPriorityTo(deepLinkHost, finished.packageName, finished.target, finished.visible, finished.saved)
-                                else -> vm.movePriorityTo(kind, finished.packageName, finished.target, finished.visible, finished.saved)
-                            }
-                        } else if (!longPressMoved) {
-                            pendingLongPressY?.let { y -> lockMenuPackage = packageAt(y) }
-                        }
-                        pendingLongPressY = null
-                        longPressMoved = false
-                    }
-                )
-            },
+            Modifier.fillMaxSize(),
             state = listState,
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
@@ -530,7 +475,51 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 AdaptiveIcon(
                                     Icons.Rounded.DragHandle,
                                     contentDescription = stringResource(R.string.priority_drag_help),
-                                    modifier = Modifier.padding(horizontal = 4.dp)
+                                    modifier = Modifier
+                                        .padding(horizontal = 4.dp)
+                                        .pointerInput(packageName, moveTargets, rankedRaw, kind, openPreset, browserHost) {
+                                            detectDragGesturesAfterLongPress(
+                                                onDragStart = {
+                                                    val rowKey = "app|$key"
+                                                    val info = listState.layoutInfo.visibleItemsInfo
+                                                        .firstOrNull { it.key == rowKey }
+                                                    if (info != null && dragState.start(
+                                                            info.offset + info.size / 2f,
+                                                            kind.name,
+                                                            currentVisible,
+                                                            currentSaved
+                                                        )
+                                                    ) {
+                                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                    }
+                                                },
+                                                onDrag = { change, delta ->
+                                                    if (dragState.session != null) {
+                                                        change.consume()
+                                                        dragState.move(delta.y)
+                                                    }
+                                                },
+                                                onDragCancel = { dragState.cancel() },
+                                                onDragEnd = {
+                                                    dragState.finish()?.let { finished ->
+                                                        when {
+                                                            typedOpenPreset != null -> vm.moveOpenTypePriorityTo(
+                                                                typedOpenPreset, finished.packageName,
+                                                                finished.target, finished.visible, finished.saved
+                                                            )
+                                                            deepLinkHost != null -> vm.moveBrowserHostPriorityTo(
+                                                                deepLinkHost, finished.packageName,
+                                                                finished.target, finished.visible, finished.saved
+                                                            )
+                                                            else -> vm.movePriorityTo(
+                                                                kind, finished.packageName,
+                                                                finished.target, finished.visible, finished.saved
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            )
+                                        }
                                 )
                             }
                             AdaptiveIconButton(onClick = onExpand) {
