@@ -67,11 +67,11 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
         )
     }
 
-    var kind by remember { mutableStateOf<CleanupKind?>(null) }
+    var kind by rememberSaveable { mutableStateOf<CleanupKind?>(null) }
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
     var viewFilter by rememberSaveable { mutableStateOf(UiFilter.ALL) }
     var appTypeFilter by rememberSaveable { mutableStateOf(AppTypeFilter.ALL) }
-    var expandedAppKey by remember { mutableStateOf<String?>(null) }
+    var expandedAppKey by rememberSaveable { mutableStateOf<String?>(null) }
     var detailsExpanded by rememberSaveable { mutableStateOf(false) }
     var pendingBatch by remember { mutableStateOf<PendingRootBatch?>(null) }
     pendingBatch?.let { batch ->
