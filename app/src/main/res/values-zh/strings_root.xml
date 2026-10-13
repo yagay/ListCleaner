@@ -68,6 +68,8 @@
     <string name="root_batch_confirm_body">确定要%1$s %2$d 个组件吗？将跳过 %3$d 项（已锁定、状态无需改变或不可操作）。组件修改会立即影响 Android 系统。</string>
     <string name="root_batch_action_enable">启用</string>
     <string name="root_batch_action_disable">禁用</string>
+    <string name="root_disable_visible">禁用可见项</string>
+    <string name="root_invert_visible">反选可见项</string>
     <string name="root_batch_action_invert">反选</string>
     <string name="root_help_expand">展开组件使用说明</string>
     <string name="root_help_collapse">收起组件使用说明</string>
