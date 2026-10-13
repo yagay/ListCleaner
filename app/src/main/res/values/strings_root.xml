@@ -68,6 +68,8 @@
     <string name="root_batch_confirm_body">%1$s %2$d components? %3$d entries will be skipped (locked, already in the requested state, or unavailable). Component changes take effect immediately.</string>
     <string name="root_batch_action_enable">Enable</string>
     <string name="root_batch_action_disable">Disable</string>
+    <string name="root_disable_visible">Disable shown</string>
+    <string name="root_invert_visible">Invert shown</string>
     <string name="root_batch_action_invert">Invert</string>
     <string name="root_help_expand">Show component help</string>
     <string name="root_help_collapse">Hide component help</string>
