@@ -53,74 +53,35 @@ internal fun AppRow(
     for (kind in IntentKind.entries) {
         if (group.components.any { it.rule.kind == kind }) kindTitles += stringResource(kind.titleRes())
     }
-    var lockMenuExpanded by remember { mutableStateOf(false) }
-
-    AdaptiveGroupSurface(
-        Modifier.fillMaxWidth(),
-        position = if (expanded) MiuixRowPosition.FIRST else MiuixRowPosition.SINGLE
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth()
-                .combinedClickable(
-                    onClickLabel = expandLabel,
-                    onClick = onExpand,
-                    onLongClick = { lockMenuExpanded = true }
-                )
-                .heightIn(min = 64.dp)
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            AdaptiveTriStateCheckbox(state = selectionState, onClick = { onSelect(selectionState != ToggleableState.On) })
-            AppIcon(bitmap = group.appIcon, appLabel = group.appLabel)
-            Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                AdaptiveText(group.appLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
+    WorkspaceAppRow(
+        icon = group.appIcon,
+        title = group.appLabel,
+        subtitle = stringResource(
+            R.string.app_row_selection_summary, selectedCount,
+            group.components.size, kindTitles.joinToString(" · ")
+        ),
+        expanded = expanded,
+        lockState = lockState,
+        onExpand = onExpand,
+        onLock = onLock,
+        onUnlock = onUnlock,
+        selection = {
+            AdaptiveTriStateCheckbox(
+                state = selectionState,
+                onClick = { onSelect(selectionState != ToggleableState.On) }
+            )
+        },
+        details = {
+            if (group.components.any { it.unavailable || it.restricted }) {
                 AdaptiveText(
-                    stringResource(
-                        R.string.app_row_selection_summary,
-                        selectedCount,
-                        group.components.size,
-                        kindTitles.joinToString(" · ")
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    stringResource(R.string.app_row_unavailable_warning),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error,
+                    maxLines = 1
                 )
-                val missing = group.components.count { it.unavailable || it.restricted }
-                if (missing > 0) {
-                    AdaptiveText(
-                        stringResource(R.string.app_row_unavailable_warning),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-            if (lockState != BulkLockState.NONE) {
-                AdaptiveIcon(
-                    Icons.Rounded.Lock,
-                    contentDescription = stringResource(
-                        if (lockState == BulkLockState.PARTIAL) R.string.bulk_lock_partial
-                        else R.string.bulk_lock_full
-                    ),
-                    modifier = Modifier.padding(horizontal = 8.dp).size(20.dp),
-                    tint = if (lockState == BulkLockState.PARTIAL) MaterialTheme.colorScheme.tertiary
-                    else LocalContentColor.current
-                )
-            }
-            AdaptiveIconButton(onClick = onExpand) {
-                AdaptiveIcon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, expandLabel)
             }
         }
-        BulkLockContextMenu(
-            expanded = lockMenuExpanded,
-            onDismiss = { lockMenuExpanded = false },
-            canLock = lockState != BulkLockState.FULL,
-            canUnlock = lockState != BulkLockState.NONE,
-            onLock = onLock,
-            onUnlock = onUnlock,
-        )
-    }
-    if (LocalUiThemeStyle.current == UiThemeStyle.MATERIAL) AdaptiveHorizontalDivider()
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -279,13 +240,13 @@ private fun ComponentSelectionMark(checked: Boolean) {
 @Composable
 internal fun AppIcon(bitmap: Bitmap?, appLabel: String) {
     if (bitmap == null) {
-        AdaptiveIcon(Icons.Rounded.Apps, null, Modifier.size(40.dp))
+        AdaptiveIcon(Icons.Rounded.Apps, null, Modifier.size(36.dp))
         return
     }
     Image(
         bitmap = bitmap.asImageBitmap(),
         contentDescription = stringResource(R.string.app_icon_description, appLabel),
-        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(9.dp)),
+        modifier = Modifier.size(36.dp).clip(RoundedCornerShape(9.dp)),
         contentScale = ContentScale.Fit
     )
 }

@@ -176,6 +176,7 @@ internal fun ListControls(
     appTypeFilter: AppTypeFilter = AppTypeFilter.ALL,
     onAppTypeFilter: (AppTypeFilter) -> Unit = {},
     includeAllKinds: Boolean = true,
+    showEntryGroups: Boolean = true,
     viewTitle: @Composable (UiFilter) -> String = { stringResource(it.titleRes()) },
     extraFilter: (@Composable () -> Unit)? = null,
     onSelectAll: (() -> Unit)? = null,
@@ -192,23 +193,25 @@ internal fun ListControls(
             top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.surfaceContainer
         else MaterialTheme.colorScheme.surface
     )) {
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (includeAllKinds) {
-                AdaptiveTextButton(onClick = { onFilter(null) }) {
-                    AdaptiveText(
-                        stringResource(R.string.common_all),
-                        fontWeight = if (state.filter == null) FontWeight.Bold else FontWeight.Normal,
-                        color = if (state.filter == null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        if (showEntryGroups) {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (includeAllKinds) {
+                    AdaptiveFilterChip(
+                        selected = state.filter == null,
+                        onClick = { onFilter(null) },
+                        label = { AdaptiveText(stringResource(R.string.common_all)) }
                     )
                 }
-            }
-            EntryGroup.entries.filter { includeAllKinds || it != EntryGroup.DESKTOP }.forEach { group ->
-                EntryGroupButton(group, state.filter, onFilter)
+                EntryGroup.entries.filter { includeAllKinds || it != EntryGroup.DESKTOP }.forEach { group ->
+                    EntryGroupButton(group, state.filter, onFilter)
+                }
             }
         }
+
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -267,27 +270,19 @@ internal fun ListControls(
                     }
                 }
             }
+            AdaptiveTextButton(
+                onClick = { helpExpanded = !helpExpanded },
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+                AdaptiveText(stringResource(R.string.entry_help_title), maxLines = 1)
+                AdaptiveIcon(
+                    if (helpExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
         val selectedKind = state.filter
-        AdaptiveTextButton(
-            onClick = { helpExpanded = !helpExpanded },
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 2.dp),
-        ) {
-            AdaptiveText(
-                if (selectedKind == null) stringResource(R.string.entry_help_title)
-                else stringResource(selectedKind.titleRes()),
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = if (selectedKind == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
-            )
-            AdaptiveIcon(
-                if (helpExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                contentDescription = stringResource(if (helpExpanded) R.string.common_collapse else R.string.common_expand),
-                modifier = Modifier.size(18.dp),
-            )
-        }
         if (helpExpanded) {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) {
                 AdaptiveText(

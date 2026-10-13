@@ -1,5 +1,6 @@
 package com.yagay.ListCleaner.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -13,6 +14,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
@@ -38,6 +40,8 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.ComponentCandidate
+import com.yagay.ListCleaner.domain.EntryGroup
+import com.yagay.ListCleaner.domain.entryGroup
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.AppTypeFilter
 import com.yagay.ListCleaner.domain.OpenPreset
@@ -76,17 +80,43 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
         )
     }
 
+    var sortingGroup by rememberSaveable { mutableStateOf<EntryGroup?>(null) }
+    BackHandler(enabled = state.filter == null && sortingGroup != null) {
+        sortingGroup = null
+    }
+    if (state.filter == null && state.query.isBlank()) {
+        EntryWorkspaceHome(
+            selectedGroup = sortingGroup,
+            availableGroups = EntryGroup.entries.filter { it != EntryGroup.DESKTOP },
+            showUtilities = false,
+            onGroup = { sortingGroup = it },
+            onKind = { kind ->
+                sortingGroup = kind.entryGroup()
+                vm.setFilter(kind)
+            },
+            onBack = { sortingGroup = null },
+            onAllApps = {},
+            onComponents = {},
+            status = {
+                ModuleStatusRow(state, compact = true) {
+                    vm.setDestination(Destination.DASHBOARD)
+                }
+                if (state.runtime.needsDecision) RuntimePanel(
+                    state, vm, showUpdateTools = false
+                )
+            }
+        )
+        return
+    }
     val kind = state.filter ?: IntentKind.SHARE
     val openPreset by vm.ruleOpenPreset.collectAsStateWithLifecycle()
     val browserHost by vm.ruleBrowserHost.collectAsStateWithLifecycle()
     var confirmPriorityReset by remember { mutableStateOf(false) }
+    var sortHelpExpanded by rememberSaveable { mutableStateOf(false) }
     var viewFilter by rememberSaveable { mutableStateOf(UiFilter.ALL) }
     var appTypeFilter by rememberSaveable { mutableStateOf(AppTypeFilter.ALL) }
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
     var expandedKey by rememberSaveable { mutableStateOf<String?>(null) }
-    var lockMenuPackage by rememberSaveable { mutableStateOf<String?>(null) }
-    var pendingLongPressY by remember { mutableStateOf<Float?>(null) }
-    var longPressMoved by remember { mutableStateOf(false) }
     LaunchedEffect(kind) {
         if (kind != IntentKind.OPEN) vm.setRuleOpenPreset(null)
         if (kind != IntentKind.DEEP_LINK) vm.setRuleBrowserHost(null)
@@ -184,20 +214,8 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     val density = LocalDensity.current
     val edge = with(density) { 56.dp.toPx() }
     val speed = with(density) { 640.dp.toPx() }
-    val scopeToken = openPreset?.name ?: browserHost ?: "ALL"
-    val appRowsByKey = remember(groups, kind, scopeToken) {
-        groups.associateBy { group -> "app|${kind.name}|$scopeToken|${group.packageName}" }
-    }
-    fun packageAt(y: Float): String? {
-        val row = listState.layoutInfo.visibleItemsInfo.firstOrNull { info ->
-            info.key in appRowsByKey && y >= info.offset && y < info.offset + info.size
-        } ?: return null
-        return appRowsByKey[row.key]?.packageName
-    }
-
     LaunchedEffect(kind, openPreset, browserHost, viewFilter, appTypeFilter, state.query, rankedRaw, moveTargets) {
         dragState.cancel()
-        lockMenuPackage = null
     }
     DisposableEffect(dragState) { onDispose { dragState.cancel() } }
     LaunchedEffect(drag?.packageName) {
@@ -218,54 +236,24 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
-            Modifier.fillMaxSize().pointerInput(kind, openPreset, browserHost, viewFilter, appTypeFilter, state.query, groups) {
-                detectDragGesturesAfterLongPress(
-                    onDragStart = { position ->
-                        pendingLongPressY = position.y
-                        longPressMoved = false
-                    },
-                    onDrag = { change, amount ->
-                        if (!longPressMoved) {
-                            longPressMoved = true
-                            val startY = pendingLongPressY ?: change.position.y
-                            if (dragState.start(startY, kind.name, currentVisible, currentSaved)) {
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                change.consume()
-                                dragState.move(amount.y)
-                            }
-                        } else if (dragState.session != null) {
-                            change.consume()
-                            dragState.move(amount.y)
-                        }
-                    },
-                    onDragCancel = {
-                        pendingLongPressY = null
-                        longPressMoved = false
-                        dragState.cancel()
-                    },
-                    onDragEnd = {
-                        val finished = dragState.finish()
-                        if (finished != null) {
-                            when {
-                                typedOpenPreset != null ->
-                                    vm.moveOpenTypePriorityTo(typedOpenPreset, finished.packageName, finished.target, finished.visible, finished.saved)
-                                deepLinkHost != null ->
-                                    vm.moveBrowserHostPriorityTo(deepLinkHost, finished.packageName, finished.target, finished.visible, finished.saved)
-                                else -> vm.movePriorityTo(kind, finished.packageName, finished.target, finished.visible, finished.saved)
-                            }
-                        } else if (!longPressMoved) {
-                            pendingLongPressY?.let { y -> lockMenuPackage = packageAt(y) }
-                        }
-                        pendingLongPressY = null
-                        longPressMoved = false
-                    }
-                )
-            },
+            Modifier.fillMaxSize(),
             state = listState,
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
             item(key = "status") {
-                ModuleStatusRow(state, compact = true) { vm.setDestination(Destination.DASHBOARD) }
+                EntryWorkspaceBreadcrumb(
+                    kind = kind,
+                    onHome = {
+                        sortingGroup = null
+                        vm.setFilter(null)
+                        vm.setQuery("")
+                    },
+                    onGroup = {
+                        sortingGroup = kind.entryGroup()
+                        vm.setFilter(null)
+                        vm.setQuery("")
+                    }
+                )
                 if (state.runtime.needsDecision) RuntimePanel(state, vm, showUpdateTools = false)
             }
             stickyHeader(key = "controls") {
@@ -278,6 +266,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                             appTypeFilter = appTypeFilter,
                             onAppTypeFilter = { appTypeFilter = it },
                             includeAllKinds = false,
+                            showEntryGroups = false,
                             viewTitle = {
                                 stringResource(
                                     when (it) {
@@ -347,16 +336,27 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                     if (state.loading) {
                         AdaptiveText(stringResource(R.string.priority_count_scanning), style = MaterialTheme.typography.labelLarge)
                     }
-                    AdaptiveText(
-                        stringResource(R.string.priority_intro),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    AdaptiveText(
-                        stringResource(R.string.priority_drag_help),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        AdaptiveText(
+                            stringResource(R.string.priority_drag_help),
+                            modifier = Modifier.weight(1f),
+                            maxLines = 2,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        AdaptiveTextButton(onClick = { sortHelpExpanded = !sortHelpExpanded }) {
+                            AdaptiveText(stringResource(
+                                if (sortHelpExpanded) R.string.common_collapse else R.string.entry_help_title
+                            ))
+                        }
+                    }
+                    if (sortHelpExpanded) {
+                        AdaptiveText(
+                            stringResource(R.string.priority_intro),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     if (typedOpenPreset != null) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             AdaptiveText(
@@ -375,7 +375,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 }
                             }
                         }
-                        AdaptiveText(
+                        if (sortHelpExpanded) AdaptiveText(
                             stringResource(R.string.priority_inheritance_help),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -398,13 +398,13 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 }
                             }
                         }
-                        AdaptiveText(
+                        if (sortHelpExpanded) AdaptiveText(
                             stringResource(R.string.priority_browser_inheritance_help),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     } else {
-                        AdaptiveText(
+                        if (sortHelpExpanded) AdaptiveText(
                             stringResource(R.string.priority_general_help),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -420,7 +420,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                         } -> stringResource(R.string.priority_compat_vendor_path)
                         else -> stringResource(R.string.priority_compat_aosp)
                     }
-                    AdaptiveText(
+                    if (sortHelpExpanded || !state.runtime.ready) AdaptiveText(
                         if (!state.runtime.ready) state.runtime.message
                         else if (kind == IntentKind.PROCESS_TEXT) stringResource(R.string.priority_process_text_note)
                         else compatibility,
@@ -440,7 +440,17 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                 }
             }
 
-            groups.forEach { group ->
+            groups.forEachIndexed { index, group ->
+                if (index == 0 || (groups[index - 1].rank == null) != (group.rank == null)) {
+                    item(key = "priority-section-${if (group.rank == null) "available" else "pinned"}") {
+                        PageSectionTitle(
+                            stringResource(
+                                if (group.rank != null) R.string.priority_selected
+                                else R.string.priority_unselected
+                            )
+                        )
+                    }
+                }
                 val packageName = group.packageName
                 val key = "${kind.name}|${openPreset?.name ?: browserHost ?: "ALL"}|$packageName"
                 val expanded = expandedKey == key
@@ -448,27 +458,39 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                 val first = group.components.first()
                 item(key = "app|$key", contentType = "app") {
                     val marker = MaterialTheme.colorScheme.primary
-                    val expandLabel = stringResource(if (expanded) R.string.common_collapse else R.string.common_expand)
                     val lockState = vm.bulkLockState(lockScope, packageName, emptyList())
-                    AdaptiveGroupSurface(
-                        Modifier.fillMaxWidth(),
-                        position = if (expanded) MiuixRowPosition.FIRST else MiuixRowPosition.SINGLE
-                    ) {
-                        Row(
-                            Modifier.fillMaxWidth()
-                                .alpha(if (drag?.packageName == packageName) 0.3f else 1f)
-                                .drawWithContent {
-                                    drawContent()
-                                    if (drag?.target == packageName && drag.packageName != packageName) {
-                                        val y = if (drag.movingDown) size.height - 2.dp.toPx() else 2.dp.toPx()
-                                        drawLine(marker, Offset(0f, y), Offset(size.width, y), 3.dp.toPx())
-                                    }
+                    val rankText = group.rank?.let {
+                        stringResource(
+                            if (inheritsOvenPriority || inheritsDeepLinkPriority)
+                                R.string.priority_rank_inherited else R.string.priority_rank,
+                            it
+                        )
+                    } ?: stringResource(R.string.priority_not_prioritized)
+                    WorkspaceAppRow(
+                        icon = first.appIcon,
+                        title = first.appLabel,
+                        subtitle = stringResource(
+                            R.string.priority_app_summary, rankText, group.components.size
+                        ),
+                        expanded = expanded,
+                        lockState = lockState,
+                        onExpand = onExpand,
+                        onLock = {
+                            vm.setBulkAppLocked(lockScope, packageName, emptyList(), true)
+                        },
+                        onUnlock = {
+                            vm.setBulkAppLocked(lockScope, packageName, emptyList(), false)
+                        },
+                        modifier = Modifier
+                            .alpha(if (drag?.packageName == packageName) 0.3f else 1f)
+                            .drawWithContent {
+                                drawContent()
+                                if (drag?.target == packageName && drag.packageName != packageName) {
+                                    val y = if (drag.movingDown) size.height - 2.dp.toPx() else 2.dp.toPx()
+                                    drawLine(marker, Offset(0f, y), Offset(size.width, y), 3.dp.toPx())
                                 }
-                                .clickable(onClickLabel = expandLabel, onClick = onExpand)
-                                .heightIn(min = 64.dp)
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                            },
+                        selection = {
                             AdaptiveCheckbox(
                                 checked = group.rank != null,
                                 enabled = group.rank != null || rankedRaw.size < 200,
@@ -487,45 +509,66 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     }
                                 }
                             )
-                            AppIcon(first.appIcon, first.appLabel)
-                            Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                                AdaptiveText(first.appLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
-                                val rankText = group.rank?.let {
-                                    stringResource(
-                                        if (inheritsOpenPriority || inheritsDeepLinkPriority) R.string.priority_rank_inherited else R.string.priority_rank,
-                                        it
+                        },
+                        trailing = {
+                            if (group.rank != null) {
+                                Box(
+                                    modifier = Modifier.size(40.dp)
+                                        .pointerInput(packageName, moveTargets, rankedRaw, kind, openPreset, browserHost) {
+                                            detectDragGesturesAfterLongPress(
+                                                onDragStart = { touch ->
+                                                    val rowKey = "app|$key"
+                                                    val row = listState.layoutInfo.visibleItemsInfo
+                                                        .firstOrNull { it.key == rowKey }
+                                                    val rowY = row?.let {
+                                                        it.offset + (it.size - 40.dp.toPx()) / 2f + touch.y
+                                                    }
+                                                    if (rowY != null && dragState.start(
+                                                            rowY, kind.name, currentVisible, currentSaved
+                                                        )) {
+                                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                    }
+                                                },
+                                                onDrag = { change, delta ->
+                                                    if (dragState.session != null) {
+                                                        change.consume()
+                                                        dragState.move(delta.y)
+                                                    }
+                                                },
+                                                onDragCancel = { dragState.cancel() },
+                                                onDragEnd = {
+                                                    dragState.finish()?.let { finished ->
+                                                        when {
+                                                            typedOvenPreset != null ->
+                                                                vm.moveOvenTypePriorityTo(
+                                                                    typedOvenPreset, finished.packageName,
+                                                                    finished.target, finished.visible, finished.saved
+                                                                )
+                                                            deepLinkHost != null ->
+                                                                vm.moveBrowserHostPriorityTo(
+                                                                    deepLinkHost, finished.packageName,
+                                                                    finished.target, finished.visible, finished.saved
+                                                                )
+                                                            else -> vm.movePriorityTo(
+                                                                kind, finished.packageName,
+                                                                finished.target, finished.visible, finished.saved
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            )
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    AdaptiveIcon(
+                                        Icons.Rounded.DragHandle,
+                                        stringResource(R.string.priority_drag_help),
+                                        modifier = Modifier.size(22.dp)
                                     )
-                                } ?: stringResource(R.string.priority_not_prioritized)
-                                AdaptiveText(
-                                    stringResource(R.string.priority_app_summary, rankText, group.components.size),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            if (lockState != BulkLockState.NONE) {
-                                AdaptiveIcon(
-                                    Icons.Rounded.Lock,
-                                    contentDescription = stringResource(R.string.bulk_lock_full),
-                                    modifier = Modifier.padding(horizontal = 8.dp).size(20.dp)
-                                )
-                            }
-                            AdaptiveIconButton(onClick = onExpand) {
-                                AdaptiveIcon(
-                                    if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                                    expandLabel
-                                )
+                                }
                             }
                         }
-                        BulkLockContextMenu(
-                            expanded = lockMenuPackage == packageName,
-                            onDismiss = { if (lockMenuPackage == packageName) lockMenuPackage = null },
-                            canLock = lockState != BulkLockState.FULL,
-                            canUnlock = lockState != BulkLockState.NONE,
-                            onLock = { vm.setBulkAppLocked(lockScope, packageName, emptyList(), true) },
-                            onUnlock = { vm.setBulkAppLocked(lockScope, packageName, emptyList(), false) }
-                        )
-                    }
-                    if (LocalUiThemeStyle.current == UiThemeStyle.MATERIAL) AdaptiveHorizontalDivider()
+                    )
                 }
                 if (expanded) {
                     if (group.rank != null) {

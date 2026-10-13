@@ -1,5 +1,6 @@
 package com.yagay.ListCleaner.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -25,6 +26,8 @@ import top.yukonga.miuix.kmp.extra.SuperSwitch as NativeSuperSwitch
 import com.yagay.ListCleaner.BuildConfig
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.DisplayMode
+import com.yagay.ListCleaner.domain.EntryGroup
+import com.yagay.ListCleaner.domain.entryGroup
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.AppTypeFilter
 import com.yagay.ListCleaner.domain.OpenPreset
@@ -39,6 +42,14 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
     var showCustomTypes by rememberSaveable { mutableStateOf(false) }
     var showBrowserHosts by rememberSaveable { mutableStateOf(false) }
     var appTypeFilter by rememberSaveable { mutableStateOf(AppTypeFilter.ALL) }
+    // Three-level navigation lives in the UI only. The existing IntentKind
+    // and rule store remain the single source of truth for operations.
+    var selectedGroup by rememberSaveable { mutableStateOf<EntryGroup?>(null) }
+    var browseAll by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = state.filter == null && (selectedGroup != null || browseAll)) {
+        if (browseAll) browseAll = false else selectedGroup = null
+    }
+
     editingTitle?.let { item ->
         ComponentTitleDialog(
             item,
@@ -60,6 +71,31 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
             onSave = vm::setBrowserHosts,
             onDismiss = { showBrowserHosts = false }
         )
+    }
+
+    // The four blocks are the homepage; there is no candidate list until
+    // an entry is selected (or the explicit Browse all action is used).
+    if (state.filter == null && state.query.isBlank() && !browseAll) {
+        EntryWorkspaceHome(
+            selectedGroup = selectedGroup,
+            onGroup = { selectedGroup = it },
+            onKind = { kind ->
+                selectedGroup = kind.entryGroup()
+                vm.setFilter(kind)
+            },
+            onBack = { selectedGroup = null },
+            onAllApps = { browseAll = true },
+            onComponents = { vm.setDestination(Destination.TILES) },
+            status = {
+                ModuleStatusRow(state, compact = true) {
+                    vm.setDestination(Destination.DASHBOARD)
+                }
+                if (state.runtime.needsDecision) RuntimePanel(
+                    state, vm, showUpdateTools = false
+                )
+            }
+        )
+        return
     }
 
     val openPreset by vm.ruleOpenPreset.collectAsStateWithLifecycle()
@@ -139,8 +175,22 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
     val visibleRules = shownGroups.flatMap { it.components }.map { it.rule }.distinct()
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-        item(key = "module-indicator") {
-            ModuleStatusRow(state, compact = true) { vm.setDestination(Destination.DASHBOARD) }
+        item(key = "workspace-breadcrumb") {
+            EntryWorkspaceBreadcrumb(
+                kind = state.filter,
+                onHome = {
+                    vm.setFilter(null)
+                    selectedGroup = null
+                    browseAll = false
+                    vm.setQuery("")
+                },
+                onGroup = {
+                    selectedGroup = state.filter?.entryGroup()
+                    browseAll = false
+                    vm.setFilter(null)
+                    vm.setQuery("")
+                }
+            )
             if (state.runtime.needsDecision) RuntimePanel(state, vm, showUpdateTools = false)
         }
         stickyHeader(key = "list-controls") {
@@ -152,6 +202,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                         vm::setUiFilter,
                         appTypeFilter = appTypeFilter,
                         onAppTypeFilter = { appTypeFilter = it },
+                        showEntryGroups = false,
                         extraFilter = {
                             when (state.filter) {
                                 IntentKind.OPEN -> OpenPresetFilterMenu(
@@ -359,38 +410,29 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
 
 @Composable
 private fun SummaryRow(state: MainState, displayedApps: Int) {
-    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         AdaptiveText(
             stringResource(R.string.app_list_count, displayedApps),
-            style = MaterialTheme.typography.labelLarge
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.labelMedium
         )
         AdaptiveText(
-            stringResource(
-                when (state.displayMode) {
-                    DisplayMode.HIDE_SELECTED -> R.string.rules_mode_hide_selected
-                    DisplayMode.SHOW_SELECTED -> R.string.rules_mode_show_selected
-                    DisplayMode.SHOW_ALL -> R.string.rules_mode_show_all
-                }
-            ),
+            stringResource(state.displayMode.titleRes()),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            maxLines = 1
         )
-        if (state.displayMode == DisplayMode.SHOW_ALL) {
-            AdaptiveText(
-                stringResource(if (state.runtime.ready) R.string.rules_pause_confirmed else R.string.rules_pause_pending),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary
-            )
-        } else if (state.displayMode == DisplayMode.SHOW_SELECTED) {
-            AdaptiveText(
-                stringResource(R.string.rules_show_selected_empty),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-        state.error?.let {
-            AdaptiveText(stringResource(R.string.rules_refresh_incomplete), color = MaterialTheme.colorScheme.error)
-        }
+    }
+    if (state.error != null) {
+        AdaptiveText(
+            stringResource(R.string.rules_refresh_incomplete),
+            modifier = Modifier.padding(horizontal = 16.dp),
+            color = MaterialTheme.colorScheme.error
+        )
     }
 }
 

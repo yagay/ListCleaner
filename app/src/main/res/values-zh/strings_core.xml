@@ -143,4 +143,11 @@
     <string name="open_desc_mailto">mailto:</string>
     <string name="open_desc_tel">tel:</string>
     <string name="open_desc_sms">sms: / smsto:</string>
+    <string name="workspace_choose_group">选择清理分类</string>
+    <string name="workspace_choose_entry">选择需要清理的入口</string>
+    <string name="workspace_browse_all">浏览全部应用</string>
+    <string name="workspace_entry_count">%1$d 种入口</string>
+    <string name="workspace_groups">分类</string>
+    <string name="workspace_filter_options">筛选与批量操作</string>
+    <string name="workspace_components_link">Root 组件清理</string>
 </resources>

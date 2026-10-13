@@ -151,4 +151,11 @@
     <string name="open_desc_mailto">mailto:</string>
     <string name="open_desc_tel">tel:</string>
     <string name="open_desc_sms">sms: / smsto:</string>
+    <string name="workspace_choose_group">Choose a cleanup category</string>
+    <string name="workspace_choose_entry">Choose a cleanup entry</string>
+    <string name="workspace_browse_all">Browse all applications</string>
+    <string name="workspace_entry_count">%1$d entry types</string>
+    <string name="workspace_groups">Categories</string>
+    <string name="workspace_filter_options">Filters and actions</string>
+    <string name="workspace_components_link">Root component cleanup</string>
 </resources>

@@ -1,5 +1,6 @@
 package com.yagay.ListCleaner.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -33,7 +34,7 @@ import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.data.RootComponent
 import com.yagay.ListCleaner.domain.AppTypeFilter
 
-private data class PendingRootBatch(val targets: List<RootComponent>, val enable: Boolean?)
+private data class PendingRootBatch(val kind: CleanupKind?, val targets: List<RootComponent>, val enable: Boolean?)
 
 private fun componentAppSelectionRank(items: List<RootComponent>): Int {
     val editable = items.filter { it.blocked == null && it.enabled != null }
@@ -66,7 +67,12 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
         )
     }
 
-    var kind by remember { mutableStateOf<CleanupKind?>(null) }
+    var kind by rememberSaveable { mutableStateOf<CleanupKind?>(null) }
+    var browseAll by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = kind != null || browseAll) {
+        kind = null
+        browseAll = false
+    }
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
     var viewFilter by rememberSaveable { mutableStateOf(UiFilter.ALL) }
     var appTypeFilter by rememberSaveable { mutableStateOf(AppTypeFilter.ALL) }
@@ -78,7 +84,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
     pendingBatch?.let { batch ->
         val eligible = batch.targets.filter { item ->
             item.blocked == null && item.enabled != null &&
-                !vm.isComponentBulkProtected(kind, item) &&
+                !vm.isComponentBulkProtected(batch.kind, item) &&
                 (batch.enable == null || item.enabled != batch.enable)
         }.distinctBy { "${it.user}|${it.component.flattenToString()}" }
         val action = stringResource(when (batch.enable) {
@@ -93,8 +99,8 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
             confirmButton = {
                 AdaptiveTextButton(enabled = eligible.isNotEmpty() && !busy, onClick = {
                     pendingBatch = null
-                    if (batch.enable == null) vm.invertComponentsBulk(kind, eligible)
-                    else vm.changeComponentsBulk(kind, eligible, batch.enable)
+                    if (batch.enable == null) vm.invertComponentsBulk(batch.kind, eligible)
+                    else vm.changeComponentsBulk(batch.kind, eligible, batch.enable)
                 }) { AdaptiveText(stringResource(R.string.common_ok)) }
             },
             dismissButton = {
@@ -105,6 +111,18 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
         )
     }
     LaunchedEffect(Unit) { vm.refreshComponents() }
+    if (kind == null && !browseAll && state.query.isBlank()) {
+        RootWorkspaceHome(
+            onChoose = { selected -> kind = selected },
+            onAll = { browseAll = true },
+            onRefresh = vm::refreshComponents,
+            kinds = CleanupKind.entries,
+            apps = scan.items.map { "${it.user}|${it.component.packageName}" }.distinct().size,
+            components = scan.items.size
+        )
+        return
+    }
+
 
     val kindItems = scan.items.filter { kind == null || it.kind == kind }
     val lockItemsByApp = remember(kindItems, bulkLockRevision) {
@@ -132,11 +150,26 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
     val visible = groups.flatMap { it.value }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-        item(key = "title") {
-            if (LocalUiThemeStyle.current == UiThemeStyle.MATERIAL) {
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    AdaptiveText(stringResource(R.string.root_screen_title), style = MaterialTheme.typography.titleLarge)
+        item(key = "root-breadcrumb") {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AdaptiveTextButton(onClick = {
+                    kind = null
+                    browseAll = false
+                    vm.setQuery("")
+                }) {
+                    AdaptiveIcon(Icons.Rounded.ExpandLess, null, Modifier.size(18.dp))
+                    AdaptiveText(stringResource(R.string.workspace_groups))
                 }
+                Spacer(Modifier.width(8.dp))
+                AdaptiveText(
+                    kind?.let { stringResource(it.titleRes()) }
+                        ?: stringResource(R.string.workspace_browse_all),
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1
+                )
             }
         }
         stickyHeader(key = "controls") {
@@ -146,24 +179,6 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                         top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.surfaceContainer
                     else MaterialTheme.colorScheme.surface
                 )) {
-                    LazyRow(contentPadding = PaddingValues(horizontal = 12.dp)) {
-                        items(listOf<CleanupKind?>(null) + CleanupKind.entries) { entry ->
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                AdaptiveTextButton(onClick = { kind = entry }) {
-                                    AdaptiveText(
-                                        entry?.let { stringResource(it.titleRes()) } ?: stringResource(R.string.common_all),
-                                        fontWeight = if (kind == entry) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (kind == entry) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Box(
-                                    Modifier.height(2.dp).width(24.dp).background(
-                                        if (kind == entry) MaterialTheme.colorScheme.primary else Color.Transparent
-                                    )
-                                )
-                            }
-                        }
-                    }
                     Row(
                         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -217,12 +232,12 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             }
                         }
                         AdaptiveTextButton(
-                            onClick = { pendingBatch = PendingRootBatch(visible, false) },
+                            onClick = { pendingBatch = PendingRootBatch(kind, visible, false) },
                             enabled = !busy && visible.any { it.blocked == null && it.enabled == true },
                             contentPadding = PaddingValues(horizontal = 6.dp)
                         ) { AdaptiveText(stringResource(R.string.select_all)) }
                         AdaptiveTextButton(
-                            onClick = { pendingBatch = PendingRootBatch(visible, null) },
+                            onClick = { pendingBatch = PendingRootBatch(kind, visible, null) },
                             enabled = !busy && visible.any { it.blocked == null && it.enabled != null },
                             contentPadding = PaddingValues(horizontal = 6.dp)
                         ) { AdaptiveText(stringResource(R.string.invert_selection)) }
@@ -301,95 +316,55 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
             val onExpand = { expandedAppKey = if (expandedAppKey == expansionKey) null else expansionKey }
 
             item(key = "app|$expansionKey") {
-                val expandLabel = stringResource(if (expanded) R.string.common_collapse else R.string.common_expand)
-                val kindTitles = CleanupKind.entries.filter { entry -> components.any { it.kind == entry } }
-                    .map { stringResource(it.titleRes()) }
+                val kindTitles = CleanupKind.entries.filter { category ->
+                    components.any { it.kind == category }
+                }.map { stringResource(it.titleRes()) }
                 val lockState = vm.componentBulkLockState(
-                    kind,
-                    appKey,
-                    lockItemsByApp[appKey].orEmpty()
+                    kind, appKey, lockItemsByApp[appKey].orEmpty()
                 )
-                var lockMenuExpanded by remember { mutableStateOf(false) }
-                AdaptiveGroupSurface(
-                    Modifier.fillMaxWidth(),
-                    position = if (expanded) MiuixRowPosition.FIRST else MiuixRowPosition.SINGLE
-                ) {
-                    Row(
-                        Modifier.fillMaxWidth()
-                            .combinedClickable(
-                                onClickLabel = expandLabel,
-                                onClick = onExpand,
-                                onLongClick = { lockMenuExpanded = true }
-                            )
-                            .heightIn(min = 64.dp).padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                WorkspaceAppRow(
+                    icon = first.icon,
+                    title = first.owner,
+                    subtitle = stringResource(
+                        R.string.root_disabled_summary,
+                        components.count { it.enabled == false },
+                        components.size,
+                        kindTitles.joinToString(" · ")
+                    ),
+                    expanded = expanded,
+                    lockState = lockState,
+                    onExpand = onExpand,
+                    onLock = {
+                        vm.setComponentAppLocked(kind, appKey, lockItemsByApp[appKey].orEmpty(), true)
+                    },
+                    onUnlock = {
+                        vm.setComponentAppLocked(kind, appKey, lockItemsByApp[appKey].orEmpty(), false)
+                    },
+                    selection = {
                         AdaptiveTriStateCheckbox(
                             state = selectionState,
                             enabled = !busy && editableComponents.isNotEmpty(),
-                            onClick = { pendingBatch = PendingRootBatch(editableComponents, selectionState == ToggleableState.On) }
-                        )
-                        AppIcon(first.icon, first.owner)
-                        Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                            AdaptiveText(first.owner, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
-                            AdaptiveText(
-                                stringResource(
-                                    R.string.root_disabled_summary,
-                                    components.count { it.enabled == false },
-                                    components.size,
-                                    kindTitles.joinToString(" · ")
-                                ),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            if (editableComponents.size < components.size) {
-                                AdaptiveText(
-                                    stringResource(R.string.root_display_only_count, components.size - editableComponents.size),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                            onClick = {
+                                pendingBatch = PendingRootBatch(
+                                    kind, editableComponents, selectionState == ToggleableState.On
                                 )
                             }
-                        }
-                        if (lockState != BulkLockState.NONE) {
-                            AdaptiveIcon(
-                                Icons.Rounded.Lock,
-                                contentDescription = stringResource(
-                                    if (lockState == BulkLockState.PARTIAL) R.string.bulk_lock_partial
-                                    else R.string.bulk_lock_full
+                        )
+                    },
+                    details = {
+                        if (editableComponents.size < components.size) {
+                            AdaptiveText(
+                                stringResource(
+                                    R.string.root_display_only_count,
+                                    components.size - editableComponents.size
                                 ),
-                                modifier = Modifier.padding(horizontal = 8.dp).size(20.dp),
-                                tint = if (lockState == BulkLockState.PARTIAL) MaterialTheme.colorScheme.tertiary
-                                else LocalContentColor.current
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1
                             )
-                        }
-                        AdaptiveIconButton(onClick = onExpand) {
-                            AdaptiveIcon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, expandLabel)
                         }
                     }
-                    BulkLockContextMenu(
-                        expanded = lockMenuExpanded,
-                        onDismiss = { lockMenuExpanded = false },
-                        canLock = lockState != BulkLockState.FULL,
-                        canUnlock = lockState != BulkLockState.NONE,
-                        onLock = {
-                            vm.setComponentAppLocked(
-                                kind,
-                                appKey,
-                                lockItemsByApp[appKey].orEmpty(),
-                                true
-                            )
-                        },
-                        onUnlock = {
-                            vm.setComponentAppLocked(
-                                kind,
-                                appKey,
-                                lockItemsByApp[appKey].orEmpty(),
-                                false
-                            )
-                        }
-                    )
-                }
-                if (LocalUiThemeStyle.current == UiThemeStyle.MATERIAL) AdaptiveHorizontalDivider()
+                )
             }
 
             if (expanded) itemsIndexed(components, key = { _, item -> item.id }) { componentIndex, item ->

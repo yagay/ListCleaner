@@ -69,11 +69,21 @@ internal class PriorityDragState(private val list: LazyListState) {
         val layout = list.layoutInfo
         val top = contentTop()
         val center = drag.top + drag.height / 2f
-        val target = layout.visibleItemsInfo.filter {
-            it.key in drag.keys && it.offset + it.size > top && it.offset < layout.viewportEndOffset
-        }.minByOrNull { abs(it.offset + it.size / 2f - center) } ?: return
-        val pkg = drag.keys.getValue(target.key as String)
-        if (pkg != drag.target) session = drag.copy(target = pkg)
+        val sourceKey = drag.keys.entries.firstOrNull {
+            it.value == drag.packageName
+        }?.key ?: return
+        val prefix = sourceKey.substringBeforeLast('|') + "|"
+        val target = layout.visibleItemsInfo.mapNotNull { info ->
+            val rowKey = info.key as? String ?: return@mapNotNull null
+            if (!rowKey.startsWith(prefix)) return@mapNotNull null
+            val packageName = rowKey.removePrefix(prefix)
+            if (packageName !in drag.visible || info.offset + info.size <= top ||
+                info.offset >= layout.viewportEndOffset) return@mapNotNull null
+            info to packageName
+        }.minByOrNull { (info, _) ->
+            abs(info.offset + info.size / 2f - center)
+        } ?: return
+        if (target.second != drag.target) session = drag.copy(target = target.second)
     }
 
     /** Account for the pinned filter bar rather than scrolling beneath it. */

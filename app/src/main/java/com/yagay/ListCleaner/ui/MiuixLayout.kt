@@ -26,8 +26,8 @@ internal fun MiuixRowPosition.shape(): RoundedCornerShape {
 }
 
 internal fun MiuixRowPosition.verticalPadding(): PaddingValues = PaddingValues(
-    top = if (this == MiuixRowPosition.SINGLE || this == MiuixRowPosition.FIRST) 7.dp else 1.dp,
-    bottom = if (this == MiuixRowPosition.SINGLE || this == MiuixRowPosition.LAST) 7.dp else 1.dp
+    top = if (this == MiuixRowPosition.SINGLE || this == MiuixRowPosition.FIRST) 4.dp else 1.dp,
+    bottom = if (this == MiuixRowPosition.SINGLE || this == MiuixRowPosition.LAST) 4.dp else 1.dp
 )
 
 @Composable
