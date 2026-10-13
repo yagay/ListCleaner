@@ -395,22 +395,25 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
             }
         }
         if (visible.isEmpty() && !busy) {
-            item {
-                Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    AdaptiveText(stringResource(
-                        if (kindItems.isNotEmpty()) R.string.root_empty_filtered else R.string.root_no_components
-                    ))
-                    if (kind != null || viewFilter != UiFilter.ALL ||
-                        appTypeFilter != AppTypeFilter.ALL || state.query.isNotBlank()
-                    ) {
-                        AdaptiveTextButton(onClick = {
+            item(key = "empty") {
+                WorkspaceEmptyState(
+                    message = stringResource(
+                        if (kindItems.isNotEmpty()) R.string.root_empty_filtered
+                        else R.string.root_no_components
+                    ),
+                    clearLabel = if (kind != null || viewFilter != UiFilter.ALL ||
+                        appTypeFilter != AppTypeFilter.ALL || state.query.isNotBlank())
+                        stringResource(R.string.root_clear_filters) else null,
+                    onClear = if (kind != null || viewFilter != UiFilter.ALL ||
+                        appTypeFilter != AppTypeFilter.ALL || state.query.isNotBlank()) {
+                        {
                             kind = null
                             viewFilter = UiFilter.ALL
                             appTypeFilter = AppTypeFilter.ALL
                             vm.setQuery("")
-                        }) { AdaptiveText(stringResource(R.string.root_clear_filters)) }
-                    }
-                }
+                        }
+                    } else null
+                )
             }
         }
     }

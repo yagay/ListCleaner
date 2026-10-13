@@ -348,26 +348,29 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
             }
         }
         if (!state.loading && shownGroups.isEmpty()) {
-            item {
-                Column(
-                    Modifier.fillMaxWidth().padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    AdaptiveText(stringResource(when {
+            item(key = "empty") {
+                WorkspaceEmptyState(
+                    message = stringResource(when {
                         state.error != null -> R.string.rules_empty_scan_failed
                         state.candidates.isEmpty() -> R.string.rules_empty_unscanned
-                        state.query.isNotBlank() || state.uiFilter != UiFilter.ALL -> R.string.rules_empty_filtered
-                        state.filter == IntentKind.DIRECT_SHARE || state.filter == IntentKind.SHORTCUT_ITEM ->
+                        state.query.isNotBlank() || state.uiFilter != UiFilter.ALL ->
+                            R.string.rules_empty_filtered
+                        state.filter == IntentKind.DIRECT_SHARE ||
+                            state.filter == IntentKind.SHORTCUT_ITEM ->
                             R.string.observed_entry_empty_help
                         else -> R.string.no_matching_components
-                    }))
-                    if (state.query.isNotBlank() || state.uiFilter != UiFilter.ALL) {
-                        AdaptiveTextButton(onClick = {
+                    }),
+                    clearLabel = if (state.query.isNotBlank() ||
+                        state.uiFilter != UiFilter.ALL)
+                        stringResource(R.string.rules_empty_clear_filters) else null,
+                    onClear = if (state.query.isNotBlank() ||
+                        state.uiFilter != UiFilter.ALL) {
+                        {
                             vm.setQuery("")
                             vm.setUiFilter(UiFilter.ALL)
-                        }) { AdaptiveText(stringResource(R.string.rules_empty_clear_filters)) }
-                    }
-                }
+                        }
+                    } else null
+                )
             }
         }
     }

@@ -4,11 +4,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card as MaterialCard
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.basic.SmallTitle as NativeSectionTitle
 import top.yukonga.miuix.kmp.basic.Surface as NativeSurface
@@ -62,19 +66,24 @@ internal fun PageFilterSection(content: @Composable () -> Unit) {
     }
 }
 
-/** A common page hierarchy: a distinct section label followed by a grouped content surface. */
+/** Compact, theme-native workspace header. Functional status and quick actions live
+ * together; app lists remain the primary vertical content rather than a dashboard.
+ */
 @Composable
 internal fun PageOverviewSection(
     title: String,
     content: @Composable () -> Unit
 ) {
     Column(
-        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp)
     ) {
-        PageSectionTitle(title)
         AdaptiveSurface(modifier = Modifier.fillMaxWidth(), tonalElevation = 2.dp) {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp)) {
+                AdaptiveText(
+                    title,
+                    style = androidx.compose.material3.MaterialTheme.typography.titleSmall
+                )
                 content()
             }
         }
@@ -91,6 +100,36 @@ internal fun PageResultsSection(title: String, detail: String? = null) {
         PageSectionTitle(title)
         if (!detail.isNullOrBlank()) {
             SharedAppSupportingText(detail)
+        }
+    }
+}
+
+/** Consistent actionable empty state for rules, ordering and Root components. */
+@Composable
+internal fun WorkspaceEmptyState(
+    message: String,
+    clearLabel: String? = null,
+    onClear: (() -> Unit)? = null
+) {
+    AdaptiveSurface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
+        tonalElevation = 1.dp
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            AdaptiveText(
+                message,
+                textAlign = TextAlign.Center,
+                style = androidx.compose.material3.MaterialTheme.typography.bodyMedium
+            )
+            if (onClear != null && clearLabel != null) {
+                AdaptiveOutlinedButton(onClick = onClear) {
+                    AdaptiveText(clearLabel)
+                }
+            }
         }
     }
 }

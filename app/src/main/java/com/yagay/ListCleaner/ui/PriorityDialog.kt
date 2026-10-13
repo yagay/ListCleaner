@@ -599,19 +599,28 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
 
             if (!state.loading && groups.isEmpty()) {
                 item(key = "empty") {
-                    Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                        AdaptiveText(
-                            stringResource(
-                                when {
-                                    state.query.isNotBlank() -> R.string.priority_empty_search
-                                    viewFilter == UiFilter.SHOW_SELECTED -> R.string.priority_empty_selected
-                                    viewFilter == UiFilter.HIDE_SELECTED -> R.string.priority_empty_unselected
-                                    viewFilter == UiFilter.LOCKED -> R.string.no_matching_components
-                                    else -> R.string.priority_empty_category
-                                }
-                            )
-                        )
-                    }
+                    WorkspaceEmptyState(
+                        message = stringResource(
+                            when {
+                                state.query.isNotBlank() -> R.string.priority_empty_search
+                                viewFilter == UiFilter.SHOW_SELECTED -> R.string.priority_empty_selected
+                                viewFilter == UiFilter.HIDE_SELECTED -> R.string.priority_empty_unselected
+                                viewFilter == UiFilter.LOCKED -> R.string.no_matching_components
+                                else -> R.string.priority_empty_category
+                            }
+                        ),
+                        clearLabel = if (state.query.isNotBlank() ||
+                            viewFilter != UiFilter.ALL || appTypeFilter != AppTypeFilter.ALL)
+                            stringResource(R.string.rules_empty_clear_filters) else null,
+                        onClear = if (state.query.isNotBlank() ||
+                            viewFilter != UiFilter.ALL || appTypeFilter != AppTypeFilter.ALL) {
+                            {
+                                vm.setQuery("")
+                                viewFilter = UiFilter.ALL
+                                appTypeFilter = AppTypeFilter.ALL
+                            }
+                        } else null
+                    )
                 }
             }
         }
