@@ -214,7 +214,14 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
             item(key = "status") {
-                ModuleStatusRow(state, compact = true) { vm.setDestination(Destination.DASHBOARD) }
+                PageOverviewSection(stringResource(R.string.nav_priority)) {
+                    ModuleStatusRow(state, compact = true) { vm.setDestination(Destination.DASHBOARD) }
+                    AdaptiveText(
+                        stringResource(R.string.priority_drag_help),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 if (state.runtime.needsDecision) RuntimePanel(state, vm, showUpdateTools = false)
             }
             stickyHeader(key = "controls") {
