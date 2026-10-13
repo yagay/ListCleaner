@@ -34,7 +34,7 @@ import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.data.RootComponent
 import com.yagay.ListCleaner.domain.AppTypeFilter
 
-private data class PendingRootBatch(val targets: List<RootComponent>, val enable: Boolean?)
+private data class PendingRootBatch(val kind: CleanupKind?, val targets: List<RootComponent>, val enable: Boolean?)
 
 private fun componentAppSelectionRank(items: List<RootComponent>): Int {
     val editable = items.filter { it.blocked == null && it.enabled != null }
@@ -77,7 +77,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
     pendingBatch?.let { batch ->
         val eligible = batch.targets.filter { item ->
             item.blocked == null && item.enabled != null &&
-                !vm.isComponentBulkProtected(kind, item) &&
+                !vm.isComponentBulkProtected(batch.kind, item) &&
                 (batch.enable == null || item.enabled != batch.enable)
         }.distinctBy { "${it.user}|${it.component.flattenToString()}" }
         val action = stringResource(when (batch.enable) {
@@ -92,8 +92,8 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
             confirmButton = {
                 AdaptiveTextButton(enabled = eligible.isNotEmpty() && !busy, onClick = {
                     pendingBatch = null
-                    if (batch.enable == null) vm.invertComponentsBulk(kind, eligible)
-                    else vm.changeComponentsBulk(kind, eligible, batch.enable)
+                    if (batch.enable == null) vm.invertComponentsBulk(batch.kind, eligible)
+                    else vm.changeComponentsBulk(batch.kind, eligible, batch.enable)
                 }) { AdaptiveText(stringResource(R.string.common_ok)) }
             },
             dismissButton = {
@@ -179,17 +179,17 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                                 ListBatchAction(
                                     R.string.common_disable,
                                     enabled = visible.any { it.blocked == null && it.enabled == true },
-                                    run = { pendingBatch = PendingRootBatch(visible, false) }
+                                    run = { pendingBatch = PendingRootBatch(kind, visible, false) }
                                 ),
                                 ListBatchAction(
                                     R.string.common_enable,
                                     enabled = visible.any { it.blocked == null && it.enabled == false },
-                                    run = { pendingBatch = PendingRootBatch(visible, true) }
+                                    run = { pendingBatch = PendingRootBatch(kind, visible, true) }
                                 ),
                                 ListBatchAction(
                                     R.string.invert_selection,
                                     enabled = visible.any { it.blocked == null && it.enabled != null },
-                                    run = { pendingBatch = PendingRootBatch(visible, null) }
+                                    run = { pendingBatch = PendingRootBatch(kind, visible, null) }
                                 )
                             )
                         )
@@ -294,7 +294,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                         AdaptiveTriStateCheckbox(
                             state = selectionState,
                             enabled = !busy && editableComponents.isNotEmpty(),
-                            onClick = { pendingBatch = PendingRootBatch(editableComponents, selectionState == ToggleableState.On) }
+                            onClick = { pendingBatch = PendingRootBatch(kind, editableComponents, selectionState == ToggleableState.On) }
                         )
                         SharedAppIdentity(icon = first.icon, title = first.owner) {
                             SharedAppSupportingText(
