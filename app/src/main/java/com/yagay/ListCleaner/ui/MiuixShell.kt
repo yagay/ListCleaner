@@ -43,7 +43,7 @@ internal fun MiuixMainShell(
     snackbarHost: @Composable () -> Unit,
     content: @Composable (PaddingValues) -> Unit,
 ) {
-    val destinations = Destination.entries
+    val destinations = listOf(Destination.RULES, Destination.PRIORITY, Destination.DASHBOARD)
     val navigationItems = destinations.map {
         MiuixNavigationItem(label = stringResource(it.labelRes()), icon = it.icon)
     }
@@ -91,7 +91,7 @@ internal fun MiuixMainShell(
         bottomBar = {
             MiuixNavigationBar(
                 items = navigationItems,
-                selected = destinations.indexOf(destination).coerceAtLeast(0),
+                selected = destinations.indexOf(if (destination == Destination.TILES) Destination.RULES else destination).coerceAtLeast(0),
                 onClick = { index -> destinations.getOrNull(index)?.let(onDestination) }
             )
         },
