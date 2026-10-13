@@ -276,9 +276,9 @@ class MainActivity : ComponentActivity() {
             },
             bottomBar = {
                 NavigationBar {
-                    listOf(Destination.RULES, Destination.PRIORITY, Destination.DASHBOARD).forEach { dest ->
+                    primaryDestinations.forEach { dest ->
                         NavigationBarItem(
-                            selected = state.destination == dest || (dest == Destination.RULES && state.destination == Destination.TILES),
+                            selected = state.destination.primaryTab() == dest,
                             onClick = { vm.setDestination(dest) },
                             icon = { AdaptiveIcon(dest.icon, null) },
                             label = { AdaptiveText(stringResource(dest.labelRes())) }
