@@ -9,6 +9,7 @@ import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.yagay.ListCleaner.ListCleanerApp
 import com.yagay.ListCleaner.R
@@ -77,7 +78,7 @@ data class MainState(
     val runtime: RuntimeStatus = RuntimeStatus()
 )
 
-class MainViewModel(application: Application) : AndroidViewModel(application) {
+class MainViewModel(application: Application, private val savedStateHandle: SavedStateHandle) : AndroidViewModel(application) {
     private val app = application as ListCleanerApp
     private val bulkLocks = BulkLockStore(app)
     private val rootComponents = RootComponentsController(app, viewModelScope)
@@ -221,17 +222,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         null,
     )
 
-    private val query = MutableStateFlow("")
+    private val query = MutableStateFlow(savedStateHandle.get<String>("ui.query.RULES").orEmpty())
     @OptIn(kotlinx.coroutines.FlowPreview::class)
     private val debouncedQuery = query.debounce(120).distinctUntilChanged()
-    private val uiFilter = MutableStateFlow(UiFilter.ALL)
+    private val uiFilter = MutableStateFlow(
+        savedStateHandle.get<String>("ui.filter.RULES")?.let { name ->
+            UiFilter.entries.firstOrNull { it.name == name }
+        } ?: UiFilter.ALL
+    )
     private val moduleStatus: StateFlow<ModuleStatus> = moduleRuntime.status
-    private val destination = MutableStateFlow(Destination.RULES)
-    private val expandedAppKey = MutableStateFlow<String?>(null)
+    private val destination = MutableStateFlow(
+        savedStateHandle.get<String>("ui.destination")?.let { name ->
+            Destination.entries.firstOrNull { it.name == name }
+        } ?: Destination.RULES
+    )
+    private val expandedAppKey = MutableStateFlow(
+        savedStateHandle.get<String>("ui.expanded.${destination.value.name}")
+    )
     // Keep independent navigation state for each top-level page.
-    private val pageQueries = mutableMapOf<Destination, String>()
-    private val pageExpandedApps = mutableMapOf<Destination, String?>()
-    private val pageViewFilters = mutableMapOf<Destination, UiFilter>()
+    private val pageQueries = Destination.entries.associateWith { savedStateHandle.get<String>("ui.query.${it.name}").orEmpty() }.toMutableMap()
+    private val pageExpandedApps = Destination.entries.associateWith { savedStateHandle.get<String>("ui.expanded.${it.name}") }.toMutableMap()
+    private val pageViewFilters = Destination.entries.associateWith {
+        savedStateHandle.get<String>("ui.filter.${it.name}")?.let { name ->
+            UiFilter.entries.firstOrNull { option -> option.name == name }
+        } ?: UiFilter.ALL
+    }.toMutableMap()
 
     private data class PreparedCandidates(
         val candidates: List<ComponentCandidate>,
@@ -661,10 +676,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setQuery(value: String) {
         query.value = value
         pageQueries[destination.value] = value
+        savedStateHandle["ui.query.${destination.value.name}"] = value
     }
     fun setUiFilter(value: UiFilter) {
         uiFilter.value = value
         pageViewFilters[destination.value] = value
+        savedStateHandle["ui.filter.${destination.value.name}"] = value.name
     }
     fun setDestination(value: Destination) {
         val previous = destination.value
@@ -673,6 +690,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         pageExpandedApps[previous] = expandedAppKey.value
         pageViewFilters[previous] = uiFilter.value
         destination.value = value
+        savedStateHandle["ui.destination"] = value.name
         query.value = pageQueries[value].orEmpty()
         expandedAppKey.value = pageExpandedApps[value]
         uiFilter.value = pageViewFilters[value] ?: UiFilter.ALL
@@ -681,6 +699,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val next = if (expandedAppKey.value == key) null else key
         expandedAppKey.value = next
         pageExpandedApps[destination.value] = next
+        savedStateHandle["ui.expanded.${destination.value.name}"] = next
     }
     fun previewImportJson(content: String) = app.rules.previewImportJson(content)
     fun exportJson(): String = app.rules.exportJson()
