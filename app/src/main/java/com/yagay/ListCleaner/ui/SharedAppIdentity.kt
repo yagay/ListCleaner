@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.dp
 
 /** One consistent app icon, title, and supporting content in all list surfaces. */
 @Composable
-internal fun SharedAppIdentity(
+internal fun RowScope.SharedAppIdentity(
     icon: Bitmap?,
     title: String,
     modifier: Modifier = Modifier,
