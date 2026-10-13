@@ -294,6 +294,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                 }
             }
             item(key = "summary") {
+                PageResultsSection(stringResource(R.string.nav_priority))
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                     val presetTitle = when {
                         typedOpenPreset != null -> state.openTypes.localizedTitle(typedOpenPreset)
