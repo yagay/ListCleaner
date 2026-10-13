@@ -472,11 +472,9 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 )
                             }
                             if (group.rank != null) {
-                                AdaptiveIcon(
-                                    Icons.Rounded.DragHandle,
-                                    contentDescription = stringResource(R.string.priority_drag_help),
+                                Box(
                                     modifier = Modifier
-                                        .padding(horizontal = 4.dp)
+                                        .size(40.dp)
                                         .pointerInput(packageName, moveTargets, rankedRaw, kind, openPreset, browserHost) {
                                             detectDragGesturesAfterLongPress(
                                                 onDragStart = {
@@ -519,8 +517,15 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                                     }
                                                 }
                                             )
-                                        }
-                                )
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    AdaptiveIcon(
+                                        Icons.Rounded.DragHandle,
+                                        contentDescription = stringResource(R.string.priority_drag_help),
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
                             }
                             AdaptiveIconButton(onClick = onExpand) {
                                 AdaptiveIcon(
