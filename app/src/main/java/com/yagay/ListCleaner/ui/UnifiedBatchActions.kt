@@ -40,7 +40,10 @@ internal fun UnifiedBatchActions(
                 AdaptiveDropdownMenuItem(
                     text = { AdaptiveText(stringResource(action.labelRes)) },
                     enabled = action.enabled,
-                    onClick = { expanded = false; action.run() }
+                    onClick = {
+                        expanded = false
+                        if (enabled && action.enabled) action.run()
+                    }
                 )
             }
         }
