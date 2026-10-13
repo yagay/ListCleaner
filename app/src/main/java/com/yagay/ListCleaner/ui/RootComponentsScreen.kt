@@ -132,13 +132,19 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item(key = "title") {
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                AdaptiveText(stringResource(R.string.root_screen_title), style = MaterialTheme.typography.titleLarge)
+            if (LocalUiThemeStyle.current == UiThemeStyle.MATERIAL) {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    AdaptiveText(stringResource(R.string.root_screen_title), style = MaterialTheme.typography.titleLarge)
+                }
             }
         }
         stickyHeader(key = "controls") {
-            AdaptiveSurface(tonalElevation = 2.dp) {
-                Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
+            PageFilterSection {
+                Column(Modifier.fillMaxWidth().background(
+                    if (LocalUiThemeStyle.current == UiThemeStyle.MIUIX_STYLE)
+                        top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.surfaceContainer
+                    else MaterialTheme.colorScheme.surface
+                )) {
                     LazyRow(contentPadding = PaddingValues(horizontal = 12.dp)) {
                         items(listOf<CleanupKind?>(null) + CleanupKind.entries) { entry ->
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {

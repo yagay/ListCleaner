@@ -268,7 +268,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                 if (state.runtime.needsDecision) RuntimePanel(state, vm, showUpdateTools = false)
             }
             stickyHeader(key = "controls") {
-                AdaptiveSurface(tonalElevation = 2.dp) {
+                PageFilterSection {
                     Column {
                         ListControls(
                             state.copy(filter = kind, uiFilter = viewFilter),

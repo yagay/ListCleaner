@@ -187,7 +187,11 @@ internal fun ListControls(
     var appTypeMenu by remember { mutableStateOf(false) }
     var selectionMenu by remember { mutableStateOf(false) }
     var helpExpanded by remember(state.filter) { mutableStateOf(false) }
-    Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
+    Column(Modifier.fillMaxWidth().background(
+        if (LocalUiThemeStyle.current == UiThemeStyle.MIUIX_STYLE)
+            top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.surfaceContainer
+        else MaterialTheme.colorScheme.surface
+    )) {
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,

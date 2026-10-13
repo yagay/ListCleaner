@@ -140,7 +140,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
             if (state.runtime.needsDecision) RuntimePanel(state, vm, showUpdateTools = false)
         }
         stickyHeader(key = "list-controls") {
-            AdaptiveSurface(tonalElevation = 2.dp) {
+            PageFilterSection {
                 Column {
                     ListControls(
                         state,
@@ -416,12 +416,19 @@ internal fun DashboardTabContent(
     }
 
     Column(
-        Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        Modifier.fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(
+                horizontal = if (themeStyle == UiThemeStyle.MIUIX_STYLE) 14.dp else 16.dp,
+                vertical = if (themeStyle == UiThemeStyle.MIUIX_STYLE) 4.dp else 16.dp
+            ),
+        verticalArrangement = Arrangement.spacedBy(
+            if (themeStyle == UiThemeStyle.MIUIX_STYLE) 8.dp else 16.dp
+        )
     ) {
         RuntimePanel(state, vm)
 
-        AdaptiveText(stringResource(R.string.ui_appearance_title), style = MaterialTheme.typography.titleMedium)
+        PageSectionTitle(stringResource(R.string.ui_appearance_title))
         AdaptiveCard(Modifier.fillMaxWidth()) {
             Column(
                 Modifier.padding(16.dp),
@@ -459,7 +466,7 @@ internal fun DashboardTabContent(
             }
         }
 
-        AdaptiveText(stringResource(R.string.dashboard_global_mode), style = MaterialTheme.typography.titleMedium)
+        PageSectionTitle(stringResource(R.string.dashboard_global_mode))
         AdaptiveCard(Modifier.fillMaxWidth()) {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -484,7 +491,7 @@ internal fun DashboardTabContent(
             }
         }
 
-        AdaptiveText(stringResource(R.string.dashboard_sync_status), style = MaterialTheme.typography.titleMedium)
+        PageSectionTitle(stringResource(R.string.dashboard_sync_status))
         AdaptiveCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp)) {
                 AdaptiveText(state.syncStatus, fontWeight = FontWeight.Bold)
@@ -492,7 +499,7 @@ internal fun DashboardTabContent(
             }
         }
 
-        AdaptiveText(stringResource(R.string.dashboard_runtime_hits), style = MaterialTheme.typography.titleMedium)
+        PageSectionTitle(stringResource(R.string.dashboard_runtime_hits))
         AdaptiveCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 AdaptiveText(
@@ -513,7 +520,7 @@ internal fun DashboardTabContent(
             }
         }
 
-        AdaptiveText(stringResource(R.string.dashboard_data_backup), style = MaterialTheme.typography.titleMedium)
+        PageSectionTitle(stringResource(R.string.dashboard_data_backup))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AdaptiveButton(onClick = onRestore, modifier = Modifier.weight(1f)) {
                 AdaptiveText(stringResource(R.string.dashboard_restore_json))
@@ -523,7 +530,7 @@ internal fun DashboardTabContent(
             }
         }
 
-        AdaptiveText(stringResource(R.string.dashboard_module_status), style = MaterialTheme.typography.titleMedium)
+        PageSectionTitle(stringResource(R.string.dashboard_module_status))
         ModuleStatusRow(state) { showScopeDetails = true; vm.refreshModuleStatus() }
         AdaptiveCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -540,7 +547,7 @@ internal fun DashboardTabContent(
             }
         }
 
-        AdaptiveText(stringResource(R.string.dashboard_diagnostics), style = MaterialTheme.typography.titleMedium)
+        PageSectionTitle(stringResource(R.string.dashboard_diagnostics))
         AdaptiveCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 AdaptiveText(stringResource(R.string.dashboard_scan_disclaimer), style = MaterialTheme.typography.labelSmall)
