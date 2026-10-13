@@ -477,12 +477,17 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                         .size(40.dp)
                                         .pointerInput(packageName, moveTargets, rankedRaw, kind, openPreset, browserHost) {
                                             detectDragGesturesAfterLongPress(
-                                                onDragStart = {
+                                                onDragStart = { touch ->
                                                     val rowKey = "app|$key"
                                                     val info = listState.layoutInfo.visibleItemsInfo
                                                         .firstOrNull { it.key == rowKey }
-                                                    if (info != null && dragState.start(
-                                                            info.offset + info.size / 2f,
+                                                    // The handle is centred within the app row: use the
+                                                    // actual touch offset rather than forcing the row centre.
+                                                    val rowY = info?.let {
+                                                        it.offset + (it.size - 40.dp.toPx()) / 2f + touch.y
+                                                    }
+                                                    if (rowY != null && dragState.start(
+                                                            rowY,
                                                             kind.name,
                                                             currentVisible,
                                                             currentSaved
