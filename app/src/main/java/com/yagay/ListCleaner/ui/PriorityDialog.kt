@@ -18,6 +18,7 @@ import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -517,11 +518,12 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     stringResource(R.string.priority_app_summary, rankText, group.components.size)
                                 )
                             }
-                            if (lockState != BulkLockState.NONE) {
+                            AdaptiveIconButton(onClick = { lockMenuPackage = packageName }) {
                                 AdaptiveIcon(
-                                    Icons.Rounded.Lock,
-                                    contentDescription = stringResource(R.string.bulk_lock_full),
-                                    modifier = Modifier.padding(horizontal = 8.dp).size(20.dp)
+                                    if (lockState == BulkLockState.NONE) Icons.Rounded.MoreVert else Icons.Rounded.Lock,
+                                    contentDescription = stringResource(R.string.bulk_lock_options),
+                                    tint = if (lockState == BulkLockState.PARTIAL) MaterialTheme.colorScheme.tertiary
+                                        else LocalContentColor.current
                                 )
                             }
                             if (group.rank != null) {
