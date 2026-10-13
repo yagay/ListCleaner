@@ -148,4 +148,5 @@
     <string name="ui_section_apps">应用列表</string>
     <string name="ui_section_priorities">排序列表</string>
     <string name="ui_section_components">组件列表</string>
+    <string name="ui_filters_actions">筛选与操作</string>
 </resources>
