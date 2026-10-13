@@ -140,34 +140,23 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item(key = "module-indicator") {
-            Column(
-                Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                PageSectionTitle(stringResource(R.string.nav_rules))
-                AdaptiveSurface(
+            PageOverviewSection(stringResource(R.string.nav_rules)) {
+                ModuleStatusRow(state, compact = true) { vm.setDestination(Destination.DASHBOARD) }
+                AdaptiveHorizontalDivider()
+                AdaptiveTextButton(
+                    onClick = { vm.setDestination(Destination.TILES) },
                     modifier = Modifier.fillMaxWidth(),
-                    tonalElevation = 2.dp
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
                 ) {
-                    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)) {
-                        ModuleStatusRow(state, compact = true) { vm.setDestination(Destination.DASHBOARD) }
-                        AdaptiveHorizontalDivider()
-                        AdaptiveTextButton(
-                            onClick = { vm.setDestination(Destination.TILES) },
-                            modifier = Modifier.fillMaxWidth(),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
-                        ) {
-                            AdaptiveText(
-                                stringResource(R.string.root_screen_title),
-                                modifier = Modifier.weight(1f),
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                            AdaptiveIcon(Icons.Rounded.ExpandMore, null)
-                        }
-                    }
+                    AdaptiveText(
+                        stringResource(R.string.root_screen_title),
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    AdaptiveIcon(Icons.Rounded.ExpandMore, null)
                 }
-                if (state.runtime.needsDecision) RuntimePanel(state, vm, showUpdateTools = false)
             }
+            if (state.runtime.needsDecision) RuntimePanel(state, vm, showUpdateTools = false)
         }
         stickyHeader(key = "list-controls") {
             PageFilterSection {
