@@ -37,8 +37,12 @@ internal fun SharedAppSupportingText(
     AdaptiveText(
         text,
         modifier = modifier,
-        style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
+        style = if (LocalUiThemeStyle.current == UiThemeStyle.MATERIAL)
+            androidx.compose.material3.MaterialTheme.typography.bodySmall
+        else top.yukonga.miuix.kmp.theme.MiuixTheme.textStyles.main,
+        color = if (LocalUiThemeStyle.current == UiThemeStyle.MATERIAL)
+            androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+        else androidx.compose.ui.graphics.Color.Unspecified,
         maxLines = 2,
         overflow = TextOverflow.Ellipsis
     )
