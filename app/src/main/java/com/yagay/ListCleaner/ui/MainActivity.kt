@@ -275,7 +275,8 @@ class MainActivity : ComponentActivity() {
                     onRefresh,
                     { restore.launch(arrayOf("application/json", "text/plain")) },
                     { export.launch("ListCleaner-backup.json") },
-                    showSearch = state.destination != Destination.DASHBOARD
+                    showSearch = state.destination != Destination.DASHBOARD,
+                    destination = state.destination
                 )
             },
             bottomBar = {
