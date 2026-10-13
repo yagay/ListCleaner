@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Navigation -->
-    <string name="nav_rules">Rules</string>
+    <string name="nav_rules">Cleanup</string>
     <string name="nav_priority">Ordering</string>
     <string name="nav_components">Components</string>
     <string name="nav_status">Status</string>
