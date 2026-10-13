@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Lock
@@ -523,6 +524,13 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     Icons.Rounded.Lock,
                                     contentDescription = stringResource(R.string.bulk_lock_full),
                                     modifier = Modifier.padding(horizontal = 8.dp).size(20.dp)
+                                )
+                            }
+                            if (group.rank != null) {
+                                AdaptiveIcon(
+                                    Icons.Rounded.DragHandle,
+                                    contentDescription = stringResource(R.string.priority_drag_help),
+                                    modifier = Modifier.padding(horizontal = 4.dp)
                                 )
                             }
                             AdaptiveIconButton(onClick = onExpand) {
