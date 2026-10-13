@@ -1,5 +1,6 @@
 package com.yagay.ListCleaner.ui
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -52,5 +53,24 @@ internal fun PageFilterSection(content: @Composable () -> Unit) {
         }
     } else {
         AdaptiveSurface(tonalElevation = 2.dp) { content() }
+    }
+}
+
+/** A common page hierarchy: a distinct section label followed by a grouped content surface. */
+@Composable
+internal fun PageOverviewSection(
+    title: String,
+    content: @Composable () -> Unit
+) {
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        PageSectionTitle(title)
+        AdaptiveSurface(modifier = Modifier.fillMaxWidth(), tonalElevation = 2.dp) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)) {
+                content()
+            }
+        }
     }
 }
