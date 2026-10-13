@@ -297,15 +297,13 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             onClick = { pendingBatch = PendingRootBatch(editableComponents, selectionState == ToggleableState.On) }
                         )
                         SharedAppIdentity(icon = first.icon, title = first.owner) {
-                            AdaptiveText(
+                            SharedAppSupportingText(
                                 stringResource(
                                     R.string.root_disabled_summary,
                                     components.count { it.enabled == false },
                                     components.size,
                                     kindTitles.joinToString(" · ")
-                                ),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             )
                             if (editableComponents.size < components.size) {
                                 AdaptiveText(
