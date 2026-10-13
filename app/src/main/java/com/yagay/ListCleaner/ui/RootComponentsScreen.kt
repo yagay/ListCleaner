@@ -294,11 +294,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
             val components = unsorted.sortedWith(compareBy({ it.kind.ordinal }, { it.label.lowercase() }, { it.id }))
             val editableComponents = components.filter { it.blocked == null && it.enabled != null }
             val disabledCount = editableComponents.count { it.enabled == false }
-            val selectionState = when {
-                disabledCount == 0 -> ToggleableState.Off
-                disabledCount == editableComponents.size -> ToggleableState.On
-                else -> ToggleableState.Indeterminate
-            }
+            val selectionState = listSelectionState(disabledCount, editableComponents.size)
             val first = components.first()
             val expansionKey = "${kind?.name ?: "ALL"}|$appKey"
             val expanded = expandedAppKey == expansionKey
