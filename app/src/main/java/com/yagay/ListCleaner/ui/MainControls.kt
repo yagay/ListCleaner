@@ -15,6 +15,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
@@ -168,6 +169,60 @@ private fun EntryGroupButton(
     }
 }
 
+/** A single filter panel shared by rules, priority and Root component lists. */
+@Composable
+internal fun ListFilterDialog(
+    appTypeFilter: AppTypeFilter,
+    onAppTypeFilter: (AppTypeFilter) -> Unit,
+    viewFilter: UiFilter,
+    onViewFilter: (UiFilter) -> Unit,
+    onDismiss: () -> Unit,
+    viewTitle: @Composable (UiFilter) -> String = { stringResource(it.titleRes()) },
+) {
+    AdaptiveAlertDialog(
+        onDismissRequest = onDismiss,
+        title = { AdaptiveText(stringResource(R.string.view_filter)) },
+        text = {
+            Column {
+                AdaptiveText(
+                    stringResource(R.string.app_type_filter),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                AppTypeFilter.entries.forEach { mode ->
+                    AdaptiveTextButton(
+                        onClick = { onAppTypeFilter(mode) },
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        AdaptiveText(stringResource(mode.titleRes()), modifier = Modifier.weight(1f))
+                        if (mode == appTypeFilter) AdaptiveIcon(Icons.Rounded.Check, null, Modifier.size(18.dp))
+                    }
+                }
+                AdaptiveHorizontalDivider()
+                AdaptiveText(
+                    stringResource(R.string.view_filter),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                UiFilter.entries.forEach { mode ->
+                    AdaptiveTextButton(
+                        onClick = { onViewFilter(mode) },
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        AdaptiveText(viewTitle(mode), modifier = Modifier.weight(1f))
+                        if (mode == viewFilter) AdaptiveIcon(Icons.Rounded.Check, null, Modifier.size(18.dp))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            AdaptiveTextButton(onClick = onDismiss) { AdaptiveText(stringResource(R.string.common_ok)) }
+        }
+    )
+}
+
 @Composable
 internal fun ListControls(
     state: MainState,
@@ -183,10 +238,46 @@ internal fun ListControls(
     onInvert: (() -> Unit)? = null,
     batchCount: Int? = null,
 ) {
-    var menu by remember { mutableStateOf(false) }
-    var appTypeMenu by remember { mutableStateOf(false) }
+    var showFilters by remember { mutableStateOf(false) }
+    var showHelp by remember { mutableStateOf(false) }
     var selectionMenu by remember { mutableStateOf(false) }
-    var helpExpanded by remember(state.filter) { mutableStateOf(false) }
+    if (showFilters) {
+        ListFilterDialog(
+            appTypeFilter = appTypeFilter,
+            onAppTypeFilter = onAppTypeFilter,
+            viewFilter = state.uiFilter,
+            onViewFilter = onUiFilter,
+            onDismiss = { showFilters = false },
+            viewTitle = viewTitle
+        )
+    }
+    if (showHelp) {
+        val selectedKind = state.filter
+        AdaptiveAlertDialog(
+            onDismissRequest = { showHelp = false },
+            title = {
+                AdaptiveText(
+                    if (selectedKind == null) stringResource(R.string.entry_help_title)
+                    else stringResource(selectedKind.titleRes())
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AdaptiveText(
+                        if (selectedKind == null) stringResource(R.string.entry_rules_general_help)
+                        else stringResource(selectedKind.descriptionRes())
+                    )
+                    if (selectedKind?.entryGroup() == EntryGroup.ADVANCED)
+                        AdaptiveText(stringResource(R.string.entry_advanced_safety_note))
+                }
+            },
+            confirmButton = {
+                AdaptiveTextButton(onClick = { showHelp = false }) {
+                    AdaptiveText(stringResource(R.string.common_ok))
+                }
+            }
+        )
+    }
     Column(Modifier.fillMaxWidth().background(
         if (LocalUiThemeStyle.current == UiThemeStyle.MIUIX_STYLE)
             top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.surfaceContainer
@@ -210,46 +301,32 @@ internal fun ListControls(
             }
         }
         Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box {
-                AdaptiveTextButton(onClick = { appTypeMenu = true }, contentPadding = PaddingValues(horizontal = 6.dp)) {
-                    AdaptiveText(stringResource(R.string.compact_filter_format, stringResource(R.string.app_type_filter), stringResource(appTypeFilter.titleRes())))
-                    AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
-                }
-                AdaptiveDropdownMenu(expanded = appTypeMenu, onDismissRequest = { appTypeMenu = false }) {
-                    AppTypeFilter.entries.forEach { mode ->
-                        AdaptiveDropdownMenuItem(
-                            text = { AdaptiveText(stringResource(mode.titleRes())) },
-                            leadingIcon = { if (mode == appTypeFilter) AdaptiveIcon(Icons.Rounded.Check, null) },
-                            onClick = { appTypeMenu = false; onAppTypeFilter(mode) }
-                        )
-                    }
-                }
+            AdaptiveTextButton(
+                onClick = { showFilters = true },
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                AdaptiveText(
+                    stringResource(R.string.compact_filter_format, stringResource(R.string.view_filter), viewTitle(state.uiFilter)) +
+                        if (appTypeFilter == AppTypeFilter.ALL) "" else " · " + stringResource(appTypeFilter.titleRes()),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
             }
-            Box {
-                AdaptiveTextButton(onClick = { menu = true }, contentPadding = PaddingValues(horizontal = 6.dp)) {
-                    AdaptiveText(stringResource(R.string.compact_filter_format, stringResource(R.string.view_filter), viewTitle(state.uiFilter)))
-                    AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
-                }
-                AdaptiveDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    UiFilter.entries.forEach { mode ->
-                        AdaptiveDropdownMenuItem(
-                            text = { AdaptiveText(viewTitle(mode)) },
-                            leadingIcon = { if (mode == state.uiFilter) AdaptiveIcon(Icons.Rounded.Check, null) },
-                            onClick = { menu = false; onUiFilter(mode) }
-                        )
-                    }
-                }
+            if (extraFilter != null) {
+                Row(Modifier.weight(1f).horizontalScroll(rememberScrollState())) { extraFilter() }
+            } else {
+                Spacer(Modifier.weight(1f))
             }
-            extraFilter?.invoke()
             if (onSelectAll != null || onSelectNone != null || onInvert != null) {
                 Box {
                     AdaptiveTextButton(
                         onClick = { selectionMenu = true },
                         enabled = batchCount == null || batchCount > 0,
-                        contentPadding = PaddingValues(horizontal = 6.dp)
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp)
                     ) {
                         AdaptiveText(stringResource(R.string.selection_actions))
                         AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
@@ -267,43 +344,8 @@ internal fun ListControls(
                     }
                 }
             }
-        }
-        val selectedKind = state.filter
-        AdaptiveTextButton(
-            onClick = { helpExpanded = !helpExpanded },
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 2.dp),
-        ) {
-            AdaptiveText(
-                if (selectedKind == null) stringResource(R.string.entry_help_title)
-                else stringResource(selectedKind.titleRes()),
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = if (selectedKind == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
-            )
-            AdaptiveIcon(
-                if (helpExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                contentDescription = stringResource(if (helpExpanded) R.string.common_collapse else R.string.common_expand),
-                modifier = Modifier.size(18.dp),
-            )
-        }
-        if (helpExpanded) {
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) {
-                AdaptiveText(
-                    if (selectedKind == null) stringResource(R.string.entry_rules_general_help)
-                    else stringResource(selectedKind.descriptionRes()),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (selectedKind?.entryGroup() == EntryGroup.ADVANCED) {
-                    Spacer(Modifier.height(4.dp))
-                    AdaptiveText(
-                        stringResource(R.string.entry_advanced_safety_note),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+            AdaptiveIconButton(onClick = { showHelp = true }) {
+                AdaptiveIcon(Icons.Rounded.Info, contentDescription = stringResource(R.string.entry_help_title))
             }
         }
         if (state.loading) AdaptiveLinearProgressIndicator(Modifier.fillMaxWidth())
