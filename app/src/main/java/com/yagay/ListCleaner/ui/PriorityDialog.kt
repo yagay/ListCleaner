@@ -440,7 +440,23 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                 }
             }
 
-            groups.forEach { group ->
+            // Visually separate the ordered area from the remaining system candidates.
+            groups.forEachIndexed { index, group ->
+                if (index == 0 || groups[index - 1].rank?.let { true } != group.rank?.let { true }) {
+                    item(key = "section|${if (group.rank != null) "prioritized" else "other"}") {
+                        AdaptiveText(
+                            stringResource(
+                                if (group.rank != null) R.string.priority_selected
+                                else R.string.priority_unselected
+                            ),
+                            modifier = Modifier.fillMaxWidth().padding(
+                                start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp
+                            ),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
                 val packageName = group.packageName
                 val key = "${kind.name}|${openPreset?.name ?: browserHost ?: "ALL"}|$packageName"
                 val expanded = expandedKey == key
