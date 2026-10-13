@@ -154,10 +154,11 @@ class MainActivity : ComponentActivity() {
         BackHandler(enabled = !searchExpanded && (state.filter != null || state.destination != Destination.RULES)) {
             when {
                 state.destination == Destination.TILES -> vm.setDestination(Destination.RULES)
+                state.destination == Destination.DASHBOARD -> vm.setDestination(Destination.RULES)
                 vm.ruleOpenPreset.value != null -> vm.setRuleOpenPreset(null)
                 vm.ruleBrowserHost.value != null -> vm.setRuleBrowserHost(null)
+                state.destination == Destination.PRIORITY -> vm.setDestination(Destination.RULES)
                 state.filter != null -> vm.setFilter(null)
-                state.destination != Destination.RULES -> vm.setDestination(Destination.RULES)
             }
         }
         LaunchedEffect(state.destination) {
