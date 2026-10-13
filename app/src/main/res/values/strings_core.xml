@@ -156,4 +156,5 @@
     <string name="ui_section_apps">Applications</string>
     <string name="ui_section_priorities">Ordering list</string>
     <string name="ui_section_components">Components</string>
+    <string name="ui_filters_actions">Filters and actions</string>
 </resources>
