@@ -177,12 +177,12 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                             enabled = !busy,
                             actions = listOf(
                                 ListBatchAction(
-                                    R.string.root_disable_visible,
+                                    R.string.common_disable,
                                     enabled = visible.any { it.blocked == null && it.enabled == true },
                                     run = { pendingBatch = PendingRootBatch(visible, false) }
                                 ),
                                 ListBatchAction(
-                                    R.string.root_batch_action_enable,
+                                    R.string.common_enable,
                                     enabled = visible.any { it.blocked == null && it.enabled == false },
                                     run = { pendingBatch = PendingRootBatch(visible, true) }
                                 ),
