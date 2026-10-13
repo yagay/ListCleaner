@@ -229,27 +229,21 @@ internal fun ListControls(
                     enabled = batchCount == null || batchCount > 0
                 )
             }
+            AdaptiveTextButton(
+                onClick = { helpExpanded = !helpExpanded },
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                AdaptiveText(stringResource(R.string.entry_help_title),
+                    style = MaterialTheme.typography.labelMedium)
+                AdaptiveIcon(
+                    if (helpExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    contentDescription = stringResource(
+                        if (helpExpanded) R.string.common_collapse else R.string.common_expand),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
         val selectedKind = state.filter
-        AdaptiveTextButton(
-            onClick = { helpExpanded = !helpExpanded },
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 2.dp),
-        ) {
-            AdaptiveText(
-                if (selectedKind == null) stringResource(R.string.entry_help_title)
-                else stringResource(selectedKind.titleRes()),
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = if (selectedKind == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
-            )
-            AdaptiveIcon(
-                if (helpExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                contentDescription = stringResource(if (helpExpanded) R.string.common_collapse else R.string.common_expand),
-                modifier = Modifier.size(18.dp),
-            )
-        }
         if (helpExpanded) {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) {
                 AdaptiveText(
