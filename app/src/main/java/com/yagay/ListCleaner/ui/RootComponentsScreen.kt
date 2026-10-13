@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandLess
@@ -309,7 +310,10 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                     lockItemsByApp[appKey].orEmpty()
                 )
                 var lockMenuExpanded by remember { mutableStateOf(false) }
-                AdaptiveGroupSurface(Modifier.fillMaxWidth()) {
+                AdaptiveGroupSurface(
+                    Modifier.fillMaxWidth(),
+                    position = if (expanded) MiuixRowPosition.FIRST else MiuixRowPosition.SINGLE
+                ) {
                     Row(
                         Modifier.fillMaxWidth()
                             .combinedClickable(
@@ -386,18 +390,24 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                         }
                     )
                 }
-                AdaptiveHorizontalDivider()
+                if (LocalUiThemeStyle.current == UiThemeStyle.MATERIAL) AdaptiveHorizontalDivider()
             }
 
-            if (expanded) items(components, key = { it.id }) { item ->
+            if (expanded) itemsIndexed(components, key = { _, item -> item.id }) { componentIndex, item ->
                 val editable = !busy && item.blocked == null && item.enabled != null
                 val lockToggleEnabled = !vm.isComponentAppLockedForItem(kind, item)
                 val itemLocked = vm.isComponentBulkProtected(kind, item)
                 var lockMenuExpanded by remember { mutableStateOf(false) }
-                AdaptiveGroupSurface(Modifier.fillMaxWidth()) {
+                AdaptiveGroupSurface(
+                    Modifier.fillMaxWidth(),
+                    position = if (componentIndex == components.lastIndex) MiuixRowPosition.LAST else MiuixRowPosition.MIDDLE
+                ) {
                     Row(
                         Modifier.fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
+                            .background(
+                                if (LocalUiThemeStyle.current == UiThemeStyle.MIUIX_STYLE) Color.Transparent
+                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+                            )
                             .combinedClickable(
                                 role = Role.Checkbox,
                                 onClick = {

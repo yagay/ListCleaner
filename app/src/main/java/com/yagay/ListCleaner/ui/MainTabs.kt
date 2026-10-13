@@ -4,6 +4,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -274,7 +275,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                 )
             }
             if (expanded) {
-                items(group.components, key = { "component|${it.rule.id}" }, contentType = { "component" }) { component ->
+                itemsIndexed(group.components, key = { _, item -> "component|${item.rule.id}" }, contentType = { _, _ -> "component" }) { componentIndex, component ->
                     val sourceNote = when {
                         typedOpenPreset != null && component.rule in activeSelected -> when {
                             component.rule in state.selected -> stringResource(R.string.rules_inherited_from_all)
@@ -299,6 +300,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
                         component.rule in activeSelected,
                         state.priorities.titles[component.rule.id],
                         selectionNote = sourceNote,
+                        position = if (componentIndex == group.components.lastIndex) MiuixRowPosition.LAST else MiuixRowPosition.MIDDLE,
                         locked = if (deepLinkScoped) vm.isBulkProtected(
                             lockScope, component.rule.packageName, component.rule.id
                         ) else vm.isRuleBulkProtected(state.filter, openPreset, component.rule),

@@ -59,7 +59,10 @@ internal fun AppRow(
     }
     var lockMenuExpanded by remember { mutableStateOf(false) }
 
-    AdaptiveGroupSurface(Modifier.fillMaxWidth()) {
+    AdaptiveGroupSurface(
+        Modifier.fillMaxWidth(),
+        position = if (expanded) MiuixRowPosition.FIRST else MiuixRowPosition.SINGLE
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth()
                 .combinedClickable(
@@ -116,7 +119,7 @@ internal fun AppRow(
             onUnlock = onUnlock,
         )
     }
-    AdaptiveHorizontalDivider()
+    if (LocalUiThemeStyle.current == UiThemeStyle.MATERIAL) AdaptiveHorizontalDivider()
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -126,6 +129,7 @@ internal fun ComponentRow(
     checked: Boolean,
     customTitle: String?,
     selectionNote: String? = null,
+    position: MiuixRowPosition = MiuixRowPosition.SINGLE,
     locked: Boolean = false,
     lockToggleEnabled: Boolean = true,
     onToggle: () -> Unit,
@@ -134,9 +138,12 @@ internal fun ComponentRow(
     onEditTitle: () -> Unit
 ) {
     var lockMenuExpanded by remember { mutableStateOf(false) }
-    AdaptiveGroupSurface(Modifier.fillMaxWidth()) {
+    AdaptiveGroupSurface(Modifier.fillMaxWidth(), position = position) {
         Row(
-            Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
+            Modifier.fillMaxWidth().background(
+                if (LocalUiThemeStyle.current == UiThemeStyle.MIUIX_STYLE) Color.Transparent
+                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+            )
                 .combinedClickable(
                     role = Role.Checkbox,
                     onClick = onToggle,

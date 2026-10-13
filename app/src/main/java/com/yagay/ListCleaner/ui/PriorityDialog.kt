@@ -8,6 +8,7 @@ import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDownward
@@ -449,7 +450,10 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                     val marker = MaterialTheme.colorScheme.primary
                     val expandLabel = stringResource(if (expanded) R.string.common_collapse else R.string.common_expand)
                     val lockState = vm.bulkLockState(lockScope, packageName, emptyList())
-                    AdaptiveGroupSurface(Modifier.fillMaxWidth()) {
+                    AdaptiveGroupSurface(
+                        Modifier.fillMaxWidth(),
+                        position = if (expanded) MiuixRowPosition.FIRST else MiuixRowPosition.SINGLE
+                    ) {
                         Row(
                             Modifier.fillMaxWidth()
                                 .alpha(if (drag?.packageName == packageName) 0.3f else 1f)
@@ -521,7 +525,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                             onUnlock = { vm.setBulkAppLocked(lockScope, packageName, emptyList(), false) }
                         )
                     }
-                    AdaptiveHorizontalDivider()
+                    if (LocalUiThemeStyle.current == UiThemeStyle.MATERIAL) AdaptiveHorizontalDivider()
                 }
                 if (expanded) {
                     if (group.rank != null) {
@@ -572,8 +576,13 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                             }
                         }
                     }
-                    items(group.components, key = { "component|${it.rule.id}" }, contentType = { "component" }) { item ->
-                        ComponentInfoRow(item, state.priorities.titles[item.rule.id]) { editingTitle = item }
+                    itemsIndexed(group.components, key = { _, item -> "component|${item.rule.id}" }, contentType = { _, _ -> "component" }) { componentIndex, item ->
+                        AdaptiveGroupSurface(
+                            Modifier.fillMaxWidth(),
+                            position = if (componentIndex == group.components.lastIndex) MiuixRowPosition.LAST else MiuixRowPosition.MIDDLE
+                        ) {
+                            ComponentInfoRow(item, state.priorities.titles[item.rule.id]) { editingTitle = item }
+                        }
                     }
                 }
             }
