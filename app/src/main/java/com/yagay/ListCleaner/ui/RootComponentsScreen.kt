@@ -219,10 +219,6 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
         }
         item(key = "summary") {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                AdaptiveText(
-                    stringResource(R.string.root_summary, groups.size, visible.size),
-                    style = MaterialTheme.typography.labelLarge
-                )
                 AdaptiveTextButton(onClick = { detailsExpanded = !detailsExpanded }) {
                     AdaptiveText(stringResource(if (detailsExpanded) R.string.root_help_collapse else R.string.root_help_expand))
                     AdaptiveIcon(if (detailsExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null)
