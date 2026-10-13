@@ -74,3 +74,17 @@ internal fun PageOverviewSection(
         }
     }
 }
+
+/** Common heading for the editable collection below the filter controls. */
+@Composable
+internal fun PageResultsSection(title: String, detail: String? = null) {
+    Column(
+        Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 12.dp, bottom = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        PageSectionTitle(title)
+        if (!detail.isNullOrBlank()) {
+            SharedAppSupportingText(detail)
+        }
+    }
+}
