@@ -69,11 +69,21 @@ internal class PriorityDragState(private val list: LazyListState) {
         val layout = list.layoutInfo
         val top = contentTop()
         val center = drag.top + drag.height / 2f
-        val target = layout.visibleItemsInfo.filter {
-            it.key in drag.keys && it.offset + it.size > top && it.offset < layout.viewportEndOffset
-        }.minByOrNull { abs(it.offset + it.size / 2f - center) } ?: return
-        val pkg = drag.keys.getValue(target.key as String)
-        if (pkg != drag.target) session = drag.copy(target = pkg)
+        // New app rows enter the viewport during auto-scroll. The original
+        // visible-row snapshot cannot be used to restrict possible targets.
+        val sourceKey = drag.keys.entries.firstOrNull { it.value == drag.packageName }?.key ?: return
+        val prefix = sourceKey.substringBeforeLast('|') + "|"
+        val target = layout.visibleItemsInfo.mapNotNull { info ->
+            val key = info.key as? String ?: return@mapNotNull null
+            val pkg = key.takeIf { it.startsWith(prefix) }?.removePrefix(prefix)
+                ?: return@mapNotNull null
+            if (pkg !in drag.visible || info.offset + info.size <= top ||
+                info.offset >= layout.viewportEndOffset) return@mapNotNull null
+            info to pkg
+        }.minByOrNull { (info, _) ->
+            abs(info.offset + info.size / 2f - center)
+        } ?: return
+        if (target.second != drag.target) session = drag.copy(target = target.second)
     }
 
     /** Account for the pinned filter bar rather than scrolling beneath it. */
