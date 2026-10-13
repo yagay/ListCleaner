@@ -19,6 +19,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import top.yukonga.miuix.kmp.extra.SuperArrow as NativeSuperArrow
+import top.yukonga.miuix.kmp.extra.SuperDropdown as NativeSuperDropdown
+import top.yukonga.miuix.kmp.extra.SuperSwitch as NativeSuperSwitch
 import com.yagay.ListCleaner.BuildConfig
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.DisplayMode
@@ -436,57 +439,84 @@ internal fun DashboardTabContent(
                 Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                AdaptiveText(stringResource(R.string.ui_appearance_theme_choice), fontWeight = FontWeight.Medium)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    UiThemeStyle.entries.forEach { option ->
-                        AdaptiveFilterChip(
-                            selected = themeStyle == option,
-                            onClick = { onThemeStyleChange(option) },
-                            label = {
-                                AdaptiveText(stringResource(
-                                    if (option == UiThemeStyle.MATERIAL) R.string.ui_appearance_material
-                                    else R.string.ui_appearance_miuix
-                                ))
-                            },
-                            leadingIcon = if (themeStyle == option) {
-                                { AdaptiveIcon(Icons.Rounded.Check, contentDescription = null) }
-                            } else null,
-                        )
+                if (themeStyle == UiThemeStyle.MIUIX_STYLE) {
+                    NativeSuperDropdown(
+                        items = UiThemeStyle.entries.map { option ->
+                            stringResource(if (option == UiThemeStyle.MATERIAL)
+                                R.string.ui_appearance_material else R.string.ui_appearance_miuix)
+                        },
+                        selectedIndex = UiThemeStyle.entries.indexOf(themeStyle),
+                        title = stringResource(R.string.ui_appearance_theme_choice),
+                        summary = stringResource(R.string.ui_appearance_miuix_help),
+                        onSelectedIndexChange = { selectedIndex ->
+                            UiThemeStyle.entries.getOrNull(selectedIndex)?.let(onThemeStyleChange)
+                        }
+                    )
+                } else {
+                    AdaptiveText(stringResource(R.string.ui_appearance_theme_choice), fontWeight = FontWeight.Medium)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        UiThemeStyle.entries.forEach { option ->
+                            AdaptiveFilterChip(
+                                selected = themeStyle == option,
+                                onClick = { onThemeStyleChange(option) },
+                                label = {
+                                    AdaptiveText(stringResource(
+                                        if (option == UiThemeStyle.MATERIAL) R.string.ui_appearance_material
+                                        else R.string.ui_appearance_miuix
+                                    ))
+                                },
+                                leadingIcon = if (themeStyle == option) {
+                                    { AdaptiveIcon(Icons.Rounded.Check, contentDescription = null) }
+                                } else null,
+                            )
+                        }
                     }
+                    AdaptiveText(
+                        stringResource(
+                            if (themeStyle == UiThemeStyle.MATERIAL) R.string.ui_appearance_material_help
+                            else R.string.ui_appearance_miuix_help
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                AdaptiveText(
-                    stringResource(
-                        if (themeStyle == UiThemeStyle.MATERIAL) R.string.ui_appearance_material_help
-                        else R.string.ui_appearance_miuix_help
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
 
         PageSectionTitle(stringResource(R.string.dashboard_global_mode))
         AdaptiveCard(Modifier.fillMaxWidth()) {
-            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    AdaptiveText(stringResource(state.displayMode.titleRes()), fontWeight = FontWeight.Bold)
-                    AdaptiveText(stringResource(R.string.dashboard_global_mode_help), style = MaterialTheme.typography.bodySmall)
-                }
-                Box {
-                    AdaptiveTextButton(onClick = { menu = true }) {
-                        AdaptiveText(stringResource(R.string.dashboard_switch))
-                        AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(18.dp))
+            if (themeStyle == UiThemeStyle.MIUIX_STYLE) {
+                NativeSuperDropdown(
+                    items = DisplayMode.entries.map { mode -> stringResource(mode.titleRes()) },
+                    selectedIndex = DisplayMode.entries.indexOf(state.displayMode),
+                    title = stringResource(R.string.dashboard_global_mode),
+                    summary = stringResource(R.string.dashboard_global_mode_help),
+                    onSelectedIndexChange = { index ->
+                        DisplayMode.entries.getOrNull(index)?.let(vm::setDisplayMode)
                     }
-                    AdaptiveDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        DisplayMode.entries.forEach { mode ->
-                            AdaptiveDropdownMenuItem(
-                                text = { AdaptiveText(stringResource(mode.titleRes())) },
-                                leadingIcon = { if (mode == state.displayMode) AdaptiveIcon(Icons.Rounded.Check, null) },
-                                onClick = { menu = false; vm.setDisplayMode(mode) }
-                            )
+                )
+            } else {
+                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        AdaptiveText(stringResource(state.displayMode.titleRes()), fontWeight = FontWeight.Bold)
+                        AdaptiveText(stringResource(R.string.dashboard_global_mode_help), style = MaterialTheme.typography.bodySmall)
+                    }
+                    Box {
+                        AdaptiveTextButton(onClick = { menu = true }) {
+                            AdaptiveText(stringResource(R.string.dashboard_switch))
+                            AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(18.dp))
+                        }
+                        AdaptiveDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            DisplayMode.entries.forEach { mode ->
+                                AdaptiveDropdownMenuItem(
+                                    text = { AdaptiveText(stringResource(mode.titleRes())) },
+                                    leadingIcon = { if (mode == state.displayMode) AdaptiveIcon(Icons.Rounded.Check, null) },
+                                    onClick = { menu = false; vm.setDisplayMode(mode) }
+                                )
+                            }
                         }
                     }
                 }
@@ -536,10 +566,18 @@ internal fun DashboardTabContent(
         ModuleStatusRow(state) { showScopeDetails = true; vm.refreshModuleStatus() }
         AdaptiveCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                AdaptiveText(stringResource(R.string.dashboard_app_visibility), fontWeight = FontWeight.Bold)
-                AdaptiveText(stringResource(R.string.dashboard_app_visibility_help), style = MaterialTheme.typography.bodySmall)
-                AdaptiveButton(onClick = { showAppScopePicker = true }, modifier = Modifier.fillMaxWidth()) {
-                    AdaptiveText(stringResource(R.string.dashboard_manage_app_visibility_plain))
+                if (themeStyle == UiThemeStyle.MIUIX_STYLE) {
+                    NativeSuperArrow(
+                        title = stringResource(R.string.dashboard_manage_app_visibility_plain),
+                        summary = stringResource(R.string.dashboard_app_visibility_help),
+                        onClick = { showAppScopePicker = true }
+                    )
+                } else {
+                    AdaptiveText(stringResource(R.string.dashboard_app_visibility), fontWeight = FontWeight.Bold)
+                    AdaptiveText(stringResource(R.string.dashboard_app_visibility_help), style = MaterialTheme.typography.bodySmall)
+                    AdaptiveButton(onClick = { showAppScopePicker = true }, modifier = Modifier.fillMaxWidth()) {
+                        AdaptiveText(stringResource(R.string.dashboard_manage_app_visibility_plain))
+                    }
                 }
                 AdaptiveText(
                     stringResource(R.string.dashboard_app_visibility_warning),
@@ -561,15 +599,24 @@ internal fun DashboardTabContent(
                     AdaptiveText(stringResource(if (checkingFile) R.string.dashboard_inspecting_file else R.string.dashboard_inspect_file))
                 }
                 fileCheckStatus?.let { AdaptiveText(it, style = MaterialTheme.typography.bodySmall) }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    AdaptiveText(stringResource(R.string.diagnostic_mode), Modifier.weight(1f))
-                    AdaptiveSwitch(state.diagnosticMode, vm::setDiagnosticMode)
+                if (themeStyle == UiThemeStyle.MIUIX_STYLE) {
+                    NativeSuperSwitch(
+                        checked = state.diagnosticMode,
+                        onCheckedChange = vm::setDiagnosticMode,
+                        title = stringResource(R.string.diagnostic_mode),
+                        summary = stringResource(R.string.diagnostic_mode_help)
+                    )
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        AdaptiveText(stringResource(R.string.diagnostic_mode), Modifier.weight(1f))
+                        AdaptiveSwitch(state.diagnosticMode, vm::setDiagnosticMode)
+                    }
+                    AdaptiveText(
+                        stringResource(R.string.diagnostic_mode_help),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                AdaptiveText(
-                    stringResource(R.string.diagnostic_mode_help),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
                 if (state.diagnosticMode) {
                     AdaptiveText(stringResource(R.string.diagnostic_enabled_help), style = MaterialTheme.typography.bodySmall)
                 }
