@@ -217,7 +217,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
             }
         }
         item(key = "summary") {
-            PageResultsSection(stringResource(R.string.root_screen_title))
+            PageResultsSection(stringResource(R.string.ui_section_components))
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 AdaptiveTextButton(onClick = { detailsExpanded = !detailsExpanded }) {
                     AdaptiveText(stringResource(if (detailsExpanded) R.string.root_help_collapse else R.string.root_help_expand))
