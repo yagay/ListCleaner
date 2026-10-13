@@ -497,7 +497,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     )
                                 } ?: stringResource(R.string.priority_not_prioritized)
                                 AdaptiveText(
-                                    rankText,
+                                    stringResource(R.string.priority_app_summary, rankText, group.components.size),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

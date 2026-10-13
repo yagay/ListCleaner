@@ -79,7 +79,12 @@ internal fun AppRow(
             Column(Modifier.weight(1f).padding(start = 10.dp)) {
                 AdaptiveText(group.appLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
                 AdaptiveText(
-                    kindTitles.joinToString(" · "),
+                    stringResource(
+                        R.string.app_row_selection_summary,
+                        selectedCount,
+                        group.components.size,
+                        kindTitles.joinToString(" · ")
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,

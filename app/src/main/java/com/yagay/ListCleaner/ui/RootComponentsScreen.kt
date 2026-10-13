@@ -251,6 +251,10 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
         }
         item(key = "summary") {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                AdaptiveText(
+                    stringResource(R.string.root_summary, groups.size, visible.size),
+                    style = MaterialTheme.typography.labelLarge
+                )
                 AdaptiveTextButton(onClick = { detailsExpanded = !detailsExpanded }) {
                     AdaptiveText(stringResource(if (detailsExpanded) R.string.root_help_collapse else R.string.root_help_expand))
                     AdaptiveIcon(if (detailsExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null)
@@ -332,20 +336,19 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                         AppIcon(first.icon, first.owner)
                         Column(Modifier.weight(1f).padding(start = 10.dp)) {
                             AdaptiveText(first.owner, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
-                            val componentStatus = stringResource(when {
-                                components.all { it.enabled == false } -> R.string.root_disabled
-                                components.all { it.enabled == true } -> R.string.root_enabled
-                                components.any { it.enabled == false } -> R.string.root_partially_disabled
-                                else -> R.string.root_unknown_state
-                            })
                             AdaptiveText(
-                                stringResource(R.string.root_component_status_categories, componentStatus, kindTitles.joinToString(" · ")),
+                                stringResource(
+                                    R.string.root_disabled_summary,
+                                    components.count { it.enabled == false },
+                                    components.size,
+                                    kindTitles.joinToString(" · ")
+                                ),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             if (editableComponents.size < components.size) {
                                 AdaptiveText(
-                                    stringResource(R.string.root_display_only_warning),
+                                    stringResource(R.string.root_display_only_count, components.size - editableComponents.size),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

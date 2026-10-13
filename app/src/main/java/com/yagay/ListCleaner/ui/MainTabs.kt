@@ -203,7 +203,7 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
             }
         }
         item(key = "list-summary") {
-            SummaryRow(state)
+            SummaryRow(state, shownGroups.size)
             if (openPreset == null && state.uiFilter != UiFilter.SHOW_SELECTED && state.candidates.any {
                     it.rule in state.selected && (it.unavailable || it.restricted)
                 }) {
@@ -358,8 +358,12 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
 }
 
 @Composable
-private fun SummaryRow(state: MainState) {
+private fun SummaryRow(state: MainState, displayedApps: Int) {
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        AdaptiveText(
+            stringResource(R.string.app_list_count, displayedApps),
+            style = MaterialTheme.typography.labelLarge
+        )
         AdaptiveText(
             stringResource(
                 when (state.displayMode) {
