@@ -71,9 +71,7 @@ internal fun AppRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             AdaptiveTriStateCheckbox(state = selectionState, onClick = { onSelect(selectionState != ToggleableState.On) })
-            AppIcon(bitmap = group.appIcon, appLabel = group.appLabel)
-            Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                AdaptiveText(group.appLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
+            SharedAppIdentity(icon = group.appIcon, title = group.appLabel) {
                 AdaptiveText(
                     stringResource(
                         R.string.app_row_selection_summary,
