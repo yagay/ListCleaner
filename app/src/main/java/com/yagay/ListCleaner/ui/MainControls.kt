@@ -183,7 +183,6 @@ internal fun ListControls(
     onInvert: (() -> Unit)? = null,
     batchCount: Int? = null,
 ) {
-    var selectionMenu by remember { mutableStateOf(false) }
     var helpExpanded by remember(state.filter) { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().background(
         if (LocalUiThemeStyle.current == UiThemeStyle.MIUIX_STYLE)
@@ -220,27 +219,14 @@ internal fun ListControls(
             )
             extraFilter?.invoke()
             if (onSelectAll != null || onSelectNone != null || onInvert != null) {
-                Box {
-                    AdaptiveTextButton(
-                        onClick = { selectionMenu = true },
-                        enabled = batchCount == null || batchCount > 0,
-                        contentPadding = PaddingValues(horizontal = 6.dp)
-                    ) {
-                        AdaptiveText(stringResource(R.string.selection_actions))
-                        AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
-                    }
-                    AdaptiveDropdownMenu(expanded = selectionMenu, onDismissRequest = { selectionMenu = false }) {
-                        onSelectAll?.let { action ->
-                            AdaptiveDropdownMenuItem(text = { AdaptiveText(stringResource(R.string.select_all)) }, onClick = { selectionMenu = false; action() })
-                        }
-                        onSelectNone?.let { action ->
-                            AdaptiveDropdownMenuItem(text = { AdaptiveText(stringResource(R.string.select_none)) }, onClick = { selectionMenu = false; action() })
-                        }
-                        onInvert?.let { action ->
-                            AdaptiveDropdownMenuItem(text = { AdaptiveText(stringResource(R.string.invert_selection)) }, onClick = { selectionMenu = false; action() })
-                        }
-                    }
-                }
+                UnifiedBatchActions(
+                    actions = buildList {
+                        onSelectAll?.let { add(ListBatchAction(R.string.select_all, run = it)) }
+                        onSelectNone?.let { add(ListBatchAction(R.string.select_none, run = it)) }
+                        onInvert?.let { add(ListBatchAction(R.string.invert_selection, run = it)) }
+                    },
+                    enabled = batchCount == null || batchCount > 0
+                )
             }
         }
         val selectedKind = state.filter
