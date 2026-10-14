@@ -173,7 +173,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         LaunchedEffect(state.destination) {
-            if (state.destination == Destination.DASHBOARD) closeSearch()
+            if (state.destination == Destination.DASHBOARD || state.destination == Destination.SETTINGS) closeSearch()
         }
         LifecycleResumeEffect(vm) {
             vm.refreshModuleStatus()
@@ -231,6 +231,7 @@ class MainActivity : ComponentActivity() {
                 Destination.PRIORITY -> vm.refresh(forceCatalog = true)
                 Destination.TILES -> vm.refreshComponents()
                 Destination.DASHBOARD -> vm.refreshModuleStatus()
+                Destination.SETTINGS -> vm.refreshModuleStatus()
             }
         }
         val pageContent: @Composable (androidx.compose.foundation.layout.PaddingValues) -> Unit = { padding ->
@@ -246,14 +247,18 @@ class MainActivity : ComponentActivity() {
                     Destination.DASHBOARD -> DashboardTabContent(
                         state,
                         vm,
-                        { restore.launch(arrayOf("application/json", "text/plain")) },
-                        { export.launch("ListCleaner-backup.json") },
                         collectingDiagnostics,
                         {
                             val stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
                             diagnosticExport.launch("ListCleaner-diagnostic-$stamp.zip")
                         },
-                        { fileCheck.launch(arrayOf("*/*")) },
+                        { fileCheck.launch(arrayOf("*/*")) }
+                    )
+                    Destination.SETTINGS -> SettingsTabContent(
+                        state,
+                        vm,
+                        { restore.launch(arrayOf("application/json", "text/plain")) },
+                        { export.launch("ListCleaner-backup.json") },
                         colorMode = colorMode,
                         onColorModeChange = onColorModeChange
                     )
@@ -272,7 +277,7 @@ class MainActivity : ComponentActivity() {
                     onRefresh,
                     { restore.launch(arrayOf("application/json", "text/plain")) },
                     { export.launch("ListCleaner-backup.json") },
-                    showSearch = state.destination != Destination.DASHBOARD
+                    showSearch = state.destination != Destination.DASHBOARD && state.destination != Destination.SETTINGS
                 )
             },
             bottomBar = {

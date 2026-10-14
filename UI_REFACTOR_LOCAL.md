@@ -20,3 +20,9 @@
 执行 `python3 tools/check-material3-controls.py`，再运行 `./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug`。test3 的 GitHub Actions 会运行上述检查并上传 Debug APK 和当前提交的完整源码。
 
 实机还需检查浅色、深色、系统模式、小屏、大字体、返回、页面滚动、展开、批量选中、锁定、排序拖动、Root 开关和权限提示。自动编译及静态检查不能证明实机视觉、无障碍或 Hook 行为完全正确。
+
+## 独立设置入口
+
+- 底部导航增加 `Destination.SETTINGS`（设置齿轮），沿用 `MaterialActionColors.navigation()` 的选中与未选中配色。
+- `SettingsTabContent` 承载外观模式、全局清理模式、数据备份、应用隐藏列表和诊断模式开关；`DashboardTabContent` 状态页只保留模块运行/同步/命中及诊断操作，避免功能在两个导航页面重复。
+- 状态及设置页禁用搜索入口。返回逻辑与已有底部导航保持一致，不改变规则、Root 或 Hook 行为。

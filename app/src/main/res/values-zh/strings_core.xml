@@ -4,6 +4,7 @@
     <string name="nav_priority">排序</string>
     <string name="nav_components">组件</string>
     <string name="nav_status">状态</string>
+    <string name="nav_settings">设置</string>
 
     <string name="common_all">全部</string>
     <string name="common_none">暂无</string>

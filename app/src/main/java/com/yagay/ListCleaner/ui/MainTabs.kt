@@ -527,16 +527,84 @@ fun PriorityTab(state: MainState, vm: MainViewModel) {
 internal fun DashboardTabContent(
     state: MainState,
     vm: MainViewModel,
-    onRestore: () -> Unit,
-    onExport: () -> Unit,
     collectingDiagnostics: Boolean,
     onCollectDiagnostics: () -> Unit,
     onInspectFile: () -> Unit,
-    colorMode: UiColorMode,
-    onColorModeChange: (UiColorMode) -> Unit,
 ) {
     val fileCheckStatus by vm.fileCheckStatus.collectAsStateWithLifecycle()
     val checkingFile by vm.checkingFile.collectAsStateWithLifecycle()
+    var showScopeDetails by remember { mutableStateOf(false) }
+    if (showScopeDetails) ScopeDialog(state.module, vm::requestScope, vm::refreshModuleStatus) { showScopeDetails = false }
+
+    MaterialPageColumn {
+        RuntimePanel(state, vm)
+
+        PageSectionTitle(stringResource(R.string.dashboard_sync_status))
+        MaterialSectionCard {
+                AdaptiveText(state.syncStatus, fontWeight = FontWeight.Bold)
+                AdaptiveText(stringResource(R.string.dashboard_sync_help), style = MaterialTheme.typography.bodySmall)
+            }
+
+        PageSectionTitle(stringResource(R.string.dashboard_runtime_hits))
+        MaterialSectionCard {
+                AdaptiveText(
+                    stringResource(if (state.runtime.ready) R.string.dashboard_ack_confirmed else R.string.dashboard_ack_missing),
+                    fontWeight = FontWeight.Bold
+                )
+                AdaptiveText(stringResource(R.string.dashboard_query_hits, state.runtime.queryHits), style = MaterialTheme.typography.bodySmall)
+                AdaptiveText(stringResource(R.string.dashboard_visibility_hits, state.runtime.visibilityHits), style = MaterialTheme.typography.bodySmall)
+                AdaptiveText(stringResource(R.string.dashboard_ordering_hits, state.runtime.orderingHits), style = MaterialTheme.typography.bodySmall)
+                AdaptiveText(
+                    stringResource(R.string.dashboard_hits_help),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                AdaptiveOutlinedButton(onClick = vm::refreshModuleStatus, modifier = Modifier.fillMaxWidth()) {
+                    AdaptiveText(stringResource(R.string.dashboard_refresh_runtime))
+                }
+            }
+
+        PageSectionTitle(stringResource(R.string.dashboard_module_status))
+        ModuleStatusRow(state) { showScopeDetails = true; vm.refreshModuleStatus() }
+
+        PageSectionTitle(stringResource(R.string.dashboard_diagnostics))
+        MaterialSectionCard {
+                AdaptiveText(stringResource(R.string.dashboard_scan_disclaimer), style = MaterialTheme.typography.labelSmall)
+                AdaptiveOutlinedButton(
+                    onClick = onInspectFile,
+                    enabled = !checkingFile,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    AdaptiveText(stringResource(if (checkingFile) R.string.dashboard_inspecting_file else R.string.dashboard_inspect_file))
+                }
+                fileCheckStatus?.let { AdaptiveText(it, style = MaterialTheme.typography.bodySmall) }
+                
+                AdaptiveButton(
+                    onClick = onCollectDiagnostics,
+                    enabled = !collectingDiagnostics,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (collectingDiagnostics) {
+                        AdaptiveCircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    AdaptiveText(stringResource(if (collectingDiagnostics) R.string.dashboard_collecting else R.string.dashboard_export_diagnostics))
+                }
+                AdaptiveText(stringResource(R.string.diagnostic_export_help), style = MaterialTheme.typography.labelSmall)
+            }
+
+    }
+}
+
+@Composable
+internal fun SettingsTabContent(
+    state: MainState,
+    vm: MainViewModel,
+    onRestore: () -> Unit,
+    onExport: () -> Unit,
+    colorMode: UiColorMode,
+    onColorModeChange: (UiColorMode) -> Unit,
+) {
     val colorModeLabels = UiColorMode.entries.map { mode ->
         stringResource(
             when (mode) {
@@ -547,9 +615,7 @@ internal fun DashboardTabContent(
         )
     }
     var menu by remember { mutableStateOf(false) }
-    var showScopeDetails by remember { mutableStateOf(false) }
     var showAppScopePicker by remember { mutableStateOf(false) }
-    if (showScopeDetails) ScopeDialog(state.module, vm::requestScope, vm::refreshModuleStatus) { showScopeDetails = false }
     if (showAppScopePicker) {
         AppScopePickerDialog(
             selected = state.hiddenFromApps,
@@ -558,8 +624,6 @@ internal fun DashboardTabContent(
     }
 
     MaterialPageColumn {
-        RuntimePanel(state, vm)
-
         PageSectionTitle(stringResource(R.string.ui_appearance_title))
         MaterialSectionCard {
                 AdaptiveText(stringResource(R.string.ui_color_mode_title), fontWeight = FontWeight.Medium)
@@ -608,31 +672,6 @@ internal fun DashboardTabContent(
             
         }
 
-        PageSectionTitle(stringResource(R.string.dashboard_sync_status))
-        MaterialSectionCard {
-                AdaptiveText(state.syncStatus, fontWeight = FontWeight.Bold)
-                AdaptiveText(stringResource(R.string.dashboard_sync_help), style = MaterialTheme.typography.bodySmall)
-            }
-
-        PageSectionTitle(stringResource(R.string.dashboard_runtime_hits))
-        MaterialSectionCard {
-                AdaptiveText(
-                    stringResource(if (state.runtime.ready) R.string.dashboard_ack_confirmed else R.string.dashboard_ack_missing),
-                    fontWeight = FontWeight.Bold
-                )
-                AdaptiveText(stringResource(R.string.dashboard_query_hits, state.runtime.queryHits), style = MaterialTheme.typography.bodySmall)
-                AdaptiveText(stringResource(R.string.dashboard_visibility_hits, state.runtime.visibilityHits), style = MaterialTheme.typography.bodySmall)
-                AdaptiveText(stringResource(R.string.dashboard_ordering_hits, state.runtime.orderingHits), style = MaterialTheme.typography.bodySmall)
-                AdaptiveText(
-                    stringResource(R.string.dashboard_hits_help),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                AdaptiveOutlinedButton(onClick = vm::refreshModuleStatus, modifier = Modifier.fillMaxWidth()) {
-                    AdaptiveText(stringResource(R.string.dashboard_refresh_runtime))
-                }
-            }
-
         PageSectionTitle(stringResource(R.string.dashboard_data_backup))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap)) {
             AdaptiveButton(onClick = onRestore, modifier = Modifier.weight(1f)) {
@@ -643,8 +682,6 @@ internal fun DashboardTabContent(
             }
         }
 
-        PageSectionTitle(stringResource(R.string.dashboard_module_status))
-        ModuleStatusRow(state) { showScopeDetails = true; vm.refreshModuleStatus() }
         MaterialSectionCard {
                 
                     AdaptiveText(stringResource(R.string.dashboard_app_visibility), fontWeight = FontWeight.Bold)
@@ -660,18 +697,8 @@ internal fun DashboardTabContent(
                 )
             }
 
-        PageSectionTitle(stringResource(R.string.dashboard_diagnostics))
+        PageSectionTitle(stringResource(R.string.diagnostic_mode))
         MaterialSectionCard {
-                AdaptiveText(stringResource(R.string.dashboard_scan_disclaimer), style = MaterialTheme.typography.labelSmall)
-                AdaptiveOutlinedButton(
-                    onClick = onInspectFile,
-                    enabled = !checkingFile,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    AdaptiveText(stringResource(if (checkingFile) R.string.dashboard_inspecting_file else R.string.dashboard_inspect_file))
-                }
-                fileCheckStatus?.let { AdaptiveText(it, style = MaterialTheme.typography.bodySmall) }
-                
                     MaterialSettingsRow(
                         title = stringResource(R.string.diagnostic_mode),
                         supportingText = stringResource(R.string.diagnostic_mode_help)
@@ -682,19 +709,7 @@ internal fun DashboardTabContent(
                 if (state.diagnosticMode) {
                     AdaptiveText(stringResource(R.string.diagnostic_enabled_help), style = MaterialTheme.typography.bodySmall)
                 }
-                AdaptiveButton(
-                    onClick = onCollectDiagnostics,
-                    enabled = !collectingDiagnostics,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    if (collectingDiagnostics) {
-                        AdaptiveCircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                        Spacer(Modifier.width(8.dp))
-                    }
-                    AdaptiveText(stringResource(if (collectingDiagnostics) R.string.dashboard_collecting else R.string.dashboard_export_diagnostics))
-                }
-                AdaptiveText(stringResource(R.string.diagnostic_export_help), style = MaterialTheme.typography.labelSmall)
-            }
+        }
 
         Spacer(Modifier.height(32.dp))
         AdaptiveText(
