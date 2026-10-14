@@ -3,7 +3,6 @@ package com.yagay.ListCleaner.ui
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.util.LruCache
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,7 +14,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -181,14 +179,9 @@ internal fun AppScopePickerDialog(
                                 }.padding(vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                bitmap?.let {
-                                    Image(
-                                        bitmap = it.asImageBitmap(),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(40.dp),
-                                    )
-                                    Spacer(Modifier.width(10.dp))
-                                }
+                                // Same stable icon/placeholder geometry as rules and priorities.
+                                AppIcon(bitmap, entry.label)
+                                Spacer(Modifier.width(10.dp))
                                 AdaptiveCheckbox(
                                     checked = checked,
                                     onCheckedChange = { value ->
