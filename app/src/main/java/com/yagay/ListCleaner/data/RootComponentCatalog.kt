@@ -348,6 +348,8 @@ class RootComponentCatalog(
             "at=${System.currentTimeMillis()} component=${target.id} requestedEnabled=$enable status=started"
         val result = try {
             ComponentRootCommand.run(script)
+        } catch (failure: ComponentRootCommand.RootAccessException) {
+            throw failure
         } catch (failure: Exception) {
             lastOperation += " error=${failure.javaClass.name}"
             Log.e(TAG, "Root component command failed for ${target.id}", failure)
