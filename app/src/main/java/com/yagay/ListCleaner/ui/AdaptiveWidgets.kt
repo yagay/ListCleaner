@@ -130,10 +130,11 @@ internal fun AdaptiveTriStateCheckbox(
                 enabled = enabled
             )
             if (state == ToggleableState.Indeterminate) {
+                val markerColor = MiuixTheme.colorScheme.primary
                 androidx.compose.foundation.Canvas(Modifier.size(24.dp)) {
                     // MIUIX checkbox backgrounds vary by light/dark scheme; fixed white
                     // disappears on light surfaces. Use the native high-contrast accent.
-                    drawLine(color = top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.primary, start = androidx.compose.ui.geometry.Offset(size.width * .25f, size.height * .5f),
+                    drawLine(color = markerColor, start = androidx.compose.ui.geometry.Offset(size.width * .25f, size.height * .5f),
                         end = androidx.compose.ui.geometry.Offset(size.width * .75f, size.height * .5f),
                         strokeWidth = 3.dp.toPx())
                 }
