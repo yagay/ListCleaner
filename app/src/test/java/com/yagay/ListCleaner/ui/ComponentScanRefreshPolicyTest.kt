@@ -1,5 +1,6 @@
 package com.yagay.ListCleaner.ui
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -57,6 +58,24 @@ class ComponentScanRefreshPolicyTest {
             lastAttemptElapsedMs = 240_000L,
             busy = false,
             packageRevisionChanged = true
+        ))
+    }
+
+    @Test fun partialScanDoesNotStartTenMinuteFreshnessWindow() {
+        assertEquals(-1L, ComponentScanRefreshPolicy.completedFullScanAt(
+            nowElapsedMs = 200_000L,
+            warning = "One category could not be scanned",
+            packageRevisionChanged = false
+        ))
+        assertEquals(-1L, ComponentScanRefreshPolicy.completedFullScanAt(
+            nowElapsedMs = 200_000L,
+            warning = "",
+            packageRevisionChanged = true
+        ))
+        assertEquals(200_000L, ComponentScanRefreshPolicy.completedFullScanAt(
+            nowElapsedMs = 200_000L,
+            warning = "",
+            packageRevisionChanged = false
         ))
     }
 
