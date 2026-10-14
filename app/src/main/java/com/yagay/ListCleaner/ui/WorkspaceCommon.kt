@@ -73,7 +73,7 @@ internal fun WorkspaceCategoryCard(
     }
 }
 
-/** Identical action in both cleanup groups, including MIUIX and Material rendering. */
+/** Identical action in both cleanup groups, using shared Material 3 rendering. */
 @Composable
 internal fun WorkspaceBrowseAllButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     AdaptiveOutlinedButton(onClick = onClick, modifier = modifier.fillMaxWidth()) {
@@ -314,9 +314,7 @@ internal fun WorkspaceProgress(progress: Float? = null) {
 internal fun WorkspaceReadOnlyDetailRow(content: @Composable RowScope.() -> Unit) {
     Row(
         Modifier.fillMaxWidth().background(
-            if (LocalUiThemeStyle.current == UiThemeStyle.MIUIX_STYLE)
-                androidx.compose.ui.graphics.Color.Transparent
-            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
         ).heightIn(min = WorkspaceUiTokens.detailHeight)
             .padding(start = 14.dp, end = 10.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -328,7 +326,7 @@ internal fun WorkspaceReadOnlyDetailRow(content: @Composable RowScope.() -> Unit
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 internal fun WorkspaceDetailRow(
-    position: MiuixRowPosition,
+    position: ListRowPosition,
     checked: Boolean,
     enabled: Boolean = true,
     locked: Boolean,
@@ -344,8 +342,7 @@ internal fun WorkspaceDetailRow(
         Row(
             Modifier.fillMaxWidth()
                 .then(
-                    if (LocalUiThemeStyle.current == UiThemeStyle.MIUIX_STYLE) Modifier
-                    else Modifier.background(
+                    Modifier.background(
                         MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
                     )
                 )

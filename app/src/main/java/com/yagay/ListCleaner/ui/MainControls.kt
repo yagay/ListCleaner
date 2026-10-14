@@ -35,7 +35,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.R
-import top.yukonga.miuix.kmp.basic.TextField as NativeMiuixTextField
 import com.yagay.ListCleaner.domain.AppTypeFilter
 import com.yagay.ListCleaner.domain.EntryGroup
 import com.yagay.ListCleaner.domain.IntentKind
@@ -48,16 +47,7 @@ internal fun CompactSearchField(query: String, onQueryChange: (String) -> Unit) 
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
-    if (LocalUiThemeStyle.current == UiThemeStyle.MIUIX_STYLE) {
-        NativeMiuixTextField(
-            value = query, onValueChange = onQueryChange,
-            modifier = Modifier.fillMaxWidth().focusRequester(focusRequester).heightIn(min = 48.dp),
-            label = stringResource(R.string.search_apps_components_packages),
-            useLabelAsPlaceholder = true, singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() })
-        )
-    } else BasicTextField(
+    BasicTextField(
         value = query,
         onValueChange = onQueryChange,
         singleLine = true,
@@ -196,9 +186,7 @@ internal fun ListControls(
         else localHelpExpanded = next
     }
     Column(Modifier.fillMaxWidth().background(
-        if (LocalUiThemeStyle.current == UiThemeStyle.MIUIX_STYLE)
-            top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.surfaceContainer
-        else MaterialTheme.colorScheme.surface
+        MaterialTheme.colorScheme.surface
     )) {
         if (showEntryGroups) {
             Row(

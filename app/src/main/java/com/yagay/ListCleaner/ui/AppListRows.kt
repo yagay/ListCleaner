@@ -91,7 +91,7 @@ internal fun ComponentRow(
     checked: Boolean,
     customTitle: String?,
     selectionNote: String? = null,
-    position: MiuixRowPosition = MiuixRowPosition.SINGLE,
+    position: ListRowPosition = ListRowPosition.SINGLE,
     locked: Boolean = false,
     lockToggleEnabled: Boolean = true,
     onToggle: () -> Unit,

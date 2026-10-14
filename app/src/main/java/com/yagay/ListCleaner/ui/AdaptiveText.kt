@@ -14,8 +14,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
-import top.yukonga.miuix.kmp.basic.Text as NativeText
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** Native theme text without forked labels, validation strings or business logic. */
 @Composable
@@ -37,20 +35,13 @@ internal fun AdaptiveText(
     minLines: Int = 1,
     style: TextStyle = TextStyle.Default
 ) {
-    if (LocalUiThemeStyle.current == UiThemeStyle.MATERIAL) MaterialText(
+    MaterialText(
         text = text, modifier = modifier, color = color, fontSize = fontSize,
         fontStyle = fontStyle, fontWeight = fontWeight, fontFamily = fontFamily,
         letterSpacing = letterSpacing, textDecoration = textDecoration,
         textAlign = textAlign, lineHeight = lineHeight, overflow = overflow,
         softWrap = softWrap, maxLines = maxLines, minLines = minLines,
         style = if (style == TextStyle.Default) LocalTextStyle.current else style
-    ) else NativeText(
-        text = text, modifier = modifier, color = color, fontSize = fontSize,
-        fontStyle = fontStyle, fontWeight = fontWeight, fontFamily = fontFamily,
-        letterSpacing = letterSpacing, textDecoration = textDecoration,
-        textAlign = textAlign, lineHeight = lineHeight, overflow = overflow,
-        softWrap = softWrap, maxLines = maxLines, minLines = minLines,
-        style = if (style == TextStyle.Default) MiuixTheme.textStyles.main else style
     )
 }
 
@@ -73,19 +64,12 @@ internal fun AdaptiveText(
     minLines: Int = 1,
     style: TextStyle = TextStyle.Default
 ) {
-    if (LocalUiThemeStyle.current == UiThemeStyle.MATERIAL) MaterialText(
+    MaterialText(
         text = text, modifier = modifier, color = color, fontSize = fontSize,
         fontStyle = fontStyle, fontWeight = fontWeight, fontFamily = fontFamily,
         letterSpacing = letterSpacing, textDecoration = textDecoration,
         textAlign = textAlign, lineHeight = lineHeight, overflow = overflow,
         softWrap = softWrap, maxLines = maxLines, minLines = minLines,
         style = if (style == TextStyle.Default) LocalTextStyle.current else style
-    ) else NativeText(
-        text = text, modifier = modifier, color = color, fontSize = fontSize,
-        fontStyle = fontStyle, fontWeight = fontWeight, fontFamily = fontFamily,
-        letterSpacing = letterSpacing, textDecoration = textDecoration,
-        textAlign = textAlign, lineHeight = lineHeight, overflow = overflow,
-        softWrap = softWrap, maxLines = maxLines, minLines = minLines,
-        style = if (style == TextStyle.Default) MiuixTheme.textStyles.main else style
     )
 }

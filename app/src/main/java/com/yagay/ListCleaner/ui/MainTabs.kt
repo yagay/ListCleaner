@@ -21,9 +21,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import top.yukonga.miuix.kmp.extra.SuperArrow as NativeSuperArrow
-import top.yukonga.miuix.kmp.extra.SuperDropdown as NativeSuperDropdown
-import top.yukonga.miuix.kmp.extra.SuperSwitch as NativeSuperSwitch
 import com.yagay.ListCleaner.BuildConfig
 import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.R
@@ -446,7 +443,7 @@ fun RulesTab(
                         component.rule in activeSelected,
                         state.priorities.titles[component.rule.id],
                         selectionNote = sourceNote,
-                        position = if (componentIndex == group.components.lastIndex) MiuixRowPosition.LAST else MiuixRowPosition.MIDDLE,
+                        position = if (componentIndex == group.components.lastIndex) ListRowPosition.LAST else ListRowPosition.MIDDLE,
                         locked = if (deepLinkScoped) vm.isBulkProtected(
                             lockScope, component.rule.packageName, component.rule.id
                         ) else vm.isRuleBulkProtected(state.filter, openPreset, component.rule),
@@ -531,8 +528,6 @@ internal fun DashboardTabContent(
     collectingDiagnostics: Boolean,
     onCollectDiagnostics: () -> Unit,
     onInspectFile: () -> Unit,
-    themeStyle: UiThemeStyle,
-    onThemeStyleChange: (UiThemeStyle) -> Unit,
     colorMode: UiColorMode,
     onColorModeChange: (UiColorMode) -> Unit,
 ) {
@@ -561,116 +556,35 @@ internal fun DashboardTabContent(
     Column(
         Modifier.fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(
-                horizontal = if (themeStyle == UiThemeStyle.MIUIX_STYLE) 14.dp else 16.dp,
-                vertical = if (themeStyle == UiThemeStyle.MIUIX_STYLE) 4.dp else 16.dp
-            ),
-        verticalArrangement = Arrangement.spacedBy(
-            if (themeStyle == UiThemeStyle.MIUIX_STYLE) 8.dp else 16.dp
-        )
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         RuntimePanel(state, vm)
 
         PageSectionTitle(stringResource(R.string.ui_appearance_title))
         AdaptiveCard(Modifier.fillMaxWidth()) {
-            Column(
-                Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (themeStyle == UiThemeStyle.MIUIX_STYLE) {
-                    NativeSuperDropdown(
-                        items = UiThemeStyle.entries.map { option ->
-                            stringResource(if (option == UiThemeStyle.MATERIAL)
-                                R.string.ui_appearance_material else R.string.ui_appearance_miuix)
-                        },
-                        selectedIndex = UiThemeStyle.entries.indexOf(themeStyle),
-                        title = stringResource(R.string.ui_appearance_theme_choice),
-                        summary = stringResource(R.string.ui_appearance_miuix_help),
-                        onSelectedIndexChange = { selectedIndex ->
-                            UiThemeStyle.entries.getOrNull(selectedIndex)?.let(onThemeStyleChange)
-                        }
-                    )
-                } else {
-                    AdaptiveText(stringResource(R.string.ui_appearance_theme_choice), fontWeight = FontWeight.Medium)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        UiThemeStyle.entries.forEach { option ->
-                            AdaptiveFilterChip(
-                                selected = themeStyle == option,
-                                onClick = { onThemeStyleChange(option) },
-                                label = {
-                                    AdaptiveText(stringResource(
-                                        if (option == UiThemeStyle.MATERIAL) R.string.ui_appearance_material
-                                        else R.string.ui_appearance_miuix
-                                    ))
-                                },
-                                leadingIcon = if (themeStyle == option) {
-                                    { AdaptiveIcon(Icons.Rounded.Check, contentDescription = null) }
-                                } else null,
-                            )
-                        }
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                AdaptiveText(stringResource(R.string.ui_color_mode_title), fontWeight = FontWeight.Medium)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    UiColorMode.entries.forEachIndexed { index, mode ->
+                        AdaptiveFilterChip(
+                            selected = colorMode == mode,
+                            onClick = { onColorModeChange(mode) },
+                            label = { AdaptiveText(colorModeLabels[index]) }
+                        )
                     }
-                    AdaptiveText(
-                        stringResource(
-                            if (themeStyle == UiThemeStyle.MATERIAL) R.string.ui_appearance_material_help
-                            else R.string.ui_appearance_miuix_help
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
-                Spacer(Modifier.height(8.dp))
-                if (themeStyle == UiThemeStyle.MIUIX_STYLE) {
-                    NativeSuperDropdown(
-                        items = colorModeLabels,
-                        selectedIndex = UiColorMode.entries.indexOf(colorMode),
-                        title = stringResource(R.string.ui_color_mode_title),
-                        summary = stringResource(R.string.ui_color_mode_help),
-                        onSelectedIndexChange = { index ->
-                            UiColorMode.entries.getOrNull(index)?.let(onColorModeChange)
-                        }
-                    )
-                } else {
-                    AdaptiveText(
-                        stringResource(R.string.ui_color_mode_title),
-                        fontWeight = FontWeight.Medium
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        UiColorMode.entries.forEachIndexed { index, mode ->
-                            AdaptiveFilterChip(
-                                selected = colorMode == mode,
-                                onClick = { onColorModeChange(mode) },
-                                label = { AdaptiveText(colorModeLabels[index]) }
-                            )
-                        }
-                    }
-                    AdaptiveText(
-                        stringResource(R.string.ui_color_mode_help),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                AdaptiveText(
+                    stringResource(R.string.ui_color_mode_help),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 
         PageSectionTitle(stringResource(R.string.dashboard_global_mode))
         AdaptiveCard(Modifier.fillMaxWidth()) {
-            if (themeStyle == UiThemeStyle.MIUIX_STYLE) {
-                NativeSuperDropdown(
-                    items = DisplayMode.entries.map { mode -> stringResource(mode.titleRes()) },
-                    selectedIndex = DisplayMode.entries.indexOf(state.displayMode),
-                    title = stringResource(R.string.dashboard_global_mode),
-                    summary = stringResource(R.string.dashboard_global_mode_help),
-                    onSelectedIndexChange = { index ->
-                        DisplayMode.entries.getOrNull(index)?.let(vm::setDisplayMode)
-                    }
-                )
-            } else {
+            
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         AdaptiveText(stringResource(state.displayMode.titleRes()), fontWeight = FontWeight.Bold)
@@ -692,7 +606,7 @@ internal fun DashboardTabContent(
                         }
                     }
                 }
-            }
+            
         }
 
         PageSectionTitle(stringResource(R.string.dashboard_sync_status))
@@ -738,19 +652,13 @@ internal fun DashboardTabContent(
         ModuleStatusRow(state) { showScopeDetails = true; vm.refreshModuleStatus() }
         AdaptiveCard(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (themeStyle == UiThemeStyle.MIUIX_STYLE) {
-                    NativeSuperArrow(
-                        title = stringResource(R.string.dashboard_manage_app_visibility_plain),
-                        summary = stringResource(R.string.dashboard_app_visibility_help),
-                        onClick = { showAppScopePicker = true }
-                    )
-                } else {
+                
                     AdaptiveText(stringResource(R.string.dashboard_app_visibility), fontWeight = FontWeight.Bold)
                     AdaptiveText(stringResource(R.string.dashboard_app_visibility_help), style = MaterialTheme.typography.bodySmall)
                     AdaptiveButton(onClick = { showAppScopePicker = true }, modifier = Modifier.fillMaxWidth()) {
                         AdaptiveText(stringResource(R.string.dashboard_manage_app_visibility_plain))
                     }
-                }
+                
                 AdaptiveText(
                     stringResource(R.string.dashboard_app_visibility_warning),
                     style = MaterialTheme.typography.labelSmall,
@@ -771,14 +679,7 @@ internal fun DashboardTabContent(
                     AdaptiveText(stringResource(if (checkingFile) R.string.dashboard_inspecting_file else R.string.dashboard_inspect_file))
                 }
                 fileCheckStatus?.let { AdaptiveText(it, style = MaterialTheme.typography.bodySmall) }
-                if (themeStyle == UiThemeStyle.MIUIX_STYLE) {
-                    NativeSuperSwitch(
-                        checked = state.diagnosticMode,
-                        onCheckedChange = vm::setDiagnosticMode,
-                        title = stringResource(R.string.diagnostic_mode),
-                        summary = stringResource(R.string.diagnostic_mode_help)
-                    )
-                } else {
+                
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         AdaptiveText(stringResource(R.string.diagnostic_mode), Modifier.weight(1f))
                         AdaptiveSwitch(state.diagnosticMode, vm::setDiagnosticMode)
@@ -788,7 +689,7 @@ internal fun DashboardTabContent(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                }
+                
                 if (state.diagnosticMode) {
                     AdaptiveText(stringResource(R.string.diagnostic_enabled_help), style = MaterialTheme.typography.bodySmall)
                 }

@@ -48,7 +48,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            var themeStyle by remember { mutableStateOf(UiAppearanceStore.read(this@MainActivity)) }
             var colorMode by remember { mutableStateOf(UiAppearanceStore.readColorMode(this@MainActivity)) }
             val dark = colorMode.usesDarkTheme(isSystemInDarkTheme())
             SideEffect {
@@ -58,15 +57,8 @@ class MainActivity : ComponentActivity() {
                     isAppearanceLightNavigationBars = !dark
                 }
             }
-            ListCleanerUiTheme(themeStyle, colorMode) {
+            ListCleanerUiTheme(colorMode) {
                 ListCleanerScreen(
-                    themeStyle = themeStyle,
-                    onThemeStyleChange = { style ->
-                        if (themeStyle != style) {
-                            UiAppearanceStore.write(this@MainActivity, style)
-                            themeStyle = style
-                        }
-                    },
                     colorMode = colorMode,
                     onColorModeChange = { selected ->
                         if (colorMode != selected) {
@@ -81,8 +73,6 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun ListCleanerScreen(
-        themeStyle: UiThemeStyle,
-        onThemeStyleChange: (UiThemeStyle) -> Unit,
         colorMode: UiColorMode,
         onColorModeChange: (UiColorMode) -> Unit,
         vm: MainViewModel = viewModel()
@@ -264,30 +254,12 @@ class MainActivity : ComponentActivity() {
                             diagnosticExport.launch("ListCleaner-diagnostic-$stamp.zip")
                         },
                         { fileCheck.launch(arrayOf("*/*")) },
-                        themeStyle = themeStyle,
-                        onThemeStyleChange = onThemeStyleChange,
                         colorMode = colorMode,
                         onColorModeChange = onColorModeChange
                     )
                 }
             }        }
-        if (themeStyle == UiThemeStyle.MIUIX_STYLE) {
-            MiuixMainShell(
-                query = state.query,
-                searchExpanded = searchExpanded,
-                showSearch = state.destination != Destination.DASHBOARD,
-                onQuery = vm::setQuery,
-                onSearch = { searchExpanded = true },
-                onCloseSearch = closeSearch,
-                onRefresh = onRefresh,
-                onRestore = { restore.launch(arrayOf("application/json", "text/plain")) },
-                onBackup = { export.launch("ListCleaner-backup.json") },
-                destination = state.destination,
-                onDestination = vm::setDestination,
-                snackbarHost = { AdaptiveSnackbarHost(backupSnackbar) },
-                content = pageContent
-            )
-        } else {
+        
         Scaffold(
             snackbarHost = { AdaptiveSnackbarHost(backupSnackbar) },
             topBar = {
@@ -317,7 +289,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
         ) { padding -> pageContent(padding) }
-        }
+        
     }
 
     private fun readLimitedText(uri: Uri, maxChars: Int): String {

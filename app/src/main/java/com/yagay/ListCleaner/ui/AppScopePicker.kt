@@ -24,9 +24,6 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.ListCleanerApp
 import com.yagay.ListCleaner.R
-import top.yukonga.miuix.kmp.basic.Scaffold as NativeMiuixScaffold
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar as NativeMiuixTopBar
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import com.yagay.ListCleaner.domain.VisibilityScope
 import com.yagay.ListCleaner.domain.AppType
 import com.yagay.ListCleaner.domain.listCleanerAppType
@@ -206,22 +203,7 @@ internal fun AppScopePickerDialog(
                 }
             }
         }
-        if (LocalUiThemeStyle.current == UiThemeStyle.MIUIX_STYLE) {
-            NativeMiuixScaffold(
-                modifier = Modifier.fillMaxSize(),
-                topBar = {
-                    NativeMiuixTopBar(
-                        title = stringResource(R.string.visibility_title),
-                        navigationIcon = {
-                            AdaptiveIconButton(onClick = dismiss) {
-                                AdaptiveIcon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.common_back))
-                            }
-                        }
-                    )
-                },
-                containerColor = MiuixTheme.colorScheme.background
-            ) { padding -> pickerContent(padding) }
-        } else {
+        
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
                 topBar = {
@@ -235,6 +217,6 @@ internal fun AppScopePickerDialog(
                     )
                 },
             ) { padding -> pickerContent(padding) }
-        }
+        
     }
 }

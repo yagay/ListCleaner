@@ -193,9 +193,7 @@ fun RootComponentsScreen(
         stickyHeader(key = "controls") {
             PageFilterSection {
                 Column(Modifier.fillMaxWidth().background(
-                    if (LocalUiThemeStyle.current == UiThemeStyle.MIUIX_STYLE)
-                        top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.surfaceContainer
-                    else MaterialTheme.colorScheme.surface
+                    MaterialTheme.colorScheme.surface
                 )) {
                     val canDisable = !busy && visible.any { it.blocked == null && it.enabled == true && !vm.isComponentBulkProtected(kind, it) }
                     val canEnable = !busy && visible.any { it.blocked == null && it.enabled == false && !vm.isComponentBulkProtected(kind, it) }
@@ -352,7 +350,7 @@ fun RootComponentsScreen(
                 val itemLocked = vm.isComponentBulkProtected(kind, item)
                 WorkspaceDetailRow(
                     position = if (componentIndex == components.lastIndex)
-                        MiuixRowPosition.LAST else MiuixRowPosition.MIDDLE,
+                        ListRowPosition.LAST else ListRowPosition.MIDDLE,
                     checked = item.enabled == false,
                     enabled = editable && !itemLocked,
                     locked = itemLocked,

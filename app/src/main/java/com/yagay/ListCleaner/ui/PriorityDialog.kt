@@ -624,7 +624,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                     itemsIndexed(group.components, key = { _, item -> "component|${item.rule.id}" }, contentType = { _, _ -> "component" }) { componentIndex, item ->
                         AdaptiveGroupSurface(
                             Modifier.fillMaxWidth(),
-                            position = if (componentIndex == group.components.lastIndex) MiuixRowPosition.LAST else MiuixRowPosition.MIDDLE
+                            position = if (componentIndex == group.components.lastIndex) ListRowPosition.LAST else ListRowPosition.MIDDLE
                         ) {
                             ComponentInfoRow(item, state.priorities.titles[item.rule.id]) { editingTitle = item }
                         }

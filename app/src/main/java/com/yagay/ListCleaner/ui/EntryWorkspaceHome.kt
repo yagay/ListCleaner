@@ -116,10 +116,10 @@ internal fun EntryWorkspaceHome(
             val kinds = selectedGroup.kinds()
             kinds.forEachIndexed { index, kind ->
                 val position = when {
-                    kinds.size == 1 -> MiuixRowPosition.SINGLE
-                    index == 0 -> MiuixRowPosition.FIRST
-                    index == kinds.lastIndex -> MiuixRowPosition.LAST
-                    else -> MiuixRowPosition.MIDDLE
+                    kinds.size == 1 -> ListRowPosition.SINGLE
+                    index == 0 -> ListRowPosition.FIRST
+                    index == kinds.lastIndex -> ListRowPosition.LAST
+                    else -> ListRowPosition.MIDDLE
                 }
                 AdaptiveGroupSurface(Modifier.fillMaxWidth(), position) {
                     Row(

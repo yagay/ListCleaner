@@ -43,7 +43,7 @@ internal fun WorkspaceAppRow(
     val expandLabel = stringResource(if (expanded) R.string.common_collapse else R.string.common_expand)
     AdaptiveGroupSurface(
         Modifier.fillMaxWidth(),
-        position = if (expanded) MiuixRowPosition.FIRST else MiuixRowPosition.SINGLE
+        position = if (expanded) ListRowPosition.FIRST else ListRowPosition.SINGLE
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().then(modifier)
