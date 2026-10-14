@@ -11,6 +11,7 @@ on:
       - 'tools/check-source-localization.py'
       - 'tools/check-translation-resources.py'
       - 'tools/check-bilingual-parity.py'
+      - 'tools/check-material3-controls.py'
       - 'gradle/**'
       - '*.gradle.kts'
       - 'gradle.properties'
@@ -30,6 +31,7 @@ on:
       - 'tools/check-source-localization.py'
       - 'tools/check-translation-resources.py'
       - 'tools/check-bilingual-parity.py'
+      - 'tools/check-material3-controls.py'
       - '.github/workflows/build-debug.yml'
 
 permissions:
@@ -67,6 +69,9 @@ jobs:
 
       - name: Check bilingual parity
         run: python3 tools/check-bilingual-parity.py
+
+      - name: Check unified Material 3 controls
+        run: python3 tools/check-material3-controls.py
 
       - name: Set up Java 17
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5

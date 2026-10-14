@@ -23,7 +23,10 @@ internal fun ListRowPosition.verticalPadding(): PaddingValues = PaddingValues(
 
 @Composable
 internal fun PageSectionTitle(title: String) {
-    AdaptiveText(title, style = MaterialTheme.typography.titleMedium)
+    AdaptiveText(
+        title, style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold, maxLines = 2
+    )
 }
 
 @Composable

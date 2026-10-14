@@ -42,7 +42,7 @@ fun OpenPresetFilterMenu(
     Box {
         AdaptiveTextButton(
             onClick = { expanded = true },
-            contentPadding = PaddingValues(horizontal = 6.dp)
+            contentPadding = MaterialControlMetrics.compactTextPadding
         ) {
             AdaptiveText(
                 stringResource(

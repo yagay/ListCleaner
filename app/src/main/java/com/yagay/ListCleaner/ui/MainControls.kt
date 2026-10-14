@@ -11,7 +11,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.WarningAmber
@@ -102,9 +101,7 @@ internal fun MainToolbar(
             else AdaptiveText(stringResource(R.string.app_name), fontWeight = FontWeight.Bold, maxLines = 1)
         },
         navigationIcon = {
-            if (expanded) AdaptiveIconButton(onClick = onClose) {
-                AdaptiveIcon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.close_search))
-            }
+            if (expanded) AdaptiveBackButton(onClick = onClose, contentDescription = stringResource(R.string.close_search))
         },
         actions = {
             if (expanded) {
@@ -137,7 +134,7 @@ private fun EntryGroupButton(
     var expanded by remember(group) { mutableStateOf(false) }
     val active = activeKind?.entryGroup() == group
     Box {
-        AdaptiveTextButton(onClick = { expanded = true }) {
+        AdaptiveTextButton(onClick = { expanded = true }, contentPadding = MaterialControlMetrics.compactTextPadding) {
             AdaptiveText(
                 stringResource(group.titleRes()),
                 fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,

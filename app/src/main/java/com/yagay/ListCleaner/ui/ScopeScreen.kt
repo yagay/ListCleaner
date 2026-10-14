@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -119,9 +117,7 @@ private fun FullScreenDetails(
                 TopAppBar(
                     title = title,
                     navigationIcon = {
-                        AdaptiveIconButton(onClick = onDismissRequest) {
-                            AdaptiveIcon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.common_back))
-                        }
+                        AdaptiveBackButton(onClick = onDismissRequest)
                     }
                 )
             },

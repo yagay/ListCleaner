@@ -6,7 +6,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -97,9 +96,7 @@ internal fun EntryWorkspaceHome(
             }
         } else {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                AdaptiveIconButton(onClick = onBack) {
-                    AdaptiveIcon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.common_back))
-                }
+                AdaptiveBackButton(onClick = onBack)
                 Column(Modifier.weight(1f)) {
                     AdaptiveText(
                         stringResource(selectedGroup.titleRes()),

@@ -4,6 +4,13 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import com.yagay.ListCleaner.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -24,15 +31,26 @@ import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
+/** The same geometry is used by every Material 3 action, filter and navigation control. */
+internal object MaterialControlMetrics {
+    val minButtonHeight = 40.dp
+    val minIconTarget = 48.dp
+    val regularTextPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+    val compactTextPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+}
+
 @Composable
 internal fun AdaptiveTextButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    contentPadding: PaddingValues = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+    contentPadding: PaddingValues = MaterialControlMetrics.regularTextPadding,
     content: @Composable RowScope.() -> Unit
 ) = TextButton(
-    onClick = onClick, modifier = modifier, enabled = enabled,
+    onClick = onClick,
+    modifier = modifier.heightIn(min = MaterialControlMetrics.minButtonHeight),
+    shape = MaterialTheme.shapes.medium,
+    enabled = enabled,
     contentPadding = contentPadding, content = content
 )
 
@@ -42,7 +60,10 @@ internal fun AdaptiveOutlinedButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit
-) = OutlinedButton(onClick = onClick, modifier = modifier, enabled = enabled, content = content)
+) = OutlinedButton(
+    onClick = onClick, modifier = modifier.heightIn(min = MaterialControlMetrics.minButtonHeight),
+    enabled = enabled, shape = MaterialTheme.shapes.medium, content = content
+)
 
 @Composable
 internal fun AdaptiveIconButton(
@@ -50,7 +71,21 @@ internal fun AdaptiveIconButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     content: @Composable () -> Unit
-) = IconButton(onClick = onClick, modifier = modifier, enabled = enabled, content = content)
+) = IconButton(
+    onClick = onClick,
+    modifier = modifier.sizeIn(minWidth = MaterialControlMetrics.minIconTarget, minHeight = MaterialControlMetrics.minIconTarget),
+    enabled = enabled, content = content
+)
+
+@Composable
+internal fun AdaptiveBackButton(
+    onClick: () -> Unit,
+    contentDescription: String? = null
+) {
+    AdaptiveIconButton(onClick = onClick) {
+        AdaptiveIcon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription ?: stringResource(R.string.common_back), Modifier.size(24.dp))
+    }
+}
 
 @Composable
 internal fun AdaptiveFilterChip(
@@ -62,7 +97,8 @@ internal fun AdaptiveFilterChip(
     leadingIcon: @Composable (() -> Unit)? = null
 ) = FilterChip(
     selected = selected, onClick = onClick, label = label,
-    modifier = modifier, enabled = enabled, leadingIcon = leadingIcon
+    modifier = modifier.heightIn(min = MaterialControlMetrics.minButtonHeight),
+    shape = MaterialTheme.shapes.medium, enabled = enabled, leadingIcon = leadingIcon
 )
 
 @Composable
@@ -111,7 +147,10 @@ internal fun AdaptiveButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit
-) = Button(onClick = onClick, modifier = modifier, enabled = enabled, content = content)
+) = Button(
+    onClick = onClick, modifier = modifier.heightIn(min = MaterialControlMetrics.minButtonHeight),
+    enabled = enabled, shape = MaterialTheme.shapes.medium, content = content
+)
 
 @Composable
 internal fun AdaptiveSwitch(

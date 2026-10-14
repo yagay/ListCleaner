@@ -98,7 +98,7 @@ internal fun WorkspaceBreadcrumb(
     ) {
         AdaptiveTextButton(
             onClick = onHome,
-            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+            contentPadding = MaterialControlMetrics.compactTextPadding
         ) {
             AdaptiveIcon(Icons.Rounded.GridView, null, Modifier.size(18.dp))
             Spacer(Modifier.width(4.dp))
@@ -109,7 +109,7 @@ internal fun WorkspaceBreadcrumb(
             if (onGroup != null) {
                 AdaptiveTextButton(
                     onClick = onGroup,
-                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                    contentPadding = MaterialControlMetrics.compactTextPadding
                 ) { AdaptiveText(groupLabel, maxLines = 1) }
             } else {
                 AdaptiveText(groupLabel, style = MaterialTheme.typography.labelMedium, maxLines = 1)
@@ -156,7 +156,7 @@ internal fun WorkspaceFilterBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box {
-            AdaptiveTextButton(onClick = { appMenu = true }, contentPadding = PaddingValues(horizontal = 6.dp)) {
+            AdaptiveTextButton(onClick = { appMenu = true }, contentPadding = MaterialControlMetrics.compactTextPadding) {
                 AdaptiveText(stringResource(
                     R.string.compact_filter_format,
                     stringResource(R.string.app_type_filter),
@@ -177,7 +177,7 @@ internal fun WorkspaceFilterBar(
             }
         }
         Box {
-            AdaptiveTextButton(onClick = { viewMenu = true }, contentPadding = PaddingValues(horizontal = 6.dp)) {
+            AdaptiveTextButton(onClick = { viewMenu = true }, contentPadding = MaterialControlMetrics.compactTextPadding) {
                 AdaptiveText(stringResource(
                     R.string.compact_filter_format,
                     stringResource(R.string.view_filter),
@@ -203,7 +203,7 @@ internal fun WorkspaceFilterBar(
                 AdaptiveTextButton(
                     onClick = { actionMenu = true },
                     enabled = actions.any { it.enabled },
-                    contentPadding = PaddingValues(horizontal = 6.dp)
+                    contentPadding = MaterialControlMetrics.compactTextPadding
                 ) {
                     AdaptiveText(stringResource(R.string.selection_actions))
                     AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
@@ -265,7 +265,7 @@ internal fun WorkspaceEmptyState(
 internal fun WorkspaceHelpToggle(expanded: Boolean, onClick: () -> Unit) {
     AdaptiveTextButton(
         onClick = onClick,
-        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 3.dp)
+        contentPadding = MaterialControlMetrics.compactTextPadding
     ) {
         AdaptiveText(stringResource(R.string.entry_help_title), maxLines = 1)
         AdaptiveIcon(
