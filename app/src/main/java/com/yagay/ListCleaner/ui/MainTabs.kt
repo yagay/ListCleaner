@@ -176,58 +176,78 @@ fun RulesTab(
     val deepLinkSelected = genericDeepLinkSelected + explicitDeepLinkSelected
     val deepLinkScoped = deepLinkHost != null
     val lockScope = deepLinkHost?.let(::browserRuleBulkLockScope) ?: ruleBulkLockScope(state.filter, openPreset)
-    val lockScopeCandidates = when {
-        typedOpenPreset != null -> state.candidates.filter {
-            it.rule.kind == IntentKind.OPEN &&
-                it.matchesOpenPreset(typedOpenPreset, state.openTypesExplicit.customDefinitions)
+    // Independent navigation and runtime heartbeat updates must not re-filter every app.
+    val lockScopeCandidates = remember(
+        typedOpenPreset, deepLinkHost, state.candidates,
+        state.openTypesExplicit.customDefinitions, deepLinkSelected, state.filter
+    ) {
+        when {
+            typedOpenPreset != null -> state.candidates.filter {
+                it.rule.kind == IntentKind.OPEN &&
+                    it.matchesOpenPreset(typedOpenPreset, state.openTypesExplicit.customDefinitions)
+            }
+            deepLinkHost != null -> state.candidates.filter {
+                it.rule.kind == IntentKind.DEEP_LINK &&
+                    (it.matchesBrowserHost(deepLinkHost) || it.rule in deepLinkSelected)
+            }
+            else -> state.candidates.filter { state.filter == null || it.rule.kind == state.filter }
         }
-        deepLinkHost != null -> state.candidates.filter {
-            it.rule.kind == IntentKind.DEEP_LINK &&
-                (it.matchesBrowserHost(deepLinkHost) || it.rule in deepLinkSelected)
-        }
-        else -> state.candidates.filter { state.filter == null || it.rule.kind == state.filter }
     }
-    val lockRulesByPackage = remember(lockScopeCandidates, bulkLockRevision) {
+    val lockRulesByPackage = remember(lockScopeCandidates) {
         lockScopeCandidates.groupBy { it.rule.packageName }
             .mapValues { (_, items) -> items.map { it.rule } }
     }
-    val baseShownGroups = when {
-        typedOpenPreset != null -> groupCandidates(
-            state.candidates.filter { it.matchesOpenPreset(typedOpenPreset, state.openTypesExplicit.customDefinitions) },
-            typedSelected,
-            IntentKind.OPEN,
-            state.query,
-            state.uiFilter
-        )
-        deepLinkHost != null -> groupCandidates(
-            state.candidates.filter {
-                it.rule.kind == IntentKind.DEEP_LINK &&
-                    (it.matchesBrowserHost(deepLinkHost) || it.rule in deepLinkSelected)
-            },
-            deepLinkSelected,
-            IntentKind.DEEP_LINK,
-            state.query,
-            state.uiFilter
-        )
-        else -> state.groups
-    }
-    val lockFilteredGroups = if (state.uiFilter == UiFilter.LOCKED) {
-        bulkLockRevision
-        baseShownGroups.mapNotNull { group ->
-            val locked = group.components.filter { item ->
-                if (deepLinkScoped) vm.isBulkProtected(lockScope, item.rule.packageName, item.rule.id)
-                else vm.isRuleBulkProtected(state.filter, openPreset, item.rule)
-            }
-            if (locked.isEmpty()) null else group.copy(components = locked)
+    val baseShownGroups = remember(
+        typedOpenPreset, deepLinkHost, state.candidates,
+        state.openTypesExplicit.customDefinitions, typedSelected,
+        deepLinkSelected, state.query, state.uiFilter, state.groups
+    ) {
+        when {
+            typedOpenPreset != null -> groupCandidates(
+                state.candidates.filter { it.matchesOpenPreset(typedOpenPreset, state.openTypesExplicit.customDefinitions) },
+                typedSelected,
+                IntentKind.OPEN,
+                state.query,
+                state.uiFilter
+            )
+            deepLinkHost != null -> groupCandidates(
+                state.candidates.filter {
+                    it.rule.kind == IntentKind.DEEP_LINK &&
+                        (it.matchesBrowserHost(deepLinkHost) || it.rule in deepLinkSelected)
+                },
+                deepLinkSelected,
+                IntentKind.DEEP_LINK,
+                state.query,
+                state.uiFilter
+            )
+            else -> state.groups
         }
-    } else baseShownGroups
-    val shownGroups = lockFilteredGroups.filter { appTypeFilter.matches(it.appType) }
+    }
+    val lockFilteredGroups = remember(
+        baseShownGroups, state.uiFilter, bulkLockRevision,
+        state.filter, openPreset, deepLinkScoped, lockScope
+    ) {
+        if (state.uiFilter == UiFilter.LOCKED) {
+            baseShownGroups.mapNotNull { group ->
+                val locked = group.components.filter { item ->
+                    if (deepLinkScoped) vm.isBulkProtected(lockScope, item.rule.packageName, item.rule.id)
+                    else vm.isRuleBulkProtected(state.filter, openPreset, item.rule)
+                }
+                if (locked.isEmpty()) null else group.copy(components = locked)
+            }
+        } else baseShownGroups
+    }
+    val shownGroups = remember(lockFilteredGroups, appTypeFilter) {
+        lockFilteredGroups.filter { appTypeFilter.matches(it.appType) }
+    }
     val activeSelected = when {
         typedOpenPreset != null -> typedSelected
         deepLinkHost != null -> deepLinkSelected
         else -> state.selected
     }
-    val visibleRules = shownGroups.flatMap { it.components }.map { it.rule }.distinct()
+    val visibleRules = remember(shownGroups) {
+        shownGroups.flatMap { it.components }.map { it.rule }.distinct()
+    }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item(key = "workspace-breadcrumb") {
