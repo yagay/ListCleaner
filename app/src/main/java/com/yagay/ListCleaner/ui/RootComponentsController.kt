@@ -230,7 +230,7 @@ internal class RootComponentsController(
         mutableBusy.value = true
         mutableMessage.value = initialMessage
         mutableBatchProgress.value = RootBatchProgress(0, targets.size)
-        mutationJob = scope.launch {
+        val operation = scope.launch {
             withContext(Dispatchers.IO) {
                 val completedTargets = mutableListOf<RootComponent>()
                 // Also refresh a target when the root command succeeds but saving its state fails.
@@ -294,6 +294,20 @@ internal class RootComponentsController(
                             refresh()
                         }
                     }
+                }
+            }
+        }
+        mutationJob = operation
+        // The coroutine may be cancelled before it enters Dispatchers.IO and its inner
+        // finally executes; completion still has to release the UI's busy flag.
+        operation.invokeOnCompletion {
+            if (mutationJob === operation) {
+                mutationJob = null
+                mutableBusy.value = false
+                mutableBatchProgress.value = null
+                if (refreshPending) {
+                    refreshPending = false
+                    refresh()
                 }
             }
         }
