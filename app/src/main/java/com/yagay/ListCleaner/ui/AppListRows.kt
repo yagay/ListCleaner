@@ -102,6 +102,7 @@ internal fun ComponentRow(
     WorkspaceDetailRow(
         position = position,
         checked = checked,
+        enabled = !locked,
         locked = locked,
         lockToggleEnabled = lockToggleEnabled,
         onToggle = onToggle,

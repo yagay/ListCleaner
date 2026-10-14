@@ -90,4 +90,6 @@
     <string name="root_batch_stopped_plain">Operation stopped: %1$s. Completed changes are retained; remaining entries were not processed.</string>
     <string name="root_invert_stopped_plain">Inversion stopped: %1$s. Completed changes are retained.</string>
     <string name="root_batch_cancelled_plain">Stopped remaining operations. An in-flight component command may still finish.</string>
+    <string name="root_filter_disabled">Disabled components</string>
+    <string name="root_filter_enabled">Enabled components</string>
 </resources>

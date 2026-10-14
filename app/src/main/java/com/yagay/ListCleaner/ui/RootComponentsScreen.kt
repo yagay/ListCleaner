@@ -195,6 +195,14 @@ fun RootComponentsScreen(
                         onAppTypeFilter = { appTypeFilter = it },
                         viewFilter = viewFilter,
                         onViewFilter = { viewFilter = it },
+                        viewTitle = { filter ->
+                            stringResource(when (filter) {
+                                UiFilter.ALL -> R.string.common_all
+                                UiFilter.SHOW_SELECTED -> R.string.root_filter_disabled
+                                UiFilter.HIDE_SELECTED -> R.string.root_filter_enabled
+                                UiFilter.LOCKED -> R.string.filter_locked
+                            })
+                        },
                         actions = listOf(
                             WorkspaceMenuAction(stringResource(R.string.root_batch_action_disable), {
                                 pendingBatch = PendingRootBatch(kind, visible, false)
@@ -337,7 +345,7 @@ fun RootComponentsScreen(
                     position = if (componentIndex == components.lastIndex)
                         MiuixRowPosition.LAST else MiuixRowPosition.MIDDLE,
                     checked = item.enabled == false,
-                    enabled = editable,
+                    enabled = editable && !itemLocked,
                     locked = itemLocked,
                     lockToggleEnabled = lockToggleEnabled,
                     onToggle = { vm.changeComponent(item, item.enabled == false) },

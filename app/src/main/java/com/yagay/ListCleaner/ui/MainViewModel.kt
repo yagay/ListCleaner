@@ -663,13 +663,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun setUiFilter(value: UiFilter) { uiFilter.value = value }
     fun setDestination(value: Destination) {
+        // Legacy Component tab redirects into the merged Cleanup workspace.
+        val target = if (value == Destination.TILES) Destination.RULES else value
         val previous = destination.value
-        if (previous == value) return
+        if (previous == target) return
         pageQueries[previous] = query.value
         pageExpandedApps[previous] = expandedAppKey.value
-        destination.value = value
-        query.value = pageQueries[value].orEmpty()
-        expandedAppKey.value = pageExpandedApps[value]
+        destination.value = target
+        query.value = pageQueries[target].orEmpty()
+        expandedAppKey.value = pageExpandedApps[target]
     }
     fun toggleExpandedApp(key: String) {
         val next = if (expandedAppKey.value == key) null else key
