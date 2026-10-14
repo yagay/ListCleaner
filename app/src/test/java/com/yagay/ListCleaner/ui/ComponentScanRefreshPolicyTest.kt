@@ -40,6 +40,26 @@ class ComponentScanRefreshPolicyTest {
         ))
     }
 
+    @Test fun packageChangeInvalidatesFreshSuccessfulSnapshot() {
+        assertTrue(ComponentScanRefreshPolicy.shouldRefresh(
+            nowElapsedMs = 300_000L,
+            lastFullScanElapsedMs = 240_000L,
+            lastAttemptElapsedMs = 240_000L,
+            busy = false,
+            packageRevisionChanged = true
+        ))
+    }
+
+    @Test fun packageChangeStillHonorsShortFailureRetryDelay() {
+        assertFalse(ComponentScanRefreshPolicy.shouldRefresh(
+            nowElapsedMs = 240_500L,
+            lastFullScanElapsedMs = 240_000L,
+            lastAttemptElapsedMs = 240_000L,
+            busy = false,
+            packageRevisionChanged = true
+        ))
+    }
+
     @Test fun elapsedClockResetDoesNotUseOldCache() {
         assertTrue(needsRefresh(now = 500L, success = 100_000L, attempt = 100_000L))
     }
