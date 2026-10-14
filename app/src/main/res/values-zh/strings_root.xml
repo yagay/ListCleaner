@@ -35,7 +35,7 @@
     <string name="root_invert_stopped">已完成 %1$d/%2$d，反选已停止：%3$s。已完成项不回滚。</string>
     <string name="root_post_scan_failed">操作后扫描失败，请刷新；不使用旧状态</string>
 
-    <string name="root_screen_title">组件清理 · Root</string>
+    <string name="root_screen_title">组件清理（Root）</string>
     <string name="root_permission_required">需要 Root 授权</string>
     <string name="root_permission_ack">知道了</string>
     <string name="root_screen_help">本页和“规则”页不同：规则页只是过滤候选入口，这里会通过 Root 真实启用或停用 Android 组件。当前管理桌面入口、磁贴、创建快捷方式和小部件；期望禁用状态会持久保存，并在开机、解锁和应用更新后自动校正。</string>

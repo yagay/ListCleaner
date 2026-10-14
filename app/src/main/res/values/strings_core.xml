@@ -158,5 +158,5 @@
     <string name="workspace_groups">Categories</string>
     <string name="workspace_filter_options">Filters and actions</string>
     <string name="workspace_components_link">Root component cleanup</string>
-    <string name="workspace_rule_section">Rule cleanup</string>
+    <string name="workspace_rule_section">Entry cleanup (LSPosed)</string>
 </resources>
