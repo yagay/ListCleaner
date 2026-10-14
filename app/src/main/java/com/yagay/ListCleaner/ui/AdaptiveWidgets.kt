@@ -41,7 +41,7 @@ internal fun AdaptiveTextButton(
     onClick = onClick,
     modifier = modifier.heightIn(min = MaterialUiTokens.buttonHeight),
     shape = MaterialTheme.shapes.medium,
-    enabled = enabled,
+    enabled = enabled, colors = MaterialActionColors.text(),
     contentPadding = contentPadding, content = content
 )
 
@@ -53,7 +53,10 @@ internal fun AdaptiveOutlinedButton(
     content: @Composable RowScope.() -> Unit
 ) = OutlinedButton(
     onClick = onClick, modifier = modifier.heightIn(min = MaterialUiTokens.buttonHeight),
-    enabled = enabled, shape = MaterialTheme.shapes.medium, content = content
+    enabled = enabled, shape = MaterialTheme.shapes.medium,
+    colors = MaterialActionColors.outlined(),
+    border = MaterialActionColors.outlinedBorder(enabled),
+    content = content
 )
 
 @Composable
@@ -65,7 +68,7 @@ internal fun AdaptiveIconButton(
 ) = IconButton(
     onClick = onClick,
     modifier = modifier.sizeIn(minWidth = MaterialUiTokens.iconTouchTarget, minHeight = MaterialUiTokens.iconTouchTarget),
-    enabled = enabled, content = content
+    enabled = enabled, colors = MaterialActionColors.icon(), content = content
 )
 
 @Composable
@@ -89,7 +92,8 @@ internal fun AdaptiveFilterChip(
 ) = FilterChip(
     selected = selected, onClick = onClick, label = label,
     modifier = modifier.heightIn(min = MaterialUiTokens.buttonHeight),
-    shape = MaterialTheme.shapes.medium, enabled = enabled, leadingIcon = leadingIcon
+    shape = MaterialTheme.shapes.medium, enabled = enabled,
+    colors = MaterialActionColors.filter(), leadingIcon = leadingIcon
 )
 
 @Composable
@@ -134,7 +138,8 @@ internal fun AdaptiveButton(
     content: @Composable RowScope.() -> Unit
 ) = Button(
     onClick = onClick, modifier = modifier.heightIn(min = MaterialUiTokens.buttonHeight),
-    enabled = enabled, shape = MaterialTheme.shapes.medium, content = content
+    enabled = enabled, shape = MaterialTheme.shapes.medium,
+    colors = MaterialActionColors.filled(), content = content
 )
 
 @Composable

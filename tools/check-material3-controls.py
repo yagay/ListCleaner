@@ -22,6 +22,15 @@ for file in sorted(root.glob("*.kt")):
         if "Icons.AutoMirrored.Rounded.ArrowBack" in code:
             errors.append(f"{file.name}:{line_no}: use AdaptiveBackButton")
 
+# Keep action palette definitions in exactly one file.
+for file in sorted(root.glob("*.kt")):
+    if file.name == "MaterialActionColors.kt":
+        continue
+    for line_no, line in enumerate(file.read_text(encoding="utf-8").splitlines(), 1):
+        code = line.split("//", 1)[0]
+        if re.search(r"\b(?:ButtonDefaults|IconButtonDefaults|FilterChipDefaults)\s*\.", code):
+            errors.append(f"{file.name}:{line_no}: use MaterialActionColors for action colors")
+
 # Guard the complete visual system, not just the original button wrappers.
 # Card implementations must only exist in UiCard.kt; feature wrappers delegate to it.
 direct_card = re.compile(r"(?<![A-Za-z0-9_])(?:Card|OutlinedCard|ElevatedCard)\s*\(")
@@ -37,7 +46,13 @@ for file in sorted(root.glob("*.kt")):
             errors.append(f"{file.name}: obsolete layout tokens; use MaterialUiTokens")
 
 required = {
-    "AdaptiveWidgets.kt": ["MaterialUiTokens.buttonHeight", "UiCard("],
+    "AdaptiveWidgets.kt": ["MaterialUiTokens.buttonHeight", "UiCard(",
+                           "MaterialActionColors.filled()", "MaterialActionColors.outlined()",
+                           "MaterialActionColors.text()", "MaterialActionColors.icon()",
+                           "MaterialActionColors.filter()"],
+    "MaterialActionColors.kt": ["fun filled()", "fun outlined()", "fun outlinedBorder(",
+                                "fun text()", "fun icon()", "fun filter()",
+                                "MaterialTheme.colorScheme.primary"],
     "UiCard.kt": ["enum class UiCardVariant", "UiCardVariant.SECTION", "UiCardVariant.CATEGORY",
                   "UiCardVariant.LIST_GROUP", "UiCardVariant.STATUS", "position.shape()",
                   "onClick = onClick", "UiCardDetailRow("],
@@ -67,4 +82,4 @@ for filename in ("AppScopePicker.kt", "ScopeScreen.kt"):
 if errors:
     print("\n".join(errors), file=sys.stderr)
     sys.exit(1)
-print("Material 3 shared navigation, layouts, cards and app rows OK")
+print("Material 3 shared navigation, button palette, layouts, cards and app rows OK")

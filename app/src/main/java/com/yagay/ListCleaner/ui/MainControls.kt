@@ -138,7 +138,6 @@ private fun EntryGroupButton(
             AdaptiveText(
                 stringResource(group.titleRes()),
                 fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
-                color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
             AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
         }
