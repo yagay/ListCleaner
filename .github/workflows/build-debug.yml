@@ -37,7 +37,9 @@ permissions:
 
 concurrency:
   group: debug-${{ github.ref }}
-  cancel-in-progress: true
+  # Keep test3 runs from cancelling each other during rapid debugging pushes.
+  # Production branch still discards obsolete builds.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/test3' }}
 
 jobs:
   build:
