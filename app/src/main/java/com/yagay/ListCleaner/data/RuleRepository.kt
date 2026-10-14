@@ -112,7 +112,23 @@ class RuleRepository(context: Context) {
         ).validated()
     }
 
-    fun hasLocalConfiguration(): Boolean = prefs.contains(KEY_LOCAL_CONFIG) || hasLegacyLocalConfiguration()
+    /**
+     * A corrupt local JSON value must not masquerade as a valid configuration: doing so
+     * can cause an empty legacy fallback to overwrite recoverable remote rules.
+     */
+    private fun validStoredSnapshot(): Boolean {
+        val encoded = prefs.getString(KEY_LOCAL_CONFIG, null) ?: return false
+        return encoded.length <= MAX_BACKUP_CHARS && runCatching {
+            json.decodeFromString(ModuleConfig.serializer(), encoded).validated()
+        }.isSuccess
+    }
+
+    fun hasCorruptLocalConfiguration(): Boolean =
+        prefs.contains(KEY_LOCAL_CONFIG) && !validStoredSnapshot()
+
+    fun hasLocalConfiguration(): Boolean =
+        if (prefs.contains(KEY_LOCAL_CONFIG)) validStoredSnapshot()
+        else hasLegacyLocalConfiguration()
 
     @Synchronized fun markInitialized() {
         persistLocalSnapshot()
