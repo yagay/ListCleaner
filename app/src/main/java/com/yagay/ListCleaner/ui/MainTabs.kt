@@ -513,9 +513,20 @@ internal fun DashboardTabContent(
     onInspectFile: () -> Unit,
     themeStyle: UiThemeStyle,
     onThemeStyleChange: (UiThemeStyle) -> Unit,
+    colorMode: UiColorMode,
+    onColorModeChange: (UiColorMode) -> Unit,
 ) {
     val fileCheckStatus by vm.fileCheckStatus.collectAsStateWithLifecycle()
     val checkingFile by vm.checkingFile.collectAsStateWithLifecycle()
+    val colorModeLabels = UiColorMode.entries.map { mode ->
+        stringResource(
+            when (mode) {
+                UiColorMode.SYSTEM -> R.string.ui_color_mode_system
+                UiColorMode.LIGHT -> R.string.ui_color_mode_light
+                UiColorMode.DARK -> R.string.ui_color_mode_dark
+            }
+        )
+    }
     var menu by remember { mutableStateOf(false) }
     var showScopeDetails by remember { mutableStateOf(false) }
     var showAppScopePicker by remember { mutableStateOf(false) }
@@ -586,6 +597,40 @@ internal fun DashboardTabContent(
                             if (themeStyle == UiThemeStyle.MATERIAL) R.string.ui_appearance_material_help
                             else R.string.ui_appearance_miuix_help
                         ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                if (themeStyle == UiThemeStyle.MIUIX_STYLE) {
+                    NativeSuperDropdown(
+                        items = colorModeLabels,
+                        selectedIndex = UiColorMode.entries.indexOf(colorMode),
+                        title = stringResource(R.string.ui_color_mode_title),
+                        summary = stringResource(R.string.ui_color_mode_help),
+                        onSelectedIndexChange = { index ->
+                            UiColorMode.entries.getOrNull(index)?.let(onColorModeChange)
+                        }
+                    )
+                } else {
+                    AdaptiveText(
+                        stringResource(R.string.ui_color_mode_title),
+                        fontWeight = FontWeight.Medium
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        UiColorMode.entries.forEachIndexed { index, mode ->
+                            AdaptiveFilterChip(
+                                selected = colorMode == mode,
+                                onClick = { onColorModeChange(mode) },
+                                label = { AdaptiveText(colorModeLabels[index]) }
+                            )
+                        }
+                    }
+                    AdaptiveText(
+                        stringResource(R.string.ui_color_mode_help),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
