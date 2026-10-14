@@ -117,6 +117,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun dismissComponentRootNotice() = rootComponents.dismissRootNotice()
     fun refreshComponents() = rootComponents.refresh()
+    fun ensureComponentsFresh() = rootComponents.refreshIfStale()
     fun changeComponent(target: RootComponent, enable: Boolean) = rootComponents.change(target, enable)
     fun changeComponents(targets: List<RootComponent>, enable: Boolean) = rootComponents.change(targets, enable)
     fun invertComponents(targets: List<RootComponent>) = rootComponents.invert(targets)

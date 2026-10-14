@@ -1,6 +1,7 @@
 package com.yagay.ListCleaner.ui
 
 import android.util.Log
+import android.os.SystemClock
 import com.yagay.ListCleaner.ListCleanerApp
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.ComponentPersistenceResult
@@ -48,6 +49,8 @@ internal class RootComponentsController(
     private val mutableRootNotice = MutableStateFlow<String?>(null)
     val rootNotice: StateFlow<String?> = mutableRootNotice.asStateFlow()
     private var refreshPending = false
+    private var lastAutoScanAttemptElapsed = -1L
+    private var lastFullScanElapsed = -1L
     private var mutationJob: Job? = null
     private val mutableBatchProgress = MutableStateFlow<RootBatchProgress?>(null)
     val batchProgress: StateFlow<RootBatchProgress?> = mutableBatchProgress.asStateFlow()
@@ -86,12 +89,29 @@ internal class RootComponentsController(
             app.getString(R.string.root_operation_not_allowed)
         }
 
+    /**
+     * Component enumeration is expensive. Opening the Cleanup homepage never triggers it:
+     * lazily scan on the first component editor visit, then reuse results for ten minutes.
+     * Failed attempts have a short retry cooldown; the explicit refresh action bypasses both.
+     */
+    fun refreshIfStale() {
+        val now = SystemClock.elapsedRealtime()
+        if (!ComponentScanRefreshPolicy.shouldRefresh(
+                nowElapsedMs = now,
+                lastFullScanElapsedMs = lastFullScanElapsed,
+                lastAttemptElapsedMs = lastAutoScanAttemptElapsed,
+                busy = mutableBusy.value
+            )) return
+        refresh()
+    }
+
     fun refresh() {
         if (mutableBusy.value) {
             refreshPending = true
             return
         }
         mutableBusy.value = true
+        lastAutoScanAttemptElapsed = SystemClock.elapsedRealtime()
         mutableMessage.value = null
         scope.launch {
             try {
@@ -111,6 +131,7 @@ internal class RootComponentsController(
                 if (protocolAfter != protocolBefore) {
                     mutableScan.value = withContext(Dispatchers.IO) { catalog.scan() }
                 }
+                lastFullScanElapsed = SystemClock.elapsedRealtime()
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {

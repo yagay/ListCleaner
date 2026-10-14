@@ -123,7 +123,7 @@ fun RootComponentsScreen(
             }
         )
     }
-    LaunchedEffect(Unit) { vm.refreshComponents() }
+    LaunchedEffect(Unit) { vm.ensureComponentsFresh() }
     if (!embedded && kind == null && !browseAll && state.query.isBlank()) {
         RootWorkspaceHome(
             onChoose = { selected -> kind = selected },
