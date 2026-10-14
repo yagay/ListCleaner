@@ -76,36 +76,18 @@ internal fun RootWorkspaceCategorySection(
         kinds.chunked(2).forEach { pair ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 pair.forEach { kind ->
-                    AdaptiveCard(
-                        Modifier.weight(1f).heightIn(min = 124.dp)
-                            .clickable { onChoose(kind) }
-                    ) {
-                        Column(
-                            Modifier.padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                AdaptiveIcon(
-                                    when (kind) {
-                                        CleanupKind.LAUNCHER -> Icons.Rounded.Home
-                                        CleanupKind.TILE -> Icons.Rounded.GridView
-                                        CleanupKind.SHORTCUT -> Icons.Rounded.Link
-                                        CleanupKind.WIDGET -> Icons.Rounded.Widgets
-                                    },
-                                    null, Modifier.size(26.dp),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                                Spacer(Modifier.weight(1f))
-                                AdaptiveIcon(Icons.Rounded.ChevronRight, null, Modifier.size(18.dp))
-                            }
-                            AdaptiveText(
-                                stringResource(kind.titleRes()),
-                                style = MaterialTheme.typography.titleMedium,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
+                    WorkspaceCategoryCard(
+                        icon = when (kind) {
+                            CleanupKind.LAUNCHER -> Icons.Rounded.Home
+                            CleanupKind.TILE -> Icons.Rounded.GridView
+                            CleanupKind.SHORTCUT -> Icons.Rounded.Link
+                            CleanupKind.WIDGET -> Icons.Rounded.Widgets
+                        },
+                        title = stringResource(kind.titleRes()),
+                        description = null,
+                        modifier = Modifier.weight(1f),
+                        onClick = { onChoose(kind) }
+                    )
                 }
                 if (pair.size == 1) Spacer(Modifier.weight(1f))
             }

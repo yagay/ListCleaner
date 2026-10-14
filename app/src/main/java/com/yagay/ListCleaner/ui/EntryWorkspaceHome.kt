@@ -146,28 +146,13 @@ private fun EntryGroupTile(group: EntryGroup, modifier: Modifier, onClick: () ->
         EntryGroup.DESKTOP -> Icons.Rounded.Home
         EntryGroup.ADVANCED -> Icons.Rounded.Tune
     }
-    AdaptiveCard(modifier = modifier.heightIn(min = 144.dp).clickable(onClick = onClick)) {
-        Column(
-            Modifier.fillMaxWidth().padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                AdaptiveIcon(icon, null, Modifier.size(26.dp), tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.weight(1f))
-                AdaptiveIcon(Icons.Rounded.ChevronRight, null, Modifier.size(18.dp))
-            }
-            AdaptiveText(
-                stringResource(group.titleRes()),
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 2
-            )
-            AdaptiveText(
-                stringResource(R.string.workspace_entry_count, group.kinds().size),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
+    WorkspaceCategoryCard(
+        icon = icon,
+        title = stringResource(group.titleRes()),
+        description = stringResource(R.string.workspace_entry_count, group.kinds().size),
+        modifier = modifier,
+        onClick = onClick
+    )
 }
 
 /** Breadcrumb for the app editor. It is not another category picker. */
@@ -177,30 +162,12 @@ internal fun EntryWorkspaceBreadcrumb(
     onHome: () -> Unit,
     onGroup: () -> Unit
 ) {
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AdaptiveTextButton(onClick = onHome, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)) {
-            AdaptiveIcon(Icons.Rounded.GridView, null, Modifier.size(18.dp))
-            Spacer(Modifier.width(3.dp))
-            AdaptiveText(stringResource(R.string.workspace_groups))
-        }
-        if (kind != null) {
-            AdaptiveIcon(Icons.Rounded.ChevronRight, null, Modifier.size(14.dp))
-            AdaptiveTextButton(onClick = onGroup, contentPadding = PaddingValues(horizontal = 5.dp, vertical = 2.dp)) {
-                AdaptiveText(stringResource(kind.entryGroup().titleRes()), maxLines = 1)
-            }
-            AdaptiveIcon(Icons.Rounded.ChevronRight, null, Modifier.size(14.dp))
-            AdaptiveText(
-                stringResource(kind.titleRes()),
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.labelMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        } else {
-            AdaptiveText(stringResource(R.string.workspace_browse_all), style = MaterialTheme.typography.labelMedium)
-        }
-    }
+    WorkspaceBreadcrumb(
+        homeLabel = stringResource(R.string.workspace_groups),
+        onHome = onHome,
+        groupLabel = kind?.let { stringResource(it.entryGroup().titleRes()) },
+        onGroup = if (kind == null) null else onGroup,
+        currentLabel = kind?.let { stringResource(it.titleRes()) }
+            ?: stringResource(R.string.workspace_browse_all)
+    )
 }

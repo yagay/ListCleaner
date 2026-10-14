@@ -212,76 +212,35 @@ internal fun ListControls(
             }
         }
 
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box {
-                AdaptiveTextButton(onClick = { appTypeMenu = true }, contentPadding = PaddingValues(horizontal = 6.dp)) {
-                    AdaptiveText(stringResource(R.string.compact_filter_format, stringResource(R.string.app_type_filter), stringResource(appTypeFilter.titleRes())))
-                    AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
-                }
-                AdaptiveDropdownMenu(expanded = appTypeMenu, onDismissRequest = { appTypeMenu = false }) {
-                    AppTypeFilter.entries.forEach { mode ->
-                        AdaptiveDropdownMenuItem(
-                            text = { AdaptiveText(stringResource(mode.titleRes())) },
-                            leadingIcon = { if (mode == appTypeFilter) AdaptiveIcon(Icons.Rounded.Check, null) },
-                            onClick = { appTypeMenu = false; onAppTypeFilter(mode) }
-                        )
-                    }
-                }
-            }
-            Box {
-                AdaptiveTextButton(onClick = { menu = true }, contentPadding = PaddingValues(horizontal = 6.dp)) {
-                    AdaptiveText(stringResource(R.string.compact_filter_format, stringResource(R.string.view_filter), viewTitle(state.uiFilter)))
-                    AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
-                }
-                AdaptiveDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    UiFilter.entries.forEach { mode ->
-                        AdaptiveDropdownMenuItem(
-                            text = { AdaptiveText(viewTitle(mode)) },
-                            leadingIcon = { if (mode == state.uiFilter) AdaptiveIcon(Icons.Rounded.Check, null) },
-                            onClick = { menu = false; onUiFilter(mode) }
-                        )
-                    }
+        val allLabel = stringResource(R.string.select_all)
+        val noneLabel = stringResource(R.string.select_none)
+        val invertLabel = stringResource(R.string.invert_selection)
+        val actions = listOfNotNull(
+            onSelectAll?.let { WorkspaceMenuAction(allLabel, it, batchCount == null || batchCount > 0) },
+            onSelectNone?.let { WorkspaceMenuAction(noneLabel, it, batchCount == null || batchCount > 0) },
+            onInvert?.let { WorkspaceMenuAction(invertLabel, it, batchCount == null || batchCount > 0) }
+        )
+        WorkspaceFilterBar(
+            appTypeFilter = appTypeFilter,
+            onAppTypeFilter = onAppTypeFilter,
+            viewFilter = state.uiFilter,
+            onViewFilter = onUiFilter,
+            viewTitle = viewTitle,
+            actions = actions,
+            extraFilter = extraFilter,
+            help = {
+                AdaptiveTextButton(
+                    onClick = { helpExpanded = !helpExpanded },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    AdaptiveText(stringResource(R.string.entry_help_title), maxLines = 1)
+                    AdaptiveIcon(
+                        if (helpExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                        null, Modifier.size(16.dp)
+                    )
                 }
             }
-            extraFilter?.invoke()
-            if (onSelectAll != null || onSelectNone != null || onInvert != null) {
-                Box {
-                    AdaptiveTextButton(
-                        onClick = { selectionMenu = true },
-                        enabled = batchCount == null || batchCount > 0,
-                        contentPadding = PaddingValues(horizontal = 6.dp)
-                    ) {
-                        AdaptiveText(stringResource(R.string.selection_actions))
-                        AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
-                    }
-                    AdaptiveDropdownMenu(expanded = selectionMenu, onDismissRequest = { selectionMenu = false }) {
-                        onSelectAll?.let { action ->
-                            AdaptiveDropdownMenuItem(text = { AdaptiveText(stringResource(R.string.select_all)) }, onClick = { selectionMenu = false; action() })
-                        }
-                        onSelectNone?.let { action ->
-                            AdaptiveDropdownMenuItem(text = { AdaptiveText(stringResource(R.string.select_none)) }, onClick = { selectionMenu = false; action() })
-                        }
-                        onInvert?.let { action ->
-                            AdaptiveDropdownMenuItem(text = { AdaptiveText(stringResource(R.string.invert_selection)) }, onClick = { selectionMenu = false; action() })
-                        }
-                    }
-                }
-            }
-            AdaptiveTextButton(
-                onClick = { helpExpanded = !helpExpanded },
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 3.dp)
-            ) {
-                AdaptiveText(stringResource(R.string.entry_help_title), maxLines = 1)
-                AdaptiveIcon(
-                    if (helpExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-        }
+        )
         val selectedKind = state.filter
         if (helpExpanded) {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) {

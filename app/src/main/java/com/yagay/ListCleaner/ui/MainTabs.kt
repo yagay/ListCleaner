@@ -427,25 +427,21 @@ fun RulesTab(
         }
         if (!state.loading && shownGroups.isEmpty()) {
             item {
-                Column(
-                    Modifier.fillMaxWidth().padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    AdaptiveText(stringResource(when {
+                WorkspaceEmptyState(
+                    message = stringResource(when {
                         state.error != null -> R.string.rules_empty_scan_failed
                         state.candidates.isEmpty() -> R.string.rules_empty_unscanned
                         state.query.isNotBlank() || state.uiFilter != UiFilter.ALL -> R.string.rules_empty_filtered
                         state.filter == IntentKind.DIRECT_SHARE || state.filter == IntentKind.SHORTCUT_ITEM ->
                             R.string.observed_entry_empty_help
                         else -> R.string.no_matching_components
-                    }))
-                    if (state.query.isNotBlank() || state.uiFilter != UiFilter.ALL) {
-                        AdaptiveTextButton(onClick = {
-                            vm.setQuery("")
-                            vm.setUiFilter(UiFilter.ALL)
-                        }) { AdaptiveText(stringResource(R.string.rules_empty_clear_filters)) }
-                    }
-                }
+                    }),
+                    clearLabel = if (state.query.isNotBlank() || state.uiFilter != UiFilter.ALL)
+                        stringResource(R.string.rules_empty_clear_filters) else null,
+                    onClear = if (state.query.isNotBlank() || state.uiFilter != UiFilter.ALL) {
+                        { vm.setQuery(""); vm.setUiFilter(UiFilter.ALL) }
+                    } else null
+                )
             }
         }
     }
@@ -453,23 +449,10 @@ fun RulesTab(
 
 @Composable
 private fun SummaryRow(state: MainState, displayedApps: Int) {
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        AdaptiveText(
-            stringResource(R.string.app_list_count, displayedApps),
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.labelMedium
-        )
-        AdaptiveText(
-            stringResource(state.displayMode.titleRes()),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelSmall,
-            maxLines = 1
-        )
-    }
+    WorkspaceListSummary(
+        title = stringResource(R.string.app_list_count, displayedApps),
+        secondary = stringResource(state.displayMode.titleRes())
+    )
     if (state.error != null) {
         AdaptiveText(
             stringResource(R.string.rules_refresh_incomplete),

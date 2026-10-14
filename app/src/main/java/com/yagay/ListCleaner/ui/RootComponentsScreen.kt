@@ -166,30 +166,19 @@ fun RootComponentsScreen(
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item(key = "root-breadcrumb") {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                AdaptiveTextButton(onClick = {
-                    if (embedded) {
-                        onExit()
-                    } else {
+            WorkspaceBreadcrumb(
+                homeLabel = stringResource(R.string.workspace_groups),
+                onHome = {
+                    if (embedded) onExit()
+                    else {
                         kind = null
                         browseAll = false
                         vm.setQuery("")
                     }
-                }) {
-                    AdaptiveIcon(Icons.Rounded.ExpandLess, null, Modifier.size(18.dp))
-                    AdaptiveText(stringResource(R.string.workspace_groups))
-                }
-                Spacer(Modifier.width(8.dp))
-                AdaptiveText(
-                    kind?.let { stringResource(it.titleRes()) }
-                        ?: stringResource(R.string.workspace_browse_all),
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 1
-                )
-            }
+                },
+                currentLabel = kind?.let { stringResource(it.titleRes()) }
+                    ?: stringResource(R.string.workspace_browse_all)
+            )
         }
         stickyHeader(key = "controls") {
             PageFilterSection {
@@ -198,69 +187,26 @@ fun RootComponentsScreen(
                         top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.surfaceContainer
                     else MaterialTheme.colorScheme.surface
                 )) {
-                    Row(
-                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box {
-                            AdaptiveTextButton(
-                                onClick = { appTypeMenu = true },
-                                contentPadding = PaddingValues(horizontal = 6.dp)
-                            ) {
-                                AdaptiveText(
-                                    stringResource(
-                                        R.string.compact_filter_format,
-                                        stringResource(R.string.app_type_filter),
-                                        stringResource(appTypeFilter.titleRes())
-                                    )
-                                )
-                                AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
-                            }
-                            AdaptiveDropdownMenu(expanded = appTypeMenu, onDismissRequest = { appTypeMenu = false }) {
-                                AppTypeFilter.entries.forEach { filter ->
-                                    AdaptiveDropdownMenuItem(
-                                        text = { AdaptiveText(stringResource(filter.titleRes())) },
-                                        leadingIcon = { if (appTypeFilter == filter) AdaptiveIcon(Icons.Rounded.Check, null) },
-                                        onClick = { appTypeFilter = filter; appTypeMenu = false }
-                                    )
-                                }
-                            }
-                        }
-                        Box {
-                            AdaptiveTextButton(
-                                onClick = { filterMenu = true },
-                                contentPadding = PaddingValues(horizontal = 6.dp)
-                            ) {
-                                AdaptiveText(
-                                    stringResource(
-                                        R.string.compact_filter_format,
-                                        stringResource(R.string.view_filter),
-                                        stringResource(viewFilter.titleRes())
-                                    )
-                                )
-                                AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
-                            }
-                            AdaptiveDropdownMenu(expanded = filterMenu, onDismissRequest = { filterMenu = false }) {
-                                UiFilter.entries.forEach { filter ->
-                                    AdaptiveDropdownMenuItem(
-                                        text = { AdaptiveText(stringResource(filter.titleRes())) },
-                                        leadingIcon = { if (viewFilter == filter) AdaptiveIcon(Icons.Rounded.Check, null) },
-                                        onClick = { viewFilter = filter; filterMenu = false }
-                                    )
-                                }
-                            }
-                        }
-                        AdaptiveTextButton(
-                            onClick = { pendingBatch = PendingRootBatch(kind, visible, false) },
-                            enabled = !busy && visible.any { it.blocked == null && it.enabled == true },
-                            contentPadding = PaddingValues(horizontal = 6.dp)
-                        ) { AdaptiveText(stringResource(R.string.select_all)) }
-                        AdaptiveTextButton(
-                            onClick = { pendingBatch = PendingRootBatch(kind, visible, null) },
-                            enabled = !busy && visible.any { it.blocked == null && it.enabled != null },
-                            contentPadding = PaddingValues(horizontal = 6.dp)
-                        ) { AdaptiveText(stringResource(R.string.invert_selection)) }
-                    }
+                    val canDisable = !busy && visible.any { it.blocked == null && it.enabled == true && !vm.isComponentBulkProtected(kind, it) }
+                    val canEnable = !busy && visible.any { it.blocked == null && it.enabled == false && !vm.isComponentBulkProtected(kind, it) }
+                    val canInvert = !busy && visible.any { it.blocked == null && it.enabled != null && !vm.isComponentBulkProtected(kind, it) }
+                    WorkspaceFilterBar(
+                        appTypeFilter = appTypeFilter,
+                        onAppTypeFilter = { appTypeFilter = it },
+                        viewFilter = viewFilter,
+                        onViewFilter = { viewFilter = it },
+                        actions = listOf(
+                            WorkspaceMenuAction(stringResource(R.string.root_batch_action_disable), {
+                                pendingBatch = PendingRootBatch(kind, visible, false)
+                            }, canDisable),
+                            WorkspaceMenuAction(stringResource(R.string.root_batch_action_enable), {
+                                pendingBatch = PendingRootBatch(kind, visible, true)
+                            }, canEnable),
+                            WorkspaceMenuAction(stringResource(R.string.root_batch_action_invert), {
+                                pendingBatch = PendingRootBatch(kind, visible, null)
+                            }, canInvert)
+                        )
+                    )
                     if (batchProgress != null) {
                         val current = requireNotNull(batchProgress)
                         AdaptiveLinearProgressIndicator(
@@ -284,15 +230,12 @@ fun RootComponentsScreen(
             }
         }
         item(key = "summary") {
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                AdaptiveText(
-                    stringResource(R.string.root_summary, groups.size, visible.size),
-                    style = MaterialTheme.typography.labelLarge
+            Column(Modifier.fillMaxWidth()) {
+                WorkspaceListSummary(
+                    title = stringResource(R.string.root_summary, groups.size, visible.size),
+                    onHelp = { detailsExpanded = !detailsExpanded },
+                    helpExpanded = detailsExpanded
                 )
-                AdaptiveTextButton(onClick = { detailsExpanded = !detailsExpanded }) {
-                    AdaptiveText(stringResource(if (detailsExpanded) R.string.root_help_collapse else R.string.root_help_expand))
-                    AdaptiveIcon(if (detailsExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null)
-                }
                 if (detailsExpanded) {
                 AdaptiveText(
                     stringResource(R.string.root_filter_help),
@@ -463,21 +406,24 @@ fun RootComponentsScreen(
         }
         if (visible.isEmpty() && !busy) {
             item {
-                Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    AdaptiveText(stringResource(
+                WorkspaceEmptyState(
+                    message = stringResource(
                         if (kindItems.isNotEmpty()) R.string.root_empty_filtered else R.string.root_no_components
-                    ))
-                    if (kind != null || viewFilter != UiFilter.ALL ||
+                    ),
+                    clearLabel = if (kind != null || viewFilter != UiFilter.ALL ||
+                        appTypeFilter != AppTypeFilter.ALL || state.query.isNotBlank()
+                    ) stringResource(R.string.root_clear_filters) else null,
+                    onClear = if (kind != null || viewFilter != UiFilter.ALL ||
                         appTypeFilter != AppTypeFilter.ALL || state.query.isNotBlank()
                     ) {
-                        AdaptiveTextButton(onClick = {
+                        {
                             kind = null
                             viewFilter = UiFilter.ALL
                             appTypeFilter = AppTypeFilter.ALL
                             vm.setQuery("")
-                        }) { AdaptiveText(stringResource(R.string.root_clear_filters)) }
-                    }
-                }
+                        }
+                    } else null
+                )
             }
         }
     }
