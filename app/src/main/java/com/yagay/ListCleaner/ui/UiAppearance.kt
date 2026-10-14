@@ -41,9 +41,26 @@ internal enum class UiThemeStyle {
     }
 }
 
+/** Colour mode is independent of the Material/MIUIX component style. */
+internal enum class UiColorMode {
+    SYSTEM, LIGHT, DARK;
+
+    fun usesDarkTheme(systemDark: Boolean): Boolean = when (this) {
+        SYSTEM -> systemDark
+        LIGHT -> false
+        DARK -> true
+    }
+
+    companion object {
+        fun fromStored(value: String?): UiColorMode =
+            entries.firstOrNull { it.name == value } ?: SYSTEM
+    }
+}
+
 internal object UiAppearanceStore {
     private const val FILE = "ui_appearance"
     private const val STYLE_KEY = "theme_style"
+    private const val COLOR_MODE_KEY = "color_mode"
 
     fun read(context: Context): UiThemeStyle =
         UiThemeStyle.fromStored(
@@ -53,6 +70,16 @@ internal object UiAppearanceStore {
     fun write(context: Context, style: UiThemeStyle) {
         context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
             .putString(STYLE_KEY, style.name).apply()
+    }
+
+    fun readColorMode(context: Context): UiColorMode =
+        UiColorMode.fromStored(
+            context.getSharedPreferences(FILE, Context.MODE_PRIVATE).getString(COLOR_MODE_KEY, null)
+        )
+
+    fun writeColorMode(context: Context, mode: UiColorMode) {
+        context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
+            .putString(COLOR_MODE_KEY, mode.name).apply()
     }
 }
 
@@ -124,9 +151,13 @@ private val MiuixTypography = Typography(
 )
 
 @Composable
-internal fun ListCleanerUiTheme(style: UiThemeStyle, content: @Composable () -> Unit) {
+internal fun ListCleanerUiTheme(
+    style: UiThemeStyle,
+    colorMode: UiColorMode,
+    content: @Composable () -> Unit
+) {
     val context = LocalContext.current
-    val dark = isSystemInDarkTheme()
+    val dark = colorMode.usesDarkTheme(isSystemInDarkTheme())
     CompositionLocalProvider(LocalUiThemeStyle provides style) {
         when (style) {
             UiThemeStyle.MATERIAL -> MaterialTheme(
@@ -134,7 +165,15 @@ internal fun ListCleanerUiTheme(style: UiThemeStyle, content: @Composable () -> 
                 content = content
             )
             UiThemeStyle.MIUIX_STYLE -> {
-                val controller = remember { ThemeController(ColorSchemeMode.System) }
+                val controller = remember(colorMode) {
+                    ThemeController(
+                        when (colorMode) {
+                            UiColorMode.SYSTEM -> ColorSchemeMode.System
+                            UiColorMode.LIGHT -> ColorSchemeMode.Light
+                            UiColorMode.DARK -> ColorSchemeMode.Dark
+                        }
+                    )
+                }
                 MiuixTheme(controller = controller) {
                     // M3-only widgets remain legible while the native Miuix migration proceeds.
                     MaterialTheme(
