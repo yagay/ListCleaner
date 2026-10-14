@@ -131,7 +131,12 @@ internal class RootComponentsController(
                 if (protocolAfter != protocolBefore) {
                     mutableScan.value = withContext(Dispatchers.IO) { catalog.scan() }
                 }
-                lastFullScanElapsed = SystemClock.elapsedRealtime()
+                // A partial scan must retry after the short cooldown rather than appearing fresh.
+                lastFullScanElapsed = if (mutableScan.value.warning.isBlank()) {
+                    SystemClock.elapsedRealtime()
+                } else {
+                    -1L
+                }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
@@ -213,6 +218,8 @@ internal class RootComponentsController(
         mutationJob = scope.launch {
             withContext(Dispatchers.IO) {
                 val completedTargets = mutableListOf<RootComponent>()
+                // Also refresh a target when the root command succeeds but saving its state fails.
+                val attemptedTargets = mutableListOf<RootComponent>()
                 var lastResult = ""
                 try {
                     catalog.requireRoot()
@@ -224,10 +231,15 @@ internal class RootComponentsController(
                             target,
                         )
                         val enable = targetEnable(target)
-                        lastResult = withContext(NonCancellable) { catalog.change(target, enable) }
-                        persistConfirmedState(target, disabled = !enable)
-                        completedTargets += target
-                        mutableBatchProgress.value = RootBatchProgress(completedTargets.size, targets.size)
+                        // A single component change and its verified local persistence are atomic
+                        // with respect to cancelling the remaining batch.
+                        withContext(NonCancellable) {
+                            attemptedTargets += target
+                            lastResult = catalog.change(target, enable)
+                            persistConfirmedState(target, disabled = !enable)
+                            completedTargets += target
+                            mutableBatchProgress.value = RootBatchProgress(completedTargets.size, targets.size)
+                        }
                     }
                     mutableMessage.value = successMessage(completedTargets.size, lastResult)
                 } catch (cancelled: CancellationException) {
@@ -246,13 +258,27 @@ internal class RootComponentsController(
                         mutationFailureText(failure),
                     )
                 } finally {
-                    if (completedTargets.isNotEmpty()) {
-                        withContext(NonCancellable) { app.synchronize() }
-                        refreshAfterMutation(completedTargets)
+                    try {
+                        if (attemptedTargets.isNotEmpty()) {
+                            withContext(NonCancellable) {
+                                // Keep the UI responsive even when remote sync fails.
+                                try {
+                                    app.synchronize()
+                                } catch (failure: Exception) {
+                                    Log.w(TAG, "Post-mutation runtime sync failed", failure)
+                                }
+                                refreshAfterMutation(attemptedTargets)
+                            }
+                        }
+                    } finally {
+                        mutableBusy.value = false
+                        mutableBatchProgress.value = null
+                        mutationJob = null
+                        if (refreshPending) {
+                            refreshPending = false
+                            refresh()
+                        }
                     }
-                    mutableBusy.value = false
-                    mutableBatchProgress.value = null
-                    mutationJob = null
                 }
             }
         }
@@ -263,6 +289,7 @@ internal class RootComponentsController(
             .onSuccess { mutableScan.value = it }
             .onFailure { failure ->
                 Log.e(TAG, "Post-mutation Root component refresh failed", failure)
+                lastFullScanElapsed = -1L
                 mutableScan.value = mutableScan.value.copy(
                     warning = app.getString(R.string.root_post_scan_failed),
                     observedAt = System.currentTimeMillis()
