@@ -50,13 +50,11 @@ internal fun EntryWorkspaceHome(
     ) {
         status()
         if (selectedGroup == null) {
-            AdaptiveText(
+            WorkspaceSectionTitle(
                 stringResource(
                     if (showComponentSection) R.string.workspace_rule_section
                     else R.string.workspace_choose_group
-                ),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
+                )
             )
             val groups = availableGroups
             groups.chunked(2).forEach { pair ->

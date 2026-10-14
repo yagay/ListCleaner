@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.basic.SmallTitle as NativeSectionTitle
@@ -37,6 +39,20 @@ internal fun PageSectionTitle(title: String) {
     } else {
         AdaptiveText(title, style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
     }
+}
+
+/**
+ * Single title specification for the two feature families on the merged Cleanup home.
+ * Do not let Rule and Root screens choose typography independently.
+ */
+@Composable
+internal fun WorkspaceSectionTitle(title: String) {
+    AdaptiveText(
+        text = title,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold,
+        maxLines = 2
+    )
 }
 
 /** MIUIX uses an inset rounded filter section instead of the Material full-width toolbar. */

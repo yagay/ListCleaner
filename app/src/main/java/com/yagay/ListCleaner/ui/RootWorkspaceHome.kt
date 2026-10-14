@@ -56,14 +56,11 @@ internal fun RootWorkspaceCategorySection(
 ) {
     Column(
         Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                AdaptiveText(
-                    stringResource(R.string.root_screen_title),
-                    style = MaterialTheme.typography.titleLarge
-                )
+                WorkspaceSectionTitle(stringResource(R.string.root_screen_title))
                 if (apps != null && components != null) {
                     AdaptiveText(
                         stringResource(R.string.root_summary, apps, components),
