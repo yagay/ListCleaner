@@ -68,6 +68,8 @@ class MainActivity : ComponentActivity() {
     ) {
         val state by vm.state.collectAsStateWithLifecycle()
         var searchExpanded by rememberSaveable { mutableStateOf(false) }
+        // The merged cleanup tab hosts both rule and Root component editors.
+        var componentModeActive by remember { mutableStateOf(false) }
         var restartPromptDismissed by rememberSaveable { mutableStateOf(false) }
         var pendingImport by remember { mutableStateOf<Pair<String, BackupImportPreview>?>(null) }
         val backupSnackbar = remember { SnackbarHostState() }
@@ -211,7 +213,11 @@ class MainActivity : ComponentActivity() {
 
         val onRefresh: () -> Unit = {
             when (state.destination) {
-                Destination.RULES, Destination.PRIORITY -> vm.refresh(forceCatalog = true)
+                Destination.RULES -> {
+                    if (componentModeActive) vm.refreshComponents()
+                    else vm.refresh(forceCatalog = true)
+                }
+                Destination.PRIORITY -> vm.refresh(forceCatalog = true)
                 Destination.TILES -> vm.refreshComponents()
                 Destination.DASHBOARD -> vm.refreshModuleStatus()
             }
@@ -219,7 +225,11 @@ class MainActivity : ComponentActivity() {
         val pageContent: @Composable (androidx.compose.foundation.layout.PaddingValues) -> Unit = { padding ->
             Box(Modifier.padding(padding).fillMaxSize()) {
                 when (state.destination) {
-                    Destination.RULES -> RulesTab(state, vm)
+                    Destination.RULES -> RulesTab(
+                        state, vm,
+                        searchExpanded = searchExpanded,
+                        onComponentModeChanged = { componentModeActive = it }
+                    )
                     Destination.PRIORITY -> PriorityTab(state, vm)
                     Destination.TILES -> RootComponentsScreen(state, vm)
                     Destination.DASHBOARD -> DashboardTabContent(

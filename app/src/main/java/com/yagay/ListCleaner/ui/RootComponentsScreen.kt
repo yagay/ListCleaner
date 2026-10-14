@@ -53,6 +53,7 @@ fun RootComponentsScreen(
     vm: MainViewModel,
     initialKind: CleanupKind? = null,
     embedded: Boolean = false,
+    backEnabled: Boolean = true,
     onExit: () -> Unit = {}
 ) {
     val scan by vm.componentScan.collectAsStateWithLifecycle()
@@ -79,7 +80,7 @@ fun RootComponentsScreen(
     var browseAll by rememberSaveable(initialKind, embedded) {
         mutableStateOf(embedded && initialKind == null)
     }
-    BackHandler(enabled = embedded || kind != null || browseAll) {
+    BackHandler(enabled = backEnabled && (embedded || kind != null || browseAll)) {
         if (embedded) {
             onExit()
         } else {

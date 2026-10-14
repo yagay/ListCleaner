@@ -37,7 +37,12 @@ import com.yagay.ListCleaner.domain.matchesBrowserHost
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun RulesTab(state: MainState, vm: MainViewModel) {
+fun RulesTab(
+    state: MainState,
+    vm: MainViewModel,
+    searchExpanded: Boolean = false,
+    onComponentModeChanged: (Boolean) -> Unit = {}
+) {
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
     var editingTitle by remember { mutableStateOf<com.yagay.ListCleaner.domain.ComponentCandidate?>(null) }
     var showCustomTypes by rememberSaveable { mutableStateOf(false) }
@@ -50,12 +55,17 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
     var selectedComponentKind by rememberSaveable { mutableStateOf<CleanupKind?>(null) }
     var browseAllComponents by rememberSaveable { mutableStateOf(false) }
     val showingComponents = selectedComponentKind != null || browseAllComponents
+    DisposableEffect(showingComponents) {
+        onComponentModeChanged(showingComponents)
+        onDispose { if (showingComponents) onComponentModeChanged(false) }
+    }
     if (showingComponents) {
         RootComponentsScreen(
             state = state,
             vm = vm,
             initialKind = selectedComponentKind,
             embedded = true,
+            backEnabled = !searchExpanded,
             onExit = {
                 selectedComponentKind = null
                 browseAllComponents = false
