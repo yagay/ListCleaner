@@ -24,6 +24,7 @@ import top.yukonga.miuix.kmp.extra.SuperArrow as NativeSuperArrow
 import top.yukonga.miuix.kmp.extra.SuperDropdown as NativeSuperDropdown
 import top.yukonga.miuix.kmp.extra.SuperSwitch as NativeSuperSwitch
 import com.yagay.ListCleaner.BuildConfig
+import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.EntryGroup
@@ -46,6 +47,23 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
     // and rule store remain the single source of truth for operations.
     var selectedGroup by rememberSaveable { mutableStateOf<EntryGroup?>(null) }
     var browseAll by rememberSaveable { mutableStateOf(false) }
+    var selectedComponentKind by rememberSaveable { mutableStateOf<CleanupKind?>(null) }
+    var browseAllComponents by rememberSaveable { mutableStateOf(false) }
+    val showingComponents = selectedComponentKind != null || browseAllComponents
+    if (showingComponents) {
+        RootComponentsScreen(
+            state = state,
+            vm = vm,
+            initialKind = selectedComponentKind,
+            embedded = true,
+            onExit = {
+                selectedComponentKind = null
+                browseAllComponents = false
+                vm.setQuery("")
+            }
+        )
+        return
+    }
     BackHandler(enabled = state.filter == null && (selectedGroup != null || browseAll)) {
         if (browseAll) browseAll = false else selectedGroup = null
     }
@@ -85,7 +103,22 @@ fun RulesTab(state: MainState, vm: MainViewModel) {
             },
             onBack = { selectedGroup = null },
             onAllApps = { browseAll = true },
-            onComponents = { vm.setDestination(Destination.TILES) },
+            onComponentKind = { kind ->
+                selectedComponentKind = kind
+                browseAllComponents = false
+                selectedGroup = null
+                browseAll = false
+                vm.setFilter(null)
+                vm.setQuery("")
+            },
+            onAllComponents = {
+                selectedComponentKind = null
+                browseAllComponents = true
+                selectedGroup = null
+                browseAll = false
+                vm.setFilter(null)
+                vm.setQuery("")
+            },
             status = {
                 ModuleStatusRow(state, compact = true) {
                     vm.setDestination(Destination.DASHBOARD)

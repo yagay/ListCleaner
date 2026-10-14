@@ -28,8 +28,35 @@ internal fun RootWorkspaceHome(
 ) {
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .padding(horizontal = 14.dp, vertical = 12.dp)
+    ) {
+        RootWorkspaceCategorySection(
+            kinds = kinds,
+            apps = apps,
+            components = components,
+            onChoose = onChoose,
+            onAll = onAll,
+            onRefresh = onRefresh
+        )
+    }
+}
+
+/**
+ * Root component choices are a different feature family from IntentKind rules.
+ * This section is reusable on the combined cleanup home without a nested scroll.
+ */
+@Composable
+internal fun RootWorkspaceCategorySection(
+    kinds: List<CleanupKind> = CleanupKind.entries,
+    apps: Int? = null,
+    components: Int? = null,
+    onChoose: (CleanupKind) -> Unit,
+    onAll: () -> Unit,
+    onRefresh: (() -> Unit)? = null
+) {
+    Column(
+        Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -37,13 +64,15 @@ internal fun RootWorkspaceHome(
                     stringResource(R.string.root_screen_title),
                     style = MaterialTheme.typography.titleLarge
                 )
-                AdaptiveText(
-                    stringResource(R.string.root_summary, apps, components),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (apps != null && components != null) {
+                    AdaptiveText(
+                        stringResource(R.string.root_summary, apps, components),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
-            AdaptiveIconButton(onClick = onRefresh) {
+            if (onRefresh != null) AdaptiveIconButton(onClick = onRefresh) {
                 AdaptiveIcon(Icons.Rounded.Refresh, stringResource(R.string.common_refresh))
             }
         }

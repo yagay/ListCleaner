@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.R
+import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.domain.EntryGroup
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.kinds
@@ -35,7 +36,8 @@ internal fun EntryWorkspaceHome(
     onKind: (IntentKind) -> Unit,
     onBack: () -> Unit,
     onAllApps: () -> Unit,
-    onComponents: () -> Unit,
+    onComponentKind: (CleanupKind) -> Unit,
+    onAllComponents: () -> Unit,
     status: @Composable () -> Unit,
     availableGroups: List<EntryGroup> = EntryGroup.entries,
     showUtilities: Boolean = true,
@@ -70,13 +72,12 @@ internal fun EntryWorkspaceHome(
                 Spacer(Modifier.width(8.dp))
                 AdaptiveText(stringResource(R.string.workspace_browse_all))
             }
-            if (showUtilities) AdaptiveTextButton(onClick = onComponents, modifier = Modifier.fillMaxWidth()) {
-                AdaptiveIcon(Icons.Rounded.Settings, null, Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                AdaptiveText(stringResource(R.string.workspace_components_link))
-                Spacer(Modifier.weight(1f))
-                AdaptiveIcon(Icons.Rounded.ChevronRight, null)
-            }
+            // Rule and Root component categories share the same landing page.
+            // Their editors remain independent to preserve scan/lock semantics.
+            RootWorkspaceCategorySection(
+                onChoose = onComponentKind,
+                onAll = onAllComponents
+            )
         } else {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 AdaptiveIconButton(onClick = onBack) {

@@ -272,9 +272,10 @@ class MainActivity : ComponentActivity() {
             },
             bottomBar = {
                 NavigationBar {
-                    Destination.entries.forEach { dest ->
+                    Destination.entries.filter { it != Destination.TILES }.forEach { dest ->
                         NavigationBarItem(
-                            selected = state.destination == dest,
+                            selected = state.destination == dest ||
+                                (dest == Destination.RULES && state.destination == Destination.TILES),
                             onClick = { vm.setDestination(dest) },
                             icon = { AdaptiveIcon(dest.icon, null) },
                             label = { AdaptiveText(stringResource(dest.labelRes())) }

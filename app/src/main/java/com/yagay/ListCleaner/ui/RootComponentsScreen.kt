@@ -48,7 +48,13 @@ private fun componentAppSelectionRank(items: List<RootComponent>): Int {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
+fun RootComponentsScreen(
+    state: MainState,
+    vm: MainViewModel,
+    initialKind: CleanupKind? = null,
+    embedded: Boolean = false,
+    onExit: () -> Unit = {}
+) {
     val scan by vm.componentScan.collectAsStateWithLifecycle()
     val busy by vm.componentBusy.collectAsStateWithLifecycle()
     val message by vm.componentMessage.collectAsStateWithLifecycle()
@@ -67,11 +73,19 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
         )
     }
 
-    var kind by rememberSaveable { mutableStateOf<CleanupKind?>(null) }
-    var browseAll by rememberSaveable { mutableStateOf(false) }
-    BackHandler(enabled = kind != null || browseAll) {
-        kind = null
-        browseAll = false
+    var kind by rememberSaveable(initialKind, embedded) {
+        mutableStateOf(initialKind)
+    }
+    var browseAll by rememberSaveable(initialKind, embedded) {
+        mutableStateOf(embedded && initialKind == null)
+    }
+    BackHandler(enabled = embedded || kind != null || browseAll) {
+        if (embedded) {
+            onExit()
+        } else {
+            kind = null
+            browseAll = false
+        }
     }
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
     var viewFilter by rememberSaveable { mutableStateOf(UiFilter.ALL) }
@@ -111,7 +125,7 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
         )
     }
     LaunchedEffect(Unit) { vm.refreshComponents() }
-    if (kind == null && !browseAll && state.query.isBlank()) {
+    if (!embedded && kind == null && !browseAll && state.query.isBlank()) {
         RootWorkspaceHome(
             onChoose = { selected -> kind = selected },
             onAll = { browseAll = true },
@@ -156,9 +170,13 @@ fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 AdaptiveTextButton(onClick = {
-                    kind = null
-                    browseAll = false
-                    vm.setQuery("")
+                    if (embedded) {
+                        onExit()
+                    } else {
+                        kind = null
+                        browseAll = false
+                        vm.setQuery("")
+                    }
                 }) {
                     AdaptiveIcon(Icons.Rounded.ExpandLess, null, Modifier.size(18.dp))
                     AdaptiveText(stringResource(R.string.workspace_groups))
