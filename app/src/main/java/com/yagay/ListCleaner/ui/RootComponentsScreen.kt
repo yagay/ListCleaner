@@ -333,75 +333,50 @@ fun RootComponentsScreen(
                 val editable = !busy && item.blocked == null && item.enabled != null
                 val lockToggleEnabled = !vm.isComponentAppLockedForItem(kind, item)
                 val itemLocked = vm.isComponentBulkProtected(kind, item)
-                var lockMenuExpanded by remember { mutableStateOf(false) }
-                AdaptiveGroupSurface(
-                    Modifier.fillMaxWidth(),
-                    position = if (componentIndex == components.lastIndex) MiuixRowPosition.LAST else MiuixRowPosition.MIDDLE
-                ) {
-                    Row(
-                        Modifier.fillMaxWidth()
-                            .background(
-                                if (LocalUiThemeStyle.current == UiThemeStyle.MIUIX_STYLE) Color.Transparent
-                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+                WorkspaceDetailRow(
+                    position = if (componentIndex == components.lastIndex)
+                        MiuixRowPosition.LAST else MiuixRowPosition.MIDDLE,
+                    checked = item.enabled == false,
+                    enabled = editable,
+                    locked = itemLocked,
+                    lockToggleEnabled = lockToggleEnabled,
+                    onToggle = { vm.changeComponent(item, item.enabled == false) },
+                    onLock = { vm.setComponentItemLocked(kind, item, true) },
+                    onUnlock = { vm.setComponentItemLocked(kind, item, false) },
+                    content = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            AdaptiveText(
+                                item.label, modifier = Modifier.weight(1f),
+                                maxLines = 2, overflow = TextOverflow.Ellipsis
                             )
-                            .combinedClickable(
-                                role = Role.Checkbox,
-                                onClick = {
-                                    if (editable) vm.changeComponent(item, item.enabled == false)
-                                },
-                                onLongClick = {
-                                    if (lockToggleEnabled) lockMenuExpanded = true
-                                }
+                            AdaptiveText(
+                                stringResource(item.kind.titleRes()),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            .heightIn(min = 48.dp).padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        AdaptiveCheckbox(
-                            checked = item.enabled == false,
-                            enabled = editable,
-                            onCheckedChange = null,
-                            modifier = Modifier.padding(12.dp)
+                        }
+                        AdaptiveText(
+                            item.component.flattenToShortString(),
+                            maxLines = 2, overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Column(Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                AdaptiveText(item.label, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                AdaptiveText(stringResource(item.kind.titleRes()), style = MaterialTheme.typography.labelMedium)
-                            }
-                            AdaptiveText(
-                                item.component.flattenToShortString(),
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                            AdaptiveText(
-                                item.blocked ?: stringResource(
-                                    when (item.overrideState) {
-                                        0 -> if (item.enabled == true) R.string.root_default_enabled else R.string.root_default_disabled
-                                        1 -> R.string.root_explicit_enabled
-                                        2, 3, 4 -> R.string.root_disabled_unknown_source
-                                        else -> R.string.root_unknown_state
-                                    }
-                                ),
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                        if (itemLocked) {
-                            AdaptiveIcon(
-                                Icons.Rounded.Lock,
-                                contentDescription = stringResource(R.string.bulk_lock_full),
-                                modifier = Modifier.padding(horizontal = 8.dp).size(18.dp)
-                            )
-                        }
+                        AdaptiveText(
+                            item.blocked ?: stringResource(
+                                when (item.overrideState) {
+                                    0 -> if (item.enabled == true)
+                                        R.string.root_default_enabled else R.string.root_default_disabled
+                                    1 -> R.string.root_explicit_enabled
+                                    2, 3, 4 -> R.string.root_disabled_unknown_source
+                                    else -> R.string.root_unknown_state
+                                }
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (item.blocked != null)
+                                MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                    BulkLockContextMenu(
-                        expanded = lockMenuExpanded,
-                        onDismiss = { lockMenuExpanded = false },
-                        canLock = lockToggleEnabled && !itemLocked,
-                        canUnlock = lockToggleEnabled && itemLocked,
-                        onLock = { vm.setComponentItemLocked(kind, item, true) },
-                        onUnlock = { vm.setComponentItemLocked(kind, item, false) }
-                    )
-                }
+                )
             }
         }
         if (visible.isEmpty() && !busy) {

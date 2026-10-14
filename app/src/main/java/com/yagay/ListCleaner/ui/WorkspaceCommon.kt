@@ -1,6 +1,8 @@
 package com.yagay.ListCleaner.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -10,6 +12,7 @@ import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -247,5 +250,61 @@ internal fun WorkspaceEmptyState(
         if (clearLabel != null && onClear != null) {
             AdaptiveTextButton(onClick = onClear) { AdaptiveText(clearLabel) }
         }
+    }
+}
+
+/** Identical detail-row surface, checkbox, lock menu and hit area for both engines. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+internal fun WorkspaceDetailRow(
+    position: MiuixRowPosition,
+    checked: Boolean,
+    enabled: Boolean = true,
+    locked: Boolean,
+    lockToggleEnabled: Boolean,
+    onToggle: () -> Unit,
+    onLock: () -> Unit,
+    onUnlock: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+    trailing: @Composable RowScope.() -> Unit = {}
+) {
+    var lockMenuExpanded by remember { mutableStateOf(false) }
+    AdaptiveGroupSurface(Modifier.fillMaxWidth(), position = position) {
+        Row(
+            Modifier.fillMaxWidth()
+                .then(
+                    if (LocalUiThemeStyle.current == UiThemeStyle.MIUIX_STYLE) Modifier
+                    else Modifier.background(
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+                    )
+                )
+                .combinedClickable(
+                    role = androidx.compose.ui.semantics.Role.Checkbox,
+                    onClick = { if (enabled) onToggle() },
+                    onLongClick = { if (lockToggleEnabled) lockMenuExpanded = true }
+                )
+                .heightIn(min = WorkspaceUiTokens.detailHeight)
+                .padding(start = 14.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AdaptiveCheckbox(
+                checked = checked, enabled = enabled, onCheckedChange = null,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+            Column(Modifier.weight(1f).padding(vertical = 4.dp)) { content() }
+            if (locked) AdaptiveIcon(
+                Icons.Rounded.Lock, stringResource(R.string.bulk_lock_full),
+                modifier = Modifier.padding(horizontal = 8.dp).size(18.dp)
+            )
+            trailing()
+        }
+        BulkLockContextMenu(
+            expanded = lockMenuExpanded,
+            onDismiss = { lockMenuExpanded = false },
+            canLock = lockToggleEnabled && !locked,
+            canUnlock = lockToggleEnabled && locked,
+            onLock = onLock,
+            onUnlock = onUnlock
+        )
     }
 }

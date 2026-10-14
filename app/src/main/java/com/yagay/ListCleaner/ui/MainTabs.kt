@@ -54,6 +54,8 @@ fun RulesTab(
     var browseAll by rememberSaveable { mutableStateOf(false) }
     var selectedComponentKind by rememberSaveable { mutableStateOf<CleanupKind?>(null) }
     var browseAllComponents by rememberSaveable { mutableStateOf(false) }
+    var savedRuleQuery by rememberSaveable { mutableStateOf("") }
+    var savedComponentQuery by rememberSaveable { mutableStateOf("") }
     val showingComponents = selectedComponentKind != null || browseAllComponents
     DisposableEffect(showingComponents) {
         onComponentModeChanged(showingComponents)
@@ -69,7 +71,8 @@ fun RulesTab(
             onExit = {
                 selectedComponentKind = null
                 browseAllComponents = false
-                vm.setQuery("")
+                savedComponentQuery = state.query
+                vm.setQuery(savedRuleQuery)
             }
         )
         return
@@ -114,20 +117,22 @@ fun RulesTab(
             onBack = { selectedGroup = null },
             onAllApps = { browseAll = true },
             onComponentKind = { kind ->
+                savedRuleQuery = state.query
                 selectedComponentKind = kind
                 browseAllComponents = false
                 selectedGroup = null
                 browseAll = false
                 vm.setFilter(null)
-                vm.setQuery("")
+                vm.setQuery(savedComponentQuery)
             },
             onAllComponents = {
+                savedRuleQuery = state.query
                 selectedComponentKind = null
                 browseAllComponents = true
                 selectedGroup = null
                 browseAll = false
                 vm.setFilter(null)
-                vm.setQuery("")
+                vm.setQuery(savedComponentQuery)
             },
             status = {
                 ModuleStatusRow(state, compact = true) {

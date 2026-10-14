@@ -99,96 +99,63 @@ internal fun ComponentRow(
     onUnlock: () -> Unit,
     onEditTitle: () -> Unit
 ) {
-    var lockMenuExpanded by remember { mutableStateOf(false) }
-    AdaptiveGroupSurface(Modifier.fillMaxWidth(), position = position) {
-        Row(
-            Modifier.fillMaxWidth().background(
-                if (LocalUiThemeStyle.current == UiThemeStyle.MIUIX_STYLE) Color.Transparent
-                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
-            )
-                .combinedClickable(
-                    role = Role.Checkbox,
-                    onClick = onToggle,
-                    onLongClick = {
-                        if (lockToggleEnabled) lockMenuExpanded = true
-                    }
-                )
-                .heightIn(min = 48.dp).padding(start = 24.dp, end = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            ComponentSelectionMark(checked)
-            Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    AdaptiveText(
-                        item.activityLabel,
-                        modifier = Modifier.weight(1f).padding(end = 12.dp),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    AdaptiveText(
-                        stringResource(item.rule.kind.titleRes()),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                selectionNote?.let {
-                    AdaptiveText(
-                        it,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                if (!customTitle.isNullOrBlank()) {
-                    AdaptiveText(
-                        stringResource(R.string.component_shown_as, customTitle),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+    WorkspaceDetailRow(
+        position = position,
+        checked = checked,
+        locked = locked,
+        lockToggleEnabled = lockToggleEnabled,
+        onToggle = onToggle,
+        onLock = onLock,
+        onUnlock = onUnlock,
+        content = {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 AdaptiveText(
-                    item.rule.className,
-                    modifier = Modifier.padding(top = 2.dp),
-                    style = MaterialTheme.typography.labelSmall,
+                    item.activityLabel,
+                    modifier = Modifier.weight(1f).padding(end = 12.dp),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis
+                )
+                AdaptiveText(
+                    stringResource(item.rule.kind.titleRes()),
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                if (item.unavailable) {
-                    AdaptiveText(
-                        stringResource(R.string.component_unavailable),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                } else if (item.restricted) {
-                    AdaptiveText(stringResource(R.string.component_restricted), style = MaterialTheme.typography.labelSmall)
-                }
-            }
-            if (locked) {
-                AdaptiveIcon(
-                    Icons.Rounded.Lock,
-                    contentDescription = stringResource(R.string.bulk_lock_full),
-                    modifier = Modifier.padding(horizontal = 8.dp).size(18.dp)
+                    maxLines = 1, overflow = TextOverflow.Ellipsis
                 )
             }
+            selectionNote?.let {
+                AdaptiveText(
+                    it, style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis
+                )
+            }
+            if (!customTitle.isNullOrBlank()) {
+                AdaptiveText(
+                    stringResource(R.string.component_shown_as, customTitle),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis
+                )
+            }
+            AdaptiveText(
+                item.rule.className, style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1, overflow = TextOverflow.Ellipsis
+            )
+            if (item.unavailable) AdaptiveText(
+                stringResource(R.string.component_unavailable),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error
+            ) else if (item.restricted) AdaptiveText(
+                stringResource(R.string.component_restricted),
+                style = MaterialTheme.typography.labelSmall
+            )
+        },
+        trailing = {
             AdaptiveIconButton(onClick = onEditTitle) {
-                AdaptiveIcon(Icons.Rounded.Edit, contentDescription = stringResource(R.string.component_edit_display_name))
+                AdaptiveIcon(Icons.Rounded.Edit, stringResource(R.string.component_edit_display_name))
             }
         }
-        BulkLockContextMenu(
-            expanded = lockMenuExpanded,
-            onDismiss = { lockMenuExpanded = false },
-            canLock = lockToggleEnabled && !locked,
-            canUnlock = lockToggleEnabled && locked,
-            onLock = onLock,
-            onUnlock = onUnlock,
-        )
-    }
+    )
 }
 
 @Composable
