@@ -28,7 +28,7 @@ for file in sorted(root.glob("*.kt")):
         continue
     for line_no, line in enumerate(file.read_text(encoding="utf-8").splitlines(), 1):
         code = line.split("//", 1)[0]
-        if re.search(r"\b(?:ButtonDefaults|IconButtonDefaults|FilterChipDefaults)\s*\.", code):
+        if re.search(r"\b(?:ButtonDefaults|IconButtonDefaults|FilterChipDefaults|NavigationBarItemDefaults)\s*\.", code):
             errors.append(f"{file.name}:{line_no}: use MaterialActionColors for action colors")
 
 # Guard the complete visual system, not just the original button wrappers.
@@ -51,14 +51,17 @@ required = {
                            "MaterialActionColors.text()", "MaterialActionColors.icon()",
                            "MaterialActionColors.filter()"],
     "MaterialActionColors.kt": ["fun filled()", "fun outlined()", "fun outlinedBorder(",
-                                "fun text()", "fun icon()", "fun filter()",
-                                "MaterialTheme.colorScheme.primary"],
+                                "fun text()", "fun icon()", "fun filter()", "fun navigation()",
+                                "selectedIconColor = MaterialTheme.colorScheme.onPrimary",
+                                "selectedTextColor = MaterialTheme.colorScheme.primary",
+                                "indicatorColor = MaterialTheme.colorScheme.primary"],
     "UiCard.kt": ["enum class UiCardVariant", "UiCardVariant.SECTION", "UiCardVariant.CATEGORY",
                   "UiCardVariant.LIST_GROUP", "UiCardVariant.STATUS", "position.shape()",
                   "onClick = onClick", "UiCardDetailRow("],
     "MaterialDesignSystem.kt": ["UiCard(", "UiCardVariant.SECTION", "val cardShape ="],
     "WorkspaceLayout.kt": ["MaterialUiTokens.cardRadius", "MaterialUiTokens.groupedInnerRadius"],
     "MainControls.kt": ["UiCardVariant.STATUS", "warning = true"],
+    "MainActivity.kt": ["NavigationBarItem(", "colors = MaterialActionColors.navigation()"],
     "RuntimePanel.kt": ["UiCardVariant.STATUS"],
     "WorkspaceAppRow.kt": ["MaterialAppRowBody(", "MaterialUiTokens.listRowHeight"],
     "AppScopePicker.kt": ["MaterialAppRowBody(", "MaterialFullScreenDialog("],
@@ -82,4 +85,4 @@ for filename in ("AppScopePicker.kt", "ScopeScreen.kt"):
 if errors:
     print("\n".join(errors), file=sys.stderr)
     sys.exit(1)
-print("Material 3 shared navigation, button palette, layouts, cards and app rows OK")
+print("Material 3 shared navigation, selected-state palette, layouts, cards and app rows OK")

@@ -7,7 +7,7 @@
 - `ui/MaterialDesignSystem.kt` 的 `MaterialUiTokens` 是页面边距、卡片、应用行、图标、按钮、分组间隔的唯一视觉尺寸来源。请勿重新引入 `WorkspaceUiTokens`、`MaterialControlMetrics` 或 MIUIX 组件。
 - `MaterialPageColumn` 管理常规滚动页面的宽度与节距；使用 LazyColumn 的大型候选列表通过 `MaterialUiTokens` 对齐相同横向安全边距。
 - `UiCard.kt` 是唯一调用原生 Material 3 Card 的位置，通过 `UiCardVariant.SECTION / CATEGORY / LIST_GROUP / STATUS` 区分用途；公共色彩、圆角、分组间距和警告边框都由它处理。`MaterialSectionCard` 仅编排内容内边距，`WorkspaceCategoryCard` 仅编排分类内容，`AdaptiveGroupSurface` 仅保留旧的列表调用接口，三者全部委托给 `UiCard`。
-- `MaterialActionColors.kt` 是所有按钮的唯一颜色策略。Filled、Outlined、Text、Icon 与选中态 FilterChip 都使用当前 Material 3 主题的 `primary` 主色；填充按钮和选中筛选使用 `onPrimary` 文字，描边、文字、图标操作使用主色前景。禁用状态继续由 Material 3 处理，不同按钮外形只表达交互层级，不再使用不同的色调。
+- `MaterialActionColors.kt` 是所有按钮和选中导航的唯一颜色策略。Filled、Outlined、Text、Icon、选中态 FilterChip 与底部 NavigationBarItem 都使用当前 Material 3 主题的 `primary` 主色。底部导航原生选中胶囊在图标后面，因此胶囊内的图标使用 `onPrimary`，胶囊外的选中文字使用 `primary`，未选中使用 `onSurfaceVariant`。填充按钮与选中筛选内文字使用 `onPrimary`，描边、文字、图标操作使用主色前景。禁用状态由 Material 3 处理，不再使用彼此独立的配色。
 - `MaterialSettingsRow` 用于有说明文字、尾部操作按钮或开关的设置条目。
 - `MaterialAppRowBody` 定义应用图标、名称、包名/副标题、左侧选择器和尾部插槽；规则、排序、Root 的 `WorkspaceAppRow` 与应用隐藏选择器共同使用。它们保留不同的勾选、锁定、拖动与展开语义。
 - 分组卡片使用 `ListRowPosition` 决定首/中/末圆角，其半径与分隔间距来自 `MaterialUiTokens`。已带 16dp 页面内边距的应用隐藏和二级分类列表传入 `horizontalInset = 0.dp`，不得叠加同等内边距。可选择和只读详情共用 `UiCardDetailRow`。

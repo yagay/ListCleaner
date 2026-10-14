@@ -5,6 +5,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -40,6 +41,19 @@ internal object MaterialActionColors {
     @Composable
     fun icon() = IconButtonDefaults.iconButtonColors(
         contentColor = MaterialTheme.colorScheme.primary
+    )
+
+    /**
+     * Material 3 only draws the pill behind the icon. The selected label sits
+     * outside that pill, so it uses primary rather than onPrimary for contrast.
+     */
+    @Composable
+    fun navigation() = NavigationBarItemDefaults.colors(
+        selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+        selectedTextColor = MaterialTheme.colorScheme.primary,
+        indicatorColor = MaterialTheme.colorScheme.primary,
+        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
     )
 
     @Composable

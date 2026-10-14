@@ -282,6 +282,7 @@ class MainActivity : ComponentActivity() {
                             selected = state.destination == dest ||
                                 (dest == Destination.RULES && state.destination == Destination.TILES),
                             onClick = { vm.setDestination(dest) },
+                            colors = MaterialActionColors.navigation(),
                             icon = { AdaptiveIcon(dest.icon, null) },
                             label = { AdaptiveText(stringResource(dest.labelRes())) }
                         )
