@@ -11,11 +11,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -46,13 +49,29 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             var themeStyle by remember { mutableStateOf(UiAppearanceStore.read(this@MainActivity)) }
-            ListCleanerUiTheme(themeStyle) {
+            var colorMode by remember { mutableStateOf(UiAppearanceStore.readColorMode(this@MainActivity)) }
+            val dark = colorMode.usesDarkTheme(isSystemInDarkTheme())
+            SideEffect {
+                // Edge-to-edge system bar icons must match the app's forced theme, not just the OS.
+                WindowCompat.getInsetsController(window, window.decorView).apply {
+                    isAppearanceLightStatusBars = !dark
+                    isAppearanceLightNavigationBars = !dark
+                }
+            }
+            ListCleanerUiTheme(themeStyle, colorMode) {
                 ListCleanerScreen(
                     themeStyle = themeStyle,
                     onThemeStyleChange = { style ->
                         if (themeStyle != style) {
                             UiAppearanceStore.write(this@MainActivity, style)
                             themeStyle = style
+                        }
+                    },
+                    colorMode = colorMode,
+                    onColorModeChange = { selected ->
+                        if (colorMode != selected) {
+                            UiAppearanceStore.writeColorMode(this@MainActivity, selected)
+                            colorMode = selected
                         }
                     }
                 )
@@ -64,6 +83,8 @@ class MainActivity : ComponentActivity() {
     private fun ListCleanerScreen(
         themeStyle: UiThemeStyle,
         onThemeStyleChange: (UiThemeStyle) -> Unit,
+        colorMode: UiColorMode,
+        onColorModeChange: (UiColorMode) -> Unit,
         vm: MainViewModel = viewModel()
     ) {
         val state by vm.state.collectAsStateWithLifecycle()
@@ -244,7 +265,9 @@ class MainActivity : ComponentActivity() {
                         },
                         { fileCheck.launch(arrayOf("*/*")) },
                         themeStyle = themeStyle,
-                        onThemeStyleChange = onThemeStyleChange
+                        onThemeStyleChange = onThemeStyleChange,
+                        colorMode = colorMode,
+                        onColorModeChange = onColorModeChange
                     )
                 }
             }        }
