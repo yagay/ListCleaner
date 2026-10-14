@@ -65,7 +65,7 @@ internal fun RootWorkspaceCategorySection(
 ) {
     Column(
         Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(WorkspaceUiTokens.sectionGap)
+        verticalArrangement = Arrangement.spacedBy(MaterialUiTokens.sectionGap)
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -87,7 +87,7 @@ internal fun RootWorkspaceCategorySection(
         }
         if (warning.isNotBlank()) WorkspaceStatusMessage(warning, isError = false)
         kinds.chunked(2).forEach { pair ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(WorkspaceUiTokens.categoryGap)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.categoryGap)) {
                 pair.forEach { kind ->
                     WorkspaceCategoryCard(
                         icon = when (kind) {

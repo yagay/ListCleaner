@@ -57,7 +57,7 @@ internal fun EntryWorkspaceHome(
             )
             val groups = availableGroups
             groups.chunked(2).forEach { pair ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(WorkspaceUiTokens.categoryGap)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.categoryGap)) {
                     pair.forEach { group ->
                         EntryGroupTile(
                             group = group,
