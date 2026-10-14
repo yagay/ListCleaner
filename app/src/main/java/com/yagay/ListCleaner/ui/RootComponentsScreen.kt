@@ -141,30 +141,38 @@ fun RootComponentsScreen(
     }
 
 
-    val kindItems = scan.items.filter { kind == null || it.kind == kind }
-    val lockItemsByApp = remember(kindItems, bulkLockRevision) {
+    // Project source snapshots only when their inputs change. Progress updates, expanded
+    // rows and navigation recomposition must not regroup the entire PackageManager catalog.
+    val kindItems = remember(scan.items, kind) {
+        scan.items.filter { kind == null || it.kind == kind }
+    }
+    val lockItemsByApp = remember(kindItems) {
         kindItems.groupBy(::componentBulkLockAppId)
     }
-    val scopeItems = kindItems.filter { appTypeFilter.matches(it.appType) }
-    val baseVisible = scopeItems.filter {
-        (when (viewFilter) {
-                UiFilter.ALL, UiFilter.LOCKED -> true
-                UiFilter.SHOW_SELECTED -> it.enabled == false
-                UiFilter.HIDE_SELECTED -> it.enabled == true
-            }) &&
-            (state.query.isBlank() || listOf(it.label, it.owner, it.component.flattenToString()).any { text -> text.contains(state.query, true) })
+    val groups = remember(kindItems, appTypeFilter, viewFilter, state.query, bulkLockRevision) {
+        kindItems.asSequence()
+            .filter { appTypeFilter.matches(it.appType) }
+            .filter { item ->
+                (when (viewFilter) {
+                    UiFilter.ALL, UiFilter.LOCKED -> true
+                    UiFilter.SHOW_SELECTED -> item.enabled == false
+                    UiFilter.HIDE_SELECTED -> item.enabled == true
+                }) &&
+                    (state.query.isBlank() || sequenceOf(
+                        item.label, item.owner, item.component.flattenToString()
+                    ).any { it.contains(state.query, ignoreCase = true) })
+            }
+            .filter { viewFilter != UiFilter.LOCKED || vm.isComponentBulkProtected(kind, it) }
+            .groupBy { "${it.user}|${it.component.packageName}" }
+            .entries
+            .sortedWith(
+                compareBy<Map.Entry<String, List<RootComponent>>> { componentAppSelectionRank(it.value) }
+                    .thenBy { it.value.first().owner.lowercase() }
+                    .thenBy { it.key }
+            )
+            .map { it.key to it.value }
     }
-    val lockVisible = if (viewFilter == UiFilter.LOCKED) {
-        baseVisible.filter { vm.isComponentBulkProtected(kind, it) }
-    } else baseVisible
-    val baseGroups = lockVisible.groupBy { "${it.user}|${it.component.packageName}" }.entries
-        .sortedWith(
-            compareBy<Map.Entry<String, List<RootComponent>>> { componentAppSelectionRank(it.value) }
-                .thenBy { it.value.first().owner.lowercase() }
-                .thenBy { it.key }
-        )
-    val groups = baseGroups
-    val visible = groups.flatMap { it.value }
+    val visible = remember(groups) { groups.flatMap { it.second } }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item(key = "root-breadcrumb") {
