@@ -143,14 +143,13 @@ internal class RootComponentsController(
                     mutableScan.value = withContext(Dispatchers.IO) { catalog.scan() }
                 }
                 // A partial scan must retry after the short cooldown rather than appearing fresh.
-                lastFullScanElapsed = if (
-                    mutableScan.value.warning.isBlank() &&
-                    packageRevisionBefore == packageChangeRevision()
-                ) {
+                lastFullScanElapsed = ComponentScanRefreshPolicy.completedFullScanAt(
+                    nowElapsedMs = SystemClock.elapsedRealtime(),
+                    warning = mutableScan.value.warning,
+                    packageRevisionChanged = packageRevisionBefore != packageChangeRevision()
+                )
+                if (lastFullScanElapsed >= 0L) {
                     lastScannedPackageRevision = packageRevisionBefore
-                    SystemClock.elapsedRealtime()
-                } else {
-                    -1L
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
