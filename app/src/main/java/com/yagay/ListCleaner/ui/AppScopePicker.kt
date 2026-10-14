@@ -166,7 +166,7 @@ internal fun AppScopePickerDialog(
                         items(visible, key = { it.packageName }) { entry ->
                             val checked = entry.packageName in selected
                             val bitmap = scopeAppIcon(entry.packageName)
-                            AdaptiveGroupSurface(Modifier.fillMaxWidth()) {
+                            AdaptiveGroupSurface(Modifier.fillMaxWidth(), horizontalInset = 0.dp) {
                                 MaterialAppRowBody(
                                     icon = bitmap,
                                     title = entry.label,

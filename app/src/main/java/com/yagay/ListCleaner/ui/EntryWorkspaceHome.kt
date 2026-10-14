@@ -114,7 +114,7 @@ internal fun EntryWorkspaceHome(
                     index == kinds.lastIndex -> ListRowPosition.LAST
                     else -> ListRowPosition.MIDDLE
                 }
-                AdaptiveGroupSurface(Modifier.fillMaxWidth(), position) {
+                AdaptiveGroupSurface(Modifier.fillMaxWidth(), position, horizontalInset = 0.dp) {
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onKind(kind) }
                             .heightIn(min = 58.dp)

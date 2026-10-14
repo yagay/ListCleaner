@@ -11,14 +11,18 @@ import androidx.compose.ui.unit.dp
 internal enum class ListRowPosition { SINGLE, FIRST, MIDDLE, LAST }
 
 internal fun ListRowPosition.shape(): RoundedCornerShape {
-    val top = if (this == ListRowPosition.SINGLE || this == ListRowPosition.FIRST) 20.dp else 4.dp
-    val bottom = if (this == ListRowPosition.SINGLE || this == ListRowPosition.LAST) 20.dp else 4.dp
+    val top = if (this == ListRowPosition.SINGLE || this == ListRowPosition.FIRST)
+        MaterialUiTokens.cardRadius else MaterialUiTokens.groupedInnerRadius
+    val bottom = if (this == ListRowPosition.SINGLE || this == ListRowPosition.LAST)
+        MaterialUiTokens.cardRadius else MaterialUiTokens.groupedInnerRadius
     return RoundedCornerShape(topStart = top, topEnd = top, bottomStart = bottom, bottomEnd = bottom)
 }
 
 internal fun ListRowPosition.verticalPadding(): PaddingValues = PaddingValues(
-    top = if (this == ListRowPosition.SINGLE || this == ListRowPosition.FIRST) 4.dp else 1.dp,
-    bottom = if (this == ListRowPosition.SINGLE || this == ListRowPosition.LAST) 4.dp else 1.dp
+    top = if (this == ListRowPosition.SINGLE || this == ListRowPosition.FIRST)
+        MaterialUiTokens.groupedOuterGap else MaterialUiTokens.groupedInnerGap,
+    bottom = if (this == ListRowPosition.SINGLE || this == ListRowPosition.LAST)
+        MaterialUiTokens.groupedOuterGap else MaterialUiTokens.groupedInnerGap
 )
 
 @Composable

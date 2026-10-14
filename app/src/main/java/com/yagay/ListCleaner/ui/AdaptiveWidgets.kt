@@ -12,7 +12,6 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import com.yagay.ListCleaner.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
@@ -128,12 +127,6 @@ internal fun AdaptiveCircularProgressIndicator(
 ) = CircularProgressIndicator(modifier = modifier, strokeWidth = strokeWidth)
 
 @Composable
-internal fun AdaptiveCard(
-    modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit
-) = Card(modifier = modifier, shape = MaterialUiTokens.cardShape, content = content)
-
-@Composable
 internal fun AdaptiveButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -165,9 +158,12 @@ internal fun AdaptiveCheckbox(
 internal fun AdaptiveGroupSurface(
     modifier: Modifier = Modifier,
     position: ListRowPosition = ListRowPosition.SINGLE,
+    horizontalInset: Dp = MaterialUiTokens.groupHorizontal,
     content: @Composable () -> Unit
-) = Card(
-    modifier = modifier.padding(horizontal = MaterialUiTokens.groupHorizontal).padding(position.verticalPadding()),
-    shape = position.shape(),
+) = UiCard(
+    modifier = modifier,
+    variant = UiCardVariant.LIST_GROUP,
+    position = position,
+    horizontalInset = horizontalInset,
     content = { content() }
 )

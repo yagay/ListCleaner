@@ -36,7 +36,11 @@ internal object MaterialUiTokens {
     val sectionGap = 14.dp
     val contentGap = 8.dp
     val cardPadding = 16.dp
-    val cardShape = RoundedCornerShape(20.dp)
+    val cardRadius = 20.dp
+    val groupedInnerRadius = 4.dp
+    val groupedOuterGap = 4.dp
+    val groupedInnerGap = 1.dp
+    val cardShape = RoundedCornerShape(cardRadius)
     val groupHorizontal = 16.dp
     val categoryHeight = 124.dp
     val categoryPadding = 14.dp
@@ -75,7 +79,7 @@ internal fun MaterialSectionCard(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    AdaptiveCard(modifier.fillMaxWidth()) {
+    UiCard(modifier = modifier.fillMaxWidth(), variant = UiCardVariant.SECTION) {
         Column(
             Modifier.fillMaxWidth().padding(MaterialUiTokens.cardPadding),
             verticalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap),

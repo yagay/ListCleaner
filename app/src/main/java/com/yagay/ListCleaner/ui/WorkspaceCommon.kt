@@ -36,9 +36,10 @@ internal fun WorkspaceCategoryCard(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    AdaptiveCard(
-        modifier = modifier.heightIn(min = MaterialUiTokens.categoryHeight)
-            .clickable(onClick = onClick)
+    UiCard(
+        modifier = modifier.heightIn(min = MaterialUiTokens.categoryHeight),
+        variant = UiCardVariant.CATEGORY,
+        onClick = onClick
     ) {
         Column(
             Modifier.fillMaxWidth().padding(MaterialUiTokens.categoryPadding),
@@ -293,17 +294,10 @@ internal fun WorkspaceProgress(progress: Float? = null) {
     }
 }
 
-/** Read-only sorting details share the same indent and minimum height, not a selection checkbox. */
+/** Read-only and selectable details share the same surface geometry. */
 @Composable
 internal fun WorkspaceReadOnlyDetailRow(content: @Composable RowScope.() -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().background(
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
-        ).heightIn(min = MaterialUiTokens.detailHeight)
-            .padding(start = MaterialUiTokens.detailHorizontal, end = MaterialUiTokens.detailHorizontal, top = MaterialUiTokens.listRowVertical, bottom = MaterialUiTokens.listRowVertical),
-        verticalAlignment = Alignment.CenterVertically,
-        content = content
-    )
+    UiCardDetailRow(content = content)
 }
 
 /** Identical detail-row surface, checkbox, lock menu and hit area for both engines. */
@@ -323,21 +317,12 @@ internal fun WorkspaceDetailRow(
 ) {
     var lockMenuExpanded by remember { mutableStateOf(false) }
     AdaptiveGroupSurface(Modifier.fillMaxWidth(), position = position) {
-        Row(
-            Modifier.fillMaxWidth()
-                .then(
-                    Modifier.background(
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
-                    )
-                )
-                .combinedClickable(
-                    role = androidx.compose.ui.semantics.Role.Checkbox,
-                    onClick = { if (enabled) onToggle() },
-                    onLongClick = { if (lockToggleEnabled) lockMenuExpanded = true }
-                )
-                .heightIn(min = MaterialUiTokens.detailHeight)
-                .padding(start = MaterialUiTokens.detailHorizontal, end = MaterialUiTokens.detailHorizontal, top = MaterialUiTokens.detailVertical, bottom = MaterialUiTokens.detailVertical),
-            verticalAlignment = Alignment.CenterVertically
+        UiCardDetailRow(
+            modifier = Modifier.combinedClickable(
+                role = androidx.compose.ui.semantics.Role.Checkbox,
+                onClick = { if (enabled) onToggle() },
+                onLongClick = { if (lockToggleEnabled) lockMenuExpanded = true }
+            )
         ) {
             AdaptiveCheckbox(
                 checked = checked, enabled = enabled, onCheckedChange = null,

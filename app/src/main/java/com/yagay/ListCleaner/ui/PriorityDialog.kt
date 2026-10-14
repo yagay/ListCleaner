@@ -256,7 +256,10 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                         vm.setQuery("")
                     }
                 )
-                if (state.runtime.needsDecision) RuntimePanel(state, vm, showUpdateTools = false)
+                if (state.runtime.needsDecision) RuntimePanel(
+                        state, vm, showUpdateTools = false,
+                        horizontalInset = MaterialUiTokens.groupHorizontal
+                    )
             }
             stickyHeader(key = "controls") {
                 PageFilterSection {

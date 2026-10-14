@@ -261,11 +261,17 @@ internal fun ModuleStatusRow(state: MainState, compact: Boolean = false, onClick
         status.resolverLoaded -> R.string.module_loaded
         else -> R.string.module_lsposed_connected
     }
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+    UiCard(
+        modifier = Modifier.fillMaxWidth(),
+        variant = UiCardVariant.STATUS,
+        warning = !status.connected || status.outdated || status.error != null
     ) {
-        Column(Modifier.weight(1f)) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = MaterialUiTokens.detailHeight)
+                .padding(horizontal = MaterialUiTokens.cardPadding, vertical = MaterialUiTokens.contentGap),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
             AdaptiveText(stringResource(titleRes), style = MaterialTheme.typography.labelLarge)
             AdaptiveText(
                 if (!compact) state.syncStatus
@@ -275,8 +281,9 @@ internal fun ModuleStatusRow(state: MainState, compact: Boolean = false, onClick
                 color = if (status.outdated || !state.runtime.ready) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        AdaptiveTextButton(onClick = onClick) {
-            AdaptiveIcon(Icons.Rounded.ExpandMore, stringResource(R.string.module_view_status))
+            AdaptiveTextButton(onClick = onClick) {
+                AdaptiveIcon(Icons.Rounded.ExpandMore, stringResource(R.string.module_view_status))
+            }
         }
     }
 }
@@ -299,13 +306,16 @@ internal fun CleanupStatusAlert(state: MainState, onOpenStatus: () -> Unit) {
         else -> null
     } ?: return
 
-    AdaptiveCard(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenStatus)
+    UiCard(
+        modifier = Modifier.fillMaxWidth(),
+        variant = UiCardVariant.STATUS,
+        warning = true,
+        onClick = onOpenStatus
     ) {
         Row(
             modifier = Modifier.fillMaxWidth()
-                .heightIn(min = 48.dp)
-                .padding(horizontal = 14.dp, vertical = 10.dp),
+                .heightIn(min = MaterialUiTokens.detailHeight)
+                .padding(horizontal = MaterialUiTokens.cardPadding, vertical = MaterialUiTokens.contentGap),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {

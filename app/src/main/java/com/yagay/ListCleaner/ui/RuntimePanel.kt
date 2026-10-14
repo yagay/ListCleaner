@@ -10,7 +10,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
 
 @Composable
-internal fun RuntimePanel(state: MainState, vm: MainViewModel, showUpdateTools: Boolean = true) {
+internal fun RuntimePanel(
+    state: MainState,
+    vm: MainViewModel,
+    showUpdateTools: Boolean = true,
+    horizontalInset: androidx.compose.ui.unit.Dp = 0.dp
+) {
     val updating by vm.updating.collectAsStateWithLifecycle()
     val result by vm.updateMessage.collectAsStateWithLifecycle()
     var confirmReset by remember { mutableStateOf(false) }
@@ -29,7 +34,16 @@ internal fun RuntimePanel(state: MainState, vm: MainViewModel, showUpdateTools: 
             }
         )
     }
-    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    UiCard(
+        modifier = Modifier.fillMaxWidth(),
+        variant = UiCardVariant.STATUS,
+        warning = !state.runtime.ready,
+        horizontalInset = horizontalInset
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(MaterialUiTokens.cardPadding),
+            verticalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap)
+        ) {
         if (!state.runtime.ready) {
             AdaptiveText(state.runtime.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             if (showUpdateTools) {
@@ -73,5 +87,6 @@ internal fun RuntimePanel(state: MainState, vm: MainViewModel, showUpdateTools: 
             }
         }
         if (showUpdateTools) result?.let { AdaptiveText(it, style = MaterialTheme.typography.bodySmall) }
+        }
     }
 }

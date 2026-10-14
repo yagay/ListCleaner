@@ -23,14 +23,28 @@ for file in sorted(root.glob("*.kt")):
             errors.append(f"{file.name}:{line_no}: use AdaptiveBackButton")
 
 # Guard the complete visual system, not just the original button wrappers.
+# Card implementations must only exist in UiCard.kt; feature wrappers delegate to it.
+direct_card = re.compile(r"(?<![A-Za-z0-9_])(?:Card|OutlinedCard|ElevatedCard)\s*\(")
 for file in sorted(root.glob("*.kt")):
     source = file.read_text(encoding="utf-8")
-    for obsolete in ("WorkspaceUiTokens", "MaterialControlMetrics"):
+    if file.name != "UiCard.kt":
+        for line_no, line in enumerate(source.splitlines(), 1):
+            code = line.split("//", 1)[0]
+            if direct_card.search(code):
+                errors.append(f"{file.name}:{line_no}: use UiCard for Material 3 cards")
+    for obsolete in ("WorkspaceUiTokens", "MaterialControlMetrics", "AdaptiveCard("):
         if obsolete in source:
             errors.append(f"{file.name}: obsolete layout tokens; use MaterialUiTokens")
 
 required = {
-    "AdaptiveWidgets.kt": ["MaterialUiTokens.buttonHeight", "MaterialUiTokens.cardShape"],
+    "AdaptiveWidgets.kt": ["MaterialUiTokens.buttonHeight", "UiCard("],
+    "UiCard.kt": ["enum class UiCardVariant", "UiCardVariant.SECTION", "UiCardVariant.CATEGORY",
+                  "UiCardVariant.LIST_GROUP", "UiCardVariant.STATUS", "position.shape()",
+                  "onClick = onClick", "UiCardDetailRow("],
+    "MaterialDesignSystem.kt": ["UiCard(", "UiCardVariant.SECTION", "MaterialUiTokens.cardShape"],
+    "WorkspaceLayout.kt": ["MaterialUiTokens.cardRadius", "MaterialUiTokens.groupedInnerRadius"],
+    "MainControls.kt": ["UiCardVariant.STATUS", "warning = true"],
+    "RuntimePanel.kt": ["UiCardVariant.STATUS"],
     "WorkspaceAppRow.kt": ["MaterialAppRowBody(", "MaterialUiTokens.listRowHeight"],
     "AppScopePicker.kt": ["MaterialAppRowBody(", "MaterialFullScreenDialog("],
     "ScopeScreen.kt": ["MaterialFullScreenDialog(", "MaterialDialogActions("],
