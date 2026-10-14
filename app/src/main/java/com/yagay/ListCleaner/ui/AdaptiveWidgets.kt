@@ -131,7 +131,9 @@ internal fun AdaptiveTriStateCheckbox(
             )
             if (state == ToggleableState.Indeterminate) {
                 androidx.compose.foundation.Canvas(Modifier.size(24.dp)) {
-                    drawLine(color = Color.White, start = androidx.compose.ui.geometry.Offset(size.width * .25f, size.height * .5f),
+                    // MIUIX checkbox backgrounds vary by light/dark scheme; fixed white
+                    // disappears on light surfaces. Use the native high-contrast accent.
+                    drawLine(color = top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.primary, start = androidx.compose.ui.geometry.Offset(size.width * .25f, size.height * .5f),
                         end = androidx.compose.ui.geometry.Offset(size.width * .75f, size.height * .5f),
                         strokeWidth = 3.dp.toPx())
                 }
