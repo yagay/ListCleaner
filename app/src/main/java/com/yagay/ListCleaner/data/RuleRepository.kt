@@ -51,6 +51,10 @@ class RuleRepository(context: Context) {
     val diagnosticMode: StateFlow<Boolean> = mutableDiagnostic.asStateFlow()
     private val mutableRevision = MutableStateFlow(0L)
     val revision: StateFlow<Long> = mutableRevision.asStateFlow()
+    // SharedPreferences returns a stable string until a write. Validate a given snapshot only
+    // once so repeated runtime handshakes do not decode megabytes of JSON.
+    private var validatedLocalJson: String? = null
+    private var validatedLocalResult: Boolean = false
 
     init {
         if (!prefs.contains(KEY_LOCAL_CONFIG) && hasLegacyLocalConfiguration()) {
@@ -116,11 +120,18 @@ class RuleRepository(context: Context) {
      * A corrupt local JSON value must not masquerade as a valid configuration: doing so
      * can cause an empty legacy fallback to overwrite recoverable remote rules.
      */
+    @Synchronized
     private fun validStoredSnapshot(): Boolean {
         val encoded = prefs.getString(KEY_LOCAL_CONFIG, null) ?: return false
-        return encoded.length <= MAX_BACKUP_CHARS && runCatching {
+        if (encoded === validatedLocalJson || encoded == validatedLocalJson) {
+            return validatedLocalResult
+        }
+        val valid = encoded.length <= MAX_BACKUP_CHARS && runCatching {
             json.decodeFromString(ModuleConfig.serializer(), encoded).validated()
         }.isSuccess
+        validatedLocalJson = encoded
+        validatedLocalResult = valid
+        return valid
     }
 
     fun hasCorruptLocalConfiguration(): Boolean =
@@ -170,12 +181,15 @@ class RuleRepository(context: Context) {
             rootDisabledComponents = null,
             visibilityCompat = VisibilityCompatConfig(scopes = config.visibilityCompat.scopes.toSet()),
         ).validated()
+        val encoded = json.encodeToString(ModuleConfig.serializer(), local)
         prefs.edit()
-            .putString(KEY_LOCAL_CONFIG, json.encodeToString(ModuleConfig.serializer(), local))
+            .putString(KEY_LOCAL_CONFIG, encoded)
             .putBoolean(KEY_INITIALIZED, true)
             .remove(KEY_TILES)
             .remove(KEY_DEFAULT_OPEN)
             .apply()
+        validatedLocalJson = encoded
+        validatedLocalResult = true
     }
 
     private fun persistLocalSnapshot() = persistPrepared(localSnapshot())
