@@ -51,6 +51,7 @@ fun RulesTab(
     var showCustomTypes by rememberSaveable { mutableStateOf(false) }
     var showBrowserHosts by rememberSaveable { mutableStateOf(false) }
     var appTypeFilter by rememberSaveable { mutableStateOf(AppTypeFilter.ALL) }
+    var ruleHelpExpanded by rememberSaveable { mutableStateOf(false) }
     // Three-level navigation lives in the UI only. The existing IntentKind
     // and rule store remain the single source of truth for operations.
     var selectedGroup by rememberSaveable { mutableStateOf<EntryGroup?>(null) }
@@ -260,6 +261,8 @@ fun RulesTab(
                         appTypeFilter = appTypeFilter,
                         onAppTypeFilter = { appTypeFilter = it },
                         showEntryGroups = false,
+                        externalHelpExpanded = ruleHelpExpanded,
+                        onExternalHelpChange = { ruleHelpExpanded = it },
                         extraFilter = {
                             when (state.filter) {
                                 IntentKind.OPEN -> OpenPresetFilterMenu(
@@ -312,6 +315,21 @@ fun RulesTab(
         }
         item(key = "list-summary") {
             SummaryRow(state, shownGroups.size)
+            if (ruleHelpExpanded) WorkspaceHelpSection {
+                AdaptiveText(
+                    if (state.filter == null) stringResource(R.string.entry_rules_general_help)
+                    else stringResource(state.filter.descriptionRes()),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (state.filter?.entryGroup() == EntryGroup.ADVANCED) {
+                    AdaptiveText(
+                        stringResource(R.string.entry_advanced_safety_note),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
             if (openPreset == null && state.uiFilter != UiFilter.SHOW_SELECTED && state.candidates.any {
                     it.rule in state.selected && (it.unavailable || it.restricted)
                 }) {

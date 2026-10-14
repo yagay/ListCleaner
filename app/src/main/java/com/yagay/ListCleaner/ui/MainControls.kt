@@ -183,8 +183,15 @@ internal fun ListControls(
     onSelectNone: (() -> Unit)? = null,
     onInvert: (() -> Unit)? = null,
     batchCount: Int? = null,
+    externalHelpExpanded: Boolean? = null,
+    onExternalHelpChange: ((Boolean) -> Unit)? = null,
 ) {
-    var helpExpanded by remember(state.filter) { mutableStateOf(false) }
+    var localHelpExpanded by remember(state.filter) { mutableStateOf(false) }
+    val helpExpanded = externalHelpExpanded ?: localHelpExpanded
+    val updateHelp: (Boolean) -> Unit = { next ->
+        if (onExternalHelpChange != null) onExternalHelpChange(next)
+        else localHelpExpanded = next
+    }
     Column(Modifier.fillMaxWidth().background(
         if (LocalUiThemeStyle.current == UiThemeStyle.MIUIX_STYLE)
             top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.surfaceContainer
@@ -228,12 +235,12 @@ internal fun ListControls(
             help = {
                 WorkspaceHelpToggle(
                     expanded = helpExpanded,
-                    onClick = { helpExpanded = !helpExpanded }
+                    onClick = { updateHelp(!helpExpanded) }
                 )
             }
         )
         val selectedKind = state.filter
-        if (helpExpanded) {
+        if (helpExpanded && onExternalHelpChange == null) {
             WorkspaceHelpSection {
                 AdaptiveText(
                     if (selectedKind == null) stringResource(R.string.entry_rules_general_help)

@@ -131,7 +131,11 @@ fun RootComponentsScreen(
             onRefresh = vm::refreshComponents,
             kinds = CleanupKind.entries,
             apps = scan.items.map { "${it.user}|${it.component.packageName}" }.distinct().size,
-            components = scan.items.size
+            components = scan.items.size,
+            counts = scan.items.groupingBy { it.kind }.eachCount(),
+            scanned = scan.observedAt > 0L,
+            warning = scan.warning,
+            scanning = busy
         )
         return
     }
@@ -219,32 +223,6 @@ fun RootComponentsScreen(
                             )
                         }
                     )
-                    if (detailsExpanded) WorkspaceHelpSection {
-                        AdaptiveText(
-                            stringResource(R.string.root_filter_help),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        AdaptiveText(
-                            stringResource(R.string.root_selection_semantics),
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        AdaptiveText(
-                            stringResource(R.string.root_change_semantics),
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        AdaptiveText(
-                            stringResource(when (kind) {
-                                null -> R.string.root_kind_all_help
-                                CleanupKind.LAUNCHER -> R.string.root_kind_launcher_help
-                                CleanupKind.TILE -> R.string.root_kind_tile_help
-                                CleanupKind.SHORTCUT -> R.string.root_kind_shortcut_help
-                                CleanupKind.WIDGET -> R.string.root_kind_widget_help
-                            }),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
                     if (batchProgress != null) {
                         val current = requireNotNull(batchProgress)
                         WorkspaceProgress(current.completed.toFloat() / current.total.coerceAtLeast(1))
@@ -268,6 +246,32 @@ fun RootComponentsScreen(
             WorkspaceListSummary(
                 title = stringResource(R.string.root_summary, groups.size, visible.size)
             )
+            if (detailsExpanded) WorkspaceHelpSection {
+                AdaptiveText(
+                    stringResource(R.string.root_filter_help),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                AdaptiveText(
+                    stringResource(R.string.root_selection_semantics),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                AdaptiveText(
+                    stringResource(R.string.root_change_semantics),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                AdaptiveText(
+                    stringResource(when (kind) {
+                        null -> R.string.root_kind_all_help
+                        CleanupKind.LAUNCHER -> R.string.root_kind_launcher_help
+                        CleanupKind.TILE -> R.string.root_kind_tile_help
+                        CleanupKind.SHORTCUT -> R.string.root_kind_shortcut_help
+                        CleanupKind.WIDGET -> R.string.root_kind_widget_help
+                    }),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             WorkspaceStatusMessage(scan.warning)
             message?.let { WorkspaceStatusMessage(it, isError = true) }
         }

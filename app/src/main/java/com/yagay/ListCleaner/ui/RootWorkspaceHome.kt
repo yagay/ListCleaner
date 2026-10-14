@@ -24,7 +24,11 @@ internal fun RootWorkspaceHome(
     components: Int,
     onChoose: (CleanupKind) -> Unit,
     onAll: () -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    counts: Map<CleanupKind, Int>,
+    scanned: Boolean,
+    warning: String,
+    scanning: Boolean
 ) {
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState())
@@ -37,8 +41,10 @@ internal fun RootWorkspaceHome(
             onChoose = onChoose,
             onAll = onAll,
             onRefresh = onRefresh,
-            scanned = true,
-            counts = emptyMap()
+            scanned = scanned,
+            counts = counts,
+            warning = warning,
+            scanning = scanning
         )
     }
 }
