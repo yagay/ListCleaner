@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Navigation -->
-    <string name="nav_rules">Rules</string>
+    <string name="nav_rules">Cleanup</string>
     <string name="nav_priority">Ordering</string>
     <string name="nav_components">Components</string>
     <string name="nav_status">Status</string>
@@ -158,4 +158,5 @@
     <string name="workspace_groups">Categories</string>
     <string name="workspace_filter_options">Filters and actions</string>
     <string name="workspace_components_link">Root component cleanup</string>
+    <string name="workspace_rule_section">Rule cleanup</string>
 </resources>

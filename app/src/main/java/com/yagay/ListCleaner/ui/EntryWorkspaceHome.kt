@@ -51,7 +51,10 @@ internal fun EntryWorkspaceHome(
         status()
         if (selectedGroup == null) {
             AdaptiveText(
-                stringResource(R.string.workspace_choose_group),
+                stringResource(
+                    if (showComponentSection) R.string.workspace_rule_section
+                    else R.string.workspace_choose_group
+                ),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
