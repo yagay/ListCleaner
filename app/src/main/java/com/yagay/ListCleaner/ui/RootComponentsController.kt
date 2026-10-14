@@ -4,6 +4,7 @@ import android.util.Log
 import android.os.SystemClock
 import com.yagay.ListCleaner.ListCleanerApp
 import com.yagay.ListCleaner.R
+import com.yagay.ListCleaner.runtime.ComponentReconcileReceiver
 import com.yagay.ListCleaner.data.ComponentPersistenceResult
 import com.yagay.ListCleaner.data.ComponentRootCommand
 import com.yagay.ListCleaner.data.PersistentComponentStore
@@ -51,6 +52,14 @@ internal class RootComponentsController(
     private var refreshPending = false
     private var lastAutoScanAttemptElapsed = -1L
     private var lastFullScanElapsed = -1L
+    private var lastScannedPackageRevision = -1L
+    private val cachePrefs = app.getSharedPreferences(
+        ComponentReconcileReceiver.COMPONENT_CACHE_PREFS,
+        android.content.Context.MODE_PRIVATE
+    )
+
+    private fun packageChangeRevision(): Long =
+        cachePrefs.getLong(ComponentReconcileReceiver.COMPONENT_CACHE_REVISION, 0L)
     private var mutationJob: Job? = null
     private val mutableBatchProgress = MutableStateFlow<RootBatchProgress?>(null)
     val batchProgress: StateFlow<RootBatchProgress?> = mutableBatchProgress.asStateFlow()
@@ -100,7 +109,8 @@ internal class RootComponentsController(
                 nowElapsedMs = now,
                 lastFullScanElapsedMs = lastFullScanElapsed,
                 lastAttemptElapsedMs = lastAutoScanAttemptElapsed,
-                busy = mutableBusy.value
+                busy = mutableBusy.value,
+                packageRevisionChanged = packageChangeRevision() != lastScannedPackageRevision
             )) return
         refresh()
     }
@@ -115,6 +125,7 @@ internal class RootComponentsController(
         mutableMessage.value = null
         scope.launch {
             try {
+                val packageRevisionBefore = packageChangeRevision()
                 val protocolBefore = app.runtime.value.componentDiscoveryProtocol
                 mutableScan.value = withContext(Dispatchers.IO) { catalog.scan() }
                 try {
@@ -132,7 +143,11 @@ internal class RootComponentsController(
                     mutableScan.value = withContext(Dispatchers.IO) { catalog.scan() }
                 }
                 // A partial scan must retry after the short cooldown rather than appearing fresh.
-                lastFullScanElapsed = if (mutableScan.value.warning.isBlank()) {
+                lastFullScanElapsed = if (
+                    mutableScan.value.warning.isBlank() &&
+                    packageRevisionBefore == packageChangeRevision()
+                ) {
+                    lastScannedPackageRevision = packageRevisionBefore
                     SystemClock.elapsedRealtime()
                 } else {
                     -1L
