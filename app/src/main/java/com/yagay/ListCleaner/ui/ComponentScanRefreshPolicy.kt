@@ -15,11 +15,12 @@ internal object ComponentScanRefreshPolicy {
         nowElapsedMs: Long,
         lastFullScanElapsedMs: Long,
         lastAttemptElapsedMs: Long,
-        busy: Boolean
+        busy: Boolean,
+        packageRevisionChanged: Boolean = false
     ): Boolean {
         if (busy) return false
         // Elapsed clocks may reset on reboot or test clocks; treat such readings as stale.
-        if (lastFullScanElapsedMs >= 0 &&
+        if (!packageRevisionChanged && lastFullScanElapsedMs >= 0 &&
             nowElapsedMs >= lastFullScanElapsedMs &&
             nowElapsedMs - lastFullScanElapsedMs < FRESHNESS_MS
         ) return false
