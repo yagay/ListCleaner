@@ -14,6 +14,10 @@ class ComponentReconcileReceiver : BroadcastReceiver() {
             Intent.ACTION_PACKAGE_REPLACED,
             Intent.ACTION_PACKAGE_REMOVED -> {
                 (context.applicationContext as? ListCleanerApp)?.catalog?.invalidate(packageName)
+                // Root component snapshots are independent from the intent resolver cache.
+                // Invalidate their freshness too, including uninstall events.
+                val prefs = context.getSharedPreferences(COMPONENT_CACHE_PREFS, Context.MODE_PRIVATE)
+                prefs.edit().putLong(COMPONENT_CACHE_REVISION, prefs.getLong(COMPONENT_CACHE_REVISION, 0L) + 1L).apply()
                 Log.i(TAG, "CATALOG_INVALIDATED action=${intent.action} package=${packageName ?: "none"}")
             }
         }
@@ -35,5 +39,7 @@ class ComponentReconcileReceiver : BroadcastReceiver() {
 
     private companion object {
         const val TAG = "ListCleaner.BootReconcile"
+        const val COMPONENT_CACHE_PREFS = "component_scan_cache"
+        const val COMPONENT_CACHE_REVISION = "package_change_revision"
     }
 }
