@@ -19,6 +19,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.CleanupKind
+import com.yagay.ListCleaner.data.RootComponentScan
 import com.yagay.ListCleaner.domain.EntryGroup
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.kinds
@@ -38,6 +39,9 @@ internal fun EntryWorkspaceHome(
     onAllApps: () -> Unit,
     onComponentKind: (CleanupKind) -> Unit,
     onAllComponents: () -> Unit,
+    componentScan: RootComponentScan? = null,
+    componentScanning: Boolean = false,
+    onRefreshComponents: (() -> Unit)? = null,
     status: @Composable () -> Unit,
     availableGroups: List<EntryGroup> = EntryGroup.entries,
     showUtilities: Boolean = true,
@@ -46,7 +50,7 @@ internal fun EntryWorkspaceHome(
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
             .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(WorkspaceUiTokens.sectionGap)
     ) {
         status()
         if (selectedGroup == null) {
@@ -58,7 +62,7 @@ internal fun EntryWorkspaceHome(
             )
             val groups = availableGroups
             groups.chunked(2).forEach { pair ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(WorkspaceUiTokens.categoryGap)) {
                     pair.forEach { group ->
                         EntryGroupTile(
                             group = group,
@@ -69,13 +73,25 @@ internal fun EntryWorkspaceHome(
                     if (pair.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
-            if (showUtilities) WorkspaceBrowseAllButton(onClick = onAllApps)
+            if (showUtilities) WorkspaceBrowseAllButton(
+                label = stringResource(R.string.workspace_browse_entries),
+                onClick = onAllApps
+            )
             // Rule and Root component categories share the same landing page.
             // Their editors remain independent to preserve scan/lock semantics.
             if (showComponentSection) {
                 RootWorkspaceCategorySection(
                     onChoose = onComponentKind,
-                    onAll = onAllComponents
+                    onAll = onAllComponents,
+                    onRefresh = onRefreshComponents,
+                    scanned = componentScan?.observedAt?.let { it > 0L } == true,
+                    counts = componentScan?.items?.groupingBy { it.kind }?.eachCount().orEmpty(),
+                    apps = if (componentScan?.observedAt?.let { it > 0L } == true)
+                        componentScan?.items.orEmpty().map { "${it.user}|${it.component.packageName}" }.distinct().size else null,
+                    components = if (componentScan?.observedAt?.let { it > 0L } == true)
+                        componentScan?.items.orEmpty().size else null,
+                    warning = componentScan?.warning.orEmpty(),
+                    scanning = componentScanning
                 )
             }
         } else {
@@ -164,6 +180,6 @@ internal fun EntryWorkspaceBreadcrumb(
         groupLabel = kind?.let { stringResource(it.entryGroup().titleRes()) },
         onGroup = if (kind == null) null else onGroup,
         currentLabel = kind?.let { stringResource(it.titleRes()) }
-            ?: stringResource(R.string.workspace_browse_all)
+            ?: stringResource(R.string.workspace_browse_entries)
     )
 }

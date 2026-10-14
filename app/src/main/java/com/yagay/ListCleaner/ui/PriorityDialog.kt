@@ -683,11 +683,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
 
 @Composable
 private fun ComponentInfoRow(item: ComponentCandidate, customTitle: String?, onEditTitle: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
-            .heightIn(min = 48.dp).padding(start = 24.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    WorkspaceReadOnlyDetailRow {
         Column(Modifier.weight(1f)) {
             AdaptiveText(item.activityLabel, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (!customTitle.isNullOrBlank()) {

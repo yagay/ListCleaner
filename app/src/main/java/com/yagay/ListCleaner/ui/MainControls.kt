@@ -184,9 +184,6 @@ internal fun ListControls(
     onInvert: (() -> Unit)? = null,
     batchCount: Int? = null,
 ) {
-    var menu by remember { mutableStateOf(false) }
-    var appTypeMenu by remember { mutableStateOf(false) }
-    var selectionMenu by remember { mutableStateOf(false) }
     var helpExpanded by remember(state.filter) { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().background(
         if (LocalUiThemeStyle.current == UiThemeStyle.MIUIX_STYLE)
@@ -229,21 +226,15 @@ internal fun ListControls(
             actions = actions,
             extraFilter = extraFilter,
             help = {
-                AdaptiveTextButton(
-                    onClick = { helpExpanded = !helpExpanded },
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 3.dp)
-                ) {
-                    AdaptiveText(stringResource(R.string.entry_help_title), maxLines = 1)
-                    AdaptiveIcon(
-                        if (helpExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                        null, Modifier.size(16.dp)
-                    )
-                }
+                WorkspaceHelpToggle(
+                    expanded = helpExpanded,
+                    onClick = { helpExpanded = !helpExpanded }
+                )
             }
         )
         val selectedKind = state.filter
         if (helpExpanded) {
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) {
+            WorkspaceHelpSection {
                 AdaptiveText(
                     if (selectedKind == null) stringResource(R.string.entry_rules_general_help)
                     else stringResource(selectedKind.descriptionRes()),
@@ -260,7 +251,7 @@ internal fun ListControls(
                 }
             }
         }
-        if (state.loading) AdaptiveLinearProgressIndicator(Modifier.fillMaxWidth())
+        if (state.loading) WorkspaceProgress()
         AdaptiveHorizontalDivider()
     }
 }

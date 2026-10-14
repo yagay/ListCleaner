@@ -151,4 +151,6 @@
     <string name="workspace_filter_options">筛选与批量操作</string>
     <string name="workspace_components_link">Root 组件清理</string>
     <string name="workspace_rule_section">入口清理（LSPosed）</string>
+    <string name="workspace_browse_entries">浏览全部入口</string>
+    <string name="workspace_browse_components">浏览全部组件</string>
 </resources>

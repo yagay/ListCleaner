@@ -159,4 +159,6 @@
     <string name="workspace_filter_options">Filters and actions</string>
     <string name="workspace_components_link">Root component cleanup</string>
     <string name="workspace_rule_section">Entry cleanup (LSPosed)</string>
+    <string name="workspace_browse_entries">Browse all entries</string>
+    <string name="workspace_browse_components">Browse all components</string>
 </resources>

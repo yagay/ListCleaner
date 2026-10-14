@@ -14,6 +14,7 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -44,6 +45,8 @@ fun RulesTab(
     onComponentModeChanged: (Boolean) -> Unit = {}
 ) {
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
+    val componentScan by vm.componentScan.collectAsStateWithLifecycle()
+    val componentBusy by vm.componentBusy.collectAsStateWithLifecycle()
     var editingTitle by remember { mutableStateOf<com.yagay.ListCleaner.domain.ComponentCandidate?>(null) }
     var showCustomTypes by rememberSaveable { mutableStateOf(false) }
     var showBrowserHosts by rememberSaveable { mutableStateOf(false) }
@@ -56,13 +59,15 @@ fun RulesTab(
     var browseAllComponents by rememberSaveable { mutableStateOf(false) }
     var savedRuleQuery by rememberSaveable { mutableStateOf("") }
     var savedComponentQuery by rememberSaveable { mutableStateOf("") }
+    val workspaceStateHolder = rememberSaveableStateHolder()
     val showingComponents = selectedComponentKind != null || browseAllComponents
     DisposableEffect(showingComponents) {
         onComponentModeChanged(showingComponents)
         onDispose { if (showingComponents) onComponentModeChanged(false) }
     }
     if (showingComponents) {
-        RootComponentsScreen(
+        workspaceStateHolder.SaveableStateProvider(key = "root-component-workspace") {
+            RootComponentsScreen(
             state = state,
             vm = vm,
             initialKind = selectedComponentKind,
@@ -74,7 +79,8 @@ fun RulesTab(
                 savedComponentQuery = state.query
                 vm.setQuery(savedRuleQuery)
             }
-        )
+            )
+        }
         return
     }
     BackHandler(enabled = state.filter == null && (selectedGroup != null || browseAll)) {
@@ -134,6 +140,9 @@ fun RulesTab(
                 vm.setFilter(null)
                 vm.setQuery(savedComponentQuery)
             },
+            componentScan = componentScan,
+            componentScanning = componentBusy,
+            onRefreshComponents = vm::refreshComponents,
             status = {
                 ModuleStatusRow(state, compact = true) {
                     vm.setDestination(Destination.DASHBOARD)
@@ -436,15 +445,22 @@ fun RulesTab(
                     message = stringResource(when {
                         state.error != null -> R.string.rules_empty_scan_failed
                         state.candidates.isEmpty() -> R.string.rules_empty_unscanned
-                        state.query.isNotBlank() || state.uiFilter != UiFilter.ALL -> R.string.rules_empty_filtered
+                        state.query.isNotBlank() || state.uiFilter != UiFilter.ALL ||
+                            appTypeFilter != AppTypeFilter.ALL -> R.string.rules_empty_filtered
                         state.filter == IntentKind.DIRECT_SHARE || state.filter == IntentKind.SHORTCUT_ITEM ->
                             R.string.observed_entry_empty_help
                         else -> R.string.no_matching_components
                     }),
-                    clearLabel = if (state.query.isNotBlank() || state.uiFilter != UiFilter.ALL)
+                    clearLabel = if (state.query.isNotBlank() || state.uiFilter != UiFilter.ALL ||
+                        appTypeFilter != AppTypeFilter.ALL)
                         stringResource(R.string.rules_empty_clear_filters) else null,
-                    onClear = if (state.query.isNotBlank() || state.uiFilter != UiFilter.ALL) {
-                        { vm.setQuery(""); vm.setUiFilter(UiFilter.ALL) }
+                    onClear = if (state.query.isNotBlank() || state.uiFilter != UiFilter.ALL ||
+                        appTypeFilter != AppTypeFilter.ALL) {
+                        {
+                            vm.setQuery("")
+                            vm.setUiFilter(UiFilter.ALL)
+                            appTypeFilter = AppTypeFilter.ALL
+                        }
                     } else null
                 )
             }
@@ -459,10 +475,9 @@ private fun SummaryRow(state: MainState, displayedApps: Int) {
         secondary = stringResource(state.displayMode.titleRes())
     )
     if (state.error != null) {
-        AdaptiveText(
+        WorkspaceStatusMessage(
             stringResource(R.string.rules_refresh_incomplete),
-            modifier = Modifier.padding(horizontal = 16.dp),
-            color = MaterialTheme.colorScheme.error
+            isError = true
         )
     }
 }

@@ -91,9 +91,7 @@ fun RootComponentsScreen(
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
     var viewFilter by rememberSaveable { mutableStateOf(UiFilter.ALL) }
     var appTypeFilter by rememberSaveable { mutableStateOf(AppTypeFilter.ALL) }
-    var filterMenu by remember { mutableStateOf(false) }
-    var appTypeMenu by remember { mutableStateOf(false) }
-    var expandedAppKey by remember { mutableStateOf<String?>(null) }
+    var expandedAppKey by rememberSaveable { mutableStateOf<String?>(null) }
     var detailsExpanded by rememberSaveable { mutableStateOf(false) }
     var pendingBatch by remember { mutableStateOf<PendingRootBatch?>(null) }
     pendingBatch?.let { batch ->
@@ -177,7 +175,7 @@ fun RootComponentsScreen(
                     }
                 },
                 currentLabel = kind?.let { stringResource(it.titleRes()) }
-                    ?: stringResource(R.string.workspace_browse_all)
+                    ?: stringResource(R.string.workspace_browse_components)
             )
         }
         stickyHeader(key = "controls") {
@@ -213,14 +211,43 @@ fun RootComponentsScreen(
                             WorkspaceMenuAction(stringResource(R.string.root_batch_action_invert), {
                                 pendingBatch = PendingRootBatch(kind, visible, null)
                             }, canInvert)
-                        )
+                        ),
+                        help = {
+                            WorkspaceHelpToggle(
+                                expanded = detailsExpanded,
+                                onClick = { detailsExpanded = !detailsExpanded }
+                            )
+                        }
                     )
+                    if (detailsExpanded) WorkspaceHelpSection {
+                        AdaptiveText(
+                            stringResource(R.string.root_filter_help),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        AdaptiveText(
+                            stringResource(R.string.root_selection_semantics),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        AdaptiveText(
+                            stringResource(R.string.root_change_semantics),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        AdaptiveText(
+                            stringResource(when (kind) {
+                                null -> R.string.root_kind_all_help
+                                CleanupKind.LAUNCHER -> R.string.root_kind_launcher_help
+                                CleanupKind.TILE -> R.string.root_kind_tile_help
+                                CleanupKind.SHORTCUT -> R.string.root_kind_shortcut_help
+                                CleanupKind.WIDGET -> R.string.root_kind_widget_help
+                            }),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     if (batchProgress != null) {
                         val current = requireNotNull(batchProgress)
-                        AdaptiveLinearProgressIndicator(
-                            progress = { current.completed.toFloat() / current.total.coerceAtLeast(1) },
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        WorkspaceProgress(current.completed.toFloat() / current.total.coerceAtLeast(1))
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -232,47 +259,17 @@ fun RootComponentsScreen(
                                 AdaptiveText(stringResource(R.string.root_batch_stop_remaining))
                             }
                         }
-                    } else if (busy) AdaptiveLinearProgressIndicator(Modifier.fillMaxWidth())
+                    } else if (busy) WorkspaceProgress()
                     AdaptiveHorizontalDivider()
                 }
             }
         }
         item(key = "summary") {
-            Column(Modifier.fillMaxWidth()) {
-                WorkspaceListSummary(
-                    title = stringResource(R.string.root_summary, groups.size, visible.size),
-                    onHelp = { detailsExpanded = !detailsExpanded },
-                    helpExpanded = detailsExpanded
-                )
-                if (detailsExpanded) {
-                AdaptiveText(
-                    stringResource(R.string.root_filter_help),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                AdaptiveText(stringResource(R.string.root_selection_semantics), style = MaterialTheme.typography.bodySmall)
-                AdaptiveText(
-                    stringResource(R.string.root_change_semantics),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                AdaptiveText(
-                    stringResource(
-                        when (kind) {
-                            null -> R.string.root_kind_all_help
-                            CleanupKind.LAUNCHER -> R.string.root_kind_launcher_help
-                            CleanupKind.TILE -> R.string.root_kind_tile_help
-                            CleanupKind.SHORTCUT -> R.string.root_kind_shortcut_help
-                            CleanupKind.WIDGET -> R.string.root_kind_widget_help
-                        }
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                }
-                if (scan.warning.isNotBlank()) AdaptiveText(scan.warning, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                message?.let { AdaptiveText(it, style = MaterialTheme.typography.bodySmall) }
-            }
+            WorkspaceListSummary(
+                title = stringResource(R.string.root_summary, groups.size, visible.size)
+            )
+            WorkspaceStatusMessage(scan.warning)
+            message?.let { WorkspaceStatusMessage(it, isError = true) }
         }
 
         groups.forEach { (appKey, unsorted) ->
@@ -393,14 +390,13 @@ fun RootComponentsScreen(
                     message = stringResource(
                         if (kindItems.isNotEmpty()) R.string.root_empty_filtered else R.string.root_no_components
                     ),
-                    clearLabel = if (kind != null || viewFilter != UiFilter.ALL ||
+                    clearLabel = if (viewFilter != UiFilter.ALL ||
                         appTypeFilter != AppTypeFilter.ALL || state.query.isNotBlank()
                     ) stringResource(R.string.root_clear_filters) else null,
-                    onClear = if (kind != null || viewFilter != UiFilter.ALL ||
+                    onClear = if (viewFilter != UiFilter.ALL ||
                         appTypeFilter != AppTypeFilter.ALL || state.query.isNotBlank()
                     ) {
                         {
-                            kind = null
                             viewFilter = UiFilter.ALL
                             appTypeFilter = AppTypeFilter.ALL
                             vm.setQuery("")

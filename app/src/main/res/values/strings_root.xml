@@ -92,4 +92,6 @@
     <string name="root_batch_cancelled_plain">Stopped remaining operations. An in-flight component command may still finish.</string>
     <string name="root_filter_disabled">Disabled components</string>
     <string name="root_filter_enabled">Enabled components</string>
+    <string name="root_category_count">%1$d components</string>
+    <string name="root_category_open_to_scan">Browse components</string>
 </resources>

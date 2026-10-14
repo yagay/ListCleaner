@@ -11,6 +11,7 @@ import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Lock
@@ -74,11 +75,11 @@ internal fun WorkspaceCategoryCard(
 
 /** Identical action in both cleanup groups, including MIUIX and Material rendering. */
 @Composable
-internal fun WorkspaceBrowseAllButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun WorkspaceBrowseAllButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     AdaptiveOutlinedButton(onClick = onClick, modifier = modifier.fillMaxWidth()) {
         AdaptiveIcon(Icons.Rounded.Apps, null, Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
-        AdaptiveText(stringResource(R.string.workspace_browse_all))
+        AdaptiveText(label, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -225,9 +226,7 @@ internal fun WorkspaceFilterBar(
 @Composable
 internal fun WorkspaceListSummary(
     title: String,
-    secondary: String? = null,
-    onHelp: (() -> Unit)? = null,
-    helpExpanded: Boolean = false
+    secondary: String? = null
 ) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp),
@@ -239,10 +238,6 @@ internal fun WorkspaceListSummary(
             secondary, color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.labelSmall, maxLines = 1
         )
-        if (onHelp != null) AdaptiveTextButton(
-            onClick = onHelp,
-            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
-        ) { AdaptiveText(stringResource(if (helpExpanded) R.string.root_help_collapse else R.string.root_help_expand)) }
     }
 }
 
@@ -262,6 +257,71 @@ internal fun WorkspaceEmptyState(
             AdaptiveTextButton(onClick = onClear) { AdaptiveText(clearLabel) }
         }
     }
+}
+
+
+/** One help toggle in the filter toolbar for both engines. */
+@Composable
+internal fun WorkspaceHelpToggle(expanded: Boolean, onClick: () -> Unit) {
+    AdaptiveTextButton(
+        onClick = onClick,
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 3.dp)
+    ) {
+        AdaptiveText(stringResource(R.string.entry_help_title), maxLines = 1)
+        AdaptiveIcon(
+            if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+            null, Modifier.size(16.dp)
+        )
+    }
+}
+
+/** Same text inset, typography, and wrapping in the Rule and Root help surfaces. */
+@Composable
+internal fun WorkspaceHelpSection(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
+        content = content
+    )
+}
+
+@Composable
+internal fun WorkspaceStatusMessage(message: String, isError: Boolean = false) {
+    if (message.isBlank()) return
+    AdaptiveText(
+        text = message,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        style = MaterialTheme.typography.bodySmall,
+        color = if (isError) MaterialTheme.colorScheme.error
+            else MaterialTheme.colorScheme.onSurfaceVariant
+    )
+}
+
+@Composable
+internal fun WorkspaceProgress(progress: Float? = null) {
+    if (progress == null) {
+        AdaptiveLinearProgressIndicator(Modifier.fillMaxWidth())
+    } else {
+        AdaptiveLinearProgressIndicator(
+            progress = { progress.coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+/** Read-only sorting details share the same indent and minimum height, not a selection checkbox. */
+@Composable
+internal fun WorkspaceReadOnlyDetailRow(content: @Composable RowScope.() -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().background(
+            if (LocalUiThemeStyle.current == UiThemeStyle.MIUIX_STYLE)
+                androidx.compose.ui.graphics.Color.Transparent
+            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+        ).heightIn(min = WorkspaceUiTokens.detailHeight)
+            .padding(start = 14.dp, end = 10.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        content = content
+    )
 }
 
 /** Identical detail-row surface, checkbox, lock menu and hit area for both engines. */

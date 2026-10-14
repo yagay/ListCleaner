@@ -36,7 +36,9 @@ internal fun RootWorkspaceHome(
             components = components,
             onChoose = onChoose,
             onAll = onAll,
-            onRefresh = onRefresh
+            onRefresh = onRefresh,
+            scanned = true,
+            counts = emptyMap()
         )
     }
 }
@@ -52,15 +54,22 @@ internal fun RootWorkspaceCategorySection(
     components: Int? = null,
     onChoose: (CleanupKind) -> Unit,
     onAll: () -> Unit,
-    onRefresh: (() -> Unit)? = null
+    onRefresh: (() -> Unit)? = null,
+    scanned: Boolean = false,
+    counts: Map<CleanupKind, Int> = emptyMap(),
+    warning: String = "",
+    scanning: Boolean = false,
 ) {
     Column(
         Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(WorkspaceUiTokens.sectionGap)
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 WorkspaceSectionTitle(stringResource(R.string.root_screen_title))
+                if (scanning) {
+                    WorkspaceProgress()
+                }
                 if (apps != null && components != null) {
                     AdaptiveText(
                         stringResource(R.string.root_summary, apps, components),
@@ -69,12 +78,13 @@ internal fun RootWorkspaceCategorySection(
                     )
                 }
             }
-            if (onRefresh != null) AdaptiveIconButton(onClick = onRefresh) {
+            if (onRefresh != null) AdaptiveIconButton(onClick = onRefresh, enabled = !scanning) {
                 AdaptiveIcon(Icons.Rounded.Refresh, stringResource(R.string.common_refresh))
             }
         }
+        if (warning.isNotBlank()) WorkspaceStatusMessage(warning, isError = false)
         kinds.chunked(2).forEach { pair ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(WorkspaceUiTokens.categoryGap)) {
                 pair.forEach { kind ->
                     WorkspaceCategoryCard(
                         icon = when (kind) {
@@ -84,7 +94,9 @@ internal fun RootWorkspaceCategorySection(
                             CleanupKind.WIDGET -> Icons.Rounded.Widgets
                         },
                         title = stringResource(kind.titleRes()),
-                        description = null,
+                        description = if (scanned) stringResource(
+                            R.string.root_category_count, counts[kind] ?: 0
+                        ) else stringResource(R.string.root_category_open_to_scan),
                         modifier = Modifier.weight(1f),
                         onClick = { onChoose(kind) }
                     )
@@ -92,6 +104,9 @@ internal fun RootWorkspaceCategorySection(
                 if (pair.size == 1) Spacer(Modifier.weight(1f))
             }
         }
-        WorkspaceBrowseAllButton(onClick = onAll)
+        WorkspaceBrowseAllButton(
+            label = stringResource(R.string.workspace_browse_components),
+            onClick = onAll
+        )
     }
 }
