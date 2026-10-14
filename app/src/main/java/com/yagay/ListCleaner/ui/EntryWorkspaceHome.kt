@@ -41,6 +41,7 @@ internal fun EntryWorkspaceHome(
     status: @Composable () -> Unit,
     availableGroups: List<EntryGroup> = EntryGroup.entries,
     showUtilities: Boolean = true,
+    showComponentSection: Boolean = true,
 ) {
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
@@ -74,10 +75,12 @@ internal fun EntryWorkspaceHome(
             }
             // Rule and Root component categories share the same landing page.
             // Their editors remain independent to preserve scan/lock semantics.
-            RootWorkspaceCategorySection(
-                onChoose = onComponentKind,
-                onAll = onAllComponents
-            )
+            if (showComponentSection) {
+                RootWorkspaceCategorySection(
+                    onChoose = onComponentKind,
+                    onAll = onAllComponents
+                )
+            }
         } else {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 AdaptiveIconButton(onClick = onBack) {

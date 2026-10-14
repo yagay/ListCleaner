@@ -89,6 +89,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
             selectedGroup = sortingGroup,
             availableGroups = EntryGroup.entries.filter { it != EntryGroup.DESKTOP },
             showUtilities = false,
+            showComponentSection = false,
             onGroup = { sortingGroup = it },
             onKind = { kind ->
                 sortingGroup = kind.entryGroup()
@@ -96,7 +97,8 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
             },
             onBack = { sortingGroup = null },
             onAllApps = {},
-            onComponents = {},
+            onComponentKind = {},
+            onAllComponents = {},
             status = {
                 ModuleStatusRow(state, compact = true) {
                     vm.setDestination(Destination.DASHBOARD)
