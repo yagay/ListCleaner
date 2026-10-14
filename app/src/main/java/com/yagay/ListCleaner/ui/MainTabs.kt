@@ -145,12 +145,9 @@ fun RulesTab(
             componentScanning = componentBusy,
             onRefreshComponents = vm::refreshComponents,
             status = {
-                ModuleStatusRow(state, compact = true) {
+                CleanupStatusAlert(state) {
                     vm.setDestination(Destination.DASHBOARD)
                 }
-                if (state.runtime.needsDecision) RuntimePanel(
-                    state, vm, showUpdateTools = false
-                )
             }
         )
         return

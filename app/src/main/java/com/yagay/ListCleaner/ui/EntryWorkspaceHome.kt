@@ -90,7 +90,8 @@ internal fun EntryWorkspaceHome(
                         componentScan?.items.orEmpty().map { "${it.user}|${it.component.packageName}" }.distinct().size else null,
                     components = if (componentScan?.observedAt?.let { it > 0L } == true)
                         componentScan?.items.orEmpty().size else null,
-                    warning = componentScan?.warning.orEmpty(),
+                    // Scan failures are shown inside the component list, not on the homepage.
+                    warning = "",
                     scanning = componentScanning
                 )
             }

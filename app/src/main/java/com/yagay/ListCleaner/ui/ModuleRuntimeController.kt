@@ -25,6 +25,8 @@ import kotlin.coroutines.resumeWithException
 data class RunningTargetStatus(val processName: String, val state: String, val version: Long)
 
 data class ModuleStatus(
+    // Suppress misleading "LSPosed disconnected" on the first uninitialized frame.
+    val checked: Boolean = false,
     val connected: Boolean = false,
     val apiVersion: Int? = null,
     val grantedScope: Set<String> = emptySet(),
@@ -112,7 +114,10 @@ internal class ModuleRuntimeController(
             result
         }
         if (generation == statusGeneration && app.isCurrent(session)) {
-            mutableStatus.value = status.copy(requesting = scopeRequestInFlight)
+            mutableStatus.value = status.copy(
+                checked = true,
+                requesting = scopeRequestInFlight
+            )
         }
         return status
     }

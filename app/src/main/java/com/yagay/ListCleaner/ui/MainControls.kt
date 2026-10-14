@@ -1,5 +1,6 @@
 package com.yagay.ListCleaner.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -289,6 +290,55 @@ internal fun ModuleStatusRow(state: MainState, compact: Boolean = false, onClick
         }
         AdaptiveTextButton(onClick = onClick) {
             AdaptiveIcon(Icons.Rounded.ExpandMore, stringResource(R.string.module_view_status))
+        }
+    }
+}
+
+/**
+ * Compact cleanup-home alert. Healthy modules show no status card at all.
+ * Only verified LSPosed problems or a recovery decision surface here.
+ * Full diagnostics and recovery actions remain in the Status tab.
+ */
+@Composable
+internal fun CleanupStatusAlert(state: MainState, onOpenStatus: () -> Unit) {
+    val module = state.module
+    if (!module.checked) return
+    val issueRes = when {
+        !module.connected -> R.string.module_lsposed_disconnected
+        module.outdated -> R.string.module_old_running
+        module.error != null || (module.scopeKnown && module.missingScope.isNotEmpty()) ->
+            R.string.module_needs_attention
+        state.runtime.needsDecision -> R.string.cleanup_runtime_needs_attention
+        else -> null
+    } ?: return
+
+    AdaptiveCard(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenStatus)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            AdaptiveIcon(
+                Icons.Rounded.WarningAmber,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.error
+            )
+            AdaptiveText(
+                stringResource(issueRes),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 2
+            )
+            AdaptiveIcon(
+                Icons.Rounded.ChevronRight,
+                stringResource(R.string.module_view_status),
+                modifier = Modifier.size(18.dp)
+            )
         }
     }
 }
