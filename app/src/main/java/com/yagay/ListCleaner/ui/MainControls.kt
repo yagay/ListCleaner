@@ -134,7 +134,7 @@ private fun EntryGroupButton(
     var expanded by remember(group) { mutableStateOf(false) }
     val active = activeKind?.entryGroup() == group
     Box {
-        AdaptiveTextButton(onClick = { expanded = true }, contentPadding = MaterialControlMetrics.compactTextPadding) {
+        AdaptiveTextButton(onClick = { expanded = true }, contentPadding = MaterialUiTokens.compactButtonPadding) {
             AdaptiveText(
                 stringResource(group.titleRes()),
                 fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,

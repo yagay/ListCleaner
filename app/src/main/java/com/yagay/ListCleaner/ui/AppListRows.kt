@@ -207,14 +207,26 @@ private fun ComponentSelectionMark(checked: Boolean) {
 
 @Composable
 internal fun AppIcon(bitmap: Bitmap?, appLabel: String) {
-    if (bitmap == null) {
-        AdaptiveIcon(Icons.Rounded.Apps, null, Modifier.size(36.dp))
-        return
+    Box(
+        modifier = Modifier.size(MaterialUiTokens.appIconSize)
+            .clip(MaterialUiTokens.appIconShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+        contentAlignment = Alignment.Center
+    ) {
+        if (bitmap == null) {
+            AdaptiveIcon(
+                Icons.Rounded.Apps,
+                stringResource(R.string.app_icon_description, appLabel),
+                modifier = Modifier.size(22.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = stringResource(R.string.app_icon_description, appLabel),
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit
+            )
+        }
     }
-    Image(
-        bitmap = bitmap.asImageBitmap(),
-        contentDescription = stringResource(R.string.app_icon_description, appLabel),
-        modifier = Modifier.size(36.dp).clip(RoundedCornerShape(9.dp)),
-        contentScale = ContentScale.Fit
-    )
 }

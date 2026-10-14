@@ -660,11 +660,14 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                     shadowElevation = 8.dp
                 ) {
                     Row(
-                        Modifier.heightIn(min = 64.dp).padding(horizontal = 16.dp, vertical = 8.dp),
+                        Modifier.heightIn(min = MaterialUiTokens.listRowHeight).padding(
+                            horizontal = MaterialUiTokens.pageHorizontal,
+                            vertical = MaterialUiTokens.contentGap
+                        ),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         AppIcon(first.appIcon, first.appLabel)
-                        Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                        Column(Modifier.weight(1f).padding(start = MaterialUiTokens.appLabelInset)) {
                             AdaptiveText(first.appLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
                             AdaptiveText(
                                 stringResource(

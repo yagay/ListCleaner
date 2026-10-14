@@ -46,11 +46,7 @@ internal fun EntryWorkspaceHome(
     showUtilities: Boolean = true,
     showComponentSection: Boolean = true,
 ) {
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(WorkspaceUiTokens.sectionGap)
-    ) {
+    MaterialPageColumn {
         status()
         if (selectedGroup == null) {
             WorkspaceSectionTitle(

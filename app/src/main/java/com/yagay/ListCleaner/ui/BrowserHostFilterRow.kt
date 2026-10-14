@@ -56,7 +56,7 @@ fun BrowserHostFilterMenu(
         AdaptiveTextButton(
             onClick = { expanded = true },
             modifier = Modifier.onSizeChanged { anchorWidthPx = it.width },
-            contentPadding = MaterialControlMetrics.compactTextPadding
+            contentPadding = MaterialUiTokens.compactButtonPadding
         ) {
             AdaptiveText(
                 stringResource(

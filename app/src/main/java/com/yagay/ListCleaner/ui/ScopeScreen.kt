@@ -26,7 +26,7 @@ internal fun ScopeDialog(status: ModuleStatus, requestScope: () -> Unit, refresh
         text = {
             Column(
                 Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap)
             ) {
                 AdaptiveText(stringResource(R.string.scope_intro))
                 AdaptiveText(stringResource(R.string.scope_detected_hosts), fontWeight = FontWeight.Bold)
@@ -98,7 +98,6 @@ internal fun ScopeDialog(status: ModuleStatus, requestScope: () -> Unit, refresh
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FullScreenDetails(
     onDismissRequest: () -> Unit,
@@ -107,33 +106,18 @@ private fun FullScreenDetails(
     confirmButton: @Composable () -> Unit,
     dismissButton: @Composable () -> Unit
 ) {
-    androidx.compose.ui.window.Dialog(
+    MaterialFullScreenDialog(
         onDismissRequest = onDismissRequest,
-        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
-    ) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            topBar = {
-                TopAppBar(
-                    title = title,
-                    navigationIcon = {
-                        AdaptiveBackButton(onClick = onDismissRequest)
-                    }
-                )
-            },
-            bottomBar = {
-                Surface(shadowElevation = 2.dp) {
-                    Row(
-                        Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        dismissButton()
-                        confirmButton()
-                    }
-                }
-            }
-        ) { padding ->
-            Box(Modifier.padding(padding).padding(horizontal = 16.dp)) { text() }
+        title = title,
+        bottomBar = {
+            MaterialDialogActions(
+                dismissButton = dismissButton,
+                confirmButton = confirmButton
+            )
+        }
+    ) { padding ->
+        Box(Modifier.padding(padding).padding(horizontal = MaterialUiTokens.pageHorizontal)) {
+            text()
         }
     }
 }

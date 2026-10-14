@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.R
 
 /** Shared interaction contract for rule, priority and Root-component app rows.
- * Selection, expand, and lock remain separate actions with one theme-native surface.
+ * Selection, expand, and lock remain separate actions on a shared Material 3 row.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -45,48 +45,40 @@ internal fun WorkspaceAppRow(
         Modifier.fillMaxWidth(),
         position = if (expanded) ListRowPosition.FIRST else ListRowPosition.SINGLE
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().then(modifier)
-                .combinedClickable(onClickLabel = expandLabel, onClick = onExpand,
-                    onLongClick = { menuExpanded = true })
-                .heightIn(min = 60.dp)
-                .padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            selection()
-            AppIcon(icon, title)
-            Column(
-                Modifier.weight(1f).padding(start = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                AdaptiveText(title, style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                AdaptiveText(subtitle, style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
-                details()
-            }
-            trailing()
-            AdaptiveIconButton(onClick = { menuExpanded = true }) {
+        MaterialAppRowBody(
+            icon = icon,
+            title = title,
+            subtitle = subtitle,
+            modifier = modifier.combinedClickable(
+                onClickLabel = expandLabel,
+                onClick = onExpand,
+                onLongClick = { menuExpanded = true }
+            ),
+            selection = { selection() },
+            details = details,
+            trailing = {
+                trailing()
+                AdaptiveIconButton(onClick = { menuExpanded = true }) {
+                    AdaptiveIcon(
+                        if (lockState == BulkLockState.NONE) Icons.Rounded.MoreVert else Icons.Rounded.Lock,
+                        stringResource(
+                            when (lockState) {
+                                BulkLockState.NONE -> R.string.common_more
+                                BulkLockState.PARTIAL -> R.string.bulk_lock_partial
+                                BulkLockState.FULL -> R.string.bulk_lock_full
+                            }
+                        ),
+                        modifier = Modifier.size(19.dp),
+                        tint = if (lockState == BulkLockState.PARTIAL)
+                            MaterialTheme.colorScheme.tertiary else LocalContentColor.current
+                    )
+                }
                 AdaptiveIcon(
-                    if (lockState == BulkLockState.NONE) Icons.Rounded.MoreVert else Icons.Rounded.Lock,
-                    stringResource(
-                        when (lockState) {
-                            BulkLockState.NONE -> R.string.common_more
-                            BulkLockState.PARTIAL -> R.string.bulk_lock_partial
-                            BulkLockState.FULL -> R.string.bulk_lock_full
-                        }
-                    ),
-                    modifier = Modifier.size(19.dp),
-                    tint = if (lockState == BulkLockState.PARTIAL)
-                        MaterialTheme.colorScheme.tertiary else LocalContentColor.current
+                    if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    expandLabel, modifier = Modifier.size(18.dp)
                 )
             }
-            AdaptiveIcon(
-                if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                expandLabel, modifier = Modifier.size(18.dp)
-            )
-        }
+        )
         BulkLockContextMenu(
             expanded = menuExpanded,
             onDismiss = { menuExpanded = false },
@@ -95,5 +87,54 @@ internal fun WorkspaceAppRow(
             onLock = onLock,
             onUnlock = onUnlock
         )
+    }
+}
+
+/**
+ * A single visual app-row structure shared by rules, priority, Root and visibility.
+ * Selection and trailing controls are intentionally slots: their behavior differs by feature.
+ */
+@Composable
+internal fun MaterialAppRowBody(
+    icon: Bitmap?,
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier,
+    selection: @Composable RowScope.() -> Unit,
+    details: @Composable ColumnScope.() -> Unit = {},
+    trailing: @Composable RowScope.() -> Unit = {}
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().then(modifier)
+            .heightIn(min = MaterialUiTokens.listRowHeight)
+            .padding(
+                horizontal = MaterialUiTokens.listRowHorizontal,
+                vertical = MaterialUiTokens.listRowVertical
+            ),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        selection()
+        AppIcon(icon, title)
+        Column(
+            Modifier.weight(1f).padding(start = MaterialUiTokens.appLabelInset),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            AdaptiveText(
+                title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            AdaptiveText(
+                subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            details()
+        }
+        trailing()
     }
 }

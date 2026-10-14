@@ -27,15 +27,6 @@ import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.AppTypeFilter
 
-/** Visual sizing is shared between LSPosed entry and Root component editors. */
-internal object WorkspaceUiTokens {
-    val categoryHeight = 124.dp
-    val categoryPadding = 14.dp
-    val categoryGap = 10.dp
-    val sectionGap = 14.dp
-    val detailHeight = 48.dp
-}
-
 /** One card specification; null description reserves the same subtitle space. */
 @Composable
 internal fun WorkspaceCategoryCard(
@@ -46,11 +37,11 @@ internal fun WorkspaceCategoryCard(
     onClick: () -> Unit
 ) {
     AdaptiveCard(
-        modifier = modifier.heightIn(min = WorkspaceUiTokens.categoryHeight)
+        modifier = modifier.heightIn(min = MaterialUiTokens.categoryHeight)
             .clickable(onClick = onClick)
     ) {
         Column(
-            Modifier.fillMaxWidth().padding(WorkspaceUiTokens.categoryPadding),
+            Modifier.fillMaxWidth().padding(MaterialUiTokens.categoryPadding),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -93,12 +84,12 @@ internal fun WorkspaceBreadcrumb(
     currentLabel: String? = null
 ) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+        Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = MaterialUiTokens.detailVertical),
         verticalAlignment = Alignment.CenterVertically
     ) {
         AdaptiveTextButton(
             onClick = onHome,
-            contentPadding = MaterialControlMetrics.compactTextPadding
+            contentPadding = MaterialUiTokens.compactButtonPadding
         ) {
             AdaptiveIcon(Icons.Rounded.GridView, null, Modifier.size(18.dp))
             Spacer(Modifier.width(4.dp))
@@ -109,7 +100,7 @@ internal fun WorkspaceBreadcrumb(
             if (onGroup != null) {
                 AdaptiveTextButton(
                     onClick = onGroup,
-                    contentPadding = MaterialControlMetrics.compactTextPadding
+                    contentPadding = MaterialUiTokens.compactButtonPadding
                 ) { AdaptiveText(groupLabel, maxLines = 1) }
             } else {
                 AdaptiveText(groupLabel, style = MaterialTheme.typography.labelMedium, maxLines = 1)
@@ -152,11 +143,11 @@ internal fun WorkspaceFilterBar(
     var actionMenu by remember { mutableStateOf(false) }
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-            .padding(horizontal = 8.dp),
+            .padding(horizontal = MaterialUiTokens.listRowHorizontal),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box {
-            AdaptiveTextButton(onClick = { appMenu = true }, contentPadding = MaterialControlMetrics.compactTextPadding) {
+            AdaptiveTextButton(onClick = { appMenu = true }, contentPadding = MaterialUiTokens.compactButtonPadding) {
                 AdaptiveText(stringResource(
                     R.string.compact_filter_format,
                     stringResource(R.string.app_type_filter),
@@ -177,7 +168,7 @@ internal fun WorkspaceFilterBar(
             }
         }
         Box {
-            AdaptiveTextButton(onClick = { viewMenu = true }, contentPadding = MaterialControlMetrics.compactTextPadding) {
+            AdaptiveTextButton(onClick = { viewMenu = true }, contentPadding = MaterialUiTokens.compactButtonPadding) {
                 AdaptiveText(stringResource(
                     R.string.compact_filter_format,
                     stringResource(R.string.view_filter),
@@ -203,7 +194,7 @@ internal fun WorkspaceFilterBar(
                 AdaptiveTextButton(
                     onClick = { actionMenu = true },
                     enabled = actions.any { it.enabled },
-                    contentPadding = MaterialControlMetrics.compactTextPadding
+                    contentPadding = MaterialUiTokens.compactButtonPadding
                 ) {
                     AdaptiveText(stringResource(R.string.selection_actions))
                     AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
@@ -229,7 +220,7 @@ internal fun WorkspaceListSummary(
     secondary: String? = null
 ) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp),
+        Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -265,7 +256,7 @@ internal fun WorkspaceEmptyState(
 internal fun WorkspaceHelpToggle(expanded: Boolean, onClick: () -> Unit) {
     AdaptiveTextButton(
         onClick = onClick,
-        contentPadding = MaterialControlMetrics.compactTextPadding
+        contentPadding = MaterialUiTokens.compactButtonPadding
     ) {
         AdaptiveText(stringResource(R.string.entry_help_title), maxLines = 1)
         AdaptiveIcon(
@@ -279,7 +270,7 @@ internal fun WorkspaceHelpToggle(expanded: Boolean, onClick: () -> Unit) {
 @Composable
 internal fun WorkspaceHelpSection(content: @Composable ColumnScope.() -> Unit) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(5.dp),
         content = content
     )
@@ -287,14 +278,7 @@ internal fun WorkspaceHelpSection(content: @Composable ColumnScope.() -> Unit) {
 
 @Composable
 internal fun WorkspaceStatusMessage(message: String, isError: Boolean = false) {
-    if (message.isBlank()) return
-    AdaptiveText(
-        text = message,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-        style = MaterialTheme.typography.bodySmall,
-        color = if (isError) MaterialTheme.colorScheme.error
-            else MaterialTheme.colorScheme.onSurfaceVariant
-    )
+    MaterialInlineStatus(message = message, isError = isError)
 }
 
 @Composable
@@ -315,8 +299,8 @@ internal fun WorkspaceReadOnlyDetailRow(content: @Composable RowScope.() -> Unit
     Row(
         Modifier.fillMaxWidth().background(
             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
-        ).heightIn(min = WorkspaceUiTokens.detailHeight)
-            .padding(start = 14.dp, end = 10.dp, top = 6.dp, bottom = 6.dp),
+        ).heightIn(min = MaterialUiTokens.detailHeight)
+            .padding(start = MaterialUiTokens.detailHorizontal, end = MaterialUiTokens.detailHorizontal, top = MaterialUiTokens.listRowVertical, bottom = MaterialUiTokens.listRowVertical),
         verticalAlignment = Alignment.CenterVertically,
         content = content
     )
@@ -351,8 +335,8 @@ internal fun WorkspaceDetailRow(
                     onClick = { if (enabled) onToggle() },
                     onLongClick = { if (lockToggleEnabled) lockMenuExpanded = true }
                 )
-                .heightIn(min = WorkspaceUiTokens.detailHeight)
-                .padding(start = 14.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
+                .heightIn(min = MaterialUiTokens.detailHeight)
+                .padding(start = MaterialUiTokens.detailHorizontal, end = MaterialUiTokens.detailHorizontal, top = MaterialUiTokens.detailVertical, bottom = MaterialUiTokens.detailVertical),
             verticalAlignment = Alignment.CenterVertically
         ) {
             AdaptiveCheckbox(

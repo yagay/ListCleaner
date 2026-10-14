@@ -31,24 +31,16 @@ import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** The same geometry is used by every Material 3 action, filter and navigation control. */
-internal object MaterialControlMetrics {
-    val minButtonHeight = 40.dp
-    val minIconTarget = 48.dp
-    val regularTextPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-    val compactTextPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-}
-
 @Composable
 internal fun AdaptiveTextButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    contentPadding: PaddingValues = MaterialControlMetrics.regularTextPadding,
+    contentPadding: PaddingValues = MaterialUiTokens.normalButtonPadding,
     content: @Composable RowScope.() -> Unit
 ) = TextButton(
     onClick = onClick,
-    modifier = modifier.heightIn(min = MaterialControlMetrics.minButtonHeight),
+    modifier = modifier.heightIn(min = MaterialUiTokens.buttonHeight),
     shape = MaterialTheme.shapes.medium,
     enabled = enabled,
     contentPadding = contentPadding, content = content
@@ -61,7 +53,7 @@ internal fun AdaptiveOutlinedButton(
     enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit
 ) = OutlinedButton(
-    onClick = onClick, modifier = modifier.heightIn(min = MaterialControlMetrics.minButtonHeight),
+    onClick = onClick, modifier = modifier.heightIn(min = MaterialUiTokens.buttonHeight),
     enabled = enabled, shape = MaterialTheme.shapes.medium, content = content
 )
 
@@ -73,7 +65,7 @@ internal fun AdaptiveIconButton(
     content: @Composable () -> Unit
 ) = IconButton(
     onClick = onClick,
-    modifier = modifier.sizeIn(minWidth = MaterialControlMetrics.minIconTarget, minHeight = MaterialControlMetrics.minIconTarget),
+    modifier = modifier.sizeIn(minWidth = MaterialUiTokens.iconTouchTarget, minHeight = MaterialUiTokens.iconTouchTarget),
     enabled = enabled, content = content
 )
 
@@ -97,7 +89,7 @@ internal fun AdaptiveFilterChip(
     leadingIcon: @Composable (() -> Unit)? = null
 ) = FilterChip(
     selected = selected, onClick = onClick, label = label,
-    modifier = modifier.heightIn(min = MaterialControlMetrics.minButtonHeight),
+    modifier = modifier.heightIn(min = MaterialUiTokens.buttonHeight),
     shape = MaterialTheme.shapes.medium, enabled = enabled, leadingIcon = leadingIcon
 )
 
@@ -139,7 +131,7 @@ internal fun AdaptiveCircularProgressIndicator(
 internal fun AdaptiveCard(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit
-) = Card(modifier = modifier, content = content)
+) = Card(modifier = modifier, shape = MaterialUiTokens.cardShape, content = content)
 
 @Composable
 internal fun AdaptiveButton(
@@ -148,7 +140,7 @@ internal fun AdaptiveButton(
     enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit
 ) = Button(
-    onClick = onClick, modifier = modifier.heightIn(min = MaterialControlMetrics.minButtonHeight),
+    onClick = onClick, modifier = modifier.heightIn(min = MaterialUiTokens.buttonHeight),
     enabled = enabled, shape = MaterialTheme.shapes.medium, content = content
 )
 
@@ -175,7 +167,7 @@ internal fun AdaptiveGroupSurface(
     position: ListRowPosition = ListRowPosition.SINGLE,
     content: @Composable () -> Unit
 ) = Card(
-    modifier = modifier.padding(horizontal = 12.dp).padding(position.verticalPadding()),
+    modifier = modifier.padding(horizontal = MaterialUiTokens.groupHorizontal).padding(position.verticalPadding()),
     shape = position.shape(),
     content = { content() }
 )

@@ -30,12 +30,7 @@ internal fun PageSectionTitle(title: String) {
 }
 
 @Composable
-internal fun WorkspaceSectionTitle(title: String) {
-    AdaptiveText(
-        text = title, style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.SemiBold, maxLines = 2
-    )
-}
+internal fun WorkspaceSectionTitle(title: String) = PageSectionTitle(title)
 
 @Composable
 internal fun PageFilterSection(content: @Composable () -> Unit) {

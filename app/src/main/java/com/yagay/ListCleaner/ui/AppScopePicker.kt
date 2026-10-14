@@ -3,7 +3,8 @@ package com.yagay.ListCleaner.ui
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.util.LruCache
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -16,8 +17,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.ListCleanerApp
@@ -109,12 +108,11 @@ internal fun AppScopePickerDialog(
         )
     }
 
-    Dialog(
+    MaterialFullScreenDialog(
         onDismissRequest = dismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
-    ) {
-        val pickerContent: @Composable (PaddingValues) -> Unit = { padding ->
-            Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp)) {
+        title = { AdaptiveText(stringResource(R.string.visibility_title)) }
+    ) { padding ->
+            Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = MaterialUiTokens.pageHorizontal)) {
                 AdaptiveText(
                     stringResource(R.string.visibility_help),
                     style = MaterialTheme.typography.bodySmall,
@@ -123,7 +121,7 @@ internal fun AppScopePickerDialog(
                 Spacer(Modifier.height(8.dp))
                 AdaptiveText(stringResource(R.string.visibility_match_categories), style = MaterialTheme.typography.labelLarge)
                 LazyRow(
-                    contentPadding = PaddingValues(vertical = 4.dp),
+                    contentPadding = PaddingValues(vertical = MaterialUiTokens.detailVertical),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     items(VisibilityScope.entries, key = { it.name }) { scope ->
@@ -168,51 +166,36 @@ internal fun AppScopePickerDialog(
                         items(visible, key = { it.packageName }) { entry ->
                             val checked = entry.packageName in selected
                             val bitmap = scopeAppIcon(entry.packageName)
-                            Row(
-                                Modifier.fillMaxWidth().clickable {
-                                    onSelectedChange(if (checked) selected - entry.packageName else selected + entry.packageName)
-                                }.padding(vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                // Same stable icon/placeholder geometry as rules and priorities.
-                                AppIcon(bitmap, entry.label)
-                                Spacer(Modifier.width(10.dp))
-                                AdaptiveCheckbox(
-                                    checked = checked,
-                                    onCheckedChange = { value ->
-                                        onSelectedChange(if (value) selected + entry.packageName else selected - entry.packageName)
+                            AdaptiveGroupSurface(Modifier.fillMaxWidth()) {
+                                MaterialAppRowBody(
+                                    icon = bitmap,
+                                    title = entry.label,
+                                    subtitle = entry.packageName,
+                                    modifier = Modifier.toggleable(
+                                        value = checked,
+                                        role = Role.Checkbox,
+                                        onValueChange = { isChecked ->
+                                            onSelectedChange(
+                                                if (isChecked) selected + entry.packageName
+                                                else selected - entry.packageName
+                                            )
+                                        }
+                                    ),
+                                    selection = {
+                                        AdaptiveCheckbox(checked = checked, onCheckedChange = null)
                                     },
+                                    trailing = {
+                                        if (checked) AdaptiveText(
+                                            stringResource(R.string.visibility_added),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                 )
-                                Column(Modifier.weight(1f)) {
-                                    AdaptiveText(entry.label, fontWeight = FontWeight.Medium)
-                                    AdaptiveText(entry.packageName, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                if (checked) {
-                                    AdaptiveText(
-                                        stringResource(R.string.visibility_added),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
                             }
-                            AdaptiveHorizontalDivider()
                         }
                     }
                 }
             }
-        }
-        
-            Scaffold(
-                modifier = Modifier.fillMaxSize(),
-                topBar = {
-                    TopAppBar(
-                        title = { AdaptiveText(stringResource(R.string.visibility_title)) },
-                        navigationIcon = {
-                            AdaptiveBackButton(onClick = dismiss)
-                        },
-                    )
-                },
-            ) { padding -> pickerContent(padding) }
-        
     }
 }

@@ -30,10 +30,7 @@ internal fun RootWorkspaceHome(
     warning: String,
     scanning: Boolean
 ) {
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .padding(horizontal = 14.dp, vertical = 12.dp)
-    ) {
+    MaterialPageColumn {
         RootWorkspaceCategorySection(
             kinds = kinds,
             apps = apps,

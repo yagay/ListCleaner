@@ -21,7 +21,36 @@ for file in sorted(root.glob("*.kt")):
             errors.append(f"{file.name}:{line_no}: use the shared Adaptive material control")
         if "Icons.AutoMirrored.Rounded.ArrowBack" in code:
             errors.append(f"{file.name}:{line_no}: use AdaptiveBackButton")
+
+# Guard the complete visual system, not just the original button wrappers.
+for file in sorted(root.glob("*.kt")):
+    source = file.read_text(encoding="utf-8")
+    for obsolete in ("WorkspaceUiTokens", "MaterialControlMetrics"):
+        if obsolete in source:
+            errors.append(f"{file.name}: obsolete layout tokens; use MaterialUiTokens")
+
+required = {
+    "AdaptiveWidgets.kt": ["MaterialUiTokens.buttonHeight", "MaterialUiTokens.cardShape"],
+    "WorkspaceAppRow.kt": ["MaterialAppRowBody(", "MaterialUiTokens.listRowHeight"],
+    "AppScopePicker.kt": ["MaterialAppRowBody(", "MaterialFullScreenDialog("],
+    "ScopeScreen.kt": ["MaterialFullScreenDialog(", "MaterialDialogActions("],
+    "MainTabs.kt": ["MaterialPageColumn {", "MaterialSectionCard {", "MaterialSettingsRow("],
+    "EntryWorkspaceHome.kt": ["MaterialPageColumn {"],
+    "RootWorkspaceHome.kt": ["MaterialPageColumn {"],
+    "WorkspaceCommon.kt": ["MaterialInlineStatus(", "MaterialUiTokens."],
+}
+for filename, symbols in required.items():
+    content = (root / filename).read_text(encoding="utf-8")
+    for symbol in symbols:
+        if symbol not in content:
+            errors.append(f"{filename}: missing shared Material 3 component: {symbol}")
+
+for filename in ("AppScopePicker.kt", "ScopeScreen.kt"):
+    code = (root / filename).read_text(encoding="utf-8")
+    if re.search(r"\bScaffold\s*\(", code):
+        errors.append(f"{filename}: use MaterialFullScreenDialog instead of a private Scaffold")
+
 if errors:
     print("\n".join(errors), file=sys.stderr)
     sys.exit(1)
-print("Material 3 shared navigation and button contract OK")
+print("Material 3 shared navigation, layouts, cards and app rows OK")

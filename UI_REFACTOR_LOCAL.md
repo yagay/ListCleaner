@@ -1,33 +1,20 @@
-# ListCleaner test 源码 · 本地 UI 重构说明
+# ListCleaner test3 · Material 3 视觉组件规范
 
-**基准：用户上传的 `ListCleaner-test.zip`（原 test 提交 `d61827be`）。本地修改，没有 GitHub 上传、推送或分支变更。**
+适用范围：清理主页、规则候选列表、Root 组件列表、排序工作区、应用隐藏列表、状态页及全屏选择器。这里的改动仅统一视觉组件，不改变规则保存、扫描、Root、锁定或 LSPosed Hook 逻辑。
 
-## 页面层级
+## 单一设计系统
 
-- 清理首页：分享、操作、桌面、扩展清理四个独立功能卡块，每行两块，图标与入口数量来自原始 `EntryGroup` 数据。
-- 二级入口页：点击分类才显示对应的 `IntentKind` 项目，每项有原始名称与说明；原有不可选择的 `LAUNCHER_SHORTCUT` 不出现。
-- 规则工作区：选择具体入口后打开对应应用列表，保留搜索、应用类型、已选/未选/锁定、预设/网页域名、批量操作、子组件展开与规则保存。
-- 保留“浏览全部应用”入口，可跨分类搜索；点击面包屑返回分类或上一级入口。
-- Root 组件清理：独立的桌面入口 / 磁贴 / 创建快捷方式 / 小部件四种卡块，绝不混入 `EntryGroup.DESKTOP` 的规则体系。
-- 排序页：分享 / 操作 / 扩展清理三个可排序入口块，进入具体类型后共用紧凑应用行，保留原有优先级设置、按项排序和恢复功能；只有专用拖动手柄启动移动，滚动进入视野的应用可作为移动目标。
+- `ui/MaterialDesignSystem.kt` 的 `MaterialUiTokens` 是页面边距、卡片、应用行、图标、按钮、分组间隔的唯一视觉尺寸来源。请勿重新引入 `WorkspaceUiTokens`、`MaterialControlMetrics` 或 MIUIX 组件。
+- `MaterialPageColumn` 管理常规滚动页面的宽度与节距；使用 LazyColumn 的大型候选列表通过 `MaterialUiTokens` 对齐相同横向安全边距。
+- `MaterialSectionCard` 管理设置及状态区块的容器和内边距；分类卡片继续使用 `WorkspaceCategoryCard`，但底层共享同一 Material 3 Card 形状和设计参数。
+- `MaterialSettingsRow` 用于有说明文字、尾部操作按钮或开关的设置条目。
+- `MaterialAppRowBody` 定义应用图标、名称、包名/副标题、左侧选择器和尾部插槽；规则、排序、Root 的 `WorkspaceAppRow` 与应用隐藏选择器共同使用。它们保留不同的勾选、锁定、拖动与展开语义。
+- `MaterialFullScreenDialog`、`MaterialDialogActions` 提供全屏弹窗统一的返回入口、顶部栏和操作区。普通确认对话框仍通过 `AdaptiveAlertDialog` 使用 Material 3。
+- `MaterialInlineStatus` 供列表和工作区展示错误与提示；加载中和空态继续用现有 `WorkspaceProgress` 与 `WorkspaceEmptyState`。
+- `Adaptive*()` 是公共 Material 控件的兼容入口。不要在功能页面再次创建独立的 `Button`、`FilterChip` 或返回导航组件。
 
-## UI 结构变化
+## 验收
 
-- 新建 `EntryWorkspaceHome.kt`, `RootWorkspaceHome.kt`, `WorkspaceAppRow.kt`。
-- 规则、排序、Root 三个页面共享一个明确的应用行交互契约，左右分配选择、名称、锁定/更多、展开，避免各页面维护不同尺寸与操作规则。
-- Material 使用原生 Card，MIUIX 使用原生 Miuix Surface/Card；保持两套主题各自的原生渲染，而不是更改业务引擎。
-- 清理页不再先显示所有应用的长列表；选中具体入口后才显示应用列表。旧横向四分类条已从该页面的应用列表工作区移除。
-- 缩减清理页统计摘要占用；排序列表明确区分已排序/未排序，并将大段说明折叠。
-- Root 批量确认固定原始类别，避免弹窗打开期间切换分类导致操作目标错乱。
+执行 `python3 tools/check-material3-controls.py`，再运行 `./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug`。test3 的 GitHub Actions 会运行上述检查并上传 Debug APK 和当前提交的完整源码。
 
-## 验证现状
-
-- Android 英/中文资源完整性：`python tools/check-bilingual-parity.py` 通过，XML 全部解析通过。
-- 纯 Kotlin 分类映射：测试四组 3/13/1/15 种可选择入口，全部覆盖及旧入口排除，通过。
-- 轻量 Kotlin 语法检查：新文件及变更文件没有出现解析级 `expecting`/`unexpected tokens` 错误；缺少 Android/Compose 依赖无法做完整类型检查。
-- **Debug APK 构建未验证**：本地容器不含 Android SDK，也没有预装 Gradle 9.4.1；离线启动 Gradle Wrapper 时无法下载发行包（`UnknownHostException: services.gradle.org`）。需要在有 SDK/Gradle 的设备上执行 `./gradlew :app:assembleDebug testDebugUnitTest lintDebug`。
-- 仓库自带的 `tools/ClassificationCheck.java`（非 UI 测试）目前不通过：`geo + ACTION_VIEW` 预期 null，实际 OPEN。此次 UI 改动未修改该分类器，也未把该原有测试失败描述为重构成功。
-
-## 后续实机验收建议
-
-检查四分类块和二级入口、搜索中的跨分类行为、返回/旋转、MIUIX 与 Material 双主题、小屏与字体放大、应用行锁定/展开/选择、Root 各类及批量确认、排序拖动和自动滚动。自动化测试不能替代这些实机验证。
+实机还需检查浅色、深色、系统模式、小屏、大字体、返回、页面滚动、展开、批量选中、锁定、排序拖动、Root 开关和权限提示。自动编译及静态检查不能证明实机视觉、无障碍或 Hook 行为完全正确。

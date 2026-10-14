@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandMore
@@ -553,19 +554,16 @@ internal fun DashboardTabContent(
         ) { showAppScopePicker = false }
     }
 
-    Column(
-        Modifier.fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
+    MaterialPageColumn {
         RuntimePanel(state, vm)
 
         PageSectionTitle(stringResource(R.string.ui_appearance_title))
-        AdaptiveCard(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        MaterialSectionCard {
                 AdaptiveText(stringResource(R.string.ui_color_mode_title), fontWeight = FontWeight.Medium)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap)
+                ) {
                     UiColorMode.entries.forEachIndexed { index, mode ->
                         AdaptiveFilterChip(
                             selected = colorMode == mode,
@@ -580,16 +578,14 @@ internal fun DashboardTabContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-        }
 
         PageSectionTitle(stringResource(R.string.dashboard_global_mode))
-        AdaptiveCard(Modifier.fillMaxWidth()) {
+        MaterialSectionCard {
             
-                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        AdaptiveText(stringResource(state.displayMode.titleRes()), fontWeight = FontWeight.Bold)
-                        AdaptiveText(stringResource(R.string.dashboard_global_mode_help), style = MaterialTheme.typography.bodySmall)
-                    }
+                MaterialSettingsRow(
+                    title = stringResource(state.displayMode.titleRes()),
+                    supportingText = stringResource(R.string.dashboard_global_mode_help)
+                ) {
                     Box {
                         AdaptiveTextButton(onClick = { menu = true }) {
                             AdaptiveText(stringResource(R.string.dashboard_switch))
@@ -610,16 +606,13 @@ internal fun DashboardTabContent(
         }
 
         PageSectionTitle(stringResource(R.string.dashboard_sync_status))
-        AdaptiveCard(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp)) {
+        MaterialSectionCard {
                 AdaptiveText(state.syncStatus, fontWeight = FontWeight.Bold)
                 AdaptiveText(stringResource(R.string.dashboard_sync_help), style = MaterialTheme.typography.bodySmall)
             }
-        }
 
         PageSectionTitle(stringResource(R.string.dashboard_runtime_hits))
-        AdaptiveCard(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        MaterialSectionCard {
                 AdaptiveText(
                     stringResource(if (state.runtime.ready) R.string.dashboard_ack_confirmed else R.string.dashboard_ack_missing),
                     fontWeight = FontWeight.Bold
@@ -636,10 +629,9 @@ internal fun DashboardTabContent(
                     AdaptiveText(stringResource(R.string.dashboard_refresh_runtime))
                 }
             }
-        }
 
         PageSectionTitle(stringResource(R.string.dashboard_data_backup))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap)) {
             AdaptiveButton(onClick = onRestore, modifier = Modifier.weight(1f)) {
                 AdaptiveText(stringResource(R.string.dashboard_restore_json))
             }
@@ -650,8 +642,7 @@ internal fun DashboardTabContent(
 
         PageSectionTitle(stringResource(R.string.dashboard_module_status))
         ModuleStatusRow(state) { showScopeDetails = true; vm.refreshModuleStatus() }
-        AdaptiveCard(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        MaterialSectionCard {
                 
                     AdaptiveText(stringResource(R.string.dashboard_app_visibility), fontWeight = FontWeight.Bold)
                     AdaptiveText(stringResource(R.string.dashboard_app_visibility_help), style = MaterialTheme.typography.bodySmall)
@@ -665,11 +656,9 @@ internal fun DashboardTabContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-        }
 
         PageSectionTitle(stringResource(R.string.dashboard_diagnostics))
-        AdaptiveCard(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        MaterialSectionCard {
                 AdaptiveText(stringResource(R.string.dashboard_scan_disclaimer), style = MaterialTheme.typography.labelSmall)
                 AdaptiveOutlinedButton(
                     onClick = onInspectFile,
@@ -680,15 +669,12 @@ internal fun DashboardTabContent(
                 }
                 fileCheckStatus?.let { AdaptiveText(it, style = MaterialTheme.typography.bodySmall) }
                 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        AdaptiveText(stringResource(R.string.diagnostic_mode), Modifier.weight(1f))
+                    MaterialSettingsRow(
+                        title = stringResource(R.string.diagnostic_mode),
+                        supportingText = stringResource(R.string.diagnostic_mode_help)
+                    ) {
                         AdaptiveSwitch(state.diagnosticMode, vm::setDiagnosticMode)
                     }
-                    AdaptiveText(
-                        stringResource(R.string.diagnostic_mode_help),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 
                 if (state.diagnosticMode) {
                     AdaptiveText(stringResource(R.string.diagnostic_enabled_help), style = MaterialTheme.typography.bodySmall)
@@ -706,7 +692,6 @@ internal fun DashboardTabContent(
                 }
                 AdaptiveText(stringResource(R.string.diagnostic_export_help), style = MaterialTheme.typography.labelSmall)
             }
-        }
 
         Spacer(Modifier.height(32.dp))
         AdaptiveText(
