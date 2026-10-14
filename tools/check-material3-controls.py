@@ -41,7 +41,7 @@ required = {
     "UiCard.kt": ["enum class UiCardVariant", "UiCardVariant.SECTION", "UiCardVariant.CATEGORY",
                   "UiCardVariant.LIST_GROUP", "UiCardVariant.STATUS", "position.shape()",
                   "onClick = onClick", "UiCardDetailRow("],
-    "MaterialDesignSystem.kt": ["UiCard(", "UiCardVariant.SECTION", "MaterialUiTokens.cardShape"],
+    "MaterialDesignSystem.kt": ["UiCard(", "UiCardVariant.SECTION", "val cardShape ="],
     "WorkspaceLayout.kt": ["MaterialUiTokens.cardRadius", "MaterialUiTokens.groupedInnerRadius"],
     "MainControls.kt": ["UiCardVariant.STATUS", "warning = true"],
     "RuntimePanel.kt": ["UiCardVariant.STATUS"],
