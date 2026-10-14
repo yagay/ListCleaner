@@ -11,6 +11,12 @@ internal object ComponentScanRefreshPolicy {
     const val FRESHNESS_MS: Long = 10 * 60 * 1000L
     const val RETRY_AFTER_FAILURE_MS: Long = 30 * 1000L
 
+    fun completedFullScanAt(
+        nowElapsedMs: Long,
+        warning: String,
+        packageRevisionChanged: Boolean
+    ): Long = if (warning.isBlank() && !packageRevisionChanged) nowElapsedMs else -1L
+
     fun shouldRefresh(
         nowElapsedMs: Long,
         lastFullScanElapsedMs: Long,
