@@ -137,7 +137,7 @@ internal fun EntryWorkspaceHome(
 private fun EntryGroupTile(group: EntryGroup, modifier: Modifier, onClick: () -> Unit) {
     val icon: ImageVector = when (group) {
         EntryGroup.SHARE -> Icons.Rounded.Share
-        EntryGroup.OPEN -> Icons.Rounded.FolderOven
+        EntryGroup.OPEN -> Icons.Rounded.FolderOpen
         EntryGroup.DESKTOP -> Icons.Rounded.Home
         EntryGroup.ADVANCED -> Icons.Rounded.Tune
     }

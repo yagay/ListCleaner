@@ -461,7 +461,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                     val lockState = vm.bulkLockState(lockScope, packageName, emptyList())
                     val rankText = group.rank?.let {
                         stringResource(
-                            if (inheritsOvenPriority || inheritsDeepLinkPriority)
+                            if (inheritsOpenPriority || inheritsDeepLinkPriority)
                                 R.string.priority_rank_inherited else R.string.priority_rank,
                             it
                         )
@@ -539,9 +539,9 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                                 onDragEnd = {
                                                     dragState.finish()?.let { finished ->
                                                         when {
-                                                            typedOvenPreset != null ->
-                                                                vm.moveOvenTypePriorityTo(
-                                                                    typedOvenPreset, finished.packageName,
+                                                            typedOpenPreset != null ->
+                                                                vm.moveOpenTypePriorityTo(
+                                                                    typedOpenPreset, finished.packageName,
                                                                     finished.target, finished.visible, finished.saved
                                                                 )
                                                             deepLinkHost != null ->
