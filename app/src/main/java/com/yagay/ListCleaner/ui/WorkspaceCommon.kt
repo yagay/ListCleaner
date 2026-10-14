@@ -7,6 +7,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.ExpandMore
@@ -68,6 +69,16 @@ internal fun WorkspaceCategoryCard(
                 overflow = TextOverflow.Ellipsis
             )
         }
+    }
+}
+
+/** Identical action in both cleanup groups, including MIUIX and Material rendering. */
+@Composable
+internal fun WorkspaceBrowseAllButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    AdaptiveOutlinedButton(onClick = onClick, modifier = modifier.fillMaxWidth()) {
+        AdaptiveIcon(Icons.Rounded.Apps, null, Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        AdaptiveText(stringResource(R.string.workspace_browse_all))
     }
 }
 

@@ -92,8 +92,6 @@ internal fun RootWorkspaceCategorySection(
                 if (pair.size == 1) Spacer(Modifier.weight(1f))
             }
         }
-        AdaptiveOutlinedButton(onClick = onAll, modifier = Modifier.fillMaxWidth()) {
-            AdaptiveText(stringResource(R.string.workspace_browse_all))
-        }
+        WorkspaceBrowseAllButton(onClick = onAll)
     }
 }

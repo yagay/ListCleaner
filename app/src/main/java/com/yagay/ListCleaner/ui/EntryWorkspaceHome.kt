@@ -69,11 +69,7 @@ internal fun EntryWorkspaceHome(
                     if (pair.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
-            if (showUtilities) AdaptiveOutlinedButton(onClick = onAllApps, modifier = Modifier.fillMaxWidth()) {
-                AdaptiveIcon(Icons.Rounded.Apps, null, Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                AdaptiveText(stringResource(R.string.workspace_browse_all))
-            }
+            if (showUtilities) WorkspaceBrowseAllButton(onClick = onAllApps)
             // Rule and Root component categories share the same landing page.
             // Their editors remain independent to preserve scan/lock semantics.
             if (showComponentSection) {
