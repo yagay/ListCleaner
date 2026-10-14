@@ -210,6 +210,19 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                                 )
                             )
                         }
+                        if (rules.hasCorruptLocalConfiguration()) {
+                            // No usable remote backup: ask before overwriting corrupt local data.
+                            pendingRecovery = null
+                            corruptRecovery = true
+                            return@withLock publishFor(
+                                session,
+                                RuntimeStatus(
+                                    needsDecision = true,
+                                    recoveryCorrupt = true,
+                                    message = getString(R.string.runtime_local_recovery_corrupt)
+                                )
+                            )
+                        }
                         rules.markInitialized()
                     } catch (failure: Exception) {
                         if (failure is CancellationException) throw failure
