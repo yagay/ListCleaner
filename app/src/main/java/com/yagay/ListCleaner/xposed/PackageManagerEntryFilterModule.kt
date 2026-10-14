@@ -258,7 +258,10 @@ class PackageManagerEntryFilterModule : XposedModule() {
         }.getOrNull()
     }
 
+    private val diagnosticLimiter = HookDiagnosticRateLimiter()
+
     private fun record(message: String) {
+        if (!diagnosticLimiter.allow(message)) return
         val line = "pid=${Process.myPid()} process=$processName $message"
         runCatching { Log.i(TAG, line) }
         runCatching { log(Log.INFO, TAG, line) }
