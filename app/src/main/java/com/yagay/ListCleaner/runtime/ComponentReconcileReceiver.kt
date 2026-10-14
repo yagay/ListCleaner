@@ -37,8 +37,8 @@ class ComponentReconcileReceiver : BroadcastReceiver() {
         ComponentReconcileJobService.schedule(context, reason)
     }
 
-    private companion object {
-        const val TAG = "ListCleaner.BootReconcile"
+    companion object {
+        private const val TAG = "ListCleaner.BootReconcile"
         const val COMPONENT_CACHE_PREFS = "component_scan_cache"
         const val COMPONENT_CACHE_REVISION = "package_change_revision"
     }
