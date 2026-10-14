@@ -52,6 +52,11 @@ jobs:
         with:
           persist-credentials: false
 
+      # Keep an exact source archive of the tested test3 commit for reproducibility.
+      - name: Archive complete test3 source
+        if: github.ref == 'refs/heads/test3'
+        run: git archive --format=zip --output=ListCleaner-test3-source.zip HEAD
+
       - name: Check source localization
         run: python3 tools/check-source-localization.py
 
@@ -98,6 +103,15 @@ jobs:
         run: |
           set -o pipefail
           bash ./gradlew --no-daemon --console=plain --stacktrace :app:lintDebug 2>&1 | tee lint-debug.log
+
+      - name: Upload tested source
+        if: always() && github.ref == 'refs/heads/test3'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ListCleaner-test3-source-${{ github.sha }}
+          path: ListCleaner-test3-source.zip
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
