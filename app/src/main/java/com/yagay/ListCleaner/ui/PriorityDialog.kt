@@ -101,7 +101,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
             onAllComponents = {},
             status = {
                 ModuleStatusRow(state, compact = true) {
-                    vm.setDestination(Destination.DASHBOARD)
+                    vm.setDestination(Destination.SETTINGS)
                 }
                 if (state.runtime.needsDecision) RuntimePanel(
                     state, vm, showUpdateTools = false

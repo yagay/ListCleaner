@@ -105,7 +105,7 @@ class MainActivity : ComponentActivity() {
                 dismissButton = {
                     AdaptiveTextButton(onClick = {
                         restartPromptDismissed = true
-                        vm.setDestination(Destination.DASHBOARD)
+                        vm.setDestination(Destination.SETTINGS)
                     }) {
                         AdaptiveText(stringResource(R.string.restart_required_open_status))
                     }
@@ -173,7 +173,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         LaunchedEffect(state.destination) {
-            if (state.destination == Destination.DASHBOARD || state.destination == Destination.SETTINGS) closeSearch()
+            if (state.destination == Destination.SETTINGS) closeSearch()
         }
         LifecycleResumeEffect(vm) {
             vm.refreshModuleStatus()
@@ -230,7 +230,6 @@ class MainActivity : ComponentActivity() {
                 }
                 Destination.PRIORITY -> vm.refresh(forceCatalog = true)
                 Destination.TILES -> vm.refreshComponents()
-                Destination.DASHBOARD -> vm.refreshModuleStatus()
                 Destination.SETTINGS -> vm.refreshModuleStatus()
             }
         }
@@ -244,21 +243,17 @@ class MainActivity : ComponentActivity() {
                     )
                     Destination.PRIORITY -> PriorityTab(state, vm)
                     Destination.TILES -> RootComponentsScreen(state, vm)
-                    Destination.DASHBOARD -> DashboardTabContent(
-                        state,
-                        vm,
-                        collectingDiagnostics,
-                        {
-                            val stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
-                            diagnosticExport.launch("ListCleaner-diagnostic-$stamp.zip")
-                        },
-                        { fileCheck.launch(arrayOf("*/*")) }
-                    )
                     Destination.SETTINGS -> SettingsTabContent(
                         state,
                         vm,
                         { restore.launch(arrayOf("application/json", "text/plain")) },
                         { export.launch("ListCleaner-backup.json") },
+                        collectingDiagnostics,
+                        {
+                            val stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
+                            diagnosticExport.launch("ListCleaner-diagnostic-$stamp.zip")
+                        },
+                        { fileCheck.launch(arrayOf("*/*")) },
                         colorMode = colorMode,
                         onColorModeChange = onColorModeChange
                     )
@@ -277,7 +272,7 @@ class MainActivity : ComponentActivity() {
                     onRefresh,
                     { restore.launch(arrayOf("application/json", "text/plain")) },
                     { export.launch("ListCleaner-backup.json") },
-                    showSearch = state.destination != Destination.DASHBOARD && state.destination != Destination.SETTINGS
+                    showSearch = state.destination != Destination.SETTINGS
                 )
             },
             bottomBar = {

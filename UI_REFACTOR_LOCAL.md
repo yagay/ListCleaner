@@ -23,6 +23,7 @@
 
 ## 独立设置入口
 
-- 底部导航增加 `Destination.SETTINGS`（设置齿轮），沿用 `MaterialActionColors.navigation()` 的选中与未选中配色。
-- `SettingsTabContent` 承载外观模式、全局清理模式、数据备份、应用隐藏列表和诊断模式开关；`DashboardTabContent` 状态页只保留模块运行/同步/命中及诊断操作，避免功能在两个导航页面重复。
-- 状态及设置页禁用搜索入口。返回逻辑与已有底部导航保持一致，不改变规则、Root 或 Hook 行为。
+- 底部“设置”使用 `Destination.SETTINGS`（齿轮），沿用 `MaterialActionColors.navigation()` 的统一选中与未选中配色。
+- 底部导航仅有清理、排序、设置三项；不再存在独立的 `Destination.DASHBOARD` / `DashboardTabContent`。
+- `SettingsTabContent` 在同一滚动设置页承载外观模式、全局清理模式、备份、应用隐藏列表、诊断模式开关，以及原状态页的 RuntimePanel、同步状态、Hook 命中统计、模块作用域入口、文件预览与诊断导出操作。
+- 所有模块状态/运行异常的旧跳转直接进入设置；设置页禁用搜索入口。保留共享组件、状态数据来源、返回逻辑和 Root/Hook 行为，不再维护两个重复页面。

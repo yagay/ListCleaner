@@ -63,12 +63,12 @@ required = {
     "MainControls.kt": ["UiCardVariant.STATUS", "warning = true"],
     "MainActivity.kt": ["NavigationBarItem(", "colors = MaterialActionColors.navigation()",
                         "Destination.SETTINGS -> SettingsTabContent(",
-                        "state.destination != Destination.DASHBOARD && state.destination != Destination.SETTINGS"],
+                        "state.destination != Destination.SETTINGS"],
     "RuntimePanel.kt": ["UiCardVariant.STATUS"],
     "WorkspaceAppRow.kt": ["MaterialAppRowBody(", "MaterialUiTokens.listRowHeight"],
     "AppScopePicker.kt": ["MaterialAppRowBody(", "MaterialFullScreenDialog("],
     "ScopeScreen.kt": ["MaterialFullScreenDialog(", "MaterialDialogActions("],
-    "MainTabs.kt": ["SettingsTabContent(", "DashboardTabContent(",
+    "MainTabs.kt": ["SettingsTabContent(", "RuntimePanel(state, vm)",
                      "MaterialPageColumn {", "MaterialSectionCard {",
                      "MaterialSettingsRow("],
     "MainViewModel.kt": ["SETTINGS(Icons.Rounded.Settings)"],
@@ -82,6 +82,19 @@ for filename, symbols in required.items():
     for symbol in symbols:
         if symbol not in content:
             errors.append(f"{filename}: missing shared Material 3 component: {symbol}")
+
+# Status and diagnostics must live inside Settings, not in a separate navigation destination.
+for filename in ("MainActivity.kt", "MainTabs.kt", "MainViewModel.kt", "TextResources.kt",
+                 "EntryWorkspaceHome.kt", "PriorityDialog.kt"):
+    source = (root / filename).read_text(encoding="utf-8")
+    if "Destination.DASHBOARD" in source or "DashboardTabContent(" in source:
+        errors.append(f"{filename}: legacy Status destination remains; open Settings instead")
+settings_source = (root / "MainTabs.kt").read_text(encoding="utf-8")
+for symbol in ("RuntimePanel(state, vm)", "dashboard_sync_status", "dashboard_runtime_hits",
+               "dashboard_module_status", "dashboard_diagnostics", "ScopeDialog(",
+               "onCollectDiagnostics", "onInspectFile"):
+    if symbol not in settings_source:
+        errors.append(f"MainTabs.kt: Settings missing former Status feature: {symbol}")
 
 for filename in ("AppScopePicker.kt", "ScopeScreen.kt"):
     code = (root / filename).read_text(encoding="utf-8")
