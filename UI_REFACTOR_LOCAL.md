@@ -39,3 +39,11 @@
 - Android 13 以上的“应用语言”入口跳转系统逐应用语言设置，低版本打开应用信息。
 - “恢复默认设置”重置界面/列表/扫描偏好与明暗模式，不修改任何已保存的规则、锁定、Root 组件、优先排序或 Hook。
 - 原 `UiAppearanceStore` 继续存明暗模式；备份导入/导出的 JSON 仍只涉及清理数据，未混入 UI 偏好，确保旧版本兼容。
+
+## 六个独立设置分类（test3）
+
+- **设置首页** 不再把所有设置堆在同一长页面里；`SettingsCenterHome` 使用一个共享的分组列表容器，每一行统一图标、标题、说明、右箭头和 Material 3 卡片样式。
+- 独立二级页面：`SettingsSection.APPEARANCE` 外观与主题、`LISTS` 列表与显示、`SCANNING` 扫描与刷新、`COMPATIBILITY` 清理与兼容、`BACKUP` 备份与恢复、`ADVANCED` 高级与诊断。
+- 每个分类的内容仍使用 `MaterialPageColumn` / `MaterialSectionCard` 和现有状态流；不重复实现 Hook、Root、备份、列表或外观偏好的任何业务逻辑。
+- 子页面由 `rememberSaveable` 保存导航层级，二级内容页的返回箭头和安卓 Back 返回设置首页；不增加底部导航目的地。原“状态”相关内容全部位于“高级与诊断”。
+- 恢复默认界面设置放在“外观与主题”，不会清空清理规则。备份页明确告知 JSON 不含独立 UI 偏好。

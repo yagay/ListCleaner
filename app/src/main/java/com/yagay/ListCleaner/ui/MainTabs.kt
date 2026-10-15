@@ -540,6 +540,14 @@ internal fun SettingsTabContent(
     colorMode: UiColorMode,
     onColorModeChange: (UiColorMode) -> Unit,
 ) {
+    var selectedSection by rememberSaveable { mutableStateOf<SettingsSection?>(null) }
+    BackHandler(enabled = selectedSection != null) { selectedSection = null }
+    val section = selectedSection
+    if (section == null) {
+        SettingsCenterHome(onSelect = { selectedSection = it })
+        return
+    }
+
     val colorModeLabels = UiColorMode.entries.map { mode ->
         stringResource(
             when (mode) {
@@ -566,8 +574,23 @@ internal fun SettingsTabContent(
         ) { showAppScopePicker = false }
     }
 
+
     MaterialPageColumn {
-        PageSectionTitle(stringResource(R.string.ui_appearance_title))
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap)
+        ) {
+            AdaptiveBackButton(onClick = { selectedSection = null })
+            AdaptiveText(
+                stringResource(section.titleRes),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+
+        when (section) {
+            SettingsSection.APPEARANCE -> {
         MaterialSectionCard {
                 AdaptiveText(stringResource(R.string.ui_color_mode_title), fontWeight = FontWeight.Medium)
                 Row(
@@ -591,14 +614,15 @@ internal fun SettingsTabContent(
 
         SettingsAppearanceControls()
         SettingsLanguageControls()
-
-        PageSectionTitle(stringResource(R.string.settings_list_section))
+        SettingsResetControls(onColorModeChange)
+            }
+            SettingsSection.LISTS -> {
         SettingsListControls()
-
-        PageSectionTitle(stringResource(R.string.settings_scan_section))
+            }
+            SettingsSection.SCANNING -> {
         SettingsScanControls(vm)
-
-        PageSectionTitle(stringResource(R.string.settings_compat_section))
+            }
+            SettingsSection.COMPATIBILITY -> {
         PageSectionTitle(stringResource(R.string.dashboard_global_mode))
         MaterialSectionCard {
             
@@ -624,17 +648,6 @@ internal fun SettingsTabContent(
                 }
             
         }
-
-        PageSectionTitle(stringResource(R.string.dashboard_data_backup))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap)) {
-            AdaptiveButton(onClick = onRestore, modifier = Modifier.weight(1f)) {
-                AdaptiveText(stringResource(R.string.dashboard_restore_json))
-            }
-            AdaptiveOutlinedButton(onClick = onExport, modifier = Modifier.weight(1f)) {
-                AdaptiveText(stringResource(R.string.dashboard_export_json))
-            }
-        }
-
         MaterialSectionCard {
                 
                     AdaptiveText(stringResource(R.string.dashboard_app_visibility), fontWeight = FontWeight.Bold)
@@ -649,10 +662,23 @@ internal fun SettingsTabContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-
-        SettingsResetControls(onColorModeChange)
-
-        PageSectionTitle(stringResource(R.string.settings_advanced_section))
+            }
+            SettingsSection.BACKUP -> {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap)) {
+            AdaptiveButton(onClick = onRestore, modifier = Modifier.weight(1f)) {
+                AdaptiveText(stringResource(R.string.dashboard_restore_json))
+            }
+            AdaptiveOutlinedButton(onClick = onExport, modifier = Modifier.weight(1f)) {
+                AdaptiveText(stringResource(R.string.dashboard_export_json))
+            }
+        }
+                AdaptiveText(
+                    stringResource(R.string.settings_backup_note),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            SettingsSection.ADVANCED -> {
         PageSectionTitle(stringResource(R.string.diagnostic_mode))
         MaterialSectionCard {
                     MaterialSettingsRow(
@@ -723,13 +749,7 @@ internal fun SettingsTabContent(
                 }
                 AdaptiveText(stringResource(R.string.diagnostic_export_help), style = MaterialTheme.typography.labelSmall)
             }
-
-        Spacer(Modifier.height(32.dp))
-        AdaptiveText(
-            stringResource(R.string.app_version_format, stringResource(R.string.app_name), BuildConfig.VERSION_NAME),
-            modifier = Modifier.align(Alignment.CenterHorizontally),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+            }
+        }
     }
 }
