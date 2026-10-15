@@ -50,7 +50,7 @@ fun RulesTab(
     var editingTitle by remember { mutableStateOf<com.yagay.ListCleaner.domain.ComponentCandidate?>(null) }
     var showCustomTypes by rememberSaveable { mutableStateOf(false) }
     var showBrowserHosts by rememberSaveable { mutableStateOf(false) }
-    var appTypeFilter by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.defaultAppType) }
+    var appTypeFilter by rememberSaveable { mutableStateOf(UiPreferencesStore.initialAppType(prefsContext, "rules")) }
     var ruleHelpExpanded by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.openHelpByDefault) }
     // Three-level navigation lives in the UI only. The existing IntentKind
     // and rule store remain the single source of truth for operations.
@@ -208,7 +208,8 @@ fun RulesTab(
                 typedSelected,
                 IntentKind.OPEN,
                 state.query,
-                state.uiFilter
+                state.uiFilter,
+                UiPreferencesRuntime.current.appSort
             )
             deepLinkHost != null -> groupCandidates(
                 state.candidates.filter {
@@ -218,7 +219,8 @@ fun RulesTab(
                 deepLinkSelected,
                 IntentKind.DEEP_LINK,
                 state.query,
-                state.uiFilter
+                state.uiFilter,
+                UiPreferencesRuntime.current.appSort
             )
             else -> state.groups
         }
@@ -239,6 +241,14 @@ fun RulesTab(
     }
     val shownGroups = remember(lockFilteredGroups, appTypeFilter) {
         lockFilteredGroups.filter { appTypeFilter.matches(it.appType) }
+    }
+    LaunchedEffect(state.filter, openPreset, browserHost, shownGroups.firstOrNull()?.packageName,
+        UiPreferencesRuntime.current.expandFirstApp) {
+        if (UiPreferencesRuntime.current.expandFirstApp && state.expandedAppKey == null) {
+            shownGroups.firstOrNull()?.let { group ->
+                vm.toggleExpandedApp("${state.filter?.name ?: "ALL"}|${openPreset?.name ?: browserHost ?: "ALL"}|${group.packageName}")
+            }
+        }
     }
     val activeSelected = when {
         typedOpenPreset != null -> typedSelected
@@ -281,7 +291,7 @@ fun RulesTab(
                         appTypeFilter = appTypeFilter,
                         onAppTypeFilter = {
                             appTypeFilter = it
-                            UiPreferencesStore.rememberAppType(prefsContext, it)
+                            UiPreferencesStore.rememberAppType(prefsContext, it, "rules")
                         },
                         showEntryGroups = false,
                         externalHelpExpanded = ruleHelpExpanded,
