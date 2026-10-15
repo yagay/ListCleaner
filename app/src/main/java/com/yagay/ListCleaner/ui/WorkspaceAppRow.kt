@@ -35,6 +35,7 @@ internal fun WorkspaceAppRow(
     onLock: () -> Unit,
     onUnlock: () -> Unit,
     selection: @Composable () -> Unit,
+    packageName: String? = null,
     modifier: Modifier = Modifier,
     details: @Composable ColumnScope.() -> Unit = {},
     trailing: @Composable RowScope.() -> Unit = {}
@@ -49,6 +50,7 @@ internal fun WorkspaceAppRow(
             icon = icon,
             title = title,
             subtitle = subtitle,
+            packageName = packageName,
             modifier = modifier.combinedClickable(
                 onClickLabel = expandLabel,
                 onClick = onExpand,
@@ -101,6 +103,7 @@ internal fun MaterialAppRowBody(
     subtitle: String,
     modifier: Modifier = Modifier,
     selection: @Composable RowScope.() -> Unit,
+    packageName: String? = null,
     details: @Composable ColumnScope.() -> Unit = {},
     trailing: @Composable RowScope.() -> Unit = {}
 ) {
@@ -123,16 +126,20 @@ internal fun MaterialAppRowBody(
                 title,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
-                maxLines = 1,
+                maxLines = UiPreferencesRuntime.current.appTitleLines,
                 overflow = TextOverflow.Ellipsis
             )
             AdaptiveText(
                 subtitle,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
+                maxLines = UiPreferencesRuntime.current.appSubtitleLines,
                 overflow = TextOverflow.Ellipsis
             )
+            if (UiPreferencesRuntime.current.showPackageNames && !packageName.isNullOrBlank()) {
+                AdaptiveText(packageName, style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
             details()
         }
         trailing()
