@@ -48,13 +48,13 @@ private fun <T> SettingsChoices(
 
 @Composable
 private fun SettingsSlider(
-    title: String, value: Int, low: Int, high: Int, onChange: (Int) -> Unit
+    title: String, value: Int, low: Int, high: Int, suffix: String = "dp", onChange: (Int) -> Unit
 ) {
     val context = LocalContext.current
     Column {
         Row(Modifier.fillMaxWidth()) {
             AdaptiveText(title, modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
-            AdaptiveText("$value dp", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            AdaptiveText("$value $suffix", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Slider(
             value = value.toFloat(),
@@ -101,6 +101,22 @@ internal fun SettingsAppearanceControls() {
         }
         SettingsSlider(stringResource(R.string.settings_icon_size), current.appIconSize, 28, 56) {
             UiPreferencesRuntime.apply(UiPreferencesRuntime.current.copy(appIconSize = it))
+        }
+        SettingsSlider(stringResource(R.string.lc_font_scale), current.fontScalePercent, 80, 140, suffix = "%") {
+            UiPreferencesRuntime.apply(UiPreferencesRuntime.current.copy(fontScalePercent = it))
+        }
+        SettingsChoices(stringResource(R.string.lc_title_lines), current.appTitleLines,
+            listOf(1 to "1", 2 to "2", 3 to "3")) {
+            UiPreferencesStore.write(context, current.copy(appTitleLines = it))
+        }
+        SettingsChoices(stringResource(R.string.lc_subtitle_lines), current.appSubtitleLines,
+            listOf(1 to "1", 2 to "2", 3 to "3")) {
+            UiPreferencesStore.write(context, current.copy(appSubtitleLines = it))
+        }
+        MaterialSettingsRow(title = stringResource(R.string.lc_show_app_icons)) {
+            AdaptiveSwitch(checked = current.showAppIcons, onCheckedChange = {
+                UiPreferencesStore.write(context, current.copy(showAppIcons = it))
+            })
         }
         AdaptiveText(stringResource(R.string.settings_appearance_help),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -152,6 +168,26 @@ internal fun SettingsListControls() {
                 2 to stringResource(R.string.settings_two_columns)
             )
         ) { UiPreferencesStore.write(context, current.copy(homeColumns = it)) }
+        MaterialSettingsRow(title = stringResource(R.string.lc_show_package_names)) {
+            AdaptiveSwitch(checked = current.showPackageNames, onCheckedChange = {
+                UiPreferencesStore.write(context, current.copy(showPackageNames = it))
+            })
+        }
+        MaterialSettingsRow(title = stringResource(R.string.lc_expand_first_app)) {
+            AdaptiveSwitch(checked = current.expandFirstApp, onCheckedChange = {
+                UiPreferencesStore.write(context, current.copy(expandFirstApp = it))
+            })
+        }
+        MaterialSettingsRow(title = stringResource(R.string.lc_remember_search)) {
+            AdaptiveSwitch(checked = current.rememberPageSearch, onCheckedChange = {
+                UiPreferencesStore.write(context, current.copy(rememberPageSearch = it))
+            })
+        }
+        MaterialSettingsRow(title = stringResource(R.string.lc_drag_haptics)) {
+            AdaptiveSwitch(checked = current.dragHaptics, onCheckedChange = {
+                UiPreferencesStore.write(context, current.copy(dragHaptics = it))
+            })
+        }
         MaterialSettingsRow(
             title = stringResource(R.string.settings_remember_filters),
             supportingText = stringResource(R.string.settings_remember_filters_help)
@@ -191,6 +227,15 @@ internal fun SettingsScanControls(vm: MainViewModel) {
             SettingsSlider(
                 stringResource(R.string.settings_cache_minutes), current.scanCacheMinutes, 1, 60
             ) { UiPreferencesRuntime.apply(UiPreferencesRuntime.current.copy(scanCacheMinutes = it)) }
+        }
+        SettingsSlider(stringResource(R.string.lc_retry_seconds), current.scanRetrySeconds, 10, 180, suffix = "s") {
+            UiPreferencesRuntime.apply(UiPreferencesRuntime.current.copy(scanRetrySeconds = it))
+        }
+        MaterialSettingsRow(title = stringResource(R.string.lc_app_link_enrichment),
+            supportingText = stringResource(R.string.lc_app_link_enrichment_help)) {
+            AdaptiveSwitch(checked = current.appLinkEnrichment, onCheckedChange = {
+                UiPreferencesStore.write(context, current.copy(appLinkEnrichment = it))
+            })
         }
         AdaptiveText(stringResource(R.string.settings_scan_help),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
