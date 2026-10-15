@@ -112,7 +112,8 @@ internal class RootComponentsController(
                 busy = mutableBusy.value,
                 packageRevisionChanged = packageChangeRevision() != lastScannedPackageRevision,
                 scanMode = UiPreferencesRuntime.current.scanMode,
-                freshnessMs = UiPreferencesRuntime.current.scanCacheMinutes * 60_000L
+                freshnessMs = UiPreferencesRuntime.current.scanCacheMinutes * 60_000L,
+                retryAfterFailureMs = UiPreferencesRuntime.current.scanRetrySeconds * 1000L
             )) return
         refresh()
     }
