@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="lc_font_scale">文字大小</string>
+    <string name="lc_layout_spacing">全局界面间距</string>
     <string name="lc_title_lines">应用名称行数</string>
     <string name="lc_subtitle_lines">副标题行数</string>
     <string name="lc_show_app_icons">显示应用图标</string>

@@ -35,6 +35,7 @@ internal data class UiPreferences(
     val scanRetrySeconds: Int = 30,
     val appLinkEnrichment: Boolean = true,
     val fontScalePercent: Int = 100,
+    val layoutSpacingPercent: Int = 100,
     val appTitleLines: Int = 1,
     val appSubtitleLines: Int = 1,
     val showAppIcons: Boolean = true,
@@ -52,6 +53,7 @@ internal data class UiPreferences(
         homeColumns = homeColumns.coerceIn(1, 2),
         scanRetrySeconds = scanRetrySeconds.coerceIn(10, 180),
         fontScalePercent = fontScalePercent.coerceIn(80, 140),
+        layoutSpacingPercent = layoutSpacingPercent.coerceIn(70, 150),
         appTitleLines = appTitleLines.coerceIn(1, 3),
         appSubtitleLines = appSubtitleLines.coerceIn(1, 3)
     )
@@ -98,6 +100,7 @@ internal object UiPreferencesStore {
             scanRetrySeconds = p.getInt("scan_retry_seconds", defaults.scanRetrySeconds),
             appLinkEnrichment = p.getBoolean("app_link_enrichment", defaults.appLinkEnrichment),
             fontScalePercent = p.getInt("font_scale_percent", defaults.fontScalePercent),
+            layoutSpacingPercent = p.getInt("layout_spacing_percent", defaults.layoutSpacingPercent),
             appTitleLines = p.getInt("app_title_lines", defaults.appTitleLines),
             appSubtitleLines = p.getInt("app_subtitle_lines", defaults.appSubtitleLines),
             showAppIcons = p.getBoolean("show_app_icons", defaults.showAppIcons),
@@ -129,6 +132,7 @@ internal object UiPreferencesStore {
             .putInt("scan_retry_seconds", safe.scanRetrySeconds)
             .putBoolean("app_link_enrichment", safe.appLinkEnrichment)
             .putInt("font_scale_percent", safe.fontScalePercent)
+            .putInt("layout_spacing_percent", safe.layoutSpacingPercent)
             .putInt("app_title_lines", safe.appTitleLines)
             .putInt("app_subtitle_lines", safe.appSubtitleLines)
             .putBoolean("show_app_icons", safe.showAppIcons)
@@ -178,7 +182,7 @@ internal object UiPreferencesStore {
         "default_app_type", "scan_mode", "last_filter_rules", "last_filter_priority", "last_filter_components",
         "last_app_type_rules", "last_app_type_priority", "last_app_type_components")
     private val backupIntKeys = setOf("card_radius", "button_height", "app_icon_size", "list_row_height",
-        "home_columns", "scan_cache_minutes", "scan_retry_seconds", "font_scale_percent",
+        "home_columns", "scan_cache_minutes", "scan_retry_seconds", "font_scale_percent", "layout_spacing_percent",
         "app_title_lines", "app_subtitle_lines")
     private val backupBoolKeys = setOf("remember_filters", "help_default", "app_link_enrichment",
         "show_app_icons", "show_package_names", "remember_page_search", "expand_first_app", "drag_haptics")
@@ -201,6 +205,7 @@ internal object UiPreferencesStore {
         snapshot.put("scan_cache_minutes", v.scanCacheMinutes)
         snapshot.put("scan_retry_seconds", v.scanRetrySeconds)
         snapshot.put("font_scale_percent", v.fontScalePercent)
+        snapshot.put("layout_spacing_percent", v.layoutSpacingPercent)
         snapshot.put("app_title_lines", v.appTitleLines)
         snapshot.put("app_subtitle_lines", v.appSubtitleLines)
         snapshot.put("remember_filters", v.rememberFilters)

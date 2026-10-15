@@ -33,11 +33,11 @@ import androidx.compose.ui.window.DialogProperties
 internal object MaterialUiTokens {
     // Compose observes preferences when a public token is read during composition.
     // All features continue using this one geometry contract.
-    private val density: Float get() = when (UiPreferencesRuntime.current.density) {
+    private val density: Float get() = (when (UiPreferencesRuntime.current.density) {
         UiDensity.COMPACT -> 0.85f
         UiDensity.STANDARD -> 1f
         UiDensity.COMFORTABLE -> 1.15f
-    }
+    }) * (UiPreferencesRuntime.current.layoutSpacingPercent / 100f)
     val pageHorizontal get() = (16f * density).dp
     val pageVertical get() = (12f * density).dp
     val sectionGap get() = (14f * density).dp

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="lc_font_scale">Text size</string>
+    <string name="lc_layout_spacing">Global layout spacing</string>
     <string name="lc_title_lines">App name lines</string>
     <string name="lc_subtitle_lines">Subtitle lines</string>
     <string name="lc_show_app_icons">Show app icons</string>

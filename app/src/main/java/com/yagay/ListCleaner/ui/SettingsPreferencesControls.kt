@@ -105,6 +105,9 @@ internal fun SettingsAppearanceControls() {
         SettingsSlider(stringResource(R.string.lc_font_scale), current.fontScalePercent, 80, 140, suffix = "%") {
             UiPreferencesRuntime.apply(UiPreferencesRuntime.current.copy(fontScalePercent = it))
         }
+        SettingsSlider(stringResource(R.string.lc_layout_spacing), current.layoutSpacingPercent, 70, 150, suffix = "%") {
+            UiPreferencesRuntime.apply(UiPreferencesRuntime.current.copy(layoutSpacingPercent = it))
+        }
         SettingsChoices(stringResource(R.string.lc_title_lines), current.appTitleLines,
             listOf(1 to "1", 2 to "2", 3 to "3")) {
             UiPreferencesStore.write(context, current.copy(appTitleLines = it))
