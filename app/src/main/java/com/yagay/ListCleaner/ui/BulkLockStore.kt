@@ -57,6 +57,28 @@ internal class BulkLockStore(context: Context) {
     }
 
     private fun entries(): Set<String> = cachedEntries
+
+    fun exportSnapshot(): Set<String> = entries().toSet()
+
+    /** Validate backup keys before updating the live cache or affecting any bulk operation. */
+    fun validateSnapshot(values: Collection<String>) {
+        require(values.size <= 20_000)
+        require(values.all { key ->
+            key.length in 3..1024 &&
+                key.split(SEPARATOR).let { parts ->
+                    parts.size == 3 &&
+                        (parts[0].startsWith("rules:") || parts[0].startsWith("priority:") ||
+                            parts[0].startsWith("components:")) &&
+                        parts[1] in setOf("app", "item") &&
+                        parts[2].isNotBlank()
+                }
+        })
+    }
+
+    fun restoreSnapshot(values: Collection<String>) {
+        validateSnapshot(values)
+        persist(values.toSet())
+    }
     private fun appKey(scope: String, appId: String) = listOf(scope, "app", appId).joinToString(SEPARATOR)
     private fun itemKey(scope: String, itemId: String) = listOf(scope, "item", itemId).joinToString(SEPARATOR)
 
