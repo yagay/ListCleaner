@@ -225,7 +225,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val query = MutableStateFlow("")
     @OptIn(kotlinx.coroutines.FlowPreview::class)
     private val debouncedQuery = query.debounce(120).distinctUntilChanged()
-    private val uiFilter = MutableStateFlow(UiPreferencesRuntime.current.defaultFilter)
+    private val uiFilter = MutableStateFlow(UiPreferencesStore.initialFilter(app, "rules"))
     private val moduleStatus: StateFlow<ModuleStatus> = moduleRuntime.status
     private val destination = MutableStateFlow(UiPreferencesRuntime.current.startPage.destination())
     private val expandedAppKey = MutableStateFlow<String?>(null)
