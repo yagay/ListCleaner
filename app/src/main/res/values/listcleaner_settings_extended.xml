@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lc_font_scale">Text size</string>
+    <string name="lc_title_lines">App name lines</string>
+    <string name="lc_subtitle_lines">Subtitle lines</string>
+    <string name="lc_show_app_icons">Show app icons</string>
+    <string name="lc_show_package_names">Show package names</string>
+    <string name="lc_expand_first_app">Expand first app by default</string>
+    <string name="lc_remember_search">Remember search per page</string>
+    <string name="lc_drag_haptics">Vibrate when starting drag</string>
+    <string name="lc_retry_seconds">Scan retry delay</string>
+    <string name="lc_app_link_enrichment">Scan App Links in background</string>
+    <string name="lc_app_link_enrichment_help">Turning this off skips background domain discovery. Manual refresh still runs it.</string>
+</resources>
