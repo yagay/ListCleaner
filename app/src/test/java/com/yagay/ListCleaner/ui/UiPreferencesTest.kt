@@ -19,6 +19,36 @@ class UiPreferencesTest {
         assertEquals(2, preferences.homeColumns)
     }
 
+    @Test fun extendedDisplayAndRetrySettingsAreClamped() {
+        val preferences = UiPreferences(
+            fontScalePercent = 300,
+            appTitleLines = -1,
+            appSubtitleLines = 20,
+            scanRetrySeconds = 500
+        ).normalized()
+        assertEquals(140, preferences.fontScalePercent)
+        assertEquals(1, preferences.appTitleLines)
+        assertEquals(3, preferences.appSubtitleLines)
+        assertEquals(180, preferences.scanRetrySeconds)
+    }
+
+    @Test fun configurableFailureCooldownDoesNotChangeManualScanSafety() {
+        assertFalse(ComponentScanRefreshPolicy.shouldRefresh(
+            nowElapsedMs = 35_000L,
+            lastFullScanElapsedMs = -1L,
+            lastAttemptElapsedMs = 20_000L,
+            busy = false,
+            retryAfterFailureMs = 20_000L
+        ))
+        assertTrue(ComponentScanRefreshPolicy.shouldRefresh(
+            nowElapsedMs = 41_000L,
+            lastFullScanElapsedMs = -1L,
+            lastAttemptElapsedMs = 20_000L,
+            busy = false,
+            retryAfterFailureMs = 20_000L
+        ))
+    }
+
     @Test fun openingPageMapsToExistingDestinations() {
         assertEquals(Destination.RULES, UiStartPage.CLEANUP.destination())
         assertEquals(Destination.PRIORITY, UiStartPage.ORDERING.destination())
