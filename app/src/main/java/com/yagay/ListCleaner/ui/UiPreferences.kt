@@ -1,6 +1,7 @@
 package com.yagay.ListCleaner.ui
 
 import android.content.Context
+import org.json.JSONObject
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -171,6 +172,63 @@ internal object UiPreferencesStore {
             context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
                 .putString(pageKey(page, "app_type"), appType.name).apply()
         }
+    }
+
+    private val backupStringKeys = buildSet {
+        addAll(listOf("density", "accent", "start_page", "app_sort",
+            "default_filter", "default_app_type", "scan_mode", "appearance_color_mode"))
+        for (page in listOf("rules", "priority", "components")) {
+            add(pageKey(page, "filter"))
+            add(pageKey(page, "app_type"))
+        }
+    }
+    private val backupIntKeys = setOf("card_radius", "button_height", "app_icon_size", "list_row_height",
+        "home_columns", "scan_cache_minutes", "scan_retry_seconds", "font_scale_percent",
+        "app_title_lines", "app_subtitle_lines")
+    private val backupBooleanKeys = setOf("remember_filters", "help_default", "app_link_enrichment",
+        "show_app_icons", "show_package_names", "remember_page_search", "expand_first_app", "drag_haptics")
+
+    fun exportSnapshot(context: Context): JSONObject {
+        val values = context.getSharedPreferences(FILE, Context.MODE_PRIVATE).all
+        val snapshot = JSONObject()
+        for ((key, value) in values) {
+            if ((key in backupStringKeys && value is String) ||
+                (key in backupIntKeys && value is Int) ||
+                (key in backupBooleanKeys && value is Boolean)) {
+                snapshot.put(key, value)
+            }
+        }
+        snapshot.put("appearance_color_mode", UiAppearanceStore.readColorMode(context).name)
+        return snapshot
+    }
+
+    fun validateSnapshot(snapshot: JSONObject) {
+        require(snapshot.length() <= backupStringKeys.size + backupIntKeys.size + backupBooleanKeys.size)
+        for (key in snapshot.keys()) {
+            val value = snapshot.get(key)
+            require(when (key) {
+                in backupStringKeys -> value is String && value.length <= 256
+                in backupIntKeys -> value is Number && value.toInt() in -1000..10000
+                in backupBooleanKeys -> value is Boolean
+                else -> false
+            }) { "Invalid preference backup entry: $key" }
+        }
+    }
+
+    fun importSnapshot(context: Context, snapshot: JSONObject) {
+        validateSnapshot(snapshot)
+        val editor = context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
+        for (key in snapshot.keys()) {
+            when (key) {
+                "appearance_color_mode" ->
+                    UiAppearanceStore.writeColorMode(context, UiColorMode.fromStored(snapshot.getString(key)))
+                in backupStringKeys -> editor.putString(key, snapshot.getString(key))
+                in backupIntKeys -> editor.putInt(key, snapshot.getInt(key))
+                in backupBooleanKeys -> editor.putBoolean(key, snapshot.getBoolean(key))
+            }
+        }
+        editor.apply()
+        UiPreferencesRuntime.apply(read(context))
     }
 
     fun reset(context: Context) {
