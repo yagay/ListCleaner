@@ -56,6 +56,7 @@ internal fun AppRow(
     WorkspaceAppRow(
         icon = group.appIcon,
         title = group.appLabel,
+        packageName = group.packageName,
         subtitle = stringResource(
             R.string.app_row_selection_summary, selectedCount,
             group.components.size, kindTitles.joinToString(" · ")
@@ -207,6 +208,7 @@ private fun ComponentSelectionMark(checked: Boolean) {
 
 @Composable
 internal fun AppIcon(bitmap: Bitmap?, appLabel: String) {
+    if (!UiPreferencesRuntime.current.showAppIcons) return
     Box(
         modifier = Modifier.size(MaterialUiTokens.appIconSize)
             .clip(MaterialUiTokens.appIconShape)
