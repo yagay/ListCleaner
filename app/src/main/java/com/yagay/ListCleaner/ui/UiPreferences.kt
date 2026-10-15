@@ -1,7 +1,6 @@
 package com.yagay.ListCleaner.ui
 
 import android.content.Context
-import org.json.JSONObject
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -174,62 +173,54 @@ internal object UiPreferencesStore {
         }
     }
 
-    private val backupStringKeys = buildSet {
-        addAll(listOf("density", "accent", "start_page", "app_sort",
-            "default_filter", "default_app_type", "scan_mode", "appearance_color_mode"))
-        for (page in listOf("rules", "priority", "components")) {
-            add(pageKey(page, "filter"))
-            add(pageKey(page, "app_type"))
-        }
-    }
-    private val backupIntKeys = setOf("card_radius", "button_height", "app_icon_size", "list_row_height",
-        "home_columns", "scan_cache_minutes", "scan_retry_seconds", "font_scale_percent",
-        "app_title_lines", "app_subtitle_lines")
-    private val backupBooleanKeys = setOf("remember_filters", "help_default", "app_link_enrichment",
-        "show_app_icons", "show_package_names", "remember_page_search", "expand_first_app", "drag_haptics")
-
-    fun exportSnapshot(context: Context): JSONObject {
+    /** Export only known manager preferences; v1–v11 backups leave them unchanged. */
+    fun backupValues(context: Context): Map<String, String> {
         val values = context.getSharedPreferences(FILE, Context.MODE_PRIVATE).all
-        val snapshot = JSONObject()
-        for ((key, value) in values) {
-            if ((key in backupStringKeys && value is String) ||
-                (key in backupIntKeys && value is Int) ||
-                (key in backupBooleanKeys && value is Boolean)) {
-                snapshot.put(key, value)
-            }
-        }
-        snapshot.put("appearance_color_mode", UiAppearanceStore.readColorMode(context).name)
-        return snapshot
+        return backupKeys.mapNotNull { key ->
+            val value = values[key]
+            if (value is String || value is Int || value is Boolean) key to value.toString()
+            else null
+        }.toMap()
     }
 
-    fun validateSnapshot(snapshot: JSONObject) {
-        require(snapshot.length() <= backupStringKeys.size + backupIntKeys.size + backupBooleanKeys.size)
-        for (key in snapshot.keys()) {
-            val value = snapshot.get(key)
-            require(when (key) {
-                in backupStringKeys -> value is String && value.length <= 256
-                in backupIntKeys -> value is Number && value.toInt() in -1000..10000
-                in backupBooleanKeys -> value is Boolean
-                else -> false
-            }) { "Invalid preference backup entry: $key" }
-        }
-    }
-
-    fun importSnapshot(context: Context, snapshot: JSONObject) {
-        validateSnapshot(snapshot)
+    fun restoreBackupValues(context: Context, values: Map<String, String>) {
+        require(values.size <= backupKeys.size && values.all { (key, value) ->
+            key in backupKeys && value.length <= 120
+        }) { "Invalid UI settings backup" }
         val editor = context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
-        for (key in snapshot.keys()) {
+        backupKeys.forEach { editor.remove(it) }
+        values.forEach { (key, value) ->
             when (key) {
-                "appearance_color_mode" ->
-                    UiAppearanceStore.writeColorMode(context, UiColorMode.fromStored(snapshot.getString(key)))
-                in backupStringKeys -> editor.putString(key, snapshot.getString(key))
-                in backupIntKeys -> editor.putInt(key, snapshot.getInt(key))
-                in backupBooleanKeys -> editor.putBoolean(key, snapshot.getBoolean(key))
+                in textKeys -> editor.putString(key, value)
+                in numberKeys -> value.toIntOrNull()?.let { editor.putInt(key, it) }
+                in toggleKeys -> when (value) {
+                    "true" -> editor.putBoolean(key, true)
+                    "false" -> editor.putBoolean(key, false)
+                    else -> Unit
+                }
             }
         }
         editor.apply()
         UiPreferencesRuntime.apply(read(context))
     }
+
+    private val textKeys = setOf(
+        "density", "accent", "start_page", "app_sort", "default_filter",
+        "default_app_type", "scan_mode",
+        "last_filter_rules", "last_filter_priority", "last_filter_components",
+        "last_app_type_rules", "last_app_type_priority", "last_app_type_components"
+    )
+    private val numberKeys = setOf(
+        "card_radius", "button_height", "app_icon_size", "list_row_height",
+        "home_columns", "scan_cache_minutes", "scan_retry_seconds",
+        "font_scale_percent", "app_title_lines", "app_subtitle_lines"
+    )
+    private val toggleKeys = setOf(
+        "remember_filters", "help_default", "app_link_enrichment",
+        "show_app_icons", "show_package_names", "remember_page_search",
+        "expand_first_app", "drag_haptics"
+    )
+    private val backupKeys get() = textKeys + numberKeys + toggleKeys
 
     fun reset(context: Context) {
         context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().clear().apply()

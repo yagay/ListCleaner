@@ -687,7 +687,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun previewImportJson(content: String) = app.rules.previewImportJson(content)
     fun exportJson(): String = app.rules.exportJson()
-    fun importJson(content: String) = app.rules.importJson(content)
+    fun importJson(content: String) {
+        app.rules.importJson(content)
+        bulkLocks.reloadFromDisk()
+    }
     fun setComponentTitle(ruleId: String, title: String?) {
         if (canEdit()) app.rules.setComponentTitle(ruleId, title)
     }

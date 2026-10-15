@@ -2,6 +2,10 @@ package com.yagay.ListCleaner.data
 
 import android.content.Context
 import com.yagay.ListCleaner.R
+import com.yagay.ListCleaner.ui.BulkLockStore
+import com.yagay.ListCleaner.ui.UiAppearanceStore
+import com.yagay.ListCleaner.ui.UiColorMode
+import com.yagay.ListCleaner.ui.UiPreferencesStore
 import com.yagay.ListCleaner.domain.AndroidUid
 import com.yagay.ListCleaner.domain.BrowserLinkConfig
 import com.yagay.ListCleaner.domain.ComponentRule
@@ -440,7 +444,7 @@ class RuleRepository(context: Context) {
     @Synchronized fun exportJson(): String = json.encodeToString(
         RuleBackup.serializer(),
         RuleBackup(
-            version = 11,
+            version = 12,
             blacklist = mutableMode.value != DisplayMode.SHOW_SELECTED,
             rules = mutableRules.value,
             priorities = mutablePriorities.value,
@@ -448,14 +452,17 @@ class RuleRepository(context: Context) {
             hiddenFromApps = mutableHiddenFromApps.value,
             openTypes = mutableOpenTypes.value,
             browserLinks = mutableBrowserLinks.value,
-            visibilityScopes = mutableVisibilityScopes.value
+            visibilityScopes = mutableVisibilityScopes.value,
+            uiSettings = UiPreferencesStore.backupValues(appContext),
+            colorMode = UiAppearanceStore.readColorMode(appContext).name,
+            bulkLocks = BulkLockStore(appContext).exportSnapshot()
         )
     )
 
     @Synchronized fun previewImportJson(content: String): BackupImportPreview {
         require(content.length <= MAX_BACKUP_CHARS) { appContext.getString(R.string.repo_backup_too_large) }
         val backup = json.decodeFromString(RuleBackup.serializer(), content)
-        require(backup.version in 1..11) {
+        require(backup.version in 1..12) {
             appContext.getString(R.string.repo_backup_unsupported_version, backup.version)
         }
         if (backup.version >= 3) requireNotNull(backup.displayMode) {
@@ -472,7 +479,7 @@ class RuleRepository(context: Context) {
     @Synchronized fun importJson(content: String) {
         require(content.length <= MAX_BACKUP_CHARS) { appContext.getString(R.string.repo_backup_too_large) }
         val backup = json.decodeFromString(RuleBackup.serializer(), content)
-        require(backup.version in 1..11) {
+        require(backup.version in 1..12) {
             appContext.getString(R.string.repo_backup_unsupported_version, backup.version)
         }
         val displayMode = if (backup.version >= 3) requireNotNull(backup.displayMode) {
@@ -493,6 +500,11 @@ class RuleRepository(context: Context) {
             ),
             backup.blacklist
         )
+        if (backup.version >= 12) {
+            UiPreferencesStore.restoreBackupValues(appContext, backup.uiSettings)
+            UiAppearanceStore.writeColorMode(appContext, UiColorMode.fromStored(backup.colorMode))
+            BulkLockStore(appContext).restoreSnapshot(backup.bulkLocks)
+        }
     }
 
     private fun applyConfig(config: ModuleConfig, legacyBlacklist: Boolean) {

@@ -130,6 +130,7 @@ class MainActivity : ComponentActivity() {
                             try {
                                 val previous = withContext(Dispatchers.IO) { vm.exportJson() }
                                 withContext(Dispatchers.IO) { vm.importJson(content) }
+                                onColorModeChange(UiAppearanceStore.readColorMode(this@MainActivity))
                                 val action = backupSnackbar.showSnackbar(
                                     getString(R.string.backup_restored),
                                     actionLabel = getString(R.string.backup_undo),
@@ -138,6 +139,7 @@ class MainActivity : ComponentActivity() {
                                 )
                                 if (action == SnackbarResult.ActionPerformed) {
                                     withContext(Dispatchers.IO) { vm.importJson(previous) }
+                                    onColorModeChange(UiAppearanceStore.readColorMode(this@MainActivity))
                                     toast(getString(R.string.backup_undo_done))
                                 }
                             } catch (cancelled: CancellationException) {
