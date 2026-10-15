@@ -173,55 +173,6 @@ internal object UiPreferencesStore {
         }
     }
 
-    /** Export only known manager preferences; v1–v11 backups leave them unchanged. */
-    fun backupValues(context: Context): Map<String, String> {
-        val values = context.getSharedPreferences(FILE, Context.MODE_PRIVATE).all
-        return backupKeys.mapNotNull { key ->
-            val value = values[key]
-            if (value is String || value is Int || value is Boolean) key to value.toString()
-            else null
-        }.toMap()
-    }
-
-    fun restoreBackupValues(context: Context, values: Map<String, String>) {
-        require(values.size <= backupKeys.size && values.all { (key, value) ->
-            key in backupKeys && value.length <= 120
-        }) { "Invalid UI settings backup" }
-        val editor = context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
-        backupKeys.forEach { editor.remove(it) }
-        values.forEach { (key, value) ->
-            when (key) {
-                in textKeys -> editor.putString(key, value)
-                in numberKeys -> value.toIntOrNull()?.let { editor.putInt(key, it) }
-                in toggleKeys -> when (value) {
-                    "true" -> editor.putBoolean(key, true)
-                    "false" -> editor.putBoolean(key, false)
-                    else -> Unit
-                }
-            }
-        }
-        editor.apply()
-        UiPreferencesRuntime.apply(read(context))
-    }
-
-    private val textKeys = setOf(
-        "density", "accent", "start_page", "app_sort", "default_filter",
-        "default_app_type", "scan_mode",
-        "last_filter_rules", "last_filter_priority", "last_filter_components",
-        "last_app_type_rules", "last_app_type_priority", "last_app_type_components"
-    )
-    private val numberKeys = setOf(
-        "card_radius", "button_height", "app_icon_size", "list_row_height",
-        "home_columns", "scan_cache_minutes", "scan_retry_seconds",
-        "font_scale_percent", "app_title_lines", "app_subtitle_lines"
-    )
-    private val toggleKeys = setOf(
-        "remember_filters", "help_default", "app_link_enrichment",
-        "show_app_icons", "show_package_names", "remember_page_search",
-        "expand_first_app", "drag_haptics"
-    )
-    private val backupKeys get() = textKeys + numberKeys + toggleKeys
-
     fun reset(context: Context) {
         context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().clear().apply()
         write(context, UiPreferences())

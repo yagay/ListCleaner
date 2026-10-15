@@ -112,9 +112,5 @@ data class RuleBackup(
     val openTypes: OpenTypeConfig = OpenTypeConfig(),
     /** User choice only; derived full-package targets are rebuilt from current catalog/rules. */
     val visibilityScopes: Set<VisibilityScope> = emptySet(),
-    val browserLinks: BrowserLinkConfig = BrowserLinkConfig(),
-    /** Manager-only preferences and bulk locks; never Root component disable commands. */
-    val uiSettings: Map<String, String> = emptyMap(),
-    val colorMode: String? = null,
-    val bulkLocks: Set<String> = emptySet()
+    val browserLinks: BrowserLinkConfig = BrowserLinkConfig()
 )

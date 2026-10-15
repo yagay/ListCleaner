@@ -2,10 +2,6 @@ package com.yagay.ListCleaner.data
 
 import android.content.Context
 import com.yagay.ListCleaner.R
-import com.yagay.ListCleaner.ui.BulkLockStore
-import com.yagay.ListCleaner.ui.UiAppearanceStore
-import com.yagay.ListCleaner.ui.UiColorMode
-import com.yagay.ListCleaner.ui.UiPreferencesStore
 import com.yagay.ListCleaner.domain.AndroidUid
 import com.yagay.ListCleaner.domain.BrowserLinkConfig
 import com.yagay.ListCleaner.domain.ComponentRule
@@ -452,10 +448,7 @@ class RuleRepository(context: Context) {
             hiddenFromApps = mutableHiddenFromApps.value,
             openTypes = mutableOpenTypes.value,
             browserLinks = mutableBrowserLinks.value,
-            visibilityScopes = mutableVisibilityScopes.value,
-            uiSettings = UiPreferencesStore.backupValues(appContext),
-            colorMode = UiAppearanceStore.readColorMode(appContext).name,
-            bulkLocks = BulkLockStore(appContext).exportSnapshot()
+            visibilityScopes = mutableVisibilityScopes.value
         )
     )
 
@@ -500,11 +493,6 @@ class RuleRepository(context: Context) {
             ),
             backup.blacklist
         )
-        if (backup.version >= 12) {
-            UiPreferencesStore.restoreBackupValues(appContext, backup.uiSettings)
-            UiAppearanceStore.writeColorMode(appContext, UiColorMode.fromStored(backup.colorMode))
-            BulkLockStore(appContext).restoreSnapshot(backup.bulkLocks)
-        }
     }
 
     private fun applyConfig(config: ModuleConfig, legacyBlacklist: Boolean) {
