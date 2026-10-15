@@ -1,6 +1,7 @@
 package com.yagay.ListCleaner.ui
 
 import android.content.Context
+import org.json.JSONObject
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -171,6 +172,81 @@ internal object UiPreferencesStore {
             context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
                 .putString(pageKey(page, "app_type"), appType.name).apply()
         }
+    }
+
+    private val backupTextKeys = setOf("density", "accent", "start_page", "app_sort", "default_filter",
+        "default_app_type", "scan_mode", "last_filter_rules", "last_filter_priority", "last_filter_components",
+        "last_app_type_rules", "last_app_type_priority", "last_app_type_components")
+    private val backupIntKeys = setOf("card_radius", "button_height", "app_icon_size", "list_row_height",
+        "home_columns", "scan_cache_minutes", "scan_retry_seconds", "font_scale_percent",
+        "app_title_lines", "app_subtitle_lines")
+    private val backupBoolKeys = setOf("remember_filters", "help_default", "app_link_enrichment",
+        "show_app_icons", "show_package_names", "remember_page_search", "expand_first_app", "drag_haptics")
+
+    fun exportSnapshot(context: Context): JSONObject {
+        val v = read(context)
+        val snapshot = JSONObject()
+        snapshot.put("density", v.density.name)
+        snapshot.put("accent", v.accent.name)
+        snapshot.put("start_page", v.startPage.name)
+        snapshot.put("app_sort", v.appSort.name)
+        snapshot.put("default_filter", v.defaultFilter.name)
+        snapshot.put("default_app_type", v.defaultAppType.name)
+        snapshot.put("scan_mode", v.scanMode.name)
+        snapshot.put("card_radius", v.cardRadius)
+        snapshot.put("button_height", v.buttonHeight)
+        snapshot.put("app_icon_size", v.appIconSize)
+        snapshot.put("list_row_height", v.listRowHeight)
+        snapshot.put("home_columns", v.homeColumns)
+        snapshot.put("scan_cache_minutes", v.scanCacheMinutes)
+        snapshot.put("scan_retry_seconds", v.scanRetrySeconds)
+        snapshot.put("font_scale_percent", v.fontScalePercent)
+        snapshot.put("app_title_lines", v.appTitleLines)
+        snapshot.put("app_subtitle_lines", v.appSubtitleLines)
+        snapshot.put("remember_filters", v.rememberFilters)
+        snapshot.put("help_default", v.openHelpByDefault)
+        snapshot.put("app_link_enrichment", v.appLinkEnrichment)
+        snapshot.put("show_app_icons", v.showAppIcons)
+        snapshot.put("show_package_names", v.showPackageNames)
+        snapshot.put("remember_page_search", v.rememberPageSearch)
+        snapshot.put("expand_first_app", v.expandFirstApp)
+        snapshot.put("drag_haptics", v.dragHaptics)
+        val stored = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+        backupTextKeys.filter { it.startsWith("last_") }.forEach { key ->
+            stored.getString(key, null)?.let { snapshot.put(key, it) }
+        }
+        snapshot.put("appearance_color_mode", UiAppearanceStore.readColorMode(context).name)
+        return snapshot
+    }
+
+    fun validateSnapshot(snapshot: JSONObject) {
+        require(snapshot.length() <= backupTextKeys.size + backupIntKeys.size + backupBoolKeys.size + 1)
+        for (key in snapshot.keys()) {
+            val value = snapshot.get(key)
+            require(when (key) {
+                in backupTextKeys, "appearance_color_mode" -> value is String && value.length <= 256
+                in backupIntKeys -> value is Number && value.toInt() in -1000..10000
+                in backupBoolKeys -> value is Boolean
+                else -> false
+            }) { "Invalid UI settings entry" }
+        }
+    }
+
+    fun importSnapshot(context: Context, snapshot: JSONObject) {
+        validateSnapshot(snapshot)
+        val editor = context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
+        (backupTextKeys + backupIntKeys + backupBoolKeys).forEach { editor.remove(it) }
+        for (key in snapshot.keys()) {
+            when (key) {
+                "appearance_color_mode" ->
+                    UiAppearanceStore.writeColorMode(context, UiColorMode.fromStored(snapshot.getString(key)))
+                in backupTextKeys -> editor.putString(key, snapshot.getString(key))
+                in backupIntKeys -> editor.putInt(key, snapshot.getInt(key))
+                in backupBoolKeys -> editor.putBoolean(key, snapshot.getBoolean(key))
+            }
+        }
+        editor.apply()
+        UiPreferencesRuntime.apply(read(context))
     }
 
     fun reset(context: Context) {
