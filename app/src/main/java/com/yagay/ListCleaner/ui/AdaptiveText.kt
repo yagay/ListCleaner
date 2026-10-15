@@ -39,9 +39,17 @@ internal fun AdaptiveText(
         text = text, modifier = modifier, color = color, fontSize = fontSize,
         fontStyle = fontStyle, fontWeight = fontWeight, fontFamily = fontFamily,
         letterSpacing = letterSpacing, textDecoration = textDecoration,
-        textAlign = textAlign, lineHeight = lineHeight, overflow = overflow,
+        textAlign = textAlign,
+        lineHeight = if (lineHeight == TextUnit.Unspecified) lineHeight else lineHeight * (UiPreferencesRuntime.current.fontScalePercent / 100f),
+        overflow = overflow,
         softWrap = softWrap, maxLines = maxLines, minLines = minLines,
-        style = if (style == TextStyle.Default) LocalTextStyle.current else style
+        style = (if (style == TextStyle.Default) LocalTextStyle.current else style).let { base ->
+            val scale = UiPreferencesRuntime.current.fontScalePercent / 100f
+            base.copy(
+                fontSize = if (base.fontSize == TextUnit.Unspecified) base.fontSize else base.fontSize * scale,
+                lineHeight = if (base.lineHeight == TextUnit.Unspecified) base.lineHeight else base.lineHeight * scale
+            )
+        }
     )
 }
 
@@ -68,8 +76,16 @@ internal fun AdaptiveText(
         text = text, modifier = modifier, color = color, fontSize = fontSize,
         fontStyle = fontStyle, fontWeight = fontWeight, fontFamily = fontFamily,
         letterSpacing = letterSpacing, textDecoration = textDecoration,
-        textAlign = textAlign, lineHeight = lineHeight, overflow = overflow,
+        textAlign = textAlign,
+        lineHeight = if (lineHeight == TextUnit.Unspecified) lineHeight else lineHeight * (UiPreferencesRuntime.current.fontScalePercent / 100f),
+        overflow = overflow,
         softWrap = softWrap, maxLines = maxLines, minLines = minLines,
-        style = if (style == TextStyle.Default) LocalTextStyle.current else style
+        style = (if (style == TextStyle.Default) LocalTextStyle.current else style).let { base ->
+            val scale = UiPreferencesRuntime.current.fontScalePercent / 100f
+            base.copy(
+                fontSize = if (base.fontSize == TextUnit.Unspecified) base.fontSize else base.fontSize * scale,
+                lineHeight = if (base.lineHeight == TextUnit.Unspecified) base.lineHeight else base.lineHeight * scale
+            )
+        }
     )
 }
