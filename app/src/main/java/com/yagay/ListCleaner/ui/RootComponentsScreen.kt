@@ -91,8 +91,8 @@ fun RootComponentsScreen(
         }
     }
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
-    var viewFilter by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.defaultFilter) }
-    var appTypeFilter by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.defaultAppType) }
+    var viewFilter by rememberSaveable { mutableStateOf(UiPreferencesStore.initialFilter(prefsContext, "components")) }
+    var appTypeFilter by rememberSaveable { mutableStateOf(UiPreferencesStore.initialAppType(prefsContext, "components")) }
     var expandedAppKey by rememberSaveable { mutableStateOf<String?>(null) }
     var detailsExpanded by rememberSaveable { mutableStateOf(false) }
     var pendingBatch by remember { mutableStateOf<PendingRootBatch?>(null) }
@@ -151,7 +151,8 @@ fun RootComponentsScreen(
     val lockItemsByApp = remember(kindItems) {
         kindItems.groupBy(::componentBulkLockAppId)
     }
-    val groups = remember(kindItems, appTypeFilter, viewFilter, state.query, bulkLockRevision) {
+    val appSort = UiPreferencesRuntime.current.appSort
+    val groups = remember(kindItems, appTypeFilter, viewFilter, state.query, bulkLockRevision, appSort) {
         kindItems.asSequence()
             .filter { appTypeFilter.matches(it.appType) }
             .filter { item ->
@@ -167,12 +168,22 @@ fun RootComponentsScreen(
             .filter { viewFilter != UiFilter.LOCKED || vm.isComponentBulkProtected(kind, it) }
             .groupBy { "${it.user}|${it.component.packageName}" }
             .entries
-            .sortedWith(
-                compareBy<Map.Entry<String, List<RootComponent>>> { componentAppSelectionRank(it.value) }
-                    .thenBy { it.value.first().owner.lowercase() }
+            .sortedWith(when (appSort) {
+                UiAppSort.SELECTED_FIRST -> compareBy<Map.Entry<String, List<RootComponent>>> { componentAppSelectionRank(it.value) }
+                    .thenBy { it.value.first().owner.lowercase() }.thenBy { it.key }
+                UiAppSort.NAME -> compareBy<Map.Entry<String, List<RootComponent>>> { it.value.first().owner.lowercase() }
                     .thenBy { it.key }
-            )
+                UiAppSort.PACKAGE -> compareBy<Map.Entry<String, List<RootComponent>>> { it.value.first().component.packageName.lowercase() }
+                    .thenBy { it.key }
+            })
             .map { it.key to it.value }
+    }
+    LaunchedEffect(kind, groups.firstOrNull()?.first, UiPreferencesRuntime.current.expandFirstApp) {
+        if (UiPreferencesRuntime.current.expandFirstApp && expandedAppKey == null) {
+            groups.firstOrNull()?.let { (appKey, _) ->
+                expandedAppKey = "${kind?.name ?: "ALL"}|$appKey"
+            }
+        }
     }
     val visible = remember(groups) { groups.flatMap { it.second } }
 
@@ -204,12 +215,12 @@ fun RootComponentsScreen(
                         appTypeFilter = appTypeFilter,
                         onAppTypeFilter = {
                             appTypeFilter = it
-                            UiPreferencesStore.rememberAppType(prefsContext, it)
+                            UiPreferencesStore.rememberAppType(prefsContext, it, "components")
                         },
                         viewFilter = viewFilter,
                         onViewFilter = {
                             viewFilter = it
-                            UiPreferencesStore.rememberFilter(prefsContext, it)
+                            UiPreferencesStore.rememberFilter(prefsContext, it, "components")
                         },
                         viewTitle = { filter ->
                             stringResource(when (filter) {
@@ -310,6 +321,7 @@ fun RootComponentsScreen(
                 WorkspaceAppRow(
                     icon = first.icon,
                     title = first.owner,
+                    packageName = first.component.packageName,
                     subtitle = stringResource(
                         R.string.root_disabled_summary,
                         components.count { it.enabled == false },
