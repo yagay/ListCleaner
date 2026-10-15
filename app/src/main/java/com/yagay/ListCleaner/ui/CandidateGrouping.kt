@@ -106,8 +106,9 @@ fun groupCandidates(
     selected: Set<ComponentRule>,
     filter: IntentKind?,
     query: String,
-    uiFilter: UiFilter
-): List<AppGroup> = filterAppGroups(baseAppGroups(candidates), selected, filter, query, uiFilter)
+    uiFilter: UiFilter,
+    sortMode: UiAppSort = UiAppSort.SELECTED_FIRST
+): List<AppGroup> = filterAppGroups(baseAppGroups(candidates), selected, filter, query, uiFilter, sortMode)
 
 fun retainConfiguredCandidates(
     items: List<ComponentCandidate>,
