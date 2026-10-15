@@ -101,7 +101,7 @@ internal fun filterAppGroups(
     }
 )
 
-fun groupCandidates(
+internal fun groupCandidates(
     candidates: List<ComponentCandidate>,
     selected: Set<ComponentRule>,
     filter: IntentKind?,
