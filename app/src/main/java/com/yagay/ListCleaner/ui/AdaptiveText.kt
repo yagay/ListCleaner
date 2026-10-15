@@ -36,7 +36,8 @@ internal fun AdaptiveText(
     style: TextStyle = TextStyle.Default
 ) {
     MaterialText(
-        text = text, modifier = modifier, color = color, fontSize = fontSize,
+        text = text, modifier = modifier, color = color,
+        fontSize = if (fontSize == TextUnit.Unspecified) fontSize else fontSize * (UiPreferencesRuntime.current.fontScalePercent / 100f),
         fontStyle = fontStyle, fontWeight = fontWeight, fontFamily = fontFamily,
         letterSpacing = letterSpacing, textDecoration = textDecoration,
         textAlign = textAlign,
@@ -73,7 +74,8 @@ internal fun AdaptiveText(
     style: TextStyle = TextStyle.Default
 ) {
     MaterialText(
-        text = text, modifier = modifier, color = color, fontSize = fontSize,
+        text = text, modifier = modifier, color = color,
+        fontSize = if (fontSize == TextUnit.Unspecified) fontSize else fontSize * (UiPreferencesRuntime.current.fontScalePercent / 100f),
         fontStyle = fontStyle, fontWeight = fontWeight, fontFamily = fontFamily,
         letterSpacing = letterSpacing, textDecoration = textDecoration,
         textAlign = textAlign,

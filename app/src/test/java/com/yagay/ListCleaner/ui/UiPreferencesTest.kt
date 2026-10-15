@@ -24,12 +24,15 @@ class UiPreferencesTest {
             fontScalePercent = 300,
             appTitleLines = -1,
             appSubtitleLines = 20,
-            scanRetrySeconds = 500
+            scanRetrySeconds = 500,
+            layoutSpacingPercent = 10
         ).normalized()
         assertEquals(140, preferences.fontScalePercent)
         assertEquals(1, preferences.appTitleLines)
         assertEquals(3, preferences.appSubtitleLines)
         assertEquals(180, preferences.scanRetrySeconds)
+        assertEquals(70, preferences.layoutSpacingPercent)
+        assertEquals(150, UiPreferences(layoutSpacingPercent = 500).normalized().layoutSpacingPercent)
     }
 
     @Test fun configurableFailureCooldownDoesNotChangeManualScanSafety() {
