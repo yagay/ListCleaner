@@ -24,7 +24,8 @@ internal object ComponentScanRefreshPolicy {
         busy: Boolean,
         packageRevisionChanged: Boolean = false,
         scanMode: UiScanMode = UiScanMode.SMART,
-        freshnessMs: Long = FRESHNESS_MS
+        freshnessMs: Long = FRESHNESS_MS,
+        retryAfterFailureMs: Long = RETRY_AFTER_FAILURE_MS
     ): Boolean {
         if (busy || scanMode == UiScanMode.MANUAL) return false
         val freshFor = if (scanMode == UiScanMode.EVERY_ENTRY) 0L else freshnessMs.coerceAtLeast(0L)
@@ -36,7 +37,7 @@ internal object ComponentScanRefreshPolicy {
         // After an unsuccessful scan, avoid hammering the PackageManager.
         if (lastAttemptElapsedMs >= 0 &&
             nowElapsedMs >= lastAttemptElapsedMs &&
-            nowElapsedMs - lastAttemptElapsedMs < RETRY_AFTER_FAILURE_MS
+            nowElapsedMs - lastAttemptElapsedMs < retryAfterFailureMs.coerceAtLeast(0L)
         ) return false
         return true
     }
