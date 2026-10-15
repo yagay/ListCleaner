@@ -79,7 +79,8 @@ internal fun filterAppGroups(
     selected: Set<ComponentRule>,
     filter: IntentKind?,
     query: String,
-    uiFilter: UiFilter
+    uiFilter: UiFilter,
+    sortMode: UiAppSort = UiAppSort.SELECTED_FIRST
 ): List<AppGroup> = groups.mapNotNull { group ->
     val matching = group.components.filter { item ->
         val isSelected = item.rule in selected
@@ -89,9 +90,15 @@ internal fun filterAppGroups(
     }
     if (matching.isEmpty()) null else group.copy(components = matching)
 }.sortedWith(
-    compareBy<AppGroup> { appSelectionRank(it, selected) }
-        .thenBy { it.components.firstOrNull()?.normalizedAppLabel ?: it.appLabel.lowercase() }
-        .thenBy { it.packageName }
+    when (sortMode) {
+        UiAppSort.SELECTED_FIRST -> compareBy<AppGroup> { appSelectionRank(it, selected) }
+            .thenBy { it.components.firstOrNull()?.normalizedAppLabel ?: it.appLabel.lowercase() }
+            .thenBy { it.packageName }
+        UiAppSort.NAME -> compareBy<AppGroup> {
+            it.components.firstOrNull()?.normalizedAppLabel ?: it.appLabel.lowercase()
+        }.thenBy { it.packageName }
+        UiAppSort.PACKAGE -> compareBy<AppGroup> { it.packageName.lowercase() }
+    }
 )
 
 fun groupCandidates(

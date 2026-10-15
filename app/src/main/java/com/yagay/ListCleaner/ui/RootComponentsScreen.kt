@@ -89,8 +89,8 @@ fun RootComponentsScreen(
         }
     }
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
-    var viewFilter by rememberSaveable { mutableStateOf(UiFilter.ALL) }
-    var appTypeFilter by rememberSaveable { mutableStateOf(AppTypeFilter.ALL) }
+    var viewFilter by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.defaultFilter) }
+    var appTypeFilter by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.defaultAppType) }
     var expandedAppKey by rememberSaveable { mutableStateOf<String?>(null) }
     var detailsExpanded by rememberSaveable { mutableStateOf(false) }
     var pendingBatch by remember { mutableStateOf<PendingRootBatch?>(null) }

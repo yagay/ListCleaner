@@ -47,6 +47,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        UiPreferencesRuntime.apply(UiPreferencesStore.read(this))
         setContent {
             var colorMode by remember { mutableStateOf(UiAppearanceStore.readColorMode(this@MainActivity)) }
             val dark = colorMode.usesDarkTheme(isSystemInDarkTheme())

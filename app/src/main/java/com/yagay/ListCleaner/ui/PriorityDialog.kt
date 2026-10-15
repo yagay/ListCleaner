@@ -115,8 +115,8 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     val browserHost by vm.ruleBrowserHost.collectAsStateWithLifecycle()
     var confirmPriorityReset by remember { mutableStateOf(false) }
     var sortHelpExpanded by rememberSaveable { mutableStateOf(false) }
-    var viewFilter by rememberSaveable { mutableStateOf(UiFilter.ALL) }
-    var appTypeFilter by rememberSaveable { mutableStateOf(AppTypeFilter.ALL) }
+    var viewFilter by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.defaultFilter) }
+    var appTypeFilter by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.defaultAppType) }
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
     var expandedKey by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(kind) {

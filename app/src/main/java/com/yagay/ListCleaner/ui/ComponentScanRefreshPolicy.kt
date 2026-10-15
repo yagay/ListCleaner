@@ -22,13 +22,16 @@ internal object ComponentScanRefreshPolicy {
         lastFullScanElapsedMs: Long,
         lastAttemptElapsedMs: Long,
         busy: Boolean,
-        packageRevisionChanged: Boolean = false
+        packageRevisionChanged: Boolean = false,
+        scanMode: UiScanMode = UiScanMode.SMART,
+        freshnessMs: Long = FRESHNESS_MS
     ): Boolean {
-        if (busy) return false
+        if (busy || scanMode == UiScanMode.MANUAL) return false
+        val freshFor = if (scanMode == UiScanMode.EVERY_ENTRY) 0L else freshnessMs.coerceAtLeast(0L)
         // Elapsed clocks may reset on reboot or test clocks; treat such readings as stale.
         if (!packageRevisionChanged && lastFullScanElapsedMs >= 0 &&
             nowElapsedMs >= lastFullScanElapsedMs &&
-            nowElapsedMs - lastFullScanElapsedMs < FRESHNESS_MS
+            nowElapsedMs - lastFullScanElapsedMs < freshFor
         ) return false
         // After an unsuccessful scan, avoid hammering the PackageManager.
         if (lastAttemptElapsedMs >= 0 &&

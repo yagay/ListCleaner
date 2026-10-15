@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_theme_color">Theme accent</string>
+    <string name="settings_color_dynamic">System</string>
+    <string name="settings_color_blue">Blue</string>
+    <string name="settings_color_green">Green</string>
+    <string name="settings_color_purple">Purple</string>
+    <string name="settings_density">Display density</string>
+    <string name="settings_density_compact">Compact</string>
+    <string name="settings_density_standard">Standard</string>
+    <string name="settings_density_comfortable">Spacious</string>
+    <string name="settings_card_radius">Card corner radius</string>
+    <string name="settings_button_height">Button height</string>
+    <string name="settings_row_height">List row height</string>
+    <string name="settings_icon_size">App icon size</string>
+    <string name="settings_appearance_help">Changes apply to shared Material 3 controls immediately. Accessible icon touch targets remain at least 48dp.</string>
+    <string name="settings_list_section">Lists and display</string>
+    <string name="settings_start_page">Open app to</string>
+    <string name="settings_sort">Default app order</string>
+    <string name="settings_sort_selected">Selected first</string>
+    <string name="settings_sort_name">App name</string>
+    <string name="settings_sort_package">Package name</string>
+    <string name="settings_default_filter">Default list filter</string>
+    <string name="settings_filter_all">All</string>
+    <string name="settings_filter_unselected">Unselected</string>
+    <string name="settings_filter_selected">Selected</string>
+    <string name="settings_filter_locked">Locked</string>
+    <string name="settings_app_scope">Default app type</string>
+    <string name="settings_app_user">User apps</string>
+    <string name="settings_app_system">System apps</string>
+    <string name="settings_defaults_help">The start page and default filters apply the next time the relevant page is opened after restarting the app. Rule-list ordering updates immediately and never changes saved priorities.</string>
+    <string name="settings_scan_section">Scan and refresh</string>
+    <string name="settings_scan_mode">Component scan strategy</string>
+    <string name="settings_scan_smart">Smart</string>
+    <string name="settings_scan_manual">Manual</string>
+    <string name="settings_scan_always">On every entry</string>
+    <string name="settings_cache_minutes">Cache age (minutes)</string>
+    <string name="settings_scan_help">Smart mode refreshes when the cache is stale or installed packages change. Manual mode needs an explicit refresh. Repeated scanning can be slow; failed scans retain a 30-second retry cooldown.</string>
+    <string name="settings_scan_now">Scan components now</string>
+    <string name="settings_compat_section">Cleaning and compatibility</string>
+    <string name="settings_advanced_section">Advanced and diagnostics</string>
+    <string name="settings_language">App language</string>
+    <string name="settings_language_help">Choose Chinese or English in Android per-app language settings.</string>
+    <string name="settings_open_system">Open</string>
+    <string name="settings_reset_title">Restore default settings</string>
+    <string name="settings_reset_description">Reset display, list and scanning preferences to defaults? Saved cleaning rules, locks and priorities will not be changed.</string>
+</resources>

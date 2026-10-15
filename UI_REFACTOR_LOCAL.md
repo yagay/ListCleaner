@@ -27,3 +27,14 @@
 - 底部导航仅有清理、排序、设置三项；不再存在独立的 `Destination.DASHBOARD` / `DashboardTabContent`。
 - `SettingsTabContent` 在同一滚动设置页承载外观模式、全局清理模式、备份、应用隐藏列表、诊断模式开关，以及原状态页的 RuntimePanel、同步状态、Hook 命中统计、模块作用域入口、文件预览与诊断导出操作。
 - 所有模块状态/运行异常的旧跳转直接进入设置；设置页禁用搜索入口。保留共享组件、状态数据来源、返回逻辑和 Root/Hook 行为，不再维护两个重复页面。
+
+## 完整设置中心（独立于 Hook 规则）
+
+- `UiPreferences.kt` 将全部新增 UI 偏好放在 `ui_preferences_v1`，并用 `UiPreferencesRuntime` 的 Compose state + StateFlow 通知 UI 和规则列表排序。设置不进入 `ModuleConfig`，也不会造成 LSPosed 配置修订/重启。
+- `SettingsPreferencesControls.kt` 提供主色切换、界面密度、卡片圆角、按钮高度、图标和列表高度（即时预览），启动页、应用列表排序、默认筛选和用户/系统应用默认分类，以及扫描策略和手动刷新。
+- `MaterialUiTokens` 由该配置的响应式 getter 统一确定尺寸，所有旧消费者继续从同一处取值。系统图标触控区仍至少 48dp。
+- `UiScanMode`：智能缓存（默认 10 分钟，可调 1–60 分钟）、仅手动、每次进入；扫描失败仍执行 30 秒重试保护。
+- `UiAppSort` 只改变管理器中的规则候选应用顺序，不改变 LSPosed 目标优先排序。默认启动页、筛选及应用分类在重新进入应用后生效。
+- Android 13 以上的“应用语言”入口跳转系统逐应用语言设置，低版本打开应用信息。
+- “恢复默认设置”重置界面/列表/扫描偏好与明暗模式，不修改任何已保存的规则、锁定、Root 组件、优先排序或 Hook。
+- 原 `UiAppearanceStore` 继续存明暗模式；备份导入/导出的 JSON 仍只涉及清理数据，未混入 UI 偏好，确保旧版本兼容。

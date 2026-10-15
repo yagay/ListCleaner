@@ -31,33 +31,41 @@ import androidx.compose.ui.window.DialogProperties
  * feature-specific behavior (Root switches, chooser rules and sorting) stays separate.
  */
 internal object MaterialUiTokens {
-    val pageHorizontal = 16.dp
-    val pageVertical = 12.dp
-    val sectionGap = 14.dp
-    val contentGap = 8.dp
-    val cardPadding = 16.dp
-    val cardRadius = 20.dp
-    val groupedInnerRadius = 4.dp
-    val groupedOuterGap = 4.dp
-    val groupedInnerGap = 1.dp
-    val cardShape = RoundedCornerShape(cardRadius)
-    val groupHorizontal = 16.dp
-    val categoryHeight = 124.dp
-    val categoryPadding = 14.dp
-    val categoryGap = 10.dp
-    val listRowHeight = 60.dp
-    val listRowHorizontal = 8.dp
-    val listRowVertical = 6.dp
-    val appIconSize = 36.dp
-    val appIconShape = RoundedCornerShape(9.dp)
-    val appLabelInset = 8.dp
-    val detailHeight = 48.dp
-    val detailHorizontal = 14.dp
-    val detailVertical = 4.dp
-    val buttonHeight = 40.dp
+    // Compose observes preferences when a public token is read during composition.
+    // All features continue using this one geometry contract.
+    private val density: Float get() = when (UiPreferencesRuntime.current.density) {
+        UiDensity.COMPACT -> 0.85f
+        UiDensity.STANDARD -> 1f
+        UiDensity.COMFORTABLE -> 1.15f
+    }
+    val pageHorizontal get() = (16f * density).dp
+    val pageVertical get() = (12f * density).dp
+    val sectionGap get() = (14f * density).dp
+    val contentGap get() = (8f * density).dp
+    val cardPadding get() = (16f * density).dp
+    val cardRadius get() = UiPreferencesRuntime.current.cardRadius.dp
+    val groupedInnerRadius get() = (4f * density).dp
+    val groupedOuterGap get() = (4f * density).dp
+    val groupedInnerGap get() = (1f * density).dp
+    val cardShape get() = RoundedCornerShape(cardRadius)
+    val groupHorizontal get() = pageHorizontal
+    val categoryHeight get() = (124f * density).dp
+    val categoryPadding get() = (14f * density).dp
+    val categoryGap get() = (10f * density).dp
+    val listRowHeight get() = UiPreferencesRuntime.current.listRowHeight.dp
+    val listRowHorizontal get() = (8f * density).dp
+    val listRowVertical get() = (6f * density).dp
+    val appIconSize get() = UiPreferencesRuntime.current.appIconSize.dp
+    val appIconShape get() = RoundedCornerShape((UiPreferencesRuntime.current.appIconSize * 0.25f).dp)
+    val appLabelInset get() = (8f * density).dp
+    val detailHeight get() = (48f * density).dp
+    val detailHorizontal get() = (14f * density).dp
+    val detailVertical get() = (4f * density).dp
+    val buttonHeight get() = UiPreferencesRuntime.current.buttonHeight.dp
+    // 48dp remains the minimum icon touch target for accessible controls.
     val iconTouchTarget = 48.dp
-    val compactButtonPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-    val normalButtonPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+    val compactButtonPadding get() = PaddingValues(horizontal = (8f * density).dp, vertical = (4f * density).dp)
+    val normalButtonPadding get() = PaddingValues(horizontal = (12f * density).dp, vertical = (6f * density).dp)
 }
 
 @Composable

@@ -48,7 +48,7 @@ fun RulesTab(
     var editingTitle by remember { mutableStateOf<com.yagay.ListCleaner.domain.ComponentCandidate?>(null) }
     var showCustomTypes by rememberSaveable { mutableStateOf(false) }
     var showBrowserHosts by rememberSaveable { mutableStateOf(false) }
-    var appTypeFilter by rememberSaveable { mutableStateOf(AppTypeFilter.ALL) }
+    var appTypeFilter by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.defaultAppType) }
     var ruleHelpExpanded by rememberSaveable { mutableStateOf(false) }
     // Three-level navigation lives in the UI only. The existing IntentKind
     // and rule store remain the single source of truth for operations.
@@ -584,6 +584,16 @@ internal fun SettingsTabContent(
                 )
             }
 
+        SettingsAppearanceControls()
+        SettingsLanguageControls()
+
+        PageSectionTitle(stringResource(R.string.settings_list_section))
+        SettingsListControls()
+
+        PageSectionTitle(stringResource(R.string.settings_scan_section))
+        SettingsScanControls(vm)
+
+        PageSectionTitle(stringResource(R.string.settings_compat_section))
         PageSectionTitle(stringResource(R.string.dashboard_global_mode))
         MaterialSectionCard {
             
@@ -635,6 +645,9 @@ internal fun SettingsTabContent(
                 )
             }
 
+        SettingsResetControls(onColorModeChange)
+
+        PageSectionTitle(stringResource(R.string.settings_advanced_section))
         PageSectionTitle(stringResource(R.string.diagnostic_mode))
         MaterialSectionCard {
                     MaterialSettingsRow(

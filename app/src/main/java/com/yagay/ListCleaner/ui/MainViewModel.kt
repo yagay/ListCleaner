@@ -284,11 +284,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         PreparedCandidates(emptyList(), emptySet(), emptyList())
     )
 
-    private val grouped = combine(preparedCandidates, filter, debouncedQuery, uiFilter) { prepared, kind, text, ui ->
+    private val grouped = combine(
+        preparedCandidates, filter, debouncedQuery, uiFilter, UiPreferencesRuntime.flow
+    ) { prepared, kind, text, ui, preferences ->
         ListContent(
             prepared.candidates,
             kind,
-            filterAppGroups(prepared.groups, prepared.selected, kind, text, ui),
+            filterAppGroups(prepared.groups, prepared.selected, kind, text, ui, preferences.appSort),
             prepared.selected,
             ui
         )
