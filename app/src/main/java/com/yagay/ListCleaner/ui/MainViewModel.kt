@@ -685,11 +685,46 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         expandedAppKey.value = next
         pageExpandedApps[destination.value] = next
     }
-    fun previewImportJson(content: String) = app.rules.previewImportJson(content)
-    fun exportJson(): String = app.rules.exportJson()
+    /** Preserve the existing rule JSON format while adding optional manager-only preferences. */
+    private fun backupExtras(content: String): Pair<org.json.JSONObject?, List<String>?> {
+        val backup = org.json.JSONObject(content)
+        val appearance = if (backup.has("uiPreferences")) {
+            require(backup.opt("uiPreferences") is org.json.JSONObject)
+            backup.getJSONObject("uiPreferences").also(UiPreferencesStore::validateSnapshot)
+        } else null
+        val locks = if (backup.has("bulkActionLocks")) {
+            val array = backup.optJSONArray("bulkActionLocks")
+                ?: throw IllegalArgumentException("Invalid bulk-action locks")
+            require(array.length() <= 20_000)
+            List(array.length()) { index -> array.getString(index) }
+                .also(bulkLocks::validateSnapshot)
+        } else null
+        return appearance to locks
+    }
+
+    fun previewImportJson(content: String): com.yagay.ListCleaner.data.BackupImportPreview {
+        require(content.length <= MAX_BACKUP_CHARS)
+        backupExtras(content)
+        return app.rules.previewImportJson(content)
+    }
+
+    fun exportJson(): String {
+        val backup = org.json.JSONObject(app.rules.exportJson())
+        backup.put("uiPreferences", UiPreferencesStore.exportSnapshot(app))
+        backup.put("bulkActionLocks", org.json.JSONArray().apply {
+            bulkLocks.exportSnapshot().sorted().forEach { put(it) }
+        })
+        return backup.toString(2).also { require(it.length <= MAX_BACKUP_CHARS) }
+    }
+
     fun importJson(content: String) {
+        require(content.length <= MAX_BACKUP_CHARS)
+        val (appearance, locks) = backupExtras(content)
+        app.rules.previewImportJson(content)
         app.rules.importJson(content)
-        bulkLocks.reloadFromDisk()
+        if (appearance != null) UiPreferencesStore.importSnapshot(app, appearance)
+        if (locks != null) bulkLocks.restoreSnapshot(locks)
+        else bulkLocks.reloadFromDisk()
     }
     fun setComponentTitle(ruleId: String, title: String?) {
         if (canEdit()) app.rules.setComponentTitle(ruleId, title)
