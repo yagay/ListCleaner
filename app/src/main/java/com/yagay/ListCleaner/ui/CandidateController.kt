@@ -96,6 +96,8 @@ internal class CandidateController(
                 mutableError.value = app.catalog.scanWarning
                 mutableLoading.value = false
 
+                // User-requested scans still perform deep link enrichment even when auto discovery is disabled.
+                if (!UiPreferencesRuntime.current.appLinkEnrichment && !forceCatalog) return@launch
                 browserRefreshJob = scope.launch {
                     try {
                         val browserDiscovery = browserLinkDiscovery.discoverDetailed(forceCatalog)
