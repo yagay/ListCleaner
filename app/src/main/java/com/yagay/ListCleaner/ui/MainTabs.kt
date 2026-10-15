@@ -18,6 +18,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -45,11 +46,12 @@ fun RulesTab(
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
     val componentScan by vm.componentScan.collectAsStateWithLifecycle()
     val componentBusy by vm.componentBusy.collectAsStateWithLifecycle()
+    val prefsContext = LocalContext.current
     var editingTitle by remember { mutableStateOf<com.yagay.ListCleaner.domain.ComponentCandidate?>(null) }
     var showCustomTypes by rememberSaveable { mutableStateOf(false) }
     var showBrowserHosts by rememberSaveable { mutableStateOf(false) }
     var appTypeFilter by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.defaultAppType) }
-    var ruleHelpExpanded by rememberSaveable { mutableStateOf(false) }
+    var ruleHelpExpanded by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.openHelpByDefault) }
     // Three-level navigation lives in the UI only. The existing IntentKind
     // and rule store remain the single source of truth for operations.
     var selectedGroup by rememberSaveable { mutableStateOf<EntryGroup?>(null) }
@@ -277,7 +279,10 @@ fun RulesTab(
                         vm::setFilter,
                         vm::setUiFilter,
                         appTypeFilter = appTypeFilter,
-                        onAppTypeFilter = { appTypeFilter = it },
+                        onAppTypeFilter = {
+                            appTypeFilter = it
+                            UiPreferencesStore.rememberAppType(prefsContext, it)
+                        },
                         showEntryGroups = false,
                         externalHelpExpanded = ruleHelpExpanded,
                         onExternalHelpChange = { ruleHelpExpanded = it },

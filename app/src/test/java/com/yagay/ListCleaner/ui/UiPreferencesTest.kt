@@ -9,13 +9,14 @@ class UiPreferencesTest {
     @Test fun geometryIsBoundedBeforePersistence() {
         val preferences = UiPreferences(
             cardRadius = -4, buttonHeight = 4, appIconSize = 999,
-            listRowHeight = 12, scanCacheMinutes = 1000
+            listRowHeight = 12, scanCacheMinutes = 1000, homeColumns = 100
         ).normalized()
         assertEquals(0, preferences.cardRadius)
         assertEquals(36, preferences.buttonHeight)
         assertEquals(56, preferences.appIconSize)
         assertEquals(48, preferences.listRowHeight)
         assertEquals(60, preferences.scanCacheMinutes)
+        assertEquals(2, preferences.homeColumns)
     }
 
     @Test fun openingPageMapsToExistingDestinations() {

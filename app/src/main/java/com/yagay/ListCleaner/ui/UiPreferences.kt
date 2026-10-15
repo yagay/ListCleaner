@@ -26,6 +26,9 @@ internal data class UiPreferences(
     val appSort: UiAppSort = UiAppSort.SELECTED_FIRST,
     val defaultFilter: UiFilter = UiFilter.ALL,
     val defaultAppType: AppTypeFilter = AppTypeFilter.ALL,
+    val rememberFilters: Boolean = false,
+    val openHelpByDefault: Boolean = false,
+    val homeColumns: Int = 2,
     val scanMode: UiScanMode = UiScanMode.SMART,
     val scanCacheMinutes: Int = 10,
 ) {
@@ -34,7 +37,8 @@ internal data class UiPreferences(
         buttonHeight = buttonHeight.coerceIn(36, 64),
         appIconSize = appIconSize.coerceIn(28, 56),
         listRowHeight = listRowHeight.coerceIn(48, 96),
-        scanCacheMinutes = scanCacheMinutes.coerceIn(1, 60)
+        scanCacheMinutes = scanCacheMinutes.coerceIn(1, 60),
+        homeColumns = homeColumns.coerceIn(1, 2)
     )
 }
 
@@ -71,6 +75,9 @@ internal object UiPreferencesStore {
             appSort = stored(p.getString("app_sort", null), UiAppSort.entries.toTypedArray(), defaults.appSort),
             defaultFilter = stored(p.getString("default_filter", null), UiFilter.entries.toTypedArray(), defaults.defaultFilter),
             defaultAppType = stored(p.getString("default_app_type", null), AppTypeFilter.entries.toTypedArray(), defaults.defaultAppType),
+            rememberFilters = p.getBoolean("remember_filters", defaults.rememberFilters),
+            openHelpByDefault = p.getBoolean("help_default", defaults.openHelpByDefault),
+            homeColumns = p.getInt("home_columns", defaults.homeColumns),
             scanMode = stored(p.getString("scan_mode", null), UiScanMode.entries.toTypedArray(), defaults.scanMode),
             scanCacheMinutes = p.getInt("scan_cache_minutes", defaults.scanCacheMinutes),
         ).normalized()
@@ -89,10 +96,28 @@ internal object UiPreferencesStore {
             .putString("app_sort", safe.appSort.name)
             .putString("default_filter", safe.defaultFilter.name)
             .putString("default_app_type", safe.defaultAppType.name)
+            .putBoolean("remember_filters", safe.rememberFilters)
+            .putBoolean("help_default", safe.openHelpByDefault)
+            .putInt("home_columns", safe.homeColumns)
             .putString("scan_mode", safe.scanMode.name)
             .putInt("scan_cache_minutes", safe.scanCacheMinutes)
             .apply()
         UiPreferencesRuntime.apply(safe)
+    }
+
+    /** Persist only when enabled. Reuse the defaults instead of keeping hidden shadow filters. */
+    fun rememberFilter(context: Context, filter: UiFilter) {
+        val current = UiPreferencesRuntime.current
+        if (current.rememberFilters && filter != current.defaultFilter) {
+            write(context, current.copy(defaultFilter = filter))
+        }
+    }
+
+    fun rememberAppType(context: Context, appType: AppTypeFilter) {
+        val current = UiPreferencesRuntime.current
+        if (current.rememberFilters && appType != current.defaultAppType) {
+            write(context, current.copy(defaultAppType = appType))
+        }
     }
 
     fun reset(context: Context) = write(context, UiPreferences())

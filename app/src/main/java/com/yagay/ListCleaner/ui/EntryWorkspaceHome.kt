@@ -56,7 +56,8 @@ internal fun EntryWorkspaceHome(
                 )
             )
             val groups = availableGroups
-            groups.chunked(2).forEach { pair ->
+            val columns = UiPreferencesRuntime.current.homeColumns
+            groups.chunked(columns).forEach { pair ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.categoryGap)) {
                     pair.forEach { group ->
                         EntryGroupTile(
@@ -65,7 +66,7 @@ internal fun EntryWorkspaceHome(
                             onClick = { onGroup(group) }
                         )
                     }
-                    if (pair.size == 1) Spacer(Modifier.weight(1f))
+                    repeat(columns - pair.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
             if (showUtilities) WorkspaceBrowseAllButton(

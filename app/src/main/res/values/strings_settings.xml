@@ -44,4 +44,11 @@
     <string name="settings_open_system">Open</string>
     <string name="settings_reset_title">Restore default settings</string>
     <string name="settings_reset_description">Reset display, list and scanning preferences to defaults? Saved cleaning rules, locks and priorities will not be changed.</string>
+    <string name="settings_home_columns">Homepage category columns</string>
+    <string name="settings_one_column">1 column</string>
+    <string name="settings_two_columns">2 columns</string>
+    <string name="settings_remember_filters">Remember last-used filters</string>
+    <string name="settings_remember_filters_help">Save list selection and app-type filters across app restarts.</string>
+    <string name="settings_help_expanded">Show explanations by default</string>
+    <string name="settings_help_expanded_help">Expand rules and ordering help on the first visit.</string>
 </resources>

@@ -145,6 +145,29 @@ internal fun SettingsListControls() {
                 AppTypeFilter.SYSTEM to stringResource(R.string.settings_app_system)
             )
         ) { UiPreferencesStore.write(context, current.copy(defaultAppType = it)) }
+        SettingsChoices(
+            stringResource(R.string.settings_home_columns), current.homeColumns,
+            listOf(
+                1 to stringResource(R.string.settings_one_column),
+                2 to stringResource(R.string.settings_two_columns)
+            )
+        ) { UiPreferencesStore.write(context, current.copy(homeColumns = it)) }
+        MaterialSettingsRow(
+            title = stringResource(R.string.settings_remember_filters),
+            supportingText = stringResource(R.string.settings_remember_filters_help)
+        ) {
+            AdaptiveSwitch(checked = current.rememberFilters, onCheckedChange = {
+                UiPreferencesStore.write(context, current.copy(rememberFilters = it))
+            })
+        }
+        MaterialSettingsRow(
+            title = stringResource(R.string.settings_help_expanded),
+            supportingText = stringResource(R.string.settings_help_expanded_help)
+        ) {
+            AdaptiveSwitch(checked = current.openHelpByDefault, onCheckedChange = {
+                UiPreferencesStore.write(context, current.copy(openHelpByDefault = it))
+            })
+        }
         AdaptiveText(stringResource(R.string.settings_defaults_help),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }

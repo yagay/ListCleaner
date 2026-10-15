@@ -664,7 +664,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         query.value = value
         pageQueries[destination.value] = value
     }
-    fun setUiFilter(value: UiFilter) { uiFilter.value = value }
+    fun setUiFilter(value: UiFilter) {
+        uiFilter.value = value
+        UiPreferencesStore.rememberFilter(app, value)
+    }
     fun setDestination(value: Destination) {
         // Legacy Component tab redirects into the merged Cleanup workspace.
         val target = if (value == Destination.TILES) Destination.RULES else value

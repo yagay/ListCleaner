@@ -29,6 +29,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
@@ -114,7 +115,8 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     val openPreset by vm.ruleOpenPreset.collectAsStateWithLifecycle()
     val browserHost by vm.ruleBrowserHost.collectAsStateWithLifecycle()
     var confirmPriorityReset by remember { mutableStateOf(false) }
-    var sortHelpExpanded by rememberSaveable { mutableStateOf(false) }
+    val prefsContext = LocalContext.current
+    var sortHelpExpanded by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.openHelpByDefault) }
     var viewFilter by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.defaultFilter) }
     var appTypeFilter by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.defaultAppType) }
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
@@ -267,9 +269,15 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                         ListControls(
                             state.copy(filter = kind, uiFilter = viewFilter),
                             onFilter = { entry -> if (entry != null) { vm.setFilter(entry); expandedKey = null } },
-                            onUiFilter = { viewFilter = it },
+                            onUiFilter = {
+                                viewFilter = it
+                                UiPreferencesStore.rememberFilter(prefsContext, it)
+                            },
                             appTypeFilter = appTypeFilter,
-                            onAppTypeFilter = { appTypeFilter = it },
+                            onAppTypeFilter = {
+                                appTypeFilter = it
+                                UiPreferencesStore.rememberAppType(prefsContext, it)
+                            },
                             includeAllKinds = false,
                             showEntryGroups = false,
                             viewTitle = {

@@ -86,7 +86,8 @@ internal fun RootWorkspaceCategorySection(
             }
         }
         if (warning.isNotBlank()) WorkspaceStatusMessage(warning, isError = false)
-        kinds.chunked(2).forEach { pair ->
+        val columns = UiPreferencesRuntime.current.homeColumns
+        kinds.chunked(columns).forEach { pair ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.categoryGap)) {
                 pair.forEach { kind ->
                     WorkspaceCategoryCard(
@@ -104,7 +105,7 @@ internal fun RootWorkspaceCategorySection(
                         onClick = { onChoose(kind) }
                     )
                 }
-                if (pair.size == 1) Spacer(Modifier.weight(1f))
+                repeat(columns - pair.size) { Spacer(Modifier.weight(1f)) }
             }
         }
         WorkspaceBrowseAllButton(

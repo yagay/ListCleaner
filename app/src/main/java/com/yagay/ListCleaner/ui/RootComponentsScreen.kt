@@ -21,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -58,6 +59,7 @@ fun RootComponentsScreen(
 ) {
     val scan by vm.componentScan.collectAsStateWithLifecycle()
     val busy by vm.componentBusy.collectAsStateWithLifecycle()
+    val prefsContext = LocalContext.current
     val message by vm.componentMessage.collectAsStateWithLifecycle()
     val batchProgress by vm.componentBatchProgress.collectAsStateWithLifecycle()
     val rootNotice by vm.componentRootNotice.collectAsStateWithLifecycle()
@@ -200,9 +202,15 @@ fun RootComponentsScreen(
                     val canInvert = !busy && visible.any { it.blocked == null && it.enabled != null && !vm.isComponentBulkProtected(kind, it) }
                     WorkspaceFilterBar(
                         appTypeFilter = appTypeFilter,
-                        onAppTypeFilter = { appTypeFilter = it },
+                        onAppTypeFilter = {
+                            appTypeFilter = it
+                            UiPreferencesStore.rememberAppType(prefsContext, it)
+                        },
                         viewFilter = viewFilter,
-                        onViewFilter = { viewFilter = it },
+                        onViewFilter = {
+                            viewFilter = it
+                            UiPreferencesStore.rememberFilter(prefsContext, it)
+                        },
                         viewTitle = { filter ->
                             stringResource(when (filter) {
                                 UiFilter.ALL -> R.string.common_all
