@@ -100,14 +100,8 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
             onAllApps = {},
             onComponentKind = {},
             onAllComponents = {},
-            status = {
-                ModuleStatusRow(state, compact = true) {
-                    vm.setDestination(Destination.SETTINGS)
-                }
-                if (state.runtime.needsDecision) RuntimePanel(
-                    state, vm, showUpdateTools = false
-                )
-            }
+            // Module runtime and its recovery controls are centralized in Settings.
+            status = {}
         )
         return
     }
@@ -244,7 +238,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
             state = listState,
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
-            item(key = "status") {
+            item(key = "workspace-breadcrumb") {
                 EntryWorkspaceBreadcrumb(
                     kind = kind,
                     onHome = {
@@ -258,10 +252,6 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                         vm.setQuery("")
                     }
                 )
-                if (state.runtime.needsDecision) RuntimePanel(
-                        state, vm, showUpdateTools = false,
-                        horizontalInset = MaterialUiTokens.groupHorizontal
-                    )
             }
             stickyHeader(key = "controls") {
                 PageFilterSection {

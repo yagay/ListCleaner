@@ -121,6 +121,12 @@ for filename in ("MainActivity.kt", "MainTabs.kt", "MainViewModel.kt", "TextReso
     source = (root / filename).read_text(encoding="utf-8")
     if "Destination.DASHBOARD" in source or "DashboardTabContent(" in source:
         errors.append(f"{filename}: legacy Status destination remains; open Settings instead")
+# Sort workspace status was moved into Settings; prevent duplicate status cards.
+sorting_source = (root / "PriorityDialog.kt").read_text(encoding="utf-8")
+for obsolete in ("ModuleStatusRow(", "RuntimePanel(", 'item(key = "status")'):
+    if obsolete in sorting_source:
+        errors.append(f"PriorityDialog.kt: obsolete sort-page status: {obsolete}")
+
 settings_source = (root / "MainTabs.kt").read_text(encoding="utf-8")
 for symbol in ("RuntimePanel(state, vm)", "dashboard_sync_status", "dashboard_runtime_hits",
                "dashboard_module_status", "dashboard_diagnostics", "ScopeDialog(",
