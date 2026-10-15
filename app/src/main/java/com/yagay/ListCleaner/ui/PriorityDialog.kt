@@ -111,8 +111,8 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     var confirmPriorityReset by remember { mutableStateOf(false) }
     val prefsContext = LocalContext.current
     var sortHelpExpanded by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.openHelpByDefault) }
-    var viewFilter by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.defaultFilter) }
-    var appTypeFilter by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.defaultAppType) }
+    var viewFilter by rememberSaveable { mutableStateOf(UiPreferencesStore.initialFilter(prefsContext, "priority")) }
+    var appTypeFilter by rememberSaveable { mutableStateOf(UiPreferencesStore.initialAppType(prefsContext, "priority")) }
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
     var expandedKey by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(kind) {
@@ -201,6 +201,13 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
         baseGroups
     }
     val groups = lockFilteredGroups.filter { appTypeFilter.matches(it.appType) }
+    LaunchedEffect(kind, openPreset, browserHost, groups.firstOrNull()?.packageName, UiPreferencesRuntime.current.expandFirstApp) {
+        if (UiPreferencesRuntime.current.expandFirstApp && expandedKey == null) {
+            groups.firstOrNull()?.let { group ->
+                expandedKey = "${kind.name}|${openPreset?.name ?: browserHost ?: "ALL"}|${group.packageName}"
+            }
+        }
+    }
     val moveTargets = groups.filter { it.rank != null }.sortedBy { it.rank }.map { it.packageName }
 
     val listState = rememberLazyListState()
@@ -261,12 +268,12 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                             onFilter = { entry -> if (entry != null) { vm.setFilter(entry); expandedKey = null } },
                             onUiFilter = {
                                 viewFilter = it
-                                UiPreferencesStore.rememberFilter(prefsContext, it)
+                                UiPreferencesStore.rememberFilter(prefsContext, it, "priority")
                             },
                             appTypeFilter = appTypeFilter,
                             onAppTypeFilter = {
                                 appTypeFilter = it
-                                UiPreferencesStore.rememberAppType(prefsContext, it)
+                                UiPreferencesStore.rememberAppType(prefsContext, it, "priority")
                             },
                             includeAllKinds = false,
                             showEntryGroups = false,
@@ -472,6 +479,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                     WorkspaceAppRow(
                         icon = first.appIcon,
                         title = first.appLabel,
+                        packageName = packageName,
                         subtitle = stringResource(
                             R.string.priority_app_summary, rankText, group.components.size
                         ),
@@ -529,7 +537,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                                     if (rowY != null && dragState.start(
                                                             rowY, kind.name, currentVisible, currentSaved
                                                         )) {
-                                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                        if (UiPreferencesRuntime.current.dragHaptics) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                                     }
                                                 },
                                                 onDrag = { change, delta ->
