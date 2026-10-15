@@ -673,10 +673,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val target = if (value == Destination.TILES) Destination.RULES else value
         val previous = destination.value
         if (previous == target) return
-        pageQueries[previous] = query.value
+        val rememberSearch = UiPreferencesRuntime.current.rememberPageSearch
+        if (rememberSearch) pageQueries[previous] = query.value else pageQueries.clear()
         pageExpandedApps[previous] = expandedAppKey.value
         destination.value = target
-        query.value = pageQueries[target].orEmpty()
+        query.value = if (rememberSearch) pageQueries[target].orEmpty() else ""
         expandedAppKey.value = pageExpandedApps[target]
     }
     fun toggleExpandedApp(key: String) {
