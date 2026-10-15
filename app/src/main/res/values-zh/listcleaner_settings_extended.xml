@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lc_font_scale">文字大小</string>
+    <string name="lc_title_lines">应用名称行数</string>
+    <string name="lc_subtitle_lines">副标题行数</string>
+    <string name="lc_show_app_icons">显示应用图标</string>
+    <string name="lc_show_package_names">显示应用包名</string>
+    <string name="lc_expand_first_app">默认展开第一个应用</string>
+    <string name="lc_remember_search">分别记住各页面搜索内容</string>
+    <string name="lc_drag_haptics">开始拖动时震动</string>
+    <string name="lc_retry_seconds">扫描失败重试间隔</string>
+    <string name="lc_app_link_enrichment">后台扫描 App Link 域名</string>
+    <string name="lc_app_link_enrichment_help">关闭后不自动执行域名深度发现，手动刷新仍可执行。</string>
+</resources>
