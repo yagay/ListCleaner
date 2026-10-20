@@ -123,7 +123,7 @@ class EmbeddedDirectShareModule : XposedModule() {
     private fun adapterRefreshHooker(profile: EmbeddedDirectShareHostProfile) = XposedInterface.Hooker { chain ->
         val original = chain.proceed()
         val adapter = chain.thisObject ?: return@Hooker original
-        val policy = policyProvider.snapshot()
+        val policy = policyProvider.snapshot(com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid()))
         val selected = policy.selected(IntentKind.DIRECT_SHARE)
         val priorities = policy.priorities(IntentKind.DIRECT_SHARE)
         val filteringActive =
