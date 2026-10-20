@@ -37,12 +37,14 @@ class RuleRepository(context: Context) {
         putAll(initialConfig.userSpaces)
     }
     private var activeUserId = 0
+    private val derivedVisibility = mutableMapOf<Int, Map<VisibilityScope, Set<String>>>()
     val selectedUserId: Int get() = activeUserId
 
     @Synchronized fun switchSpace(userId: Int) {
         require(userId in 0..99999)
         if (userId == activeUserId) return
         storedSpaces[activeUserId] = localSnapshot().toSpaceRules()
+        derivedVisibility[activeUserId] = mutableVisibilityFullPackages.value
         activeUserId = userId
         val next = storedSpaces[userId] ?: UserSpaceRules()
         mutableRules.value = next.rules
@@ -53,7 +55,7 @@ class RuleRepository(context: Context) {
         mutableDiagnostic.value = next.diagnostic
         mutableHiddenFromApps.value = next.hiddenFromApps
         mutableVisibilityScopes.value = next.visibilityCompat.scopes
-        mutableVisibilityFullPackages.value = emptyMap()
+        mutableVisibilityFullPackages.value = derivedVisibility[userId].orEmpty()
         persistLocalSnapshot()
         mutableRevision.value++
     }
@@ -175,6 +177,7 @@ class RuleRepository(context: Context) {
 
     @Synchronized fun restoreRemote(config: ModuleConfig) {
         activeUserId = 0
+        derivedVisibility.clear()
         storedSpaces.clear()
         storedSpaces[0] = config.toSpaceRules()
         storedSpaces.putAll(config.userSpaces)
@@ -191,10 +194,18 @@ class RuleRepository(context: Context) {
         ).toSpaceRules()
         val all = storedSpaces.toMutableMap()
         all[activeUserId] = active
-        val primary = (all[0] ?: UserSpaceRules()).toModuleConfig()
+        val scoped = all.mapValues { (userId, space) ->
+            val full = if (userId == activeUserId) mutableVisibilityFullPackages.value
+                       else derivedVisibility[userId].orEmpty()
+            space.copy(visibilityCompat = VisibilityCompatConfig(
+                scopes = space.visibilityCompat.scopes,
+                fullPackages = full,
+            ))
+        }
+        val primary = (scoped[0] ?: UserSpaceRules()).toModuleConfig()
         return primary.copy(
             managerAppId = AndroidUid.appId(android.os.Process.myUid()),
-            userSpaces = all.filterKeys { it != 0 },
+            userSpaces = scoped.filterKeys { it != 0 },
         ).validated()
     }
 
@@ -254,6 +265,7 @@ class RuleRepository(context: Context) {
             .mapValues { it.value.toSet() }
         if (next == mutableVisibilityFullPackages.value) return
         mutableVisibilityFullPackages.value = next
+        derivedVisibility[activeUserId] = next
         mutableRevision.value++
     }
 
