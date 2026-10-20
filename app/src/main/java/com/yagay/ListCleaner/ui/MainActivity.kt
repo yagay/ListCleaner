@@ -86,8 +86,8 @@ class MainActivity : ComponentActivity() {
         var componentModeActive by remember { mutableStateOf(false) }
         var restartPromptDismissed by rememberSaveable { mutableStateOf(false) }
         var pendingImport by remember { mutableStateOf<Pair<String, SpaceBackupInspection>?>(null) }
-        var showExportDialog by remember { mutableStateOf(false) }
-        var exportSpaceSelection by remember { mutableStateOf<Set<Int>>(emptySet()) }
+        var showExportDialog by rememberSaveable { mutableStateOf(false) }
+        var exportSpaceSelection by rememberSaveable { mutableStateOf<List<Int>>(emptyList()) }
         val backupSnackbar = remember { SnackbarHostState() }
         val collectingDiagnostics by vm.collectingDiagnostics.collectAsStateWithLifecycle()
         val exportMessage by vm.exportMessage.collectAsStateWithLifecycle()
@@ -180,7 +180,7 @@ class MainActivity : ComponentActivity() {
                 try {
                     withContext(Dispatchers.IO) {
                         val output = contentResolver.openOutputStream(uri) ?: error(getString(R.string.backup_create_failed))
-                        output.bufferedWriter().use { it.write(vm.exportSpacesJson(exportSpaceSelection)) }
+                        output.bufferedWriter().use { it.write(vm.exportSpacesJson(exportSpaceSelection.toSet())) }
                     }
                     toast(getString(R.string.backup_exported))
                 } catch (cancelled: CancellationException) {
@@ -222,7 +222,7 @@ class MainActivity : ComponentActivity() {
                 onDismiss = { showExportDialog = false },
                 onExport = { userIds ->
                     showExportDialog = false
-                    exportSpaceSelection = userIds
+                    exportSpaceSelection = userIds.toList()
                     export.launch("ListCleaner-spaces-backup.json")
                 }
             )
