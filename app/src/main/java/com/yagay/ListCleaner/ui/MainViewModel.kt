@@ -79,6 +79,19 @@ data class MainState(
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as ListCleanerApp
+    val spaces = app.spaces.spaces
+    val selectedSpace = app.spaces.selected
+
+    fun selectSpace(userId: Int) {
+        if (!app.spaces.select(userId)) return
+        app.rules.switchSpace(userId)
+        rootComponents.switchSpace(userId)
+        setQuery("")
+        setFilter(null)
+        viewModelScope.launch { app.synchronize() }
+        refresh(forceCatalog = true)
+    }
+
     private val bulkLocks = BulkLockStore(app)
     private val rootComponents = RootComponentsController(app, viewModelScope)
     private val moduleRuntime = ModuleRuntimeController(app, viewModelScope)
@@ -358,6 +371,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainState())
 
     init {
+        viewModelScope.launch {
+            app.spaces.refresh()
+            selectSpace(app.spaces.selected.value)
+        }
         viewModelScope.launch {
             app.serviceSession.collectLatest { session ->
                 val status = moduleRuntime.readStatus(session)
