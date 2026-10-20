@@ -18,4 +18,5 @@
     <string name="backup_spaces_skip">Do not import this space</string>
     <string name="backup_spaces_import_warning">This replaces rules and ordering in mapped destination spaces only. Other spaces are unchanged. Root actions are not executed.</string>
     <string name="backup_spaces_import_count">Restore %1$d spaces</string>
+    <string name="backup_spaces_legacy_source">Legacy single-space backup</string>
 </resources>
