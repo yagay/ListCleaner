@@ -73,8 +73,8 @@ internal fun ImportSpaceBackupDialog(
     onImport: (Map<Int, Int>) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var mapping by remember(inspection, selectedUserId) {
-        mutableStateOf(
+    var mapping: Map<Int, Int> by remember(inspection, selectedUserId) {
+        mutableStateOf<Map<Int, Int>>(
             if (inspection.version <= 12) mapOf(0 to selectedUserId) else emptyMap()
         )
     }
