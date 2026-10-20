@@ -43,10 +43,12 @@ internal class EntryPolicyProvider(
         }
     }
 
-    fun snapshot(): RuntimeComponentPolicySnapshot {
+    fun snapshot(userId: Int = 0): RuntimeComponentPolicySnapshot {
         start()
-        val runtime = RuntimeComponentPolicy.snapshot()
+        val runtime = RuntimeComponentPolicy.snapshot(userId)
         if (runtime.authoritative) return runtime
+        // Legacy RemotePreferences have no per-user policy; never reuse user 0's rules.
+        if (userId != 0) return runtime.copy(displayMode = com.yagay.ListCleaner.domain.DisplayMode.SHOW_ALL)
 
         val local = fallback.snapshot()
         return fallbackRuntimePolicy(
