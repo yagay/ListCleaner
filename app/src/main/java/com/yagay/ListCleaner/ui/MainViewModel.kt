@@ -81,6 +81,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as ListCleanerApp
     val spaces = app.spaces.spaces
     val selectedSpace = app.spaces.selected
+    private val installedPackages = app.spaces.installedPackages
 
     fun selectSpace(userId: Int) {
         if (rootComponents.busy.value || !app.spaces.select(userId)) return
@@ -88,8 +89,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         rootComponents.switchSpace(userId)
         setQuery("")
         setFilter(null)
-        viewModelScope.launch { app.synchronize() }
-        refresh(forceCatalog = true)
+        viewModelScope.launch {
+            app.spaces.refreshInstalledPackages(userId)
+            app.synchronize()
+            refresh(forceCatalog = true)
+        }
     }
 
     private val bulkLocks = BulkLockStore(app)
@@ -284,9 +288,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val browserHosts: Set<String>,
     )
 
-    private val preparedCandidates = combine(candidates, app.rules.rules) { scanned, selected ->
+    private val preparedCandidates = combine(
+        candidates, app.rules.rules, app.spaces.selected, installedPackages
+    ) { scanned, selected, userId, installed ->
+        val scopedCandidates = if (userId == app.spaces.currentUserId) scanned
+            else scanned.filter { it.rule.packageName in installed.orEmpty() }
         val items = retainConfiguredCandidates(
-            scanned,
+            scopedCandidates,
             selected,
             app.getString(R.string.candidate_configured_not_observed)
         )
