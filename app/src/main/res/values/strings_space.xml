@@ -4,4 +4,18 @@
     <string name="space_switch">Switch user space</string>
     <string name="space_menu_item">%1$s (User %2$d)</string>
     <string name="space_scan_incomplete">Some components could not be read for this user. Unverified components cannot be changed.</string>
+    <string name="backup_spaces_export_title">Select backup spaces</string>
+    <string name="backup_spaces_export_help">Select one or more spaces. Unchecked spaces will not be exported.</string>
+    <string name="backup_spaces_space_label">%1$s · User %2$d</string>
+    <string name="backup_spaces_root_note">Root component disabled records are included for reference only. Import never runs Root commands.</string>
+    <string name="backup_spaces_export_selected">Export selected spaces</string>
+    <string name="backup_spaces_import_title">Map backup to spaces</string>
+    <string name="backup_spaces_import_help">Choose a destination for each source space. Skipped spaces remain unchanged.</string>
+    <string name="backup_spaces_source_label">%1$s · Source user %2$d</string>
+    <string name="backup_spaces_rule_counts">%1$d rules · %2$d Root records (reference only)</string>
+    <string name="backup_spaces_target_label">→ %1$s (User %2$d)</string>
+    <string name="backup_spaces_choose_target">Skip / select destination</string>
+    <string name="backup_spaces_skip">Do not import this space</string>
+    <string name="backup_spaces_import_warning">This replaces rules and ordering in mapped destination spaces only. Other spaces are unchanged. Root actions are not executed.</string>
+    <string name="backup_spaces_import_count">Restore %1$d spaces</string>
 </resources>
