@@ -114,8 +114,8 @@ class NfcPaymentModule : XposedModule() {
         val components = values.mapNotNull(::componentOf)
         authorityWriter.replaceComponents(IntentKind.NFC_HCE, components)
 
-        val policy = policyProvider.snapshot()
         val callerUid = Binder.getCallingUid()
+        val policy = policyProvider.snapshot(com.yagay.ListCleaner.domain.AndroidUid.userId(callerUid))
         val callerPid = Binder.getCallingPid()
         if (ManagerIdentity.matches(callerUid, policy.managerAppId) || callerPid == Process.myPid()) {
             return@Hooker original
