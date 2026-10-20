@@ -7,6 +7,7 @@ import com.yagay.ListCleaner.data.IntentCatalog
 import com.yagay.ListCleaner.data.ObservedEntryCache
 import com.yagay.ListCleaner.data.PersistentComponentStore
 import com.yagay.ListCleaner.data.RuleRepository
+import com.yagay.ListCleaner.data.UserSpaceManager
 import com.yagay.ListCleaner.data.readLegacyRemoteConfig
 import com.yagay.ListCleaner.domain.AuthorityCandidatePolicy
 import com.yagay.ListCleaner.domain.DisplayMode
@@ -54,6 +55,7 @@ data class RuntimeStatus(
 @OptIn(FlowPreview::class)
 class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
     lateinit var rules: RuleRepository; private set
+    lateinit var spaces: UserSpaceManager; private set
     lateinit var catalog: IntentCatalog; private set
 
     private val sessionRegistry = ServiceSessionRegistry()
@@ -89,6 +91,7 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
         super.onCreate()
         mutableSyncStatus.value = getString(R.string.runtime_waiting_connection)
         mutableRuntime.value = RuntimeStatus(message = getString(R.string.runtime_waiting_verify))
+        spaces = UserSpaceManager(this)
         rules = RuleRepository(this)
         catalog = IntentCatalog(this)
         XposedServiceHelper.registerListener(this)
