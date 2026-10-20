@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="space_user_title">用户 %1$d</string>
+    <string name="space_switch">切换空间</string>
+    <string name="space_menu_item">%1$s（用户 %2$d）</string>
+    <string name="space_scan_incomplete">部分组件无法读取，未验证的组件不能修改。</string>
+</resources>
