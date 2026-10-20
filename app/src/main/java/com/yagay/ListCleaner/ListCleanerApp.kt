@@ -248,7 +248,10 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                 check(bound.apiVersion >= 102) { getString(R.string.runtime_framework_api_required) }
                 val targets = bound.runningTargets
                 check(isCurrent(session)) { getString(R.string.runtime_connection_changed) }
-                val canPauseTargets = rules.displayMode.value == DisplayMode.SHOW_ALL && targets.isNotEmpty() && targets.all {
+                val canPauseTargets = rules.remoteSnapshot().let { config ->
+                    config.mode == DisplayMode.SHOW_ALL &&
+                        config.userSpaces.values.all { it.mode == DisplayMode.SHOW_ALL }
+                } && targets.isNotEmpty() && targets.all {
                     RuntimeProtocol.supportsSafetyPause(
                         it.state.name,
                         it.loadedVersionCode,
@@ -297,7 +300,9 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                     acknowledgedRevision == revision
                 ) return@withLock true
 
-                val canPause = config.mode == DisplayMode.SHOW_ALL && targets.isNotEmpty() && targets.all {
+                val canPause = config.mode == DisplayMode.SHOW_ALL &&
+                    config.userSpaces.values.all { it.mode == DisplayMode.SHOW_ALL } &&
+                    targets.isNotEmpty() && targets.all {
                     RuntimeProtocol.supportsSafetyPause(
                         it.state.name,
                         it.loadedVersionCode,
