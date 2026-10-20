@@ -16,6 +16,8 @@ import com.yagay.ListCleaner.domain.PriorityConfig
 import com.yagay.ListCleaner.domain.RuleBackup
 import com.yagay.ListCleaner.domain.VisibilityCompatConfig
 import com.yagay.ListCleaner.domain.VisibilityScope
+import com.yagay.ListCleaner.domain.UserSpaceRules
+import com.yagay.ListCleaner.domain.toSpaceRules
 import com.yagay.ListCleaner.domain.normalizeBrowserHost
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,6 +31,32 @@ class RuleRepository(context: Context) {
     private val prefs = appContext.getSharedPreferences(LOCAL_PREFS, Context.MODE_PRIVATE)
     private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
     private val initialConfig = loadInitialConfig()
+    /** Each Android user has independent rules; 0 is always the legacy-compatible base. */
+    private val storedSpaces = mutableMapOf<Int, UserSpaceRules>().apply {
+        put(0, initialConfig.toSpaceRules())
+        putAll(initialConfig.userSpaces)
+    }
+    private var activeUserId = 0
+    val selectedUserId: Int get() = activeUserId
+
+    @Synchronized fun switchSpace(userId: Int) {
+        require(userId in 0..99999)
+        if (userId == activeUserId) return
+        storedSpaces[activeUserId] = localSnapshot().toSpaceRules()
+        activeUserId = userId
+        val next = storedSpaces[userId] ?: UserSpaceRules()
+        mutableRules.value = next.rules
+        mutableMode.value = next.mode
+        mutablePriorities.value = next.priorities
+        mutableOpenTypes.value = next.openTypes
+        mutableBrowserLinks.value = next.browserLinks
+        mutableDiagnostic.value = next.diagnostic
+        mutableHiddenFromApps.value = next.hiddenFromApps
+        mutableVisibilityScopes.value = next.visibilityCompat.scopes
+        mutableVisibilityFullPackages.value = emptyMap()
+        persistLocalSnapshot()
+        mutableRevision.value++
+    }
 
     private val mutableRules = MutableStateFlow(initialConfig.rules)
     private val mutableMode = MutableStateFlow(initialConfig.mode)
@@ -146,23 +174,29 @@ class RuleRepository(context: Context) {
     }
 
     @Synchronized fun restoreRemote(config: ModuleConfig) {
+        activeUserId = 0
+        storedSpaces.clear()
+        storedSpaces[0] = config.toSpaceRules()
+        storedSpaces.putAll(config.userSpaces)
         applyConfig(config, config.mode != DisplayMode.SHOW_SELECTED)
     }
 
-    @Synchronized fun remoteSnapshot(): ModuleConfig = ModuleConfig(
-        rules = mutableRules.value.toSet(),
-        mode = mutableMode.value,
-        priorities = mutablePriorities.value,
-        diagnostic = mutableDiagnostic.value,
-        managerAppId = AndroidUid.appId(android.os.Process.myUid()),
-        hiddenFromApps = mutableHiddenFromApps.value.toSet(),
-        openTypes = mutableOpenTypes.value,
-        browserLinks = mutableBrowserLinks.value,
-        visibilityCompat = VisibilityCompatConfig(
-            scopes = mutableVisibilityScopes.value.toSet(),
-            fullPackages = mutableVisibilityFullPackages.value.mapValues { it.value.toSet() }
+    /** Publish every space atomically, never just the one currently displayed in the UI. */
+    @Synchronized fun remoteSnapshot(): ModuleConfig {
+        val active = localSnapshot().copy(
+            visibilityCompat = VisibilityCompatConfig(
+                scopes = mutableVisibilityScopes.value.toSet(),
+                fullPackages = mutableVisibilityFullPackages.value.mapValues { it.value.toSet() }
+            )
+        ).toSpaceRules()
+        val all = storedSpaces.toMutableMap()
+        all[activeUserId] = active
+        val primary = (all[0] ?: UserSpaceRules()).toModuleConfig()
+        return primary.copy(
+            managerAppId = AndroidUid.appId(android.os.Process.myUid()),
+            userSpaces = all.filterKeys { it != 0 },
         ).validated()
-    )
+    }
 
     private fun localSnapshot(): ModuleConfig = ModuleConfig(
         rules = mutableRules.value.toSet(),
@@ -180,8 +214,12 @@ class RuleRepository(context: Context) {
             managerAppId = -1,
             rootDisabledComponents = null,
             visibilityCompat = VisibilityCompatConfig(scopes = config.visibilityCompat.scopes.toSet()),
+            userSpaces = emptyMap(),
         ).validated()
-        val encoded = json.encodeToString(ModuleConfig.serializer(), local)
+        storedSpaces[activeUserId] = local.toSpaceRules()
+        val primary = (storedSpaces[0] ?: UserSpaceRules()).toModuleConfig()
+            .copy(userSpaces = storedSpaces.filterKeys { it != 0 }).validated()
+        val encoded = json.encodeToString(ModuleConfig.serializer(), primary)
         prefs.edit()
             .putString(KEY_LOCAL_CONFIG, encoded)
             .putBoolean(KEY_INITIALIZED, true)
