@@ -86,6 +86,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun selectSpace(userId: Int) {
         if (rootComponents.busy.value || !app.spaces.select(userId)) return
         app.rules.switchSpace(userId)
+        bulkLocks.notifySpaceChanged()
         rootComponents.switchSpace(userId)
         setQuery("")
         setFilter(null)
