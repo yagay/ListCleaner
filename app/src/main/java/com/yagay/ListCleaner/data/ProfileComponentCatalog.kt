@@ -71,7 +71,12 @@ class ProfileComponentCatalog(private val context: Context) {
     private fun readPackageState(userId: Int, packageName: String): UserPackageState? {
         if (!PackageIdentity.valid(packageName)) return null
         // Whitelisted package names contain no shell metacharacters.
-        val output = shell("dumpsys package $packageName") ?: return null
+        // Return only this user's state block; full dumpsys output often exceeds the bounded
+        // 16 KiB command reader and would otherwise silently omit late user profiles.
+        val command = "dumpsys package $packageName | awk -v wanted='$userId' " +
+            "'/^[[:space:]]*User [0-9]+:/ { " +
+            "if (active) exit; active = ($2 == wanted \":\"); } active { print; }'"
+        val output = shell(command) ?: return null
         val headers = userLine.findAll(output).toList()
         val headerIndex = headers.indexOfFirst { it.groupValues[1] == userId.toString() }
         if (headerIndex < 0) return null
@@ -155,7 +160,7 @@ class ProfileComponentCatalog(private val context: Context) {
                 val blocked = when {
                     component.packageName in setOf(context.packageName, "android", "com.android.systemui") ->
                         context.getString(R.string.root_component_protected)
-                    override == null || !state.appEnabled ->
+                    override == null || state?.appEnabled != true ->
                         context.getString(R.string.root_state_read_failed)
                     else -> null
                 }
