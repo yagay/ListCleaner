@@ -94,7 +94,7 @@ class SettingsEntryAuthorityModule : XposedModule() {
         val packages = values.mapNotNull(::vpnPackageName)
         authorityWriter.replacePackages(IntentKind.VPN, packages)
 
-        val policy = policyProvider.snapshot()
+        val policy = policyProvider.snapshot(com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid()))
         val selectedPackages = policy.selectedPackages(IntentKind.VPN)
         record(
             "VPN_QUERY before=${values.size} selectedPackages=${selectedPackages.size} mode=${policy.displayMode}"
@@ -117,7 +117,7 @@ class SettingsEntryAuthorityModule : XposedModule() {
         val packages = values.mapNotNull(::autofillPackageName)
         authorityWriter.replacePackages(IntentKind.AUTOFILL, packages)
 
-        val policy = policyProvider.snapshot()
+        val policy = policyProvider.snapshot(com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid()))
         val selectedPackages = policy.selectedPackages(IntentKind.AUTOFILL)
         record(
             "AUTOFILL_LEGACY_QUERY before=${values.size} selectedPackages=${selectedPackages.size} mode=${policy.displayMode}"
