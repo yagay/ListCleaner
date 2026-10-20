@@ -83,7 +83,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val selectedSpace = app.spaces.selected
 
     fun selectSpace(userId: Int) {
-        if (!app.spaces.select(userId)) return
+        if (rootComponents.busy.value || !app.spaces.select(userId)) return
         app.rules.switchSpace(userId)
         rootComponents.switchSpace(userId)
         setQuery("")
