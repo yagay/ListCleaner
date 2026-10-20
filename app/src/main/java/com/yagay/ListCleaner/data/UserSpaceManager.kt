@@ -38,7 +38,7 @@ class UserSpaceManager(context: Context) {
         }
         val packages = withContext(Dispatchers.IO) {
             runCatching {
-                val response = ComponentRootCommand.run("pm list packages --user $userId")
+                val response = ComponentRootCommand.runReadOnly("pm list packages --user $userId")
                 if (response.exitCode != 0 || response.timedOut ||
                     response.output.contains("[output truncated]")) {
                     emptySet()
@@ -61,7 +61,7 @@ class UserSpaceManager(context: Context) {
                 }
             }
             runCatching {
-                val output = ComponentRootCommand.run("cmd user list")
+                val output = ComponentRootCommand.runReadOnly("cmd user list")
                 if (output.exitCode == 0 && !output.timedOut) {
                     // UserInfo{10:Work profile:...}; no shell substitution or user-controlled input.
                     Regex("UserInfo\\{([0-9]{1,5}):([^:}\\r\\n]{1,100}):").findAll(output.output).forEach { hit ->
