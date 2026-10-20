@@ -63,12 +63,32 @@ internal object RuntimePolicyCompiler {
 internal object RuntimeComponentPolicy {
     @Volatile
     private var value = RuntimeComponentPolicySnapshot()
+    @Volatile
+    private var spaces: Map<Int, RuntimeComponentPolicySnapshot> = emptyMap()
 
     fun publish(snapshot: RuntimeComponentPolicySnapshot) {
-        value = snapshot
+        publishForUsers(snapshot, emptyMap())
     }
 
-    fun snapshot(): RuntimeComponentPolicySnapshot = value
+    fun publishForUsers(
+        primary: RuntimeComponentPolicySnapshot,
+        otherUsers: Map<Int, RuntimeComponentPolicySnapshot>,
+    ) {
+        spaces = otherUsers.toMap()
+        value = primary
+    }
+
+    /** Missing user policies must fail open, not inherit the primary user's hidden apps. */
+    fun snapshot(userId: Int = 0): RuntimeComponentPolicySnapshot {
+        if (userId == 0) return value
+        return spaces[userId] ?: value.copy(
+            displayMode = DisplayMode.SHOW_ALL,
+            entryRules = emptySet(),
+            entryRulesByKind = emptyMap(),
+            selectedPackagesByKind = emptyMap(),
+            entryPriorities = emptyMap(),
+        )
+    }
 }
 
 internal fun fallbackRuntimePolicy(
