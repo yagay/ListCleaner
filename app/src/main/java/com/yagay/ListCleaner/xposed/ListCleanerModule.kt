@@ -564,7 +564,7 @@ class ListCleanerModule : XposedModule() {
                 orderingEngine.orderItemsFromMetadata(items, kind, "ranked")
             } else {
                 pollPreferences()
-                val current = snapshot
+                val current = snapshotForUser(com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid()))
                 if (current.displayMode == DisplayMode.SHOW_ALL) {
                     diagnostic("ORDER_SKIP reason=show_all")
                     return@runCatching null
@@ -622,13 +622,14 @@ class ListCleanerModule : XposedModule() {
                 orderingEngine.orderItemsFromMetadata(list, kind, "alpha", fixed)
             } else {
                 pollPreferences()
-                if (snapshot.displayMode == DisplayMode.SHOW_ALL) {
+                val localSnapshot = snapshotForUser(com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid()))
+                if (localSnapshot.displayMode == DisplayMode.SHOW_ALL) {
                     diagnostic("ORDER_SKIP stage=alpha reason=show_all")
                     return@runCatching
                 }
                 val preset = adapterOpenPreset(receiver, kind)
                 val browserHost = adapterBrowserHost(receiver, kind)
-                orderingEngine.orderItems(list, kind, snapshot, "alpha", fixed, preset, browserHost)
+                orderingEngine.orderItems(list, kind, localSnapshot, "alpha", fixed, preset, browserHost)
             }
             if (ordered !== list) {
                 ordered.forEachIndexed { index, item -> list[index] = item }
