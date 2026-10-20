@@ -1,6 +1,7 @@
 package com.yagay.ListCleaner.ui
 
 import android.content.Context
+import com.yagay.ListCleaner.ListCleanerApp
 import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.data.RootComponent
 import com.yagay.ListCleaner.domain.ComponentRule
@@ -25,6 +26,15 @@ internal enum class BulkLockState {
  */
 internal class BulkLockStore(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private val selectedSpace = (context.applicationContext as? ListCleanerApp)?.spaces?.selected
+    fun notifySpaceChanged() { mutableRevision.value++ }
+
+    private fun scoped(scope: String): String {
+        val user = selectedSpace?.value ?: 0
+        if (user == 0) return scope // Existing user 0 lock keys are unchanged.
+        val parts = scope.split(':', limit = 2)
+        return if (parts.size == 2) "${parts[0]}:SPACE_$user:${parts[1]}" else scope
+    }
     private val mutableRevision = MutableStateFlow(0L)
     val revision: StateFlow<Long> = mutableRevision.asStateFlow()
 
@@ -84,8 +94,8 @@ internal class BulkLockStore(context: Context) {
         validateSnapshot(values)
         persist(values.toSet())
     }
-    private fun appKey(scope: String, appId: String) = listOf(scope, "app", appId).joinToString(SEPARATOR)
-    private fun itemKey(scope: String, itemId: String) = listOf(scope, "item", itemId).joinToString(SEPARATOR)
+    private fun appKey(scope: String, appId: String) = listOf(scoped(scope), "app", appId).joinToString(SEPARATOR)
+    private fun itemKey(scope: String, itemId: String) = listOf(scoped(scope), "item", itemId).joinToString(SEPARATOR)
 
     private fun itemBelongsToApp(appId: String, itemId: String): Boolean {
         if (itemId == appId) return true
@@ -102,7 +112,7 @@ internal class BulkLockStore(context: Context) {
     }
 
     private fun removeChildLocksForApp(current: MutableSet<String>, scope: String, appId: String) {
-        val prefix = listOf(scope, "item").joinToString(SEPARATOR) + SEPARATOR
+        val prefix = listOf(scoped(scope), "item").joinToString(SEPARATOR) + SEPARATOR
         current.removeAll { entry ->
             entry.startsWith(prefix) && itemBelongsToApp(appId, entry.removePrefix(prefix))
         }
