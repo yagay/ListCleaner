@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="space_user_title">User %1$d</string>
+    <string name="space_switch">Switch user space</string>
+    <string name="space_menu_item">%1$s (User %2$d)</string>
+    <string name="space_scan_incomplete">Some components could not be read for this user. Unverified components cannot be changed.</string>
+</resources>
