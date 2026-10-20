@@ -679,8 +679,13 @@ class ListCleanerModule : XposedModule() {
             // The user argument takes priority over the caller UID where it is recognizable.
             val intentIndex = chain.args.indexOfFirst { it is Intent }
             val explicitUserId = if (layer == Layer.SYSTEM && intentIndex >= 0) {
-                chain.args.drop(intentIndex + 1).filterIsInstance<Int>()
-                    .firstOrNull { it in 0..99999 }
+                val method = chain.executable as? Method
+                val indexes = method?.parameterTypes?.indices?.filter { i ->
+                    i > intentIndex && method.parameterTypes[i] == Integer.TYPE
+                }.orEmpty()
+                val position = if (method?.name?.endsWith("Internal") == true) indexes.firstOrNull()
+                               else indexes.lastOrNull()
+                (position?.let { chain.args.getOrNull(it) } as? Int)?.takeIf { it in 0..99999 }
             } else null
             val targetUserId = explicitUserId ?: com.yagay.ListCleaner.domain.AndroidUid.userId(
                 if (callerUid >= 0) callerUid else Process.myUid()
