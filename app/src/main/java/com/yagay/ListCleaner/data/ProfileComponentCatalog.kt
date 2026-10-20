@@ -32,7 +32,7 @@ class ProfileComponentCatalog(private val context: Context) {
     private val componentLine = Regex("^([A-Za-z_][A-Za-z0-9_.]*)/([A-Za-z_.$][A-Za-z0-9_.$]*)$")
 
     private fun shell(script: String): String? = runCatching {
-        ComponentRootCommand.run(script).takeIf {
+        ComponentRootCommand.runReadOnly(script).takeIf {
             it.exitCode == 0 && !it.timedOut && !it.output.contains("[output truncated]") &&
                 !it.output.contains("[output incomplete]")
         }?.output
