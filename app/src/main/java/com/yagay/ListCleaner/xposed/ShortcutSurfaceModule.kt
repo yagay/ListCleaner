@@ -91,7 +91,7 @@ class ShortcutSurfaceModule : XposedModule() {
 
         values.filterIsInstance<ShortcutInfo>().forEach(RuntimeObservedEntryStore::observeShortcut)
 
-        val policy = policyProvider.snapshot()
+        val policy = policyProvider.snapshot(com.yagay.ListCleaner.domain.AndroidUid.userId(call.callerUid))
         if (ManagerIdentity.matches(call.callerUid, policy.managerAppId)) return@Hooker original
         val selected = policy.selected(IntentKind.SHORTCUT_ITEM)
         val priorities = policy.priorities(IntentKind.SHORTCUT_ITEM)
@@ -148,7 +148,7 @@ class ShortcutSurfaceModule : XposedModule() {
         if (!isDirectShareResolverCaller(callingPackage)) return@Hooker original
 
         val callerUid = Binder.getCallingUid()
-        val policy = policyProvider.snapshot()
+        val policy = policyProvider.snapshot(com.yagay.ListCleaner.domain.AndroidUid.userId(callerUid))
         if (ManagerIdentity.matches(callerUid, policy.managerAppId)) return@Hooker original
 
         val selected = policy.selected(IntentKind.DIRECT_SHARE)
@@ -241,7 +241,7 @@ class ShortcutSurfaceModule : XposedModule() {
             args = chain.args,
             binderUid = Binder.getCallingUid(),
         )
-        val policy = policyProvider.snapshot()
+        val policy = policyProvider.snapshot(com.yagay.ListCleaner.domain.AndroidUid.userId(callerUid))
         if (!ManagerIdentity.matches(callerUid, policy.managerAppId)) return@Hooker chain.proceed()
 
         val original = chain.proceed()
