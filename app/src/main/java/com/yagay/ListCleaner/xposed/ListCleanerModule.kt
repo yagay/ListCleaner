@@ -62,7 +62,7 @@ class ListCleanerModule : XposedModule() {
     )
 
     @Volatile
-    private var snapshot = RuntimeRuleSnapshot(
+    private var primarySnapshot = RuntimeRuleSnapshot(
         configured = emptySet(),
         displayMode = DisplayMode.HIDE_SELECTED,
         priorities = PriorityConfig(),
@@ -70,6 +70,25 @@ class ListCleanerModule : XposedModule() {
         browserLinks = BrowserLinkConfig(),
         diagnostic = false,
     )
+    @Volatile private var scopedSnapshots: Map<Int, RuntimeRuleSnapshot> = emptyMap()
+    private val activeQuerySnapshot = ThreadLocal<RuntimeRuleSnapshot?>()
+    private var snapshot: RuntimeRuleSnapshot
+        get() = activeQuerySnapshot.get() ?: primarySnapshot
+        set(value) { primarySnapshot = value }
+
+    private fun snapshotForUser(userId: Int): RuntimeRuleSnapshot {
+        if (userId == 0) return snapshot
+        return scopedSnapshots[userId] ?: snapshot.copy(
+            configured = emptySet(),
+            displayMode = DisplayMode.SHOW_ALL,
+            priorities = PriorityConfig(),
+            openTypes = OpenTypeConfig(),
+            browserLinks = BrowserLinkConfig(),
+            hiddenFromApps = emptySet(),
+            visibilityCompat = VisibilityCompatConfig(),
+        )
+    }
+
     private var lastEncodedConfig: String? = null
     @Volatile private var runtimeTransportActive = false
     @Volatile private var appliedRuntimeRevision = -1L
@@ -306,14 +325,14 @@ class ListCleanerModule : XposedModule() {
 
     private fun systemVisibilityHooker(adapter: VisibilityLayout) = XposedInterface.Hooker { chain ->
         pollPreferences()
-        val current = snapshot
+        val args = chain.args
+        val callingUid = args.getOrNull(adapter.uidIndex) as? Int ?: return@Hooker chain.proceed()
+        val current = snapshotForUser(com.yagay.ListCleaner.domain.AndroidUid.userId(callingUid))
         if (current.displayMode != DisplayMode.HIDE_SELECTED ||
             current.hiddenFromApps.isEmpty() || current.allSelectedPackages.isEmpty()) {
             return@Hooker chain.proceed()
         }
 
-        val args = chain.args
-        val callingUid = args.getOrNull(adapter.uidIndex) as? Int ?: return@Hooker chain.proceed()
         if (!FilterPolicy.ordinaryAppCaller(callingUid)) return@Hooker chain.proceed()
 
         val computer = args.firstOrNull { value -> value != null && hasGetPackagesForUid(value.javaClass) }
@@ -656,6 +675,17 @@ class ListCleanerModule : XposedModule() {
             } else {
                 chain.proceed()
             }
+            // A system_server query may target a profile other than its Binder caller.
+            // The user argument takes priority over the caller UID where it is recognizable.
+            val intentIndex = chain.args.indexOfFirst { it is Intent }
+            val explicitUserId = if (layer == Layer.SYSTEM && intentIndex >= 0) {
+                chain.args.drop(intentIndex + 1).filterIsInstance<Int>()
+                    .firstOrNull { it in 0..99999 }
+            } else null
+            val targetUserId = explicitUserId ?: com.yagay.ListCleaner.domain.AndroidUid.userId(
+                if (callerUid >= 0) callerUid else Process.myUid()
+            )
+            activeQuerySnapshot.set(snapshotForUser(targetUserId))
             try {
                 processQuery(chain, original, layer, callerUid)
             } catch (failure: Throwable) {
@@ -663,6 +693,7 @@ class ListCleanerModule : XposedModule() {
                 original
             }
         } finally {
+            activeQuerySnapshot.remove()
             queryInProgress.remove()
         }
     }
@@ -1224,6 +1255,20 @@ class ListCleanerModule : XposedModule() {
             hiddenFromApps = config.hiddenFromApps,
             visibilityCompat = config.visibilityCompat,
         )
+        val scopeSnapshots = config.userSpaces.mapValues { (_, space) ->
+            RuntimeRuleSnapshot(
+                configured = space.rules.map { it.id }.toSet(),
+                displayMode = space.mode,
+                priorities = space.priorities,
+                openTypes = space.openTypes,
+                browserLinks = space.browserLinks,
+                diagnostic = space.diagnostic,
+                managerAppId = config.managerAppId,
+                digest = digest,
+                hiddenFromApps = space.hiddenFromApps,
+                visibilityCompat = space.visibilityCompat,
+            )
+        }
         val protected = config.rootDisabledComponents ?: PersistentComponentState.sanitize(
             preferences.getStringSet(PersistentComponentState.REMOTE_KEY, emptySet()).orEmpty()
         )
@@ -1235,8 +1280,21 @@ class ListCleanerModule : XposedModule() {
             entryPriorities = config.priorities.apps,
             digest = digest,
         )
+        scopedSnapshots = scopeSnapshots
         snapshot = nextSnapshot
-        RuntimeComponentPolicy.publish(compiledPolicy)
+        RuntimeComponentPolicy.publishForUsers(
+            compiledPolicy,
+            config.userSpaces.mapValues { (_, space) ->
+                RuntimePolicyCompiler.compile(
+                    managerAppId = config.managerAppId,
+                    protectedComponents = protected,
+                    displayMode = space.mode,
+                    entryRules = space.rules.map { it.id },
+                    entryPriorities = space.priorities.apps,
+                    digest = digest,
+                )
+            }
+        )
         lastEncodedConfig = encoded
 
         record("MANAGER_IDENTITY appId=${config.managerAppId} source=$source")
@@ -1315,6 +1373,7 @@ class ListCleanerModule : XposedModule() {
         val protected = PersistentComponentState.sanitize(
             sourcePreferences.getStringSet(PersistentComponentState.REMOTE_KEY, emptySet()).orEmpty()
         )
+        scopedSnapshots = emptyMap()
         snapshot = nextSnapshot
         RuntimeComponentPolicy.publish(
             RuntimePolicyCompiler.compile(
