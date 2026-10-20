@@ -92,7 +92,7 @@ class RoleControllerModule : XposedModule() {
             publishLive = true,
         )
 
-        val policy = policyProvider.snapshot()
+        val policy = policyProvider.snapshot(com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid()))
         val selectedPackages = policy.selectedPackages(kind)
         if (selectedPackages.isEmpty()) {
             record("HIT role=$roleName kind=$kind count=${values.size} selectedPackages=0 mode=${policy.displayMode}")
