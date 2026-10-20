@@ -27,6 +27,30 @@ class UserSpaceManager(context: Context) {
     val spaces: StateFlow<List<UserSpace>> = mutableSpaces.asStateFlow()
     private val mutableSelected = MutableStateFlow(currentUserId)
     val selected: StateFlow<Int> = mutableSelected.asStateFlow()
+    private val mutableInstalledPackages = MutableStateFlow<Set<String>?>(null)
+    /** null only for the local user; empty means a remote scan failed or has no apps. */
+    val installedPackages: StateFlow<Set<String>?> = mutableInstalledPackages.asStateFlow()
+
+    suspend fun refreshInstalledPackages(userId: Int) {
+        if (userId == currentUserId) {
+            mutableInstalledPackages.value = null
+            return
+        }
+        val packages = withContext(Dispatchers.IO) {
+            runCatching {
+                val response = ComponentRootCommand.run("pm list packages --user $userId")
+                if (response.exitCode != 0 || response.timedOut ||
+                    response.output.contains("[output truncated]")) {
+                    emptySet()
+                } else response.output.lineSequence().map { it.trim() }
+                    .filter { it.startsWith("package:") }
+                    .map { it.removePrefix("package:") }
+                    .filter(com.yagay.ListCleaner.domain.PackageIdentity::valid)
+                    .toSet()
+            }.getOrDefault(emptySet())
+        }
+        if (selected.value == userId) mutableInstalledPackages.value = packages
+    }
 
     suspend fun refresh() {
         val found = withContext(Dispatchers.IO) {
@@ -60,6 +84,7 @@ class UserSpaceManager(context: Context) {
     fun select(userId: Int): Boolean {
         if (userId !in mutableSpaces.value.map { it.userId }) return false
         mutableSelected.value = userId
+        mutableInstalledPackages.value = if (userId == currentUserId) null else emptySet()
         prefs.edit().putInt("selected_user", userId).apply()
         return true
     }
