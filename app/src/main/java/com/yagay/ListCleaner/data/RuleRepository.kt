@@ -46,6 +46,8 @@ class RuleRepository(context: Context) {
     private val appContext = context.applicationContext
     private val prefs = appContext.getSharedPreferences(LOCAL_PREFS, Context.MODE_PRIVATE)
     private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
+    // v13 discriminator and version MUST be present, even though their Kotlin fields have defaults.
+    private val portableBackupJson = Json { prettyPrint = true; ignoreUnknownKeys = true; encodeDefaults = true }
     private val initialConfig = loadInitialConfig()
     /** Each Android user has independent rules; 0 is always the legacy-compatible base. */
     private val storedSpaces = mutableMapOf<Int, UserSpaceRules>().apply {
@@ -528,7 +530,7 @@ class RuleRepository(context: Context) {
                 },
             )
         }
-        val encoded = json.encodeToString(MultiSpaceBackup.serializer(),
+        val encoded = portableBackupJson.encodeToString(MultiSpaceBackup.serializer(),
             MultiSpaceBackup(spaces = entries).validated())
         require(encoded.length <= MAX_BACKUP_CHARS) { appContext.getString(R.string.repo_backup_too_large) }
         return encoded
