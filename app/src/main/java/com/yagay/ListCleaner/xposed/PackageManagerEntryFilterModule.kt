@@ -172,7 +172,7 @@ class PackageManagerEntryFilterModule : XposedModule() {
             binderUid = binderUid,
         )
 
-        val policy = policyProvider.snapshot()
+        val policy = policyProvider.snapshot(AndroidUid.userId(callerUid))
         if (ManagerIdentity.matches(callerUid, policy.managerAppId)) return@Hooker chain.proceed()
         val selected = policy.selected(spec.kind)
         val priorities = policy.priorities(spec.kind)
