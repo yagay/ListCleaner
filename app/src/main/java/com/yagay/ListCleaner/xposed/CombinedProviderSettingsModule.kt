@@ -80,7 +80,7 @@ class CombinedProviderSettingsModule : XposedModule() {
         persistObservations(values)
         if (values.isEmpty()) return@Hooker original
 
-        val policy = policyProvider.snapshot()
+        val policy = policyProvider.snapshot(com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid()))
         val selectedAutofill = policy.selectedPackages(IntentKind.AUTOFILL)
         val selectedCredential = policy.selectedPackages(IntentKind.CREDENTIAL_PROVIDER)
         val hasSelection = selectedAutofill.isNotEmpty() || selectedCredential.isNotEmpty()
