@@ -728,6 +728,39 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return appearance to locks
     }
 
+    fun inspectSpaceBackup(content: String): com.yagay.ListCleaner.data.SpaceBackupInspection {
+        require(content.length <= MAX_BACKUP_CHARS)
+        return app.rules.inspectSpaces(content)
+    }
+
+    fun exportSpacesJson(userIds: Set<Int>): String {
+        require(userIds.isNotEmpty())
+        val detected = app.spaces.spaces.value
+        require(userIds.all { id -> detected.any { it.userId == id } }) {
+            "An Android user was removed during backup"
+        }
+        val names = detected.associate { it.userId to it.title }
+        val rootKeys = com.yagay.ListCleaner.data.PersistentComponentStore(app).disabledKeys()
+        return app.rules.exportSpaces(userIds, names, rootKeys)
+    }
+
+    fun importMappedSpaces(content: String, targets: Map<Int, Int>) {
+        require(content.length <= MAX_BACKUP_CHARS)
+        require(targets.values.all { id -> app.spaces.spaces.value.any { it.userId == id } }) {
+            "Target Android user is no longer available"
+        }
+        app.rules.importSpaces(content, targets)
+        // The backup never imports executable Root actions or overwrites global UI preferences.
+        refresh(forceCatalog = true)
+    }
+
+    fun backupCheckpoint(): String = app.rules.createSpaceCheckpoint()
+
+    fun restoreBackupCheckpoint(checkpoint: String) {
+        app.rules.restoreSpaceCheckpoint(checkpoint)
+        refresh(forceCatalog = true)
+    }
+
     fun previewImportJson(content: String): com.yagay.ListCleaner.data.BackupImportPreview {
         require(content.length <= MAX_BACKUP_CHARS)
         backupExtras(content)
