@@ -79,6 +79,8 @@ class MainActivity : ComponentActivity() {
         vm: MainViewModel = viewModel()
     ) {
         val state by vm.state.collectAsStateWithLifecycle()
+        val spaces by vm.spaces.collectAsStateWithLifecycle()
+        val selectedSpace by vm.selectedSpace.collectAsStateWithLifecycle()
         var searchExpanded by rememberSaveable { mutableStateOf(false) }
         // The merged cleanup tab hosts both rule and Root component editors.
         var componentModeActive by remember { mutableStateOf(false) }
@@ -275,7 +277,14 @@ class MainActivity : ComponentActivity() {
                     onRefresh,
                     { restore.launch(arrayOf("application/json", "text/plain")) },
                     { export.launch("ListCleaner-backup.json") },
-                    showSearch = state.destination != Destination.SETTINGS
+                    showSearch = state.destination != Destination.SETTINGS,
+                    spaces = spaces,
+                    selectedSpace = selectedSpace,
+                    onSpaceSelected = { target ->
+                        closeSearch()
+                        componentModeActive = false
+                        vm.selectSpace(target)
+                    }
                 )
             },
             bottomBar = {
