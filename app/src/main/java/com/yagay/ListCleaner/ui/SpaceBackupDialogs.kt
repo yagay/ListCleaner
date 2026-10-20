@@ -10,6 +10,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.data.SpaceBackupInspection
 import com.yagay.ListCleaner.data.UserSpace
+import com.yagay.ListCleaner.R
+import androidx.compose.ui.res.stringResource
 
 /** Select one, several, or all Android users; nothing outside the selection is exported. */
 @Composable
@@ -21,10 +23,10 @@ internal fun ExportSpaceBackupDialog(
     var selected by remember(spaces) { mutableStateOf(spaces.map { it.userId }.toSet()) }
     AdaptiveAlertDialog(
         onDismissRequest = onDismiss,
-        title = { AdaptiveText("选择备份空间") },
+        title = { AdaptiveText(stringResource(R.string.backup_spaces_export_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                AdaptiveText("可以同时选择多个空间，未勾选的空间不会导出。")
+                AdaptiveText(stringResource(R.string.backup_spaces_export_help))
                 Column(
                     modifier = Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -41,20 +43,20 @@ internal fun ExportSpaceBackupDialog(
                                     else selected - space.userId
                                 },
                             )
-                            AdaptiveText("${space.title} · User ${space.userId}")
+                            AdaptiveText(stringResource(R.string.backup_spaces_space_label, space.title, space.userId))
                         }
                     }
                 }
-                AdaptiveText("Root 组件禁用记录仅供迁移参考；导入不会自动执行禁用命令。")
+                AdaptiveText(stringResource(R.string.backup_spaces_root_note))
             }
         },
         confirmButton = {
             AdaptiveTextButton(onClick = { onExport(selected) }, enabled = selected.isNotEmpty()) {
-                AdaptiveText("导出所选空间")
+                AdaptiveText(stringResource(R.string.backup_spaces_export_selected))
             }
         },
         dismissButton = {
-            AdaptiveTextButton(onClick = onDismiss) { AdaptiveText("取消") }
+            AdaptiveTextButton(onClick = onDismiss) { AdaptiveText(stringResource(R.string.common_cancel)) }
         },
     )
 }
@@ -79,10 +81,10 @@ internal fun ImportSpaceBackupDialog(
     val isValid = mapping.isNotEmpty() && mapping.values.toSet().size == mapping.size
     AdaptiveAlertDialog(
         onDismissRequest = onDismiss,
-        title = { AdaptiveText("选择恢复目标空间") },
+        title = { AdaptiveText(stringResource(R.string.backup_spaces_import_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                AdaptiveText("逐项选择来源备份对应的目标空间。未选择的空间保持原样。")
+                AdaptiveText(stringResource(R.string.backup_spaces_import_help))
                 Column(
                     modifier = Modifier.heightIn(max = 370.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -90,9 +92,9 @@ internal fun ImportSpaceBackupDialog(
                     inspection.spaces.forEach { source ->
                         var expanded by remember(source.sourceUserId) { mutableStateOf(false) }
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            AdaptiveText("${source.sourceName} · 来源 User ${source.sourceUserId}")
+                            AdaptiveText(stringResource(R.string.backup_spaces_source_label, source.sourceName, source.sourceUserId))
                             AdaptiveText(
-                                "${source.rules} 条规则 · ${source.rootDisabledRecords} 条 Root 禁用记录（仅参考）",
+                                stringResource(R.string.backup_spaces_rule_counts, source.rules, source.rootDisabledRecords),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -100,14 +102,14 @@ internal fun ImportSpaceBackupDialog(
                                 AdaptiveTextButton(onClick = { expanded = true }) {
                                     AdaptiveText(targets.firstOrNull {
                                         it.userId == mapping[source.sourceUserId]
-                                    }?.let { "→ ${it.title} (User ${it.userId})" } ?: "跳过此空间 / 选择目标")
+                                    }?.let { stringResource(R.string.backup_spaces_target_label, it.title, it.userId) } ?: stringResource(R.string.backup_spaces_choose_target))
                                 }
                                 AdaptiveDropdownMenu(
                                     expanded = expanded,
                                     onDismissRequest = { expanded = false },
                                 ) {
                                     AdaptiveDropdownMenuItem(
-                                        text = { AdaptiveText("不导入此空间") },
+                                        text = { AdaptiveText(stringResource(R.string.backup_spaces_skip)) },
                                         onClick = {
                                             mapping = mapping - source.sourceUserId
                                             expanded = false
@@ -118,7 +120,7 @@ internal fun ImportSpaceBackupDialog(
                                             target.userId !in mapping.values
                                     }.forEach { target ->
                                         AdaptiveDropdownMenuItem(
-                                            text = { AdaptiveText("${target.title} · User ${target.userId}") },
+                                            text = { AdaptiveText(stringResource(R.string.backup_spaces_space_label, target.title, target.userId)) },
                                             onClick = {
                                                 mapping = mapping + (source.sourceUserId to target.userId)
                                                 expanded = false
@@ -131,17 +133,17 @@ internal fun ImportSpaceBackupDialog(
                         HorizontalDivider()
                     }
                 }
-                AdaptiveText("导入将替换所选目标空间的规则、排序等配置；不会更改其他空间，也不会自动执行 Root 命令。")
+                AdaptiveText(stringResource(R.string.backup_spaces_import_warning))
             }
         },
         confirmButton = {
             AdaptiveTextButton(
                 enabled = isValid,
                 onClick = { onImport(mapping.toMap()) },
-            ) { AdaptiveText("恢复 ${mapping.size} 个空间") }
+            ) { AdaptiveText(stringResource(R.string.backup_spaces_import_count, mapping.size)) }
         },
         dismissButton = {
-            AdaptiveTextButton(onClick = onDismiss) { AdaptiveText("取消") }
+            AdaptiveTextButton(onClick = onDismiss) { AdaptiveText(stringResource(R.string.common_cancel)) }
         },
     )
 }
