@@ -20,6 +20,8 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Layers
+import com.yagay.ListCleaner.data.UserSpace
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -93,8 +95,12 @@ internal fun MainToolbar(
     onRestore: () -> Unit,
     onBackup: () -> Unit,
     showSearch: Boolean = true,
+    spaces: List<UserSpace> = emptyList(),
+    selectedSpace: Int = 0,
+    onSpaceSelected: (Int) -> Unit = {},
 ) {
     var menu by remember { mutableStateOf(false) }
+    var spaceMenu by remember { mutableStateOf(false) }
     TopAppBar(
         title = {
             if (expanded) CompactSearchField(query, onQuery)
@@ -109,6 +115,24 @@ internal fun MainToolbar(
                     AdaptiveIcon(Icons.Rounded.Close, stringResource(R.string.clear_search))
                 }
             } else {
+                if (spaces.size > 1) {
+                    Box {
+                        AdaptiveTextButton(onClick = { spaceMenu = true }) {
+                            AdaptiveIcon(Icons.Rounded.Layers, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            AdaptiveText(spaces.firstOrNull { it.userId == selectedSpace }?.title ?: "User $selectedSpace", maxLines = 1)
+                        }
+                        AdaptiveDropdownMenu(expanded = spaceMenu, onDismissRequest = { spaceMenu = false }) {
+                            spaces.forEach { user ->
+                                AdaptiveDropdownMenuItem(
+                                    text = { AdaptiveText("${user.title} · ${user.userId}") },
+                                    leadingIcon = { if (user.userId == selectedSpace) AdaptiveIcon(Icons.Rounded.Check, null) },
+                                    onClick = { spaceMenu = false; onSpaceSelected(user.userId) },
+                                )
+                            }
+                        }
+                    }
+                }
                 if (showSearch) AdaptiveIconButton(onClick = onSearch) {
                     AdaptiveIcon(Icons.Rounded.Search, stringResource(R.string.common_search))
                 }
