@@ -1,6 +1,9 @@
 package com.yagay.ListCleaner.domain
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.int
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -17,8 +20,9 @@ class MultiSpaceBackupTest {
     @Test fun v13RoundTripsWithExplicitDiscriminator() {
         val format = Json { encodeDefaults = true }
         val encoded = format.encodeToString(MultiSpaceBackup.serializer(), archive())
-        assertTrue(encoded.contains("\\"version\\":13"))
-        assertTrue(encoded.contains("\\"format\\":\\"listcleaner-spaces\\""))
+        val fields = Json.parseToJsonElement(encoded).jsonObject
+        assertEquals(13, fields.getValue("version").jsonPrimitive.int)
+        assertEquals(MultiSpaceBackup.FORMAT, fields.getValue("format").jsonPrimitive.content)
         val decoded = format.decodeFromString(MultiSpaceBackup.serializer(), encoded).validated()
         assertEquals(archive(), decoded)
     }
