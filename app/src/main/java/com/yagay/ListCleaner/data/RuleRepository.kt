@@ -567,7 +567,7 @@ class RuleRepository(context: Context) {
             ),
         ).validated()
         return MultiSpaceBackup(spaces = listOf(
-            SpaceBackupEntry(sourceUserId = 0, sourceName = "Legacy backup",
+            SpaceBackupEntry(sourceUserId = 0, sourceName = appContext.getString(R.string.backup_spaces_legacy_source),
                 settings = settings)
         )).validated()
     }
