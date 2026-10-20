@@ -18,4 +18,5 @@
     <string name="backup_spaces_skip">不导入此空间</string>
     <string name="backup_spaces_import_warning">仅替换所选目标空间的规则与排序，其他空间不变，也不会自动执行 Root 命令。</string>
     <string name="backup_spaces_import_count">恢复 %1$d 个空间</string>
+    <string name="backup_spaces_legacy_source">旧版单空间备份</string>
 </resources>
