@@ -94,7 +94,7 @@ class PackageScopedResolverFilterModule : XposedModule() {
         val kind = intent.intentKind() ?: return@Hooker chain.proceed()
         if (kind !in RESOLVER_PACKAGE_KINDS) return@Hooker chain.proceed()
 
-        val policy = policyProvider.snapshot()
+        val policy = policyProvider.snapshot(com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid()))
         val selected = policy.selectedPackages(kind)
         if (policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) {
             return@Hooker chain.proceed()
