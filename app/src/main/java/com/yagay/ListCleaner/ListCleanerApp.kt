@@ -96,8 +96,11 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
         catalog = IntentCatalog(this)
         XposedServiceHelper.registerListener(this)
         applicationScope.launch {
-            combine(rules.rules, catalog.candidates) { selected, candidates ->
-                deriveFullySelectedPackages(AuthorityCandidatePolicy.normalize(candidates), selected)
+            combine(rules.rules, catalog.candidates, spaces.selected, spaces.installedPackages) {
+                    selected, candidates, userId, installed ->
+                val scoped = if (userId == spaces.currentUserId) candidates
+                    else candidates.filter { it.rule.packageName in installed.orEmpty() }
+                deriveFullySelectedPackages(AuthorityCandidatePolicy.normalize(scoped), selected)
             }.collect(rules::setVisibilityFullPackages)
         }
         // Service lifecycle changes must synchronize immediately. Rule edits are debounced so a
