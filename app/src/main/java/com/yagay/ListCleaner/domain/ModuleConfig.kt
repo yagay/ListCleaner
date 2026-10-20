@@ -24,10 +24,14 @@ data class ModuleConfig(
      * system_server guard/discovery hooks do not depend on RemotePreferences cache freshness.
      * RuleRepository deliberately does not restore this field into rule backups.
      */
-    val rootDisabledComponents: Set<String>? = null
+    val rootDisabledComponents: Set<String>? = null,
+    /** Additional Android user profiles. User 0 remains the legacy top-level configuration. */
+    val userSpaces: Map<Int, UserSpaceRules> = emptyMap()
 ) {
     fun validated(): ModuleConfig {
         require(rules.size <= 20_000 && rules.all(ComponentRule::isValid))
+        require(userSpaces.size <= 16 && userSpaces.keys.all { it in 1..99999 })
+        val validatedSpaces = userSpaces.mapValues { (_, space) -> space.validated() }
         val cleanRules = rules.asSequence()
             .filter { it.kind.isSelectableEntryKind() }
             .map(SyntheticEntryKeys::normalizePackageScopedRule)
@@ -79,13 +83,15 @@ data class ModuleConfig(
             migratedPriorities == priorities &&
             cleanOpenTypes == openTypes &&
             cleanBrowserLinks == browserLinks &&
-            cleanVisibilityCompat == visibilityCompat
+            cleanVisibilityCompat == visibilityCompat &&
+            validatedSpaces == userSpaces
         ) this else copy(
             rules = cleanRules,
             priorities = migratedPriorities,
             openTypes = cleanOpenTypes,
             browserLinks = cleanBrowserLinks,
-            visibilityCompat = cleanVisibilityCompat
+            visibilityCompat = cleanVisibilityCompat,
+            userSpaces = validatedSpaces
         )
     }
 }
