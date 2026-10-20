@@ -118,14 +118,14 @@ internal fun MainToolbar(
                 if (spaces.size > 1) {
                     Box {
                         AdaptiveTextButton(onClick = { spaceMenu = true }) {
-                            AdaptiveIcon(Icons.Rounded.Layers, null, Modifier.size(18.dp))
+                            AdaptiveIcon(Icons.Rounded.Layers, stringResource(R.string.space_switch), Modifier.size(18.dp))
                             Spacer(Modifier.width(4.dp))
-                            AdaptiveText(spaces.firstOrNull { it.userId == selectedSpace }?.title ?: "User $selectedSpace", maxLines = 1)
+                            AdaptiveText(spaces.firstOrNull { it.userId == selectedSpace }?.title ?: stringResource(R.string.space_user_title, selectedSpace), maxLines = 1)
                         }
                         AdaptiveDropdownMenu(expanded = spaceMenu, onDismissRequest = { spaceMenu = false }) {
                             spaces.forEach { user ->
                                 AdaptiveDropdownMenuItem(
-                                    text = { AdaptiveText("${user.title} · ${user.userId}") },
+                                    text = { AdaptiveText(stringResource(R.string.space_menu_item, user.title, user.userId)) },
                                     leadingIcon = { if (user.userId == selectedSpace) AdaptiveIcon(Icons.Rounded.Check, null) },
                                     onClick = { spaceMenu = false; onSpaceSelected(user.userId) },
                                 )
