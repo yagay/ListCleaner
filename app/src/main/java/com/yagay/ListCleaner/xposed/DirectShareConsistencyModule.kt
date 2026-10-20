@@ -137,7 +137,7 @@ class DirectShareConsistencyModule : XposedModule() {
         val targets = chain.args.getOrNull(0) as? List<*>
             ?: return@Hooker chain.proceed()
         if (targets.isEmpty()) {
-            val selected = policyProvider.snapshot().selected(IntentKind.DIRECT_SHARE)
+            val selected = policyProvider.snapshot(com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid())).selected(IntentKind.DIRECT_SHARE)
             collapseEmptyDirectShare = selected.isNotEmpty()
             record("DELIVERY_HIT count=0 collapse=$collapseEmptyDirectShare")
             return@Hooker chain.proceed()
@@ -155,7 +155,7 @@ class DirectShareConsistencyModule : XposedModule() {
         val visibleSharePackages = visibleSharePackages(receiver, chain.args)
             ?: return@Hooker chain.proceed()
 
-        val policy = policyProvider.snapshot()
+        val policy = policyProvider.snapshot(com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid()))
         val selected = policy.selected(IntentKind.DIRECT_SHARE)
         val priorities = policy.priorities(IntentKind.DIRECT_SHARE)
         val keptIndices = directShareFilteredIndices(
