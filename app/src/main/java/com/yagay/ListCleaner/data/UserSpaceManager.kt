@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Process
 import android.os.UserManager
 import com.yagay.ListCleaner.domain.AndroidUid
+import com.yagay.ListCleaner.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,17 +23,17 @@ class UserSpaceManager(context: Context) {
     private val app = context.applicationContext
     private val prefs = app.getSharedPreferences("space_selection", Context.MODE_PRIVATE)
     val currentUserId: Int = AndroidUid.userId(Process.myUid())
-    private val mutableSpaces = MutableStateFlow(listOf(UserSpace(currentUserId, "User $currentUserId")))
+    private val mutableSpaces = MutableStateFlow(listOf(UserSpace(currentUserId, app.getString(R.string.space_user_title, currentUserId))))
     val spaces: StateFlow<List<UserSpace>> = mutableSpaces.asStateFlow()
     private val mutableSelected = MutableStateFlow(currentUserId)
     val selected: StateFlow<Int> = mutableSelected.asStateFlow()
 
     suspend fun refresh() {
         val found = withContext(Dispatchers.IO) {
-            val result = linkedMapOf(currentUserId to UserSpace(currentUserId, "User $currentUserId"))
+            val result = linkedMapOf(currentUserId to UserSpace(currentUserId, app.getString(R.string.space_user_title, currentUserId)))
             runCatching {
                 app.getSystemService(UserManager::class.java)?.userProfiles.orEmpty().forEach { handle ->
-                    result[handle.hashCode()] = UserSpace(handle.hashCode(), "User ${handle.hashCode()}")
+                    result[handle.hashCode()] = UserSpace(handle.hashCode(), app.getString(R.string.space_user_title, handle.hashCode()))
                 }
             }
             runCatching {
@@ -41,7 +42,7 @@ class UserSpaceManager(context: Context) {
                     // UserInfo{10:Work profile:...}; no shell substitution or user-controlled input.
                     Regex("UserInfo\\{([0-9]{1,5}):([^:}\\r\\n]{1,100}):").findAll(output.output).forEach { hit ->
                         val id = hit.groupValues[1].toInt()
-                        result[id] = UserSpace(id, hit.groupValues[2].trim().ifEmpty { "User $id" })
+                        result[id] = UserSpace(id, hit.groupValues[2].trim().ifEmpty { app.getString(R.string.space_user_title, id) })
                     }
                 }
             }
