@@ -98,9 +98,22 @@ internal fun SystemProbeDialog(
         ?: ""
     val value = response
     val diagnostic = showDiagnostics && value?.diagnosticCandidates?.isNotEmpty() == true
+    // Prefer the actual post-filter framework return when the Hook captured one.
+    // It is a package-level runtime snapshot, not proof of rendered UI components.
+    val runtimeSnapshot = value?.runtimeReturn
+    val runtimePackages = runtimeSnapshot?.packages.orEmpty()
+    val runtimeAvailable = runtimeSnapshot != null && !diagnostic
     val displayed = when {
         value == null -> emptyList()
         diagnostic -> value.diagnosticCandidates
+        runtimeAvailable -> runtimePackages.map { pkg ->
+            SystemProbeItem(
+                label = value.items.firstOrNull { it.packageName == pkg }?.appLabel ?: pkg,
+                packageName = pkg,
+                className = "@runtime/" + (request.entryKind?.name ?: "UNKNOWN"),
+                appLabel = value.items.firstOrNull { it.packageName == pkg }?.appLabel ?: pkg,
+            )
+        }
         else -> value.items
     }
     val distinctApps = displayed.map(SystemProbeItem::packageName).distinct().size
@@ -263,11 +276,9 @@ internal fun SystemProbeDialog(
                         }
                     }
                     value.runtimeReturn?.let { returned ->
-                        // A recent timestamp is not proof that this result belongs to the
-                        // probe launched from this screen. No request/session token is
-                        // associated with these generic system-service snapshots yet.
-                        // Present them only as historical diagnostic evidence.
-                        if (showDetails) {
+                        // Runtime returns are primary when present. Make their capture
+                        // context and age visible, rather than implying UI rendering.
+                        {
                             item(key = "runtime-return-source") {
                                 AdaptiveText(
                                     stringResource(
@@ -301,7 +312,7 @@ internal fun SystemProbeDialog(
                             }
                         }
                     }
-                    if (value.evidence == ProbeEvidence.ENABLED ||
+                    if (runtimeAvailable || value.evidence == ProbeEvidence.ENABLED ||
                         value.evidence == ProbeEvidence.REGISTERED || diagnostic) {
                         item(key = "candidate-count") {
                             val countRes = if (diagnostic) R.string.system_probe_diagnostic_count
