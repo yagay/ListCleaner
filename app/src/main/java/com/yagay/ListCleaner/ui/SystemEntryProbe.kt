@@ -17,6 +17,7 @@ import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.domain.AndroidUid
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.SYSTEM_SERVICE_ENTRY_DEFINITIONS
+import com.yagay.ListCleaner.domain.TileServiceEligibility
 import com.yagay.ListCleaner.domain.SystemServiceEntryDefinition
 import com.yagay.ListCleaner.domain.isPackageScopedEntry
 import com.yagay.ListCleaner.domain.webTargetKind
@@ -344,9 +345,10 @@ internal object SystemEntryProbe {
                     ), PackageManager.GET_META_DATA,
                 ).mapNotNull { resolved ->
                     val service = resolved.serviceInfo ?: return@mapNotNull null
-                    if (!service.enabled || service.applicationInfo?.enabled != true ||
-                        service.permission != "android.permission.BIND_QUICK_SETTINGS_TILE"
-                    ) return@mapNotNull null
+                    if (!TileServiceEligibility.active(
+                        service.permission, service.exported,
+                        service.enabled, service.applicationInfo?.enabled == true,
+                    )) return@mapNotNull null
                     SystemProbeItem(
                         resolved.loadLabel(pm)?.toString().orEmpty().ifBlank { service.name },
                         service.packageName, service.name,
