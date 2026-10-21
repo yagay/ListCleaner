@@ -10,6 +10,10 @@ import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.ObservedEntryRecord
+import com.yagay.ListCleaner.domain.AndroidUid
+import com.yagay.ListCleaner.domain.PickerRuntimeRoot
+import com.yagay.ListCleaner.domain.PickerRuntimeSnapshot
+import com.yagay.ListCleaner.domain.PickerRuntimeSnapshotCodec
 import com.yagay.ListCleaner.domain.SyntheticEntryKeys
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
@@ -64,7 +68,7 @@ class DocumentsUiRootsModule : XposedModule() {
                     if (!installed.add(key)) return@forEach
                     runCatching {
                         method.isAccessible = true
-                        hook(method).setId(HOOK_ID).intercept(rootHooker())
+                        hook(method).setId(HOOK_ID).intercept(rootHooker(method.name))
                         count++
                         record("HOOK_INSTALLED method=" + key)
                     }.onFailure {
@@ -79,7 +83,7 @@ class DocumentsUiRootsModule : XposedModule() {
         } else record("HOOK_FAILED reason=roots_cache_methods_unavailable package=" + param.packageName)
     }
 
-    private fun rootHooker() = XposedInterface.Hooker { chain ->
+    private fun rootHooker(methodName: String) = XposedInterface.Hooker { chain ->
         val original = chain.proceed()
         val roots = original as? Collection<*> ?: return@Hooker original
         if (roots.isEmpty() || roots.size > MAX_ROOTS) return@Hooker original
@@ -133,6 +137,57 @@ class DocumentsUiRootsModule : XposedModule() {
             ArrayList(ordered)
         }.onFailure { record("HOOK_FAILED stage=filter error=" + it.javaClass.name) }
             .getOrDefault(original)
+            .also { returned ->
+                // Only the matching-roots method is a filtered, caller-sensitive root query.
+                // The other cache methods may expose entire provider inventories or subsets.
+                if (methodName == "getMatchingRootsBlocking") {
+                    (returned as? Collection<*>)?.let { returnedRoots ->
+                        snapshotMatchingRoots(returnedRoots, ctx)
+                    }
+                }
+            }
+    }
+
+    private fun snapshotMatchingRoots(roots: Collection<*>, context: Context) {
+        // Never persist raw document paths, root IDs or URI grants.
+        val entries = roots.asSequence().take(PickerRuntimeSnapshotCodec.MAX_ROOTS)
+            .mapNotNull { root ->
+                root ?: return@mapNotNull null
+                val authority = ReflectionAccess.readField(root, "authority", "mAuthority")
+                    ?.toString()?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+                val rootId = ReflectionAccess.readField(root, "rootId", "mRootId")
+                    ?.toString()?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+                val provider = providers[authority] ?: runCatching {
+                    context.packageManager.resolveContentProvider(authority, 0)
+                }.getOrNull()?.also { providers[authority] = it }
+                val system = provider?.applicationInfo?.flags
+                    ?.and(ApplicationInfo.FLAG_SYSTEM) != 0
+                val label = ReflectionAccess.readField(root, "title", "mTitle")
+                    ?.toString()?.trim()?.take(160)?.takeIf(String::isNotBlank)
+                    ?: authority.take(160)
+                PickerRuntimeRoot(
+                    packageName = provider?.packageName ?: authority,
+                    label = label,
+                    syntheticId = SyntheticEntryKeys.documentRootClass(authority, rootId),
+                    systemOwned = system,
+                )
+            }.distinctBy(PickerRuntimeRoot::syntheticId).toList()
+        val snapshot = PickerRuntimeSnapshot(
+            capturedAt = System.currentTimeMillis(),
+            userId = AndroidUid.userId(Process.myUid()),
+            roots = entries,
+        )
+        val encoded = PickerRuntimeSnapshotCodec.encode(snapshot)
+        if (encoded.length > PickerRuntimeSnapshotCodec.MAX_CHARS) return
+        worker.execute {
+            runCatching {
+                preferences.edit().putString(PickerRuntimeSnapshotCodec.REMOTE_KEY, encoded).commit()
+            }.onSuccess { saved ->
+                if (saved) record("PICKER_MATCHING_ROOTS captured=" + entries.size)
+            }.onFailure {
+                record("PICKER_SNAPSHOT_FAILED error=" + it.javaClass.name)
+            }
+        }
     }
 
     private fun findEntry(root: Any, context: Context): RootEntry? {
