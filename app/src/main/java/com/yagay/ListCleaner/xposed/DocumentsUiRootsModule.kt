@@ -83,7 +83,26 @@ class DocumentsUiRootsModule : XposedModule() {
         if (count > 0) {
             policy.start()
             record("HOOKS_READY package=" + param.packageName + " total=" + installed.size)
-        } else record("HOOK_FAILED reason=roots_cache_methods_unavailable package=" + param.packageName)
+        } else {
+            record("HOOK_FAILED reason=roots_cache_methods_unavailable package=" + param.packageName)
+            // The Google/OEM fork may rename or change the signature of its cache.
+            // Enumerate method names and parameter/return types without touching its data.
+            CACHE_CLASSES.forEach { className ->
+                val klass = runCatching {
+                    Class.forName(className, false, param.classLoader)
+                }.getOrNull() ?: return@forEach
+                ReflectionAccess.hierarchyMethods(klass)
+                    .asSequence()
+                    .filter { method ->
+                        method.name.contains("root", ignoreCase = true) ||
+                            method.name.contains("provider", ignoreCase = true)
+                    }
+                    .take(60)
+                    .forEach { method ->
+                        record("ROOT_API_CANDIDATE method=" + method.toGenericString())
+                    }
+            }
+        }
     }
 
     private fun rootHooker(methodName: String) = XposedInterface.Hooker { chain ->
