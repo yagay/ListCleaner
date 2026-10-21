@@ -69,8 +69,15 @@ class UserSpaceManager(context: Context) {
             val result = linkedMapOf(currentUserId to UserSpace(currentUserId, app.getString(R.string.space_user_title, currentUserId)))
             runCatching {
                 app.getSystemService(UserManager::class.java)?.userProfiles.orEmpty().forEach { handle ->
-                    val id = handle.identifier
-                    result[id] = UserSpace(id, app.getString(R.string.space_user_title, id))
+                    // SDK stubs may hide getIdentifier even when the device provides
+                    // it. Prefer the runtime value, with the legacy UserHandle
+                    // representation as a compatibility fallback.
+                    val id = runCatching {
+                        (handle.javaClass.getMethod("getIdentifier").invoke(handle) as Number).toInt()
+                    }.getOrElse { handle.hashCode() }
+                    if (id >= 0) result[id] = UserSpace(
+                        id, app.getString(R.string.space_user_title, id)
+                    )
                 }
             }
             runCatching {
