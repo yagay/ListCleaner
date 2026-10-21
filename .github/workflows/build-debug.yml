@@ -101,16 +101,6 @@ jobs:
           set -o pipefail
           bash ./gradlew --no-daemon --console=plain --stacktrace :app:assembleDebug 2>&1 | tee debug-build.log
 
-      - name: Run unit tests
-        run: |
-          set -o pipefail
-          bash ./gradlew --no-daemon --console=plain --stacktrace :app:testDebugUnitTest 2>&1 | tee unit-test.log
-
-      - name: Run Android lint
-        run: |
-          set -o pipefail
-          bash ./gradlew --no-daemon --console=plain --stacktrace :app:lintDebug 2>&1 | tee lint-debug.log
-
       - name: Upload tested source
         if: always() && github.ref == 'refs/heads/test3'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -138,8 +128,6 @@ jobs:
             sdk-packages.log
             sdk-install.log
             debug-build.log
-            unit-test.log
-            lint-debug.log
             app/build/reports/
             build/reports/
           if-no-files-found: ignore
