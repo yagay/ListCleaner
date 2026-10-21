@@ -51,7 +51,7 @@
     <string name="system_probe_evidence_services">Eligible declared services — not final Settings/Role list</string>
     <string name="system_probe_evidence_providers">Registered document providers — not visible picker roots</string>
     <string name="system_probe_evidence_roles">Role candidates — not the final role selection</string>
-    <string name="system_probe_evidence_launcher">Launcher/widget registry — not the launcher's visual list</string>
+    <string name="system_probe_evidence_launcher">Launcher/widget registry — not the launcher visual list</string>
     <string name="system_probe_native_only_detail">This is not a missing or disabled app list. The public PackageManager query enumerates possible handlers, while the system picker applies its own private source selection. To check actual visible choices, open the original system panel with the same test input; a local reconstructed list would be misleading.</string>
     <string name="system_probe_candidate_count">API candidates: %1$d (not actual visible count)</string>
     <string name="system_probe_registry_count">Registered entries: %1$d (not actual visible count)</string>
