@@ -110,7 +110,18 @@ internal fun SystemProbeDialog(
     val runtimeForAttempt = previewLaunchedAt?.let { launched ->
         runtimeSnapshot != null && runtimeSnapshot.capturedAtMillis >= launched
     } == true
-    val runtimeAvailable = runtimeRecent && runtimeForAttempt && !diagnostic
+    // PM captures now carry the queried Intent action. Reject snapshots from a
+    // different action even if they arrived during the same time window.
+    val expectedAction = request.entryKind?.let {
+        SystemEffectPreview.queryIntent(context, it, scenario).let { intent ->
+            (intent.selector ?: intent).action
+        }
+    }
+    val actionMatches = runtimeSnapshot?.let { snapshot ->
+        snapshot.source != "PACKAGE_MANAGER_FILTERED_RETURN" ||
+            (expectedAction != null && snapshot.requestAction == expectedAction)
+    } == true
+    val runtimeAvailable = runtimeRecent && runtimeForAttempt && actionMatches && !diagnostic
     val runtimeComponents = runtimeSnapshot?.components.orEmpty()
     val displayed = when {
         value == null -> emptyList()
