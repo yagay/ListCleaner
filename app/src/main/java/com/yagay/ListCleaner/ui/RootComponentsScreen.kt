@@ -64,6 +64,10 @@ fun RootComponentsScreen(
     val message by vm.componentMessage.collectAsStateWithLifecycle()
     val batchProgress by vm.componentBatchProgress.collectAsStateWithLifecycle()
     val rootNotice by vm.componentRootNotice.collectAsStateWithLifecycle()
+    var systemProbeRequest by remember { mutableStateOf<SystemProbeRequest?>(null) }
+    systemProbeRequest?.let { request ->
+        SystemProbeDialog(request, onDismiss = { systemProbeRequest = null })
+    }
     rootNotice?.let { notice ->
         AdaptiveAlertDialog(
             onDismissRequest = vm::dismissComponentRootNotice,
@@ -414,7 +418,12 @@ fun RootComponentsScreen(
                     },
                     trailing = {
                         AdaptiveIconButton(onClick = {
-                            SystemEffectPreview.launch(prefsContext, item.kind, item.user)
+                            systemProbeRequest = SystemProbeRequest(
+                                componentKind = item.kind,
+                                userId = item.user,
+                                focusPackage = item.component.packageName,
+                                focusClass = item.component.className,
+                            )
                         }) {
                             AdaptiveIcon(
                                 Icons.Rounded.Visibility,
