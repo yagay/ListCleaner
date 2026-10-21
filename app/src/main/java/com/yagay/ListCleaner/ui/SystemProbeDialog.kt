@@ -2,6 +2,7 @@ package com.yagay.ListCleaner.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -12,10 +13,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -33,12 +34,19 @@ internal fun SystemProbeDialog(
 ) {
     val context = LocalContext.current
     var refreshToken by remember { mutableIntStateOf(0) }
+    var scenario by remember(request) {
+        mutableStateOf(request.scenario ?: request.entryKind?.let(::defaultProbeScenario)
+            ?: SystemProbeScenario.TEXT)
+    }
+    var scenarioMenu by remember { mutableStateOf(false) }
+    val choices = request.entryKind?.let(::availableProbeScenarios).orEmpty()
+    val activeRequest = request.copy(scenario = scenario)
     var result by remember(request) { mutableStateOf<SystemProbeResult?>(null) }
 
-    LaunchedEffect(request, refreshToken) {
+    LaunchedEffect(activeRequest, refreshToken) {
         result = null
         result = withContext(Dispatchers.IO) {
-            SystemEntryProbe.query(context.applicationContext, request)
+            SystemEntryProbe.query(context.applicationContext, activeRequest)
         }
     }
 
@@ -54,6 +62,28 @@ internal fun SystemProbeDialog(
                 Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                if (choices.size > 1) {
+                    Box {
+                        AdaptiveTextButton(onClick = { scenarioMenu = true }) {
+                            AdaptiveText(stringResource(R.string.system_probe_scenario_label,
+                                stringResource(scenario.titleRes)))
+                        }
+                        AdaptiveDropdownMenu(
+                            expanded = scenarioMenu,
+                            onDismissRequest = { scenarioMenu = false },
+                        ) {
+                            choices.forEach { choice ->
+                                AdaptiveDropdownMenuItem(
+                                    text = { AdaptiveText(stringResource(choice.titleRes)) },
+                                    onClick = {
+                                        scenarioMenu = false
+                                        scenario = choice
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
                 if (response == null) {
                     AdaptiveText(stringResource(R.string.system_probe_loading))
                 } else {
@@ -65,6 +95,11 @@ internal fun SystemProbeDialog(
                     AdaptiveText(
                         stringResource(response.explanationRes),
                         style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    AdaptiveText(
+                        stringResource(R.string.system_probe_inexact_notice),
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     AdaptiveText(
@@ -133,7 +168,7 @@ internal fun SystemProbeDialog(
                     AdaptiveText(stringResource(R.string.system_probe_refresh))
                 }
                 AdaptiveTextButton(onClick = {
-                    request.entryKind?.let { SystemEffectPreview.launch(context, it, request.userId) }
+                    request.entryKind?.let { SystemEffectPreview.launch(context, it, request.userId, scenario) }
                         ?: request.componentKind?.let { SystemEffectPreview.launch(context, it, request.userId) }
                 }) {
                     AdaptiveText(stringResource(R.string.system_probe_open_system))

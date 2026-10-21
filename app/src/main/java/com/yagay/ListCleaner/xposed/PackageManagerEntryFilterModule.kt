@@ -180,7 +180,14 @@ class PackageManagerEntryFilterModule : XposedModule() {
             return@Hooker chain.proceed()
         }
         val policy = policyProvider.snapshot(targetUserId)
-        if (ManagerIdentity.matches(callerUid, policy.managerAppId)) return@Hooker chain.proceed()
+        // A manager API preview can request the real filtered PackageManager service/provider
+        // path. Authenticate caller UID; an Intent extra from another app never grants a bypass.
+        val managerCaller = ManagerIdentity.matches(callerUid, policy.managerAppId)
+        val managerPreview = managerCaller &&
+            intent.getBooleanExtra(
+                com.yagay.ListCleaner.domain.RuntimeProtocol.EXTRA_MANAGER_PREVIEW_QUERY, false
+            )
+        if (managerCaller && !managerPreview) return@Hooker chain.proceed()
         val selected = policy.selected(spec.kind)
         val priorities = policy.priorities(spec.kind)
         if (selected.isEmpty() && priorities.isEmpty()) return@Hooker chain.proceed()

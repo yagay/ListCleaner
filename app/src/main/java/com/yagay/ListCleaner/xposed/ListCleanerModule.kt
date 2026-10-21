@@ -970,12 +970,19 @@ class ListCleanerModule : XposedModule() {
             diagnostic("FILTER_PAUSED reason=manager_identity_unknown open_module_app_to_sync")
             return original
         }
-        if (ManagerIdentity.matches(callerUid, moduleAppId)) {
+        // The manager normally stays exempt to keep rule discovery and editing safe.
+        // Only its explicit, UID-authenticated, read-only API preview can pass through
+        // the same resolver filter path that other app callers take.
+        val managerCaller = ManagerIdentity.matches(callerUid, moduleAppId)
+        val managerPreview = layer == Layer.SYSTEM && managerCaller &&
+            outerIntent?.getBooleanExtra(RuntimeProtocol.EXTRA_MANAGER_PREVIEW_QUERY, false) == true
+        if (managerCaller && !managerPreview) {
             if (tracedActions.add("manager_bypass")) {
                 record("MANAGER_QUERY_BYPASS uid=$callerUid")
             }
             return original
         }
+        if (managerPreview) diagnostic("MANAGER_PREVIEW_QUERY uid=$callerUid requested=true")
 
         val intentIndex = chain.args.indexOfFirst { it is Intent }
         val systemResolvedType =
