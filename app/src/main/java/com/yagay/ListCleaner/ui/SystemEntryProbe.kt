@@ -53,6 +53,7 @@ internal data class SystemProbeResult(
     val items: List<SystemProbeItem> = emptyList(),
     val supported: Boolean = true,
     val failure: Boolean = false,
+    val totalCount: Int = items.size,
 )
 
 /**
@@ -73,6 +74,18 @@ internal object SystemEntryProbe {
                 supported = false,
             )
         }
+        // A PackageManager resolver handler list is not the contents of DocumentsUI,
+        // Photo Picker, Sharesheet Direct Share, or other privileged system surfaces.
+        // Showing it as the actual result is inherently false even when the hook works.
+        val evidence = request.entryKind?.let(::previewEvidence)
+            ?: request.componentKind?.let(::previewEvidence)
+        if (evidence == ProbeEvidence.NATIVE_UI_ONLY) {
+            return SystemProbeResult(
+                R.string.system_probe_evidence_native_only,
+                R.string.system_probe_native_only_detail,
+                supported = false,
+            )
+        }
         return try {
             val kind = request.entryKind
             if (kind != null) probeEntry(context, kind, request.scenario ?: defaultProbeScenario(kind)) else probeComponent(
@@ -87,8 +100,14 @@ internal object SystemEntryProbe {
         }
     }
 
-    private fun result(sourceRes: Int, explanationRes: Int, items: List<SystemProbeItem>) =
-        SystemProbeResult(sourceRes, explanationRes, items.distinctBy(SystemProbeItem::component).take(1500))
+    private fun result(
+        sourceRes: Int, explanationRes: Int, items: List<SystemProbeItem>,
+    ): SystemProbeResult {
+        val unique = items.distinctBy(SystemProbeItem::component)
+        return SystemProbeResult(
+            sourceRes, explanationRes, unique.take(1500), totalCount = unique.size,
+        )
+    }
 
     private fun unavailable() = SystemProbeResult(
         R.string.system_probe_source_none, R.string.system_probe_no_public_registry,
@@ -101,8 +120,9 @@ internal object SystemEntryProbe {
     ): SystemProbeResult {
         val pm = context.packageManager
         return when (kind) {
-            IntentKind.DIRECT_SHARE, IntentKind.SHORTCUT_ITEM, IntentKind.LAUNCHER_SHORTCUT,
-            IntentKind.DOCUMENT_ROOT -> unavailable()
+            IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT, IntentKind.CREATE_DOCUMENT,
+            IntentKind.PHOTO_SOURCE, IntentKind.DIRECT_SHARE, IntentKind.SHORTCUT_ITEM,
+            IntentKind.LAUNCHER_SHORTCUT, IntentKind.DOCUMENT_ROOT -> unavailable()
 
             IntentKind.INPUT_METHOD -> {
                 val list = context.getSystemService(InputMethodManager::class.java)
@@ -127,9 +147,8 @@ internal object SystemEntryProbe {
                             service.packageName, service.name)
                     })
             }
-            IntentKind.DOCUMENT_PROVIDER, IntentKind.PHOTO_SOURCE -> {
-                val action = if (kind == IntentKind.DOCUMENT_PROVIDER)
-                    DocumentsContract.PROVIDER_INTERFACE else "android.content.action.CLOUD_MEDIA_PROVIDER"
+            IntentKind.DOCUMENT_PROVIDER -> {
+                val action = DocumentsContract.PROVIDER_INTERFACE
                 result(R.string.system_probe_source_providers, R.string.system_probe_provider_notice,
                     pm.queryIntentContentProviders(
                         SystemEffectPreview.markedQueryIntent(Intent(action)),
@@ -138,10 +157,6 @@ internal object SystemEntryProbe {
                         val provider = ri.providerInfo ?: return@mapNotNull null
                         if (!provider.enabled || provider.applicationInfo?.enabled != true)
                             return@mapNotNull null
-                        if (kind == IntentKind.PHOTO_SOURCE &&
-                            provider.readPermission !=
-                            "com.android.providers.media.permission.MANAGE_CLOUD_MEDIA_PROVIDERS"
-                        ) return@mapNotNull null
                         SystemProbeItem(
                             ri.loadLabel(pm)?.toString().orEmpty().ifBlank { provider.name },
                             provider.packageName, provider.name
@@ -293,6 +308,10 @@ internal object SystemEntryProbe {
                     PackageManager.GET_META_DATA
                 ).mapNotNull { ri ->
                     val service = ri.serviceInfo ?: return@mapNotNull null
+                    if (!service.enabled || service.applicationInfo?.enabled != true ||
+                        !service.exported ||
+                        service.permission != "android.permission.BIND_QUICK_SETTINGS_TILE"
+                    ) return@mapNotNull null
                     SystemProbeItem(ri.loadLabel(pm)?.toString().orEmpty().ifBlank { service.name },
                         service.packageName, service.name)
                 }
