@@ -73,4 +73,10 @@
     <string name="system_probe_observed_time">记录于：%1$s（非实时状态）</string>
     <string name="system_probe_details_show">为什么与系统显示不同？</string>
     <string name="system_probe_details_hide">收起说明</string>
+    <string name="system_probe_matched_title">DocumentsUI 本次返回的来源（%1$d）</string>
+    <string name="system_probe_matched_recent">最近系统接口返回于：%1$s。这些来源已经过 DocumentsUI 的根目录查询及 Hook 过滤，但最终界面可能继续筛选。</string>
+    <string name="system_probe_matched_stale">上次记录：%1$s。不是当前已启用清单；请重新打开系统选择器以更新。</string>
+    <string name="system_probe_no_matched_results">尚未捕获到系统根目录匹配查询。请打开系统选择器后返回；下方可能展示较早观察到的第三方来源。</string>
+    <string name="system_probe_system_root">系统来源 · %1$s</string>
+    <string name="system_probe_third_party_root">第三方来源 · %1$s</string>
 </resources>

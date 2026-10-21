@@ -73,4 +73,10 @@
     <string name="system_probe_observed_time">Recorded: %1$s (not a live status)</string>
     <string name="system_probe_details_show">Why are these results different?</string>
     <string name="system_probe_details_hide">Hide explanation</string>
+    <string name="system_probe_matched_title">Sources returned by DocumentsUI (%1$d)</string>
+    <string name="system_probe_matched_recent">Most recent system root query: %1$s. These entries were returned by DocumentsUI after Hook filtering; its final screen may apply additional conditions.</string>
+    <string name="system_probe_matched_stale">Last observed: %1$s. This is an older system query, not a current enabled list. Open the picker again to refresh.</string>
+    <string name="system_probe_no_matched_results">No matching-roots response has been captured yet. Open the system picker and return here; older third-party observations may be shown below.</string>
+    <string name="system_probe_system_root">System source · %1$s</string>
+    <string name="system_probe_third_party_root">Third-party source · %1$s</string>
 </resources>

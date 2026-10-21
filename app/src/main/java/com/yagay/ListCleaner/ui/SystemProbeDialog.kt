@@ -1,6 +1,5 @@
 package com.yagay.ListCleaner.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,7 +53,6 @@ internal fun SystemProbeDialog(
     var scenarioMenu by remember { mutableStateOf(false) }
     var showDiagnostics by remember(request) { mutableStateOf(false) }
     var showDetails by remember(request) { mutableStateOf(false) }
-    var expandedPackage by remember(request) { mutableStateOf<String?>(null) }
 
     val choices = request.entryKind?.let(::availableProbeScenarios).orEmpty()
     val nativeAvailable = request.entryKind?.let {
@@ -98,7 +96,7 @@ internal fun SystemProbeDialog(
         diagnostic -> value.diagnosticCandidates
         else -> value.items
     }
-    val groups = displayed.groupBy(SystemProbeItem::packageName).toList()
+    val distinctApps = displayed.map(SystemProbeItem::packageName).distinct().size
     val qualityRes = when (value?.evidence) {
         ProbeEvidence.ENABLED -> R.string.system_probe_quality_enabled
         ProbeEvidence.REGISTERED -> R.string.system_probe_quality_candidate
@@ -133,7 +131,6 @@ internal fun SystemProbeDialog(
                                         onClick = {
                                             scenarioMenu = false
                                             scenario = choice
-                                            expandedPackage = null
                                         },
                                     )
                                 }
@@ -172,31 +169,77 @@ internal fun SystemProbeDialog(
                     }
                     if (nativeRootsRelevant) {
                         item(key = "observed-label") {
-                            val found = value.observedThirdPartyRoots.size
-                            AdaptiveText(
-                                stringResource(R.string.system_probe_observed_title, found),
-                                fontWeight = FontWeight.SemiBold,
-                                style = MaterialTheme.typography.titleSmall,
-                            )
-                            if (found == 0) {
-                                AdaptiveText(stringResource(R.string.system_probe_observed_empty),
+                            val captured = value.matchingRootsSnapshot
+                            if (captured != null) {
+                                val recent = System.currentTimeMillis() - captured.capturedAt in 0..300_000L
+                                AdaptiveText(
+                                    stringResource(R.string.system_probe_matched_title,
+                                        captured.roots.size),
+                                    fontWeight = FontWeight.SemiBold,
+                                    style = MaterialTheme.typography.titleSmall,
+                                )
+                                AdaptiveText(
+                                    stringResource(
+                                        if (recent) R.string.system_probe_matched_recent
+                                        else R.string.system_probe_matched_stale,
+                                        DateFormat.getDateTimeInstance(
+                                            DateFormat.SHORT, DateFormat.SHORT
+                                        ).format(Date(captured.capturedAt))
+                                    ),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            } else {
+                                AdaptiveText(
+                                    stringResource(R.string.system_probe_no_matched_results),
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
                         }
-                        items(value.observedThirdPartyRoots, key = { it.packageName + "/" + it.key }) { root ->
-                            Column(Modifier.fillMaxWidth().padding(vertical = 3.dp),
-                                verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                AdaptiveText(root.label,
-                                    style = MaterialTheme.typography.bodyMedium)
-                                AdaptiveText(root.packageName,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                AdaptiveText(stringResource(R.string.system_probe_observed_time,
-                                    DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
-                                        .format(Date(root.capturedAtMillis))),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        val matching = value.matchingRootsSnapshot
+                        if (matching != null) {
+                            items(matching.roots, key = { it.syntheticId }) { root ->
+                                Column(
+                                    Modifier.fillMaxWidth().padding(vertical = 5.dp),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                                ) {
+                                    AdaptiveText(root.label,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium)
+                                    AdaptiveText(
+                                        stringResource(
+                                            if (root.systemOwned)
+                                                R.string.system_probe_system_root
+                                            else R.string.system_probe_third_party_root,
+                                            root.packageName
+                                        ),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        } else if (value.observedThirdPartyRoots.isNotEmpty()) {
+                            item(key = "historical-root-label") {
+                                AdaptiveText(stringResource(
+                                    R.string.system_probe_observed_title,
+                                    value.observedThirdPartyRoots.size
+                                ), style = MaterialTheme.typography.titleSmall)
+                            }
+                            items(value.observedThirdPartyRoots,
+                                key = { it.packageName + "/" + it.key }) { root ->
+                                Column(Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    AdaptiveText(root.label,
+                                        style = MaterialTheme.typography.bodyMedium)
+                                    AdaptiveText(stringResource(
+                                        R.string.system_probe_observed_time,
+                                        DateFormat.getDateTimeInstance(
+                                            DateFormat.SHORT, DateFormat.SHORT
+                                        ).format(Date(root.capturedAtMillis))
+                                    ), style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
                         }
                     }
@@ -204,7 +247,6 @@ internal fun SystemProbeDialog(
                         item(key = "diagnostics-action") {
                             AdaptiveTextButton(onClick = {
                                 showDiagnostics = !showDiagnostics
-                                expandedPackage = null
                             }) {
                                 AdaptiveText(stringResource(
                                     if (showDiagnostics) R.string.system_probe_diagnostic_hide
@@ -219,7 +261,7 @@ internal fun SystemProbeDialog(
                                 else if (value.evidence == ProbeEvidence.ENABLED)
                                     R.string.system_probe_count_enabled
                                 else R.string.system_probe_count_candidate
-                            AdaptiveText(stringResource(countRes, displayed.size, groups.size),
+                            AdaptiveText(stringResource(countRes, displayed.size, distinctApps),
                                 style = MaterialTheme.typography.titleSmall)
                         }
                         if (request.focusPackage != null) {
@@ -238,34 +280,29 @@ internal fun SystemProbeDialog(
                                 AdaptiveText(stringResource(R.string.system_probe_empty))
                             }
                         }
-                        items(groups, key = { it.first }) { (pkg, entries) ->
-                            val expanded = expandedPackage == pkg
-                            val selected = entries.any(request::matches)
+                        // Show every queried entry immediately. Package-level folding hid the
+                        // requested list behind counts and extra taps.
+                        items(displayed, key = { it.component }) { entry ->
+                            val selected = request.matches(entry)
                             Column(
-                                Modifier.fillMaxWidth().clickable {
-                                    expandedPackage = if (expanded) null else pkg
-                                }.padding(vertical = 5.dp),
+                                Modifier.fillMaxWidth().padding(vertical = 6.dp),
                                 verticalArrangement = Arrangement.spacedBy(2.dp),
                             ) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    AdaptiveText(entries.first().appLabel,
-                                        modifier = Modifier.weight(1f),
-                                        fontWeight = if (selected) FontWeight.SemiBold
-                                            else FontWeight.Normal,
-                                        color = if (selected) MaterialTheme.colorScheme.primary
-                                            else MaterialTheme.colorScheme.onSurface)
-                                    AdaptiveText(stringResource(R.string.system_probe_group_count,
-                                        entries.size), style = MaterialTheme.typography.labelSmall)
+                                AdaptiveText(
+                                    entry.appLabel,
+                                    fontWeight = if (selected) FontWeight.SemiBold
+                                        else FontWeight.Medium,
+                                    color = if (selected) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurface,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                                if (entry.label != entry.appLabel) {
+                                    AdaptiveText(entry.label,
+                                        style = MaterialTheme.typography.bodySmall)
                                 }
-                                if (expanded) {
-                                    entries.forEach { entry ->
-                                        AdaptiveText(entry.label,
-                                            style = MaterialTheme.typography.bodySmall)
-                                        AdaptiveText(entry.component,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                }
+                                AdaptiveText(entry.component,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
