@@ -67,6 +67,11 @@ internal fun SystemProbeDialog(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    AdaptiveText(
+                        stringResource(R.string.system_probe_scope_note),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     if (response.supported) {
                         AdaptiveText(
                             stringResource(R.string.system_probe_count, response.items.size),
@@ -114,11 +119,6 @@ internal fun SystemProbeDialog(
                             }
                         }
                     }
-                    AdaptiveText(
-                        stringResource(R.string.system_probe_scope_note),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
             }
         },
