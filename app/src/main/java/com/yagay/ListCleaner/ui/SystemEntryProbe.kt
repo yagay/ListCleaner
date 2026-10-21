@@ -14,6 +14,7 @@ import android.view.accessibility.AccessibilityManager
 import android.view.inputmethod.InputMethodManager
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.CleanupKind
+import com.yagay.ListCleaner.data.ObservedEntryCache
 import com.yagay.ListCleaner.domain.AndroidUid
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.SYSTEM_SERVICE_ENTRY_DEFINITIONS
@@ -50,6 +51,16 @@ internal data class SystemProbeItem(
     val component: String get() = "$packageName/$className"
 }
 
+/** Source roots observed earlier inside the real DocumentsUI process via LSPosed.
+ * They are historical THIRD-PARTY roots, not a full/current visible source list.
+ */
+internal data class ObservedPickerRoot(
+    val label: String,
+    val packageName: String,
+    val key: String,
+    val capturedAtMillis: Long,
+)
+
 internal enum class ProbeEvidence {
     /** Directly returned by Android's enabled InputMethod / Accessibility manager. */
     ENABLED,
@@ -71,6 +82,7 @@ internal data class SystemProbeResult(
     /** Diagnostic-only registrations never count as actual enabled/displayed entries. */
     val diagnosticCandidates: List<SystemProbeItem> = emptyList(),
     val pickerHost: SystemProbeItem? = null,
+    val observedThirdPartyRoots: List<ObservedPickerRoot> = emptyList(),
 )
 
 /**
@@ -124,14 +136,37 @@ internal object SystemEntryProbe {
             supported = false, evidence = ProbeEvidence.NOT_PUBLIC,
         )
 
+    private fun previouslyObservedDocumentRoots(context: Context): List<ObservedPickerRoot> =
+        ObservedEntryCache(context).snapshot().asSequence()
+            .filter { it.kind == IntentKind.DOCUMENT_ROOT.name }
+            .map { record ->
+                ObservedPickerRoot(
+                    label = record.label.ifBlank { record.packageName },
+                    packageName = record.packageName,
+                    key = record.syntheticClass,
+                    capturedAtMillis = record.observedAt,
+                )
+            }
+            .distinctBy { it.packageName to it.key }
+            .sortedByDescending { it.capturedAtMillis }
+            .take(120)
+            .toList()
+
     private fun probeEntry(
         context: Context, kind: IntentKind, scenario: SystemProbeScenario,
     ): SystemProbeResult {
         val pm = context.packageManager
         return when (kind.previewAuthority()) {
             PreviewAuthority.PICKER_PRIVATE -> {
+                val observed = previouslyObservedDocumentRoots(context)
                 if (kind == IntentKind.DOCUMENT_ROOT) {
-                    noPublicList(R.string.system_probe_picker_internal)
+                    SystemProbeResult(
+                        R.string.system_probe_source_picker,
+                        R.string.system_probe_picker_internal,
+                        supported = false,
+                        evidence = ProbeEvidence.NOT_PUBLIC,
+                        observedThirdPartyRoots = observed,
+                    )
                 } else {
                     val intent = SystemEffectPreview.queryIntent(context, kind, scenario)
                     val host = pm.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
@@ -150,6 +185,7 @@ internal object SystemEntryProbe {
                         evidence = ProbeEvidence.PICKER_HOST,
                         pickerHost = host,
                         diagnosticCandidates = unique(registrations),
+                        observedThirdPartyRoots = observed,
                     )
                 }
             }

@@ -7,7 +7,8 @@
     <string name="system_probe_target_missing">Selected item (%1$s) not in this response; this does not establish whether another app will see it</string>
     <string name="system_probe_empty">This query returned no entries to List Cleaner.</string>
     <string name="system_probe_scope_note">This is an actual framework API response for List Cleaner’s own user and caller identity. The module may exempt its manager app from filtering. It does not prove the result another app or the final system picker receives.</string>
-    <string name="system_probe_open_system">System panel</string>
+    <string name="system_probe_open_system">Open system panel</string>
+    <string name="system_probe_open_picker">Open system picker</string>
     <string name="system_probe_close">Close</string>
     <string name="system_probe_refresh">Refresh</string>
     <string name="system_probe_source_none">No accessible public registry</string>
@@ -65,4 +66,11 @@
     <string name="system_probe_unknown_host">No single picker host is exposed; use the system panel for the final list.</string>
     <string name="system_probe_group_count">%1$d components</string>
     <string name="system_probe_scope_contract">A result is reported as enabled only if a public Android enabled-service API confirms it. PackageManager matches, installed widgets, roles, service declarations and DocumentsUI/PhotoPicker providers are NOT the final displayed list. Profiles and OEM UIs can differ.</string>
+    <string name="system_probe_picker_compact">Only the system picker knows its complete visible list. Use the button below to open it.</string>
+    <string name="system_probe_picker_host_short">Picker: %1$s</string>
+    <string name="system_probe_observed_title">Previously observed third-party roots (%1$d)</string>
+    <string name="system_probe_observed_empty">No third-party document roots observed yet. Open the system picker to test. System-owned sources are not included here.</string>
+    <string name="system_probe_observed_time">Recorded: %1$s (not a live status)</string>
+    <string name="system_probe_details_show">Why are these results different?</string>
+    <string name="system_probe_details_hide">Hide explanation</string>
 </resources>
