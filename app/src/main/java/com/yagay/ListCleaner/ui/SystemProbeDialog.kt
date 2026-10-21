@@ -63,6 +63,7 @@ internal fun SystemProbeDialog(
     val nativeRootsRelevant = request.entryKind in setOf(
         IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT,
         IntentKind.CREATE_DOCUMENT, IntentKind.DOCUMENT_ROOT,
+        IntentKind.DOCUMENT_PROVIDER,
     )
     val activeRequest = request.copy(scenario = scenario)
     var response by remember(request) { mutableStateOf<SystemProbeResult?>(null) }
@@ -168,7 +169,8 @@ internal fun SystemProbeDialog(
                         }
                     }
                     if (nativeRootsRelevant) {
-                        val observedThisTest = value.pickerProbeStatus ==
+                        val observedThisTest = request.entryKind !=
+                            IntentKind.DOCUMENT_PROVIDER && value.pickerProbeStatus ==
                             PickerProbeStatus.OBSERVED_AFTER_TEST
                         val matching = value.matchingRootsSnapshot
                         item(key = "picker-verification") {

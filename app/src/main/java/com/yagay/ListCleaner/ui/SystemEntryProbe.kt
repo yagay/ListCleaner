@@ -350,6 +350,13 @@ internal object SystemEntryProbe {
         return SystemProbeResult(
             R.string.system_probe_source_providers, R.string.system_probe_provider_notice,
             evidence = ProbeEvidence.PICKER_HOST, diagnosticCandidates = unique(entries),
+            // Storage providers share DocumentsUI root observations with document pickers.
+            // These observations remain separate from registration candidates and are
+            // not an assertion that the provider appears in the current picker.
+            matchingRootsSnapshot = if (kind == IntentKind.DOCUMENT_PROVIDER)
+                matchingRootsFromDocumentsUi(context) else null,
+            observedThirdPartyRoots = if (kind == IntentKind.DOCUMENT_PROVIDER)
+                previouslyObservedDocumentRoots(context) else emptyList(),
         )
     }
 
