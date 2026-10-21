@@ -2,6 +2,7 @@ package com.yagay.ListCleaner.ui
 
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.appwidget.AppWidgetManager
+import android.app.role.RoleManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.LauncherApps
@@ -253,6 +254,9 @@ internal object SystemEntryProbe {
             }
             PreviewAuthority.RESOLVER_CANDIDATES,
             PreviewAuthority.ROLE_CANDIDATES -> {
+                val roleResult = if (kind.previewAuthority() == PreviewAuthority.ROLE_CANDIDATES)
+                    roleHolders(context, kind) else null
+                if (roleResult != null) return roleResult
                 if (kind == IntentKind.CALL_SCREENING) return registeredServices(context, kind)
                 val intent = SystemEffectPreview.queryIntent(context, kind, scenario)
                 val flags = if (kind in setOf(IntentKind.PROCESS_TEXT, IntentKind.HOME, IntentKind.ASSISTANT))
@@ -275,6 +279,40 @@ internal object SystemEntryProbe {
             PreviewAuthority.SHORTCUT_PRIVATE -> noPublicList(R.string.system_probe_shortcut_final_private)
             PreviewAuthority.HOST_CANDIDATES -> noPublicList()
         }
+    }
+
+    /**
+     * RoleManager returns actual holders, unlike PackageManager's eligible candidates.
+     * If the role cannot be queried, retain the existing candidate-only fallback.
+     */
+    private fun roleHolders(context: Context, kind: IntentKind): SystemProbeResult? {
+        val role = when (kind) {
+            IntentKind.HOME -> "android.app.role.HOME"
+            IntentKind.BROWSER -> "android.app.role.BROWSER"
+            IntentKind.ASSISTANT -> "android.app.role.ASSISTANT"
+            IntentKind.CALL_SCREENING -> "android.app.role.CALL_SCREENING"
+            else -> return null
+        }
+        val manager = context.getSystemService(RoleManager::class.java) ?: return null
+        return runCatching {
+            if (!manager.isRoleAvailable(role)) return@runCatching null
+            val holders = manager.getRoleHolders(role)
+            val pm = context.packageManager
+            val entries = holders.distinct().map { pkg ->
+                SystemProbeItem(
+                    label = appLabel(pm, pkg, pkg),
+                    packageName = pkg,
+                    className = "@role/" + kind.name,
+                    appLabel = appLabel(pm, pkg, pkg),
+                )
+            }
+            SystemProbeResult(
+                R.string.system_probe_source_services,
+                R.string.system_probe_role_notice,
+                items = unique(entries),
+                evidence = ProbeEvidence.ENABLED,
+            )
+        }.getOrNull()
     }
 
     private fun enabledManager(context: Context, kind: IntentKind): SystemProbeResult {
