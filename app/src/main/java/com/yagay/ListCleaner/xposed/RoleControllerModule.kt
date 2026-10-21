@@ -34,6 +34,9 @@ class RoleControllerModule : XposedModule() {
     private val authorityWriter by lazy(LazyThreadSafetyMode.PUBLICATION) {
         AuthoritySnapshotWriter(preferences, ::record)
     }
+    private val runtimeCapture by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        RuntimeInterfaceCaptureWriter(preferences, ::record)
+    }
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
         processName = param.processName
@@ -92,33 +95,27 @@ class RoleControllerModule : XposedModule() {
             publishLive = true,
         )
 
-        val policy = policyProvider.snapshot(com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid()))
+        val userId = com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid())
+        val policy = policyProvider.snapshot(userId)
         val selectedPackages = policy.selectedPackages(kind)
-        if (selectedPackages.isEmpty()) {
-            record("HIT role=$roleName kind=$kind count=${values.size} selectedPackages=0 mode=${policy.displayMode}")
-            return@Hooker original
-        }
-
-        record(
-            "QUERY role=$roleName kind=$kind before=${values.size} " +
-                "selectedPackages=${selectedPackages.size} mode=${policy.displayMode}"
-        )
-        val filtered = values.filter { value ->
-            value !is String || policy.displayMode.includes(value in selectedPackages, selectedPackages.isNotEmpty())
-        }
-        if (filtered.size == values.size) {
-            record(
-                "HIT role=$roleName kind=$kind count=${values.size} " +
-                    "selectedPackages=${selectedPackages.size} mode=${policy.displayMode}"
+        val filtered = if (selectedPackages.isEmpty()) values else values.filter { value ->
+            value !is String || policy.displayMode.includes(
+                value in selectedPackages, selectedPackages.isNotEmpty()
             )
-            return@Hooker original
         }
-
-        record(
-            "FILTER role=$roleName kind=$kind before=${values.size} after=${filtered.size} " +
-                "selectedPackages=${selectedPackages.size} mode=${policy.displayMode}"
+        // Separate from the original, unfiltered catalog inventory above: this records
+        // precisely what this hooked RoleController method returned to its caller.
+        runtimeCapture.publish(
+            kind = kind, source = "ROLE_CONTROLLER_RETURN", userId = userId,
+            packages = filtered.filterIsInstance<String>(),
         )
-        ArrayList(filtered)
+        if (filtered.size == values.size) {
+            record("HIT role=$roleName kind=$kind count=${values.size} selectedPackages=${selectedPackages.size}")
+            original
+        } else {
+            record("FILTER role=$roleName kind=$kind before=${values.size} after=${filtered.size}")
+            ArrayList(filtered)
+        }
     }
 
     private fun roleName(role: Any): String? =
