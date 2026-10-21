@@ -88,6 +88,8 @@ internal data class SystemProbeResult(
     val pickerHost: SystemProbeItem? = null,
     val observedThirdPartyRoots: List<ObservedPickerRoot> = emptyList(),
     val matchingRootsSnapshot: PickerRuntimeSnapshot? = null,
+    /** A timestamp correlation, not proof of on-screen rendering. */
+    val pickerProbeStatus: PickerProbeStatus? = null,
 )
 
 /**
@@ -108,7 +110,19 @@ internal object SystemEntryProbe {
         return try {
             request.entryKind?.let { kind ->
                 val scenario = request.scenario ?: defaultProbeScenario(kind)
-                return probeEntry(context, kind, scenario)
+                val result = probeEntry(context, kind, scenario)
+                if (kind !in setOf(
+                        IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT,
+                        IntentKind.CREATE_DOCUMENT, IntentKind.DOCUMENT_ROOT,
+                    )
+                ) return result
+                return result.copy(
+                    pickerProbeStatus = PickerProbeVerifier.evaluate(
+                        PickerProbeSessionStore(context).read(),
+                        result.matchingRootsSnapshot, kind, scenario, request.userId,
+                        System.currentTimeMillis(),
+                    )
+                )
             }
             probeComponent(context, requireNotNull(request.componentKind))
         } catch (_: SecurityException) {
