@@ -283,7 +283,10 @@ class RuleRepository(context: Context) {
     }
 
     /** Derived from the current candidate catalog. Not backed up; rebuilt after scans/rule changes. */
-    @Synchronized fun setVisibilityFullPackages(packages: Map<VisibilityScope, Set<String>>) {
+    @Synchronized fun setVisibilityFullPackages(userId: Int, packages: Map<VisibilityScope, Set<String>>) {
+        // Catalog discovery is asynchronous. A result started in the previous profile may
+        // arrive after switching; never publish it into the newly selected user's policy.
+        if (userId != activeUserId) return
         val next = VisibilityCompatConfig(fullPackages = packages).validated().fullPackages
             .mapValues { it.value.toSet() }
         if (next == mutableVisibilityFullPackages.value) return
