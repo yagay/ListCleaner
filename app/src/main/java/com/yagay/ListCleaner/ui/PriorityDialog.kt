@@ -55,6 +55,10 @@ import com.yagay.ListCleaner.domain.priorityAppGroups
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
+    var systemProbeRequest by remember { mutableStateOf<SystemProbeRequest?>(null) }
+    systemProbeRequest?.let { request ->
+        SystemProbeDialog(request, onDismiss = { systemProbeRequest = null })
+    }
     var editingTitle by remember { mutableStateOf<ComponentCandidate?>(null) }
     var showCustomTypes by rememberSaveable { mutableStateOf(false) }
     var showBrowserHosts by rememberSaveable { mutableStateOf(false) }
@@ -95,6 +99,12 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
             onKind = { kind ->
                 sortingGroup = kind.entryGroup()
                 vm.setFilter(kind)
+            },
+            onPreviewKind = { kind ->
+                systemProbeRequest = SystemProbeRequest(
+                    entryKind = kind,
+                    userId = vm.selectedSpace.value,
+                )
             },
             onBack = { sortingGroup = null },
             onAllApps = {},

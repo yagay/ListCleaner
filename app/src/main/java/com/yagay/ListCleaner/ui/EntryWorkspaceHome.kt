@@ -34,7 +34,7 @@ internal fun EntryWorkspaceHome(
     selectedGroup: EntryGroup?,
     onGroup: (EntryGroup) -> Unit,
     onKind: (IntentKind) -> Unit,
-    onPreviewKind: (IntentKind) -> Unit = {},
+    onPreviewKind: (IntentKind) -> Unit,
     onBack: () -> Unit,
     onAllApps: () -> Unit,
     onComponentKind: (CleanupKind) -> Unit,
