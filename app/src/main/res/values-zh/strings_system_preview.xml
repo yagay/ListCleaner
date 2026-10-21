@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="system_preview_action">查看实际系统界面</string>
+    <string name="system_preview_chooser_title">列表清理 · 系统界面预览</string>
+    <string name="system_preview_example_text">列表清理测试文本，不会自动发送任何内容。</string>
+    <string name="system_preview_file_name">ListCleaner-preview.txt</string>
+    <string name="system_preview_unavailable">Android 未公开直接打开此类型候选列表的接口，无法真实预览，不显示模拟结果。</string>
+    <string name="system_preview_root_unavailable">系统磁贴或小部件编辑器由桌面或系统界面管理，无法通过公开接口可靠地弹出。</string>
+    <string name="system_preview_other_space">Android 不允许普通应用替所选的其他用户空间打开此界面。请进入对应空间后测试。</string>
+    <string name="system_preview_settings_notice">当前打开的是实际系统设置页，不等于最终筛选结果。</string>
+    <string name="system_preview_no_handler">设备上没有可用的对应系统界面，或访问受到限制。</string>
+    <string name="system_preview_failed">无法打开对应系统界面。</string>
+    <string name="system_preview_explanation">实际效果通过 Android 自带选择器或选择页面显示，使用安全的测试内容；不会模拟过滤结果，也不会修改规则。其他应用、文件类型和用户空间中的结果可能不同。</string>
+</resources>
