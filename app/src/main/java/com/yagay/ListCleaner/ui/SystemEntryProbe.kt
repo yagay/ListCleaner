@@ -132,7 +132,7 @@ internal object SystemEntryProbe {
                     DocumentsContract.PROVIDER_INTERFACE else "android.content.action.CLOUD_MEDIA_PROVIDER"
                 result(R.string.system_probe_source_providers, R.string.system_probe_provider_notice,
                     pm.queryIntentContentProviders(
-                        Intent(action),
+                        SystemEffectPreview.markedQueryIntent(Intent(action)),
                         PackageManager.GET_META_DATA or PackageManager.MATCH_ALL,
                     ).mapNotNull { ri ->
                         val provider = ri.providerInfo ?: return@mapNotNull null
@@ -152,7 +152,7 @@ internal object SystemEntryProbe {
                 val candidates = SYSTEM_SERVICE_ENTRY_DEFINITIONS
                     .filter { it.kind == IntentKind.NFC_HCE }
                     .flatMap { definition ->
-                        pm.queryIntentServices(Intent(definition.action),
+                        pm.queryIntentServices(SystemEffectPreview.markedQueryIntent(Intent(definition.action)),
                             PackageManager.GET_META_DATA or PackageManager.MATCH_ALL)
                             .mapNotNull { ri ->
                                 val service = ri.serviceInfo ?: return@mapNotNull null
@@ -173,7 +173,7 @@ internal object SystemEntryProbe {
             IntentKind.CALL_SCREENING -> {
                 val defs = SYSTEM_SERVICE_ENTRY_DEFINITIONS.filter { it.kind == kind }
                 val candidates = defs.flatMap { definition ->
-                    pm.queryIntentServices(Intent(definition.action),
+                    pm.queryIntentServices(SystemEffectPreview.markedQueryIntent(Intent(definition.action)),
                         PackageManager.GET_META_DATA or PackageManager.MATCH_ALL)
                         .mapNotNull { ri ->
                             val service = ri.serviceInfo ?: return@mapNotNull null
@@ -287,7 +287,9 @@ internal object SystemEntryProbe {
             CleanupKind.TILE -> result(
                 R.string.system_probe_source_services, R.string.system_probe_tile_notice,
                 pm.queryIntentServices(
-                    Intent("android.service.quicksettings.action.QS_TILE"),
+                    SystemEffectPreview.markedQueryIntent(
+                        Intent("android.service.quicksettings.action.QS_TILE")
+                    ),
                     PackageManager.GET_META_DATA
                 ).mapNotNull { ri ->
                     val service = ri.serviceInfo ?: return@mapNotNull null
