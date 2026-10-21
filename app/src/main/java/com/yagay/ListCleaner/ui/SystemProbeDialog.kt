@@ -278,7 +278,7 @@ internal fun SystemProbeDialog(
                     value.runtimeReturn?.let { returned ->
                         // Runtime returns are primary when present. Make their capture
                         // context and age visible, rather than implying UI rendering.
-                        {
+                        run {
                             item(key = "runtime-return-source") {
                                 AdaptiveText(
                                     stringResource(
