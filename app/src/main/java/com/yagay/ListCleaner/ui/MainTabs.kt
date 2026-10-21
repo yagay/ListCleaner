@@ -61,6 +61,10 @@ fun RulesTab(
     var savedRuleQuery by rememberSaveable { mutableStateOf("") }
     var savedComponentQuery by rememberSaveable { mutableStateOf("") }
     val workspaceStateHolder = rememberSaveableStateHolder()
+    var systemProbeRequest by remember { mutableStateOf<SystemProbeRequest?>(null) }
+    systemProbeRequest?.let { request ->
+        SystemProbeDialog(request, onDismiss = { systemProbeRequest = null })
+    }
     val showingComponents = selectedComponentKind != null || browseAllComponents
     DisposableEffect(showingComponents) {
         onComponentModeChanged(showingComponents)
@@ -122,7 +126,7 @@ fun RulesTab(
                 vm.setFilter(kind)
             },
             onPreviewKind = { kind ->
-                SystemEffectPreview.launch(prefsContext, kind, vm.selectedSpace.value)
+                systemProbeRequest = SystemProbeRequest(entryKind = kind, userId = vm.selectedSpace.value)
             },
             onBack = { selectedGroup = null },
             onAllApps = { browseAll = true },
@@ -496,8 +500,11 @@ fun RulesTab(
                         },
                         onEditTitle = { editingTitle = component },
                         onPreview = {
-                            SystemEffectPreview.launch(
-                                prefsContext, component.rule.kind, vm.selectedSpace.value
+                            systemProbeRequest = SystemProbeRequest(
+                                entryKind = component.rule.kind,
+                                userId = vm.selectedSpace.value,
+                                focusPackage = component.rule.packageName,
+                                focusClass = component.rule.className,
                             )
                         }
                     )
