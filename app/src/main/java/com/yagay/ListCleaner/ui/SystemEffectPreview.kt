@@ -122,7 +122,7 @@ internal object SystemEffectPreview {
                 type = "text/plain"
                 putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                clipData = ClipData.newUri(context.contentResolver, "Preview", uris.first()).apply {
+                clipData = ClipData.newUri(context.contentResolver, context.getString(R.string.system_preview_chooser_title), uris.first()).apply {
                     uris.drop(1).forEach { addItem(ClipData.Item(it)) }
                 }
             }
@@ -150,7 +150,7 @@ internal object SystemEffectPreview {
         IntentKind.CREATE_DOCUMENT -> Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
             type = "text/plain"
             addCategory(Intent.CATEGORY_OPENABLE)
-            putExtra(Intent.EXTRA_TITLE, "ListCleaner-preview.txt")
+            putExtra(Intent.EXTRA_TITLE, context.getString(R.string.system_preview_file_name))
         }
         IntentKind.DOCUMENT_ROOT -> Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
         IntentKind.PHOTO_SOURCE -> if (Build.VERSION.SDK_INT >= 33) {
