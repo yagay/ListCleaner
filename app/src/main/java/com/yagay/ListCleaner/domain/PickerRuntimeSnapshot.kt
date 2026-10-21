@@ -22,6 +22,8 @@ data class PickerRuntimeSnapshot(
     val capturedAt: Long,
     val userId: Int,
     val roots: List<PickerRuntimeRoot>,
+    /** DocumentsUI State action, if readable from the matching-roots invocation. */
+    val requestKind: String = "UNKNOWN",
 )
 
 object PickerRuntimeSnapshotCodec {
@@ -39,7 +41,8 @@ object PickerRuntimeSnapshotCodec {
         return runCatching {
             val decoded = json.decodeFromString(PickerRuntimeSnapshot.serializer(), value)
             if (decoded.version != 1 || decoded.capturedAt <= 0L ||
-                decoded.userId < 0 || decoded.roots.size > MAX_ROOTS
+                decoded.userId < 0 || decoded.roots.size > MAX_ROOTS ||
+                decoded.requestKind !in setOf("UNKNOWN", "GET_CONTENT", "OPEN_DOCUMENT", "CREATE_DOCUMENT")
             ) return@runCatching null
             sanitize(decoded)
         }.getOrNull()

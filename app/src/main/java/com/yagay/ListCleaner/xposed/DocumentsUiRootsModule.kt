@@ -112,7 +112,7 @@ class DocumentsUiRootsModule : XposedModule() {
         val ctx = appContext() ?: return@Hooker original
         if (roots.isEmpty()) {
             if (methodName == "getMatchingRootsBlocking") {
-                snapshotMatchingRoots(roots, ctx)
+                snapshotMatchingRoots(roots, ctx, detectRequestKind(chain.args))
             }
             return@Hooker original
         }
@@ -173,13 +173,37 @@ class DocumentsUiRootsModule : XposedModule() {
                 // The other cache methods may expose entire provider inventories or subsets.
                 if (methodName == "getMatchingRootsBlocking") {
                     (returned as? Collection<*>)?.let { returnedRoots ->
-                        snapshotMatchingRoots(returnedRoots, ctx)
+                        snapshotMatchingRoots(returnedRoots, ctx, detectRequestKind(chain.args))
                     }
                 }
             }
     }
 
-    private fun snapshotMatchingRoots(roots: Collection<*>, context: Context) {
+    private fun detectRequestKind(args: Array<out Any?>): String {
+        // Read the DocumentsUI State action by its own symbolic constants.
+        // Never assume OEM forks reuse AOSP's numeric action values.
+        args.forEach { arg ->
+            val state = arg ?: return@forEach
+            val action = ReflectionAccess.readField(state, "action", "mAction") as? Number
+                ?: return@forEach
+            val clazz = state.javaClass
+            val labels = listOf(
+                "ACTION_OPEN" to "OPEN_DOCUMENT",
+                "ACTION_CREATE" to "CREATE_DOCUMENT",
+                "ACTION_GET_CONTENT" to "GET_CONTENT",
+            )
+            labels.forEach { (constant, kind) ->
+                val value = runCatching {
+                    val field = clazz.getField(constant)
+                    field.getInt(null)
+                }.getOrNull()
+                if (value != null && value == action.toInt()) return kind
+            }
+        }
+        return "UNKNOWN"
+    }
+
+    private fun snapshotMatchingRoots(roots: Collection<*>, context: Context, requestKind: String) {
         // Never persist raw document paths, root IDs or URI grants.
         val entries = roots.asSequence().take(PickerRuntimeSnapshotCodec.MAX_ROOTS)
             .mapNotNull { root ->
@@ -207,6 +231,7 @@ class DocumentsUiRootsModule : XposedModule() {
             capturedAt = System.currentTimeMillis(),
             userId = AndroidUid.userId(Process.myUid()),
             roots = entries,
+            requestKind = requestKind,
         )
         val encoded = PickerRuntimeSnapshotCodec.encode(snapshot)
         if (encoded.length > PickerRuntimeSnapshotCodec.MAX_CHARS) return

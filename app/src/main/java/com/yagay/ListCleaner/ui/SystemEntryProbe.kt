@@ -215,7 +215,9 @@ internal object SystemEntryProbe {
         return when (kind.previewAuthority()) {
             PreviewAuthority.PICKER_PRIVATE -> {
                 val observed = previouslyObservedDocumentRoots(context)
-                val matching = matchingRootsFromDocumentsUi(context)
+                val matching = matchingRootsFromDocumentsUi(context)?.takeIf {
+                    it.requestKind == kind.name || kind == IntentKind.DOCUMENT_ROOT
+                }
                 if (kind == IntentKind.DOCUMENT_ROOT) {
                     SystemProbeResult(
                         R.string.system_probe_source_picker,
