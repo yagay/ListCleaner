@@ -86,4 +86,7 @@
     <string name="system_probe_test_root_count">返回的来源：%1$d 项（不能证明每项最终绘制）</string>
     <string name="system_probe_test_captured_at">本应用打开选择器后，于 %1$s 观察到</string>
     <string name="system_probe_historical_snapshot">历史匹配来源快照：%1$d 项（不是本次结果）</string>
+    <string name="system_probe_runtime_recent">最近一次系统 Hook 返回：%1$d 个应用</string>
+    <string name="system_probe_runtime_historical">历史 Hook 返回（非当前）：%1$d 个应用</string>
+    <string name="system_probe_runtime_scope">来源：%1$s 的过滤后返回值；不能据此认定界面已绘制所有条目</string>
 </resources>
