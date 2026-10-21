@@ -54,9 +54,8 @@ internal fun SystemProbeDialog(
             ?: SystemProbeScenario.TEXT)
     }
     var scenarioMenu by remember { mutableStateOf(false) }
-    // Document open/save registration results should be immediately inspectable even
-    // when the OEM DocumentsUI does not expose a matching-roots callback.
-    // They remain clearly labelled as API candidates, never final visible entries.
+    // All API results are visible by default; diagnostics remain a separate source
+    // selector rather than hiding otherwise useful, possibly Hook-filtered results.
     var showDiagnostics by remember(request) { mutableStateOf(false) }
     var showDetails by remember(request) { mutableStateOf(false) }
 
@@ -134,9 +133,9 @@ internal fun SystemProbeDialog(
                 appLabel = value.items.firstOrNull { it.packageName == pkg }?.appLabel ?: pkg,
             )
         }
-        // Without a matched runtime capture, there is no verified post-filter
-        // result. Raw manager or registration lists are diagnostics only.
-        else -> emptyList()
+        // Show the real API return immediately. It may already have passed through
+        // LSPosed filtering, but without correlated evidence do not label it verified.
+        else -> if (value.items.isNotEmpty()) value.items else value.diagnosticCandidates
     }
     val distinctApps = displayed.map(SystemProbeItem::packageName).distinct().size
     val qualityRes = when (value?.evidence) {
@@ -349,7 +348,7 @@ internal fun SystemProbeDialog(
                                         else MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
-                        if (runtimeAvailable && runtimePackages.isEmpty()) {
+                        if (runtimeAvailable && runtimePackages.isEmpty() && runtimeComponents.isEmpty()) {
                             item(key = "post-filter-empty") {
                                 AdaptiveText(
                                     "Hook returned an empty post-filter package list.",
@@ -360,7 +359,7 @@ internal fun SystemProbeDialog(
                         } else if (!runtimeAvailable && !diagnostic) {
                             item(key = "post-filter-stale") {
                                 AdaptiveText(
-                                    "No Hook result captured after launching this preview. Use diagnostics to inspect API candidates.",
+                                    "API returned list (Hook status unverified). The system call may already be filtered; no matching post-filter capture for this preview.",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     style = MaterialTheme.typography.bodySmall,
                                 )
