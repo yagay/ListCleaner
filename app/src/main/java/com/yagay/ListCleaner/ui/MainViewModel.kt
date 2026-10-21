@@ -290,7 +290,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     )
 
     private val preparedCandidates = combine(
-        candidates, app.rules.rules, app.spaces.selected, installedPackages
+        candidates, app.rules.rules, app.rules.activeUser, installedPackages
     ) { scanned, selected, userId, installed ->
         val scopedCandidates = if (userId == app.spaces.currentUserId) scanned
             else scanned.filter { it.rule.packageName in installed.orEmpty() }
