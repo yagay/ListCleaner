@@ -81,6 +81,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as ListCleanerApp
     val spaces = app.spaces.spaces
     val selectedSpace = app.spaces.selected
+    val spaceScanState = app.spaces.scanState
     private val installedPackages = app.spaces.installedPackages
 
     fun selectSpace(userId: Int) {

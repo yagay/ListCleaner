@@ -26,6 +26,7 @@ object RuntimeInterfaceSnapshotCodec {
     private val json = Json { ignoreUnknownKeys = true }
 
     fun key(kind: IntentKind): String = PREFIX + kind.name
+    fun keyForCaller(kind: IntentKind, uid: Int): String = key(kind) + "_uid_" + uid
 
     fun encode(snapshot: RuntimeInterfaceSnapshot): String =
         json.encodeToString(RuntimeInterfaceSnapshot.serializer(), sanitize(snapshot))

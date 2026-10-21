@@ -87,4 +87,10 @@
 
     <string name="ui_appearance_title">界面外观</string>
     <string name="cleanup_runtime_needs_attention">运行配置需要处理</string>
+    <string name="system_probe_no_matched_document_roots">尚未捕获与本次请求匹配的 DocumentsUI 来源。历史来源仅供诊断，不代表当前打开／保存列表。</string>
+    <string name="system_probe_document_roots_qualified">DocumentsUI 已返回此操作的来源；MIME 类型与来源能力仍可能影响系统最终侧栏。</string>
+    <string name="system_probe_no_filtered_manager_return">尚未确认此调用方的过滤后管理器返回结果。可通过 Show API 查看候选项，但它们不代表系统清理后的列表。</string>
+    <string name="module_scope_partial">部分推荐的 LSPosed 作用域尚未授权（模块仍可能正常工作）</string>
+    <string name="space_package_scan_failed">读取所选 Android 用户空间的应用失败。无法确认列表为空，请检查 Root 授权后重试。</string>
+    <string name="backup_root_restore_manual">本次只恢复清理规则。Root 禁用组件记录仅供参考，不会自动修改系统组件状态。</string>
 </resources>

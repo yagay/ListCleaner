@@ -28,6 +28,8 @@ data class PickerRuntimeSnapshot(
 
 object PickerRuntimeSnapshotCodec {
     const val REMOTE_KEY = "documentsui_matching_roots_preview_v1"
+    /** Separate slots prevent successive Open/Save calls from overwriting one another. */
+    fun keyForRequest(kind: String): String = REMOTE_KEY + "_" + kind
     const val MAX_ROOTS = 256
     const val MAX_CHARS = 90_000
     private val json = Json { ignoreUnknownKeys = true }

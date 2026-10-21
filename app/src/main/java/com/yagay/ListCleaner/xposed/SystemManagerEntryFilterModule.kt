@@ -155,6 +155,7 @@ class SystemManagerEntryFilterModule : XposedModule() {
                     components = extracted.values.mapNotNull { item ->
                         componentOf(item)?.let { it.packageName + "/" + it.name }
                     },
+                    callerUid = caller.uid,
                 )
             }
         }
@@ -190,6 +191,7 @@ class SystemManagerEntryFilterModule : XposedModule() {
             components = filtered.mapNotNull { value ->
                 credentialComponent(value)?.flattenToString()
             },
+            callerUid = caller.uid,
         )
         if (filtered.size == values.size) original else {
             record("CREDENTIAL_FILTER callerUid=${caller.uid} before=${values.size} after=${filtered.size}")

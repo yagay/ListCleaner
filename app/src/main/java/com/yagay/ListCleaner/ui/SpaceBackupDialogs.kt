@@ -134,6 +134,11 @@ internal fun ImportSpaceBackupDialog(
                     }
                 }
                 AdaptiveText(stringResource(R.string.backup_spaces_import_warning))
+                AdaptiveText(
+                    stringResource(R.string.backup_root_restore_manual),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         },
         confirmButton = {

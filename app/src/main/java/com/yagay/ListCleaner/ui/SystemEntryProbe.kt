@@ -153,8 +153,12 @@ internal object SystemEntryProbe {
             val prefs = app.currentSession()?.service
                 ?.getRemotePreferences(RuleRepository.REMOTE_PREFS)
                 ?: return@runCatching null
+            val callerSpecific = prefs.getString(
+                RuntimeInterfaceSnapshotCodec.keyForCaller(kind, Process.myUid()), null
+            )
             val result = RuntimeInterfaceSnapshotCodec.decode(
-                prefs.getString(RuntimeInterfaceSnapshotCodec.key(kind), null), kind
+                callerSpecific ?: prefs.getString(RuntimeInterfaceSnapshotCodec.key(kind), null),
+                kind,
             )
             if (result?.callerUserId == AndroidUid.userId(Process.myUid())) result
             else null
@@ -179,16 +183,21 @@ internal object SystemEntryProbe {
         )
 
     /** Read the real DocumentsUI Hook result for the current Android user, if available. */
-    private fun matchingRootsFromDocumentsUi(context: Context): PickerRuntimeSnapshot? =
+    private fun matchingRootsFromDocumentsUi(
+        context: Context, kind: IntentKind? = null,
+    ): PickerRuntimeSnapshot? =
         runCatching {
             val application = context.applicationContext as? ListCleanerApp
                 ?: return@runCatching null
             val preferences = application.currentSession()?.service
                 ?.getRemotePreferences(RuleRepository.REMOTE_PREFS)
                 ?: return@runCatching null
-            val snapshot = PickerRuntimeSnapshotCodec.decode(
-                preferences.getString(PickerRuntimeSnapshotCodec.REMOTE_KEY, null)
-            ) ?: return@runCatching null
+            val key = if (kind == IntentKind.OPEN_DOCUMENT || kind == IntentKind.CREATE_DOCUMENT)
+                PickerRuntimeSnapshotCodec.keyForRequest(kind.name)
+            else PickerRuntimeSnapshotCodec.REMOTE_KEY
+            val encoded = preferences.getString(key, null)
+                ?: preferences.getString(PickerRuntimeSnapshotCodec.REMOTE_KEY, null)
+            val snapshot = PickerRuntimeSnapshotCodec.decode(encoded) ?: return@runCatching null
             if (snapshot.userId != AndroidUid.userId(Process.myUid())) null else snapshot
         }.getOrNull()
 
@@ -217,10 +226,9 @@ internal object SystemEntryProbe {
                 val observed = previouslyObservedDocumentRoots(context)
                 // Preserve unknown-action snapshots as historical evidence; the
                 // verifier and UI must not misrepresent them as a matched request.
-                val matching = matchingRootsFromDocumentsUi(context)?.takeIf {
-                    it.requestKind == kind.name || it.requestKind == "UNKNOWN" ||
-                        kind == IntentKind.DOCUMENT_ROOT
-                }
+                // Keep other actions and UNKNOWN available only as history; the
+                // verifier performs strict request attribution for Open and Save.
+                val matching = matchingRootsFromDocumentsUi(context, kind)
                 if (kind == IntentKind.DOCUMENT_ROOT) {
                     SystemProbeResult(
                         R.string.system_probe_source_picker,
@@ -356,8 +364,8 @@ internal object SystemEntryProbe {
                         )
                     }
                 SystemProbeResult(
-                    R.string.system_probe_source_enabled_accessibility,
-                    R.string.system_probe_enabled_accessibility_notice,
+                    R.string.system_probe_source_services,
+                    R.string.system_probe_service_notice,
                     // This is the same installed-service API intercepted by the
                     // Accessibility list-cleaning Hook. Enabled services are different:
                     // they describe active settings, not the cleaned Settings catalog.

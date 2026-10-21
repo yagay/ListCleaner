@@ -49,7 +49,12 @@ internal object PickerProbeVerifier {
         val sameUserSnapshot = snapshot?.takeIf { it.userId == userId }
         if (!matched) return if (sameUserSnapshot != null) PickerProbeStatus.HISTORY_ONLY
             else PickerProbeStatus.NEVER_CAPTURED
-        val capturedAfter = sameUserSnapshot != null &&
+        // Only OPEN/CREATE require an exact DocumentsUI action match. Keep
+        // GET_CONTENT's existing proven observation semantics untouched.
+        val operationMatches = kind !in setOf(
+            IntentKind.OPEN_DOCUMENT, IntentKind.CREATE_DOCUMENT
+        ) || sameUserSnapshot?.requestKind == kind.name
+        val capturedAfter = sameUserSnapshot != null && operationMatches &&
             sameUserSnapshot.capturedAt >= session!!.startedAtMillis &&
             sameUserSnapshot.capturedAt <= nowMillis + CLOCK_SKEW_MS
         return when {

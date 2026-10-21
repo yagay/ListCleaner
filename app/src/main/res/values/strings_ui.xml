@@ -87,4 +87,10 @@
 
     <string name="ui_appearance_title">Appearance</string>
     <string name="cleanup_runtime_needs_attention">Runtime configuration needs attention</string>
+    <string name="system_probe_no_matched_document_roots">No request-matched DocumentsUI roots were captured. Historical roots are diagnostic only, not the current Open/Save list.</string>
+    <string name="system_probe_document_roots_qualified">DocumentsUI returned these roots for this action. MIME type and root capabilities can still affect the final sidebar.</string>
+    <string name="system_probe_no_filtered_manager_return">No post-filter manager return was confirmed for this caller. Use Show API to inspect candidates; they are not the cleaned system list.</string>
+    <string name="module_scope_partial">Some recommended LSPosed scopes are not granted (module may still work)</string>
+    <string name="space_package_scan_failed">Could not read applications in the selected Android space. An empty list is not confirmed; check Root access and retry.</string>
+    <string name="backup_root_restore_manual">This import restores rules only. Root-disabled components are recorded for reference and are never changed automatically.</string>
 </resources>

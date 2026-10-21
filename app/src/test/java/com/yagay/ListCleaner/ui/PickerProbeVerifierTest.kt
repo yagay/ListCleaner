@@ -56,6 +56,19 @@ class PickerProbeVerifierTest {
             verify(tested = null, result = snapshot(user = 10)))
     }
 
+    @Test fun openAndSaveRejectUnknownOrOtherActionSnapshots() {
+        val openSession = session.copy(kind = IntentKind.OPEN_DOCUMENT)
+        val openRoot = snapshot().copy(requestKind = "OPEN_DOCUMENT")
+        assertEquals(PickerProbeStatus.OBSERVED_AFTER_TEST,
+            verify(tested = openSession, kind = IntentKind.OPEN_DOCUMENT, result = openRoot))
+        assertEquals(PickerProbeStatus.AWAITING_HOOK,
+            verify(tested = openSession, kind = IntentKind.OPEN_DOCUMENT,
+                result = openRoot.copy(requestKind = "UNKNOWN")))
+        assertEquals(PickerProbeStatus.AWAITING_HOOK,
+            verify(tested = openSession, kind = IntentKind.OPEN_DOCUMENT,
+                result = openRoot.copy(requestKind = "CREATE_DOCUMENT")))
+    }
+
     @Test fun anEmptyMatchingRootsSnapshotStillCountsAsAnObservedResult() {
         assertEquals(PickerProbeStatus.OBSERVED_AFTER_TEST, verify(result = snapshot().copy(roots = emptyList())))
     }

@@ -14,6 +14,9 @@ import kotlinx.coroutines.withContext
 /** Android user/profile identity, never an application-clone package name. */
 data class UserSpace(val userId: Int, val title: String)
 
+/** Distinguish an empty remote profile from a failed or unfinished Root query. */
+enum class SpacePackageScanState { LOCAL, LOADING, READY, FAILED }
+
 /**
  * One authoritative selected space for every List Cleaner editor. Root is used only for
  * enumerating other Android users; without it we expose the local user rather than
@@ -30,26 +33,35 @@ class UserSpaceManager(context: Context) {
     private val mutableInstalledPackages = MutableStateFlow<Set<String>?>(null)
     /** null only for the local user; empty means a remote scan failed or has no apps. */
     val installedPackages: StateFlow<Set<String>?> = mutableInstalledPackages.asStateFlow()
+    private val mutableScanState = MutableStateFlow(SpacePackageScanState.LOCAL)
+    val scanState: StateFlow<SpacePackageScanState> = mutableScanState.asStateFlow()
 
     suspend fun refreshInstalledPackages(userId: Int) {
         if (userId == currentUserId) {
             mutableInstalledPackages.value = null
+            mutableScanState.value = SpacePackageScanState.LOCAL
             return
         }
+        if (selected.value == userId) mutableScanState.value = SpacePackageScanState.LOADING
         val packages = withContext(Dispatchers.IO) {
             runCatching {
                 val response = ComponentRootCommand.runReadOnly("pm list packages --user $userId")
                 if (response.exitCode != 0 || response.timedOut ||
                     response.output.contains("[output truncated]")) {
-                    emptySet()
-                } else response.output.lineSequence().map { it.trim() }
+                    error("Remote user package scan failed or was truncated")
+                }
+                response.output.lineSequence().map { it.trim() }
                     .filter { it.startsWith("package:") }
                     .map { it.removePrefix("package:") }
                     .filter(com.yagay.ListCleaner.domain.PackageIdentity::valid)
                     .toSet()
-            }.getOrDefault(emptySet())
+            }.getOrNull()
         }
-        if (selected.value == userId) mutableInstalledPackages.value = packages
+        if (selected.value == userId) {
+            mutableInstalledPackages.value = packages ?: emptySet()
+            mutableScanState.value = if (packages == null) SpacePackageScanState.FAILED
+                else SpacePackageScanState.READY
+        }
     }
 
     suspend fun refresh() {
@@ -57,7 +69,8 @@ class UserSpaceManager(context: Context) {
             val result = linkedMapOf(currentUserId to UserSpace(currentUserId, app.getString(R.string.space_user_title, currentUserId)))
             runCatching {
                 app.getSystemService(UserManager::class.java)?.userProfiles.orEmpty().forEach { handle ->
-                    result[handle.hashCode()] = UserSpace(handle.hashCode(), app.getString(R.string.space_user_title, handle.hashCode()))
+                    val id = handle.identifier
+                    result[id] = UserSpace(id, app.getString(R.string.space_user_title, id))
                 }
             }
             runCatching {
@@ -85,6 +98,8 @@ class UserSpaceManager(context: Context) {
         if (userId !in mutableSpaces.value.map { it.userId }) return false
         mutableSelected.value = userId
         mutableInstalledPackages.value = if (userId == currentUserId) null else emptySet()
+        mutableScanState.value = if (userId == currentUserId)
+            SpacePackageScanState.LOCAL else SpacePackageScanState.LOADING
         prefs.edit().putInt("selected_user", userId).apply()
         return true
     }

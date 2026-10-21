@@ -280,7 +280,8 @@ internal fun ModuleStatusRow(state: MainState, compact: Boolean = false, onClick
     val titleRes = when {
         !status.connected -> R.string.module_lsposed_disconnected
         status.outdated -> R.string.module_old_running
-        status.error != null || (status.scopeKnown && status.missingScope.isNotEmpty()) -> R.string.module_needs_attention
+        status.error != null -> R.string.module_needs_attention
+        status.scopeKnown && status.missingScope.isNotEmpty() -> R.string.module_scope_partial
         status.resolverLoaded -> R.string.module_loaded
         else -> R.string.module_lsposed_connected
     }
@@ -323,8 +324,7 @@ internal fun CleanupStatusAlert(state: MainState, onOpenStatus: () -> Unit) {
     val issueRes = when {
         !module.connected -> R.string.module_lsposed_disconnected
         module.outdated -> R.string.module_old_running
-        module.error != null || (module.scopeKnown && module.missingScope.isNotEmpty()) ->
-            R.string.module_needs_attention
+        module.error != null -> R.string.module_needs_attention
         state.runtime.needsDecision -> R.string.cleanup_runtime_needs_attention
         else -> null
     } ?: return

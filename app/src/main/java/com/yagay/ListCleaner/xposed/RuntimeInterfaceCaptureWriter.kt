@@ -41,9 +41,12 @@ internal class RuntimeInterfaceCaptureWriter(
         if (encoded.length > RuntimeInterfaceSnapshotCodec.MAX_CHARS) return
         executor.execute {
             runCatching {
-                preferences.edit()
-                    .putString(RuntimeInterfaceSnapshotCodec.key(kind), encoded)
-                    .commit()
+                preferences.edit().apply {
+                    putString(RuntimeInterfaceSnapshotCodec.key(kind), encoded)
+                    if (callerUid >= 0) {
+                        putString(RuntimeInterfaceSnapshotCodec.keyForCaller(kind, callerUid), encoded)
+                    }
+                }.commit()
             }.onFailure {
                 record("RUNTIME_RETURN_CAPTURE_FAILED kind=$kind error=${it.javaClass.name}")
             }

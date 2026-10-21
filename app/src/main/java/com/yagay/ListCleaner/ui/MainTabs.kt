@@ -46,6 +46,7 @@ fun RulesTab(
 ) {
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
     val componentScan by vm.componentScan.collectAsStateWithLifecycle()
+    val spaceScanState by vm.spaceScanState.collectAsStateWithLifecycle()
     val componentBusy by vm.componentBusy.collectAsStateWithLifecycle()
     val prefsContext = LocalContext.current
     var editingTitle by remember { mutableStateOf<com.yagay.ListCleaner.domain.ComponentCandidate?>(null) }
@@ -153,6 +154,11 @@ fun RulesTab(
             componentScanning = componentBusy,
             onRefreshComponents = vm::refreshComponents,
             status = {
+                if (spaceScanState == com.yagay.ListCleaner.data.SpacePackageScanState.FAILED) {
+                    WorkspaceStatusMessage(
+                        stringResource(R.string.space_package_scan_failed), isError = true
+                    )
+                }
                 CleanupStatusAlert(state, onOpenStatus = onOpenModuleStatus)
             }
         )
@@ -582,7 +588,9 @@ internal fun SettingsTabContent(
             onModuleStatusOpened()
         }
     }
-    BackHandler(enabled = selectedSection != null) { selectedSection = null }
+    BackHandler(enabled = selectedSection != null) {
+        if (showScopeDetails) showScopeDetails = false else selectedSection = null
+    }
     val section = selectedSection
     if (section == null) {
         SettingsCenterHome(onSelect = { selectedSection = it })

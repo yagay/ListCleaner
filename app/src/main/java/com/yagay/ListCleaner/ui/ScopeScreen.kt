@@ -51,6 +51,16 @@ internal fun ScopeDialog(status: ModuleStatus, requestScope: () -> Unit, refresh
                 if (unconfirmed.isNotEmpty()) {
                     AdaptiveText(stringResource(R.string.scope_unconfirmed_installed, unconfirmed.sorted().joinToString("\n")))
                 }
+                if (status.scopeKnown && status.missingScope.isNotEmpty()) {
+                    AdaptiveText(
+                        stringResource(R.string.module_scope_partial),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    AdaptiveText(
+                        status.missingScope.sorted().joinToString("\n"),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
                 AdaptiveText(stringResource(R.string.scope_granted), fontWeight = FontWeight.Bold)
                 AdaptiveText(
                     if (!status.scopeKnown) stringResource(R.string.scope_grant_unknown)

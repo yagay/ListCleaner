@@ -95,99 +95,33 @@ internal fun SystemProbeDialog(
         ?: request.componentKind?.let { stringResource(it.titleRes()) }
         ?: ""
     val value = response
+    val selectedResult = SystemPreviewSelection.select(
+        request = activeRequest,
+        value = value,
+        showDiagnostics = showDiagnostics,
+        nowMillis = System.currentTimeMillis(),
+        launchedAtMillis = previewLaunchedAt,
+        currentCallerUid = android.os.Process.myUid(),
+        expectedAction = runCatching {
+            if (value?.runtimeReturn?.source == "PACKAGE_MANAGER_FILTERED_RETURN")
+                request.entryKind?.let { kind ->
+                    SystemEffectPreview.queryIntent(context, kind, scenario).let { intent ->
+                        (intent.selector ?: intent).action
+                    }
+                }
+            else null
+        }.getOrNull(),
+    )
     val diagnostic = showDiagnostics && value != null
-    // Prefer the actual post-filter framework return when the Hook captured one.
-    // It is a package-level runtime snapshot, not proof of rendered UI components.
     val runtimeSnapshot = value?.runtimeReturn
     val runtimePackages = runtimeSnapshot?.packages.orEmpty()
-    // A persisted return may belong to an older system request. Keep stale
-    // observations in diagnostics rather than presenting them as current cleanup.
-    val runtimeAge = runtimeSnapshot?.let { System.currentTimeMillis() - it.capturedAtMillis }
-    val runtimeRecent = runtimeAge != null && runtimeAge in 0..120_000L
-    // Timestamp correlation is only an observation window; other processes
-    // can call the same framework method during this interval. Never claim
-    // this is session-verified without a request token and caller identity.
-    val runtimeForAttempt = previewLaunchedAt?.let { launched ->
-        runtimeSnapshot != null && runtimeSnapshot.capturedAtMillis >= launched
-    } == true
-    // PM captures now carry the queried Intent action. Reject snapshots from a
-    // different action even if they arrived during the same time window.
-    // Service-only entries (including Credential) may have no preview Intent.
-    // Build an intent only for an actual PackageManager runtime capture.
-    val expectedAction = if (runtimeSnapshot?.source == "PACKAGE_MANAGER_FILTERED_RETURN") {
-        runCatching {
-            request.entryKind?.let { kind ->
-                SystemEffectPreview.queryIntent(context, kind, scenario).let { intent ->
-                    (intent.selector ?: intent).action
-                }
-            }
-        }.getOrNull()
-    } else null
-    val actionMatches = runtimeSnapshot?.let { snapshot ->
-        snapshot.source != "PACKAGE_MANAGER_FILTERED_RETURN" ||
-            (expectedAction != null && snapshot.requestAction == expectedAction)
-    } == true
-    // Manager APIs have no launchable preview Activity. Their captured
-    // post-filter result can still be inspected as a recent observation.
-    val managerObservation = request.entryKind in setOf(
-        IntentKind.ACCESSIBILITY, IntentKind.PRINT, IntentKind.CREDENTIAL_PROVIDER
-    ) && runtimeSnapshot?.source in setOf("SYSTEM_MANAGER_RETURN", "CREDENTIAL_MANAGER_RETURN")
-    val runtimeAvailable = runtimeRecent && (runtimeForAttempt || managerObservation) &&
-        actionMatches && !diagnostic
     val runtimeComponents = runtimeSnapshot?.components.orEmpty()
-    // ACTION_OPEN_DOCUMENT / ACTION_CREATE_DOCUMENT resolve a picker Activity,
-    // whereas the actual sidebar is built from DocumentsUI roots. Never treat
-    // an intent-handler registration as a root that the user can select.
+    val runtimeAvailable = selectedResult.source == PreviewListSource.HOOK_OBSERVATION
     val documentPicker = request.entryKind == IntentKind.OPEN_DOCUMENT ||
         request.entryKind == IntentKind.CREATE_DOCUMENT
-    val documentSnapshot = value?.matchingRootsSnapshot?.takeIf {
-        it.userId == request.userId &&
-            value.pickerProbeStatus == PickerProbeStatus.OBSERVED_AFTER_TEST
-    }
-    // Unknown OEM State.action must not suppress every observed root.
-    // Keep it explicitly unverified rather than reporting an empty system list.
-    val historicalDocumentRoots = if (documentSnapshot == null)
-        value?.matchingRootsSnapshot?.roots.orEmpty() else emptyList()
-    val documentRoots = (documentSnapshot?.roots ?: historicalDocumentRoots).map { root ->
-        SystemProbeItem(
-            label = root.label,
-            packageName = root.packageName,
-            className = root.syntheticId,
-            appLabel = root.label,
-        )
-    }
-    val displayed = when {
-        value == null -> emptyList()
-        // "Show API" must show the actual API query return first. Diagnostic
-        // registrations are a fallback, not a replacement for that result.
-        diagnostic -> if (documentPicker && value.diagnosticCandidates.isNotEmpty())
-            value.diagnosticCandidates
-        else if (value.items.isNotEmpty()) value.items else value.diagnosticCandidates
-        documentPicker -> documentRoots
-        runtimeAvailable && runtimeComponents.isNotEmpty() -> runtimeComponents.map { id ->
-            val pkg = id.substringBefore('/')
-            val componentClass = id.substringAfter('/')
-            val label = value.items.firstOrNull { it.component == id }?.label
-                ?: componentClass.substringAfterLast('.')
-            SystemProbeItem(
-                label = label,
-                packageName = pkg,
-                className = componentClass,
-                appLabel = value.items.firstOrNull { it.packageName == pkg }?.appLabel ?: pkg,
-            )
-        }
-        runtimeAvailable -> runtimePackages.map { pkg ->
-            SystemProbeItem(
-                label = value.items.firstOrNull { it.packageName == pkg }?.appLabel ?: pkg,
-                packageName = pkg,
-                className = "@runtime/" + (request.entryKind?.name ?: "UNKNOWN"),
-                appLabel = value.items.firstOrNull { it.packageName == pkg }?.appLabel ?: pkg,
-            )
-        }
-        // Show the real API return immediately. It may already have passed through
-        // LSPosed filtering, but without correlated evidence do not label it verified.
-        else -> if (value.items.isNotEmpty()) value.items else value.diagnosticCandidates
-    }
+    val documentSnapshot = if (selectedResult.source == PreviewListSource.DOCUMENT_ROOTS)
+        value?.matchingRootsSnapshot else null
+    val displayed = selectedResult.items
     val distinctApps = displayed.map(SystemProbeItem::packageName).distinct().size
     val qualityRes = when (value?.evidence) {
         ProbeEvidence.ENABLED -> R.string.system_probe_quality_enabled
@@ -294,7 +228,7 @@ internal fun SystemProbeDialog(
                                 )
                             }
                         }
-                        if (observedThisTest && matching != null) {
+                        if (observedThisTest && matching != null && !documentPicker) {
                             items(matching.roots, key = { "current/" + it.syntheticId }) { root ->
                                 Column(
                                     Modifier.fillMaxWidth().padding(vertical = 5.dp),
@@ -379,8 +313,20 @@ internal fun SystemProbeDialog(
                             }
                         }
                     }
-                    if (documentPicker || runtimeAvailable || diagnostic ||
-                        value.items.isNotEmpty() || value.diagnosticCandidates.isNotEmpty()) {
+                    if (selectedResult.source == PreviewListSource.UNAVAILABLE) {
+                        item(key = "no-confirmed-preview") {
+                            AdaptiveText(
+                                stringResource(if (documentPicker)
+                                    R.string.system_probe_no_matched_document_roots
+                                else R.string.system_probe_no_filtered_manager_return),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                    if (selectedResult.source != PreviewListSource.UNAVAILABLE &&
+                        (documentPicker || runtimeAvailable || diagnostic ||
+                            value.items.isNotEmpty() || value.diagnosticCandidates.isNotEmpty())) {
                         item(key = "candidate-count") {
                             val countRes = if (runtimeAvailable && !diagnostic)
                                 R.string.system_probe_count_enabled
@@ -402,10 +348,9 @@ internal fun SystemProbeDialog(
                         if (documentPicker && !diagnostic) {
                             item(key = "document-root-qualification") {
                                 AdaptiveText(
-                                    if (documentSnapshot == null)
-                                        "No request-matched DocumentsUI roots captured. Any available historical roots are unverified and may differ from this Open/Save screen."
-                                    else
-                                        "DocumentsUI returned roots. Final Open/Save sidebar entries may still differ due to the request action, MIME type and root capabilities.",
+                                    stringResource(if (documentSnapshot == null)
+                                        R.string.system_probe_no_matched_document_roots
+                                    else R.string.system_probe_document_roots_qualified),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     style = MaterialTheme.typography.bodySmall,
                                 )

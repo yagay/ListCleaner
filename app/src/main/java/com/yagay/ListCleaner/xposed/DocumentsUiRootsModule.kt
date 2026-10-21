@@ -194,8 +194,17 @@ class DocumentsUiRootsModule : XposedModule() {
             )
             labels.forEach { (constant, kind) ->
                 val value = runCatching {
-                    val field = clazz.getField(constant)
-                    field.getInt(null)
+                    var owner: Class<*>? = clazz
+                    var found: Int? = null
+                    while (owner != null && found == null) {
+                        val field = runCatching { owner!!.getDeclaredField(constant) }.getOrNull()
+                        if (field != null && Modifier.isStatic(field.modifiers)) {
+                            field.isAccessible = true
+                            found = field.getInt(null)
+                        }
+                        owner = owner?.superclass
+                    }
+                    found
                 }.getOrNull()
                 if (value != null && value == action.toInt()) return kind
             }
@@ -237,7 +246,12 @@ class DocumentsUiRootsModule : XposedModule() {
         if (encoded.length > PickerRuntimeSnapshotCodec.MAX_CHARS) return
         worker.execute {
             runCatching {
-                preferences.edit().putString(PickerRuntimeSnapshotCodec.REMOTE_KEY, encoded).commit()
+                preferences.edit().apply {
+                    putString(PickerRuntimeSnapshotCodec.REMOTE_KEY, encoded)
+                    if (requestKind != "UNKNOWN") {
+                        putString(PickerRuntimeSnapshotCodec.keyForRequest(requestKind), encoded)
+                    }
+                }.commit()
             }.onSuccess { saved ->
                 if (saved) record("PICKER_MATCHING_ROOTS captured=" + entries.size)
             }.onFailure {
