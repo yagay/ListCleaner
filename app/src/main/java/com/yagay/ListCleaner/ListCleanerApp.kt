@@ -96,7 +96,7 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
         catalog = IntentCatalog(this)
         XposedServiceHelper.registerListener(this)
         applicationScope.launch {
-            combine(rules.rules, catalog.candidates, spaces.selected, spaces.installedPackages) {
+            combine(rules.rules, catalog.candidates, rules.activeUser, spaces.installedPackages) {
                     selected, candidates, userId, installed ->
                 val scoped = if (userId == spaces.currentUserId) candidates
                     else candidates.filter { it.rule.packageName in installed.orEmpty() }
