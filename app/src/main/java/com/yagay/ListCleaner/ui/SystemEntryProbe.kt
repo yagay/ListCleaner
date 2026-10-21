@@ -391,7 +391,9 @@ internal object SystemEntryProbe {
         // the active cloud provider in the PhotoPicker.
         return SystemProbeResult(
             R.string.system_probe_source_providers, R.string.system_probe_provider_notice,
-            evidence = ProbeEvidence.PICKER_HOST, diagnosticCandidates = unique(entries),
+            // These are registered providers, not a picker-host result or a final
+            // visible RootsFragment list. Show them openly as candidates.
+            evidence = ProbeEvidence.REGISTERED, items = unique(entries),
             // Storage providers share DocumentsUI root observations with document pickers.
             // These observations remain separate from registration candidates and are
             // not an assertion that the provider appears in the current picker.
