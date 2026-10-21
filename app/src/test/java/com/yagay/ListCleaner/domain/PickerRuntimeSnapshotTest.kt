@@ -23,7 +23,7 @@ class PickerRuntimeSnapshotTest {
 
     @Test fun duplicateAndUnboundedRootsCannotOverloadDialog() {
         val root = PickerRuntimeRoot("com.example", "A".repeat(300), "@docroot_1", false)
-        val sample = PickerRuntimeSnapshot(1792598765432L, 0,
+        val sample = PickerRuntimeSnapshot(capturedAt = 1792598765432L, userId = 0, roots =
             List(300) { index ->
                 if (index == 0) root else root.copy(syntheticId = "@docroot_$index")
             })
@@ -48,7 +48,7 @@ class PickerRuntimeSnapshotTest {
     }
 
     @Test fun samplingNeverContainsRawDocumentIds() {
-        val sample = PickerRuntimeSnapshot(1792598765432L, 0,
+        val sample = PickerRuntimeSnapshot(capturedAt = 1792598765432L, userId = 0, roots =
             listOf(PickerRuntimeRoot("com.example", "Drive", "@docroot_token", false)))
         val encoded = PickerRuntimeSnapshotCodec.encode(sample)
         assertFalse(encoded.contains("content://"))
