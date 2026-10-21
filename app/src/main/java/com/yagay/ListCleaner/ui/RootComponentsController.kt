@@ -10,6 +10,7 @@ import com.yagay.ListCleaner.data.ComponentRootCommand
 import com.yagay.ListCleaner.data.PersistentComponentStore
 import com.yagay.ListCleaner.data.RootComponent
 import com.yagay.ListCleaner.data.RootComponentCatalog
+import com.yagay.ListCleaner.data.ProfileComponentCatalog
 import com.yagay.ListCleaner.data.RootComponentScan
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -34,6 +35,18 @@ internal class RootComponentsController(
     private class RootPolicyPersistenceException : IllegalStateException()
 
     private val catalog = RootComponentCatalog(app) { app.runtime.value.componentDiscoveryProtocol }
+    private val profileCatalog = ProfileComponentCatalog(app)
+    @Volatile private var targetUserId = app.spaces.currentUserId
+
+    fun switchSpace(userId: Int) {
+        if (targetUserId == userId) return
+        check(!mutableBusy.value) { "Cannot switch spaces while Root components are busy" }
+        targetUserId = userId
+        lastFullScanElapsed = -1L
+        lastScannedPackageRevision = -1L
+        mutableMessage.value = null
+        mutableScan.value = RootComponentScan(warning = app.getString(R.string.root_not_scanned))
+    }
     private val persistentComponents = PersistentComponentStore(app)
 
     private val mutableScan = MutableStateFlow(
@@ -130,7 +143,10 @@ internal class RootComponentsController(
             try {
                 val packageRevisionBefore = packageChangeRevision()
                 val protocolBefore = app.runtime.value.componentDiscoveryProtocol
-                mutableScan.value = withContext(Dispatchers.IO) { catalog.scan() }
+                mutableScan.value = withContext(Dispatchers.IO) {
+                    if (targetUserId == app.spaces.currentUserId) catalog.scan()
+                    else profileCatalog.scan(targetUserId)
+                }
                 try {
                     withContext(Dispatchers.IO) {
                         persistentComponents.syncRemote()
@@ -143,7 +159,10 @@ internal class RootComponentsController(
                 }
                 val protocolAfter = app.runtime.value.componentDiscoveryProtocol
                 if (protocolAfter != protocolBefore) {
-                    mutableScan.value = withContext(Dispatchers.IO) { catalog.scan() }
+                    mutableScan.value = withContext(Dispatchers.IO) {
+                    if (targetUserId == app.spaces.currentUserId) catalog.scan()
+                    else profileCatalog.scan(targetUserId)
+                }
                 }
                 // A partial scan must retry after the short cooldown rather than appearing fresh.
                 lastFullScanElapsed = ComponentScanRefreshPolicy.completedFullScanAt(
@@ -227,7 +246,7 @@ internal class RootComponentsController(
     ) {
         if (mutableBusy.value) return
         val targets = visibleTargets.distinctRootTargets()
-        if (targets.isEmpty()) return
+        if (targets.isEmpty() || targets.any { it.user != targetUserId }) return
         mutableRootNotice.value = null
         mutableBusy.value = true
         mutableMessage.value = initialMessage
@@ -252,7 +271,11 @@ internal class RootComponentsController(
                         // with respect to cancelling the remaining batch.
                         withContext(NonCancellable) {
                             attemptedTargets += target
-                            lastResult = catalog.change(target, enable)
+                            lastResult = if (target.user == app.spaces.currentUserId) {
+                                catalog.change(target, enable)
+                            } else {
+                                profileCatalog.change(target, enable)
+                            }
                             persistConfirmedState(target, disabled = !enable)
                             completedTargets += target
                             mutableBatchProgress.value = RootBatchProgress(completedTargets.size, targets.size)
@@ -316,7 +339,10 @@ internal class RootComponentsController(
     }
 
     private fun refreshAfterMutation(targets: List<RootComponent>) {
-        runCatching { catalog.refreshItems(mutableScan.value, targets) }
+        runCatching {
+            if (targetUserId == app.spaces.currentUserId) catalog.refreshItems(mutableScan.value, targets)
+            else profileCatalog.scan(targetUserId)
+        }
             .onSuccess { mutableScan.value = it }
             .onFailure { failure ->
                 Log.e(TAG, "Post-mutation Root component refresh failed", failure)

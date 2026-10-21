@@ -61,15 +61,41 @@ class ListCleanerModule : XposedModule() {
         val title: String?,
     )
 
-    @Volatile
-    private var snapshot = RuntimeRuleSnapshot(
-        configured = emptySet(),
-        displayMode = DisplayMode.HIDE_SELECTED,
-        priorities = PriorityConfig(),
-        openTypes = OpenTypeConfig(),
-        browserLinks = BrowserLinkConfig(),
-        diagnostic = false,
+    private data class UserPolicyGeneration(
+        val primary: RuntimeRuleSnapshot,
+        val otherUsers: Map<Int, RuntimeRuleSnapshot>,
     )
+
+    @Volatile private var policies = UserPolicyGeneration(
+        primary = RuntimeRuleSnapshot(
+            configured = emptySet(),
+            displayMode = DisplayMode.HIDE_SELECTED,
+            priorities = PriorityConfig(),
+            openTypes = OpenTypeConfig(),
+            browserLinks = BrowserLinkConfig(),
+            diagnostic = false,
+        ),
+        otherUsers = emptyMap(),
+    )
+    private val activeQuerySnapshot = ThreadLocal<RuntimeRuleSnapshot?>()
+    private val snapshot: RuntimeRuleSnapshot get() = activeQuerySnapshot.get() ?: policies.primary
+
+    private fun snapshotForUser(userId: Int): RuntimeRuleSnapshot {
+        // Do not use the thread-local snapshot as a base: nested cross-user queries
+        // must resolve from the correct, atomically published generation.
+        val generation = policies
+        if (userId == 0) return generation.primary
+        return generation.otherUsers[userId] ?: generation.primary.copy(
+            configured = emptySet(),
+            displayMode = DisplayMode.SHOW_ALL,
+            priorities = PriorityConfig(),
+            openTypes = OpenTypeConfig(),
+            browserLinks = BrowserLinkConfig(),
+            hiddenFromApps = emptySet(),
+            visibilityCompat = VisibilityCompatConfig(),
+        )
+    }
+
     private var lastEncodedConfig: String? = null
     @Volatile private var runtimeTransportActive = false
     @Volatile private var appliedRuntimeRevision = -1L
@@ -306,14 +332,14 @@ class ListCleanerModule : XposedModule() {
 
     private fun systemVisibilityHooker(adapter: VisibilityLayout) = XposedInterface.Hooker { chain ->
         pollPreferences()
-        val current = snapshot
+        val args = chain.args
+        val callingUid = args.getOrNull(adapter.uidIndex) as? Int ?: return@Hooker chain.proceed()
+        val current = snapshotForUser(com.yagay.ListCleaner.domain.AndroidUid.userId(callingUid))
         if (current.displayMode != DisplayMode.HIDE_SELECTED ||
             current.hiddenFromApps.isEmpty() || current.allSelectedPackages.isEmpty()) {
             return@Hooker chain.proceed()
         }
 
-        val args = chain.args
-        val callingUid = args.getOrNull(adapter.uidIndex) as? Int ?: return@Hooker chain.proceed()
         if (!FilterPolicy.ordinaryAppCaller(callingUid)) return@Hooker chain.proceed()
 
         val computer = args.firstOrNull { value -> value != null && hasGetPackagesForUid(value.javaClass) }
@@ -545,7 +571,7 @@ class ListCleanerModule : XposedModule() {
                 orderingEngine.orderItemsFromMetadata(items, kind, "ranked")
             } else {
                 pollPreferences()
-                val current = snapshot
+                val current = snapshotForUser(com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid()))
                 if (current.displayMode == DisplayMode.SHOW_ALL) {
                     diagnostic("ORDER_SKIP reason=show_all")
                     return@runCatching null
@@ -603,13 +629,14 @@ class ListCleanerModule : XposedModule() {
                 orderingEngine.orderItemsFromMetadata(list, kind, "alpha", fixed)
             } else {
                 pollPreferences()
-                if (snapshot.displayMode == DisplayMode.SHOW_ALL) {
+                val localSnapshot = snapshotForUser(com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid()))
+                if (localSnapshot.displayMode == DisplayMode.SHOW_ALL) {
                     diagnostic("ORDER_SKIP stage=alpha reason=show_all")
                     return@runCatching
                 }
                 val preset = adapterOpenPreset(receiver, kind)
                 val browserHost = adapterBrowserHost(receiver, kind)
-                orderingEngine.orderItems(list, kind, snapshot, "alpha", fixed, preset, browserHost)
+                orderingEngine.orderItems(list, kind, localSnapshot, "alpha", fixed, preset, browserHost)
             }
             if (ordered !== list) {
                 ordered.forEachIndexed { index, item -> list[index] = item }
@@ -656,6 +683,24 @@ class ListCleanerModule : XposedModule() {
             } else {
                 chain.proceed()
             }
+            // Binder identity can belong to a different user than the one queried.
+            // Unknown system_server signatures fail open instead of borrowing another
+            // Android profile's selection or ordering policy.
+            val targetUserId = if (layer == Layer.SYSTEM) {
+                val method = chain.executable as? Method
+                method?.let {
+                    HookCallIdentity.packageManagerTargetUserId(
+                        it.name, it.parameterTypes.map { parameter -> parameter.name }, chain.args,
+                    )
+                }
+            } else {
+                com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid())
+            }
+            if (targetUserId == null) {
+                diagnostic("FILTER_SKIP layer=$layer reason=unknown_query_user")
+                return@Hooker original
+            }
+            activeQuerySnapshot.set(snapshotForUser(targetUserId))
             try {
                 processQuery(chain, original, layer, callerUid)
             } catch (failure: Throwable) {
@@ -663,6 +708,7 @@ class ListCleanerModule : XposedModule() {
                 original
             }
         } finally {
+            activeQuerySnapshot.remove()
             queryInProgress.remove()
         }
     }
@@ -1224,6 +1270,20 @@ class ListCleanerModule : XposedModule() {
             hiddenFromApps = config.hiddenFromApps,
             visibilityCompat = config.visibilityCompat,
         )
+        val scopeSnapshots = config.userSpaces.mapValues { (_, space) ->
+            RuntimeRuleSnapshot(
+                configured = space.rules.map { it.id }.toSet(),
+                displayMode = space.mode,
+                priorities = space.priorities,
+                openTypes = space.openTypes,
+                browserLinks = space.browserLinks,
+                diagnostic = space.diagnostic,
+                managerAppId = config.managerAppId,
+                digest = digest,
+                hiddenFromApps = space.hiddenFromApps,
+                visibilityCompat = space.visibilityCompat,
+            )
+        }
         val protected = config.rootDisabledComponents ?: PersistentComponentState.sanitize(
             preferences.getStringSet(PersistentComponentState.REMOTE_KEY, emptySet()).orEmpty()
         )
@@ -1235,8 +1295,20 @@ class ListCleanerModule : XposedModule() {
             entryPriorities = config.priorities.apps,
             digest = digest,
         )
-        snapshot = nextSnapshot
-        RuntimeComponentPolicy.publish(compiledPolicy)
+        policies = UserPolicyGeneration(nextSnapshot, scopeSnapshots)
+        RuntimeComponentPolicy.publishForUsers(
+            compiledPolicy,
+            config.userSpaces.mapValues { (_, space) ->
+                RuntimePolicyCompiler.compile(
+                    managerAppId = config.managerAppId,
+                    protectedComponents = protected,
+                    displayMode = space.mode,
+                    entryRules = space.rules.map { it.id },
+                    entryPriorities = space.priorities.apps,
+                    digest = digest,
+                )
+            }
+        )
         lastEncodedConfig = encoded
 
         record("MANAGER_IDENTITY appId=${config.managerAppId} source=$source")
@@ -1315,7 +1387,7 @@ class ListCleanerModule : XposedModule() {
         val protected = PersistentComponentState.sanitize(
             sourcePreferences.getStringSet(PersistentComponentState.REMOTE_KEY, emptySet()).orEmpty()
         )
-        snapshot = nextSnapshot
+        policies = UserPolicyGeneration(nextSnapshot, emptyMap())
         RuntimeComponentPolicy.publish(
             RuntimePolicyCompiler.compile(
                 managerAppId = -1,

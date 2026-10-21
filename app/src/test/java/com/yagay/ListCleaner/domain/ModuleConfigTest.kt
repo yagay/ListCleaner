@@ -5,6 +5,35 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ModuleConfigTest {
+    @Test fun distinctAndroidUsersSurviveSerializationWithoutChangingPrimaryRules() {
+        val personal = ComponentRule(IntentKind.OPEN, "com.example.personal", "com.example.personal.Main")
+        val work = ComponentRule(IntentKind.OPEN, "com.example.work", "com.example.work.Main")
+        val input = ModuleConfig(
+            rules = setOf(personal),
+            mode = DisplayMode.HIDE_SELECTED,
+            priorities = PriorityConfig(),
+            diagnostic = false,
+            userSpaces = mapOf(10 to UserSpaceRules(
+                rules = setOf(work),
+                mode = DisplayMode.SHOW_SELECTED,
+                priorities = PriorityConfig(mapOf(IntentKind.OPEN to listOf("com.example.work"))),
+            )),
+        ).validated()
+        val restored = Json.decodeFromString(ModuleConfig.serializer(),
+            Json.encodeToString(ModuleConfig.serializer(), input)).validated()
+        assertEquals(setOf(personal), restored.rules)
+        assertEquals(setOf(work), restored.userSpaces.getValue(10).rules)
+        assertEquals(DisplayMode.HIDE_SELECTED, restored.mode)
+        assertEquals(DisplayMode.SHOW_SELECTED, restored.userSpaces.getValue(10).mode)
+        val workEdited = restored.copy(
+            userSpaces = restored.userSpaces + (10 to restored.userSpaces.getValue(10).copy(
+                rules = emptySet(),
+            )),
+        )
+        assertEquals(restored.rules, workEdited.rules)
+        assertEquals(restored.priorities, workEdited.priorities)
+    }
+
     @Test fun hiddenFromAppsRoundTrip() {
         val config = ModuleConfig(
             emptySet(), DisplayMode.HIDE_SELECTED, PriorityConfig(), false, 10715,
@@ -152,4 +181,39 @@ class ModuleConfigTest {
         assertFalse(FilterPolicy.sameCaller(10001, 1010001))
         assertTrue(FilterPolicy.sameCaller(10001, 10001))
     }
+    @Test fun independentUserSpacesRemainIndependentAfterSerialization() {
+        val primary = ComponentRule(IntentKind.OPEN, "com.primary.example", "com.primary.example.Open")
+        val profile = ComponentRule(IntentKind.OPEN, "com.profile.example", "com.profile.example.Open")
+        val config = ModuleConfig(
+            rules = setOf(primary),
+            mode = DisplayMode.HIDE_SELECTED,
+            priorities = PriorityConfig(),
+            diagnostic = false,
+            userSpaces = mapOf(
+                10 to UserSpaceRules(
+                    rules = setOf(profile),
+                    mode = DisplayMode.SHOW_SELECTED,
+                    priorities = PriorityConfig(),
+                ),
+                11 to UserSpaceRules(),
+            )
+        )
+        val decoded = Json.decodeFromString(
+            ModuleConfig.serializer(), Json.encodeToString(ModuleConfig.serializer(), config)
+        ).validated()
+        assertEquals(setOf(primary), decoded.rules)
+        assertEquals(setOf(profile), decoded.userSpaces.getValue(10).rules)
+        assertEquals(DisplayMode.SHOW_SELECTED, decoded.userSpaces.getValue(10).mode)
+        assertTrue(decoded.userSpaces.getValue(11).rules.isEmpty())
+        assertEquals(DisplayMode.SHOW_ALL, decoded.userSpaces.getValue(11).mode)
+    }
+
+    @Test fun legacyUserZeroConfigurationLoadsWithNoOtherUsers() {
+        val legacy = """{"rules":[],"mode":"HIDE_SELECTED","priorities":{},"diagnostic":false}"""
+        val restored = Json { ignoreUnknownKeys = true }.decodeFromString(
+            ModuleConfig.serializer(), legacy
+        ).validated()
+        assertTrue(restored.userSpaces.isEmpty())
+    }
+
 }

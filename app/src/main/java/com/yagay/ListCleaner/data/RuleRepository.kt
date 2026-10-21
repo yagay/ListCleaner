@@ -14,21 +14,73 @@ import com.yagay.ListCleaner.domain.OpenTypeConfig
 import com.yagay.ListCleaner.domain.PackageIdentity
 import com.yagay.ListCleaner.domain.PriorityConfig
 import com.yagay.ListCleaner.domain.RuleBackup
+import com.yagay.ListCleaner.domain.MultiSpaceBackup
+import com.yagay.ListCleaner.domain.SpaceBackupEntry
 import com.yagay.ListCleaner.domain.VisibilityCompatConfig
 import com.yagay.ListCleaner.domain.VisibilityScope
+import com.yagay.ListCleaner.domain.UserSpaceRules
+import com.yagay.ListCleaner.domain.toSpaceRules
 import com.yagay.ListCleaner.domain.normalizeBrowserHost
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 data class BackupImportPreview(val total: Int, val added: Int, val removed: Int, val version: Int)
+
+data class SpaceBackupPreview(
+    val sourceUserId: Int,
+    val sourceName: String,
+    val rules: Int,
+    val rootDisabledRecords: Int,
+)
+
+data class SpaceBackupInspection(
+    val version: Int,
+    val spaces: List<SpaceBackupPreview>,
+)
 
 class RuleRepository(context: Context) {
     private val appContext = context.applicationContext
     private val prefs = appContext.getSharedPreferences(LOCAL_PREFS, Context.MODE_PRIVATE)
     private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
+    // v13 discriminator and version MUST be present, even though their Kotlin fields have defaults.
+    private val portableBackupJson = Json { prettyPrint = true; ignoreUnknownKeys = true; encodeDefaults = true }
     private val initialConfig = loadInitialConfig()
+    /** Each Android user has independent rules; 0 is always the legacy-compatible base. */
+    private val storedSpaces = mutableMapOf<Int, UserSpaceRules>().apply {
+        put(0, initialConfig.toSpaceRules())
+        putAll(initialConfig.userSpaces)
+    }
+    private var activeUserId = 0
+    private val mutableActiveUser = MutableStateFlow(0)
+    val activeUser: StateFlow<Int> = mutableActiveUser.asStateFlow()
+    private val derivedVisibility = mutableMapOf<Int, Map<VisibilityScope, Set<String>>>()
+    val selectedUserId: Int get() = activeUserId
+
+    @Synchronized fun switchSpace(userId: Int) {
+        require(userId in 0..99999)
+        if (userId == activeUserId) return
+        storedSpaces[activeUserId] = localSnapshot().toSpaceRules()
+        derivedVisibility[activeUserId] = mutableVisibilityFullPackages.value
+        activeUserId = userId
+        val next = storedSpaces[userId] ?: UserSpaceRules()
+        mutableRules.value = next.rules
+        mutableMode.value = next.mode
+        mutablePriorities.value = next.priorities
+        mutableOpenTypes.value = next.openTypes
+        mutableBrowserLinks.value = next.browserLinks
+        mutableDiagnostic.value = next.diagnostic
+        mutableHiddenFromApps.value = next.hiddenFromApps
+        mutableVisibilityScopes.value = next.visibilityCompat.scopes
+        mutableVisibilityFullPackages.value = derivedVisibility[userId].orEmpty()
+        persistLocalSnapshot()
+        // Publish the user identity after all per-user StateFlows are loaded.
+        mutableActiveUser.value = userId
+        mutableRevision.value++
+    }
 
     private val mutableRules = MutableStateFlow(initialConfig.rules)
     private val mutableMode = MutableStateFlow(initialConfig.mode)
@@ -146,23 +198,39 @@ class RuleRepository(context: Context) {
     }
 
     @Synchronized fun restoreRemote(config: ModuleConfig) {
-        applyConfig(config, config.mode != DisplayMode.SHOW_SELECTED)
+        // Recovery must preserve the selected Android profile. Resetting activeUserId to 0
+        // while the UI still displays user 10 makes the next edit silently modify user 0.
+        val verified = config.validated()
+        val restored = mutableMapOf(0 to verified.toSpaceRules()).apply {
+            putAll(verified.userSpaces)
+        }
+        replaceSpaceSettings(restored, restored.keys, replaceAll = true)
     }
 
-    @Synchronized fun remoteSnapshot(): ModuleConfig = ModuleConfig(
-        rules = mutableRules.value.toSet(),
-        mode = mutableMode.value,
-        priorities = mutablePriorities.value,
-        diagnostic = mutableDiagnostic.value,
-        managerAppId = AndroidUid.appId(android.os.Process.myUid()),
-        hiddenFromApps = mutableHiddenFromApps.value.toSet(),
-        openTypes = mutableOpenTypes.value,
-        browserLinks = mutableBrowserLinks.value,
-        visibilityCompat = VisibilityCompatConfig(
-            scopes = mutableVisibilityScopes.value.toSet(),
-            fullPackages = mutableVisibilityFullPackages.value.mapValues { it.value.toSet() }
+    /** Publish every space atomically, never just the one currently displayed in the UI. */
+    @Synchronized fun remoteSnapshot(): ModuleConfig {
+        val active = localSnapshot().copy(
+            visibilityCompat = VisibilityCompatConfig(
+                scopes = mutableVisibilityScopes.value.toSet(),
+                fullPackages = mutableVisibilityFullPackages.value.mapValues { it.value.toSet() }
+            )
+        ).toSpaceRules()
+        val all = storedSpaces.toMutableMap()
+        all[activeUserId] = active
+        val scoped = all.mapValues { (userId, space) ->
+            val full = if (userId == activeUserId) mutableVisibilityFullPackages.value
+                       else derivedVisibility[userId].orEmpty()
+            space.copy(visibilityCompat = VisibilityCompatConfig(
+                scopes = space.visibilityCompat.scopes,
+                fullPackages = full,
+            ))
+        }
+        val primary = (scoped[0] ?: UserSpaceRules()).toModuleConfig()
+        return primary.copy(
+            managerAppId = AndroidUid.appId(android.os.Process.myUid()),
+            userSpaces = scoped.filterKeys { it != 0 },
         ).validated()
-    )
+    }
 
     private fun localSnapshot(): ModuleConfig = ModuleConfig(
         rules = mutableRules.value.toSet(),
@@ -180,8 +248,12 @@ class RuleRepository(context: Context) {
             managerAppId = -1,
             rootDisabledComponents = null,
             visibilityCompat = VisibilityCompatConfig(scopes = config.visibilityCompat.scopes.toSet()),
+            userSpaces = emptyMap(),
         ).validated()
-        val encoded = json.encodeToString(ModuleConfig.serializer(), local)
+        storedSpaces[activeUserId] = local.toSpaceRules()
+        val primary = (storedSpaces[0] ?: UserSpaceRules()).toModuleConfig()
+            .copy(userSpaces = storedSpaces.filterKeys { it != 0 }).validated()
+        val encoded = json.encodeToString(ModuleConfig.serializer(), primary)
         prefs.edit()
             .putString(KEY_LOCAL_CONFIG, encoded)
             .putBoolean(KEY_INITIALIZED, true)
@@ -211,11 +283,15 @@ class RuleRepository(context: Context) {
     }
 
     /** Derived from the current candidate catalog. Not backed up; rebuilt after scans/rule changes. */
-    @Synchronized fun setVisibilityFullPackages(packages: Map<VisibilityScope, Set<String>>) {
+    @Synchronized fun setVisibilityFullPackages(userId: Int, packages: Map<VisibilityScope, Set<String>>) {
+        // Catalog discovery is asynchronous. A result started in the previous profile may
+        // arrive after switching; never publish it into the newly selected user's policy.
+        if (userId != activeUserId) return
         val next = VisibilityCompatConfig(fullPackages = packages).validated().fullPackages
             .mapValues { it.value.toSet() }
         if (next == mutableVisibilityFullPackages.value) return
         mutableVisibilityFullPackages.value = next
+        derivedVisibility[activeUserId] = next
         mutableRevision.value++
     }
 
@@ -435,6 +511,145 @@ class RuleRepository(context: Context) {
             ),
             blacklist
         )
+    }
+
+    /** Snapshot includes unswitched edits, but never derives settings from another profile. */
+    @Synchronized private fun allSpaceSettings(): Map<Int, UserSpaceRules> =
+        storedSpaces.toMutableMap().apply { put(activeUserId, localSnapshot().toSpaceRules()) }.toMap()
+
+    /** Select any subset of spaces; names are informational and not trusted during restore. */
+    @Synchronized fun exportSpaces(
+        userIds: Set<Int>,
+        names: Map<Int, String>,
+        rootDisabledKeys: Set<String> = emptySet(),
+    ): String {
+        require(userIds.isNotEmpty() && userIds.size <= 16)
+        val available = allSpaceSettings()
+        val entries = userIds.sorted().map { userId ->
+            require(userId in 0..99999)
+            val settings = available[userId] ?: UserSpaceRules()
+            SpaceBackupEntry(
+                sourceUserId = userId,
+                sourceName = names[userId]?.trim()?.take(100)?.takeIf { it.isNotBlank() }
+                    ?: "User $userId",
+                settings = settings.validated(),
+                rootDisabledComponents = rootDisabledKeys.filterTo(linkedSetOf()) {
+                    it.startsWith("$userId|")
+                },
+            )
+        }
+        val encoded = portableBackupJson.encodeToString(MultiSpaceBackup.serializer(),
+            MultiSpaceBackup(spaces = entries).validated())
+        require(encoded.length <= MAX_BACKUP_CHARS) { appContext.getString(R.string.repo_backup_too_large) }
+        return encoded
+    }
+
+    /**
+     * Legacy (v1–v12) archives contain exactly one set of resolver rules. Treat it as one
+     * source entry that can be explicitly mapped to *any* target Android user.
+     */
+    @Synchronized private fun decodePortableBackup(content: String): MultiSpaceBackup {
+        require(content.length <= MAX_BACKUP_CHARS) { appContext.getString(R.string.repo_backup_too_large) }
+        val root = json.parseToJsonElement(content).jsonObject
+        if (root["format"]?.jsonPrimitive?.content == MultiSpaceBackup.FORMAT) {
+            return json.decodeFromString(MultiSpaceBackup.serializer(), content).validated()
+        }
+        val old = json.decodeFromString(RuleBackup.serializer(), content)
+        require(old.version in 1..12) {
+            appContext.getString(R.string.repo_backup_unsupported_version, old.version)
+        }
+        if (old.version >= 3) requireNotNull(old.displayMode) {
+            appContext.getString(R.string.repo_backup_missing_display_mode)
+        }
+        require(old.rules.all(ComponentRule::isValid)) {
+            appContext.getString(R.string.repo_backup_invalid_component)
+        }
+        val settings = UserSpaceRules(
+            rules = old.rules,
+            mode = old.displayMode ?: DisplayMode.fromStored(null, old.blacklist),
+            priorities = if (old.version == 1) PriorityConfig() else old.priorities,
+            diagnostic = false,
+            hiddenFromApps = if (old.version >= 5) old.hiddenFromApps else emptySet(),
+            openTypes = if (old.version >= 7) old.openTypes else OpenTypeConfig(),
+            browserLinks = if (old.version >= 10) old.browserLinks else BrowserLinkConfig(),
+            visibilityCompat = VisibilityCompatConfig(
+                scopes = if (old.version >= 9) old.visibilityScopes else emptySet()
+            ),
+        ).validated()
+        return MultiSpaceBackup(spaces = listOf(
+            SpaceBackupEntry(sourceUserId = 0, sourceName = appContext.getString(R.string.backup_spaces_legacy_source),
+                settings = settings)
+        )).validated()
+    }
+
+    fun inspectSpaces(content: String): SpaceBackupInspection {
+        val version = json.parseToJsonElement(content).jsonObject["version"]
+            ?.jsonPrimitive?.content?.toIntOrNull() ?: 1
+        val parsed = decodePortableBackup(content)
+        return SpaceBackupInspection(version, parsed.spaces.map {
+            SpaceBackupPreview(it.sourceUserId, it.sourceName, it.settings.rules.size,
+                it.rootDisabledComponents.size)
+        })
+    }
+
+    /** Source IDs are never assumed to be equal to target IDs on another phone. */
+    @Synchronized fun importSpaces(content: String, mappings: Map<Int, Int>) {
+        val configs = decodePortableBackup(content).mapped(mappings)
+        val next = allSpaceSettings().toMutableMap().apply { putAll(configs) }
+        replaceSpaceSettings(next, mappings.values.toSet())
+    }
+
+    /** Used for one-tap undo: stores every profile, including profiles absent from the UI. */
+    @Synchronized fun createSpaceCheckpoint(): String {
+        val all = allSpaceSettings()
+        val config = (all[0] ?: UserSpaceRules()).toModuleConfig()
+            .copy(userSpaces = all.filterKeys { it != 0 }).validated()
+        return json.encodeToString(ModuleConfig.serializer(), config)
+    }
+
+    @Synchronized fun restoreSpaceCheckpoint(checkpoint: String) {
+        require(checkpoint.length <= MAX_BACKUP_CHARS)
+        val saved = json.decodeFromString(ModuleConfig.serializer(), checkpoint).validated()
+        val all = mutableMapOf(0 to saved.toSpaceRules()).apply { putAll(saved.userSpaces) }
+        replaceSpaceSettings(all, all.keys, replaceAll = true)
+    }
+
+    private fun replaceSpaceSettings(
+        requested: Map<Int, UserSpaceRules>,
+        modified: Set<Int>,
+        replaceAll: Boolean = false,
+    ) {
+        require(requested.containsKey(0) && requested.keys.all { it in 0..99999 })
+        val clean = requested.mapValues { (_, value) ->
+            value.copy(visibilityCompat = VisibilityCompatConfig(
+                scopes = value.visibilityCompat.scopes
+            )).validated()
+        }
+        val primary = requireNotNull(clean[0]).toModuleConfig()
+            .copy(userSpaces = clean.filterKeys { it != 0 }).validated()
+        val encoded = json.encodeToString(ModuleConfig.serializer(), primary)
+        require(encoded.length <= MAX_BACKUP_CHARS) { appContext.getString(R.string.repo_backup_too_large) }
+        // Commit once before publishing new state to UI/Hook. If persistence fails, do not mutate
+        // any in-memory space or start a partial user-by-user import.
+        check(prefs.edit().putString(KEY_LOCAL_CONFIG, encoded)
+            .putBoolean(KEY_INITIALIZED, true).commit()) { "Space backup could not be committed" }
+        storedSpaces.clear()
+        storedSpaces.putAll(clean)
+        if (replaceAll) derivedVisibility.clear()
+        else modified.forEach(derivedVisibility::remove)
+        validatedLocalJson = encoded
+        validatedLocalResult = true
+        val active = storedSpaces[activeUserId] ?: UserSpaceRules()
+        mutableRules.value = active.rules
+        mutableMode.value = active.mode
+        mutablePriorities.value = active.priorities
+        mutableOpenTypes.value = active.openTypes
+        mutableBrowserLinks.value = active.browserLinks
+        mutableDiagnostic.value = active.diagnostic
+        mutableHiddenFromApps.value = active.hiddenFromApps
+        mutableVisibilityScopes.value = active.visibilityCompat.scopes
+        mutableVisibilityFullPackages.value = emptyMap()
+        mutableRevision.value++
     }
 
     @Synchronized fun exportJson(): String = json.encodeToString(

@@ -60,8 +60,20 @@ public final class ComponentRootCommand {
         return capture(new ProcessBuilder("su", "-c", script), 25);
     }
 
+    /**
+     * Read-only discovery has much larger output than one component mutation.
+     * Keep the mutation path at 16 KiB and bound discovery at 1 MiB.
+     */
+    public static Result runReadOnly(String script) throws Exception {
+        return capture(new ProcessBuilder("su", "-c", script), 25, 1024 * 1024);
+    }
+
     public static Result capture(ProcessBuilder builder, int seconds) throws Exception {
-        DiagnosticBuffer buffer = new DiagnosticBuffer(16 * 1024);
+        return capture(builder, seconds, 16 * 1024);
+    }
+
+    private static Result capture(ProcessBuilder builder, int seconds, int maxBytes) throws Exception {
+        DiagnosticBuffer buffer = new DiagnosticBuffer(maxBytes);
         AtomicReference<Exception> error = new AtomicReference<>();
         Process process = builder.redirectErrorStream(true).start();
         Thread reader = new Thread(() -> {

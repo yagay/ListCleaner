@@ -7,6 +7,7 @@ import com.yagay.ListCleaner.data.IntentCatalog
 import com.yagay.ListCleaner.data.ObservedEntryCache
 import com.yagay.ListCleaner.data.PersistentComponentStore
 import com.yagay.ListCleaner.data.RuleRepository
+import com.yagay.ListCleaner.data.UserSpaceManager
 import com.yagay.ListCleaner.data.readLegacyRemoteConfig
 import com.yagay.ListCleaner.domain.AuthorityCandidatePolicy
 import com.yagay.ListCleaner.domain.DisplayMode
@@ -54,6 +55,7 @@ data class RuntimeStatus(
 @OptIn(FlowPreview::class)
 class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
     lateinit var rules: RuleRepository; private set
+    lateinit var spaces: UserSpaceManager; private set
     lateinit var catalog: IntentCatalog; private set
 
     private val sessionRegistry = ServiceSessionRegistry()
@@ -89,13 +91,21 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
         super.onCreate()
         mutableSyncStatus.value = getString(R.string.runtime_waiting_connection)
         mutableRuntime.value = RuntimeStatus(message = getString(R.string.runtime_waiting_verify))
+        spaces = UserSpaceManager(this)
         rules = RuleRepository(this)
         catalog = IntentCatalog(this)
         XposedServiceHelper.registerListener(this)
         applicationScope.launch {
-            combine(rules.rules, catalog.candidates) { selected, candidates ->
-                deriveFullySelectedPackages(AuthorityCandidatePolicy.normalize(candidates), selected)
-            }.collect(rules::setVisibilityFullPackages)
+            combine(rules.rules, catalog.candidates, rules.activeUser, spaces.installedPackages) {
+                    selected, candidates, userId, installed ->
+                val scoped = if (userId == spaces.currentUserId) candidates
+                    else candidates.filter { it.rule.packageName in installed.orEmpty() }
+                userId to deriveFullySelectedPackages(
+                    AuthorityCandidatePolicy.normalize(scoped), selected
+                )
+            }.collect { (sourceUserId, packages) ->
+                rules.setVisibilityFullPackages(sourceUserId, packages)
+            }
         }
         // Service lifecycle changes must synchronize immediately. Rule edits are debounced so a
         // burst of checkbox changes produces one runtime config transfer instead of one per tap.
@@ -245,7 +255,10 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                 check(bound.apiVersion >= 102) { getString(R.string.runtime_framework_api_required) }
                 val targets = bound.runningTargets
                 check(isCurrent(session)) { getString(R.string.runtime_connection_changed) }
-                val canPauseTargets = rules.displayMode.value == DisplayMode.SHOW_ALL && targets.isNotEmpty() && targets.all {
+                val canPauseTargets = rules.remoteSnapshot().let { config ->
+                    config.mode == DisplayMode.SHOW_ALL &&
+                        config.userSpaces.values.all { it.mode == DisplayMode.SHOW_ALL }
+                } && targets.isNotEmpty() && targets.all {
                     RuntimeProtocol.supportsSafetyPause(
                         it.state.name,
                         it.loadedVersionCode,
@@ -294,7 +307,9 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                     acknowledgedRevision == revision
                 ) return@withLock true
 
-                val canPause = config.mode == DisplayMode.SHOW_ALL && targets.isNotEmpty() && targets.all {
+                val canPause = config.mode == DisplayMode.SHOW_ALL &&
+                    config.userSpaces.values.all { it.mode == DisplayMode.SHOW_ALL } &&
+                    targets.isNotEmpty() && targets.all {
                     RuntimeProtocol.supportsSafetyPause(
                         it.state.name,
                         it.loadedVersionCode,

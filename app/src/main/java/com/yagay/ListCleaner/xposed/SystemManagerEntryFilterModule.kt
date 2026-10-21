@@ -132,7 +132,7 @@ class SystemManagerEntryFilterModule : XposedModule() {
         val caller = currentCaller()
         val original = chain.proceed()
         observeComponentResult(original, kind, componentOf)
-        val policy = policyProvider.snapshot()
+        val policy = policyProvider.snapshot(AndroidUid.userId(caller.uid))
         if (!shouldFilter(caller, policy)) {
             record("AUTHORITY_OBSERVED kind=$kind callerUid=${caller.uid} filterAllowed=false")
             return@Hooker original
@@ -151,7 +151,7 @@ class SystemManagerEntryFilterModule : XposedModule() {
             RuntimeObservedEntryStore.observePackage(IntentKind.CREDENTIAL_PROVIDER, component.packageName)
         } }
 
-        val policy = policyProvider.snapshot()
+        val policy = policyProvider.snapshot(AndroidUid.userId(caller.uid))
         if (!shouldFilter(caller, policy)) {
             record("AUTHORITY_OBSERVED kind=${IntentKind.CREDENTIAL_PROVIDER} callerUid=${caller.uid} filterAllowed=false count=${values.size}")
             return@Hooker original
@@ -181,7 +181,7 @@ class SystemManagerEntryFilterModule : XposedModule() {
         imeCallerContext.set(caller)
         try {
             val original = chain.proceed()
-            val policy = policyProvider.snapshot()
+            val policy = policyProvider.snapshot(AndroidUid.userId(caller.uid))
             if (listResults.extract(original) != null) {
                 observeComponentResult(original, IntentKind.INPUT_METHOD, ::inputMethodComponent)
                 if (shouldFilter(caller, policy)) {
@@ -206,7 +206,7 @@ class SystemManagerEntryFilterModule : XposedModule() {
         val caller = imeCallerContext.get() ?: return@Hooker chain.proceed()
         val original = chain.proceed()
         observeComponentResult(original, IntentKind.INPUT_METHOD, ::inputMethodComponent)
-        val policy = policyProvider.snapshot()
+        val policy = policyProvider.snapshot(AndroidUid.userId(caller.uid))
         if (!shouldFilter(caller, policy)) return@Hooker original
         filterComponentResult(original, IntentKind.INPUT_METHOD, caller.uid, policy, ::inputMethodComponent)
     }

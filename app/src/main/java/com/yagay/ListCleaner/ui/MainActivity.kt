@@ -33,7 +33,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yagay.ListCleaner.R
-import com.yagay.ListCleaner.data.BackupImportPreview
+import com.yagay.ListCleaner.data.SpaceBackupInspection
 import com.yagay.ListCleaner.data.readBackupText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -79,11 +79,15 @@ class MainActivity : ComponentActivity() {
         vm: MainViewModel = viewModel()
     ) {
         val state by vm.state.collectAsStateWithLifecycle()
+        val spaces by vm.spaces.collectAsStateWithLifecycle()
+        val selectedSpace by vm.selectedSpace.collectAsStateWithLifecycle()
         var searchExpanded by rememberSaveable { mutableStateOf(false) }
         // The merged cleanup tab hosts both rule and Root component editors.
         var componentModeActive by remember { mutableStateOf(false) }
         var restartPromptDismissed by rememberSaveable { mutableStateOf(false) }
-        var pendingImport by remember { mutableStateOf<Pair<String, BackupImportPreview>?>(null) }
+        var pendingImport by remember { mutableStateOf<Pair<String, SpaceBackupInspection>?>(null) }
+        var showExportDialog by rememberSaveable { mutableStateOf(false) }
+        var exportSpaceSelection by rememberSaveable { mutableStateOf<List<Int>>(emptyList()) }
         val backupSnackbar = remember { SnackbarHostState() }
         val collectingDiagnostics by vm.collectingDiagnostics.collectAsStateWithLifecycle()
         val exportMessage by vm.exportMessage.collectAsStateWithLifecycle()
@@ -113,47 +117,34 @@ class MainActivity : ComponentActivity() {
                 }
             )
         }
-        pendingImport?.let { (content, preview) ->
-            AdaptiveAlertDialog(
-                onDismissRequest = { pendingImport = null },
-                title = { AdaptiveText(stringResource(R.string.backup_import_confirm_title)) },
-                text = {
-                    AdaptiveText(stringResource(
-                        R.string.backup_import_confirm_summary,
-                        preview.version, preview.total, preview.added, preview.removed
-                    ))
-                },
-                confirmButton = {
-                    AdaptiveTextButton(onClick = {
-                        pendingImport = null
-                        lifecycleScope.launch {
-                            try {
-                                val previous = withContext(Dispatchers.IO) { vm.exportJson() }
-                                withContext(Dispatchers.IO) { vm.importJson(content) }
-                                onColorModeChange(UiAppearanceStore.readColorMode(this@MainActivity))
-                                val action = backupSnackbar.showSnackbar(
-                                    getString(R.string.backup_restored),
-                                    actionLabel = getString(R.string.backup_undo),
-                                    withDismissAction = true,
-                                    duration = SnackbarDuration.Long,
-                                )
-                                if (action == SnackbarResult.ActionPerformed) {
-                                    withContext(Dispatchers.IO) { vm.importJson(previous) }
-                                    onColorModeChange(UiAppearanceStore.readColorMode(this@MainActivity))
-                                    toast(getString(R.string.backup_undo_done))
-                                }
-                            } catch (cancelled: CancellationException) {
-                                throw cancelled
-                            } catch (failure: Exception) {
-                                Log.e(TAG, "Backup import failed", failure)
-                                toast(getString(R.string.backup_restore_failed), true)
+        pendingImport?.let { (content, inspection) ->
+            ImportSpaceBackupDialog(
+                inspection = inspection,
+                targets = spaces,
+                selectedUserId = selectedSpace,
+                onDismiss = { pendingImport = null },
+                onImport = { mapped ->
+                    pendingImport = null
+                    lifecycleScope.launch {
+                        try {
+                            val checkpoint = withContext(Dispatchers.IO) { vm.backupCheckpoint() }
+                            withContext(Dispatchers.IO) { vm.importMappedSpaces(content, mapped) }
+                            val action = backupSnackbar.showSnackbar(
+                                getString(R.string.backup_restored),
+                                actionLabel = getString(R.string.backup_undo),
+                                withDismissAction = true,
+                                duration = SnackbarDuration.Long,
+                            )
+                            if (action == SnackbarResult.ActionPerformed) {
+                                withContext(Dispatchers.IO) { vm.restoreBackupCheckpoint(checkpoint) }
+                                toast(getString(R.string.backup_undo_done))
                             }
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (failure: Exception) {
+                            Log.e(TAG, "Multi-space backup import failed", failure)
+                            toast(getString(R.string.backup_restore_failed), true)
                         }
-                    }) { AdaptiveText(stringResource(R.string.backup_import_apply)) }
-                },
-                dismissButton = {
-                    AdaptiveTextButton(onClick = { pendingImport = null }) {
-                        AdaptiveText(stringResource(R.string.common_cancel))
                     }
                 }
             )
@@ -189,7 +180,7 @@ class MainActivity : ComponentActivity() {
                 try {
                     withContext(Dispatchers.IO) {
                         val output = contentResolver.openOutputStream(uri) ?: error(getString(R.string.backup_create_failed))
-                        output.bufferedWriter().use { it.write(vm.exportJson()) }
+                        output.bufferedWriter().use { it.write(vm.exportSpacesJson(exportSpaceSelection.toSet())) }
                     }
                     toast(getString(R.string.backup_exported))
                 } catch (cancelled: CancellationException) {
@@ -207,7 +198,7 @@ class MainActivity : ComponentActivity() {
                     val content = withContext(Dispatchers.IO) {
                         readLimitedText(uri, MainViewModel.MAX_BACKUP_CHARS)
                     }
-                    val preview = withContext(Dispatchers.IO) { vm.previewImportJson(content) }
+                    val preview = withContext(Dispatchers.IO) { vm.inspectSpaceBackup(content) }
                     pendingImport = content to preview
                 } catch (cancelled: CancellationException) {
                     throw cancelled
@@ -223,6 +214,18 @@ class MainActivity : ComponentActivity() {
         }
         val fileCheck = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             uri?.let(vm::inspectFile)
+        }
+
+        if (showExportDialog) {
+            ExportSpaceBackupDialog(
+                spaces = spaces,
+                onDismiss = { showExportDialog = false },
+                onExport = { userIds ->
+                    showExportDialog = false
+                    exportSpaceSelection = userIds.toList()
+                    export.launch("ListCleaner-spaces-backup.json")
+                }
+            )
         }
 
         val onRefresh: () -> Unit = {
@@ -250,7 +253,7 @@ class MainActivity : ComponentActivity() {
                         state,
                         vm,
                         { restore.launch(arrayOf("application/json", "text/plain")) },
-                        { export.launch("ListCleaner-backup.json") },
+                        { showExportDialog = true },
                         collectingDiagnostics,
                         {
                             val stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
@@ -274,8 +277,15 @@ class MainActivity : ComponentActivity() {
                     closeSearch,
                     onRefresh,
                     { restore.launch(arrayOf("application/json", "text/plain")) },
-                    { export.launch("ListCleaner-backup.json") },
-                    showSearch = state.destination != Destination.SETTINGS
+                    { showExportDialog = true },
+                    showSearch = state.destination != Destination.SETTINGS,
+                    spaces = spaces,
+                    selectedSpace = selectedSpace,
+                    onSpaceSelected = { target ->
+                        closeSearch()
+                        componentModeActive = false
+                        vm.selectSpace(target)
+                    }
                 )
             },
             bottomBar = {

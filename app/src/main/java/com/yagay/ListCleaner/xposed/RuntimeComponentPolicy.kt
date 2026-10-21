@@ -61,14 +61,38 @@ internal object RuntimePolicyCompiler {
 
 /** One volatile publication makes every field from one config generation visible atomically. */
 internal object RuntimeComponentPolicy {
-    @Volatile
-    private var value = RuntimeComponentPolicySnapshot()
+    private data class Generation(
+        val primary: RuntimeComponentPolicySnapshot,
+        val otherUsers: Map<Int, RuntimeComponentPolicySnapshot>,
+    )
+
+    // One volatile reference guarantees the primary and profile policies belong to the same
+    // configuration generation. A two-field publication can briefly mix user 0/user 10 rules.
+    @Volatile private var generation = Generation(RuntimeComponentPolicySnapshot(), emptyMap())
 
     fun publish(snapshot: RuntimeComponentPolicySnapshot) {
-        value = snapshot
+        publishForUsers(snapshot, emptyMap())
     }
 
-    fun snapshot(): RuntimeComponentPolicySnapshot = value
+    fun publishForUsers(
+        primary: RuntimeComponentPolicySnapshot,
+        otherUsers: Map<Int, RuntimeComponentPolicySnapshot>,
+    ) {
+        generation = Generation(primary, otherUsers.toMap())
+    }
+
+    /** Missing user policies fail open; they never inherit another user's selected entries. */
+    fun snapshot(userId: Int = 0): RuntimeComponentPolicySnapshot {
+        val current = generation
+        if (userId == 0) return current.primary
+        return current.otherUsers[userId] ?: current.primary.copy(
+            displayMode = DisplayMode.SHOW_ALL,
+            entryRules = emptySet(),
+            entryRulesByKind = emptyMap(),
+            selectedPackagesByKind = emptyMap(),
+            entryPriorities = emptyMap(),
+        )
+    }
 }
 
 internal fun fallbackRuntimePolicy(

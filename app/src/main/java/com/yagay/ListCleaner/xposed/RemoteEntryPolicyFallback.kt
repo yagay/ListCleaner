@@ -21,7 +21,9 @@ internal class RemoteEntryPolicyFallback(
         val priorities: Map<IntentKind, List<String>> = emptyMap(),
     )
 
-    @Volatile private var value = Snapshot()
+    // One immutable generation prevents adapters from reading one user's rules from a
+    // different configuration generation.
+    @Volatile private var values: Map<Int, Snapshot> = mapOf(0 to Snapshot())
     private val json = Json { ignoreUnknownKeys = true }
     private val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == null || key == RuleRepository.KEY_CONFIG) refresh("preference changed")
@@ -33,30 +35,41 @@ internal class RemoteEntryPolicyFallback(
         refresh("init")
     }
 
-    fun snapshot(): Snapshot = value
+    fun snapshot(userId: Int = 0): Snapshot {
+        val current = values
+        return current[userId] ?: Snapshot(
+            managerAppId = current[0]?.managerAppId ?: -1,
+            displayMode = DisplayMode.SHOW_ALL,
+        )
+    }
 
     @Synchronized
     private fun refresh(reason: String) {
         runCatching {
             val encoded = preferences.getString(RuleRepository.KEY_CONFIG, null)
             if (encoded == null) {
-                value = Snapshot()
+                values = mapOf(0 to Snapshot())
                 record("POLICY_CLEARED reason=$reason source=config_missing")
                 return@runCatching
             }
             require(encoded.length <= RuleRepository.MAX_BACKUP_CHARS) { "Config too large" }
             val config = json.decodeFromString(ModuleConfig.serializer(), encoded).validated()
-            value = Snapshot(
+            fun compile(single: ModuleConfig): Snapshot = Snapshot(
                 managerAppId = config.managerAppId,
-                displayMode = config.mode,
-                rules = selectRules(config).toSet(),
-                priorities = selectPriorities(config).mapValues { (_, packages) -> packages.toList() },
+                displayMode = single.mode,
+                rules = selectRules(single).toSet(),
+                priorities = selectPriorities(single).mapValues { (_, packages) -> packages.toList() },
             )
-            record("POLICY_READ reason=$reason rules=${value.rules.size}")
+            val next = linkedMapOf(0 to compile(config))
+            config.userSpaces.forEach { (userId, settings) ->
+                next[userId] = compile(settings.toModuleConfig())
+            }
+            values = next
+            record("POLICY_READ reason=$reason users=${next.keys} primaryRules=${next[0]?.rules?.size}")
         }.onFailure {
             // Fallback filtering is destructive. Invalid/missing policy must fail open instead of
             // retaining a stale snapshot after the manager has reset or replaced its config.
-            value = Snapshot()
+            values = mapOf(0 to Snapshot())
             record("POLICY_READ_FAILED reason=$reason error=${it.javaClass.name} cleared=true")
         }
     }

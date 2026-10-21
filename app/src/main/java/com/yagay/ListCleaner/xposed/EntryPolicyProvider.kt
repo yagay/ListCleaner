@@ -43,12 +43,13 @@ internal class EntryPolicyProvider(
         }
     }
 
-    fun snapshot(): RuntimeComponentPolicySnapshot {
+    fun snapshot(userId: Int = 0): RuntimeComponentPolicySnapshot {
         start()
-        val runtime = RuntimeComponentPolicy.snapshot()
+        val runtime = RuntimeComponentPolicy.snapshot(userId)
         if (runtime.authoritative) return runtime
-
-        val local = fallback.snapshot()
+        // RemotePreferences carries the same per-user map as the system_server snapshot.
+        // Missing profiles fail open instead of borrowing user 0's filtering rules.
+        val local = fallback.snapshot(userId)
         return fallbackRuntimePolicy(
             managerAppId = local.managerAppId,
             displayMode = local.displayMode,
