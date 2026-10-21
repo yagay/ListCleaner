@@ -7,7 +7,7 @@
     <string name="system_probe_target_missing">本次查询未包含目标条目（%1$s），不能据此断定其他应用能否看到它</string>
     <string name="system_probe_empty">该接口没有向列表清理返回任何条目。</string>
     <string name="system_probe_scope_note">这里显示的是 Android 系统对列表清理所在用户、以列表清理调用身份返回的真实接口结果。模块可能对管理应用免除过滤，因此不能直接证明其他应用或最终系统弹窗看到相同结果。</string>
-    <string name="system_probe_open_system">系统原弹窗</string>
+    <string name="system_probe_open_system">打开系统选择器</string>
     <string name="system_probe_close">关闭</string>
     <string name="system_probe_refresh">重新查询</string>
     <string name="system_probe_source_none">没有可访问的公开列表接口</string>
@@ -65,4 +65,11 @@
     <string name="system_probe_unknown_host">未公开唯一选择器入口；请在系统原弹窗查看最终列表。</string>
     <string name="system_probe_group_count">%1$d 个组件</string>
     <string name="system_probe_scope_contract">只有 Android 的已启用服务接口明确确认的条目才标记为已启用。PackageManager 匹配、注册的服务、角色、小部件和 DocumentsUI/照片选择器来源均不等于最终展示名单；用户空间和厂商界面也可能不同。</string>
+    <string name="system_probe_picker_compact">完整可见列表由系统选择器决定。点击下方按钮打开真实界面。</string>
+    <string name="system_probe_picker_host_short">选择器：%1$s</string>
+    <string name="system_probe_observed_title">历史观察到的第三方来源（%1$d）</string>
+    <string name="system_probe_observed_empty">尚无第三方文件来源记录；可以打开系统选择器测试。此处不包含系统内置来源。</string>
+    <string name="system_probe_observed_time">记录于：%1$s（非实时状态）</string>
+    <string name="system_probe_details_show">为什么与系统显示不同？</string>
+    <string name="system_probe_details_hide">收起说明</string>
 </resources>
