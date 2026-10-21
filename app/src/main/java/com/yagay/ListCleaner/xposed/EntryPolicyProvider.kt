@@ -47,10 +47,9 @@ internal class EntryPolicyProvider(
         start()
         val runtime = RuntimeComponentPolicy.snapshot(userId)
         if (runtime.authoritative) return runtime
-        // Legacy RemotePreferences have no per-user policy; never reuse user 0's rules.
-        if (userId != 0) return runtime.copy(displayMode = com.yagay.ListCleaner.domain.DisplayMode.SHOW_ALL)
-
-        val local = fallback.snapshot()
+        // RemotePreferences carries the same per-user map as the system_server snapshot.
+        // Missing profiles fail open instead of borrowing user 0's filtering rules.
+        val local = fallback.snapshot(userId)
         return fallbackRuntimePolicy(
             managerAppId = local.managerAppId,
             displayMode = local.displayMode,
