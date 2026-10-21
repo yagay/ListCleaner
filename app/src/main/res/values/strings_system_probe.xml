@@ -45,4 +45,24 @@
     <string name="system_probe_nfc_notice">Only services declaring a payment AID group are shown; registered dynamic AID groups and the payment settings authority may differ.</string>
     <string name="system_probe_limited_notice">This interface only exposes app-visible launch handlers, not the provider/item list inside the system picker.</string>
     <string name="system_probe_source_api_candidates">System query candidates (not the final picker list)</string>
+    <string name="system_probe_source_picker">System picker · private source list</string>
+    <string name="system_probe_picker_internal">The system chooser or DocumentsUI owns the final content sources, roots and items. Android does not expose that exact list to normal apps. Open the system panel to see what is really available.</string>
+    <string name="system_probe_shortcut_final_private">ShortcutService, Direct Share and launcher hosts decide their live shortcuts. Android does not expose the host\'s full displayed list to another app.</string>
+    <string name="system_probe_source_enabled_input">InputMethodManager · enabled input methods</string>
+    <string name="system_probe_source_enabled_accessibility">AccessibilityManager · enabled services</string>
+    <string name="system_probe_enabled_input_notice">Shows input methods that Android reports as enabled in this user. Installed but disabled keyboards are available in diagnostics.</string>
+    <string name="system_probe_enabled_accessibility_notice">Shows enabled accessibility services. Installed but disabled services are available in diagnostics.</string>
+    <string name="system_probe_quality_enabled">Enabled status verified by system manager</string>
+    <string name="system_probe_quality_candidate">Registered candidate list · not necessarily shown by the system</string>
+    <string name="system_probe_quality_picker">Final list is private to the system picker</string>
+    <string name="system_probe_quality_unavailable">No public API for this final system list</string>
+    <string name="system_probe_count_enabled">Enabled: %1$d components across %2$d apps</string>
+    <string name="system_probe_count_candidate">Candidates: %1$d components across %2$d apps</string>
+    <string name="system_probe_diagnostic_show">Show API candidates (not displayed/active entries)</string>
+    <string name="system_probe_diagnostic_hide">Hide candidate diagnostics</string>
+    <string name="system_probe_diagnostic_count">Diagnostic registrations: %1$d components across %2$d apps</string>
+    <string name="system_probe_picker_host">System entry point: %1$s</string>
+    <string name="system_probe_unknown_host">No single picker host is exposed; use the system panel for the final list.</string>
+    <string name="system_probe_group_count">%1$d components</string>
+    <string name="system_probe_scope_contract">A result is reported as enabled only if a public Android enabled-service API confirms it. PackageManager matches, installed widgets, roles, service declarations and DocumentsUI/PhotoPicker providers are NOT the final displayed list. Profiles and OEM UIs can differ.</string>
 </resources>
