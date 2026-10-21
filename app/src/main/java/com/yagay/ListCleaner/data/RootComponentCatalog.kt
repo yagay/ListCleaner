@@ -14,6 +14,7 @@ import androidx.core.graphics.drawable.toBitmap
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.AndroidUid
 import com.yagay.ListCleaner.domain.AppType
+import com.yagay.ListCleaner.domain.TileServiceEligibility
 import com.yagay.ListCleaner.domain.ComponentStatePolicy
 import com.yagay.ListCleaner.domain.listCleanerAppType
 import kotlinx.coroutines.delay
@@ -131,7 +132,7 @@ class RootComponentCatalog(
         pm.queryIntentServices(Intent(CleanupKind.TILE.action), flags)
             .mapNotNull { it.serviceInfo }
             .filter {
-                it.permission == BIND_QUICK_SETTINGS_TILE && it.exported
+                TileServiceEligibility.declared(it.permission, it.exported)
             }
             .map {
                 DiscoveredComponent(it, setOf(ComponentDiscoverySource.PACKAGE_MANAGER))
@@ -388,7 +389,6 @@ class RootComponentCatalog(
 
     private companion object {
         const val TAG = "ListCleaner.RootCatalog"
-        const val BIND_QUICK_SETTINGS_TILE = "android.permission.BIND_QUICK_SETTINGS_TILE"
         const val APP_WIDGET_PROVIDER_META_DATA = "android.appwidget.provider"
         const val SAFE_COMPONENT_DISCOVERY_PROTOCOL = 2
     }
