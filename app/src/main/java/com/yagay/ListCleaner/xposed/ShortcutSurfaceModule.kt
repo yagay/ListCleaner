@@ -40,6 +40,9 @@ class ShortcutSurfaceModule : XposedModule() {
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
+    private val runtimeCapture by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        RuntimeInterfaceCaptureWriter(preferences, ::record)
+    }
     private val policyProvider by lazy(LazyThreadSafetyMode.PUBLICATION) {
         EntryPolicyProvider(
             preferences = preferences,
@@ -137,34 +140,28 @@ class ShortcutSurfaceModule : XposedModule() {
         val original = chain.proceed()
         val result = listResults.extract(original) ?: return@Hooker original
         val values = result.values
-        if (values.isEmpty()) return@Hooker original
+
+        val callingPackage = chain.args.firstOrNull { it is String } as? String
+        if (!isDirectShareResolverCaller(callingPackage)) return@Hooker original
+        val callerUid = Binder.getCallingUid()
+        val userId = com.yagay.ListCleaner.domain.AndroidUid.userId(callerUid)
+        val policy = policyProvider.snapshot(userId)
+        if (ManagerIdentity.matches(callerUid, policy.managerAppId)) return@Hooker original
 
         val parsed = values.map(::shareShortcut)
         parsed.filterNotNull().forEach { (shortcut, target) ->
             RuntimeObservedEntryStore.observeDirectShare(shortcut, target)
         }
-
-        val callingPackage = chain.args.firstOrNull { it is String } as? String
-        if (!isDirectShareResolverCaller(callingPackage)) return@Hooker original
-
-        val callerUid = Binder.getCallingUid()
-        val policy = policyProvider.snapshot(com.yagay.ListCleaner.domain.AndroidUid.userId(callerUid))
-        if (ManagerIdentity.matches(callerUid, policy.managerAppId)) return@Hooker original
-
         val selected = policy.selected(IntentKind.DIRECT_SHARE)
         val priorities = policy.priorities(IntentKind.DIRECT_SHARE)
-        if ((policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) && priorities.isEmpty()) {
-            return@Hooker original
-        }
-
         val targetPackages = parsed.map { pair ->
             pair?.second?.packageName ?: pair?.first?.`package`
         }
         val ruleIds = parsed.map { pair ->
             pair?.let { (shortcut, target) -> directShareRule(shortcut, target)?.id }
         }
-
-        val keptIndices = directShareFilteredIndices(
+        val indices = if ((policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) &&
+            priorities.isEmpty()) values.indices.toList() else directShareFilteredIndices(
             targetPackages = targetPackages,
             ruleIds = ruleIds,
             visibleSharePackages = targetPackages.filterNotNull().toSet(),
@@ -172,17 +169,26 @@ class ShortcutSurfaceModule : XposedModule() {
             displayMode = policy.displayMode,
             priorities = priorities,
         )
-        if (keptIndices.size == values.size && keptIndices.indices.all { keptIndices[it] == it }) {
-            return@Hooker original
-        }
-
-        val replacement = keptIndices.map { values[it] }
-        record(
-            "DIRECT_FILTER callerUid=$callerUid callerPackage=$callingPackage before=${values.size} " +
-                "after=${replacement.size} parsed=${ruleIds.count { it != null }} " +
-                "selected=${selected.size} priorities=${priorities.size}"
+        // Store only target package names, not shortcut IDs, contact names or labels.
+        // This is the actual ShortcutService method return, not final Sharesheet pixels.
+        runtimeCapture.publish(
+            kind = IntentKind.DIRECT_SHARE,
+            source = "DIRECT_SHARE_SERVICE_RETURN",
+            userId = userId,
+            callerPackage = callingPackage.orEmpty(),
+            packages = indices.mapNotNull { targetPackages[it] },
         )
-        result.rebuild(replacement)
+        if (indices.size == values.size && indices.indices.all { indices[it] == it }) {
+            original
+        } else {
+            val replacement = indices.map { values[it] }
+            record(
+                "DIRECT_FILTER callerUid=$callerUid callerPackage=$callingPackage before=${values.size} " +
+                    "after=${replacement.size} parsed=${ruleIds.count { it != null }} " +
+                    "selected=${selected.size} priorities=${priorities.size}"
+            )
+            result.rebuild(replacement)
+        }
     }
 
     private fun shortcutRule(shortcut: ShortcutInfo, component: ComponentName?): ComponentRule? {
