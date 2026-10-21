@@ -136,6 +136,8 @@ internal object SystemEntryProbe {
                         PackageManager.GET_META_DATA or PackageManager.MATCH_ALL,
                     ).mapNotNull { ri ->
                         val provider = ri.providerInfo ?: return@mapNotNull null
+                        if (!provider.enabled || provider.applicationInfo?.enabled != true)
+                            return@mapNotNull null
                         if (kind == IntentKind.PHOTO_SOURCE &&
                             provider.readPermission !=
                             "com.android.providers.media.permission.MANAGE_CLOUD_MEDIA_PROVIDERS"
