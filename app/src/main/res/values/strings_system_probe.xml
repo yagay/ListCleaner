@@ -29,4 +29,20 @@
     <string name="system_probe_no_public_registry">Android exposes no general public API to read the final contents of this system UI. The app will not substitute its saved or observed candidates.</string>
     <string name="system_probe_restricted">Android denied access to this system interface.</string>
     <string name="system_probe_failed">The system API query failed. No cached candidate list is substituted.</string>
+    <string name="system_probe_scenario_label">Test input: %1$s</string>
+    <string name="system_probe_scenario_text">Text</string>
+    <string name="system_probe_scenario_image">Image</string>
+    <string name="system_probe_scenario_pdf">PDF document</string>
+    <string name="system_probe_scenario_video">Video</string>
+    <string name="system_probe_scenario_audio">Audio</string>
+    <string name="system_probe_scenario_any">Any file</string>
+    <string name="system_probe_scenario_email">Email</string>
+    <string name="system_probe_scenario_sms">SMS</string>
+    <string name="system_probe_scenario_http">HTTP link</string>
+    <string name="system_probe_scenario_https">HTTPS link</string>
+    <string name="system_probe_inexact_notice">The system UI can add direct-share suggestions, role eligibility, user-specific entries and OEM filtering. These public API entries are NOT its final list.</string>
+    <string name="system_probe_role_notice">These are package candidates from Android queries, not the final eligible RoleController list. Selection may differ.</string>
+    <string name="system_probe_nfc_notice">Only services declaring a payment AID group are shown; registered dynamic AID groups and the payment settings authority may differ.</string>
+    <string name="system_probe_limited_notice">This interface only exposes app-visible launch handlers, not the provider/item list inside the system picker.</string>
+    <string name="system_probe_source_api_candidates">System query candidates (not the final picker list)</string>
 </resources>
