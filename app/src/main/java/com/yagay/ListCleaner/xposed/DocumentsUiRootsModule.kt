@@ -86,8 +86,14 @@ class DocumentsUiRootsModule : XposedModule() {
     private fun rootHooker(methodName: String) = XposedInterface.Hooker { chain ->
         val original = chain.proceed()
         val roots = original as? Collection<*> ?: return@Hooker original
-        if (roots.isEmpty() || roots.size > MAX_ROOTS) return@Hooker original
+        if (roots.size > MAX_ROOTS) return@Hooker original
         val ctx = appContext() ?: return@Hooker original
+        if (roots.isEmpty()) {
+            if (methodName == "getMatchingRootsBlocking") {
+                snapshotMatchingRoots(roots, ctx)
+            }
+            return@Hooker original
+        }
         runCatching {
             val available = IdentityHashMap<Any, RootEntry>()
             val observations = ArrayList<ObservedEntryRecord>()
