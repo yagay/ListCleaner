@@ -45,4 +45,15 @@
     <string name="system_probe_nfc_notice">Only services declaring a payment AID group are shown; registered dynamic AID groups and the payment settings authority may differ.</string>
     <string name="system_probe_limited_notice">This interface only exposes app-visible launch handlers, not the provider/item list inside the system picker.</string>
     <string name="system_probe_source_api_candidates">System query candidates (not the final picker list)</string>
+    <string name="system_probe_evidence_native_only">Final system UI — no public API to enumerate displayed items</string>
+    <string name="system_probe_evidence_resolver">Intent handlers — candidate entries, NOT displayed choices</string>
+    <string name="system_probe_evidence_manager">Installed entries from Android manager — not final Settings list</string>
+    <string name="system_probe_evidence_services">Eligible declared services — not final Settings/Role list</string>
+    <string name="system_probe_evidence_providers">Registered document providers — not visible picker roots</string>
+    <string name="system_probe_evidence_roles">Role candidates — not the final role selection</string>
+    <string name="system_probe_evidence_launcher">Launcher/widget registry — not the launcher's visual list</string>
+    <string name="system_probe_native_only_detail">This is not a missing or disabled app list. The public PackageManager query enumerates possible handlers, while the system picker applies its own private source selection. To check actual visible choices, open the original system panel with the same test input; a local reconstructed list would be misleading.</string>
+    <string name="system_probe_candidate_count">API candidates: %1$d (not actual visible count)</string>
+    <string name="system_probe_registry_count">Registered entries: %1$d (not actual visible count)</string>
+    <string name="system_probe_filtered_comparison">The preview-only Hook requests filtering for PackageManager queries where supported, but Android may use privileged or separate in-process APIs afterward. The displayed list is not an effect verification.</string>
 </resources>
