@@ -200,7 +200,6 @@ internal fun SystemProbeDialog(
                             }
                         }
                     }
-                    value.pickerHost?.let { _ -> }
                     if (value.diagnosticCandidates.isNotEmpty()) {
                         item(key = "diagnostics-action") {
                             AdaptiveTextButton(onClick = {
