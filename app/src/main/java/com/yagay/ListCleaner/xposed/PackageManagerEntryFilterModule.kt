@@ -173,7 +173,7 @@ class PackageManagerEntryFilterModule : XposedModule() {
         )
 
         val targetUserId = HookCallIdentity.packageManagerTargetUserId(
-            method.name, method.parameterTypes.map(Class<*>::getName), chain.args,
+            method.name, method.parameterTypes.map { parameter -> parameter.name }, chain.args,
         ) ?: run {
             // Do not apply user 0 filters to a cross-profile query with unknown user.
             record("QUERY_SKIP kind=${spec.kind} reason=unknown_target_user callerUid=$callerUid")
