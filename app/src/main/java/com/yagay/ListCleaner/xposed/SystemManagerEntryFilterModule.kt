@@ -136,7 +136,12 @@ class SystemManagerEntryFilterModule : XposedModule() {
         val original = chain.proceed()
         observeComponentResult(original, kind, componentOf)
         val policy = policyProvider.snapshot(AndroidUid.userId(caller.uid))
-        val returned = if (!shouldFilter(caller, policy)) {
+        // ListCleaner's Accessibility preview deliberately queries the installed
+        // catalog. Apply the same list-only filter to that manager request; the
+        // enabled-services API and persisted accessibility settings are untouched.
+        val managerAccessibilityPreview = kind == IntentKind.ACCESSIBILITY &&
+            ManagerIdentity.matches(caller.uid, policy.managerAppId)
+        val returned = if (!shouldFilter(caller, policy) && !managerAccessibilityPreview) {
             record("AUTHORITY_OBSERVED kind=$kind callerUid=${caller.uid} filterAllowed=false")
             original
         } else {

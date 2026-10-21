@@ -355,11 +355,14 @@ internal object SystemEntryProbe {
                 SystemProbeResult(
                     R.string.system_probe_source_enabled_accessibility,
                     R.string.system_probe_enabled_accessibility_notice,
-                    items = unique(asEntries(manager.getEnabledAccessibilityServiceList(
+                    // This is the same installed-service API intercepted by the
+                    // Accessibility list-cleaning Hook. Enabled services are different:
+                    // they describe active settings, not the cleaned Settings catalog.
+                    items = unique(asEntries(manager.installedAccessibilityServiceList)),
+                    diagnosticCandidates = unique(asEntries(manager.getEnabledAccessibilityServiceList(
                         AccessibilityServiceInfo.FEEDBACK_ALL_MASK
                     ) ?: emptyList())),
-                    diagnosticCandidates = unique(asEntries(manager.installedAccessibilityServiceList)),
-                    evidence = ProbeEvidence.ENABLED,
+                    evidence = ProbeEvidence.REGISTERED,
                 )
             }
             else -> noPublicList()
