@@ -44,7 +44,7 @@ class PickerProbeVerifierTest {
         val expired = session.copy(startedAtMillis = now - PickerProbeVerifier.SESSION_WINDOW_MS - 1L)
         assertEquals(PickerProbeStatus.HISTORY_ONLY, verify(tested = expired))
         assertEquals(PickerProbeStatus.HISTORY_ONLY, verify(tested = session.copy(startedAtMillis = now + 1)))
-        assertEquals(PickerProbeStatus.HISTORY_ONLY, verify(result = snapshot(now + 5000L)))
+        assertEquals(PickerProbeStatus.AWAITING_HOOK, verify(result = snapshot(now + 5000L)))
         assertEquals(PickerProbeStatus.NEVER_CAPTURED, verify(tested = null, result = null))
     }
 
