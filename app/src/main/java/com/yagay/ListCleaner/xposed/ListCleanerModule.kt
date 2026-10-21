@@ -683,21 +683,23 @@ class ListCleanerModule : XposedModule() {
             } else {
                 chain.proceed()
             }
-            // A system_server query may target a profile other than its Binder caller.
-            // The user argument takes priority over the caller UID where it is recognizable.
-            val intentIndex = chain.args.indexOfFirst { it is Intent }
-            val explicitUserId = if (layer == Layer.SYSTEM && intentIndex >= 0) {
+            // Binder identity can belong to a different user than the one queried.
+            // Unknown system_server signatures fail open instead of borrowing another
+            // Android profile's selection or ordering policy.
+            val targetUserId = if (layer == Layer.SYSTEM) {
                 val method = chain.executable as? Method
-                val indexes = method?.parameterTypes?.indices?.filter { i ->
-                    i > intentIndex && method.parameterTypes[i] == Integer.TYPE
-                }.orEmpty()
-                val position = if (method?.name?.endsWith("Internal") == true) indexes.firstOrNull()
-                               else indexes.lastOrNull()
-                (position?.let { chain.args.getOrNull(it) } as? Int)?.takeIf { it in 0..99999 }
-            } else null
-            val targetUserId = explicitUserId ?: com.yagay.ListCleaner.domain.AndroidUid.userId(
-                if (callerUid >= 0) callerUid else Process.myUid()
-            )
+                method?.let {
+                    HookCallIdentity.packageManagerTargetUserId(
+                        it.name, it.parameterTypes.map(Class<*>::getName), chain.args,
+                    )
+                }
+            } else {
+                com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid())
+            }
+            if (targetUserId == null) {
+                diagnostic("FILTER_SKIP layer=$layer reason=unknown_query_user")
+                return@Hooker original
+            }
             activeQuerySnapshot.set(snapshotForUser(targetUserId))
             try {
                 processQuery(chain, original, layer, callerUid)
