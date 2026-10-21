@@ -26,10 +26,13 @@ internal class RuntimeInterfaceCaptureWriter(
         packages: Collection<String>,
         callerPackage: String = "",
         components: Collection<String> = emptyList(),
+        callerUid: Int = -1,
+        requestAction: String = "",
     ) {
         val snapshot = RuntimeInterfaceSnapshot(
             kind = kind.name, source = source, callerUserId = userId,
             callerPackage = callerPackage,
+            callerUid = callerUid, requestAction = requestAction,
             capturedAtMillis = System.currentTimeMillis(),
             packages = packages.distinct().take(RuntimeInterfaceSnapshotCodec.MAX_PACKAGES),
             components = components.distinct().take(RuntimeInterfaceSnapshotCodec.MAX_PACKAGES),

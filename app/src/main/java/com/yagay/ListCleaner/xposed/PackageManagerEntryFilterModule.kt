@@ -259,6 +259,8 @@ class PackageManagerEntryFilterModule : XposedModule() {
                 (value as? ResolveInfo)?.let(spec.component)?.let { it.packageName + "/" + it.name }
             },
             callerPackage = callerProcess.orEmpty(),
+            callerUid = callerUid,
+            requestAction = (intent.selector ?: intent).action.orEmpty(),
         )
         if (removed == 0 && ordered == result.values) return@Hooker original
         record(

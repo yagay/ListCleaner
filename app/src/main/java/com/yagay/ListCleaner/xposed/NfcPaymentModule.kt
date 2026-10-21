@@ -137,6 +137,8 @@ class NfcPaymentModule : XposedModule() {
             userId = com.yagay.ListCleaner.domain.AndroidUid.userId(callerUid),
             packages = filtered.mapNotNull { componentOf(it)?.packageName },
             components = filtered.mapNotNull { componentOf(it)?.flattenToString() },
+            callerUid = callerUid,
+            requestAction = "android.nfc.cardemulation.payment",
         )
         if (filtered.size == values.size) return@Hooker original
         record(

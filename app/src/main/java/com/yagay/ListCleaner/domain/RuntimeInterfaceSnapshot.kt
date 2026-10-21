@@ -11,6 +11,8 @@ data class RuntimeInterfaceSnapshot(
     val source: String,
     val callerUserId: Int,
     val callerPackage: String = "",
+    val callerUid: Int = -1,
+    val requestAction: String = "",
     val capturedAtMillis: Long,
     val packages: List<String>,
     /** Exact flattened ComponentName identifiers, when the captured API exposes them. */
@@ -34,6 +36,7 @@ object RuntimeInterfaceSnapshotCodec {
             val parsed = json.decodeFromString(RuntimeInterfaceSnapshot.serializer(), encoded)
             if (parsed.version != 1 || parsed.kind != expectedKind.name ||
                 parsed.capturedAtMillis <= 0L || parsed.callerUserId < 0 ||
+                parsed.callerUid < -1 ||
                 parsed.packages.size > MAX_PACKAGES || parsed.components.size > MAX_PACKAGES
             ) return@runCatching null
             sanitize(parsed)
@@ -43,6 +46,7 @@ object RuntimeInterfaceSnapshotCodec {
     private fun sanitize(snapshot: RuntimeInterfaceSnapshot) = snapshot.copy(
         source = snapshot.source.take(64),
         callerPackage = snapshot.callerPackage.take(240),
+        requestAction = snapshot.requestAction.take(240),
         packages = snapshot.packages.asSequence()
             .filter { PackageIdentity.valid(it) }
             .distinct()
