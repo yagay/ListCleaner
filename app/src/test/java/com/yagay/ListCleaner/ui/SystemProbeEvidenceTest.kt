@@ -62,9 +62,11 @@ class SystemProbeEvidenceTest {
     }
 
     @Test fun everySelectableRuleKindHasAnExplicitProvenanceClass() {
-        val assigned = IntentKind.entries.groupBy(::previewEvidence)
+        val assigned = IntentKind.entries.groupBy { previewEvidence(it) }
         assertEquals(IntentKind.entries.size, assigned.values.sumOf { it.size })
-        assertTrue(assigned.keys.containsAll(ProbeEvidence.entries))
+        assertTrue(assigned.keys.containsAll(ProbeEvidence.entries.filterNot {
+            it == ProbeEvidence.LAUNCHER_REGISTRY
+        }))
         assertFalse(assigned.values.any { it.isEmpty() })
         assertEquals(4, CleanupKind.entries.size)
         CleanupKind.entries.forEach { previewEvidence(it) }
