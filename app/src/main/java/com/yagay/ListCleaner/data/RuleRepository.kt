@@ -194,12 +194,13 @@ class RuleRepository(context: Context) {
     }
 
     @Synchronized fun restoreRemote(config: ModuleConfig) {
-        activeUserId = 0
-        derivedVisibility.clear()
-        storedSpaces.clear()
-        storedSpaces[0] = config.toSpaceRules()
-        storedSpaces.putAll(config.userSpaces)
-        applyConfig(config, config.mode != DisplayMode.SHOW_SELECTED)
+        // Recovery must preserve the selected Android profile. Resetting activeUserId to 0
+        // while the UI still displays user 10 makes the next edit silently modify user 0.
+        val verified = config.validated()
+        val restored = mutableMapOf(0 to verified.toSpaceRules()).apply {
+            putAll(verified.userSpaces)
+        }
+        replaceSpaceSettings(restored, restored.keys, replaceAll = true)
     }
 
     /** Publish every space atomically, never just the one currently displayed in the UI. */
