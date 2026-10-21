@@ -296,9 +296,13 @@ internal object SystemEntryProbe {
         val manager = context.getSystemService(RoleManager::class.java) ?: return null
         return runCatching {
             if (!manager.isRoleAvailable(role)) return@runCatching null
-            val holders = manager.getRoleHolders(role)
+            // RoleManager.getRoleHolders is not present in every compile SDK stub.
+            // Resolve it only at runtime; the caller falls back to candidates if absent.
+            val method = manager.javaClass.getMethod("getRoleHolders", String::class.java)
+            val holders = (method.invoke(manager, role) as? List<*>)
+                ?.filterIsInstance<String>() ?: return@runCatching null
             val pm = context.packageManager
-            val entries = holders.distinct().map { pkg ->
+            val entries = holders.distinct().map { pkg: String ->
                 SystemProbeItem(
                     label = appLabel(pm, pkg, pkg),
                     packageName = pkg,
