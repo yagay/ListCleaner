@@ -255,14 +255,15 @@ internal fun SystemProbeDialog(
                         }
                     }
                     value.runtimeReturn?.let { returned ->
-                        val recent = (System.currentTimeMillis() - returned.capturedAtMillis) in
-                            0..PickerProbeVerifier.SESSION_WINDOW_MS
-                        if (recent || showDetails) {
+                        // A recent timestamp is not proof that this result belongs to the
+                        // probe launched from this screen. No request/session token is
+                        // associated with these generic system-service snapshots yet.
+                        // Present them only as historical diagnostic evidence.
+                        if (showDetails) {
                             item(key = "runtime-return-source") {
                                 AdaptiveText(
                                     stringResource(
-                                        if (recent) R.string.system_probe_runtime_recent
-                                        else R.string.system_probe_runtime_historical,
+                                        R.string.system_probe_runtime_historical,
                                         returned.packages.size
                                     ),
                                     fontWeight = FontWeight.SemiBold,
