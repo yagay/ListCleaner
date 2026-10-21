@@ -78,7 +78,21 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
+
+      - name: Set up Gradle build cache
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      - name: Restore Android SDK cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.ANDROID_HOME }}/platforms/android-37.0
+            ${{ env.ANDROID_HOME }}/build-tools/36.0.0
+            ${{ env.ANDROID_HOME }}/cmdline-tools/23.0
+          key: android-sdk-${{ runner.os }}-api37-buildtools36-cmd23-v1
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
@@ -89,17 +103,23 @@ jobs:
       - name: Install project SDK
         run: |
           set -o pipefail
-          sdkmanager "cmdline-tools;23.0" 2>&1 | tee sdk-tools.log
+          if [[ ! -x "${ANDROID_HOME}/cmdline-tools/23.0/bin/sdkmanager" ]]; then
+            sdkmanager "cmdline-tools;23.0" 2>&1 | tee sdk-tools.log
+          fi
           sdk_manager="${ANDROID_HOME}/cmdline-tools/23.0/bin/sdkmanager"
-          "$sdk_manager" --list --channel=3 > sdk-packages.log 2>&1
-          "$sdk_manager" --channel=3 "platforms;android-37.0" "build-tools;36.0.0" "platform-tools" 2>&1 | tee sdk-install.log
+          if [[ ! -s "${ANDROID_HOME}/platforms/android-37.0/android.jar" ||
+                ! -x "${ANDROID_HOME}/build-tools/36.0.0/aapt2" ]]; then
+            "$sdk_manager" --channel=3 "platforms;android-37.0" "build-tools;36.0.0" 2>&1 | tee sdk-install.log
+          else
+            echo "Android SDK platform and build-tools restored from cache"
+          fi
           test -s "${ANDROID_HOME}/platforms/android-37.0/android.jar"
           test -x "${ANDROID_HOME}/build-tools/36.0.0/aapt2"
 
       - name: Build Debug APK
         run: |
           set -o pipefail
-          bash ./gradlew --no-daemon --console=plain --stacktrace :app:assembleDebug 2>&1 | tee debug-build.log
+          bash ./gradlew --no-daemon --build-cache --console=plain --stacktrace :app:assembleDebug 2>&1 | tee debug-build.log
 
       - name: Upload tested source
         if: always() && github.ref == 'refs/heads/test3'
