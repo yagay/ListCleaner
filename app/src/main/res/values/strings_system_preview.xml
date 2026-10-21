@@ -10,5 +10,5 @@
     <string name="system_preview_settings_notice">This opens the real system settings page, not the final filtered list.</string>
     <string name="system_preview_no_handler">No accessible system interface or handler is available on this device.</string>
     <string name="system_preview_failed">The system interface could not be opened.</string>
-    <string name="system_preview_explanation">Live preview uses Android's own chooser or picker with test content. It does not simulate filtering or modify rules. Results may differ for other apps, MIME types or user spaces.</string>
+    <string name="system_preview_explanation">Live preview uses Android\'s own chooser or picker with test content. It does not simulate filtering or modify rules. Results may differ for other apps, MIME types or user spaces.</string>
 </resources>
