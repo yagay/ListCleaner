@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="system_preview_action">查看实际系统界面</string>
+    <string name="system_preview_action">查看实际接口列表</string>
     <string name="system_preview_chooser_title">列表清理 · 系统界面预览</string>
     <string name="system_preview_example_text">列表清理测试文本，不会自动发送任何内容。</string>
     <string name="system_preview_file_name">ListCleaner-preview.txt</string>
@@ -10,5 +10,5 @@
     <string name="system_preview_settings_notice">当前打开的是实际系统设置页，不等于最终筛选结果。</string>
     <string name="system_preview_no_handler">设备上没有可用的对应系统界面，或访问受到限制。</string>
     <string name="system_preview_failed">无法打开对应系统界面。</string>
-    <string name="system_preview_explanation">实际效果通过 Android 自带选择器或选择页面显示，使用安全的测试内容；不会模拟过滤结果，也不会修改规则。其他应用、文件类型和用户空间中的结果可能不同。</string>
+    <string name="system_preview_explanation">点击预览将通过 Android 实际接口读取列表并显示在本应用弹窗内；也可以打开系统原生弹窗进行对照。不同调用应用、文件类型或用户空间可能返回不同结果。</string>
 </resources>

@@ -110,6 +110,9 @@ internal object SystemEffectPreview {
     private fun show(context: Context, resourceId: Int) =
         Toast.makeText(context, resourceId, Toast.LENGTH_LONG).show()
 
+    /** Shared exact test Intent for native picker and in-app PackageManager probing. */
+    internal fun queryIntent(context: Context, kind: IntentKind): Intent = buildIntent(context, kind)
+
     private fun buildIntent(context: Context, kind: IntentKind): Intent = when (kind) {
         IntentKind.SHARE, IntentKind.DIRECT_SHARE ->
             Intent(Intent.ACTION_SEND).apply {
