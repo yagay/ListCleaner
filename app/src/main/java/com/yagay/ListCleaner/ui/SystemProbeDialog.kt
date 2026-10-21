@@ -104,6 +104,9 @@ internal fun SystemProbeDialog(
     // observations in diagnostics rather than presenting them as current cleanup.
     val runtimeAge = runtimeSnapshot?.let { System.currentTimeMillis() - it.capturedAtMillis }
     val runtimeRecent = runtimeAge != null && runtimeAge in 0..120_000L
+    // Timestamp correlation is only an observation window; other processes
+    // can call the same framework method during this interval. Never claim
+    // this is session-verified without a request token and caller identity.
     val runtimeForAttempt = previewLaunchedAt?.let { launched ->
         runtimeSnapshot != null && runtimeSnapshot.capturedAtMillis >= launched
     } == true
@@ -111,8 +114,10 @@ internal fun SystemProbeDialog(
     val runtimeComponents = runtimeSnapshot?.components.orEmpty()
     val displayed = when {
         value == null -> emptyList()
-        diagnostic -> if (value.diagnosticCandidates.isNotEmpty())
-            value.diagnosticCandidates else value.items
+        // "Show API" must show the actual API query return first. Diagnostic
+        // registrations are a fallback, not a replacement for that result.
+        diagnostic -> if (value.items.isNotEmpty())
+            value.items else value.diagnosticCandidates
         runtimeAvailable && runtimeComponents.isNotEmpty() -> runtimeComponents.map { id ->
             val pkg = id.substringBefore('/')
             val componentClass = id.substringAfter('/')
@@ -351,7 +356,7 @@ internal fun SystemProbeDialog(
                         if (runtimeAvailable && runtimePackages.isEmpty() && runtimeComponents.isEmpty()) {
                             item(key = "post-filter-empty") {
                                 AdaptiveText(
-                                    "Hook returned an empty post-filter package list.",
+                                    "Observed Hook post-filter result is empty (the originating request is not independently verified).",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     style = MaterialTheme.typography.bodySmall,
                                 )
@@ -359,7 +364,7 @@ internal fun SystemProbeDialog(
                         } else if (!runtimeAvailable && !diagnostic) {
                             item(key = "post-filter-stale") {
                                 AdaptiveText(
-                                    "API returned list (Hook status unverified). The system call may already be filtered; no matching post-filter capture for this preview.",
+                                    "API return shown; Hook filtering cannot be independently verified for this request. The API result may already be filtered.",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     style = MaterialTheme.typography.bodySmall,
                                 )
