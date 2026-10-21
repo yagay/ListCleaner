@@ -23,6 +23,8 @@ import com.yagay.ListCleaner.domain.AndroidUid
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.SYSTEM_SERVICE_ENTRY_DEFINITIONS
 import com.yagay.ListCleaner.domain.TileServiceEligibility
+import com.yagay.ListCleaner.domain.RuntimeInterfaceSnapshot
+import com.yagay.ListCleaner.domain.RuntimeInterfaceSnapshotCodec
 import com.yagay.ListCleaner.domain.SystemServiceEntryDefinition
 import com.yagay.ListCleaner.domain.isPackageScopedEntry
 import com.yagay.ListCleaner.domain.webTargetKind
@@ -90,6 +92,8 @@ internal data class SystemProbeResult(
     val matchingRootsSnapshot: PickerRuntimeSnapshot? = null,
     /** A timestamp correlation, not proof of on-screen rendering. */
     val pickerProbeStatus: PickerProbeStatus? = null,
+    /** Framework Hook post-filter return, distinct from both PM candidates and actual UI. */
+    val runtimeReturn: RuntimeInterfaceSnapshot? = null,
 )
 
 /**
@@ -110,7 +114,8 @@ internal object SystemEntryProbe {
         return try {
             request.entryKind?.let { kind ->
                 val scenario = request.scenario ?: defaultProbeScenario(kind)
-                val result = probeEntry(context, kind, scenario)
+                val initial = probeEntry(context, kind, scenario)
+                val result = initial.copy(runtimeReturn = readRuntimeReturn(context, kind))
                 if (kind !in setOf(
                         IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT,
                         IntentKind.CREATE_DOCUMENT, IntentKind.DOCUMENT_ROOT,
@@ -136,6 +141,26 @@ internal object SystemEntryProbe {
                 supported = false, failure = true, evidence = ProbeEvidence.NOT_PUBLIC,
             )
         }
+    }
+
+    private fun readRuntimeReturn(context: Context, kind: IntentKind): RuntimeInterfaceSnapshot? {
+        if (kind !in setOf(
+                IntentKind.HOME, IntentKind.BROWSER, IntentKind.ASSISTANT,
+                IntentKind.CALL_SCREENING, IntentKind.DIRECT_SHARE
+            )
+        ) return null
+        return runCatching {
+            val app = context.applicationContext as? ListCleanerApp
+                ?: return@runCatching null
+            val prefs = app.currentSession()?.service
+                ?.getRemotePreferences(RuleRepository.REMOTE_PREFS)
+                ?: return@runCatching null
+            val result = RuntimeInterfaceSnapshotCodec.decode(
+                prefs.getString(RuntimeInterfaceSnapshotCodec.key(kind), null), kind
+            )
+            if (result?.callerUserId == AndroidUid.userId(Process.myUid())) result
+            else null
+        }.getOrNull()
     }
 
     private fun unique(items: List<SystemProbeItem>): List<SystemProbeItem> =
