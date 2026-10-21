@@ -303,7 +303,10 @@ internal fun SystemProbeDialog(
                         SystemEffectPreview.launch(context, it, request.userId)
                     }
                 }) {
-                    AdaptiveText(stringResource(R.string.system_probe_open_system))
+                    AdaptiveText(stringResource(
+                        if (request.entryKind?.let(::systemPreviewRoute) == SystemPreviewRoute.PICKER)
+                            R.string.system_probe_open_picker else R.string.system_probe_open_system
+                    ))
                 }
             } else {
                 AdaptiveTextButton(onClick = onDismiss) {
