@@ -1,5 +1,7 @@
 package com.yagay.ListCleaner.ui
 
+import android.graphics.Bitmap
+import android.graphics.pdf.PdfDocument
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.Context
@@ -53,7 +55,10 @@ internal fun systemPreviewRoute(kind: CleanupKind): SystemPreviewRoute = when (k
  * preview the personal user's panel while the work profile is selected.
  */
 internal object SystemEffectPreview {
-    fun launch(context: Context, kind: IntentKind, selectedUserId: Int) {
+    fun launch(
+        context: Context, kind: IntentKind, selectedUserId: Int,
+        scenario: SystemProbeScenario = defaultProbeScenario(kind)
+    ) {
         if (!checkUser(context, selectedUserId)) return
         val route = systemPreviewRoute(kind)
         if (route == SystemPreviewRoute.UNAVAILABLE) {
@@ -61,7 +66,7 @@ internal object SystemEffectPreview {
             return
         }
         runCatching {
-            val target = buildIntent(context, kind)
+            val target = buildIntent(context, kind, scenario)
             if (route == SystemPreviewRoute.SETTINGS) {
                 show(context, R.string.system_preview_settings_notice)
             }
@@ -111,47 +116,67 @@ internal object SystemEffectPreview {
         Toast.makeText(context, resourceId, Toast.LENGTH_LONG).show()
 
     /** Shared exact test Intent for native picker and in-app PackageManager probing. */
-    internal fun queryIntent(context: Context, kind: IntentKind): Intent = buildIntent(context, kind)
+    internal fun queryIntent(
+        context: Context, kind: IntentKind,
+        scenario: SystemProbeScenario = defaultProbeScenario(kind),
+    ): Intent = buildIntent(context, kind, scenario)
 
-    private fun buildIntent(context: Context, kind: IntentKind): Intent = when (kind) {
-        IntentKind.SHARE, IntentKind.DIRECT_SHARE ->
-            Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, context.getString(R.string.system_preview_example_text))
+    private fun buildIntent(
+        context: Context, kind: IntentKind, scenario: SystemProbeScenario
+    ): Intent = when (kind) {
+        IntentKind.SHARE, IntentKind.DIRECT_SHARE -> {
+            if (scenario == SystemProbeScenario.TEXT || kind == IntentKind.DIRECT_SHARE) {
+                Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, context.getString(R.string.system_preview_example_text))
+                }
+            } else {
+                val uri = sampleFiles(context, scenario).first()
+                Intent(Intent.ACTION_SEND).apply {
+                    type = requireNotNull(scenario.mimeType)
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    clipData = ClipData.newUri(context.contentResolver, "Preview", uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
             }
-
-        IntentKind.SHARE_MULTIPLE -> sampleFiles(context).let { uris ->
+        }
+        IntentKind.SHARE_MULTIPLE -> sampleFiles(context, scenario).let { uris ->
             Intent(Intent.ACTION_SEND_MULTIPLE).apply {
-                type = "text/plain"
+                type = scenario.mimeType ?: "text/plain"
                 putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                clipData = ClipData.newUri(context.contentResolver, context.getString(R.string.system_preview_chooser_title), uris.first()).apply {
+                clipData = ClipData.newUri(context.contentResolver,
+                    context.getString(R.string.system_preview_chooser_title), uris.first()).apply {
                     uris.drop(1).forEach { addItem(ClipData.Item(it)) }
                 }
             }
         }
-
-        IntentKind.SEND_TO -> Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:preview@example.invalid"))
+        IntentKind.SEND_TO -> Intent(Intent.ACTION_SENDTO,
+            if (scenario == SystemProbeScenario.SMS) Uri.parse("smsto:0000000000")
+            else Uri.parse("mailto:preview@example.invalid"))
         IntentKind.OPEN -> Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(sampleFiles(context).first(), "text/plain")
+            setDataAndType(sampleFiles(context, scenario).first(),
+                scenario.mimeType ?: "text/plain")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         IntentKind.BROWSER, IntentKind.DEEP_LINK ->
-            Intent(Intent.ACTION_VIEW, Uri.parse("https://example.com/")).apply {
-                addCategory(Intent.CATEGORY_BROWSABLE)
-            }
+            Intent(Intent.ACTION_VIEW, Uri.parse(
+                if (scenario == SystemProbeScenario.HTTP) "http://example.com/"
+                else "https://example.com/"
+            )).apply { addCategory(Intent.CATEGORY_BROWSABLE) }
         IntentKind.DIAL -> Intent(Intent.ACTION_DIAL, Uri.parse("tel:0000000000"))
         IntentKind.GET_CONTENT -> Intent(Intent.ACTION_GET_CONTENT).apply {
-            type = "*/*"
+            type = scenario.mimeType ?: "*/*"
             addCategory(Intent.CATEGORY_OPENABLE)
         }
         IntentKind.OPEN_DOCUMENT, IntentKind.DOCUMENT_PROVIDER ->
             Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                type = "*/*"
+                type = if (kind == IntentKind.DOCUMENT_PROVIDER) "*/*"
+                    else scenario.mimeType ?: "*/*"
                 addCategory(Intent.CATEGORY_OPENABLE)
             }
         IntentKind.CREATE_DOCUMENT -> Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-            type = "text/plain"
+            type = scenario.mimeType?.takeUnless { it == "*/*" } ?: "text/plain"
             addCategory(Intent.CATEGORY_OPENABLE)
             putExtra(Intent.EXTRA_TITLE, context.getString(R.string.system_preview_file_name))
         }
@@ -185,15 +210,36 @@ internal object SystemEffectPreview {
         IntentKind.LAUNCHER_SHORTCUT -> error("No public Android picker for this entry")
     }
 
-    /** Two harmless app-owned demo documents let Android query actual SEND_MULTIPLE handlers. */
-    private fun sampleFiles(context: Context): List<Uri> {
+    /** Small valid files so matching MIME types correspond to real, safe test inputs. */
+    private fun sampleFiles(context: Context, scenario: SystemProbeScenario): List<Uri> {
         val folder = File(context.cacheDir, "system-preview").apply { mkdirs() }
         return (1..2).map { index ->
-            val file = File(folder, "list-cleaner-demo-${index}.txt")
-            file.writeText(context.getString(R.string.system_preview_example_text))
-            FileProvider.getUriForFile(
-                context, "${context.packageName}.preview-files", file
-            )
+            val extension = when (scenario) {
+                SystemProbeScenario.IMAGE -> "png"
+                SystemProbeScenario.PDF -> "pdf"
+                else -> "txt"
+            }
+            val file = File(folder, "list-cleaner-demo-$"+"{index}.$"+"extension")
+            when (scenario) {
+                SystemProbeScenario.IMAGE -> {
+                    val bitmap = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888)
+                    try {
+                        file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                    } finally { bitmap.recycle() }
+                }
+                SystemProbeScenario.PDF -> {
+                    val document = PdfDocument()
+                    try {
+                        val page = document.startPage(
+                            PdfDocument.PageInfo.Builder(100, 100, 1).create()
+                        )
+                        document.finishPage(page)
+                        file.outputStream().use(document::writeTo)
+                    } finally { document.close() }
+                }
+                else -> file.writeText(context.getString(R.string.system_preview_example_text))
+            }
+            FileProvider.getUriForFile(context, "$"+"{context.packageName}.preview-files", file)
         }
     }
 }
