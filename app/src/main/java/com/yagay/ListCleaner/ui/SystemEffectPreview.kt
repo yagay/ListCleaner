@@ -120,9 +120,10 @@ internal object SystemEffectPreview {
     internal fun queryIntent(
         context: Context, kind: IntentKind,
         scenario: SystemProbeScenario = defaultProbeScenario(kind),
-    ): Intent = buildIntent(context, kind, scenario).apply {
-        // This marker is used only by the manager's read-only query, not when launching the
-        // native picker. The system hook authenticates our UID before honoring it.
+    ): Intent = markedQueryIntent(buildIntent(context, kind, scenario))
+
+    /** Only PM read-only queries use the marker; do not attach it to native launches. */
+    internal fun markedQueryIntent(intent: Intent): Intent = intent.apply {
         putExtra(RuntimeProtocol.EXTRA_MANAGER_PREVIEW_QUERY, true)
     }
 
