@@ -113,7 +113,7 @@ jobs:
           name: ListCleaner-debug-${{ github.run_number }}-${{ github.run_attempt }}
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-          compression-level: 6
+          compression-level: 9
           retention-days: 14
 
       # Keep diagnostics only for failed builds. Successful runs publish one artifact.
