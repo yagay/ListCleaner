@@ -13,6 +13,10 @@ import android.provider.DocumentsContract
 import android.view.accessibility.AccessibilityManager
 import android.view.inputmethod.InputMethodManager
 import com.yagay.ListCleaner.R
+import com.yagay.ListCleaner.ListCleanerApp
+import com.yagay.ListCleaner.data.RuleRepository
+import com.yagay.ListCleaner.domain.PickerRuntimeSnapshot
+import com.yagay.ListCleaner.domain.PickerRuntimeSnapshotCodec
 import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.data.ObservedEntryCache
 import com.yagay.ListCleaner.domain.AndroidUid
@@ -83,6 +87,7 @@ internal data class SystemProbeResult(
     val diagnosticCandidates: List<SystemProbeItem> = emptyList(),
     val pickerHost: SystemProbeItem? = null,
     val observedThirdPartyRoots: List<ObservedPickerRoot> = emptyList(),
+    val matchingRootsSnapshot: PickerRuntimeSnapshot? = null,
 )
 
 /**
@@ -136,6 +141,20 @@ internal object SystemEntryProbe {
             supported = false, evidence = ProbeEvidence.NOT_PUBLIC,
         )
 
+    /** Read the real DocumentsUI Hook result for the current Android user, if available. */
+    private fun matchingRootsFromDocumentsUi(context: Context): PickerRuntimeSnapshot? =
+        runCatching {
+            val application = context.applicationContext as? ListCleanerApp
+                ?: return@runCatching null
+            val preferences = application.currentSession()?.service
+                ?.getRemotePreferences(RuleRepository.REMOTE_PREFS)
+                ?: return@runCatching null
+            val snapshot = PickerRuntimeSnapshotCodec.decode(
+                preferences.getString(PickerRuntimeSnapshotCodec.REMOTE_KEY, null)
+            ) ?: return@runCatching null
+            if (snapshot.userId != AndroidUid.userId(Process.myUid())) null else snapshot
+        }.getOrNull()
+
     private fun previouslyObservedDocumentRoots(context: Context): List<ObservedPickerRoot> =
         ObservedEntryCache(context).snapshot().asSequence()
             .filter { it.kind == IntentKind.DOCUMENT_ROOT.name }
@@ -159,6 +178,7 @@ internal object SystemEntryProbe {
         return when (kind.previewAuthority()) {
             PreviewAuthority.PICKER_PRIVATE -> {
                 val observed = previouslyObservedDocumentRoots(context)
+                val matching = matchingRootsFromDocumentsUi(context)
                 if (kind == IntentKind.DOCUMENT_ROOT) {
                     SystemProbeResult(
                         R.string.system_probe_source_picker,
@@ -166,6 +186,7 @@ internal object SystemEntryProbe {
                         supported = false,
                         evidence = ProbeEvidence.NOT_PUBLIC,
                         observedThirdPartyRoots = observed,
+                        matchingRootsSnapshot = matching,
                     )
                 } else {
                     val intent = SystemEffectPreview.queryIntent(context, kind, scenario)
@@ -186,6 +207,7 @@ internal object SystemEntryProbe {
                         pickerHost = host,
                         diagnosticCandidates = unique(registrations),
                         observedThirdPartyRoots = observed,
+                        matchingRootsSnapshot = matching,
                     )
                 }
             }
