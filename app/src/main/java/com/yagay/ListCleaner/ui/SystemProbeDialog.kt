@@ -253,8 +253,8 @@ internal fun SystemProbeDialog(
                         }
                     }
                     value.runtimeReturn?.let { returned ->
-                        val recent = System.currentTimeMillis() - returned.capturedAtMillis
-                            in 0..PickerProbeVerifier.SESSION_WINDOW_MS
+                        val recent = (System.currentTimeMillis() - returned.capturedAtMillis) in
+                            0..PickerProbeVerifier.SESSION_WINDOW_MS
                         if (recent || showDetails) {
                             item(key = "runtime-return-source") {
                                 AdaptiveText(
