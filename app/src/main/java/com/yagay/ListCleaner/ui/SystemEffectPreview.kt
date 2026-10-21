@@ -17,6 +17,7 @@ import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.domain.AndroidUid
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.RuntimeProtocol
 import java.io.File
 
 /** Routes for a real OS interface, rather than a local reconstruction of its filtered results. */
@@ -119,7 +120,11 @@ internal object SystemEffectPreview {
     internal fun queryIntent(
         context: Context, kind: IntentKind,
         scenario: SystemProbeScenario = defaultProbeScenario(kind),
-    ): Intent = buildIntent(context, kind, scenario)
+    ): Intent = buildIntent(context, kind, scenario).apply {
+        // This marker is used only by the manager's read-only query, not when launching the
+        // native picker. The system hook authenticates our UID before honoring it.
+        putExtra(RuntimeProtocol.EXTRA_MANAGER_PREVIEW_QUERY, true)
+    }
 
     private fun buildIntent(
         context: Context, kind: IntentKind, scenario: SystemProbeScenario
