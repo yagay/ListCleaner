@@ -143,11 +143,12 @@ class SystemManagerEntryFilterModule : XposedModule() {
             filterComponentResult(original, kind, caller.uid, policy, componentOf)
         }
         if (kind == IntentKind.PRINT || kind == IntentKind.ACCESSIBILITY) {
-            val packages = listResults.extract(returned)?.values
-                ?.mapNotNull { item -> componentOf(item)?.packageName }.orEmpty()
-            runtimeCapture.publish(
-                kind, "SYSTEM_MANAGER_RETURN", AndroidUid.userId(caller.uid), packages,
-            )
+            listResults.extract(returned)?.let { extracted ->
+                runtimeCapture.publish(
+                    kind, "SYSTEM_MANAGER_RETURN", AndroidUid.userId(caller.uid),
+                    extracted.values.mapNotNull { item -> componentOf(item)?.packageName },
+                )
+            }
         }
         returned
     }
