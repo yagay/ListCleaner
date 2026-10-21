@@ -690,7 +690,7 @@ class ListCleanerModule : XposedModule() {
                 val method = chain.executable as? Method
                 method?.let {
                     HookCallIdentity.packageManagerTargetUserId(
-                        it.name, it.parameterTypes.map(Class<*>::getName), chain.args,
+                        it.name, it.parameterTypes.map { parameter -> parameter.name }, chain.args,
                     )
                 }
             } else {
