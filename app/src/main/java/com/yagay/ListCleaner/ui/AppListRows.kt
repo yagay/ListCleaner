@@ -16,6 +16,7 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -98,7 +99,8 @@ internal fun ComponentRow(
     onToggle: () -> Unit,
     onLock: () -> Unit,
     onUnlock: () -> Unit,
-    onEditTitle: () -> Unit
+    onEditTitle: () -> Unit,
+    onPreview: (() -> Unit)? = null
 ) {
     WorkspaceDetailRow(
         position = position,
@@ -153,6 +155,11 @@ internal fun ComponentRow(
             )
         },
         trailing = {
+            onPreview?.let { launch ->
+                AdaptiveIconButton(onClick = launch) {
+                    AdaptiveIcon(Icons.Rounded.Visibility, stringResource(R.string.system_preview_action))
+                }
+            }
             AdaptiveIconButton(onClick = onEditTitle) {
                 AdaptiveIcon(Icons.Rounded.Edit, stringResource(R.string.component_edit_display_name))
             }
