@@ -40,6 +40,12 @@ public final class RuntimeProtocol {
     /** Set only by the hooked Resolver client on PackageManager query copies. */
     public static final String EXTRA_RESOLVER_REQUEST =
             PACKAGE + ".extra.RESOLVER_POLICY_REQUEST";
+    /**
+     * Explicit manager-owned PackageManager preview only. The system hook must also authenticate
+     * caller UID == the installed manager app ID before bypassing the ordinary manager exemption.
+     */
+    public static final String EXTRA_MANAGER_PREVIEW_QUERY =
+            PACKAGE + ".extra.MANAGER_FILTERED_PREVIEW";
 
     public static final String OP_BEGIN = "begin";
     public static final String OP_CHUNK = "chunk";
