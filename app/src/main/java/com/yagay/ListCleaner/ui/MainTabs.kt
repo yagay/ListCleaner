@@ -582,7 +582,7 @@ internal fun SettingsTabContent(
             onModuleStatusOpened()
         }
     }
-    BackHandler(enabled = selectedSection != null && !showScopeDetails) { selectedSection = null }
+    BackHandler(enabled = selectedSection != null) { selectedSection = null }
     val section = selectedSection
     if (section == null) {
         SettingsCenterHome(onSelect = { selectedSection = it })
