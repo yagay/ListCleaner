@@ -17,7 +17,7 @@ class AuthorityCandidatePolicyTest {
         assertTrue(normalized.evidence.any { "provisional=true" in it })
     }
 
-    @Test fun recentObservedAuthoritySnapshotBecomesLive() {
+    @Test fun recentHistoricalAuthoritySnapshotStaysUnavailable() {
         val now = 50_000L
         val item = candidate(
             IntentKind.VPN,
@@ -29,11 +29,11 @@ class AuthorityCandidatePolicyTest {
             ),
             unavailable = true,
         )
-        assertFalse(AuthorityCandidatePolicy.normalize(listOf(item), now).single().unavailable)
+        assertTrue(AuthorityCandidatePolicy.normalize(listOf(item), now).single().unavailable)
     }
 
     @Test fun staleObservedAuthoritySnapshotStaysHistorical() {
-        val now = AuthorityCandidatePolicy.SNAPSHOT_FRESH_MILLIS + 10_000L
+        val now = 86_410_000L
         val item = candidate(
             IntentKind.ASSISTANT,
             "pkg.assistant",
@@ -45,6 +45,15 @@ class AuthorityCandidatePolicyTest {
             unavailable = true,
         )
         assertTrue(AuthorityCandidatePolicy.normalize(listOf(item), now).single().unavailable)
+    }
+
+    @Test fun liveAuthorityObservationCanRestoreUnavailableEntry() {
+        val item = candidate(
+            IntentKind.VPN, "pkg.vpn", "@vpn",
+            listOf("AUTHORITY_OBSERVED kind=VPN source=live"),
+            unavailable = true,
+        )
+        assertFalse(AuthorityCandidatePolicy.normalize(listOf(item), 50_000L).single().unavailable)
     }
 
     @Test fun activeScanKindsRemainUntouched() {

@@ -7,9 +7,6 @@ package com.yagay.ListCleaner.domain
  * final authority confirmation. Only genuinely historical candidates keep unavailable=true.
  */
 object AuthorityCandidatePolicy {
-    const val SNAPSHOT_FRESH_MILLIS = 24L * 60L * 60L * 1000L
-    private const val CLOCK_SKEW_MILLIS = 5L * 60L * 1000L
-
     fun normalize(
         items: List<ComponentCandidate>,
         nowMillis: Long = System.currentTimeMillis(),
@@ -30,20 +27,13 @@ object AuthorityCandidatePolicy {
         }
     }
 
-    fun authorityConfirmed(item: ComponentCandidate, nowMillis: Long = System.currentTimeMillis()): Boolean {
+    fun authorityConfirmed(item: ComponentCandidate, @Suppress("UNUSED_PARAMETER") nowMillis: Long = System.currentTimeMillis()): Boolean {
         val definition = item.rule.kind.surfaceDefinition() ?: return true
         if (definition.availabilityMode != EntryAvailabilityMode.AUTHORITY_UPGRADE) return true
 
         val observed = item.evidence.firstOrNull { it.startsWith("AUTHORITY_OBSERVED ") } ?: return false
-        if ("source=live" in observed) return true
-        if ("source=cache_history" !in observed) return false
-
-        val observedAt = item.evidence.asSequence()
-            .filter { it.startsWith("observedAt=") }
-            .mapNotNull { it.substringAfter('=').toLongOrNull() }
-            .firstOrNull()
-            ?: return false
-        val age = nowMillis - observedAt
-        return age in -CLOCK_SKEW_MILLIS..SNAPSHOT_FRESH_MILLIS
+        // Cache recency is never proof that the owning manager currently exposes an
+        // entry. Only live runtime evidence can promote it to authoritative.
+        return "source=live" in observed
     }
 }
