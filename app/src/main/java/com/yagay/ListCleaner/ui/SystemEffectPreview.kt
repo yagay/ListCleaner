@@ -176,7 +176,7 @@ internal object SystemEffectPreview {
                 addCategory(Intent.CATEGORY_OPENABLE)
             }
         IntentKind.CREATE_DOCUMENT -> Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-            type = scenario.mimeType?.takeUnless { it == "*/*" } ?: "text/plain"
+            type = scenario.mimeType ?: "text/plain"
             addCategory(Intent.CATEGORY_OPENABLE)
             putExtra(Intent.EXTRA_TITLE, context.getString(R.string.system_preview_file_name))
         }
