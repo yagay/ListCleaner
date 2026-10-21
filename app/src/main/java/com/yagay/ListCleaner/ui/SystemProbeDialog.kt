@@ -46,6 +46,9 @@ internal fun SystemProbeDialog(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var revision by remember { mutableIntStateOf(0) }
+    // Only a return captured after this dialog launched a system preview can be
+    // attributed to the current verification attempt.
+    var previewLaunchedAt by remember(request) { mutableStateOf<Long?>(null) }
     var scenario by remember(request) {
         mutableStateOf(request.scenario ?: request.entryKind?.let(::defaultProbeScenario)
             ?: SystemProbeScenario.TEXT)
@@ -102,7 +105,10 @@ internal fun SystemProbeDialog(
     // observations in diagnostics rather than presenting them as current cleanup.
     val runtimeAge = runtimeSnapshot?.let { System.currentTimeMillis() - it.capturedAtMillis }
     val runtimeRecent = runtimeAge != null && runtimeAge in 0..120_000L
-    val runtimeAvailable = runtimeRecent && !diagnostic
+    val runtimeForAttempt = previewLaunchedAt?.let { launched ->
+        runtimeSnapshot != null && runtimeSnapshot.capturedAtMillis >= launched
+    } == true
+    val runtimeAvailable = runtimeRecent && runtimeForAttempt && !diagnostic
     val runtimeComponents = runtimeSnapshot?.components.orEmpty()
     val displayed = when {
         value == null -> emptyList()
@@ -354,7 +360,7 @@ internal fun SystemProbeDialog(
                         } else if (!runtimeAvailable && !diagnostic) {
                             item(key = "post-filter-stale") {
                                 AdaptiveText(
-                                    "No verified post-filter Hook result for this entry. Use diagnostics to inspect unfiltered API candidates.",
+                                    "No Hook result captured after launching this preview. Use diagnostics to inspect API candidates.",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     style = MaterialTheme.typography.bodySmall,
                                 )
@@ -419,6 +425,7 @@ internal fun SystemProbeDialog(
         confirmButton = {
             if (nativeAvailable) {
                 AdaptiveTextButton(onClick = {
+                    previewLaunchedAt = System.currentTimeMillis()
                     request.entryKind?.let {
                         SystemEffectPreview.launch(context, it, request.userId, scenario)
                     } ?: request.componentKind?.let {
