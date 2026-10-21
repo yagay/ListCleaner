@@ -183,7 +183,7 @@ class SystemManagerEntryFilterModule : XposedModule() {
             AndroidUid.userId(caller.uid),
             filtered.mapNotNull { credentialComponent(it)?.packageName },
             components = filtered.mapNotNull { value ->
-                credentialComponent(value)?.let { it.packageName + "/" + it.name }
+                credentialComponent(value)?.flattenToString()
             },
         )
         if (filtered.size == values.size) original else {

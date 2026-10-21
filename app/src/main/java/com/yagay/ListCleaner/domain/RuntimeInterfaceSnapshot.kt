@@ -53,7 +53,7 @@ object RuntimeInterfaceSnapshotCodec {
                 val parts = component.split('/', limit = 2)
                 parts.size == 2 && PackageIdentity.valid(parts[0]) &&
                     parts[1].isNotBlank() && parts[1].length <= 250 &&
-                    parts[1].none { it == '\\n' || it == '\\r' }
+                    parts[1].none { it == '\n' || it == '\r' }
             }
             .distinct().take(MAX_PACKAGES).toList()
     )
