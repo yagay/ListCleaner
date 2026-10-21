@@ -35,6 +35,9 @@ class NfcPaymentModule : XposedModule() {
             record = ::record,
         )
     }
+    private val runtimeCapture by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        RuntimeInterfaceCaptureWriter(preferences, ::record)
+    }
     private val authorityWriter by lazy(LazyThreadSafetyMode.PUBLICATION) {
         AuthoritySnapshotWriter(preferences, ::record)
     }
@@ -128,6 +131,13 @@ class NfcPaymentModule : XposedModule() {
             val rule = ComponentRule(IntentKind.NFC_HCE, component.packageName, component.className)
             policy.displayMode.includes(rule.id in selected, selected.isNotEmpty())
         }
+        runtimeCapture.publish(
+            kind = IntentKind.NFC_HCE,
+            source = "NFC_PAYMENT_FILTERED_RETURN",
+            userId = com.yagay.ListCleaner.domain.AndroidUid.userId(callerUid),
+            packages = filtered.mapNotNull { componentOf(it)?.packageName },
+            components = filtered.mapNotNull { componentOf(it)?.flattenToString() },
+        )
         if (filtered.size == values.size) return@Hooker original
         record(
             "FILTER category=$category callerUid=$callerUid before=${values.size} after=${filtered.size} selected=${selected.size}"

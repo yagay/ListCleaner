@@ -54,11 +54,7 @@ internal fun SystemProbeDialog(
     // Document open/save registration results should be immediately inspectable even
     // when the OEM DocumentsUI does not expose a matching-roots callback.
     // They remain clearly labelled as API candidates, never final visible entries.
-    var showDiagnostics by remember(request) {
-        mutableStateOf(request.entryKind in setOf(
-            IntentKind.OPEN_DOCUMENT, IntentKind.CREATE_DOCUMENT,
-        ))
-    }
+    var showDiagnostics by remember(request) { mutableStateOf(false) }
     var showDetails by remember(request) { mutableStateOf(false) }
 
     val choices = request.entryKind?.let(::availableProbeScenarios).orEmpty()
@@ -97,7 +93,7 @@ internal fun SystemProbeDialog(
         ?: request.componentKind?.let { stringResource(it.titleRes()) }
         ?: ""
     val value = response
-    val diagnostic = showDiagnostics && value?.diagnosticCandidates?.isNotEmpty() == true
+    val diagnostic = showDiagnostics && value != null
     // Prefer the actual post-filter framework return when the Hook captured one.
     // It is a package-level runtime snapshot, not proof of rendered UI components.
     val runtimeSnapshot = value?.runtimeReturn
@@ -110,7 +106,8 @@ internal fun SystemProbeDialog(
     val runtimeComponents = runtimeSnapshot?.components.orEmpty()
     val displayed = when {
         value == null -> emptyList()
-        diagnostic -> value.diagnosticCandidates
+        diagnostic -> if (value.diagnosticCandidates.isNotEmpty())
+            value.diagnosticCandidates else value.items
         runtimeAvailable && runtimeComponents.isNotEmpty() -> runtimeComponents.map { id ->
             val pkg = id.substringBefore('/')
             val componentClass = id.substringAfter('/')
@@ -131,7 +128,9 @@ internal fun SystemProbeDialog(
                 appLabel = value.items.firstOrNull { it.packageName == pkg }?.appLabel ?: pkg,
             )
         }
-        else -> value.items
+        // Without a matched runtime capture, there is no verified post-filter
+        // result. Raw manager or registration lists are diagnostics only.
+        else -> emptyList()
     }
     val distinctApps = displayed.map(SystemProbeItem::packageName).distinct().size
     val qualityRes = when (value?.evidence) {
@@ -313,7 +312,7 @@ internal fun SystemProbeDialog(
 
                         }
                     }
-                    if (value.diagnosticCandidates.isNotEmpty()) {
+                    if (value.diagnosticCandidates.isNotEmpty() || value.items.isNotEmpty()) {
                         item(key = "diagnostics-action") {
                             AdaptiveTextButton(onClick = {
                                 showDiagnostics = !showDiagnostics
@@ -324,12 +323,11 @@ internal fun SystemProbeDialog(
                             }
                         }
                     }
-                    if (runtimeAvailable || value.evidence == ProbeEvidence.ENABLED ||
-                        value.evidence == ProbeEvidence.REGISTERED || diagnostic) {
+                    if (runtimeAvailable || diagnostic || value.items.isNotEmpty() ||
+                        value.diagnosticCandidates.isNotEmpty()) {
                         item(key = "candidate-count") {
-                            val countRes = if (diagnostic) R.string.system_probe_diagnostic_count
-                                else if (value.evidence == ProbeEvidence.ENABLED)
-                                    R.string.system_probe_count_enabled
+                            val countRes = if (runtimeAvailable && !diagnostic)
+                                R.string.system_probe_count_enabled
                                 else R.string.system_probe_count_candidate
                             AdaptiveText(stringResource(countRes, displayed.size, distinctApps),
                                 style = MaterialTheme.typography.titleSmall)
@@ -353,16 +351,16 @@ internal fun SystemProbeDialog(
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                             }
-                        } else if (runtimeSnapshot != null && !runtimeRecent && !diagnostic) {
+                        } else if (!runtimeAvailable && !diagnostic) {
                             item(key = "post-filter-stale") {
                                 AdaptiveText(
-                                    "No recent Hook return. The entries below are from the API, not a verified cleanup result.",
+                                    "No verified post-filter Hook result for this entry. Use diagnostics to inspect unfiltered API candidates.",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                             }
                         }
-                        if (displayed.isEmpty() && !runtimeAvailable) {
+                        if (displayed.isEmpty() && diagnostic) {
                             item(key = "empty") {
                                 AdaptiveText(stringResource(R.string.system_probe_empty))
                             }

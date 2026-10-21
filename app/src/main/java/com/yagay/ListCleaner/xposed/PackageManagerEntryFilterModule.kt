@@ -44,6 +44,9 @@ class PackageManagerEntryFilterModule : XposedModule() {
     @Volatile private var processName = ""
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
     private val listResults = SafeListResultExtractor(::record)
+    private val runtimeCapture by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        RuntimeInterfaceCaptureWriter(preferences, ::record)
+    }
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
@@ -244,6 +247,18 @@ class PackageManagerEntryFilterModule : XposedModule() {
                 val uid = (value as? ResolveInfo)?.let(spec.component)?.applicationInfo?.uid ?: 0
                 AndroidUid.userId(uid)
             },
+        )
+        runtimeCapture.publish(
+            kind = spec.kind,
+            source = "PACKAGE_MANAGER_FILTERED_RETURN",
+            userId = targetUserId,
+            packages = ordered.mapNotNull { value ->
+                (value as? ResolveInfo)?.let(spec.component)?.packageName
+            },
+            components = ordered.mapNotNull { value ->
+                (value as? ResolveInfo)?.let(spec.component)?.let { it.packageName + "/" + it.name }
+            },
+            callerPackage = callerProcess.orEmpty(),
         )
         if (removed == 0 && ordered == result.values) return@Hooker original
         record(

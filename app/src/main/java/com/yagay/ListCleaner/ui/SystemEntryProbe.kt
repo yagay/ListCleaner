@@ -145,12 +145,8 @@ internal object SystemEntryProbe {
     }
 
     private fun readRuntimeReturn(context: Context, kind: IntentKind): RuntimeInterfaceSnapshot? {
-        if (kind !in setOf(
-                IntentKind.HOME, IntentKind.BROWSER, IntentKind.ASSISTANT,
-                IntentKind.CALL_SCREENING, IntentKind.DIRECT_SHARE,
-                IntentKind.ACCESSIBILITY, IntentKind.PRINT, IntentKind.CREDENTIAL_PROVIDER
-            )
-        ) return null
+        // All entry kinds may provide a captured post-filter return. Absence of a
+        // snapshot is expected for host-owned lists without a compatible Hook.
         return runCatching {
             val app = context.applicationContext as? ListCleanerApp
                 ?: return@runCatching null
