@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="system_probe_title">Actual API list · %1$s</string>
+    <string name="system_probe_title">System UI &amp; API verification · %1$s</string>
     <string name="system_probe_loading">Querying Android system interfaces…</string>
     <string name="system_probe_count">Returned items: %1$d</string>
     <string name="system_probe_target_found">Found selected item (%1$s) in this response</string>
     <string name="system_probe_target_missing">Selected item (%1$s) not in this response; this does not establish whether another app will see it</string>
     <string name="system_probe_empty">This query returned no entries to List Cleaner.</string>
     <string name="system_probe_scope_note">This is an actual framework API response for List Cleaner’s own user and caller identity. The module may exempt its manager app from filtering. It does not prove the result another app or the final system picker receives.</string>
-    <string name="system_probe_open_system">System panel</string>
+    <string name="system_probe_open_system">Open actual system panel</string>
     <string name="system_probe_close">Close</string>
     <string name="system_probe_refresh">Refresh</string>
     <string name="system_probe_source_none">No accessible public registry</string>
@@ -55,5 +55,6 @@
     <string name="system_probe_native_only_detail">This is not a missing or disabled app list. The public PackageManager query enumerates possible handlers, while the system picker applies its own private source selection. To check actual visible choices, open the original system panel with the same test input; a local reconstructed list would be misleading.</string>
     <string name="system_probe_candidate_count">API candidates: %1$d (not actual visible count)</string>
     <string name="system_probe_registry_count">Registered entries: %1$d (not actual visible count)</string>
+    <string name="system_probe_results_capped">Showing the first %1$d of %2$d API entries.</string>
     <string name="system_probe_filtered_comparison">The preview-only Hook requests filtering for PackageManager queries where supported, but Android may use privileged or separate in-process APIs afterward. The displayed list is not an effect verification.</string>
 </resources>
