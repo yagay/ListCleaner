@@ -252,6 +252,33 @@ internal fun SystemProbeDialog(
                             }
                         }
                     }
+                    value.runtimeReturn?.let { returned ->
+                        val recent = System.currentTimeMillis() - returned.capturedAtMillis
+                            in 0..PickerProbeVerifier.SESSION_WINDOW_MS
+                        if (recent || showDetails) {
+                            item(key = "runtime-return-source") {
+                                AdaptiveText(
+                                    stringResource(
+                                        if (recent) R.string.system_probe_runtime_recent
+                                        else R.string.system_probe_runtime_historical,
+                                        returned.packages.size
+                                    ),
+                                    fontWeight = FontWeight.SemiBold,
+                                    style = MaterialTheme.typography.titleSmall,
+                                )
+                                AdaptiveText(stringResource(R.string.system_probe_runtime_scope,
+                                    returned.source),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            items(returned.packages, key = { "runtime/" + it }) { packageName ->
+                                AdaptiveText(
+                                    packageName,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
+                        }
+                    }
                     if (value.diagnosticCandidates.isNotEmpty()) {
                         item(key = "diagnostics-action") {
                             AdaptiveTextButton(onClick = {
