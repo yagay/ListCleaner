@@ -61,26 +61,31 @@ class ListCleanerModule : XposedModule() {
         val title: String?,
     )
 
-    @Volatile
-    private var primarySnapshot = RuntimeRuleSnapshot(
-        configured = emptySet(),
-        displayMode = DisplayMode.HIDE_SELECTED,
-        priorities = PriorityConfig(),
-        openTypes = OpenTypeConfig(),
-        browserLinks = BrowserLinkConfig(),
-        diagnostic = false,
+    private data class UserPolicyGeneration(
+        val primary: RuntimeRuleSnapshot,
+        val otherUsers: Map<Int, RuntimeRuleSnapshot>,
     )
-    @Volatile private var scopedSnapshots: Map<Int, RuntimeRuleSnapshot> = emptyMap()
+
+    @Volatile private var policies = UserPolicyGeneration(
+        primary = RuntimeRuleSnapshot(
+            configured = emptySet(),
+            displayMode = DisplayMode.HIDE_SELECTED,
+            priorities = PriorityConfig(),
+            openTypes = OpenTypeConfig(),
+            browserLinks = BrowserLinkConfig(),
+            diagnostic = false,
+        ),
+        otherUsers = emptyMap(),
+    )
     private val activeQuerySnapshot = ThreadLocal<RuntimeRuleSnapshot?>()
-    private var snapshot: RuntimeRuleSnapshot
-        get() = activeQuerySnapshot.get() ?: primarySnapshot
-        set(value) { primarySnapshot = value }
+    private val snapshot: RuntimeRuleSnapshot get() = activeQuerySnapshot.get() ?: policies.primary
 
     private fun snapshotForUser(userId: Int): RuntimeRuleSnapshot {
-        // Never recurse through the active per-query ThreadLocal: a nested cross-user call
-        // must resolve from the immutable base for that specific user.
-        if (userId == 0) return primarySnapshot
-        return scopedSnapshots[userId] ?: primarySnapshot.copy(
+        // Do not use the thread-local snapshot as a base: nested cross-user queries
+        // must resolve from the correct, atomically published generation.
+        val generation = policies
+        if (userId == 0) return generation.primary
+        return generation.otherUsers[userId] ?: generation.primary.copy(
             configured = emptySet(),
             displayMode = DisplayMode.SHOW_ALL,
             priorities = PriorityConfig(),
@@ -1288,8 +1293,7 @@ class ListCleanerModule : XposedModule() {
             entryPriorities = config.priorities.apps,
             digest = digest,
         )
-        scopedSnapshots = scopeSnapshots
-        snapshot = nextSnapshot
+        policies = UserPolicyGeneration(nextSnapshot, scopeSnapshots)
         RuntimeComponentPolicy.publishForUsers(
             compiledPolicy,
             config.userSpaces.mapValues { (_, space) ->
@@ -1381,8 +1385,7 @@ class ListCleanerModule : XposedModule() {
         val protected = PersistentComponentState.sanitize(
             sourcePreferences.getStringSet(PersistentComponentState.REMOTE_KEY, emptySet()).orEmpty()
         )
-        scopedSnapshots = emptyMap()
-        snapshot = nextSnapshot
+        policies = UserPolicyGeneration(nextSnapshot, emptyMap())
         RuntimeComponentPolicy.publish(
             RuntimePolicyCompiler.compile(
                 managerAppId = -1,
