@@ -86,4 +86,7 @@
     <string name="system_probe_test_root_count">Returned roots: %1$d (not proof all were drawn)</string>
     <string name="system_probe_test_captured_at">Observed at %1$s, after this app opened the picker</string>
     <string name="system_probe_historical_snapshot">Previous matching-roots snapshot: %1$d entries (not the current test)</string>
+    <string name="system_probe_runtime_recent">Recently returned by system Hook: %1$d apps</string>
+    <string name="system_probe_runtime_historical">Earlier Hook return (not current): %1$d apps</string>
+    <string name="system_probe_runtime_scope">Framework returned packages from %1$s; not proof every choice was rendered</string>
 </resources>
