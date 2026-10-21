@@ -332,7 +332,24 @@ internal fun SystemProbeDialog(
                                         else MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
-                        if (displayed.isEmpty()) {
+                        if (runtimeAvailable && runtimePackages.isEmpty()) {
+                            item(key = "post-filter-empty") {
+                                AdaptiveText(
+                                    "Hook returned an empty post-filter package list.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        } else if (runtimeSnapshot != null && !runtimeRecent && !diagnostic) {
+                            item(key = "post-filter-stale") {
+                                AdaptiveText(
+                                    "No recent Hook return. The entries below are from the API, not a verified cleanup result.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
+                        if (displayed.isEmpty() && !runtimeAvailable) {
                             item(key = "empty") {
                                 AdaptiveText(stringResource(R.string.system_probe_empty))
                             }
