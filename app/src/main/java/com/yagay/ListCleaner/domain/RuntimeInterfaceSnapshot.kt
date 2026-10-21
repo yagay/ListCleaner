@@ -42,7 +42,7 @@ object RuntimeInterfaceSnapshotCodec {
         source = snapshot.source.take(64),
         callerPackage = snapshot.callerPackage.take(240),
         packages = snapshot.packages.asSequence()
-            .filter(PackageIdentity::valid)
+            .filter { PackageIdentity.valid(it) }
             .distinct()
             .take(MAX_PACKAGES)
             .toList()
