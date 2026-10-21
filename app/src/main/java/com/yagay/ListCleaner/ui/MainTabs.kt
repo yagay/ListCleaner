@@ -41,7 +41,8 @@ fun RulesTab(
     state: MainState,
     vm: MainViewModel,
     searchExpanded: Boolean = false,
-    onComponentModeChanged: (Boolean) -> Unit = {}
+    onComponentModeChanged: (Boolean) -> Unit = {},
+    onOpenModuleStatus: () -> Unit = {}
 ) {
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
     val componentScan by vm.componentScan.collectAsStateWithLifecycle()
@@ -152,9 +153,7 @@ fun RulesTab(
             componentScanning = componentBusy,
             onRefreshComponents = vm::refreshComponents,
             status = {
-                CleanupStatusAlert(state) {
-                    vm.setDestination(Destination.SETTINGS)
-                }
+                CleanupStatusAlert(state, onOpenStatus = onOpenModuleStatus)
             }
         )
         return
@@ -570,9 +569,20 @@ internal fun SettingsTabContent(
     onInspectFile: () -> Unit,
     colorMode: UiColorMode,
     onColorModeChange: (UiColorMode) -> Unit,
+    openModuleStatus: Boolean = false,
+    onModuleStatusOpened: () -> Unit = {},
 ) {
     var selectedSection by rememberSaveable { mutableStateOf<SettingsSection?>(null) }
-    BackHandler(enabled = selectedSection != null) { selectedSection = null }
+    var showScopeDetails by remember { mutableStateOf(false) }
+    LaunchedEffect(openModuleStatus) {
+        if (openModuleStatus) {
+            selectedSection = SettingsSection.ADVANCED
+            showScopeDetails = true
+            vm.refreshModuleStatus()
+            onModuleStatusOpened()
+        }
+    }
+    BackHandler(enabled = selectedSection != null && !showScopeDetails) { selectedSection = null }
     val section = selectedSection
     if (section == null) {
         SettingsCenterHome(onSelect = { selectedSection = it })
@@ -590,7 +600,6 @@ internal fun SettingsTabContent(
     }
     val fileCheckStatus by vm.fileCheckStatus.collectAsStateWithLifecycle()
     val checkingFile by vm.checkingFile.collectAsStateWithLifecycle()
-    var showScopeDetails by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
     var showAppScopePicker by remember { mutableStateOf(false) }
     if (showScopeDetails) {

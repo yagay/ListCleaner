@@ -84,6 +84,7 @@ class MainActivity : ComponentActivity() {
         var searchExpanded by rememberSaveable { mutableStateOf(false) }
         // The merged cleanup tab hosts both rule and Root component editors.
         var componentModeActive by remember { mutableStateOf(false) }
+        var openModuleStatus by remember { mutableStateOf(false) }
         var restartPromptDismissed by rememberSaveable { mutableStateOf(false) }
         var pendingImport by remember { mutableStateOf<Pair<String, SpaceBackupInspection>?>(null) }
         var showExportDialog by rememberSaveable { mutableStateOf(false) }
@@ -245,7 +246,11 @@ class MainActivity : ComponentActivity() {
                     Destination.RULES -> RulesTab(
                         state, vm,
                         searchExpanded = searchExpanded,
-                        onComponentModeChanged = { componentModeActive = it }
+                        onComponentModeChanged = { componentModeActive = it },
+                        onOpenModuleStatus = {
+                            openModuleStatus = true
+                            vm.setDestination(Destination.SETTINGS)
+                        }
                     )
                     Destination.PRIORITY -> PriorityTab(state, vm)
                     Destination.TILES -> RootComponentsScreen(state, vm)
@@ -261,7 +266,9 @@ class MainActivity : ComponentActivity() {
                         },
                         { fileCheck.launch(arrayOf("*/*")) },
                         colorMode = colorMode,
-                        onColorModeChange = onColorModeChange
+                        onColorModeChange = onColorModeChange,
+                        openModuleStatus = openModuleStatus,
+                        onModuleStatusOpened = { openModuleStatus = false }
                     )
                 }
             }        }
