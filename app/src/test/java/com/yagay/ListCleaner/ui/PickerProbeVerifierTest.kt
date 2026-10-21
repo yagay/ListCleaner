@@ -36,7 +36,9 @@ class PickerProbeVerifierTest {
     @Test fun aDifferentScenarioOrAndroidUserNeverInheritsAnotherTestsResult() {
         assertEquals(PickerProbeStatus.HISTORY_ONLY, verify(scenario = SystemProbeScenario.PDF))
         assertEquals(PickerProbeStatus.HISTORY_ONLY, verify(kind = IntentKind.OPEN_DOCUMENT))
-        assertEquals(PickerProbeStatus.HISTORY_ONLY, verify(userId = 10))
+        assertEquals(PickerProbeStatus.NEVER_CAPTURED, verify(userId = 10))
+        assertEquals(PickerProbeStatus.NEVER_CAPTURED,
+            verify(tested = null, result = snapshot(user = 10)))
         assertEquals(PickerProbeStatus.HISTORY_ONLY, verify(tested = null))
     }
 
@@ -46,6 +48,12 @@ class PickerProbeVerifierTest {
         assertEquals(PickerProbeStatus.HISTORY_ONLY, verify(tested = session.copy(startedAtMillis = now + 1)))
         assertEquals(PickerProbeStatus.AWAITING_HOOK, verify(result = snapshot(now + 5000L)))
         assertEquals(PickerProbeStatus.NEVER_CAPTURED, verify(tested = null, result = null))
+    }
+
+    @Test fun mismatchedUserObservationCannotBecomeHistory() {
+        assertEquals(PickerProbeStatus.AWAITING_HOOK, verify(result = snapshot(user = 10)))
+        assertEquals(PickerProbeStatus.NEVER_CAPTURED,
+            verify(tested = null, result = snapshot(user = 10)))
     }
 
     @Test fun anEmptyMatchingRootsSnapshotStillCountsAsAnObservedResult() {

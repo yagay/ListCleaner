@@ -45,12 +45,13 @@ internal object PickerProbeVerifier {
             session.userId == userId &&
             session.startedAtMillis in 1..nowMillis &&
             nowMillis - session.startedAtMillis <= SESSION_WINDOW_MS
-        if (!matched) return if (snapshot != null) PickerProbeStatus.HISTORY_ONLY
+        // A snapshot captured in another Android space is never evidence for this space.
+        val sameUserSnapshot = snapshot?.takeIf { it.userId == userId }
+        if (!matched) return if (sameUserSnapshot != null) PickerProbeStatus.HISTORY_ONLY
             else PickerProbeStatus.NEVER_CAPTURED
-        val capturedAfter = snapshot != null &&
-            snapshot.userId == userId &&
-            snapshot.capturedAt >= session!!.startedAtMillis &&
-            snapshot.capturedAt <= nowMillis + CLOCK_SKEW_MS
+        val capturedAfter = sameUserSnapshot != null &&
+            sameUserSnapshot.capturedAt >= session!!.startedAtMillis &&
+            sameUserSnapshot.capturedAt <= nowMillis + CLOCK_SKEW_MS
         return when {
             capturedAfter -> PickerProbeStatus.OBSERVED_AFTER_TEST
             else -> PickerProbeStatus.AWAITING_HOOK

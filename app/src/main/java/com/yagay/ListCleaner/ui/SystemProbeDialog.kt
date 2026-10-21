@@ -223,9 +223,8 @@ internal fun SystemProbeDialog(
                                 }
                             }
                         }
-                        // Historical provider observations are useful even when the
-                        // current DocumentsUI version exposes no matching-roots callback.
-                        // Keep them distinct from verified current-test results.
+                        // Historical data is only a fallback if this test did not yield a
+                        // verified matching-roots snapshot. Never merge it into the live list.
                         if (!observedThisTest) {
                             if (matching != null) {
                                 item(key = "previous-matching") {
