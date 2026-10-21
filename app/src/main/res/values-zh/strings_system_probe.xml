@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="system_probe_title">实际接口列表 · %1$s</string>
+    <string name="system_probe_loading">正在查询 Android 系统接口…</string>
+    <string name="system_probe_count">接口返回：%1$d 项</string>
+    <string name="system_probe_target_found">本次查询包含目标条目（%1$s）</string>
+    <string name="system_probe_target_missing">本次查询未包含目标条目（%1$s），不能据此断定其他应用能否看到它</string>
+    <string name="system_probe_empty">该接口没有向列表清理返回任何条目。</string>
+    <string name="system_probe_scope_note">这里显示的是 Android 系统对列表清理所在用户、以列表清理调用身份返回的真实接口结果。模块可能对管理应用免除过滤，因此不能直接证明其他应用或最终系统弹窗看到相同结果。</string>
+    <string name="system_probe_open_system">系统原弹窗</string>
+    <string name="system_probe_close">关闭</string>
+    <string name="system_probe_refresh">重新查询</string>
+    <string name="system_probe_source_none">没有可访问的公开列表接口</string>
+    <string name="system_probe_source_activities">PackageManager · queryIntentActivities</string>
+    <string name="system_probe_source_services">PackageManager · queryIntentServices</string>
+    <string name="system_probe_source_providers">PackageManager · queryIntentContentProviders</string>
+    <string name="system_probe_source_input_method">InputMethodManager · inputMethodList</string>
+    <string name="system_probe_source_accessibility">AccessibilityManager · installedAccessibilityServiceList</string>
+    <string name="system_probe_source_launcher">LauncherApps · 实时活动列表</string>
+    <string name="system_probe_source_widgets">AppWidgetManager · installedProviders</string>
+    <string name="system_probe_pm_notice">直接查询与“系统原弹窗”按钮相同的测试 Intent。MIME 类型、网址及调用方身份会影响结果。</string>
+    <string name="system_probe_manager_notice">来自 Android 管理接口的真实已安装条目；系统界面可能再进行资格检查和筛选。</string>
+    <string name="system_probe_provider_notice">这是系统接口中的 Provider 候选；文件或照片选择器最终显示的来源可能由内部接口决定。</string>
+    <string name="system_probe_service_notice">这是实际注册的服务列表；设置、角色、VPN 或 NFC 的最终系统名单可能受特权接口控制。</string>
+    <string name="system_probe_shortcut_notice">这是可创建快捷方式的 Activity，不是动态、固定或直接分享快捷方式的完整列表。</string>
+    <string name="system_probe_widget_notice">这是系统返回的小部件提供方；桌面可能再做额外筛选。</string>
+    <string name="system_probe_tile_notice">这是声明快捷设置磁贴接口的服务，并非直接读取 SystemUI 的最终磁贴编辑器列表。</string>
+    <string name="system_probe_other_user">当前选择的 Android 空间不是本应用所在空间。普通应用无法可靠查询其他用户的实时系统接口；请进入对应空间测试。不会用主空间结果冒充。</string>
+    <string name="system_probe_no_public_registry">Android 没有开放读取此系统界面最终列表的通用公开接口，不能用本地规则或历史扫描结果代替真实列表。</string>
+    <string name="system_probe_restricted">Android 拒绝访问该系统接口。</string>
+    <string name="system_probe_failed">系统接口查询失败，不会使用缓存列表代替。</string>
+</resources>
