@@ -25,12 +25,14 @@ internal class RuntimeInterfaceCaptureWriter(
         userId: Int,
         packages: Collection<String>,
         callerPackage: String = "",
+        components: Collection<String> = emptyList(),
     ) {
         val snapshot = RuntimeInterfaceSnapshot(
             kind = kind.name, source = source, callerUserId = userId,
             callerPackage = callerPackage,
             capturedAtMillis = System.currentTimeMillis(),
             packages = packages.distinct().take(RuntimeInterfaceSnapshotCodec.MAX_PACKAGES),
+            components = components.distinct().take(RuntimeInterfaceSnapshotCodec.MAX_PACKAGES),
         )
         val encoded = RuntimeInterfaceSnapshotCodec.encode(snapshot)
         if (encoded.length > RuntimeInterfaceSnapshotCodec.MAX_CHARS) return

@@ -147,6 +147,9 @@ class SystemManagerEntryFilterModule : XposedModule() {
                 runtimeCapture.publish(
                     kind, "SYSTEM_MANAGER_RETURN", AndroidUid.userId(caller.uid),
                     extracted.values.mapNotNull { item -> componentOf(item)?.packageName },
+                    components = extracted.values.mapNotNull { item ->
+                        componentOf(item)?.let { it.packageName + "/" + it.name }
+                    },
                 )
             }
         }
@@ -179,6 +182,9 @@ class SystemManagerEntryFilterModule : XposedModule() {
             IntentKind.CREDENTIAL_PROVIDER, "CREDENTIAL_MANAGER_RETURN",
             AndroidUid.userId(caller.uid),
             filtered.mapNotNull { credentialComponent(it)?.packageName },
+            components = filtered.mapNotNull { value ->
+                credentialComponent(value)?.let { it.packageName + "/" + it.name }
+            },
         )
         if (filtered.size == values.size) original else {
             record("CREDENTIAL_FILTER callerUid=${caller.uid} before=${values.size} after=${filtered.size}")

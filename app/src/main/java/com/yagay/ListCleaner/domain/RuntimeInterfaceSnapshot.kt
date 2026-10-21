@@ -13,6 +13,8 @@ data class RuntimeInterfaceSnapshot(
     val callerPackage: String = "",
     val capturedAtMillis: Long,
     val packages: List<String>,
+    /** Exact flattened ComponentName identifiers, when the captured API exposes them. */
+    val components: List<String> = emptyList(),
 )
 
 object RuntimeInterfaceSnapshotCodec {
@@ -32,7 +34,7 @@ object RuntimeInterfaceSnapshotCodec {
             val parsed = json.decodeFromString(RuntimeInterfaceSnapshot.serializer(), encoded)
             if (parsed.version != 1 || parsed.kind != expectedKind.name ||
                 parsed.capturedAtMillis <= 0L || parsed.callerUserId < 0 ||
-                parsed.packages.size > MAX_PACKAGES
+                parsed.packages.size > MAX_PACKAGES || parsed.components.size > MAX_PACKAGES
             ) return@runCatching null
             sanitize(parsed)
         }.getOrNull()
@@ -45,6 +47,14 @@ object RuntimeInterfaceSnapshotCodec {
             .filter { PackageIdentity.valid(it) }
             .distinct()
             .take(MAX_PACKAGES)
-            .toList()
+            .toList(),
+        components = snapshot.components.asSequence()
+            .filter { component ->
+                val parts = component.split('/', limit = 2)
+                parts.size == 2 && PackageIdentity.valid(parts[0]) &&
+                    parts[1].isNotBlank() && parts[1].length <= 250 &&
+                    parts[1].none { it == '\\n' || it == '\\r' }
+            }
+            .distinct().take(MAX_PACKAGES).toList()
     )
 }

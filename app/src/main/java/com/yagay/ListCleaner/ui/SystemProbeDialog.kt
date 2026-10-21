@@ -107,9 +107,22 @@ internal fun SystemProbeDialog(
     val runtimeAge = runtimeSnapshot?.let { System.currentTimeMillis() - it.capturedAtMillis }
     val runtimeRecent = runtimeAge != null && runtimeAge in 0..120_000L
     val runtimeAvailable = runtimeRecent && !diagnostic
+    val runtimeComponents = runtimeSnapshot?.components.orEmpty()
     val displayed = when {
         value == null -> emptyList()
         diagnostic -> value.diagnosticCandidates
+        runtimeAvailable && runtimeComponents.isNotEmpty() -> runtimeComponents.map { id ->
+            val pkg = id.substringBefore('/')
+            val componentClass = id.substringAfter('/')
+            val label = value.items.firstOrNull { it.component == id }?.label
+                ?: componentClass.substringAfterLast('.')
+            SystemProbeItem(
+                label = label,
+                packageName = pkg,
+                className = componentClass,
+                appLabel = value.items.firstOrNull { it.packageName == pkg }?.appLabel ?: pkg,
+            )
+        }
         runtimeAvailable -> runtimePackages.map { pkg ->
             SystemProbeItem(
                 label = value.items.firstOrNull { it.packageName == pkg }?.appLabel ?: pkg,
