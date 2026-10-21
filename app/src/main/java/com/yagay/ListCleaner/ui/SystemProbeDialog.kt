@@ -123,12 +123,31 @@ internal fun SystemProbeDialog(
     } == true
     val runtimeAvailable = runtimeRecent && runtimeForAttempt && actionMatches && !diagnostic
     val runtimeComponents = runtimeSnapshot?.components.orEmpty()
+    // ACTION_OPEN_DOCUMENT / ACTION_CREATE_DOCUMENT resolve a picker Activity,
+    // whereas the actual sidebar is built from DocumentsUI roots. Never treat
+    // an intent-handler registration as a root that the user can select.
+    val documentPicker = request.entryKind == IntentKind.OPEN_DOCUMENT ||
+        request.entryKind == IntentKind.CREATE_DOCUMENT
+    val documentSnapshot = value?.matchingRootsSnapshot?.takeIf {
+        it.userId == request.userId &&
+            value.pickerProbeStatus == PickerProbeStatus.OBSERVED_AFTER_TEST
+    }
+    val documentRoots = documentSnapshot?.roots.orEmpty().map { root ->
+        SystemProbeItem(
+            label = root.label,
+            packageName = root.packageName,
+            className = root.syntheticId,
+            appLabel = root.label,
+        )
+    }
     val displayed = when {
         value == null -> emptyList()
         // "Show API" must show the actual API query return first. Diagnostic
         // registrations are a fallback, not a replacement for that result.
-        diagnostic -> if (value.items.isNotEmpty())
-            value.items else value.diagnosticCandidates
+        diagnostic -> if (documentPicker && value.diagnosticCandidates.isNotEmpty())
+            value.diagnosticCandidates
+        else if (value.items.isNotEmpty()) value.items else value.diagnosticCandidates
+        documentPicker -> documentRoots
         runtimeAvailable && runtimeComponents.isNotEmpty() -> runtimeComponents.map { id ->
             val pkg = id.substringBefore('/')
             val componentClass = id.substringAfter('/')
@@ -344,8 +363,8 @@ internal fun SystemProbeDialog(
                             }
                         }
                     }
-                    if (runtimeAvailable || diagnostic || value.items.isNotEmpty() ||
-                        value.diagnosticCandidates.isNotEmpty()) {
+                    if (documentPicker || runtimeAvailable || diagnostic ||
+                        value.items.isNotEmpty() || value.diagnosticCandidates.isNotEmpty()) {
                         item(key = "candidate-count") {
                             val countRes = if (runtimeAvailable && !diagnostic)
                                 R.string.system_probe_count_enabled
@@ -364,7 +383,19 @@ internal fun SystemProbeDialog(
                                         else MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
-                        if (runtimeAvailable && runtimePackages.isEmpty() && runtimeComponents.isEmpty()) {
+                        if (documentPicker && !diagnostic) {
+                            item(key = "document-root-qualification") {
+                                AdaptiveText(
+                                    if (documentSnapshot == null)
+                                        "No DocumentsUI roots captured during this test. Intent handlers under Show API are not document locations."
+                                    else
+                                        "DocumentsUI returned roots. Final Open/Save sidebar entries may still differ due to the request action, MIME type and root capabilities.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
+                        if (!documentPicker && runtimeAvailable && runtimePackages.isEmpty() && runtimeComponents.isEmpty()) {
                             item(key = "post-filter-empty") {
                                 AdaptiveText(
                                     "Observed Hook post-filter result is empty (the originating request is not independently verified).",
@@ -372,7 +403,7 @@ internal fun SystemProbeDialog(
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                             }
-                        } else if (!runtimeAvailable && !diagnostic) {
+                        } else if (!documentPicker && !runtimeAvailable && !diagnostic) {
                             item(key = "post-filter-stale") {
                                 AdaptiveText(
                                     "API return shown; Hook filtering cannot be independently verified for this request. The API result may already be filtered.",
