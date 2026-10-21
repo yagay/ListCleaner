@@ -76,11 +76,23 @@ internal class SpecialEntryDiscovery(private val context: Context) {
 
     private fun mergeSpecialCandidates(items: List<ComponentCandidate>): List<ComponentCandidate> =
         items.groupBy { it.rule.id }.values.map { matches ->
-            val first = matches.firstOrNull { it.isCatalogCandidate } ?: matches.first()
+            // Prefer a runtime observation over a static registration when identities
+            // overlap. Historical observations never turn static candidates into
+            // confirmed live entries simply by sharing a rule ID.
+            val first = matches.firstOrNull { item ->
+                !item.unavailable && item.evidence.any {
+                    it.startsWith("AUTHORITY_OBSERVED ") && "source=live" in it
+                }
+            } ?: matches.firstOrNull { it.isCatalogCandidate } ?: matches.first()
+            val confirmedLive = matches.any { item ->
+                !item.unavailable && item.evidence.any {
+                    it.startsWith("AUTHORITY_OBSERVED ") && "source=live" in it
+                }
+            }
             first.copy(
                 evidence = matches.flatMap { it.evidence }.distinct().take(48),
                 restricted = matches.all { it.restricted },
-                unavailable = matches.all { it.unavailable },
+                unavailable = if (confirmedLive) false else first.unavailable,
             )
         }
 
@@ -118,10 +130,9 @@ internal class SpecialEntryDiscovery(private val context: Context) {
             if (!rule.isValid()) return@mapNotNull null
             val app = runCatching { pm.getApplicationInfo(observed.packageName, 0) }.getOrNull()
                 ?: return@mapNotNull null
-            // DocumentsUI runs in a different process; RootInfo has no bridge Activity.
-            val live = observed.key in liveKeys ||
-                (kind == IntentKind.DOCUMENT_ROOT &&
-                    observed.observedAt > System.currentTimeMillis() - DOCUMENT_ROOT_OBSERVATION_WINDOW_MS)
+            // A recent DocumentsUI observation is history, not proof of current
+            // availability. Only an actual live bridge registration is authoritative.
+            val live = observed.key in liveKeys
             ComponentCandidate(
                 rule = rule,
                 appLabel = runCatching { app.loadLabel(pm).toString() }.getOrDefault(observed.packageName),
@@ -589,7 +600,6 @@ internal class SpecialEntryDiscovery(private val context: Context) {
         const val CLOUD_MEDIA_PROVIDER_INTERFACE = "android.content.action.CLOUD_MEDIA_PROVIDER"
         const val CLOUD_MEDIA_PERMISSION =
             "com.android.providers.media.permission.MANAGE_CLOUD_MEDIA_PROVIDERS"
-        const val DOCUMENT_ROOT_OBSERVATION_WINDOW_MS = 7L * 24 * 60 * 60 * 1000
         const val ACCESSIBILITY_SHORTCUT_META = "android.accessibilityshortcut.target"
         const val ACCESSIBILITY_SHORTCUT_TAG = "accessibility-shortcut-target"
         const val NFC_HOST_ACTION = "android.nfc.cardemulation.action.HOST_APDU_SERVICE"
