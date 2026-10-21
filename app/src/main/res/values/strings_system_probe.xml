@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="system_probe_title">Actual API list · %1$s</string>
+    <string name="system_probe_loading">Querying Android system interfaces…</string>
+    <string name="system_probe_count">Returned items: %1$d</string>
+    <string name="system_probe_target_found">Found selected item (%1$s) in this response</string>
+    <string name="system_probe_target_missing">Selected item (%1$s) not in this response; this does not establish whether another app will see it</string>
+    <string name="system_probe_empty">This query returned no entries to List Cleaner.</string>
+    <string name="system_probe_scope_note">This is an actual framework API response for List Cleaner’s own user and caller identity. The module may exempt its manager app from filtering. It does not prove the result another app or the final system picker receives.</string>
+    <string name="system_probe_open_system">System panel</string>
+    <string name="system_probe_close">Close</string>
+    <string name="system_probe_refresh">Refresh</string>
+    <string name="system_probe_source_none">No accessible public registry</string>
+    <string name="system_probe_source_activities">PackageManager · queryIntentActivities</string>
+    <string name="system_probe_source_services">PackageManager · queryIntentServices</string>
+    <string name="system_probe_source_providers">PackageManager · queryIntentContentProviders</string>
+    <string name="system_probe_source_input_method">InputMethodManager · inputMethodList</string>
+    <string name="system_probe_source_accessibility">AccessibilityManager · installedAccessibilityServiceList</string>
+    <string name="system_probe_source_launcher">LauncherApps · live activity registry</string>
+    <string name="system_probe_source_widgets">AppWidgetManager · installedProviders</string>
+    <string name="system_probe_pm_notice">Live candidates for the example Intent used by the System panel button. MIME type, URL and caller identity can affect the list.</string>
+    <string name="system_probe_manager_notice">Live installed entries from Android’s manager API. A system UI can apply further eligibility or filtering.</string>
+    <string name="system_probe_provider_notice">Live declared providers; the system file/photo picker may use a separate internal list.</string>
+    <string name="system_probe_service_notice">Live registered services. The final Settings, Role, VPN or NFC list is privileged and may differ.</string>
+    <string name="system_probe_shortcut_notice">Available shortcut configuration activities. This is not the full dynamic, pinned or direct-share shortcut list.</string>
+    <string name="system_probe_widget_notice">Available widget providers. Launchers may apply additional rules before showing them.</string>
+    <string name="system_probe_tile_notice">Services declaring the Quick Settings Tile action. This is not a direct SystemUI tile-editor query.</string>
+    <string name="system_probe_other_user">The chosen Android user differs from the app’s own user. A normal app cannot reliably query the other user’s live interface; switch to that profile to test. No personal-space result is substituted.</string>
+    <string name="system_probe_no_public_registry">Android exposes no general public API to read the final contents of this system UI. The app will not substitute its saved or observed candidates.</string>
+    <string name="system_probe_restricted">Android denied access to this system interface.</string>
+    <string name="system_probe_failed">The system API query failed. No cached candidate list is substituted.</string>
+</resources>
