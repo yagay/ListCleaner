@@ -172,7 +172,14 @@ class PackageManagerEntryFilterModule : XposedModule() {
             binderUid = binderUid,
         )
 
-        val policy = policyProvider.snapshot(AndroidUid.userId(callerUid))
+        val targetUserId = HookCallIdentity.packageManagerTargetUserId(
+            method.name, method.parameterTypes.map(Class<*>::getName), chain.args,
+        ) ?: run {
+            // Do not apply user 0 filters to a cross-profile query with unknown user.
+            record("QUERY_SKIP kind=${spec.kind} reason=unknown_target_user callerUid=$callerUid")
+            return@Hooker chain.proceed()
+        }
+        val policy = policyProvider.snapshot(targetUserId)
         if (ManagerIdentity.matches(callerUid, policy.managerAppId)) return@Hooker chain.proceed()
         val selected = policy.selected(spec.kind)
         val priorities = policy.priorities(spec.kind)
