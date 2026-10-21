@@ -47,6 +47,11 @@ internal fun SystemProbeDialog(
     var showDiagnostics by remember(request) { mutableStateOf(false) }
     var expandedPackage by remember(request) { mutableStateOf<String?>(null) }
     val choices = request.entryKind?.let(::availableProbeScenarios).orEmpty()
+    val nativeAvailable = request.entryKind?.let {
+        systemPreviewRoute(it) != SystemPreviewRoute.UNAVAILABLE
+    } ?: request.componentKind?.let {
+        systemPreviewRoute(it) != SystemPreviewRoute.UNAVAILABLE
+    } ?: false
     val activeRequest = request.copy(scenario = scenario)
     var response by remember(request) { mutableStateOf<SystemProbeResult?>(null) }
 
@@ -232,14 +237,16 @@ internal fun SystemProbeDialog(
                 AdaptiveTextButton(onClick = { revision++ }) {
                     AdaptiveText(stringResource(R.string.system_probe_refresh))
                 }
-                AdaptiveTextButton(onClick = {
-                    request.entryKind?.let {
-                        SystemEffectPreview.launch(context, it, request.userId, scenario)
-                    } ?: request.componentKind?.let {
-                        SystemEffectPreview.launch(context, it, request.userId)
+                if (nativeAvailable) {
+                    AdaptiveTextButton(onClick = {
+                        request.entryKind?.let {
+                            SystemEffectPreview.launch(context, it, request.userId, scenario)
+                        } ?: request.componentKind?.let {
+                            SystemEffectPreview.launch(context, it, request.userId)
+                        }
+                    }) {
+                        AdaptiveText(stringResource(R.string.system_probe_open_system))
                     }
-                }) {
-                    AdaptiveText(stringResource(R.string.system_probe_open_system))
                 }
             }
         },
