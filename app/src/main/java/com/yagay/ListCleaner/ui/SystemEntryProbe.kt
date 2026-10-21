@@ -218,7 +218,7 @@ internal object SystemEntryProbe {
                     R.string.system_probe_enabled_accessibility_notice,
                     items = unique(asEntries(manager.getEnabledAccessibilityServiceList(
                         AccessibilityServiceInfo.FEEDBACK_ALL_MASK
-                    ) ?: emptyList()),
+                    ) ?: emptyList())),
                     diagnosticCandidates = unique(asEntries(manager.installedAccessibilityServiceList)),
                     evidence = ProbeEvidence.ENABLED,
                 )
