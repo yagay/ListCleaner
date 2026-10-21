@@ -124,13 +124,13 @@ internal fun SystemProbeDialog(
         },
         confirmButton = {
             AdaptiveTextButton(onClick = onDismiss) {
-                AdaptiveText(stringResource(R.string.common_close))
+                AdaptiveText(stringResource(R.string.system_probe_close))
             }
         },
         dismissButton = {
             Row {
                 AdaptiveTextButton(onClick = { refreshToken++ }) {
-                    AdaptiveText(stringResource(R.string.common_refresh))
+                    AdaptiveText(stringResource(R.string.system_probe_refresh))
                 }
                 AdaptiveTextButton(onClick = {
                     request.entryKind?.let { SystemEffectPreview.launch(context, it, request.userId) }
