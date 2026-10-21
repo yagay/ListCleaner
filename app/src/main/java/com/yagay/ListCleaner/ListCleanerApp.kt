@@ -100,8 +100,12 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
                     selected, candidates, userId, installed ->
                 val scoped = if (userId == spaces.currentUserId) candidates
                     else candidates.filter { it.rule.packageName in installed.orEmpty() }
-                deriveFullySelectedPackages(AuthorityCandidatePolicy.normalize(scoped), selected)
-            }.collect(rules::setVisibilityFullPackages)
+                userId to deriveFullySelectedPackages(
+                    AuthorityCandidatePolicy.normalize(scoped), selected
+                )
+            }.collect { (sourceUserId, packages) ->
+                rules.setVisibilityFullPackages(sourceUserId, packages)
+            }
         }
         // Service lifecycle changes must synchronize immediately. Rule edits are debounced so a
         // burst of checkbox changes produces one runtime config transfer instead of one per tap.
