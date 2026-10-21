@@ -55,6 +55,8 @@ class RuleRepository(context: Context) {
         putAll(initialConfig.userSpaces)
     }
     private var activeUserId = 0
+    private val mutableActiveUser = MutableStateFlow(0)
+    val activeUser: StateFlow<Int> = mutableActiveUser.asStateFlow()
     private val derivedVisibility = mutableMapOf<Int, Map<VisibilityScope, Set<String>>>()
     val selectedUserId: Int get() = activeUserId
 
@@ -75,6 +77,8 @@ class RuleRepository(context: Context) {
         mutableVisibilityScopes.value = next.visibilityCompat.scopes
         mutableVisibilityFullPackages.value = derivedVisibility[userId].orEmpty()
         persistLocalSnapshot()
+        // Publish the user identity after all per-user StateFlows are loaded.
+        mutableActiveUser.value = userId
         mutableRevision.value++
     }
 
