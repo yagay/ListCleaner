@@ -304,7 +304,7 @@ internal fun SystemProbeDialog(
                     }
                 }) {
                     AdaptiveText(stringResource(
-                        if (request.entryKind?.let(::systemPreviewRoute) == SystemPreviewRoute.PICKER)
+                        if (request.entryKind?.let { systemPreviewRoute(it) } == SystemPreviewRoute.PICKER)
                             R.string.system_probe_open_picker else R.string.system_probe_open_system
                     ))
                 }
