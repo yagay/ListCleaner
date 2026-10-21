@@ -102,7 +102,11 @@ internal fun SystemProbeDialog(
     // It is a package-level runtime snapshot, not proof of rendered UI components.
     val runtimeSnapshot = value?.runtimeReturn
     val runtimePackages = runtimeSnapshot?.packages.orEmpty()
-    val runtimeAvailable = runtimeSnapshot != null && !diagnostic
+    // A persisted return may belong to an older system request. Keep stale
+    // observations in diagnostics rather than presenting them as current cleanup.
+    val runtimeAge = runtimeSnapshot?.let { System.currentTimeMillis() - it.capturedAtMillis }
+    val runtimeRecent = runtimeAge != null && runtimeAge in 0..120_000L
+    val runtimeAvailable = runtimeRecent && !diagnostic
     val displayed = when {
         value == null -> emptyList()
         diagnostic -> value.diagnosticCandidates
@@ -276,8 +280,8 @@ internal fun SystemProbeDialog(
                         }
                     }
                     value.runtimeReturn?.let { returned ->
-                        // Runtime returns are primary when present. Make their capture
-                        // context and age visible, rather than implying UI rendering.
+                        // Capture details stay visible, but don't duplicate the same package
+                        // list below the primary results or imply a rendered UI snapshot.
                         run {
                             item(key = "runtime-return-source") {
                                 AdaptiveText(
@@ -293,12 +297,7 @@ internal fun SystemProbeDialog(
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            items(returned.packages, key = { "runtime/" + it }) { packageName ->
-                                AdaptiveText(
-                                    packageName,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
-                            }
+
                         }
                     }
                     if (value.diagnosticCandidates.isNotEmpty()) {
