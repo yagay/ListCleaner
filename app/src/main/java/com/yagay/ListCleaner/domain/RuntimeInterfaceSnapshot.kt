@@ -1,0 +1,50 @@
+package com.yagay.ListCleaner.domain
+
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+
+/** Read-only, explicitly captured framework return values. Not proof of rendered UI. */
+@Serializable
+data class RuntimeInterfaceSnapshot(
+    val version: Int = 1,
+    val kind: String,
+    val source: String,
+    val callerUserId: Int,
+    val callerPackage: String = "",
+    val capturedAtMillis: Long,
+    val packages: List<String>,
+)
+
+object RuntimeInterfaceSnapshotCodec {
+    private const val PREFIX = "runtime_interface_post_filter_v1_"
+    const val MAX_PACKAGES = 300
+    const val MAX_CHARS = 36_000
+    private val json = Json { ignoreUnknownKeys = true }
+
+    fun key(kind: IntentKind): String = PREFIX + kind.name
+
+    fun encode(snapshot: RuntimeInterfaceSnapshot): String =
+        json.encodeToString(RuntimeInterfaceSnapshot.serializer(), sanitize(snapshot))
+
+    fun decode(encoded: String?, expectedKind: IntentKind): RuntimeInterfaceSnapshot? {
+        if (encoded.isNullOrBlank() || encoded.length > MAX_CHARS) return null
+        return runCatching {
+            val parsed = json.decodeFromString(RuntimeInterfaceSnapshot.serializer(), encoded)
+            if (parsed.version != 1 || parsed.kind != expectedKind.name ||
+                parsed.capturedAtMillis <= 0L || parsed.callerUserId < 0 ||
+                parsed.packages.size > MAX_PACKAGES
+            ) return@runCatching null
+            sanitize(parsed)
+        }.getOrNull()
+    }
+
+    private fun sanitize(snapshot: RuntimeInterfaceSnapshot) = snapshot.copy(
+        source = snapshot.source.take(64),
+        callerPackage = snapshot.callerPackage.take(240),
+        packages = snapshot.packages.asSequence()
+            .filter(PackageIdentity::valid)
+            .distinct()
+            .take(MAX_PACKAGES)
+            .toList()
+    )
+}
