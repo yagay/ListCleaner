@@ -219,7 +219,7 @@ internal object SystemEffectPreview {
                 SystemProbeScenario.PDF -> "pdf"
                 else -> "txt"
             }
-            val file = File(folder, "list-cleaner-demo-$"+"{index}.$"+"extension")
+            val file = File(folder, "list-cleaner-demo-"+index+"."+extension)
             when (scenario) {
                 SystemProbeScenario.IMAGE -> {
                     val bitmap = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888)
@@ -239,7 +239,7 @@ internal object SystemEffectPreview {
                 }
                 else -> file.writeText(context.getString(R.string.system_preview_example_text))
             }
-            FileProvider.getUriForFile(context, "$"+"{context.packageName}.preview-files", file)
+            FileProvider.getUriForFile(context, context.packageName + ".preview-files", file)
         }
     }
 }
