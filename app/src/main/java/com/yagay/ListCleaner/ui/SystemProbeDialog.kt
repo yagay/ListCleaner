@@ -51,7 +51,14 @@ internal fun SystemProbeDialog(
             ?: SystemProbeScenario.TEXT)
     }
     var scenarioMenu by remember { mutableStateOf(false) }
-    var showDiagnostics by remember(request) { mutableStateOf(false) }
+    // Document open/save registration results should be immediately inspectable even
+    // when the OEM DocumentsUI does not expose a matching-roots callback.
+    // They remain clearly labelled as API candidates, never final visible entries.
+    var showDiagnostics by remember(request) {
+        mutableStateOf(request.entryKind in setOf(
+            IntentKind.OPEN_DOCUMENT, IntentKind.CREATE_DOCUMENT,
+        ))
+    }
     var showDetails by remember(request) { mutableStateOf(false) }
 
     val choices = request.entryKind?.let(::availableProbeScenarios).orEmpty()
