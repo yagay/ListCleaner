@@ -112,16 +112,28 @@ internal fun SystemProbeDialog(
     } == true
     // PM captures now carry the queried Intent action. Reject snapshots from a
     // different action even if they arrived during the same time window.
-    val expectedAction = request.entryKind?.let {
-        SystemEffectPreview.queryIntent(context, it, scenario).let { intent ->
-            (intent.selector ?: intent).action
-        }
-    }
+    // Service-only entries (including Credential) may have no preview Intent.
+    // Build an intent only for an actual PackageManager runtime capture.
+    val expectedAction = if (runtimeSnapshot?.source == "PACKAGE_MANAGER_FILTERED_RETURN") {
+        runCatching {
+            request.entryKind?.let { kind ->
+                SystemEffectPreview.queryIntent(context, kind, scenario).let { intent ->
+                    (intent.selector ?: intent).action
+                }
+            }
+        }.getOrNull()
+    } else null
     val actionMatches = runtimeSnapshot?.let { snapshot ->
         snapshot.source != "PACKAGE_MANAGER_FILTERED_RETURN" ||
             (expectedAction != null && snapshot.requestAction == expectedAction)
     } == true
-    val runtimeAvailable = runtimeRecent && runtimeForAttempt && actionMatches && !diagnostic
+    // Manager APIs have no launchable preview Activity. Their captured
+    // post-filter result can still be inspected as a recent observation.
+    val managerObservation = request.entryKind in setOf(
+        IntentKind.ACCESSIBILITY, IntentKind.PRINT, IntentKind.CREDENTIAL_PROVIDER
+    ) && runtimeSnapshot?.source in setOf("SYSTEM_MANAGER_RETURN", "CREDENTIAL_MANAGER_RETURN")
+    val runtimeAvailable = runtimeRecent && (runtimeForAttempt || managerObservation) &&
+        actionMatches && !diagnostic
     val runtimeComponents = runtimeSnapshot?.components.orEmpty()
     // ACTION_OPEN_DOCUMENT / ACTION_CREATE_DOCUMENT resolve a picker Activity,
     // whereas the actual sidebar is built from DocumentsUI roots. Never treat
@@ -132,7 +144,11 @@ internal fun SystemProbeDialog(
         it.userId == request.userId &&
             value.pickerProbeStatus == PickerProbeStatus.OBSERVED_AFTER_TEST
     }
-    val documentRoots = documentSnapshot?.roots.orEmpty().map { root ->
+    // Unknown OEM State.action must not suppress every observed root.
+    // Keep it explicitly unverified rather than reporting an empty system list.
+    val historicalDocumentRoots = if (documentSnapshot == null)
+        value?.matchingRootsSnapshot?.roots.orEmpty() else emptyList()
+    val documentRoots = (documentSnapshot?.roots ?: historicalDocumentRoots).map { root ->
         SystemProbeItem(
             label = root.label,
             packageName = root.packageName,
@@ -387,7 +403,7 @@ internal fun SystemProbeDialog(
                             item(key = "document-root-qualification") {
                                 AdaptiveText(
                                     if (documentSnapshot == null)
-                                        "No DocumentsUI roots captured during this test. Intent handlers under Show API are not document locations."
+                                        "No request-matched DocumentsUI roots captured. Any available historical roots are unverified and may differ from this Open/Save screen."
                                     else
                                         "DocumentsUI returned roots. Final Open/Save sidebar entries may still differ due to the request action, MIME type and root capabilities.",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,

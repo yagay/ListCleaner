@@ -215,8 +215,11 @@ internal object SystemEntryProbe {
         return when (kind.previewAuthority()) {
             PreviewAuthority.PICKER_PRIVATE -> {
                 val observed = previouslyObservedDocumentRoots(context)
+                // Preserve unknown-action snapshots as historical evidence; the
+                // verifier and UI must not misrepresent them as a matched request.
                 val matching = matchingRootsFromDocumentsUi(context)?.takeIf {
-                    it.requestKind == kind.name || kind == IntentKind.DOCUMENT_ROOT
+                    it.requestKind == kind.name || it.requestKind == "UNKNOWN" ||
+                        kind == IntentKind.DOCUMENT_ROOT
                 }
                 if (kind == IntentKind.DOCUMENT_ROOT) {
                     SystemProbeResult(
