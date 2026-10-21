@@ -32,6 +32,34 @@ internal object HookCallIdentity {
         return args.getOrNull(callerIndex) as? Int ?: binderUid
     }
 
+    /**
+     * Identify the queried Android user, which is not necessarily the caller's user.
+     * AOSP queryIntent*Internal uses (..., int userId, int callingUid, ...), while
+     * AsUser and binder-level queryIntent* interfaces carry an explicit last userId.
+     * Unknown/ambiguous signatures return null, allowing the Hook to fail open.
+     */
+    fun packageManagerTargetUserId(
+        methodName: String,
+        parameterTypeNames: List<String>,
+        args: List<Any?>,
+    ): Int? {
+        val intentIndex = parameterTypeNames.indexOf("android.content.Intent")
+        if (intentIndex < 0) return null
+        val intIndexes = parameterTypeNames.indices.filter { index ->
+            index > intentIndex && parameterTypeNames[index] == "int"
+        }
+        val chosen = when {
+            methodName.endsWith("Internal") ->
+                intIndexes.firstOrNull().takeIf { intIndexes.size >= 2 }
+            methodName.endsWith("AsUser") -> intIndexes.lastOrNull()
+            methodName.startsWith("queryIntent") || methodName.startsWith("queryBroadcast") ->
+                // Binder-level signatures carry the target user as the final int parameter.
+                intIndexes.lastOrNull()?.takeIf { it == parameterTypeNames.lastIndex }
+            else -> null
+        } ?: return null
+        return (args.getOrNull(chosen) as? Int)?.takeIf { it in 0..21474 }
+    }
+
     fun serviceCallerUid(
         methodName: String,
         parameterTypeNames: List<String>,
