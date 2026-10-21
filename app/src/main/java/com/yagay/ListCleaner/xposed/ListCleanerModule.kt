@@ -77,8 +77,10 @@ class ListCleanerModule : XposedModule() {
         set(value) { primarySnapshot = value }
 
     private fun snapshotForUser(userId: Int): RuntimeRuleSnapshot {
-        if (userId == 0) return snapshot
-        return scopedSnapshots[userId] ?: snapshot.copy(
+        // Never recurse through the active per-query ThreadLocal: a nested cross-user call
+        // must resolve from the immutable base for that specific user.
+        if (userId == 0) return primarySnapshot
+        return scopedSnapshots[userId] ?: primarySnapshot.copy(
             configured = emptySet(),
             displayMode = DisplayMode.SHOW_ALL,
             priorities = PriorityConfig(),
