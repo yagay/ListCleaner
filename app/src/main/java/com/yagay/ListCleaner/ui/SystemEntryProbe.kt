@@ -6,6 +6,10 @@ import android.content.Intent
 import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
+import android.content.pm.ServiceInfo
+import com.yagay.ListCleaner.domain.SYSTEM_SERVICE_ENTRY_DEFINITIONS
+import com.yagay.ListCleaner.domain.webTargetKind
+import org.xmlpull.v1.XmlPullParser
 import android.appwidget.AppWidgetManager
 import android.os.Process
 import android.provider.DocumentsContract
@@ -22,6 +26,7 @@ internal data class SystemProbeRequest(
     val entryKind: IntentKind? = null,
     val componentKind: CleanupKind? = null,
     val userId: Int,
+    val scenario: SystemProbeScenario? = null,
     val focusPackage: String? = null,
     val focusClass: String? = null,
 ) {
@@ -70,7 +75,7 @@ internal object SystemEntryProbe {
         }
         return try {
             val kind = request.entryKind
-            if (kind != null) probeEntry(context, kind) else probeComponent(
+            if (kind != null) probeEntry(context, kind, request.scenario ?: defaultProbeScenario(kind)) else probeComponent(
                 context, requireNotNull(request.componentKind)
             )
         } catch (_: SecurityException) {
@@ -91,7 +96,9 @@ internal object SystemEntryProbe {
     )
 
     @Suppress("DEPRECATION")
-    private fun probeEntry(context: Context, kind: IntentKind): SystemProbeResult {
+    private fun probeEntry(
+        context: Context, kind: IntentKind, scenario: SystemProbeScenario
+    ): SystemProbeResult {
         val pm = context.packageManager
         return when (kind) {
             IntentKind.DIRECT_SHARE, IntentKind.SHORTCUT_ITEM, IntentKind.LAUNCHER_SHORTCUT,
@@ -121,47 +128,119 @@ internal object SystemEntryProbe {
                     })
             }
             IntentKind.DOCUMENT_PROVIDER, IntentKind.PHOTO_SOURCE -> {
-                val action = if (kind == IntentKind.DOCUMENT_PROVIDER) DocumentsContract.PROVIDER_INTERFACE
-                             else "android.content.action.CLOUD_MEDIA_PROVIDER"
+                val action = if (kind == IntentKind.DOCUMENT_PROVIDER)
+                    DocumentsContract.PROVIDER_INTERFACE else "android.content.action.CLOUD_MEDIA_PROVIDER"
                 result(R.string.system_probe_source_providers, R.string.system_probe_provider_notice,
-                    pm.queryIntentContentProviders(Intent(action), PackageManager.GET_META_DATA)
-                        .mapNotNull { ri ->
-                            val provider = ri.providerInfo ?: return@mapNotNull null
-                            SystemProbeItem(
-                                ri.loadLabel(pm)?.toString().orEmpty().ifBlank { provider.name },
-                                provider.packageName, provider.name
-                            )
-                        })
+                    pm.queryIntentContentProviders(
+                        Intent(action),
+                        PackageManager.GET_META_DATA or PackageManager.MATCH_ALL,
+                    ).mapNotNull { ri ->
+                        val provider = ri.providerInfo ?: return@mapNotNull null
+                        if (kind == IntentKind.PHOTO_SOURCE &&
+                            provider.readPermission !=
+                            "com.android.providers.media.permission.MANAGE_CLOUD_MEDIA_PROVIDERS"
+                        ) return@mapNotNull null
+                        SystemProbeItem(
+                            ri.loadLabel(pm)?.toString().orEmpty().ifBlank { provider.name },
+                            provider.packageName, provider.name
+                        )
+                    })
+            }
+            IntentKind.NFC_HCE -> {
+                val candidates = SYSTEM_SERVICE_ENTRY_DEFINITIONS
+                    .filter { it.kind == IntentKind.NFC_HCE }
+                    .flatMap { definition ->
+                        pm.queryIntentServices(Intent(definition.action),
+                            PackageManager.GET_META_DATA or PackageManager.MATCH_ALL)
+                            .mapNotNull { ri ->
+                                val service = ri.serviceInfo ?: return@mapNotNull null
+                                if (!validService(service, definition)) return@mapNotNull null
+                                val onHost = definition.action ==
+                                    "android.nfc.cardemulation.action.HOST_APDU_SERVICE"
+                                if (!hasStaticPaymentAidGroup(pm, service, onHost)) return@mapNotNull null
+                                SystemProbeItem(
+                                    ri.loadLabel(pm)?.toString().orEmpty().ifBlank { service.name },
+                                    service.packageName, service.name
+                                )
+                            }
+                    }
+                result(R.string.system_probe_source_services, R.string.system_probe_nfc_notice, candidates)
             }
             IntentKind.AUTOFILL, IntentKind.CREDENTIAL_PROVIDER, IntentKind.NOTIFICATION_LISTENER,
             IntentKind.VPN, IntentKind.PRINT, IntentKind.WALLPAPER, IntentKind.DREAM,
-            IntentKind.NFC_HCE, IntentKind.CALL_SCREENING -> {
-                result(R.string.system_probe_source_services, R.string.system_probe_service_notice,
-                    pm.queryIntentServices(Intent(kind.action), PackageManager.GET_META_DATA)
+            IntentKind.CALL_SCREENING -> {
+                val defs = SYSTEM_SERVICE_ENTRY_DEFINITIONS.filter { it.kind == kind }
+                val candidates = defs.flatMap { definition ->
+                    pm.queryIntentServices(Intent(definition.action),
+                        PackageManager.GET_META_DATA or PackageManager.MATCH_ALL)
                         .mapNotNull { ri ->
                             val service = ri.serviceInfo ?: return@mapNotNull null
+                            if (!validService(service, definition)) return@mapNotNull null
                             SystemProbeItem(
                                 ri.loadLabel(pm)?.toString().orEmpty().ifBlank { service.name },
                                 service.packageName, service.name
                             )
-                        })
+                        }
+                }
+                result(R.string.system_probe_source_services, R.string.system_probe_service_notice,
+                    if (kind.isPackageScopedEntry()) candidates.distinctBy { it.packageName }
+                    else candidates)
             }
             else -> {
                 // Same concrete test intent used by the original Android chooser button.
-                val intent = SystemEffectPreview.queryIntent(context, kind)
+                val intent = SystemEffectPreview.queryIntent(context, kind, scenario)
                 val flags = if (kind == IntentKind.HOME || kind == IntentKind.ASSISTANT)
                     0 else PackageManager.MATCH_DEFAULT_ONLY
-                result(R.string.system_probe_source_activities, R.string.system_probe_pm_notice,
-                    pm.queryIntentActivities(intent, flags).mapNotNull { ri ->
-                        val activity = ri.activityInfo ?: return@mapNotNull null
-                        SystemProbeItem(
-                            ri.loadLabel(pm)?.toString().orEmpty().ifBlank { activity.name },
-                            activity.packageName, activity.name
-                        )
-                    })
+                val candidates = pm.queryIntentActivities(intent, flags).mapNotNull { ri ->
+                    val activity = ri.activityInfo ?: return@mapNotNull null
+                    if (!activity.enabled || activity.applicationInfo?.enabled != true) return@mapNotNull null
+                    if (kind == IntentKind.BROWSER && ri.webTargetKind() != IntentKind.BROWSER)
+                        return@mapNotNull null
+                    SystemProbeItem(
+                        ri.loadLabel(pm)?.toString().orEmpty().ifBlank { activity.name },
+                        activity.packageName, activity.name
+                    )
+                }
+                result(
+                    R.string.system_probe_source_activities,
+                    when (kind) {
+                        IntentKind.HOME, IntentKind.BROWSER, IntentKind.ASSISTANT ->
+                            R.string.system_probe_role_notice
+                        IntentKind.OPEN_DOCUMENT, IntentKind.CREATE_DOCUMENT ->
+                            R.string.system_probe_limited_notice
+                        else -> R.string.system_probe_pm_notice
+                    },
+                    if (kind.isPackageScopedEntry()) candidates.distinctBy { it.packageName }
+                    else candidates
+                )
             }
         }
     }
+
+    private fun validService(
+        service: ServiceInfo,
+        definition: com.yagay.ListCleaner.domain.SystemServiceEntryDefinition,
+    ): Boolean = service.enabled && service.applicationInfo?.enabled == true &&
+        definition.acceptsPermission(service.permission)
+
+    /** Same manifest payment filter used by ListCleaner's NFC discovery fallback. */
+    private fun hasStaticPaymentAidGroup(pm: PackageManager, service: ServiceInfo, onHost: Boolean): Boolean =
+        runCatching {
+            val meta = if (onHost) "android.nfc.cardemulation.host_apdu_service"
+                else "android.nfc.cardemulation.off_host_apdu_service"
+            service.loadXmlMetaData(pm, meta)?.use { parser ->
+                while (parser.eventType != XmlPullParser.END_DOCUMENT) {
+                    if (parser.eventType == XmlPullParser.START_TAG && parser.name == "aid-group") {
+                        val group = parser.getAttributeValue(
+                            "http://schemas.android.com/apk/res/android", "category"
+                        ) ?: parser.getAttributeValue(null, "category")
+                        if (group == "payment") return@use true
+                    }
+                    parser.next()
+                }
+                false
+            } ?: false
+        }.getOrDefault(false)
 
     @Suppress("DEPRECATION")
     private fun probeComponent(context: Context, kind: CleanupKind): SystemProbeResult {
