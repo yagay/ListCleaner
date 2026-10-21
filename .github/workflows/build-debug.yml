@@ -56,11 +56,6 @@ jobs:
         with:
           persist-credentials: false
 
-      # Keep an exact source archive of the tested test3 commit for reproducibility.
-      - name: Archive complete test3 source
-        if: github.ref == 'refs/heads/test3'
-        run: git archive --format=zip --output=ListCleaner-test3-source.zip HEAD
-
       - name: Check source localization
         run: python3 tools/check-source-localization.py
 
@@ -85,15 +80,6 @@ jobs:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
-      - name: Restore Android SDK cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ${{ env.ANDROID_HOME }}/platforms/android-37.0
-            ${{ env.ANDROID_HOME }}/build-tools/36.0.0
-            ${{ env.ANDROID_HOME }}/cmdline-tools/23.0
-          key: android-sdk-${{ runner.os }}-api37-buildtools36-cmd23-v1
-
       - name: Set up Android SDK
         uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
         with:
@@ -111,7 +97,7 @@ jobs:
                 ! -x "${ANDROID_HOME}/build-tools/36.0.0/aapt2" ]]; then
             "$sdk_manager" --channel=3 "platforms;android-37.0" "build-tools;36.0.0" 2>&1 | tee sdk-install.log
           else
-            echo "Android SDK platform and build-tools restored from cache"
+            echo "Android SDK platform and build-tools already installed; skipping download"
           fi
           test -s "${ANDROID_HOME}/platforms/android-37.0/android.jar"
           test -x "${ANDROID_HOME}/build-tools/36.0.0/aapt2"
@@ -121,25 +107,18 @@ jobs:
           set -o pipefail
           bash ./gradlew --no-daemon --build-cache --console=plain --stacktrace :app:assembleDebug 2>&1 | tee debug-build.log
 
-      - name: Upload tested source
-        if: always() && github.ref == 'refs/heads/test3'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: ListCleaner-test3-source-${{ github.sha }}
-          path: ListCleaner-test3-source.zip
-          if-no-files-found: error
-          retention-days: 14
-
       - name: Upload Debug APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ListCleaner-debug-${{ github.run_number }}-${{ github.run_attempt }}
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+          compression-level: 0
           retention-days: 14
 
+      # Keep diagnostics only for failed builds. Successful runs publish one artifact.
       - name: Upload build diagnostics
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: debug-build-log-${{ github.run_number }}-${{ github.run_attempt }}
