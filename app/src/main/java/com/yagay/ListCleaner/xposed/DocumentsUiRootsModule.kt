@@ -56,7 +56,10 @@ class DocumentsUiRootsModule : XposedModule() {
         var count = 0
         CACHE_CLASSES.forEach { className ->
             val klass = runCatching { Class.forName(className, false, param.classLoader) }.getOrNull()
-                ?: return@forEach
+            if (klass == null) {
+                record("CACHE_CLASS_MISSING name=$className")
+                return@forEach
+            }
             ReflectionAccess.hierarchyMethods(klass)
                 .filter {
                     it.name in ROOT_METHODS && !Modifier.isStatic(it.modifiers) &&
@@ -117,7 +120,10 @@ class DocumentsUiRootsModule : XposedModule() {
             val chosen = settings.selected(IntentKind.DOCUMENT_ROOT)
             val priorities = settings.priorities(IntentKind.DOCUMENT_ROOT)
             record("QUERY kind=DOCUMENT_ROOT count=" + roots.size + " identified=" + available.size)
-            if (settings.displayMode == DisplayMode.SHOW_ALL ||
+            // Inventory and authority-specific cache lookups are not sidebar presentation
+            // queries. Never mutate those shared caches: they may feed other callers.
+            if (methodName != "getMatchingRootsBlocking" ||
+                settings.displayMode == DisplayMode.SHOW_ALL ||
                 (chosen.isEmpty() && priorities.isEmpty())) return@runCatching original
 
             val filtered = roots.filter { item ->
@@ -233,6 +239,11 @@ class DocumentsUiRootsModule : XposedModule() {
         const val MAX_ROOTS = 512
         val UI_PACKAGES = setOf("com.android.documentsui", "com.google.android.documentsui")
         val CACHE_CLASSES = listOf(
+            // AOSP versions differ: older branches call this RootsCache; newer
+            // DocumentsUI code uses ProvidersCache for root discovery.
+            "com.android.documentsui.roots.ProvidersCache",
+            "com.android.documentsui.ProvidersCache",
+            "com.android.documentsui.base.ProvidersCache",
             "com.android.documentsui.roots.RootsCache",
             "com.android.documentsui.RootsCache",
             "com.android.documentsui.base.RootsCache",
