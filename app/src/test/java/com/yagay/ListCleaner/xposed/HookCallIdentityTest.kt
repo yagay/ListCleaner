@@ -7,6 +7,42 @@ import org.junit.Test
 
 class HookCallIdentityTest {
     @Test
+    fun crossProfileInternalQueryUsesTargetUserRatherThanCallerUid() {
+        val types = listOf("android.content.Intent", "java.lang.String", "long",
+            "int", "int", "int", "boolean")
+        val args = listOf<Any?>(null, null, 0L, 10, 10345, 5634, false)
+        assertEquals(10, HookCallIdentity.packageManagerTargetUserId(
+            "queryIntentServicesInternal", types, args,
+        ))
+        assertEquals(10345, HookCallIdentity.packageManagerCallerUid(
+            "queryIntentServicesInternal", types, args, binderUid = 1000
+        ))
+    }
+
+    @Test
+    fun asUserQueryTargetsWorkProfileInsteadOfItsPersonalSpaceCaller() {
+        val types = listOf("android.content.Intent", "java.lang.String", "long", "int")
+        val args = listOf<Any?>(null, null, 0L, 10)
+        assertEquals(10, HookCallIdentity.packageManagerTargetUserId(
+            "queryIntentActivitiesAsUser", types, args,
+        ))
+    }
+
+    @Test
+    fun ambiguousQueryReturnsNullRatherThanMixingSpacePolicies() {
+        assertEquals(null, HookCallIdentity.packageManagerTargetUserId(
+            "queryIntentServicesInternal",
+            listOf("android.content.Intent", "int"),
+            listOf(null, 42),
+        ))
+        assertEquals(null, HookCallIdentity.packageManagerTargetUserId(
+            "queryIntentServices",
+            listOf("android.content.Intent", "int", "boolean"),
+            listOf(null, 42, false),
+        ))
+    }
+
+    @Test
     fun modernShortcutCallUsesExplicitLauncherCallerUidAndFlags() {
         val types = listOf(
             "int",
