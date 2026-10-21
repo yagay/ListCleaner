@@ -179,7 +179,7 @@ class DocumentsUiRootsModule : XposedModule() {
             }
     }
 
-    private fun detectRequestKind(args: Array<out Any?>): String {
+    private fun detectRequestKind(args: List<Any?>): String {
         // Read the DocumentsUI State action by its own symbolic constants.
         // Never assume OEM forks reuse AOSP's numeric action values.
         args.forEach { arg ->
