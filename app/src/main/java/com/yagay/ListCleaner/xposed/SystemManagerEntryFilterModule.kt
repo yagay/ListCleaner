@@ -39,6 +39,9 @@ class SystemManagerEntryFilterModule : XposedModule() {
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
+    private val runtimeCapture by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        RuntimeInterfaceCaptureWriter(preferences, ::record)
+    }
     private val policyProvider by lazy(LazyThreadSafetyMode.PUBLICATION) {
         EntryPolicyProvider(
             preferences = preferences,
@@ -133,11 +136,21 @@ class SystemManagerEntryFilterModule : XposedModule() {
         val original = chain.proceed()
         observeComponentResult(original, kind, componentOf)
         val policy = policyProvider.snapshot(AndroidUid.userId(caller.uid))
-        if (!shouldFilter(caller, policy)) {
+        val returned = if (!shouldFilter(caller, policy)) {
             record("AUTHORITY_OBSERVED kind=$kind callerUid=${caller.uid} filterAllowed=false")
-            return@Hooker original
+            original
+        } else {
+            filterComponentResult(original, kind, caller.uid, policy, componentOf)
         }
-        filterComponentResult(original, kind, caller.uid, policy, componentOf)
+        if (kind == IntentKind.PRINT || kind == IntentKind.ACCESSIBILITY) {
+            listResults.extract(returned)?.let { extracted ->
+                runtimeCapture.publish(
+                    kind, "SYSTEM_MANAGER_RETURN", AndroidUid.userId(caller.uid),
+                    extracted.values.mapNotNull { item -> componentOf(item)?.packageName },
+                )
+            }
+        }
+        returned
     }
 
     private fun credentialHooker() = XposedInterface.Hooker { chain ->
@@ -145,34 +158,32 @@ class SystemManagerEntryFilterModule : XposedModule() {
         val original = chain.proceed()
         val result = listResults.extract(original) ?: return@Hooker original
         val values = result.values
-        if (values.isEmpty()) return@Hooker original
 
         values.forEach { value -> credentialComponent(value)?.let { component ->
             RuntimeObservedEntryStore.observePackage(IntentKind.CREDENTIAL_PROVIDER, component.packageName)
         } }
 
         val policy = policyProvider.snapshot(AndroidUid.userId(caller.uid))
-        if (!shouldFilter(caller, policy)) {
+        val filtered = if (!shouldFilter(caller, policy)) {
             record("AUTHORITY_OBSERVED kind=${IntentKind.CREDENTIAL_PROVIDER} callerUid=${caller.uid} filterAllowed=false count=${values.size}")
-            return@Hooker original
+            values
+        } else {
+            val selected = policy.selectedPackages(IntentKind.CREDENTIAL_PROVIDER)
+            if (policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) values
+            else values.filter { value ->
+                val component = credentialComponent(value) ?: return@filter true
+                policy.displayMode.includes(component.packageName in selected, selected.isNotEmpty())
+            }
         }
-
-        val selectedPackages = policy.selectedPackages(IntentKind.CREDENTIAL_PROVIDER)
-        if (policy.displayMode == DisplayMode.SHOW_ALL || selectedPackages.isEmpty()) {
-            record("MANAGER_HIT kind=${IntentKind.CREDENTIAL_PROVIDER} callerUid=${caller.uid} count=${values.size}")
-            return@Hooker original
-        }
-
-        val filtered = values.filter { value ->
-            val component = credentialComponent(value) ?: return@filter true
-            policy.displayMode.includes(component.packageName in selectedPackages, selectedPackages.isNotEmpty())
-        }
-        if (filtered.size == values.size) return@Hooker original
-        record(
-            "CREDENTIAL_FILTER callerUid=${caller.uid} before=${values.size} after=${filtered.size} " +
-                "selectedPackages=${selectedPackages.size}"
+        runtimeCapture.publish(
+            IntentKind.CREDENTIAL_PROVIDER, "CREDENTIAL_MANAGER_RETURN",
+            AndroidUid.userId(caller.uid),
+            filtered.mapNotNull { credentialComponent(it)?.packageName },
         )
-        result.rebuild(filtered)
+        if (filtered.size == values.size) original else {
+            record("CREDENTIAL_FILTER callerUid=${caller.uid} before=${values.size} after=${filtered.size}")
+            result.rebuild(filtered)
+        }
     }
 
     private fun imeOuterHooker() = XposedInterface.Hooker { chain ->

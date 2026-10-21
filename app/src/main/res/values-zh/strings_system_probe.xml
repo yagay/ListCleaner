@@ -79,4 +79,14 @@
     <string name="system_probe_no_matched_results">尚未捕获到系统根目录匹配查询。请打开系统选择器后返回；下方可能展示较早观察到的第三方来源。</string>
     <string name="system_probe_system_root">系统来源 · %1$s</string>
     <string name="system_probe_third_party_root">第三方来源 · %1$s</string>
+    <string name="system_probe_test_capture">本次测试打开后，DocumentsUI 返回的来源</string>
+    <string name="system_probe_test_waiting">本次测试尚未取得 DocumentsUI 匹配来源的 Hook 返回</string>
+    <string name="system_probe_test_history">当前只有之前的 DocumentsUI 观察结果</string>
+    <string name="system_probe_test_no_hook">尚未捕获 DocumentsUI 匹配来源结果</string>
+    <string name="system_probe_test_root_count">返回的来源：%1$d 项（不能证明每项最终绘制）</string>
+    <string name="system_probe_test_captured_at">本应用打开选择器后，于 %1$s 观察到</string>
+    <string name="system_probe_historical_snapshot">历史匹配来源快照：%1$d 项（不是本次结果）</string>
+    <string name="system_probe_runtime_recent">最近一次系统 Hook 返回：%1$d 个应用</string>
+    <string name="system_probe_runtime_historical">历史 Hook 返回（非当前）：%1$d 个应用</string>
+    <string name="system_probe_runtime_scope">来源：%1$s 的过滤后返回值；不能据此认定界面已绘制所有条目</string>
 </resources>

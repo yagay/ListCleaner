@@ -66,6 +66,11 @@ internal object SystemEffectPreview {
             show(context, R.string.system_preview_unavailable)
             return
         }
+        val tracked = kind in setOf(
+            IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT,
+            IntentKind.CREATE_DOCUMENT, IntentKind.DOCUMENT_ROOT,
+        )
+        val sessionStore = if (tracked) PickerProbeSessionStore(context) else null
         runCatching {
             val target = buildIntent(context, kind, scenario)
             if (route == SystemPreviewRoute.SETTINGS) {
@@ -74,8 +79,13 @@ internal object SystemEffectPreview {
             val launch = if (route == SystemPreviewRoute.CHOOSER)
                 Intent.createChooser(target, context.getString(R.string.system_preview_chooser_title))
             else target
+            // Record before launch so a fast DocumentsUI hook cannot race the marker.
+            sessionStore?.begin(PickerProbeSession(
+                kind, scenario, selectedUserId, System.currentTimeMillis()
+            ))
             context.startActivity(launch)
         }.onFailure { error ->
+            sessionStore?.clear()
             if (error is ActivityNotFoundException || error is SecurityException) {
                 show(context, R.string.system_preview_no_handler)
             } else {
