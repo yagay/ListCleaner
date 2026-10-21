@@ -7,7 +7,8 @@
     <string name="system_probe_target_missing">本次查询未包含目标条目（%1$s），不能据此断定其他应用能否看到它</string>
     <string name="system_probe_empty">该接口没有向列表清理返回任何条目。</string>
     <string name="system_probe_scope_note">这里显示的是 Android 系统对列表清理所在用户、以列表清理调用身份返回的真实接口结果。模块可能对管理应用免除过滤，因此不能直接证明其他应用或最终系统弹窗看到相同结果。</string>
-    <string name="system_probe_open_system">打开系统选择器</string>
+    <string name="system_probe_open_system">打开系统界面</string>
+    <string name="system_probe_open_picker">打开系统选择器</string>
     <string name="system_probe_close">关闭</string>
     <string name="system_probe_refresh">重新查询</string>
     <string name="system_probe_source_none">没有可访问的公开列表接口</string>
