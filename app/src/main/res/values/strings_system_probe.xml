@@ -79,4 +79,11 @@
     <string name="system_probe_no_matched_results">No matching-roots response has been captured yet. Open the system picker and return here; older third-party observations may be shown below.</string>
     <string name="system_probe_system_root">System source · %1$s</string>
     <string name="system_probe_third_party_root">Third-party source · %1$s</string>
+    <string name="system_probe_test_capture">DocumentsUI returned these roots after this test</string>
+    <string name="system_probe_test_waiting">No matching-roots Hook result received after this test</string>
+    <string name="system_probe_test_history">Only earlier DocumentsUI observations are available</string>
+    <string name="system_probe_test_no_hook">No DocumentsUI matching-roots observations yet</string>
+    <string name="system_probe_test_root_count">Returned roots: %1$d (not proof all were drawn)</string>
+    <string name="system_probe_test_captured_at">Observed at %1$s, after this app opened the picker</string>
+    <string name="system_probe_historical_snapshot">Previous matching-roots snapshot: %1$d entries (not the current test)</string>
 </resources>
