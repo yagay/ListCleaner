@@ -223,7 +223,10 @@ internal fun SystemProbeDialog(
                                 }
                             }
                         }
-                        if (showDetails && !observedThisTest) {
+                        // Historical provider observations are useful even when the
+                        // current DocumentsUI version exposes no matching-roots callback.
+                        // Keep them distinct from verified current-test results.
+                        if (!observedThisTest) {
                             if (matching != null) {
                                 item(key = "previous-matching") {
                                     AdaptiveText(
