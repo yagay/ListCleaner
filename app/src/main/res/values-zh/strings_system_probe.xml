@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="system_probe_title">实际接口列表 · %1$s</string>
+    <string name="system_probe_title">系统界面与接口核对 · %1$s</string>
     <string name="system_probe_loading">正在查询 Android 系统接口…</string>
     <string name="system_probe_count">接口返回：%1$d 项</string>
     <string name="system_probe_target_found">本次查询包含目标条目（%1$s）</string>
     <string name="system_probe_target_missing">本次查询未包含目标条目（%1$s），不能据此断定其他应用能否看到它</string>
     <string name="system_probe_empty">该接口没有向列表清理返回任何条目。</string>
     <string name="system_probe_scope_note">这里显示的是 Android 系统对列表清理所在用户、以列表清理调用身份返回的真实接口结果。模块可能对管理应用免除过滤，因此不能直接证明其他应用或最终系统弹窗看到相同结果。</string>
-    <string name="system_probe_open_system">系统原弹窗</string>
+    <string name="system_probe_open_system">打开真实系统界面</string>
     <string name="system_probe_close">关闭</string>
     <string name="system_probe_refresh">重新查询</string>
     <string name="system_probe_source_none">没有可访问的公开列表接口</string>
@@ -55,5 +55,6 @@
     <string name="system_probe_native_only_detail">这不是清理后剩余的应用列表。PackageManager 只能查询潜在处理方，系统选择器还会通过自身接口决定可见来源；不能据此认为清理已生效。请使用下方“系统原弹窗”，以相同测试条件核对真正显示的项目，不能用应用内推算列表冒充。</string>
     <string name="system_probe_candidate_count">接口候选：%1$d（不是实际显示数量）</string>
     <string name="system_probe_registry_count">已注册条目：%1$d（不是实际显示数量）</string>
+    <string name="system_probe_results_capped">仅显示前 %1$d 项，接口总共返回 %2$d 项。</string>
     <string name="system_probe_filtered_comparison">预览专用 Hook 会在支持的 PackageManager 查询上应用规则，但之后系统可能调用其他特权接口或进程内逻辑；当前列表不能单独作为清理生效证明。</string>
 </resources>
