@@ -161,7 +161,7 @@ class DocumentsUiRootsModule : XposedModule() {
                     context.packageManager.resolveContentProvider(authority, 0)
                 }.getOrNull()?.also { providers[authority] = it }
                 val system = provider?.applicationInfo?.flags
-                    ?.and(ApplicationInfo.FLAG_SYSTEM) != 0
+                    ?.and(ApplicationInfo.FLAG_SYSTEM) == ApplicationInfo.FLAG_SYSTEM
                 val label = ReflectionAccess.readField(root, "title", "mTitle")
                     ?.toString()?.trim()?.take(160)?.takeIf(String::isNotBlank)
                     ?: authority.take(160)
