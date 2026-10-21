@@ -38,7 +38,7 @@ class RuntimeInterfaceSnapshotCodecTest {
         val value = RuntimeInterfaceSnapshot(
             kind = IntentKind.PRINT.name, source = "SYSTEM_MANAGER_RETURN",
             callerUserId = 0, capturedAtMillis = 123L,
-            packages = List(RuntimeInterfaceSnapshotCodec.MAX_PACKAGES + 30) { "com.example.pkg$"+"it" },
+            packages = List(RuntimeInterfaceSnapshotCodec.MAX_PACKAGES + 30) { "com.example.pkg" + it },
         )
         val encoded = RuntimeInterfaceSnapshotCodec.encode(value)
         assertTrue(RuntimeInterfaceSnapshotCodec.decode(encoded, IntentKind.PRINT)!!.packages.size
