@@ -49,7 +49,7 @@ internal object PickerProbeVerifier {
             else PickerProbeStatus.NEVER_CAPTURED
         val capturedAfter = snapshot != null &&
             snapshot.userId == userId &&
-            snapshot.capturedAt >= session!!.startedAtMillis - CLOCK_SKEW_MS &&
+            snapshot.capturedAt >= session!!.startedAtMillis &&
             snapshot.capturedAt <= nowMillis + CLOCK_SKEW_MS
         return when {
             capturedAfter -> PickerProbeStatus.OBSERVED_AFTER_TEST
