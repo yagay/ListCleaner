@@ -121,6 +121,9 @@ fun RulesTab(
                 selectedGroup = kind.entryGroup()
                 vm.setFilter(kind)
             },
+            onPreviewKind = { kind ->
+                SystemEffectPreview.launch(prefsContext, kind, vm.selectedSpace.value)
+            },
             onBack = { selectedGroup = null },
             onAllApps = { browseAll = true },
             onComponentKind = { kind ->
@@ -348,6 +351,12 @@ fun RulesTab(
         }
         item(key = "list-summary") {
             SummaryRow(state, shownGroups.size)
+            AdaptiveText(
+                stringResource(R.string.system_preview_explanation),
+                modifier = Modifier.padding(horizontal = 16.dp),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             if (ruleHelpExpanded) WorkspaceHelpSection {
                 AdaptiveText(
                     if (state.filter == null) stringResource(R.string.entry_rules_general_help)
@@ -485,7 +494,12 @@ fun RulesTab(
                             if (deepLinkScoped) vm.setBulkItemLocked(lockScope, component.rule.id, false)
                             else vm.setRuleItemLocked(state.filter, openPreset, component.rule, false)
                         },
-                        onEditTitle = { editingTitle = component }
+                        onEditTitle = { editingTitle = component },
+                        onPreview = {
+                            SystemEffectPreview.launch(
+                                prefsContext, component.rule.kind, vm.selectedSpace.value
+                            )
+                        }
                     )
                 }
             }

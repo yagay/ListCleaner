@@ -16,6 +16,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -410,6 +411,17 @@ fun RootComponentsScreen(
                             color = if (item.blocked != null)
                                 MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    },
+                    trailing = {
+                        AdaptiveIconButton(onClick = {
+                            SystemEffectPreview.launch(prefsContext, item.kind, item.user)
+                        }) {
+                            AdaptiveIcon(
+                                Icons.Rounded.Visibility,
+                                stringResource(R.string.system_preview_action),
+                                Modifier.size(18.dp)
+                            )
+                        }
                     }
                 )
             }

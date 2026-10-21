@@ -34,6 +34,7 @@ internal fun EntryWorkspaceHome(
     selectedGroup: EntryGroup?,
     onGroup: (EntryGroup) -> Unit,
     onKind: (IntentKind) -> Unit,
+    onPreviewKind: (IntentKind) -> Unit = {},
     onBack: () -> Unit,
     onAllApps: () -> Unit,
     onComponentKind: (CleanupKind) -> Unit,
@@ -135,6 +136,13 @@ internal fun EntryWorkspaceHome(
                                 style = MaterialTheme.typography.labelSmall,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        AdaptiveIconButton(onClick = { onPreviewKind(kind) }) {
+                            AdaptiveIcon(
+                                Icons.Rounded.Visibility,
+                                stringResource(R.string.system_preview_action),
+                                Modifier.size(18.dp)
                             )
                         }
                         AdaptiveIcon(Icons.Rounded.ChevronRight, null, Modifier.size(20.dp))
