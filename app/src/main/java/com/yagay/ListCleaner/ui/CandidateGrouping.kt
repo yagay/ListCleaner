@@ -31,8 +31,32 @@ internal object CandidateVisibilityPolicy {
     fun retainAfterRefresh(item: ComponentCandidate, selected: Boolean): Boolean =
         !item.unavailable || selected || isObservedShortcutHistory(item)
 
-    fun visible(item: ComponentCandidate, selected: Boolean, uiFilter: UiFilter): Boolean {
+    fun visible(item: ComponentCandidate, selected: Boolean, uiFilter: UiFilter,
+                preferences: UiPreferences = UiPreferencesRuntime.current,
+                nowMillis: Long = System.currentTimeMillis()): Boolean {
         if (!matchesSelectionFilter(selected, uiFilter)) return false
+        val historical = isObservedShortcutHistory(item)
+        if (historical && !selected) {
+            if (!preferences.showShortcutHistory) return false
+            val days = preferences.historyVisibilityDays
+            if (days > 0) {
+                val seen = item.evidence.firstOrNull { it.startsWith("observedAt=") }
+                    ?.substringAfter('=')?.toLongOrNull() ?: return false
+                if (seen <= 0L || seen > nowMillis || nowMillis - seen > days * 86_400_000L) return false
+            }
+        }
+        if (preferences.candidateSource != UiCandidateSource.ALL) {
+            val matchesSource = when (preferences.candidateSource) {
+                UiCandidateSource.ALL -> true
+                UiCandidateSource.OBSERVED ->
+                    item.evidence.any { it.startsWith("AUTHORITY_OBSERVED ") &&
+                        ("source=recent_runtime" in it || "source=live" in it) }
+                UiCandidateSource.PROACTIVE ->
+                    item.evidence.any { it.startsWith("ACTIVE_SHORTCUT_CANDIDATE ") }
+                UiCandidateSource.HISTORY -> historical
+            }
+            if (!matchesSource) return false
+        }
 
         return when {
             item.isCatalogCandidate -> true
@@ -90,11 +114,12 @@ internal fun filterAppGroups(
     filter: IntentKind?,
     query: String,
     uiFilter: UiFilter,
-    sortMode: UiAppSort = UiAppSort.SELECTED_FIRST
+    sortMode: UiAppSort = UiAppSort.SELECTED_FIRST,
+    preferences: UiPreferences = UiPreferencesRuntime.current,
 ): List<AppGroup> = groups.mapNotNull { group ->
     val matching = group.components.filter { item ->
         val isSelected = item.rule in selected
-        CandidateVisibilityPolicy.visible(item, isSelected, uiFilter) &&
+        CandidateVisibilityPolicy.visible(item, isSelected, uiFilter, preferences) &&
             (filter == null || item.rule.kind == filter) &&
             item.matchesQuery(query)
     }
@@ -117,8 +142,9 @@ internal fun groupCandidates(
     filter: IntentKind?,
     query: String,
     uiFilter: UiFilter,
-    sortMode: UiAppSort = UiAppSort.SELECTED_FIRST
-): List<AppGroup> = filterAppGroups(baseAppGroups(candidates), selected, filter, query, uiFilter, sortMode)
+    sortMode: UiAppSort = UiAppSort.SELECTED_FIRST,
+    preferences: UiPreferences = UiPreferencesRuntime.current,
+): List<AppGroup> = filterAppGroups(baseAppGroups(candidates), selected, filter, query, uiFilter, sortMode, preferences)
 
 fun retainConfiguredCandidates(
     items: List<ComponentCandidate>,

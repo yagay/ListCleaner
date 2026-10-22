@@ -212,7 +212,7 @@ fun RulesTab(
     val baseShownGroups = remember(
         typedOpenPreset, deepLinkHost, state.candidates,
         state.openTypesExplicit.customDefinitions, typedSelected,
-        deepLinkSelected, state.query, state.uiFilter, state.groups
+        deepLinkSelected, state.query, state.uiFilter, state.groups, UiPreferencesRuntime.current
     ) {
         when {
             typedOpenPreset != null -> groupCandidates(
@@ -609,6 +609,7 @@ internal fun SettingsTabContent(
     val fileCheckStatus by vm.fileCheckStatus.collectAsStateWithLifecycle()
     val checkingFile by vm.checkingFile.collectAsStateWithLifecycle()
     var menu by remember { mutableStateOf(false) }
+    val settingsContext = LocalContext.current
     var showAppScopePicker by remember { mutableStateOf(false) }
     if (showScopeDetails) {
         ScopeDialog(state.module, vm::requestScope, vm::refreshModuleStatus) {
@@ -727,6 +728,31 @@ internal fun SettingsTabContent(
                 )
             }
             SettingsSection.ADVANCED -> {
+        PageSectionTitle(stringResource(R.string.lc_diagnostics_export))
+        MaterialSectionCard {
+            MaterialSettingsRow(
+                title = stringResource(R.string.lc_diagnostics_full),
+                supportingText = stringResource(R.string.lc_diagnostics_full_help)
+            ) {
+                AdaptiveSwitch(
+                    checked = UiPreferencesRuntime.current.diagnosticsLevel == UiDiagnosticsLevel.FULL,
+                    onCheckedChange = { full ->
+                        UiPreferencesStore.write(
+                            settingsContext,
+                            UiPreferencesRuntime.current.copy(
+                                diagnosticsLevel = if (full) UiDiagnosticsLevel.FULL else UiDiagnosticsLevel.SUMMARY
+                            )
+                        )
+                    }
+                )
+            }
+            AdaptiveText(
+                stringResource(R.string.lc_diagnostics_summary_help),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
         PageSectionTitle(stringResource(R.string.diagnostic_mode))
         MaterialSectionCard {
                     MaterialSettingsRow(

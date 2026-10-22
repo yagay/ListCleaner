@@ -88,13 +88,21 @@ internal fun SystemProbeDialog(
     // attributed to the current verification attempt.
     var previewLaunchedAt by remember(request) { mutableStateOf<Long?>(null) }
     var scenario by remember(request) {
-        mutableStateOf(request.scenario ?: request.entryKind?.let(::defaultProbeScenario)
-            ?: SystemProbeScenario.TEXT)
+        mutableStateOf(request.scenario ?: request.entryKind?.let {
+            UiPreferencesStore.initialProbeScenario(context, it)
+        } ?: SystemProbeScenario.TEXT)
     }
     var scenarioMenu by remember { mutableStateOf(false) }
     // AOSP separates actual resolver results, provider registries, enabled
     // managers and shortcut history. Switching tabs never changes provenance.
-    var viewMode by remember(request) { mutableStateOf(PreviewListMode.CURRENT) }
+    var viewMode by remember(request) { mutableStateOf(
+        when (UiPreferencesRuntime.current.previewDefault) {
+            UiPreviewDefault.CURRENT -> PreviewListMode.CURRENT
+            UiPreviewDefault.CANDIDATES -> PreviewListMode.CANDIDATES
+            UiPreviewDefault.ENABLED -> PreviewListMode.ENABLED
+            UiPreviewDefault.HISTORY -> PreviewListMode.HISTORY
+        }
+    ) }
     var showDetails by remember(request) { mutableStateOf(false) }
 
     val choices = request.entryKind?.let(::availableProbeScenarios).orEmpty()
@@ -226,6 +234,7 @@ internal fun SystemProbeDialog(
                                         onClick = {
                                             scenarioMenu = false
                                             scenario = choice
+                                            UiPreferencesStore.recordProbeScenario(context, choice)
                                         },
                                     )
                                 }

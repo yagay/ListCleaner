@@ -114,6 +114,7 @@ internal class DiagnosticController(
                     ),
                     rootScanProvider(),
                     rootLastOperationProvider(),
+                    UiPreferencesRuntime.current.diagnosticsLevel,
                 )
                 val ready = requireNotNull(report)
                 withContext(Dispatchers.IO) {

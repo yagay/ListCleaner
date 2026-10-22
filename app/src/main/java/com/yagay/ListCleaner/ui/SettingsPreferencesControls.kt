@@ -165,6 +165,56 @@ internal fun SettingsListControls() {
             )
         ) { UiPreferencesStore.write(context, current.copy(defaultAppType = it)) }
         SettingsChoices(
+            stringResource(R.string.lc_candidate_source), current.candidateSource,
+            listOf(
+                UiCandidateSource.ALL to stringResource(R.string.lc_source_all),
+                UiCandidateSource.OBSERVED to stringResource(R.string.lc_source_observed),
+                UiCandidateSource.PROACTIVE to stringResource(R.string.lc_source_proactive),
+                UiCandidateSource.HISTORY to stringResource(R.string.lc_source_history)
+            )
+        ) { UiPreferencesStore.write(context, current.copy(candidateSource = it)) }
+        MaterialSettingsRow(
+            title = stringResource(R.string.lc_history_show),
+            supportingText = stringResource(R.string.lc_history_help)
+        ) {
+            AdaptiveSwitch(checked = current.showShortcutHistory, onCheckedChange = {
+                UiPreferencesStore.write(context, current.copy(showShortcutHistory = it))
+            })
+        }
+        if (current.showShortcutHistory) {
+            SettingsChoices(
+                stringResource(R.string.lc_history_age), current.historyVisibilityDays,
+                listOf(0 to stringResource(R.string.lc_history_forever),
+                    7 to "7", 30 to "30", 90 to "90")
+            ) { UiPreferencesStore.write(context, current.copy(historyVisibilityDays = it)) }
+        }
+        SettingsChoices(
+            stringResource(R.string.lc_component_start), current.componentStart,
+            listOf(
+                UiComponentStart.CATEGORIES to stringResource(R.string.lc_component_categories),
+                UiComponentStart.ALL_COMPONENTS to stringResource(R.string.lc_component_all)
+            )
+        ) { UiPreferencesStore.write(context, current.copy(componentStart = it)) }
+        SettingsChoices(
+            stringResource(R.string.lc_preview_default), current.previewDefault,
+            listOf(
+                UiPreviewDefault.CURRENT to stringResource(R.string.lc_preview_current),
+                UiPreviewDefault.CANDIDATES to stringResource(R.string.lc_preview_candidates),
+                UiPreviewDefault.ENABLED to stringResource(R.string.lc_preview_enabled),
+                UiPreviewDefault.HISTORY to stringResource(R.string.lc_preview_history)
+            )
+        ) { UiPreferencesStore.write(context, current.copy(previewDefault = it)) }
+        SettingsChoices(
+            stringResource(R.string.lc_preview_scenario), current.probeDefaultScenario,
+            listOf(
+                UiProbeDefaultScenario.SYSTEM to stringResource(R.string.lc_scenario_system),
+                UiProbeDefaultScenario.TEXT to stringResource(R.string.lc_scenario_text),
+                UiProbeDefaultScenario.IMAGE to stringResource(R.string.lc_scenario_image),
+                UiProbeDefaultScenario.PDF to "PDF",
+                UiProbeDefaultScenario.LAST_USED to stringResource(R.string.lc_scenario_last)
+            )
+        ) { UiPreferencesStore.write(context, current.copy(probeDefaultScenario = it)) }
+        SettingsChoices(
             stringResource(R.string.settings_home_columns), current.homeColumns,
             listOf(
                 1 to stringResource(R.string.settings_one_column),
@@ -217,7 +267,12 @@ internal fun SettingsScanControls(vm: MainViewModel) {
     val context = LocalContext.current
     val current = UiPreferencesRuntime.current
     val busy by vm.componentBusy.collectAsStateWithLifecycle()
+    var showScanDetails by remember { mutableStateOf(false) }
     MaterialSectionCard {
+        AdaptiveText(
+            stringResource(R.string.lc_root_scan_group),
+            fontWeight = FontWeight.Medium
+        )
         SettingsChoices(
             stringResource(R.string.settings_scan_mode), current.scanMode,
             listOf(
@@ -240,6 +295,16 @@ internal fun SettingsScanControls(vm: MainViewModel) {
                 UiPreferencesStore.write(context, current.copy(appLinkEnrichment = it))
             })
         }
+        SettingsChoices(
+            stringResource(R.string.lc_root_after_change), current.componentRefresh,
+            listOf(
+                UiComponentRefresh.CHANGED_ONLY to stringResource(R.string.lc_root_changed_only),
+                UiComponentRefresh.FULL to stringResource(R.string.lc_root_full_refresh)
+            )
+        ) { UiPreferencesStore.write(context, current.copy(componentRefresh = it)) }
+        AdaptiveText(stringResource(R.string.lc_root_scan_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
         AdaptiveText(
             stringResource(R.string.lc_proactive_scan_title),
             fontWeight = FontWeight.Medium
@@ -301,7 +366,22 @@ internal fun SettingsScanControls(vm: MainViewModel) {
         AdaptiveOutlinedButton(
             modifier = Modifier.fillMaxWidth(), enabled = !busy,
             onClick = vm::refreshComponents
-        ) { AdaptiveText(stringResource(R.string.settings_scan_now)) }
+        ) { AdaptiveText(stringResource(R.string.lc_root_scan_now)) }
+        AdaptiveOutlinedButton(
+            modifier = Modifier.fillMaxWidth(), enabled = !busy,
+            onClick = vm::refreshAllCategories
+        ) { AdaptiveText(stringResource(R.string.lc_scan_all_now)) }
+        AdaptiveOutlinedButton(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { showScanDetails = !showScanDetails }
+        ) { AdaptiveText(stringResource(R.string.lc_scan_details)) }
+        if (showScanDetails) {
+            AdaptiveText(
+                vm.lastScanDetails(),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

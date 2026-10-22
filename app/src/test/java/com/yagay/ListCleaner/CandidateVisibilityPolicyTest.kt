@@ -6,6 +6,8 @@ import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.ENTRY_SURFACE_DEFINITIONS
 import com.yagay.ListCleaner.domain.EntryAvailabilityMode
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.ui.UiPreferences
+import com.yagay.ListCleaner.ui.UiCandidateSource
 import com.yagay.ListCleaner.ui.CandidateVisibilityPolicy
 import com.yagay.ListCleaner.ui.UiFilter
 import org.junit.Assert.assertFalse
@@ -67,6 +69,40 @@ class CandidateVisibilityPolicyTest {
         assertTrue(CandidateVisibilityPolicy.visible(historical, selected = false, uiFilter = UiFilter.HIDE_SELECTED))
         assertFalse(CandidateVisibilityPolicy.visible(historical, selected = false, uiFilter = UiFilter.SHOW_SELECTED))
         assertFalse(CandidateVisibilityPolicy.visible(historical, selected = false, uiFilter = UiFilter.LOCKED))
+    }
+
+    @Test fun historicalShareSettingsFilterWithoutDeletingSelectedRules() {
+        val historical = ComponentCandidate(
+            rule = ComponentRule(IntentKind.DIRECT_SHARE, "com.example.chat", "com.example.chat.Past"),
+            appLabel = "Chat", activityLabel = "Past",
+            evidence = listOf("AUTHORITY_OBSERVED kind=DIRECT_SHARE source=cache_history", "observedAt=1000000"),
+            unavailable = true,
+        )
+        val oldTime = 1_000_000L + 40L * 86_400_000L
+        assertTrue(CandidateVisibilityPolicy.visible(historical, false, UiFilter.ALL,
+            UiPreferences(historyVisibilityDays = 0), oldTime))
+        assertFalse(CandidateVisibilityPolicy.visible(historical, false, UiFilter.ALL,
+            UiPreferences(historyVisibilityDays = 30), oldTime))
+        assertTrue(CandidateVisibilityPolicy.visible(historical, true, UiFilter.ALL,
+            UiPreferences(showShortcutHistory = false), oldTime))
+        assertFalse(CandidateVisibilityPolicy.visible(historical, false, UiFilter.ALL,
+            UiPreferences(showShortcutHistory = false), oldTime))
+        assertTrue(CandidateVisibilityPolicy.visible(historical, false, UiFilter.ALL,
+            UiPreferences(candidateSource = UiCandidateSource.HISTORY), oldTime))
+        assertFalse(CandidateVisibilityPolicy.visible(historical, false, UiFilter.ALL,
+            UiPreferences(candidateSource = UiCandidateSource.PROACTIVE), oldTime))
+    }
+
+    @Test fun proactiveAndLiveSourceFilteringKeepsSignalsSeparate() {
+        val proactive = ComponentCandidate(
+            rule = ComponentRule(IntentKind.DIRECT_SHARE, "com.example.chat", "com.example.chat.New"),
+            appLabel = "Chat", activityLabel = "New",
+            evidence = listOf("ACTIVE_SHORTCUT_CANDIDATE source=ROOT_SHELL userId=0"),
+        )
+        assertTrue(CandidateVisibilityPolicy.visible(proactive, false, UiFilter.ALL,
+            UiPreferences(candidateSource = UiCandidateSource.PROACTIVE)))
+        assertFalse(CandidateVisibilityPolicy.visible(proactive, false, UiFilter.ALL,
+            UiPreferences(candidateSource = UiCandidateSource.OBSERVED)))
     }
 
     @Test fun selectedUnavailableCandidateSurvivesRefreshInAll() {

@@ -17,6 +17,12 @@ internal enum class UiAppSort { SELECTED_FIRST, NAME, PACKAGE }
 internal enum class UiScanMode { SMART, MANUAL, EVERY_ENTRY }
 /** Applies to proactive read-only ShortcutService discovery, not passive Hooks. */
 internal enum class UiProactiveScanMode { ON_SCAN, MANUAL_ONLY, OFF }
+internal enum class UiCandidateSource { ALL, OBSERVED, PROACTIVE, HISTORY }
+internal enum class UiComponentStart { CATEGORIES, ALL_COMPONENTS }
+internal enum class UiPreviewDefault { CURRENT, CANDIDATES, ENABLED, HISTORY }
+internal enum class UiProbeDefaultScenario { SYSTEM, TEXT, IMAGE, PDF, LAST_USED }
+internal enum class UiDiagnosticsLevel { SUMMARY, FULL }
+internal enum class UiComponentRefresh { CHANGED_ONLY, FULL }
 
 internal data class UiPreferences(
     val density: UiDensity = UiDensity.STANDARD,
@@ -40,6 +46,15 @@ internal data class UiPreferences(
     val proactiveDirectShare: Boolean = true,
     val proactiveShortcutItems: Boolean = false,
     val proactiveCacheMinutes: Int = 5,
+    val candidateSource: UiCandidateSource = UiCandidateSource.ALL,
+    val showShortcutHistory: Boolean = true,
+    /** Zero keeps history visible indefinitely; selected rules are not deleted. */
+    val historyVisibilityDays: Int = 0,
+    val componentStart: UiComponentStart = UiComponentStart.ALL_COMPONENTS,
+    val previewDefault: UiPreviewDefault = UiPreviewDefault.CURRENT,
+    val probeDefaultScenario: UiProbeDefaultScenario = UiProbeDefaultScenario.SYSTEM,
+    val diagnosticsLevel: UiDiagnosticsLevel = UiDiagnosticsLevel.SUMMARY,
+    val componentRefresh: UiComponentRefresh = UiComponentRefresh.CHANGED_ONLY,
     val fontScalePercent: Int = 100,
     val layoutSpacingPercent: Int = 100,
     val appTitleLines: Int = 1,
@@ -57,6 +72,7 @@ internal data class UiPreferences(
         listRowHeight = listRowHeight.coerceIn(48, 96),
         scanCacheMinutes = scanCacheMinutes.coerceIn(1, 60),
         proactiveCacheMinutes = proactiveCacheMinutes.coerceIn(1, 60),
+        historyVisibilityDays = historyVisibilityDays.takeIf { it == 0 || it == 7 || it == 30 || it == 90 } ?: 0,
         homeColumns = homeColumns.coerceIn(1, 2),
         scanRetrySeconds = scanRetrySeconds.coerceIn(10, 180),
         fontScalePercent = fontScalePercent.coerceIn(80, 140),
@@ -111,6 +127,14 @@ internal object UiPreferencesStore {
             proactiveDirectShare = p.getBoolean("proactive_direct_share", defaults.proactiveDirectShare),
             proactiveShortcutItems = p.getBoolean("proactive_shortcut_items", defaults.proactiveShortcutItems),
             proactiveCacheMinutes = p.getInt("proactive_cache_minutes", defaults.proactiveCacheMinutes),
+            candidateSource = stored(p.getString("candidate_source", null), UiCandidateSource.entries.toTypedArray(), defaults.candidateSource),
+            showShortcutHistory = p.getBoolean("shortcut_history", defaults.showShortcutHistory),
+            historyVisibilityDays = p.getInt("history_visibility_days", defaults.historyVisibilityDays),
+            componentStart = stored(p.getString("component_start", null), UiComponentStart.entries.toTypedArray(), defaults.componentStart),
+            previewDefault = stored(p.getString("preview_default", null), UiPreviewDefault.entries.toTypedArray(), defaults.previewDefault),
+            probeDefaultScenario = stored(p.getString("probe_default_scenario", null), UiProbeDefaultScenario.entries.toTypedArray(), defaults.probeDefaultScenario),
+            diagnosticsLevel = stored(p.getString("diagnostics_level", null), UiDiagnosticsLevel.entries.toTypedArray(), defaults.diagnosticsLevel),
+            componentRefresh = stored(p.getString("component_refresh", null), UiComponentRefresh.entries.toTypedArray(), defaults.componentRefresh),
             fontScalePercent = p.getInt("font_scale_percent", defaults.fontScalePercent),
             layoutSpacingPercent = p.getInt("layout_spacing_percent", defaults.layoutSpacingPercent),
             appTitleLines = p.getInt("app_title_lines", defaults.appTitleLines),
@@ -147,6 +171,14 @@ internal object UiPreferencesStore {
             .putBoolean("proactive_direct_share", safe.proactiveDirectShare)
             .putBoolean("proactive_shortcut_items", safe.proactiveShortcutItems)
             .putInt("proactive_cache_minutes", safe.proactiveCacheMinutes)
+            .putString("candidate_source", safe.candidateSource.name)
+            .putBoolean("shortcut_history", safe.showShortcutHistory)
+            .putInt("history_visibility_days", safe.historyVisibilityDays)
+            .putString("component_start", safe.componentStart.name)
+            .putString("preview_default", safe.previewDefault.name)
+            .putString("probe_default_scenario", safe.probeDefaultScenario.name)
+            .putString("diagnostics_level", safe.diagnosticsLevel.name)
+            .putString("component_refresh", safe.componentRefresh.name)
             .putInt("font_scale_percent", safe.fontScalePercent)
             .putInt("layout_spacing_percent", safe.layoutSpacingPercent)
             .putInt("app_title_lines", safe.appTitleLines)
@@ -158,6 +190,26 @@ internal object UiPreferencesStore {
             .putBoolean("drag_haptics", safe.dragHaptics)
             .apply()
         UiPreferencesRuntime.apply(safe)
+    }
+
+    fun recordProbeScenario(context: Context, scenario: SystemProbeScenario) {
+        context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
+            .putString("last_probe_scenario", scenario.name).apply()
+    }
+
+    fun initialProbeScenario(context: Context, kind: com.yagay.ListCleaner.domain.IntentKind): SystemProbeScenario {
+        val options = availableProbeScenarios(kind)
+        val requested = when (UiPreferencesRuntime.current.probeDefaultScenario) {
+            UiProbeDefaultScenario.SYSTEM -> null
+            UiProbeDefaultScenario.TEXT -> SystemProbeScenario.TEXT
+            UiProbeDefaultScenario.IMAGE -> SystemProbeScenario.IMAGE
+            UiProbeDefaultScenario.PDF -> SystemProbeScenario.PDF
+            UiProbeDefaultScenario.LAST_USED -> stored(
+                context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+                    .getString("last_probe_scenario", null),
+                SystemProbeScenario.entries.toTypedArray(), SystemProbeScenario.TEXT)
+        }
+        return requested?.takeIf { it in options } ?: defaultProbeScenario(kind)
     }
 
     /** Last-used values belong to individual pages and never overwrite configured defaults. */
@@ -195,13 +247,16 @@ internal object UiPreferencesStore {
     }
 
     private val backupTextKeys = setOf("density", "accent", "start_page", "app_sort", "default_filter",
-        "default_app_type", "scan_mode", "proactive_scan_mode", "last_filter_rules", "last_filter_priority", "last_filter_components",
+        "default_app_type", "scan_mode", "proactive_scan_mode",
+        "candidate_source", "component_start", "preview_default", "probe_default_scenario",
+        "diagnostics_level", "component_refresh", "last_probe_scenario", "last_filter_rules", "last_filter_priority", "last_filter_components",
         "last_app_type_rules", "last_app_type_priority", "last_app_type_components")
     private val backupIntKeys = setOf("card_radius", "button_height", "app_icon_size", "list_row_height",
-        "home_columns", "scan_cache_minutes", "scan_retry_seconds", "proactive_cache_minutes", "font_scale_percent", "layout_spacing_percent",
+        "home_columns", "scan_cache_minutes", "scan_retry_seconds", "proactive_cache_minutes",
+        "history_visibility_days", "font_scale_percent", "layout_spacing_percent",
         "app_title_lines", "app_subtitle_lines")
     private val backupBoolKeys = setOf("remember_filters", "help_default", "app_link_enrichment",
-        "proactive_direct_share", "proactive_shortcut_items",
+        "proactive_direct_share", "proactive_shortcut_items", "shortcut_history",
         "show_app_icons", "show_package_names", "remember_page_search", "expand_first_app", "drag_haptics")
 
     fun exportSnapshot(context: Context): JSONObject {
@@ -218,6 +273,14 @@ internal object UiPreferencesStore {
         snapshot.put("proactive_direct_share", v.proactiveDirectShare)
         snapshot.put("proactive_shortcut_items", v.proactiveShortcutItems)
         snapshot.put("proactive_cache_minutes", v.proactiveCacheMinutes)
+        snapshot.put("candidate_source", v.candidateSource.name)
+        snapshot.put("shortcut_history", v.showShortcutHistory)
+        snapshot.put("history_visibility_days", v.historyVisibilityDays)
+        snapshot.put("component_start", v.componentStart.name)
+        snapshot.put("preview_default", v.previewDefault.name)
+        snapshot.put("probe_default_scenario", v.probeDefaultScenario.name)
+        snapshot.put("diagnostics_level", v.diagnosticsLevel.name)
+        snapshot.put("component_refresh", v.componentRefresh.name)
         snapshot.put("card_radius", v.cardRadius)
         snapshot.put("button_height", v.buttonHeight)
         snapshot.put("app_icon_size", v.appIconSize)

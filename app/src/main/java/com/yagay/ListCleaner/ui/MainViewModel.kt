@@ -137,6 +137,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun dismissComponentRootNotice() = rootComponents.dismissRootNotice()
     fun refreshComponents() = rootComponents.refresh()
+    fun lastScanDetails(): String = app.catalog.lastReport.takeLast(8_000)
+
+    fun refreshAllCategories() {
+        refresh(forceCatalog = true, manualProactive = true)
+        rootComponents.refresh()
+    }
+
     fun ensureComponentsFresh() = rootComponents.refreshIfStale()
     fun changeComponent(target: RootComponent, enable: Boolean) = rootComponents.change(target, enable)
     fun changeComponents(targets: List<RootComponent>, enable: Boolean) = rootComponents.change(targets, enable)
@@ -313,7 +320,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         ListContent(
             prepared.candidates,
             kind,
-            filterAppGroups(prepared.groups, prepared.selected, kind, text, ui, preferences.appSort),
+            filterAppGroups(prepared.groups, prepared.selected, kind, text, ui, preferences.appSort, preferences),
             prepared.selected,
             ui
         )
@@ -734,14 +741,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return app.rules.inspectSpaces(content)
     }
 
-    fun exportSpacesJson(userIds: Set<Int>): String {
+    fun exportSpacesJson(userIds: Set<Int>, includeRootReference: Boolean = true): String {
         require(userIds.isNotEmpty())
         val detected = app.spaces.spaces.value
         require(userIds.all { id -> detected.any { it.userId == id } }) {
             "An Android user was removed during backup"
         }
         val names = detected.associate { it.userId to it.title }
-        val rootKeys = com.yagay.ListCleaner.data.PersistentComponentStore(app).disabledKeys()
+        val rootKeys = if (includeRootReference)
+            com.yagay.ListCleaner.data.PersistentComponentStore(app).disabledKeys() else emptySet()
         return app.rules.exportSpaces(userIds, names, rootKeys)
     }
 

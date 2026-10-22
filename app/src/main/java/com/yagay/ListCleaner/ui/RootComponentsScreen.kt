@@ -85,7 +85,10 @@ fun RootComponentsScreen(
         mutableStateOf(initialKind)
     }
     var browseAll by rememberSaveable(initialKind, embedded) {
-        mutableStateOf(embedded && initialKind == null)
+        mutableStateOf(
+            initialKind == null &&
+                UiPreferencesRuntime.current.componentStart == UiComponentStart.ALL_COMPONENTS
+        )
     }
     BackHandler(enabled = backEnabled && (embedded || kind != null || browseAll)) {
         if (embedded) {

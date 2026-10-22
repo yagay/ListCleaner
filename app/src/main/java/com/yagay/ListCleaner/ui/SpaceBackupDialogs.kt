@@ -17,10 +17,11 @@ import androidx.compose.ui.res.stringResource
 @Composable
 internal fun ExportSpaceBackupDialog(
     spaces: List<UserSpace>,
-    onExport: (Set<Int>) -> Unit,
+    onExport: (Set<Int>, Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var selected by remember(spaces) { mutableStateOf(spaces.map { it.userId }.toSet()) }
+    var includeRootReference by remember { mutableStateOf(true) }
     AdaptiveAlertDialog(
         onDismissRequest = onDismiss,
         title = { AdaptiveText(stringResource(R.string.backup_spaces_export_title)) },
@@ -47,11 +48,15 @@ internal fun ExportSpaceBackupDialog(
                         }
                     }
                 }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = includeRootReference, onCheckedChange = { includeRootReference = it })
+                    AdaptiveText(stringResource(R.string.lc_backup_include_root_reference))
+                }
                 AdaptiveText(stringResource(R.string.backup_spaces_root_note))
             }
         },
         confirmButton = {
-            AdaptiveTextButton(onClick = { onExport(selected) }, enabled = selected.isNotEmpty()) {
+            AdaptiveTextButton(onClick = { onExport(selected, includeRootReference) }, enabled = selected.isNotEmpty()) {
                 AdaptiveText(stringResource(R.string.backup_spaces_export_selected))
             }
         },

@@ -109,7 +109,10 @@ internal fun RootWorkspaceCategorySection(
             }
         }
         WorkspaceBrowseAllButton(
-            label = stringResource(R.string.workspace_browse_components),
+            label = stringResource(
+                if (UiPreferencesRuntime.current.componentStart == UiComponentStart.CATEGORIES)
+                    R.string.lc_open_component_categories else R.string.workspace_browse_components
+            ),
             onClick = onAll
         )
     }

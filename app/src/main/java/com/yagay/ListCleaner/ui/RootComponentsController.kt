@@ -340,8 +340,12 @@ internal class RootComponentsController(
 
     private fun refreshAfterMutation(targets: List<RootComponent>) {
         runCatching {
-            if (targetUserId == app.spaces.currentUserId) catalog.refreshItems(mutableScan.value, targets)
-            else profileCatalog.scan(targetUserId)
+            if (targetUserId == app.spaces.currentUserId) {
+                when (UiPreferencesRuntime.current.componentRefresh) {
+                    UiComponentRefresh.CHANGED_ONLY -> catalog.refreshItems(mutableScan.value, targets)
+                    UiComponentRefresh.FULL -> catalog.scan()
+                }
+            } else profileCatalog.scan(targetUserId)
         }
             .onSuccess { mutableScan.value = it }
             .onFailure { failure ->

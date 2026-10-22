@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lc_candidate_source">候选来源筛选</string>
+    <string name="lc_source_all">全部</string>
+    <string name="lc_source_observed">Hook 实时观察</string>
+    <string name="lc_source_proactive">后台主动发现</string>
+    <string name="lc_source_history">历史记录</string>
+    <string name="lc_history_show">显示历史分享目标</string>
+    <string name="lc_history_help">允许搜索以前捕获但本次未出现的 Direct Share 与快捷方式。已选规则仍可管理。</string>
+    <string name="lc_history_age">历史显示期限（天）</string>
+    <string name="lc_history_forever">不限时间</string>
+    <string name="lc_component_start">组件页面默认视图</string>
+    <string name="lc_component_categories">分类首页</string>
+    <string name="lc_component_all">所有组件</string>
+    <string name="lc_preview_default">系统预览默认标签</string>
+    <string name="lc_preview_current">当前</string>
+    <string name="lc_preview_candidates">候选</string>
+    <string name="lc_preview_enabled">已启用</string>
+    <string name="lc_preview_history">历史</string>
+    <string name="lc_preview_scenario">默认预览测试内容</string>
+    <string name="lc_scenario_system">系统默认</string>
+    <string name="lc_scenario_text">文字</string>
+    <string name="lc_scenario_image">图片</string>
+    <string name="lc_scenario_last">上次使用</string>
+    <string name="lc_root_scan_group">Root 组件扫描</string>
+    <string name="lc_root_scan_note">上面的智能、手动、缓存及失败重试设置主要用于 Root 组件扫描，并非普通 Intent 候选。</string>
+    <string name="lc_root_scan_now">扫描 Root 组件</string>
+    <string name="lc_scan_all_now">扫描全部已启用分类</string>
+    <string name="lc_root_after_change">组件修改后刷新方式</string>
+    <string name="lc_root_changed_only">仅刷新修改项</string>
+    <string name="lc_root_full_refresh">完整重扫</string>
+    <string name="lc_diagnostics_export">诊断导出隐私</string>
+    <string name="lc_diagnostics_full">包含完整技术日志</string>
+    <string name="lc_diagnostics_full_help">完整模式包含未经脱敏的规则、目标、进程信息和日志，共享前请自行检查。</string>
+    <string name="lc_diagnostics_summary_help">默认简要报告不包含原始 Logcat、LSPosed 日志文件、规则标识和候选名称。</string>
+    <string name="lc_backup_include_root_reference">包含已禁用组件参考记录（仅供查看，导入时不会自动恢复）</string>
+    <string name="lc_open_component_categories">打开组件分类</string>
+    <string name="lc_scan_details">查看上次扫描明细</string>
+</resources>

@@ -67,6 +67,20 @@ class UiPreferencesTest {
         assertEquals(60, UiPreferences(proactiveCacheMinutes = 1000).normalized().proactiveCacheMinutes)
     }
 
+    @Test fun newPreferencesDefaultToNonDestructiveAndPrivacyPreserving() {
+        val value = UiPreferences()
+        assertEquals(UiCandidateSource.ALL, value.candidateSource)
+        assertTrue(value.showShortcutHistory)
+        assertEquals(0, value.historyVisibilityDays)
+        assertEquals(UiPreviewDefault.CURRENT, value.previewDefault)
+        assertEquals(UiProbeDefaultScenario.SYSTEM, value.probeDefaultScenario)
+        assertEquals(UiDiagnosticsLevel.SUMMARY, value.diagnosticsLevel)
+        assertEquals(UiComponentRefresh.CHANGED_ONLY, value.componentRefresh)
+        assertEquals(0, UiPreferences(historyVisibilityDays = -1).normalized().historyVisibilityDays)
+        assertEquals(90, UiPreferences(historyVisibilityDays = 90).normalized().historyVisibilityDays)
+        assertEquals(0, UiPreferences(historyVisibilityDays = 3).normalized().historyVisibilityDays)
+    }
+
     @Test fun manualScanningDoesNotStartEvenWhenCacheMissing() {
         assertFalse(ComponentScanRefreshPolicy.shouldRefresh(
             nowElapsedMs = 100_000L, lastFullScanElapsedMs = -1L,

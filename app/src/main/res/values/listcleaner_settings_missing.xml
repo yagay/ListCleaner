@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lc_candidate_source">Candidate source filter</string>
+    <string name="lc_source_all">All</string>
+    <string name="lc_source_observed">Hook observed</string>
+    <string name="lc_source_proactive">Proactive</string>
+    <string name="lc_source_history">History</string>
+    <string name="lc_history_show">Show past sharing targets</string>
+    <string name="lc_history_help">Keep unselected Direct Share and shortcut observations searchable; saved rules always remain manageable.</string>
+    <string name="lc_history_age">Show history for (days)</string>
+    <string name="lc_history_forever">No time limit</string>
+    <string name="lc_component_start">Component page initial view</string>
+    <string name="lc_component_categories">Categories</string>
+    <string name="lc_component_all">All components</string>
+    <string name="lc_preview_default">System preview default tab</string>
+    <string name="lc_preview_current">Current</string>
+    <string name="lc_preview_candidates">Candidates</string>
+    <string name="lc_preview_enabled">Enabled</string>
+    <string name="lc_preview_history">History</string>
+    <string name="lc_preview_scenario">Default preview content</string>
+    <string name="lc_scenario_system">System default</string>
+    <string name="lc_scenario_text">Text</string>
+    <string name="lc_scenario_image">Image</string>
+    <string name="lc_scenario_last">Last used</string>
+    <string name="lc_root_scan_group">Root component scanning</string>
+    <string name="lc_root_scan_note">These scan mode and retry settings apply to Root component discovery, not the regular Intent catalog.</string>
+    <string name="lc_root_scan_now">Scan Root components</string>
+    <string name="lc_scan_all_now">Scan all enabled categories</string>
+    <string name="lc_root_after_change">After modifying components</string>
+    <string name="lc_root_changed_only">Changed items</string>
+    <string name="lc_root_full_refresh">Full rescan</string>
+    <string name="lc_diagnostics_export">Diagnostic export privacy</string>
+    <string name="lc_diagnostics_full">Include full technical logs</string>
+    <string name="lc_diagnostics_full_help">Full export includes unredacted rules, targets, process details and logs. Review before sharing.</string>
+    <string name="lc_diagnostics_summary_help">Default summary excludes raw logcat, LSPosed files, rule identifiers and candidate names.</string>
+    <string name="lc_backup_include_root_reference">Include disabled-component references (information only; never auto-restored)</string>
+    <string name="lc_open_component_categories">Open component categories</string>
+    <string name="lc_scan_details">Show last catalog scan details</string>
+</resources>

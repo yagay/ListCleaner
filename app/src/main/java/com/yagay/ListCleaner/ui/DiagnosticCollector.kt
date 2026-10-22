@@ -28,13 +28,26 @@ object DiagnosticCollector {
     private const val MAX_LSPOSED_FILE_BYTES = 4 * 1024 * 1024
     private const val MAX_RUNTIME_AUDIT_BYTES = 2 * 1024 * 1024
 
-    suspend fun collect(context: Context, state: MainState, components: com.yagay.ListCleaner.data.RootComponentScan? = null, componentOperation: String = "not_observed"): File = runInterruptible(Dispatchers.IO) {
+    suspend fun collect(context: Context, state: MainState,
+        components: com.yagay.ListCleaner.data.RootComponentScan? = null,
+        componentOperation: String = "not_observed",
+        level: UiDiagnosticsLevel = UiDiagnosticsLevel.SUMMARY,
+    ): File = runInterruptible(Dispatchers.IO) {
         val output = File.createTempFile("ListCleaner-diagnostic-", ".zip", context.cacheDir)
         try {
             ZipOutputStream(BufferedOutputStream(FileOutputStream(output))).use { zip ->
                 zip.addText("README.zh-CN.txt", localizedString(context, "zh-CN", com.yagay.ListCleaner.R.string.diagnostic_readme))
                 zip.addText("README.en.txt", localizedString(context, "en", com.yagay.ListCleaner.R.string.diagnostic_readme))
                 zip.addText("app/module-state.txt", moduleState(state))
+                zip.addText("app/scan-overview.txt", buildString {
+                    appendLine("level=$level")
+                    appendLine("components=${components?.items?.size ?: 0}")
+                    appendLine("componentWarning=${components?.warning ?: "not_scanned"}")
+                    appendLine("candidateCount=${state.candidates.size}")
+                    appendLine("activeRuleCount=${state.selected.size}")
+                    appendLine("source=last_available_scan_not_live_ui")
+                })
+                if (level == UiDiagnosticsLevel.FULL) {
                 zip.addText("app/rules.txt", rules(state))
                 zip.addText("app/root-components.txt", buildString {
                     appendLine("source=last_system_scan_not_live_ui storedBlacklist=false")
@@ -118,6 +131,7 @@ object DiagnosticCollector {
                     "analysis/entry-runtime-audit.txt",
                     EntryRuntimeAudit.report(state, moduleLogText + "\n" + lsposedRuntimeText)
                 )
+                }
                 zip.addText("collection-finished.txt", "finishedAt=${Instant.now()}\n")
             }
             output
