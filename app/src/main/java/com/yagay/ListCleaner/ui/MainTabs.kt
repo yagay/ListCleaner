@@ -62,6 +62,12 @@ fun RulesTab(
     var browseAllComponents by rememberSaveable { mutableStateOf(false) }
     var savedRuleQuery by rememberSaveable { mutableStateOf("") }
     var savedComponentQuery by rememberSaveable { mutableStateOf("") }
+    // Main-branch inspired list-first layout; the other mode keeps category navigation.
+    val classicLayout = UiPreferencesRuntime.current.homeLayout == UiHomeLayout.CLASSIC_LIST
+    LaunchedEffect(classicLayout) {
+        selectedGroup = null
+        browseAll = false
+    }
     val workspaceStateHolder = rememberSaveableStateHolder()
     var systemProbeRequest by remember { mutableStateOf<SystemProbeRequest?>(null) }
     systemProbeRequest?.let { request ->
@@ -90,7 +96,7 @@ fun RulesTab(
         }
         return
     }
-    BackHandler(enabled = state.filter == null && (selectedGroup != null || browseAll)) {
+    BackHandler(enabled = !classicLayout && state.filter == null && (selectedGroup != null || browseAll)) {
         if (browseAll) browseAll = false else selectedGroup = null
     }
 
@@ -119,7 +125,7 @@ fun RulesTab(
 
     // The four blocks are the homepage; there is no candidate list until
     // an entry is selected (or the explicit Browse all action is used).
-    if (state.filter == null && state.query.isBlank() && !browseAll) {
+    if (HomeLayoutPolicy.showCategoryHome(UiPreferencesRuntime.current.homeLayout, state.filter, state.query, browseAll)) {
         EntryWorkspaceHome(
             selectedGroup = selectedGroup,
             onGroup = { selectedGroup = it },
@@ -273,25 +279,41 @@ fun RulesTab(
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item(key = "workspace-breadcrumb") {
-            EntryWorkspaceBreadcrumb(
-                kind = state.filter,
-                onHome = {
-                    vm.setFilter(null)
-                    selectedGroup = null
-                    browseAll = false
-                    vm.setQuery("")
-                },
-                onGroup = {
-                    selectedGroup = state.filter?.entryGroup()
-                    browseAll = false
-                    vm.setFilter(null)
-                    vm.setQuery("")
-                }
-            )
-            if (state.runtime.needsDecision) RuntimePanel(
-                state, vm, showUpdateTools = false,
-                horizontalInset = MaterialUiTokens.groupHorizontal
-            )
+            if (classicLayout) {
+                ClassicListHeader(
+                    state = state,
+                    onOpenStatus = onOpenModuleStatus,
+                    onOpenComponents = {
+                        savedRuleQuery = state.query
+                        selectedComponentKind = null
+                        browseAllComponents = true
+                        selectedGroup = null
+                        browseAll = false
+                        vm.setFilter(null)
+                        vm.setQuery(savedComponentQuery)
+                    }
+                )
+            } else {
+                EntryWorkspaceBreadcrumb(
+                    kind = state.filter,
+                    onHome = {
+                        vm.setFilter(null)
+                        selectedGroup = null
+                        browseAll = false
+                        vm.setQuery("")
+                    },
+                    onGroup = {
+                        selectedGroup = state.filter?.entryGroup()
+                        browseAll = false
+                        vm.setFilter(null)
+                        vm.setQuery("")
+                    }
+                )
+                if (state.runtime.needsDecision) RuntimePanel(
+                    state, vm, showUpdateTools = false,
+                    horizontalInset = MaterialUiTokens.groupHorizontal
+                )
+            }
         }
         stickyHeader(key = "list-controls") {
             PageFilterSection {
@@ -305,7 +327,7 @@ fun RulesTab(
                             appTypeFilter = it
                             UiPreferencesStore.rememberAppType(prefsContext, it, "rules")
                         },
-                        showEntryGroups = false,
+                        showEntryGroups = classicLayout,
                         externalHelpExpanded = ruleHelpExpanded,
                         onExternalHelpChange = { ruleHelpExpanded = it },
                         extraFilter = {

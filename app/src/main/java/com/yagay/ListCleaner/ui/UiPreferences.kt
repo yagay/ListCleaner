@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /** Local display preferences only. Never included in the remote Hook/Root configuration. */
 internal enum class UiDensity { COMPACT, STANDARD, COMFORTABLE }
+/** Page arrangement only; both modes share the same rules, Root data, Material3 controls and scanner. */
+internal enum class UiHomeLayout { CATEGORY_CARDS, CLASSIC_LIST }
 internal enum class UiAccent { DYNAMIC, BLUE, GREEN, PURPLE }
 internal enum class UiStartPage { CLEANUP, ORDERING, SETTINGS }
 internal enum class UiAppSort { SELECTED_FIRST, NAME, PACKAGE }
@@ -27,6 +29,7 @@ internal enum class UiComponentRefresh { CHANGED_ONLY, FULL }
 internal data class UiPreferences(
     val density: UiDensity = UiDensity.STANDARD,
     val accent: UiAccent = UiAccent.DYNAMIC,
+    val homeLayout: UiHomeLayout = UiHomeLayout.CATEGORY_CARDS,
     val cardRadius: Int = 20,
     val buttonHeight: Int = 40,
     val appIconSize: Int = 36,
@@ -107,6 +110,7 @@ internal object UiPreferencesStore {
         return UiPreferences(
             density = stored(p.getString("density", null), UiDensity.entries.toTypedArray(), defaults.density),
             accent = stored(p.getString("accent", null), UiAccent.entries.toTypedArray(), defaults.accent),
+            homeLayout = stored(p.getString("home_layout", null), UiHomeLayout.entries.toTypedArray(), defaults.homeLayout),
             cardRadius = p.getInt("card_radius", defaults.cardRadius),
             buttonHeight = p.getInt("button_height", defaults.buttonHeight),
             appIconSize = p.getInt("app_icon_size", defaults.appIconSize),
@@ -152,6 +156,7 @@ internal object UiPreferencesStore {
         context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
             .putString("density", safe.density.name)
             .putString("accent", safe.accent.name)
+            .putString("home_layout", safe.homeLayout.name)
             .putInt("card_radius", safe.cardRadius)
             .putInt("button_height", safe.buttonHeight)
             .putInt("app_icon_size", safe.appIconSize)
@@ -246,7 +251,7 @@ internal object UiPreferencesStore {
         }
     }
 
-    private val backupTextKeys = setOf("density", "accent", "start_page", "app_sort", "default_filter",
+    private val backupTextKeys = setOf("density", "accent", "home_layout", "start_page", "app_sort", "default_filter",
         "default_app_type", "scan_mode", "proactive_scan_mode",
         "candidate_source", "component_start", "preview_default", "probe_default_scenario",
         "diagnostics_level", "component_refresh", "last_probe_scenario", "last_filter_rules", "last_filter_priority", "last_filter_components",
@@ -264,6 +269,7 @@ internal object UiPreferencesStore {
         val snapshot = JSONObject()
         snapshot.put("density", v.density.name)
         snapshot.put("accent", v.accent.name)
+        snapshot.put("home_layout", v.homeLayout.name)
         snapshot.put("start_page", v.startPage.name)
         snapshot.put("app_sort", v.appSort.name)
         snapshot.put("default_filter", v.defaultFilter.name)

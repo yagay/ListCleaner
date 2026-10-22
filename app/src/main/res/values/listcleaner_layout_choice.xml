@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lc_home_layout_title">Cleanup page layout</string>
+    <string name="lc_home_layout_cards">Category cards</string>
+    <string name="lc_home_layout_classic">Classic list (main-style)</string>
+    <string name="lc_home_layout_description">Category cards open a grouped landing page. Classic list opens the app list directly, with the original category filters and a Root components shortcut. Both use the same rules and scanning engine.</string>
+</resources>

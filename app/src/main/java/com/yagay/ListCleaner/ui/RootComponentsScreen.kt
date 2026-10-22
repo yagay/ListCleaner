@@ -86,8 +86,10 @@ fun RootComponentsScreen(
     }
     var browseAll by rememberSaveable(initialKind, embedded) {
         mutableStateOf(
-            initialKind == null &&
-                UiPreferencesRuntime.current.componentStart == UiComponentStart.ALL_COMPONENTS
+            initialKind == null && HomeLayoutPolicy.startWithComponentList(
+                UiPreferencesRuntime.current.homeLayout,
+                UiPreferencesRuntime.current.componentStart
+            )
         )
     }
     BackHandler(enabled = backEnabled && (embedded || kind != null || browseAll)) {

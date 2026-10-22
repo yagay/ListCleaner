@@ -31,6 +31,18 @@ internal fun SettingsAppearanceControls() {
     val current = UiPreferencesRuntime.current
     SettingsArea(stringResource(R.string.lc_settings_theme_group)) {
         SettingsChoices(
+            stringResource(R.string.lc_home_layout_title), current.homeLayout,
+            listOf(
+                UiHomeLayout.CATEGORY_CARDS to stringResource(R.string.lc_home_layout_cards),
+                UiHomeLayout.CLASSIC_LIST to stringResource(R.string.lc_home_layout_classic)
+            )
+        ) { UiPreferencesStore.write(context, current.copy(homeLayout = it)) }
+        AdaptiveText(
+            stringResource(R.string.lc_home_layout_description),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        SettingsChoices(
             stringResource(R.string.settings_theme_color), current.accent,
             listOf(
                 UiAccent.DYNAMIC to stringResource(R.string.settings_color_dynamic),
