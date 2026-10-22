@@ -68,7 +68,7 @@ required = {
     "WorkspaceAppRow.kt": ["MaterialAppRowBody(", "MaterialUiTokens.listRowHeight"],
     "AppScopePicker.kt": ["MaterialAppRowBody(", "MaterialFullScreenDialog("],
     "ScopeScreen.kt": ["MaterialFullScreenDialog(", "MaterialDialogActions("],
-    "MainTabs.kt": ["fun RulesTab(", "fun PriorityTab(", "MaterialPageColumn {"],
+    "MainTabs.kt": ["fun RulesTab(", "fun PriorityTab(", "LazyColumn("],
     "SettingsNavigation.kt": ["fun SettingsTabContent(", "SettingsCenterHome(",
                               "TopAppBar(", "LazyColumn(", "SettingsAppearanceControls()",
                               "SettingsListControls()", "SettingsScanControls(vm)",
