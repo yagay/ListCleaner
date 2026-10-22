@@ -239,8 +239,9 @@ internal object SystemEntryProbe {
                 IntentKind.CREATE_DOCUMENT, IntentKind.DOCUMENT_ROOT
             ) }?.name?.let(PickerRuntimeSnapshotCodec::keyForRequest)
                 ?: PickerRuntimeSnapshotCodec.REMOTE_KEY
+            // Per-action slots are authoritative for Open/Save. Never fall back
+            // to a different action's generic snapshot and present it as history.
             val encoded = preferences.getString(key, null)
-                ?: preferences.getString(PickerRuntimeSnapshotCodec.REMOTE_KEY, null)
             val snapshot = PickerRuntimeSnapshotCodec.decode(encoded) ?: return@runCatching null
             if (snapshot.userId != AndroidUid.userId(Process.myUid())) null else snapshot
         }.getOrNull()

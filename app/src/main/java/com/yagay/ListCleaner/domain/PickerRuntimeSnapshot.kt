@@ -14,6 +14,8 @@ data class PickerRuntimeRoot(
     val label: String,
     val syntheticId: String,
     val systemOwned: Boolean,
+    /** The profile owning this root; unknown on older OEM implementations. */
+    val userId: Int? = null,
 )
 
 @Serializable
@@ -31,6 +33,8 @@ data class PickerRuntimeSnapshot(
     /** Counts from the original DocumentsUI return, even if storage is bounded. */
     val totalRoots: Int = 0,
     val truncated: Boolean = false,
+    /** ROOTS_LOADER is the sidebar loader; PROVIDERS_CACHE is a fallback query. */
+    val captureSource: String = "UNKNOWN",
 )
 
 object PickerRuntimeSnapshotCodec {
@@ -65,7 +69,8 @@ object PickerRuntimeSnapshotCodec {
             if (decoded.version != 1 || decoded.capturedAt <= 0L ||
                 decoded.userId < 0 || decoded.totalRoots < 0 ||
                 decoded.roots.size > MAX_ROOTS ||
-                decoded.requestKind !in setOf("UNKNOWN", "GET_CONTENT", "OPEN_DOCUMENT", "CREATE_DOCUMENT", "DOCUMENT_ROOT")
+                decoded.requestKind !in setOf("UNKNOWN", "GET_CONTENT", "OPEN_DOCUMENT", "CREATE_DOCUMENT", "DOCUMENT_ROOT") ||
+                decoded.captureSource !in setOf("UNKNOWN", "ROOTS_LOADER", "PROVIDERS_CACHE")
             ) return@runCatching null
             sanitize(decoded)
         }.getOrNull()
@@ -79,9 +84,10 @@ object PickerRuntimeSnapshotCodec {
             .filter {
                 it.packageName.length in 1..240 && it.label.isNotBlank() &&
                     it.syntheticId.length in 1..200 &&
+                    (it.userId == null || it.userId >= 0) &&
                     !it.packageName.contains('\n') && !it.syntheticId.contains('\n')
             }
-            .distinctBy(PickerRuntimeRoot::syntheticId)
+            .distinctBy { it.userId to it.syntheticId }
             .take(MAX_ROOTS)
             .map {
                 it.copy(label = it.label.trim().take(160))

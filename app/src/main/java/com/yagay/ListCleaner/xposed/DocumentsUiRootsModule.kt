@@ -31,6 +31,7 @@ class DocumentsUiRootsModule : XposedModule() {
     private data class RootEntry(val rule: ComponentRule, val title: String)
     @Volatile private var processName = ""
     private val installed = ConcurrentHashMap.newKeySet<String>()
+    @Volatile private var sidebarLoaderInstalled = false
     private val seen = ConcurrentHashMap<String, String>()
     private val providers = ConcurrentHashMap<String, ProviderInfo>()
     private val worker = Executors.newSingleThreadExecutor { job ->
@@ -54,6 +55,32 @@ class DocumentsUiRootsModule : XposedModule() {
     override fun onPackageReady(param: PackageReadyParam) {
         if (param.packageName !in UI_PACKAGES) return
         var count = 0
+        // RootsLoader is the AOSP navigation drawer's loader, rather than a
+        // cache query that can also run on behalf of Recents or other callers.
+        // When available it is the preferred source for a picker snapshot.
+        LOADER_CLASSES.forEach { className ->
+            val klass = runCatching { Class.forName(className, false, param.classLoader) }
+                .getOrNull() ?: return@forEach
+            ReflectionAccess.hierarchyMethods(klass)
+                .filter { it.name == "loadInBackground" && !Modifier.isStatic(it.modifiers) &&
+                    it.parameterCount == 0 &&
+                    java.util.Collection::class.java.isAssignableFrom(it.returnType) }
+                .distinctBy(Method::toGenericString)
+                .forEach { method ->
+                    val key = method.toGenericString()
+                    if (!installed.add(key)) return@forEach
+                    runCatching {
+                        method.isAccessible = true
+                        hook(method).setId(HOOK_ID).intercept(rootHooker(method.name, fromSidebar = true))
+                        sidebarLoaderInstalled = true
+                        count++
+                        record("SIDEBAR_HOOK_INSTALLED method=" + key)
+                    }.onFailure {
+                        installed.remove(key)
+                        record("SIDEBAR_HOOK_FAILED method=" + key + " error=" + it.javaClass.name)
+                    }
+                }
+        }
         CACHE_CLASSES.forEach { className ->
             val klass = runCatching { Class.forName(className, false, param.classLoader) }.getOrNull()
             if (klass == null) {
@@ -105,25 +132,38 @@ class DocumentsUiRootsModule : XposedModule() {
         }
     }
 
-    private fun rootHooker(methodName: String) = XposedInterface.Hooker { chain ->
+    private fun rootHooker(methodName: String, fromSidebar: Boolean = false) =
+        XposedInterface.Hooker { chain ->
         val original = chain.proceed()
         val roots = original as? Collection<*> ?: return@Hooker original
+        val ctx = appContext() ?: return@Hooker original
+        val isMatching = methodName == "getMatchingRootsBlocking"
+        val shouldCapture = fromSidebar || (isMatching && !sidebarLoaderInstalled)
+        val request = if (fromSidebar) {
+            detectRequestAction(listOf(ReflectionAccess.readField(chain.thisObject, "mState", "state")))
+        } else {
+            detectRequestAction(chain.args)
+        }
         if (roots.size > PickerRuntimeSnapshotCodec.MAX_ROOTS) {
             record("ROOTS_LARGE count=" + roots.size +
                 " captureBudget=" + PickerRuntimeSnapshotCodec.MAX_ROOTS)
         }
-        val ctx = appContext() ?: return@Hooker original
         if (roots.isEmpty()) {
-            if (methodName == "getMatchingRootsBlocking") {
-                snapshotMatchingRoots(roots, ctx, detectRequestAction(chain.args))
-            }
+            if (shouldCapture) snapshotMatchingRoots(
+                roots, ctx, request, if (fromSidebar) "ROOTS_LOADER" else "PROVIDERS_CACHE"
+            )
             return@Hooker original
         }
         runCatching {
             val available = IdentityHashMap<Any, RootEntry>()
             val observations = ArrayList<ObservedEntryRecord>()
+            val processUserId = AndroidUid.userId(Process.myUid())
             roots.forEach { item ->
                 val root = item ?: return@forEach
+                // The cache may contain work-profile roots in this process.
+                // Never apply the current user's rule to a different user's root.
+                val rootUserId = rootUserId(root)
+                if (rootUserId != null && rootUserId != processUserId) return@forEach
                 val entry = findEntry(root, ctx) ?: return@forEach
                 available[root] = entry
                 if (seen.put(entry.rule.id, entry.title) != entry.title) {
@@ -138,13 +178,13 @@ class DocumentsUiRootsModule : XposedModule() {
                     record("AUTHORITY_OBSERVED kind=DOCUMENT_ROOT count=" + observations.size)
                 }
             }
-            val settings = policy.snapshot()
+            val settings = policy.snapshot(processUserId)
             val chosen = settings.selected(IntentKind.DOCUMENT_ROOT)
             val priorities = settings.priorities(IntentKind.DOCUMENT_ROOT)
             record("QUERY kind=DOCUMENT_ROOT count=" + roots.size + " identified=" + available.size)
             // Inventory and authority-specific cache lookups are not sidebar presentation
             // queries. Never mutate those shared caches: they may feed other callers.
-            if (methodName != "getMatchingRootsBlocking" ||
+            if (!(isMatching || fromSidebar) ||
                 settings.displayMode == DisplayMode.SHOW_ALL ||
                 (chosen.isEmpty() && priorities.isEmpty())) return@runCatching original
 
@@ -172,9 +212,12 @@ class DocumentsUiRootsModule : XposedModule() {
             .also { returned ->
                 // Only the matching-roots method is a filtered, caller-sensitive root query.
                 // The other cache methods may expose entire provider inventories or subsets.
-                if (methodName == "getMatchingRootsBlocking") {
+                if (shouldCapture) {
                     (returned as? Collection<*>)?.let { returnedRoots ->
-                        snapshotMatchingRoots(returnedRoots, ctx, detectRequestAction(chain.args))
+                        snapshotMatchingRoots(
+                            returnedRoots, ctx, request,
+                            if (fromSidebar) "ROOTS_LOADER" else "PROVIDERS_CACHE"
+                        )
                     }
                 }
             }
@@ -228,7 +271,20 @@ class DocumentsUiRootsModule : XposedModule() {
         return RequestAction("UNKNOWN", null, "", "")
     }
 
-    private fun snapshotMatchingRoots(roots: Collection<*>, context: Context, request: RequestAction) {
+    /** Reads the profile attached to an AOSP RootInfo, if the installed build exposes it. */
+    private fun rootUserId(root: Any): Int? {
+        val value = ReflectionAccess.readField(root, "userId", "mUserId") ?: return null
+        val number = when (value) {
+            is Number -> value
+            else -> (ReflectionAccess.invokeFirstNoArg(value, listOf("getIdentifier", "getId"))
+                ?: ReflectionAccess.readField(value, "mUserId", "userId", "mId", "id")) as? Number
+        }
+        return number?.toInt()?.takeIf { it >= 0 }
+    }
+
+    private fun snapshotMatchingRoots(
+        roots: Collection<*>, context: Context, request: RequestAction, source: String,
+    ) {
         // Never persist raw document paths, root IDs or URI grants.
         val entries = roots.asSequence().take(PickerRuntimeSnapshotCodec.MAX_ROOTS)
             .mapNotNull { root ->
@@ -250,8 +306,9 @@ class DocumentsUiRootsModule : XposedModule() {
                     label = label,
                     syntheticId = SyntheticEntryKeys.documentRootClass(authority, rootId),
                     systemOwned = system,
+                    userId = rootUserId(root),
                 )
-            }.distinctBy(PickerRuntimeRoot::syntheticId).toList()
+            }.distinctBy { it.userId to it.syntheticId }.toList()
         val snapshot = PickerRuntimeSnapshot(
             capturedAt = System.currentTimeMillis(),
             userId = AndroidUid.userId(Process.myUid()),
@@ -262,9 +319,10 @@ class DocumentsUiRootsModule : XposedModule() {
             actionCode = request.value,
             stateClassName = request.stateType,
             knownActionConstants = request.candidates,
+            captureSource = source,
         )
         val encoded = PickerRuntimeSnapshotCodec.encode(snapshot)
-        if (encoded.length > PickerRuntimeSnapshotCodec.MAX_CHARS) return
+        if (encoded.isEmpty() || encoded.length > PickerRuntimeSnapshotCodec.MAX_CHARS) return
         worker.execute {
             runCatching {
                 preferences.edit().apply {
@@ -277,6 +335,7 @@ class DocumentsUiRootsModule : XposedModule() {
                 if (saved) record(
                     "PICKER_MATCHING_ROOTS kind=" + request.kind +
                         " captured=" + entries.size +
+                        " source=" + source +
                         " action=" + (request.value?.toString() ?: "missing") +
                         " state=" + request.stateType +
                         " constants=" + request.candidates
@@ -323,6 +382,10 @@ class DocumentsUiRootsModule : XposedModule() {
         const val HOOK_ID = "lc-documentsui-roots"
         const val MAX_ROOTS = 512
         val UI_PACKAGES = setOf("com.android.documentsui", "com.google.android.documentsui")
+        val LOADER_CLASSES = listOf(
+            "com.android.documentsui.roots.RootsLoader",
+            "com.android.documentsui.RootsLoader",
+        )
         val CACHE_CLASSES = listOf(
             // AOSP versions differ: older branches call this RootsCache; newer
             // DocumentsUI code uses ProvidersCache for root discovery.

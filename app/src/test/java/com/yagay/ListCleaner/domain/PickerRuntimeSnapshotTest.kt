@@ -68,6 +68,36 @@ class PickerRuntimeSnapshotTest {
         assertEquals(5, actual.actionCode)
     }
 
+    @Test fun sameAuthorityAndRootInTwoProfilesMustStaySeparate() {
+        val sample = PickerRuntimeSnapshot(
+            capturedAt = 123L, userId = 0, requestKind = "CREATE_DOCUMENT",
+            captureSource = "ROOTS_LOADER", roots = listOf(
+                PickerRuntimeRoot("com.example", "Personal", "@docroot_same", false, 0),
+                PickerRuntimeRoot("com.example", "Work", "@docroot_same", false, 10),
+            ),
+        )
+        val restored = PickerRuntimeSnapshotCodec.decode(
+            PickerRuntimeSnapshotCodec.encode(sample)
+        )!!
+        assertEquals(2, restored.roots.size)
+        assertEquals(setOf(0, 10), restored.roots.mapNotNull { it.userId }.toSet())
+        assertEquals("ROOTS_LOADER", restored.captureSource)
+    }
+
+    @Test fun invalidProfileRootsAreNotReported() {
+        val sample = PickerRuntimeSnapshot(
+            capturedAt = 123L, userId = 0, roots = listOf(
+                PickerRuntimeRoot("com.example", "Bad", "@docroot_bad", false, -1),
+                PickerRuntimeRoot("com.example", "Good", "@docroot_good", false, 0)
+            )
+        )
+        val restored = PickerRuntimeSnapshotCodec.decode(
+            PickerRuntimeSnapshotCodec.encode(sample)
+        )!!
+        assertEquals(1, restored.roots.size)
+        assertEquals("Good", restored.roots.single().label)
+    }
+
     @Test fun samplingNeverContainsRawDocumentIds() {
         val sample = PickerRuntimeSnapshot(capturedAt = 1792598765432L, userId = 0, roots =
             listOf(PickerRuntimeRoot("com.example", "Drive", "@docroot_token", false)))
