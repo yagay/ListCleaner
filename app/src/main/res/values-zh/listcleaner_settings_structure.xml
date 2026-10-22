@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lc_settings_home_interface">界面与体验</string>
+    <string name="lc_settings_home_functional">功能与系统</string>
+    <string name="lc_settings_home_maintenance">数据与维护</string>
+    <string name="lc_settings_theme_group">主题与配色</string>
+    <string name="lc_settings_layout_group">尺寸与间距</string>
+    <string name="lc_settings_typography_group">文字与图标</string>
+    <string name="lc_settings_list_defaults_group">列表默认行为</string>
+    <string name="lc_settings_history_group">候选来源与历史</string>
+    <string name="lc_settings_preview_group">组件入口与系统预览</string>
+    <string name="lc_settings_list_behaviour_group">显示与交互</string>
+    <string name="lc_settings_other_scan_group">普通候选与扫描记录</string>
+    <string name="lc_settings_runtime_group">运行状态</string>
+    <string name="lc_settings_reset_group">重置界面设置</string>
+    <string name="lc_settings_technical_group">详细运行信息</string>
+    <string name="lc_settings_show_technical">显示技术详情</string>
+    <string name="lc_settings_hide_technical">收起技术详情</string>
+</resources>

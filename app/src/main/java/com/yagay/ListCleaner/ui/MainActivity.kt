@@ -278,7 +278,7 @@ class MainActivity : ComponentActivity() {
         Scaffold(
             snackbarHost = { AdaptiveSnackbarHost(backupSnackbar) },
             topBar = {
-                MainToolbar(
+                if (state.destination != Destination.SETTINGS) MainToolbar(
                     state.query,
                     searchExpanded,
                     vm::setQuery,

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lc_settings_home_interface">Interface &amp; experience</string>
+    <string name="lc_settings_home_functional">Features &amp; system</string>
+    <string name="lc_settings_home_maintenance">Data &amp; maintenance</string>
+    <string name="lc_settings_theme_group">Theme &amp; colours</string>
+    <string name="lc_settings_layout_group">Size &amp; spacing</string>
+    <string name="lc_settings_typography_group">Text &amp; icons</string>
+    <string name="lc_settings_list_defaults_group">List defaults</string>
+    <string name="lc_settings_history_group">Candidate sources &amp; history</string>
+    <string name="lc_settings_preview_group">Components &amp; system preview</string>
+    <string name="lc_settings_list_behaviour_group">Display &amp; interaction</string>
+    <string name="lc_settings_other_scan_group">General candidates &amp; scan records</string>
+    <string name="lc_settings_runtime_group">Runtime status</string>
+    <string name="lc_settings_reset_group">Reset interface preferences</string>
+    <string name="lc_settings_technical_group">Technical details</string>
+    <string name="lc_settings_show_technical">Show technical details</string>
+    <string name="lc_settings_hide_technical">Hide technical details</string>
+</resources>

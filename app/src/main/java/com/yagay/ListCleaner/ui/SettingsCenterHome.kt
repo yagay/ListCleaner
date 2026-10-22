@@ -44,56 +44,58 @@ internal enum class SettingsSection(
 
 @Composable
 internal fun SettingsCenterHome(onSelect: (SettingsSection) -> Unit) {
+    val headings = listOf(
+        R.string.lc_settings_home_interface,
+        R.string.lc_settings_home_functional,
+        R.string.lc_settings_home_maintenance
+    )
     MaterialPageColumn {
-        SettingsSection.entries.forEachIndexed { index, section ->
-            val position = when {
-                SettingsSection.entries.size == 1 -> ListRowPosition.SINGLE
-                index == 0 -> ListRowPosition.FIRST
-                index == SettingsSection.entries.lastIndex -> ListRowPosition.LAST
-                else -> ListRowPosition.MIDDLE
-            }
-            UiCard(
-                modifier = Modifier.fillMaxWidth(),
-                variant = UiCardVariant.LIST_GROUP,
-                position = position,
-                horizontalInset = 0.dp,
-                onClick = { onSelect(section) }
-            ) {
-                Row(
-                    Modifier.fillMaxWidth().heightIn(min = 72.dp)
-                        .padding(horizontal = MaterialUiTokens.cardPadding, vertical = MaterialUiTokens.contentGap),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap)
-                ) {
-                    AdaptiveIcon(section.icon, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(3.dp)
+        SettingsSection.entries.chunked(2).forEachIndexed { groupIndex, sections ->
+            Column(verticalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap)) {
+                AdaptiveText(stringResource(headings[groupIndex]),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                sections.forEachIndexed { index, section ->
+                    val position = if (index == 0) ListRowPosition.FIRST else ListRowPosition.LAST
+                    UiCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        variant = UiCardVariant.LIST_GROUP,
+                        position = position,
+                        horizontalInset = 0.dp,
+                        onClick = { onSelect(section) }
                     ) {
-                        AdaptiveText(
-                            stringResource(section.titleRes),
-                            fontWeight = FontWeight.Medium,
-                            style = MaterialTheme.typography.bodyLarge,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        AdaptiveText(
-                            stringResource(section.descriptionRes),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Row(
+                            Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(
+                                horizontal = MaterialUiTokens.cardPadding,
+                                vertical = MaterialUiTokens.contentGap
+                            ),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap)
+                        ) {
+                            AdaptiveIcon(section.icon, null, Modifier.size(24.dp),
+                                tint = MaterialTheme.colorScheme.primary)
+                            Column(Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                AdaptiveText(stringResource(section.titleRes),
+                                    fontWeight = FontWeight.Medium,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                AdaptiveText(stringResource(section.descriptionRes),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            }
+                            AdaptiveIcon(Icons.Rounded.ChevronRight, null, Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
-                    AdaptiveIcon(
-                        Icons.Rounded.ChevronRight, null,
-                        Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
         }
         AdaptiveText(
-            stringResource(R.string.app_version_format, stringResource(R.string.app_name), BuildConfig.VERSION_NAME),
+            stringResource(R.string.app_version_format,
+                stringResource(R.string.app_name), BuildConfig.VERSION_NAME),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
