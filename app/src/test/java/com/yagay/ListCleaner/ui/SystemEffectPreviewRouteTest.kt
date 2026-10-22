@@ -59,10 +59,16 @@ class SystemEffectPreviewRouteTest {
             SystemEffectPreview.settingsActions(IntentKind.ASSISTANT).first())
         assertEquals(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS,
             SystemEffectPreview.settingsActions(IntentKind.BROWSER).first())
-        assertEquals(android.provider.Settings.ACTION_SYNC_SETTINGS,
+        assertEquals("android.settings.CREDENTIAL_PROVIDER",
             SystemEffectPreview.settingsActions(IntentKind.CREDENTIAL_PROVIDER).first())
-        assertEquals(android.provider.Settings.ACTION_SYNC_SETTINGS,
+        assertEquals(android.provider.Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE,
             SystemEffectPreview.settingsActions(IntentKind.AUTOFILL).first())
+        assertFalse(SystemEffectPreview.settingsActions(IntentKind.CREDENTIAL_PROVIDER).first() ==
+            SystemEffectPreview.settingsActions(IntentKind.AUTOFILL).first())
+        assertEquals(android.provider.Settings.ACTION_SYNC_SETTINGS,
+            SystemEffectPreview.settingsActions(IntentKind.CREDENTIAL_PROVIDER)[1])
+        assertEquals(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS,
+            SystemEffectPreview.settingsActions(IntentKind.AUTOFILL)[1])
     }
 
     @Test fun dynamicShortcutsAndTextSelectionAreNotMisrepresented() {

@@ -130,4 +130,8 @@
     <string name="preview_count_history">历史项目 %1$d 个 · 应用 %2$d 个</string>
     <string name="preview_partial_capture">快照不完整：系统返回了 %1$d 项，保存了 %2$d 项；未保存的内容不等于被清理。</string>
     <string name="preview_captured_at">捕获时间：%1$s</string>
+    <string name="preview_credential_navigation">打开 Android 凭据提供方（密码、通行密钥）设置。设备可能将其与自动填充合并；列表清理不会要求把自身启用为提供方。无法打开时才回退到账户／安全设置。</string>
+    <string name="preview_autofill_navigation">打开 Android 默认自动填充提供方的系统选择界面。选择其他服务可能更改系统默认提供方。此入口用于测试系统界面，不代表已经验证列表清理过滤结果；不可用时回退到默认应用设置。</string>
+    <string name="preview_open_credential_settings">打开凭据设置</string>
+    <string name="preview_open_autofill_picker">打开自动填充选择器</string>
 </resources>

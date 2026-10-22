@@ -72,8 +72,8 @@ internal fun supportsScenarioTest(kind: IntentKind): Boolean = kind in setOf(
 
 /** UI wording: a system settings page is NOT evidence of filtered candidates. */
 internal fun previewRouteNote(kind: IntentKind): Int = when (kind) {
-    IntentKind.CREDENTIAL_PROVIDER, IntentKind.AUTOFILL ->
-        R.string.preview_related_settings_only
+    IntentKind.CREDENTIAL_PROVIDER -> R.string.preview_credential_navigation
+    IntentKind.AUTOFILL -> R.string.preview_autofill_navigation
     IntentKind.HOME, IntentKind.BROWSER, IntentKind.ASSISTANT,
     IntentKind.CALL_SCREENING -> R.string.preview_default_apps_settings
     IntentKind.INPUT_METHOD -> R.string.preview_ime_native_picker
@@ -160,13 +160,13 @@ internal object SystemEffectPreview {
      */
     fun launchSettings(context: Context, kind: IntentKind, selectedUserId: Int) {
         if (!checkUser(context, selectedUserId)) return
-        val actions = settingsActions(kind)
-        if (actions.isEmpty()) {
+        val targets = settingsIntents(context, kind)
+        if (targets.isEmpty()) {
             show(context, R.string.system_preview_unavailable)
             return
         }
-        for ((index, action) in actions.withIndex()) {
-            val candidate = Intent(action)
+        for ((index, candidate) in targets.withIndex()) {
+            val action = candidate.action.orEmpty()
             try {
                 context.startActivity(candidate)
                 Log.i("ListCleaner.SystemPreview",
@@ -202,13 +202,38 @@ internal object SystemEffectPreview {
         IntentKind.NOTIFICATION_LISTENER ->
             listOf(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
         IntentKind.DREAM -> listOf(Settings.ACTION_DREAM_SETTINGS)
-        // The credential-provider and autofill request actions require a
-        // package: URI and a provider belonging to the caller. This app is a
-        // manager, not a credential provider; only navigate to related settings.
-        IntentKind.CREDENTIAL_PROVIDER, IntentKind.AUTOFILL -> listOf(
-            Settings.ACTION_SYNC_SETTINGS, Settings.ACTION_SECURITY_SETTINGS)
+        // Keep the Android-defined Credential settings and Autofill picker
+        // separate. On Android 14+ the Settings UI can still combine both
+        // providers into a single passwords/passkeys/autofill screen.
+        IntentKind.CREDENTIAL_PROVIDER -> listOf(
+            ACTION_CREDENTIAL_PROVIDER,
+            Settings.ACTION_SYNC_SETTINGS,
+            Settings.ACTION_SECURITY_SETTINGS)
+        IntentKind.AUTOFILL -> listOf(
+            Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE,
+            Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS,
+            Settings.ACTION_SECURITY_SETTINGS)
         else -> emptyList()
     }
+
+    /**
+     * The primary Credential and Autofill actions require package: data.
+     * Always use this manager's OWN package; never claim to be a provider
+     * package or make a silent default-service change. Both are navigation
+     * requests; user confirmation/selection is owned by Android Settings.
+     */
+    internal fun settingsIntents(context: Context, kind: IntentKind): List<Intent> =
+        settingsActions(kind).mapIndexed { index, action ->
+            Intent(action).apply {
+                if (index == 0 && kind in setOf(
+                        IntentKind.CREDENTIAL_PROVIDER, IntentKind.AUTOFILL
+                    )) {
+                    data = Uri.fromParts("package", context.packageName, null)
+                }
+            }
+        }
+
+    private const val ACTION_CREDENTIAL_PROVIDER = "android.settings.CREDENTIAL_PROVIDER"
 
     /** Build the resolver/PackageManager QUERY, never a Settings navigation intent. */
     internal fun candidateIntent(

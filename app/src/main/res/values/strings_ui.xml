@@ -130,4 +130,8 @@
     <string name="preview_count_history">%1$d historical entries · %2$d apps</string>
     <string name="preview_partial_capture">Partial capture: system returned %1$d items; %2$d were stored. The missing entries were not removed by filtering.</string>
     <string name="preview_captured_at">Captured: %1$s</string>
+    <string name="preview_credential_navigation">Open Android Credential Provider settings for passwords and passkeys. Your device may combine this with Autofill; this manager does not request to enable itself as a provider. A broader account/security page is used only if unavailable.</string>
+    <string name="preview_autofill_navigation">Open Android's preferred Autofill provider picker. Selecting another service can change your system default. This is a system UI test, not a verification of List Cleaner's filtered services; fallback is Default apps settings.</string>
+    <string name="preview_open_credential_settings">Open Credential settings</string>
+    <string name="preview_open_autofill_picker">Open Autofill picker</string>
 </resources>

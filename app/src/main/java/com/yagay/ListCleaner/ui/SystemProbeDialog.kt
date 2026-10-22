@@ -629,7 +629,12 @@ internal fun SystemProbeDialog(
                                 SystemPreviewRoute.PICKER, SystemPreviewRoute.WIDGET_PICKER,
                                 SystemPreviewRoute.INPUT_METHOD_PICKER ->
                                     R.string.system_probe_open_picker
-                                SystemPreviewRoute.SETTINGS -> R.string.preview_open_related_settings
+                                SystemPreviewRoute.SETTINGS -> when (request.entryKind) {
+                                    IntentKind.CREDENTIAL_PROVIDER ->
+                                        R.string.preview_open_credential_settings
+                                    IntentKind.AUTOFILL -> R.string.preview_open_autofill_picker
+                                    else -> R.string.preview_open_related_settings
+                                }
                                 else -> R.string.system_probe_open_system
                             }))
                         }
