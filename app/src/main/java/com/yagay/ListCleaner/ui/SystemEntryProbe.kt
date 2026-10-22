@@ -218,11 +218,11 @@ internal object SystemEntryProbe {
             val preferences = application.currentSession()?.service
                 ?.getRemotePreferences(RuleRepository.REMOTE_PREFS)
                 ?: return@runCatching null
-            val key = if (kind in setOf(
+            val key = kind?.takeIf { candidate -> candidate in setOf(
                 IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT,
                 IntentKind.CREATE_DOCUMENT, IntentKind.DOCUMENT_ROOT
-            )) PickerRuntimeSnapshotCodec.keyForRequest(kind.name)
-            else PickerRuntimeSnapshotCodec.REMOTE_KEY
+            ) }?.name?.let(PickerRuntimeSnapshotCodec::keyForRequest)
+                ?: PickerRuntimeSnapshotCodec.REMOTE_KEY
             val encoded = preferences.getString(key, null)
                 ?: preferences.getString(PickerRuntimeSnapshotCodec.REMOTE_KEY, null)
             val snapshot = PickerRuntimeSnapshotCodec.decode(encoded) ?: return@runCatching null
