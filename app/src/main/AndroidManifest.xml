@@ -23,6 +23,10 @@
         <intent><action android:name="android.intent.action.CREATE_DOCUMENT"/><category android:name="android.intent.category.OPENABLE"/><data android:mimeType="*/*"/></intent>
         <intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.HOME"/></intent>
         <intent><action android:name="android.intent.action.ASSIST"/></intent>
+        <!-- AOSP DefaultAssistPreferenceController sends this to PermissionController,
+             not the voice-input settings dashboard. -->
+        <intent><action android:name="android.intent.action.MANAGE_DEFAULT_APP"/>
+            <category android:name="android.intent.category.DEFAULT"/></intent>
         <intent><action android:name="android.media.action.IMAGE_CAPTURE"/></intent>
         <intent><action android:name="android.media.action.VIDEO_CAPTURE"/></intent>
         <intent><action android:name="android.provider.MediaStore.RECORD_SOUND"/></intent>

@@ -6,6 +6,8 @@ import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Process
@@ -174,23 +176,67 @@ internal object SystemEffectPreview {
         launchSettingsTargets(context, kind, targets)
     }
 
-    /** AOSP PermissionController's per-role picker requires MANAGE_ROLE_HOLDERS.
-     * Prefer direct launch when permitted, otherwise use the existing Root
-     * integration for an explicit UI action. Never change role holders in shell.
+    /**
+     * AOSP Settings' DefaultAssistPreferenceController explicitly targets the
+     * PermissionController package. An unscoped MANAGE_DEFAULT_APP intent can
+     * resolve to a Settings page instead of the assistant ROLE_ASSISTANT list.
+     * No role assignment happens here; only the system choice UI is requested.
      */
+    private fun resolveAssistantRolePicker(context: Context): Intent? {
+        val pm = context.packageManager
+        val probe = Intent(ACTION_MANAGE_DEFAULT_APP)
+            .addCategory(Intent.CATEGORY_DEFAULT)
+            .putExtra(EXTRA_ROLE_NAME, ROLE_ASSISTANT)
+        val candidates = runCatching {
+            @Suppress("DEPRECATION")
+            pm.queryIntentActivities(probe, PackageManager.MATCH_ALL)
+        }.getOrDefault(emptyList())
+        val controller = candidates.firstOrNull { resolved ->
+            val activity = resolved.activityInfo ?: return@firstOrNull false
+            activity.permission == MANAGE_ROLE_HOLDERS &&
+                (activity.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+        }?.activityInfo?.packageName
+            ?: runCatching {
+                // This API is @SystemApi; use it only as a discovery fallback.
+                val method = pm.javaClass.getMethod("getPermissionControllerPackageName")
+                method.invoke(pm) as? String
+            }.getOrNull()?.takeIf { pkg ->
+                runCatching {
+                    @Suppress("DEPRECATION")
+                    (pm.getApplicationInfo(pkg, 0).flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                }.getOrDefault(false)
+            }
+        if (controller.isNullOrBlank() ||
+            !controller.matches(Regex("[A-Za-z0-9_.]+"))) {
+            Log.w("ListCleaner.SystemPreview",
+                "ASSISTANT_ROLE_PICKER no verified PermissionController package")
+            return null
+        }
+        Log.i("ListCleaner.SystemPreview",
+            "ASSISTANT_ROLE_PICKER controller=$controller candidates=${candidates.size}")
+        return probe.setPackage(controller)
+    }
+
     private fun launchAssistantRolePicker(
         context: Context, userId: Int, targets: List<Intent>
     ) {
-        val target = targets.firstOrNull() ?: return
+        val target = resolveAssistantRolePicker(context)
+        if (target == null) {
+            show(context, R.string.preview_assistant_fallback)
+            launchSettingsTargets(context, IntentKind.ASSISTANT,
+                targets.drop(1), firstIndex = 1)
+            return
+        }
         try {
             context.startActivity(target)
-            Log.i("ListCleaner.SystemPreview", "ASSISTANT_ROLE_PICKER launched directly")
+            Log.i("ListCleaner.SystemPreview",
+                "ASSISTANT_ROLE_PICKER targeted launch accepted package=${target.`package`}")
             return
         } catch (e: ActivityNotFoundException) {
             Log.w("ListCleaner.SystemPreview", "ASSISTANT_ROLE_PICKER unavailable", e)
         } catch (e: SecurityException) {
             Log.i("ListCleaner.SystemPreview",
-                "ASSISTANT_ROLE_PICKER needs MANAGE_ROLE_HOLDERS; trying user-approved Root")
+                "ASSISTANT_ROLE_PICKER protected; trying user-approved Root")
         } catch (e: RuntimeException) {
             Log.w("ListCleaner.SystemPreview",
                 "ASSISTANT_ROLE_PICKER direct launch failed", e)
@@ -199,7 +245,12 @@ internal object SystemEffectPreview {
         CoroutineScope(Dispatchers.Main.immediate).launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    ComponentRootCommand.run(assistantRolePickerShellCommand(userId))
+                    ComponentRootCommand.run(
+                        assistantRolePickerShellCommand(userId, target.`package` ?: "")
+                    )
+                }.onFailure {
+                    Log.w("ListCleaner.SystemPreview",
+                        "ASSISTANT_ROLE_PICKER Root process error", it)
                 }.getOrNull()
             }
             if (result != null && result.exitCode == 0 && !result.timedOut &&
@@ -208,10 +259,11 @@ internal object SystemEffectPreview {
                 !result.output.contains("Permission Denial", ignoreCase = true) &&
                 !result.output.contains("SecurityException", ignoreCase = true)) {
                 Log.i("ListCleaner.SystemPreview",
-                    "ASSISTANT_ROLE_PICKER requested through Root")
+                    "ASSISTANT_ROLE_PICKER requested via targeted Root launch")
             } else {
                 Log.w("ListCleaner.SystemPreview",
-                    "ASSISTANT_ROLE_PICKER Root unavailable; opening assistant management")
+                    "ASSISTANT_ROLE_PICKER targeted Root launch failed: " +
+                        (result?.output?.take(250) ?: "unavailable"))
                 show(context, R.string.preview_assistant_fallback)
                 launchSettingsTargets(context, IntentKind.ASSISTANT,
                     targets.drop(1), firstIndex = 1)
@@ -219,10 +271,15 @@ internal object SystemEffectPreview {
         }
     }
 
-    /** No user input enters this script: the target and role are fixed. */
-    internal fun assistantRolePickerShellCommand(userId: Int): String {
+    /** Shell args are fixed except a system-discovered, verified package name. */
+    internal fun assistantRolePickerShellCommand(
+        userId: Int, permissionControllerPackage: String
+    ): String {
         require(userId >= 0)
-        return "am start --user $userId -a android.intent.action.MANAGE_DEFAULT_APP" +
+        require(permissionControllerPackage.matches(Regex("[A-Za-z0-9_.]+")) &&
+            '.' in permissionControllerPackage)
+        return "am start --user $userId -p $permissionControllerPackage" +
+            " -a android.intent.action.MANAGE_DEFAULT_APP" +
             " -c android.intent.category.DEFAULT" +
             " --es android.intent.extra.ROLE_NAME android.app.role.ASSISTANT"
     }
@@ -315,6 +372,7 @@ internal object SystemEffectPreview {
     private const val ACTION_MANAGE_DEFAULT_APP = "android.intent.action.MANAGE_DEFAULT_APP"
     private const val EXTRA_ROLE_NAME = "android.intent.extra.ROLE_NAME"
     private const val ROLE_ASSISTANT = "android.app.role.ASSISTANT"
+    private const val MANAGE_ROLE_HOLDERS = "android.permission.MANAGE_ROLE_HOLDERS"
 
     /** Build the resolver/PackageManager QUERY, never a Settings navigation intent. */
     internal fun candidateIntent(

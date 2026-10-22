@@ -62,10 +62,13 @@ class SystemEffectPreviewRouteTest {
         assertEquals(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS,
             SystemEffectPreview.settingsActions(IntentKind.ASSISTANT)[2])
         assertEquals(
-            "am start --user 0 -a android.intent.action.MANAGE_DEFAULT_APP" +
+            "am start --user 0 -p com.google.android.permission" +
+                " -a android.intent.action.MANAGE_DEFAULT_APP" +
                 " -c android.intent.category.DEFAULT" +
                 " --es android.intent.extra.ROLE_NAME android.app.role.ASSISTANT",
-            SystemEffectPreview.assistantRolePickerShellCommand(0)
+            SystemEffectPreview.assistantRolePickerShellCommand(
+                0, "com.google.android.permission"
+            )
         )
         assertEquals(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS,
             SystemEffectPreview.settingsActions(IntentKind.BROWSER).first())
@@ -79,6 +82,19 @@ class SystemEffectPreviewRouteTest {
             SystemEffectPreview.settingsActions(IntentKind.CREDENTIAL_PROVIDER)[1])
         assertEquals(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS,
             SystemEffectPreview.settingsActions(IntentKind.AUTOFILL)[1])
+    }
+
+    @Test fun assistantPickerShellNeverAcceptsUnsafePackageNames() {
+        val invalid = listOf(
+            "com.android.permission;reboot", "com.example && id",
+            "permissioncontroller", ""
+        )
+        invalid.forEach { name ->
+            val rejected = runCatching {
+                SystemEffectPreview.assistantRolePickerShellCommand(0, name)
+            }.isFailure
+            assertTrue(name, rejected)
+        }
     }
 
     @Test fun dynamicShortcutsAndTextSelectionAreNotMisrepresented() {
