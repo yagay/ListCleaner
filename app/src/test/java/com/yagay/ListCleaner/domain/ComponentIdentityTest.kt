@@ -4,9 +4,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ComponentIdentityTest {
-    @Test fun aliasUsesTargetActivityAsStableRuleIdentity() {
+    @Test fun aliasKeepsItsIndependentRuleIdentity() {
         assertEquals(
-            "com.UCMobile.main.UCMobile",
+            "com.UCMobile.main.UCMobile.DefaultBrowserEntry",
             ComponentIdentity.canonicalClassName(
                 "com.UCMobile",
                 "com.UCMobile.main.UCMobile.DefaultBrowserEntry",
@@ -26,8 +26,8 @@ class ComponentIdentityTest {
 
     @Test fun relativeAndShortNamesAreExpandedDefensively() {
         assertEquals(
-            "com.example.AliasTarget",
-            ComponentIdentity.canonicalClassName("com.example", "com.example.Alias", ".AliasTarget")
+            "com.example.Alias",
+            ComponentIdentity.canonicalClassName("com.example", ".Alias", ".AliasTarget")
         )
         assertEquals(
             "com.example.OpenActivity",
@@ -35,3 +35,4 @@ class ComponentIdentityTest {
         )
     }
 }
+

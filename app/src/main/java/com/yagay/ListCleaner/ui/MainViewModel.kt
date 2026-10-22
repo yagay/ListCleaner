@@ -86,6 +86,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun selectSpace(userId: Int) {
         if (rootComponents.busy.value || !app.spaces.select(userId)) return
+        candidateController.clearForSpaceChange()
         app.rules.switchSpace(userId)
         bulkLocks.notifySpaceChanged()
         rootComponents.switchSpace(userId)
@@ -293,8 +294,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val preparedCandidates = combine(
         candidates, app.rules.rules, app.rules.activeUser, installedPackages
     ) { scanned, selected, userId, installed ->
-        val scopedCandidates = if (userId == app.spaces.currentUserId) scanned
-            else scanned.filter { it.rule.packageName in installed.orEmpty() }
+        val scopedCandidates = scanned
         val items = retainConfiguredCandidates(
             scopedCandidates,
             selected,
@@ -840,3 +840,4 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private const val TAG = "ListCleaner.ViewModel"
     }
 }
+

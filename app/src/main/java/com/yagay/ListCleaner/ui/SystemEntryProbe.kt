@@ -248,7 +248,7 @@ internal object SystemEntryProbe {
 
     private fun previouslyObservedDocumentRoots(context: Context): List<ObservedPickerRoot> =
         ObservedEntryCache(context).snapshot().asSequence()
-            .filter { it.kind == IntentKind.DOCUMENT_ROOT.name }
+            .filter { it.kind == IntentKind.DOCUMENT_ROOT.name && it.userId == AndroidUid.userId(Process.myUid()) }
             .map { record ->
                 ObservedPickerRoot(
                     label = record.label.ifBlank { record.packageName },
@@ -334,7 +334,7 @@ internal object SystemEntryProbe {
                 // ShortcutService/the calling launcher. We can show only
                 // previously observed targets, not a fabricated live panel.
                 val history = ObservedEntryCache(context).snapshot()
-                    .asSequence().filter { it.kind == kind.name }
+                    .asSequence().filter { it.kind == kind.name && it.userId == AndroidUid.userId(Process.myUid()) }
                     .map { record ->
                         SystemProbeItem(
                             label = record.label.ifBlank { record.packageName },
@@ -620,3 +620,4 @@ internal object SystemEntryProbe {
         )
     }
 }
+

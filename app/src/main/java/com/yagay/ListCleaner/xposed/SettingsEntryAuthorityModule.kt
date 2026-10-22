@@ -32,7 +32,7 @@ class SettingsEntryAuthorityModule : XposedModule() {
         EntryPolicyProvider(
             preferences = preferences,
             kinds = SETTINGS_KINDS,
-            includePriorities = false,
+            includePriorities = true,
             record = ::record,
         )
     }
@@ -91,49 +91,65 @@ class SettingsEntryAuthorityModule : XposedModule() {
     private fun vpnHooker() = XposedInterface.Hooker { chain ->
         val original = chain.proceed()
         val values = original as? List<*> ?: return@Hooker original
-        val packages = values.mapNotNull(::vpnPackageName)
-        authorityWriter.replacePackages(IntentKind.VPN, packages)
-
-        val policy = policyProvider.snapshot(com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid()))
-        val selectedPackages = policy.selectedPackages(IntentKind.VPN)
-        record(
-            "VPN_QUERY before=${values.size} selectedPackages=${selectedPackages.size} mode=${policy.displayMode}"
-        )
-        if (policy.displayMode == DisplayMode.SHOW_ALL || selectedPackages.isEmpty()) return@Hooker original
-
-        val filtered = values.filter { value ->
-            val packageName = vpnPackageName(value) ?: return@filter true
-            policy.displayMode.includes(packageName in selectedPackages, selectedPackages.isNotEmpty())
+        values.groupBy(::vpnUserId).forEach { (userId, entries) ->
+            if (userId != null) authorityWriter.replacePackages(
+                IntentKind.VPN, entries.mapNotNull(::vpnPackageName), userId = userId,
+            )
         }
-        if (filtered.size == values.size) return@Hooker original
-        record("VPN_FILTER before=${values.size} after=${filtered.size} selectedPackages=${selectedPackages.size}")
-        ArrayList(filtered)
+        val filtered = values.filter { value ->
+            val userId = vpnUserId(value) ?: return@filter true
+            val packageName = vpnPackageName(value) ?: return@filter true
+            val policy = policyProvider.snapshot(userId)
+            val selected = policy.selectedPackages(IntentKind.VPN)
+            selected.isEmpty() || policy.displayMode.includes(packageName in selected, true)
+        }.toMutableList()
+        filtered.indices.groupBy { vpnUserId(filtered[it]) }.forEach { (userId, positions) ->
+            if (userId == null) return@forEach
+            val policy = policyProvider.snapshot(userId)
+            val ordered = com.yagay.ListCleaner.domain.prioritizeApps(
+                positions.map { filtered[it] }, policy.priorities(IntentKind.VPN),
+                { vpnPackageName(it).orEmpty() }, { userId },
+            )
+            positions.forEachIndexed { index, position -> filtered[position] = ordered[index] }
+        }
+        if (filtered == values) original else ArrayList(filtered)
     }
+
+    private fun vpnUserId(value: Any?): Int? =
+        ((ReflectionAccess.readField(value, "userId", "mUserId") as? Number)?.toInt()
+            ?: (ReflectionAccess.invokeNoArg(value, "getUserId") as? Number)?.toInt())
+            ?.takeIf { it in 0..21474 }
 
     /** Compatibility path for builds that still expose the legacy component picker. */
     private fun legacyAutofillHooker() = XposedInterface.Hooker { chain ->
         val original = chain.proceed()
         val values = original as? List<*> ?: return@Hooker original
         val packages = values.mapNotNull(::autofillPackageName)
-        authorityWriter.replacePackages(IntentKind.AUTOFILL, packages)
+        val userId = (ReflectionAccess.readField(chain.thisObject, "mUserId") as? Number)
+            ?.toInt()?.takeIf { it in 0..21474 } ?: return@Hooker original
+        authorityWriter.replacePackages(IntentKind.AUTOFILL, packages, userId = userId)
 
-        val policy = policyProvider.snapshot(com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid()))
+        val policy = policyProvider.snapshot(userId)
         val selectedPackages = policy.selectedPackages(IntentKind.AUTOFILL)
         record(
             "AUTOFILL_LEGACY_QUERY before=${values.size} selectedPackages=${selectedPackages.size} mode=${policy.displayMode}"
         )
-        if (policy.displayMode == DisplayMode.SHOW_ALL || selectedPackages.isEmpty()) return@Hooker original
+
 
         val filtered = values.filter { value ->
             val packageName = autofillPackageName(value) ?: return@filter true
             policy.displayMode.includes(packageName in selectedPackages, selectedPackages.isNotEmpty())
         }
-        if (filtered.size == values.size) return@Hooker original
+        val ordered = com.yagay.ListCleaner.domain.prioritizeApps(
+            filtered, policy.priorities(IntentKind.AUTOFILL),
+            { autofillPackageName(it).orEmpty() }, { userId },
+        )
+        if (ordered == values) return@Hooker original
         record(
             "AUTOFILL_LEGACY_FILTER before=${values.size} after=${filtered.size} " +
                 "selectedPackages=${selectedPackages.size}"
         )
-        ArrayList(filtered)
+        ArrayList(ordered)
     }
 
     private fun vpnPackageName(value: Any?): String? =
@@ -190,3 +206,4 @@ class SettingsEntryAuthorityModule : XposedModule() {
             .mapTo(linkedSetOf()) { it.kind }
     }
 }
+

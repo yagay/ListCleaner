@@ -94,7 +94,9 @@ class ShortcutSurfaceModule : XposedModule() {
 
         values.filterIsInstance<ShortcutInfo>().forEach(RuntimeObservedEntryStore::observeShortcut)
 
-        val policy = policyProvider.snapshot(com.yagay.ListCleaner.domain.AndroidUid.userId(call.callerUid))
+        val userId = HookCallIdentity.shortcutTargetUserId(method.parameterTypes.map { it.name }, chain.args)
+            ?: return@Hooker original
+        val policy = policyProvider.snapshot(userId)
         if (ManagerIdentity.matches(call.callerUid, policy.managerAppId)) return@Hooker original
         val selected = policy.selected(IntentKind.SHORTCUT_ITEM)
         val priorities = policy.priorities(IntentKind.SHORTCUT_ITEM)
@@ -108,7 +110,7 @@ class ShortcutSurfaceModule : XposedModule() {
         val ordered = if (priorities.isEmpty() || filtered.size < 2) filtered else prioritizeApps(
             filtered, priorities,
             { (it as? ShortcutInfo)?.`package` ?: "" },
-            { 0 },
+            { ReflectionAccess.userId((it as? ShortcutInfo)?.userHandle) ?: userId },
         )
         if (ordered == values) {
             original
@@ -144,7 +146,8 @@ class ShortcutSurfaceModule : XposedModule() {
         val callingPackage = chain.args.firstOrNull { it is String } as? String
         if (!isDirectShareResolverCaller(callingPackage)) return@Hooker original
         val callerUid = Binder.getCallingUid()
-        val userId = com.yagay.ListCleaner.domain.AndroidUid.userId(callerUid)
+        val userId = (chain.args.lastOrNull() as? Int)?.takeIf { it in 0..21474 }
+            ?: return@Hooker original
         val policy = policyProvider.snapshot(userId)
         if (ManagerIdentity.matches(callerUid, policy.managerAppId)) return@Hooker original
 
@@ -252,7 +255,7 @@ class ShortcutSurfaceModule : XposedModule() {
 
         val original = chain.proceed()
         val result = listResults.extract(original) ?: return@Hooker original
-        val synthetic = RuntimeObservedEntryStore.snapshot().map { entry ->
+        val synthetic = RuntimeObservedEntryStore.snapshot(com.yagay.ListCleaner.domain.AndroidUid.userId(callerUid)).map { entry ->
             ResolveInfo().apply {
                 nonLocalizedLabel = entry.label.ifBlank { entry.kind.name }
                 activityInfo = ActivityInfo().apply {
@@ -261,6 +264,8 @@ class ShortcutSurfaceModule : XposedModule() {
                     applicationInfo = ApplicationInfo().apply { packageName = entry.packageName }
                     metaData = Bundle().apply {
                         putString(ObservedEntryProtocol.META_KIND, entry.kind.name)
+                        putInt(ObservedEntryProtocol.META_USER, entry.userId)
+                        putLong(ObservedEntryProtocol.META_TIME, entry.observedAt)
                         entry.activityClass?.let { putString(ObservedEntryProtocol.META_ACTIVITY, it) }
                     }
                 }
@@ -324,3 +329,4 @@ class ShortcutSurfaceModule : XposedModule() {
         )
     }
 }
+

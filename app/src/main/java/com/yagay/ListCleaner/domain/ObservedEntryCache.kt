@@ -44,13 +44,15 @@ data class ObservedEntryRecord(
     val label: String = "",
     val activityClass: String? = null,
     val observedAt: Long = 0L,
+    val userId: Int = 0,
 ) {
-    val key: String get() = "$kind|$packageName|$syntheticClass"
+    val key: String get() = "$userId|$kind|$packageName|$syntheticClass"
 
     fun validatedOrNull(): ObservedEntryRecord? {
         val parsedKind = runCatching { IntentKind.valueOf(kind) }.getOrNull()
             ?.takeIf { it in OBSERVABLE_ENTRY_KINDS }
             ?: return null
+        if (userId !in 0..21474) return null
         if (!PackageIdentity.valid(packageName)) return null
         if (syntheticClass.isBlank() || syntheticClass.length > 512 ||
             syntheticClass.any { it.isWhitespace() || it.isISOControl() || it == '|' }
@@ -118,9 +120,10 @@ object ObservedEntryCacheCodec {
         existing: Collection<ObservedEntryRecord>,
         remote: Collection<ObservedEntryRecord>,
         snapshotKinds: Set<IntentKind> = REMOTE_AUTHORITY_SNAPSHOT_KINDS,
+        userId: Int = 0,
     ): List<ObservedEntryRecord> {
         val retained = normalize(existing).filter { record ->
-            runCatching { IntentKind.valueOf(record.kind) }.getOrNull() !in snapshotKinds
+            record.userId != userId || runCatching { IntentKind.valueOf(record.kind) }.getOrNull() !in snapshotKinds
         }
         return merge(retained, remote)
     }
@@ -133,3 +136,4 @@ object ObservedEntryCacheCodec {
             .take(MAX_ENTRIES)
             .toList()
 }
+

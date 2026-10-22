@@ -60,8 +60,19 @@ internal class CandidateController(
         mutableError.value = message
     }
 
+    fun clearForSpaceChange() {
+        generation++
+        refreshJob?.cancel()
+        browserRefreshJob?.cancel()
+        mutableCandidates.value = emptyList()
+        mutableBrowserHosts.value = emptySet()
+    }
+
     fun refresh(forceCatalog: Boolean = false) {
+        val userId = app.rules.activeUser.value
         val currentGeneration = ++generation
+        mutableCandidates.value = emptyList()
+        mutableBrowserHosts.value = emptySet()
         refreshJob?.cancel()
         browserRefreshJob?.cancel()
         refreshJob = scope.launch {
@@ -72,16 +83,17 @@ internal class CandidateController(
                 // cache changes, invalidate the catalog so an old empty special-entry result cannot
                 // mask newly observed Role/Settings/NFC/manager candidates.
                 val observedBefore = observedEntryCache.revisionToken()
-                app.synchronizeObservedEntries()
+                app.synchronizeObservedEntries(userId)
                 if (observedEntryCache.revisionToken() != observedBefore) {
                     app.catalog.invalidate()
                 }
-                if (currentGeneration != generation) return@launch
+                if (currentGeneration != generation || app.rules.activeUser.value != userId) return@launch
 
                 val configured = configuredRules()
                 mutableCandidates.value = completeLogical(mutableCandidates.value, configured)
 
-                val cachedBrowserDiscovery = browserLinkDiscovery.snapshot()
+                val cachedBrowserDiscovery = if (userId == app.spaces.currentUserId) browserLinkDiscovery.snapshot()
+                    else com.yagay.ListCleaner.data.BrowserLinkDiscoveryResult()
                 if (currentGeneration == generation) {
                     mutableBrowserHosts.value = cachedBrowserDiscovery.hosts
                 }
@@ -90,18 +102,20 @@ internal class CandidateController(
                     app.rules.browserLinks.value.hosts + cachedBrowserDiscovery.hosts,
                     browserDiscovery = cachedBrowserDiscovery,
                     force = forceCatalog,
+                    userId = userId,
                 )
-                if (currentGeneration != generation) return@launch
+                if (currentGeneration != generation || app.rules.activeUser.value != userId) return@launch
                 mutableCandidates.value = completeLogical(baseResult, configuredRules())
                 mutableError.value = app.catalog.scanWarning
                 mutableLoading.value = false
 
                 // User-requested scans still perform deep link enrichment even when auto discovery is disabled.
+                if (userId != app.spaces.currentUserId) return@launch
                 if (!UiPreferencesRuntime.current.appLinkEnrichment && !forceCatalog) return@launch
                 browserRefreshJob = scope.launch {
                     try {
                         val browserDiscovery = browserLinkDiscovery.discoverDetailed(forceCatalog)
-                        if (currentGeneration != generation) return@launch
+                        if (currentGeneration != generation || app.rules.activeUser.value != userId) return@launch
                         mutableBrowserHosts.value = browserDiscovery.hosts
                         if (browserDiscovery != cachedBrowserDiscovery) {
                             val enriched = app.catalog.scan(
@@ -109,6 +123,7 @@ internal class CandidateController(
                                 app.rules.browserLinks.value.hosts + browserDiscovery.hosts,
                                 browserDiscovery = browserDiscovery,
                                 force = true,
+                                userId = userId,
                             )
                             if (currentGeneration == generation) {
                                 mutableCandidates.value = completeLogical(enriched, configuredRules())
@@ -138,6 +153,7 @@ internal class CandidateController(
     ): List<ComponentCandidate> = app.catalog.completeConfigured(
         normalizeLogicalCandidates(AuthorityCandidatePolicy.normalize(items)),
         configured,
+        userId = app.rules.activeUser.value,
     )
 
     private fun configuredRules(): Set<ComponentRule> = buildSet {
@@ -150,3 +166,4 @@ internal class CandidateController(
         const val TAG = "ListCleaner.Candidates"
     }
 }
+

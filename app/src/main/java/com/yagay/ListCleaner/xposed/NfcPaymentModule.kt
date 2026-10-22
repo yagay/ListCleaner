@@ -31,7 +31,7 @@ class NfcPaymentModule : XposedModule() {
         EntryPolicyProvider(
             preferences = preferences,
             kinds = NFC_KINDS,
-            includePriorities = false,
+            includePriorities = true,
             record = ::record,
         )
     }
@@ -112,35 +112,42 @@ class NfcPaymentModule : XposedModule() {
             ?: return@Hooker chain.proceed()
         if (category != PAYMENT_CATEGORY) return@Hooker chain.proceed()
 
+        val userId = (chain.args.firstOrNull() as? Int)?.takeIf { it in 0..21474 }
+            ?: return@Hooker chain.proceed()
         val original = chain.proceed()
         val values = original as? List<*> ?: return@Hooker original
         val components = values.mapNotNull(::componentOf)
-        authorityWriter.replaceComponents(IntentKind.NFC_HCE, components)
+        authorityWriter.replaceComponents(IntentKind.NFC_HCE, components, userId = userId)
 
         val callerUid = Binder.getCallingUid()
-        val policy = policyProvider.snapshot(com.yagay.ListCleaner.domain.AndroidUid.userId(callerUid))
+        val policy = policyProvider.snapshot(userId)
         val callerPid = Binder.getCallingPid()
         if (ManagerIdentity.matches(callerUid, policy.managerAppId) || callerPid == Process.myPid()) {
             return@Hooker original
         }
         val selected = policy.selected(IntentKind.NFC_HCE)
-        if (policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) return@Hooker original
+        val priorities = policy.priorities(IntentKind.NFC_HCE)
+        if ((policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) && priorities.isEmpty()) return@Hooker original
 
-        val filtered = values.filter { value ->
+        val kept = values.filter { value ->
             val component = componentOf(value) ?: return@filter true
             val rule = ComponentRule(IntentKind.NFC_HCE, component.packageName, component.className)
-            policy.displayMode.includes(rule.id in selected, selected.isNotEmpty())
+            policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty() ||
+                policy.displayMode.includes(rule.id in selected, selected.isNotEmpty())
         }
+        val filtered = com.yagay.ListCleaner.domain.prioritizeApps(
+            kept, priorities, { componentOf(it)?.packageName ?: "" }, { userId },
+        )
         runtimeCapture.publish(
             kind = IntentKind.NFC_HCE,
             source = "NFC_PAYMENT_FILTERED_RETURN",
-            userId = com.yagay.ListCleaner.domain.AndroidUid.userId(callerUid),
+            userId = userId,
             packages = filtered.mapNotNull { componentOf(it)?.packageName },
             components = filtered.mapNotNull { componentOf(it)?.flattenToString() },
             callerUid = callerUid,
             requestAction = "android.nfc.cardemulation.payment",
         )
-        if (filtered.size == values.size) return@Hooker original
+        if (filtered == values) return@Hooker original
         record(
             "FILTER category=$category callerUid=$callerUid before=${values.size} after=${filtered.size} selected=${selected.size}"
         )
@@ -169,3 +176,4 @@ class NfcPaymentModule : XposedModule() {
         )
     }
 }
+

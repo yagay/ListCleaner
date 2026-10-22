@@ -16,6 +16,7 @@ internal data class ObservedRuntimeEntry(
     val label: String,
     val activityClass: String?,
     val observedAt: Long,
+    val userId: Int,
 )
 
 /** Process-local observations from Android's authoritative runtime managers. */
@@ -34,7 +35,7 @@ internal object RuntimeObservedEntryStore {
         observeShortcutLike(IntentKind.DIRECT_SHARE, shortcut, target ?: shortcut.activity)
     }
 
-    fun observeComponent(kind: IntentKind, component: ComponentName, label: String = "") {
+    fun observeComponent(kind: IntentKind, component: ComponentName, label: String = "", userId: Int) {
         if (kind !in OBSERVABLE_ENTRY_KINDS || kind.isPackageScopedEntry()) return
         val rule = ComponentRule(kind, component.packageName, component.className)
         if (!rule.isValid()) return
@@ -46,11 +47,12 @@ internal object RuntimeObservedEntryStore {
                 label = label.take(MAX_LABEL_CHARS),
                 activityClass = rule.className,
                 observedAt = System.currentTimeMillis(),
+                userId = userId,
             )
         )
     }
 
-    fun observePackage(kind: IntentKind, packageName: String, label: String = "") {
+    fun observePackage(kind: IntentKind, packageName: String, label: String = "", userId: Int) {
         if (kind !in OBSERVABLE_ENTRY_KINDS || !kind.isPackageScopedEntry()) return
         val rule = runCatching { SyntheticEntryKeys.packageScopedRule(kind, packageName) }.getOrNull() ?: return
         if (!rule.isValid()) return
@@ -62,6 +64,7 @@ internal object RuntimeObservedEntryStore {
                 label = label.take(MAX_LABEL_CHARS),
                 activityClass = null,
                 observedAt = System.currentTimeMillis(),
+                userId = userId,
             )
         )
     }
@@ -82,27 +85,29 @@ internal object RuntimeObservedEntryStore {
                 label = shortcut.shortLabel?.toString()?.take(MAX_LABEL_CHARS).orEmpty(),
                 activityClass = targetClass,
                 observedAt = System.currentTimeMillis(),
+                userId = ReflectionAccess.userId(shortcut.userHandle) ?: return,
             )
         )
     }
 
     private fun put(entry: ObservedRuntimeEntry) {
-        val key = "${entry.kind.name}|${entry.packageName}|${entry.syntheticClass}"
+        val key = "${entry.userId}|${entry.kind.name}|${entry.packageName}|${entry.syntheticClass}"
         entries[key] = entry
         if (entries.size > MAX_ENTRIES) {
             entries.values.sortedBy { it.observedAt }
                 .take(entries.size - MAX_ENTRIES)
                 .forEach { old ->
-                    entries.remove("${old.kind.name}|${old.packageName}|${old.syntheticClass}", old)
+                    entries.remove("${old.userId}|${old.kind.name}|${old.packageName}|${old.syntheticClass}", old)
                 }
         }
     }
 
-    fun snapshot(): List<ObservedRuntimeEntry> =
-        entries.values.sortedWith(
+    fun snapshot(userId: Int): List<ObservedRuntimeEntry> =
+        entries.values.filter { it.userId == userId && System.currentTimeMillis() - it.observedAt in 0..300_000L }.sortedWith(
             compareByDescending<ObservedRuntimeEntry> { it.observedAt }
                 .thenBy { it.kind.ordinal }
                 .thenBy { it.packageName }
                 .thenBy { it.label }
         )
 }
+

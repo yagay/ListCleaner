@@ -40,6 +40,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
+import com.yagay.ListCleaner.domain.supportsPriorityEditing
+import com.yagay.ListCleaner.domain.supportsTitleEditing
 import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.EntryGroup
 import com.yagay.ListCleaner.domain.entryGroup
@@ -93,6 +95,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
         EntryWorkspaceHome(
             selectedGroup = sortingGroup,
             availableGroups = EntryGroup.entries.filter { it != EntryGroup.DESKTOP },
+            availableKinds = IntentKind.entries.filter { it.supportsPriorityEditing() }.toSet(),
             showUtilities = false,
             showComponentSection = false,
             onGroup = { sortingGroup = it },
@@ -725,9 +728,7 @@ private fun ComponentInfoRow(item: ComponentCandidate, customTitle: String?, onE
                 overflow = TextOverflow.Ellipsis
             )
         }
-        if (item.rule.kind != IntentKind.LAUNCHER_SHORTCUT &&
-            item.rule.kind != IntentKind.DOCUMENT_PROVIDER
-        ) {
+        if (item.rule.kind.supportsTitleEditing()) {
             AdaptiveIconButton(onClick = onEditTitle) {
                 AdaptiveIcon(Icons.Rounded.Edit, stringResource(R.string.component_edit_display_name))
             }

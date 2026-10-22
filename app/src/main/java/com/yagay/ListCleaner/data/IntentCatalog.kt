@@ -34,6 +34,9 @@ import java.time.Instant
 
 /** Evidence-based discovery, not a claim to enumerate every installed intent filter. */
 class IntentCatalog(private val context: Context) {
+    data class Snapshot(val userId: Int, val items: List<ComponentCandidate>)
+    private val mutableSnapshot = MutableStateFlow(Snapshot(android.os.Process.myUid() / 100000, emptyList()))
+    val snapshot: StateFlow<Snapshot> = mutableSnapshot.asStateFlow()
     private val mutableCandidates = MutableStateFlow<List<ComponentCandidate>>(emptyList())
     val candidates: StateFlow<List<ComponentCandidate>> = mutableCandidates.asStateFlow()
     private val mutableRevision = MutableStateFlow(0L)
@@ -42,7 +45,8 @@ class IntentCatalog(private val context: Context) {
 
     suspend fun completeConfigured(
         items: List<ComponentCandidate>,
-        selected: Set<ComponentRule>
+        selected: Set<ComponentRule>,
+        userId: Int = android.os.Process.myUid() / 100000,
     ): List<ComponentCandidate> = withContext(Dispatchers.IO) {
         val known = items.mapTo(hashSetOf()) { it.rule.id }
         val missing = selected.filter { it.id !in known }
@@ -54,7 +58,8 @@ class IntentCatalog(private val context: Context) {
             .associateWith { packageName ->
                 runCatching {
                     @Suppress("DEPRECATION")
-                    context.packageManager.getApplicationInfo(packageName, 0)
+                    if (userId == android.os.Process.myUid() / 100000) context.packageManager.getApplicationInfo(packageName, 0)
+                    else ProfilePackageQuery(context, userId).packageInfo(packageName)?.applicationInfo
                 }.getOrNull()
             }
 
@@ -105,8 +110,10 @@ class IntentCatalog(private val context: Context) {
         customDefinitions: Map<OpenPreset, CustomOpenDefinition> = emptyMap(),
         browserHosts: Set<String> = emptySet(),
         browserDiscovery: BrowserLinkDiscoveryResult = BrowserLinkDiscoveryResult(),
-        force: Boolean = false
+        force: Boolean = false,
+        userId: Int = android.os.Process.myUid() / 100000,
     ): List<ComponentCandidate> = withContext(Dispatchers.IO) {
+        val profile = if (userId == android.os.Process.myUid() / 100000) null else ProfilePackageQuery(context, userId)
         val normalizedBrowserHosts = browserHosts.mapNotNull(::normalizeBrowserHost).toSortedSet()
         val discoveryFingerprint = browserDiscovery.declaredHandlersByHost.entries
             .sortedBy { it.key }
@@ -123,7 +130,7 @@ class IntentCatalog(private val context: Context) {
         val inputFingerprint = customDefinitions.entries
             .sortedBy { it.key.ordinal }
             .joinToString("|") { (preset, definition) -> "$preset=$definition" } +
-            "|browserHosts=" + normalizedBrowserHosts.joinToString(",") +
+            "|userId=$userId|browserHosts=" + normalizedBrowserHosts.joinToString(",") +
             "|declaredHandlers=" + discoveryFingerprint +
             "|declaredPackages=" + packageFingerprint
         val cached = mutableCandidates.value
@@ -135,7 +142,8 @@ class IntentCatalog(private val context: Context) {
             return@withContext cached
         }
 
-        val specialCandidates = runCatching { specialEntryDiscovery.scan() }.getOrDefault(emptyList())
+        val specialCandidates = if (profile == null) specialEntryDiscovery.scan()
+            else ProfileEntryDiscovery(context, profile).scan()
         val specialFingerprint = specialCandidates.asSequence()
             .map { it.rule.id }
             .sorted()
@@ -164,7 +172,7 @@ class IntentCatalog(private val context: Context) {
             )
         }
 
-        val declaredCandidates = declaredDeepLinkCandidates(browserDiscovery.declaredHandlersByHost)
+        val declaredCandidates = if (profile == null) declaredDeepLinkCandidates(browserDiscovery.declaredHandlersByHost) else emptyList()
         if (declaredCandidates.isNotEmpty()) {
             found += declaredCandidates
             declaredCandidates.forEach { known += it.rule.id }
@@ -173,7 +181,7 @@ class IntentCatalog(private val context: Context) {
                     "uniqueRules=${declaredCandidates.map { it.rule.id }.distinct().size}"
             )
         }
-        for (scheme in listOf("http", "https")) {
+        if (profile == null) for (scheme in listOf("http", "https")) {
             val web = Intent(Intent.ACTION_VIEW, Uri.parse("$scheme://example.com")).addCategory(Intent.CATEGORY_BROWSABLE)
             runCatching {
                 @Suppress("DEPRECATION")
@@ -190,7 +198,7 @@ class IntentCatalog(private val context: Context) {
         for (probe in allProbes) {
             currentCoroutineContext().ensureActive()
             try {
-                val result = query(probe)
+                val result = query(probe, profile = profile)
                 val added = result.candidates.count { known.add(it.rule.id) }
                 found += result.candidates
                 report.appendLine("${probe.label} broad=${probe.broad} flags=0x${result.flags.toString(16)} raw=${result.raw} kept=${result.candidates.size} new=$added")
@@ -207,6 +215,7 @@ class IntentCatalog(private val context: Context) {
         lastReport = report.toString()
         if (failures > 0) scanWarning = context.getString(R.string.catalog_partial_scan_failed, failures)
         mutableCandidates.value = result
+        mutableSnapshot.value = Snapshot(userId, result)
         cachedInputFingerprint = inputFingerprint
         cachedDefinitionFingerprint = fingerprint
         invalidated = false
@@ -236,11 +245,12 @@ class IntentCatalog(private val context: Context) {
     }
 
     @Suppress("DEPRECATION")
-    private fun query(probe: Probe, discovery: Boolean = true): QueryResult {
+    private fun query(probe: Probe, discovery: Boolean = true, profile: ProfilePackageQuery? = null): QueryResult {
         val intentKind = probe.intent.intentKind() ?: return QueryResult(emptyList(), 0)
         val flags = queryFlags(intentKind, discovery)
         check(flags and (PackageManager.MATCH_DISABLED_COMPONENTS or PackageManager.MATCH_DISABLED_UNTIL_USED_COMPONENTS) == 0)
-        val raw = context.packageManager.queryIntentActivities(probe.intent, flags)
+        val raw = profile?.query(probe.intent, flags)
+            ?: context.packageManager.queryIntentActivities(probe.intent, flags)
         val candidates = raw.mapNotNull { info ->
             val activity = info.activityInfo ?: return@mapNotNull null
             val kind = if (intentKind == IntentKind.BROWSER) info.webTargetKind() else intentKind
@@ -248,7 +258,7 @@ class IntentCatalog(private val context: Context) {
             val rule = ComponentRule(kind, activity.packageName, canonicalClass)
             if (!rule.isValid()) return@mapNotNull null
             val managerUid = android.os.Process.myUid()
-            val targetUid = activity.applicationInfo?.uid ?: -1
+            val targetUid = if (profile == null) activity.applicationInfo?.uid ?: -1 else -1
             val restricted = FilterPolicy.catalogRestricted(activity.exported, targetUid, managerUid)
             val facts = buildList {
                 add("SYSTEM_STATE activityEnabled=${activity.enabled} appEnabled=${activity.applicationInfo?.enabled}")
@@ -541,3 +551,4 @@ class IntentCatalog(private val context: Context) {
         )
     }
 }
+

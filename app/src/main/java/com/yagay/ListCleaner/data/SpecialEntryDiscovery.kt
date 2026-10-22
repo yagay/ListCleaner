@@ -81,12 +81,12 @@ internal class SpecialEntryDiscovery(private val context: Context) {
             // confirmed live entries simply by sharing a rule ID.
             val first = matches.firstOrNull { item ->
                 !item.unavailable && item.evidence.any {
-                    it.startsWith("AUTHORITY_OBSERVED ") && "source=live" in it
+                    it.startsWith("AUTHORITY_OBSERVED ") && "source=recent_runtime" in it
                 }
             } ?: matches.firstOrNull { it.isCatalogCandidate } ?: matches.first()
             val confirmedLive = matches.any { item ->
                 !item.unavailable && item.evidence.any {
-                    it.startsWith("AUTHORITY_OBSERVED ") && "source=live" in it
+                    it.startsWith("AUTHORITY_OBSERVED ") && "source=recent_runtime" in it
                 }
             }
             first.copy(
@@ -116,11 +116,14 @@ internal class SpecialEntryDiscovery(private val context: Context) {
                     syntheticClass = rule.className,
                     label = resolved.nonLocalizedLabel?.toString().orEmpty(),
                     activityClass = activity.metaData?.getString(ObservedEntryProtocol.META_ACTIVITY),
-                    observedAt = System.currentTimeMillis(),
+                    observedAt = activity.metaData?.getLong(ObservedEntryProtocol.META_TIME) ?: 0L,
+                    userId = activity.metaData?.getInt(ObservedEntryProtocol.META_USER, -1) ?: -1,
                 ).validatedOrNull()
             }
         val liveKeys = liveRecords.mapTo(hashSetOf()) { it.key }
-        val records = observedCache.merge(liveRecords)
+        val records = observedCache.merge(liveRecords).filter {
+            it.userId == android.os.Process.myUid() / 100000
+        }
 
         return records.mapNotNull { observed ->
             val kind = runCatching { IntentKind.valueOf(observed.kind) }.getOrNull()
@@ -131,7 +134,7 @@ internal class SpecialEntryDiscovery(private val context: Context) {
             val app = runCatching { pm.getApplicationInfo(observed.packageName, 0) }.getOrNull()
                 ?: return@mapNotNull null
             // A recent DocumentsUI observation is history, not proof of current
-            // availability. Only an actual live bridge registration is authoritative.
+            // availability. The bridge preserves recent observations and their original timestamps.
             val live = observed.key in liveKeys
             ComponentCandidate(
                 rule = rule,
@@ -143,7 +146,7 @@ internal class SpecialEntryDiscovery(private val context: Context) {
                 appIcon = runCatching { app.loadIcon(pm).toBitmap(96, 96) }.getOrNull(),
                 appType = app.listCleanerAppType(),
                 evidence = buildList {
-                    add("AUTHORITY_OBSERVED kind=${kind.name} source=${if (live) "live" else "cache_history"}")
+                    add("AUTHORITY_OBSERVED kind=${kind.name} source=${if (live) "recent_runtime" else "cache_history"}")
                     observed.activityClass?.takeIf { it.isNotBlank() }?.let { add("component=$it") }
                     add("observedAt=${observed.observedAt}")
                 },
@@ -266,10 +269,9 @@ internal class SpecialEntryDiscovery(private val context: Context) {
     private fun accessibilityEntries(): List<ComponentCandidate> {
         val shortcuts = accessibilityShortcutEntries()
         val shortcutPackageLabels = shortcuts.mapTo(hashSetOf()) { it.rule.packageName to it.activityLabel }
-        val manager = context.getSystemService(AccessibilityManager::class.java)
-        val serviceInfos = runCatching { manager?.installedAccessibilityServiceList }.getOrNull()
-            ?: return shortcuts + serviceFallback(IntentKind.ACCESSIBILITY)
-        val services = serviceInfos.mapNotNull { info -> accessibilityServiceCandidate(info) }
+        // Candidate discovery uses the unfiltered manager-bypass PM path. The installed-manager
+        // query is reserved for the effect preview, which deliberately applies list rules.
+        val services = serviceFallback(IntentKind.ACCESSIBILITY)
             .filterNot { it.rule.packageName to it.activityLabel in shortcutPackageLabels }
         return shortcuts + services
     }
@@ -613,3 +615,4 @@ internal class SpecialEntryDiscovery(private val context: Context) {
         val PACKAGE_NAME = Regex("[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)+")
     }
 }
+

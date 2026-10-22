@@ -14,6 +14,7 @@ class PickerProbeVerifierTest {
 
     private fun snapshot(time: Long = 96_000L, user: Int = 0) = PickerRuntimeSnapshot(
         capturedAt = time, userId = user, requestKind = "GET_CONTENT",
+        mimeTypes = listOf("image/png"),
         roots = listOf(PickerRuntimeRoot("com.example.files", "Files", "id", false)),
     )
 
@@ -31,6 +32,13 @@ class PickerProbeVerifierTest {
         assertEquals(PickerProbeStatus.AWAITING_HOOK, verify(result = null))
         assertEquals(PickerProbeStatus.AWAITING_HOOK, verify(result = snapshot(94_999L)))
         assertEquals(PickerProbeStatus.AWAITING_HOOK, verify(result = snapshot(user = 10)))
+    }
+
+    @Test fun anotherMimeRequestInTheSameWindowIsNotTheTestResult() {
+        assertEquals(PickerProbeStatus.AWAITING_HOOK,
+            verify(result = snapshot().copy(mimeTypes = listOf("application/pdf"))))
+        assertEquals(PickerProbeStatus.AWAITING_HOOK,
+            verify(result = snapshot().copy(mimeTypes = emptyList())))
     }
 
     @Test fun aDifferentScenarioOrAndroidUserNeverInheritsAnotherTestsResult() {
@@ -84,3 +92,4 @@ class PickerProbeVerifierTest {
         assertEquals(PickerProbeStatus.OBSERVED_AFTER_TEST, verify(result = snapshot().copy(roots = emptyList())))
     }
 }
+

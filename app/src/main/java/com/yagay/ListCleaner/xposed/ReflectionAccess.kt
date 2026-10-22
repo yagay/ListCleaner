@@ -6,6 +6,9 @@ import java.util.concurrent.ConcurrentHashMap
 
 /** Small cached reflection helper shared by framework/OEM adapters. All reads fail open. */
 internal object ReflectionAccess {
+    fun userId(handle: Any?): Int? =
+        (invokeNoArg(handle, "getIdentifier") as? Number)?.toInt()?.takeIf { it in 0..21474 }
+
     private data class MethodKey(val type: Class<*>, val name: String)
     private data class FieldKey(val type: Class<*>, val names: String)
     private data class MethodLookup(val value: Method?)
@@ -74,3 +77,4 @@ internal object ReflectionAccess {
         return null
     }
 }
+

@@ -24,7 +24,7 @@ import kotlinx.coroutines.delay
 class ProfileComponentCatalog(private val context: Context) {
     private val pm = context.packageManager
     private data class UserPackageState(
-        val appEnabled: Boolean,
+        val appState: Int,
         val enabled: Set<String>,
         val disabled: Set<String>,
     )
@@ -101,8 +101,11 @@ class ProfileComponentCatalog(private val context: Context) {
                 destination?.add(value)
             }
         }
-        return UserPackageState(appState !in setOf(2, 3, 4), enabled, disabled)
+        return UserPackageState(appState, enabled, disabled)
     }
+
+    private fun appEnabled(state: UserPackageState?, info: ComponentInfo?): Boolean? =
+        if (state == null || info == null) null else ComponentStatePolicy.enabled(state.appState, info.applicationInfo.enabled)
 
     private fun stateFor(component: ComponentName, state: UserPackageState): Int {
         val names = setOf(component.className, component.shortClassName,
@@ -114,35 +117,20 @@ class ProfileComponentCatalog(private val context: Context) {
         }
     }
 
-    @Suppress("DEPRECATION")
-    private fun manifestInfo(kind: CleanupKind, component: ComponentName, userId: Int): ComponentInfo {
-        val packageName = component.packageName
-        val source = runCatching {
-            when (kind) {
-                CleanupKind.LAUNCHER, CleanupKind.SHORTCUT ->
-                    pm.getActivityInfo(component, PackageManager.MATCH_DISABLED_COMPONENTS)
-                CleanupKind.TILE -> pm.getServiceInfo(component, PackageManager.MATCH_DISABLED_COMPONENTS)
-                CleanupKind.WIDGET -> pm.getReceiverInfo(component, PackageManager.MATCH_DISABLED_COMPONENTS)
-            }
-        }.getOrNull()
-        if (source != null) return source
-        val appInfo = ApplicationInfo().apply {
-            this.packageName = packageName
-            this.uid = userId * 100000 + 10000
+    private fun manifestInfo(kind: CleanupKind, component: ComponentName, query: ProfilePackageQuery): ComponentInfo? {
+        val pkg = query.packageInfo(component.packageName) ?: return null
+        return when (kind) {
+            CleanupKind.LAUNCHER, CleanupKind.SHORTCUT -> pkg.activities?.firstOrNull { it.name == component.className }
+            CleanupKind.TILE -> pkg.services?.firstOrNull { it.name == component.className }
+            CleanupKind.WIDGET -> pkg.receivers?.firstOrNull { it.name == component.className }
         }
-        val info: ComponentInfo = if (kind == CleanupKind.TILE) ServiceInfo() else ActivityInfo()
-        info.packageName = packageName
-        info.name = component.className
-        info.applicationInfo = appInfo
-        info.enabled = true
-        info.exported = true
-        return info
     }
 
     fun scan(userId: Int): RootComponentScan {
-        require(userId in 0..99999)
+        require(userId in 0..21474)
         val installed = installedPackages(userId)
             ?: return RootComponentScan(warning = context.getString(R.string.root_scan_failed))
+        val metadata = ProfilePackageQuery(context, userId)
         val packageStates = mutableMapOf<String, UserPackageState?>()
         val errors = mutableListOf<String>()
         val items = CleanupKind.entries.flatMap { kind ->
@@ -154,25 +142,31 @@ class ProfileComponentCatalog(private val context: Context) {
                 val state = packageStates.getOrPut(component.packageName) {
                     readPackageState(userId, component.packageName)
                 }
-                val info = manifestInfo(kind, component, userId)
+                val info = manifestInfo(kind, component, metadata)
                 val override = state?.let { stateFor(component, it) }
-                val enabled = override?.let { ComponentStatePolicy.enabled(it, info.enabled) }
+                val enabled = if (info == null) null else override?.let { ComponentStatePolicy.enabled(it, info.enabled) }
                 val blocked = when {
                     component.packageName in setOf(context.packageName, "android", "com.android.systemui") ->
                         context.getString(R.string.root_component_protected)
-                    override == null || state?.appEnabled != true ->
+                    info == null -> context.getString(R.string.root_state_read_failed)
+                    kind == CleanupKind.TILE && (info !is ServiceInfo ||
+                        !info.exported || info.permission != "android.permission.BIND_QUICK_SETTINGS_TILE") ->
+                        context.getString(R.string.root_state_read_failed)
+                    kind == CleanupKind.WIDGET && (info.metaData?.getInt("android.appwidget.provider", 0) ?: 0) == 0 ->
+                        context.getString(R.string.root_state_read_failed)
+                    override == null || appEnabled(state, info) != true ->
                         context.getString(R.string.root_state_read_failed)
                     else -> null
                 }
                 RootComponent(
                     kind = kind, component = component, user = userId,
-                    label = runCatching { info.loadLabel(pm).toString() }.getOrDefault(component.shortClassName),
-                    owner = runCatching { info.applicationInfo.loadLabel(pm).toString() }
+                    label = runCatching { info?.loadLabel(pm)?.toString() ?: component.shortClassName }.getOrDefault(component.shortClassName),
+                    owner = runCatching { info?.applicationInfo?.loadLabel(pm)?.toString() ?: component.packageName }
                         .getOrDefault(component.packageName),
-                    icon = runCatching { info.applicationInfo.loadIcon(pm).toBitmap(96, 96) }.getOrNull(),
-                    appType = info.applicationInfo.listCleanerAppType(),
+                    icon = runCatching { info?.applicationInfo?.loadIcon(pm)?.toBitmap(96, 96) }.getOrNull(),
+                    appType = info?.applicationInfo?.listCleanerAppType() ?: com.yagay.ListCleaner.domain.AppType.USER,
                     overrideState = override, enabled = enabled,
-                    applicationEnabled = state?.appEnabled, blocked = blocked,
+                    applicationEnabled = appEnabled(state, info), blocked = blocked,
                     discoverySources = setOf(ComponentDiscoverySource.PACKAGE_MANAGER)
                 )
             }.toList()
@@ -182,7 +176,7 @@ class ProfileComponentCatalog(private val context: Context) {
 
     suspend fun change(target: RootComponent, enable: Boolean): String {
         val userId = target.user
-        require(userId in 0..99999)
+        require(userId in 0..21474)
         val component = target.component
         require(ComponentStatePolicy.valid(component.packageName, component.className, userId))
         val allowed = query(userId, target.kind) ?: error(context.getString(R.string.root_scan_failed))
@@ -191,7 +185,12 @@ class ProfileComponentCatalog(private val context: Context) {
         }
         val before = readPackageState(userId, component.packageName)
             ?: error(context.getString(R.string.root_state_read_failed))
-        check(before.appEnabled && stateFor(component, before) == target.overrideState) {
+        val info = manifestInfo(target.kind, component, ProfilePackageQuery(context, userId))
+        check(target.blocked == null && info != null &&
+            component.packageName !in setOf(context.packageName, "android", "com.android.systemui")) {
+            context.getString(R.string.root_state_read_failed)
+        }
+        check(appEnabled(before, info) == true && stateFor(component, before) == target.overrideState) {
             context.getString(R.string.root_component_changed)
         }
         val result = ComponentRootCommand.run(ComponentStatePolicy.command(
@@ -217,3 +216,4 @@ class ProfileComponentCatalog(private val context: Context) {
         return context.getString(if (enable) R.string.root_verified_enabled else R.string.root_verified_disabled)
     }
 }
+

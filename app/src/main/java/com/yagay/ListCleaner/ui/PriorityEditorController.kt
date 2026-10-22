@@ -2,6 +2,7 @@ package com.yagay.ListCleaner.ui
 
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.supportsPriorityEditing
 import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.moveVisiblePriority
 import com.yagay.ListCleaner.domain.moveVisiblePriorityTo
@@ -18,7 +19,7 @@ internal class PriorityEditorController(
         val write: (List<String>) -> Unit,
     )
 
-    private fun kindTarget(kind: IntentKind) = PriorityTarget(
+    private fun kindTarget(kind: IntentKind): PriorityTarget? = if (!kind.supportsPriorityEditing()) null else PriorityTarget(
         read = { rules.priorities.value.apps[kind].orEmpty() },
         write = { rules.setPriority(kind, it) },
     )
@@ -194,3 +195,4 @@ internal class PriorityEditorController(
         const val MAX_PRIORITY_APPS = 200
     }
 }
+

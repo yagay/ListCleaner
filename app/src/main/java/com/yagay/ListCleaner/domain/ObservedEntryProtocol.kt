@@ -9,5 +9,8 @@ object ObservedEntryProtocol {
     const val PACKAGE = "android"
     const val META_KIND = "com.yagay.ListCleaner.meta.ENTRY_KIND"
     const val META_ACTIVITY = "com.yagay.ListCleaner.meta.ENTRY_ACTIVITY"
+    const val META_USER = "com.yagay.ListCleaner.meta.ENTRY_USER"
+    const val META_TIME = "com.yagay.ListCleaner.meta.ENTRY_TIME"
     const val META_ID = "com.yagay.ListCleaner.meta.ENTRY_ID"
 }
+

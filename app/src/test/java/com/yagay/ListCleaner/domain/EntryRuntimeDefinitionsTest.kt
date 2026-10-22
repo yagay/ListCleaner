@@ -61,7 +61,7 @@ class EntryRuntimeDefinitionsTest {
             IntentKind.PROCESS_TEXT.runtimeDefinition()!!.emptyBehavior[EntryRuntimePath.RESOLVER_ACTIVITY]
         )
         assertEquals(
-            EmptyResultBehavior.RESTORE_ORIGINAL,
+            EmptyResultBehavior.ALLOW_EMPTY,
             IntentKind.SHARE.runtimeDefinition()!!.emptyBehavior[EntryRuntimePath.RESOLVER_ACTIVITY]
         )
         assertEquals(
@@ -78,3 +78,4 @@ class EntryRuntimeDefinitionsTest {
         )
     }
 }
+

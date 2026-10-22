@@ -5,11 +5,11 @@ import org.junit.Test
 
 class HookCallIdentityInternalTest {
     @Test
-    fun `generic package manager internal query prefers explicit caller uid`() {
+    fun `unknown OEM internal signature never guesses caller uid`() {
         val types = listOf("android.content.Intent", "java.lang.String", "long", "int", "int", "int")
         val args = listOf<Any?>(null, null, 0L, 10, 12345, 999)
         assertEquals(
-            12345,
+            1000,
             HookCallIdentity.packageManagerCallerUid(
                 "queryIntentContentProvidersInternal",
                 types,
@@ -32,3 +32,4 @@ class HookCallIdentityInternalTest {
         )
     }
 }
+

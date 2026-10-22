@@ -27,7 +27,7 @@ class RoleControllerModule : XposedModule() {
         EntryPolicyProvider(
             preferences = preferences,
             kinds = ROLE_KINDS,
-            includePriorities = false,
+            includePriorities = true,
             record = ::record,
         )
     }
@@ -89,27 +89,31 @@ class RoleControllerModule : XposedModule() {
         val roleName = roleName(role) ?: return@Hooker original
         val kind = ROLE_KIND_BY_NAME[roleName] ?: return@Hooker original
 
+        val userId = ReflectionAccess.userId(chain.args.firstOrNull { it is android.os.UserHandle }) ?: return@Hooker original
         authorityWriter.replacePackages(
             kind = kind,
             packages = values.filterIsInstance<String>(),
             publishLive = true,
+            userId = userId,
         )
 
-        val userId = com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid())
         val policy = policyProvider.snapshot(userId)
         val selectedPackages = policy.selectedPackages(kind)
-        val filtered = if (selectedPackages.isEmpty()) values else values.filter { value ->
+        val kept = if (selectedPackages.isEmpty()) values else values.filter { value ->
             value !is String || policy.displayMode.includes(
                 value in selectedPackages, selectedPackages.isNotEmpty()
             )
         }
+        val filtered = com.yagay.ListCleaner.domain.prioritizeApps(
+            kept, policy.priorities(kind), { it as? String ?: "" }, { userId },
+        )
         // Separate from the original, unfiltered catalog inventory above: this records
         // precisely what this hooked RoleController method returned to its caller.
         runtimeCapture.publish(
             kind = kind, source = "ROLE_CONTROLLER_RETURN", userId = userId,
             packages = filtered.filterIsInstance<String>(),
         )
-        if (filtered.size == values.size) {
+        if (filtered == values) {
             record("HIT role=$roleName kind=$kind count=${values.size} selectedPackages=${selectedPackages.size}")
             original
         } else {
@@ -149,3 +153,4 @@ class RoleControllerModule : XposedModule() {
         )
     }
 }
+

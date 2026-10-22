@@ -44,6 +44,7 @@ internal fun EntryWorkspaceHome(
     onRefreshComponents: (() -> Unit)? = null,
     status: @Composable () -> Unit,
     availableGroups: List<EntryGroup> = EntryGroup.entries,
+    availableKinds: Set<IntentKind> = IntentKind.entries.toSet(),
     showUtilities: Boolean = true,
     showComponentSection: Boolean = true,
 ) {
@@ -108,7 +109,7 @@ internal fun EntryWorkspaceHome(
                     )
                 }
             }
-            val kinds = selectedGroup.kinds()
+            val kinds = selectedGroup.kinds().filter { it in availableKinds }
             kinds.forEachIndexed { index, kind ->
                 val position = when {
                     kinds.size == 1 -> ListRowPosition.SINGLE
@@ -186,3 +187,4 @@ internal fun EntryWorkspaceBreadcrumb(
             ?: stringResource(R.string.workspace_browse_entries)
     )
 }
+

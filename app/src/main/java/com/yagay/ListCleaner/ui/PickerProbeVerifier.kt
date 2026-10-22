@@ -52,7 +52,8 @@ internal object PickerProbeVerifier {
         // AOSP ProvidersCache.getMatchingRootsBlocking(State) depends on the
         // calling action. Never correlate an UNKNOWN or a different action with
         // the current GET_CONTENT/Open/Save/Open-tree request.
-        val operationMatches = sameUserSnapshot?.requestKind == kind.name
+        val operationMatches = sameUserSnapshot?.requestKind == kind.name &&
+            (kind == IntentKind.DOCUMENT_ROOT || scenario.mimeType in sameUserSnapshot.mimeTypes)
         val capturedAfter = sameUserSnapshot != null && operationMatches &&
             sameUserSnapshot.capturedAt >= session!!.startedAtMillis &&
             sameUserSnapshot.capturedAt <= nowMillis + CLOCK_SKEW_MS
@@ -62,3 +63,4 @@ internal object PickerProbeVerifier {
         }
     }
 }
+

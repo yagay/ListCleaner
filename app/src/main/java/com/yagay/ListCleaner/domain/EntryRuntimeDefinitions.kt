@@ -91,7 +91,7 @@ val ENTRY_RUNTIME_DEFINITIONS: Map<IntentKind, EntryRuntimeDefinition> = buildMa
         add(
             kind = kind,
             paths = setOf(path),
-            restoreOriginal = if (kind == IntentKind.PROCESS_TEXT) emptySet() else setOf(path),
+            restoreOriginal = emptySet(),
         )
     }
 
@@ -100,7 +100,7 @@ val ENTRY_RUNTIME_DEFINITIONS: Map<IntentKind, EntryRuntimeDefinition> = buildMa
         add(
             kind = kind,
             paths = paths,
-            restoreOriginal = setOf(EntryRuntimePath.RESOLVER_ACTIVITY),
+            restoreOriginal = emptySet(),
             roleName = name,
         )
     }
@@ -166,3 +166,4 @@ val ENTRY_RUNTIME_DEFINITIONS: Map<IntentKind, EntryRuntimeDefinition> = buildMa
 }
 
 fun IntentKind.runtimeDefinition(): EntryRuntimeDefinition? = ENTRY_RUNTIME_DEFINITIONS[this]
+

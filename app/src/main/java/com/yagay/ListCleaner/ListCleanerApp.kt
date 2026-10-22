@@ -96,14 +96,16 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
         catalog = IntentCatalog(this)
         XposedServiceHelper.registerListener(this)
         applicationScope.launch {
-            combine(rules.rules, catalog.candidates, rules.activeUser, spaces.installedPackages) {
+            combine(rules.rules, catalog.snapshot, rules.activeUser, spaces.installedPackages) {
                     selected, candidates, userId, installed ->
-                val scoped = if (userId == spaces.currentUserId) candidates
-                    else candidates.filter { it.rule.packageName in installed.orEmpty() }
+                if (candidates.userId != userId) return@combine null
+                val scoped = candidates.items
                 userId to deriveFullySelectedPackages(
                     AuthorityCandidatePolicy.normalize(scoped), selected
                 )
-            }.collect { (sourceUserId, packages) ->
+            }.collect { result ->
+                if (result == null) return@collect
+                val (sourceUserId, packages) = result
                 rules.setVisibilityFullPackages(sourceUserId, packages)
             }
         }
@@ -156,23 +158,24 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
     fun currentSession(): ServiceSession? = sessionRegistry.snapshot()
     fun isCurrent(session: ServiceSession?): Boolean = sessionRegistry.isCurrent(session)
 
-    suspend fun synchronizeObservedEntries(): Int = withContext(Dispatchers.IO) {
+    suspend fun synchronizeObservedEntries(userId: Int = rules.activeUser.value): Int = withContext(Dispatchers.IO) {
         val session = currentSession() ?: return@withContext observedEntryCache.snapshot().size
         runCatching {
             val prefs = session.service.getRemotePreferences(RuleRepository.REMOTE_PREFS)
-            syncObservedEntriesFrom(prefs)
+            syncObservedEntriesFrom(prefs, userId)
         }.onFailure {
             Log.w(TAG, "Observed entry cache synchronization failed", it)
         }.getOrElse { observedEntryCache.snapshot().size }
     }
 
-    private fun syncObservedEntriesFrom(prefs: SharedPreferences): Int {
+    private fun syncObservedEntriesFrom(prefs: SharedPreferences, userId: Int = rules.activeUser.value): Int {
         val segmented = OBSERVABLE_ENTRY_KINDS.asSequence()
-            .filter { kind -> prefs.contains(ObservedEntryCache.remoteKey(kind)) }
-            .associateWith { kind -> prefs.getString(ObservedEntryCache.remoteKey(kind), null) }
+            .filter { kind -> prefs.contains(ObservedEntryCache.remoteKey(kind, userId)) }
+            .associateWith { kind -> prefs.getString(ObservedEntryCache.remoteKey(kind, userId), null) }
         return observedEntryCache.synchronizeRemoteEncoded(
             legacyEncoded = prefs.getString(ObservedEntryCache.REMOTE_KEY, null),
             segmentedEncoded = segmented,
+            userId = userId,
         ).size
     }
 
@@ -419,3 +422,4 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
         const val CONFIG_SYNC_DEBOUNCE_MS = 300L
     }
 }
+

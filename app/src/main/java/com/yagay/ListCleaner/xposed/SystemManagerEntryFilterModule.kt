@@ -29,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 /** Filters Android's final manager lists while always observing the unmodified authority result first. */
 class SystemManagerEntryFilterModule : XposedModule() {
-    private data class CallerContext(val uid: Int, val pid: Int, val process: String?)
+    private data class CallerContext(val uid: Int, val pid: Int, val process: String?, val targetUserId: Int? = null)
 
     @Volatile private var processName = ""
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
@@ -63,8 +63,44 @@ class SystemManagerEntryFilterModule : XposedModule() {
         policyProvider.start()
         installAccessibilityHooks(param.classLoader)
         installInputMethodHooks(param.classLoader)
+        installInputMethodMenuHooks(param.classLoader)
         installPrintHooks(param.classLoader)
         installCredentialHooks(param.classLoader)
+    }
+
+    /** Android 16 switcher receives the final IME/subtype list, not the installed catalog. */
+    private fun installInputMethodMenuHooks(classLoader: ClassLoader) {
+        val clazz = runCatching {
+            Class.forName("com.android.server.inputmethod.InputMethodMenuController", false, classLoader)
+        }.getOrNull() ?: return
+        methods(clazz).filter { it.name == "show" && it.parameterTypes.map { type -> type.name } ==
+            listOf("java.util.List", "java.lang.String", "int", "boolean", "int", "int")
+        }.forEach { method ->
+            install(method, "lc-ime-switcher-menu", XposedInterface.Hooker { chain ->
+                val userId = (chain.args[5] as? Int)?.takeIf { it in 0..21474 }
+                    ?: return@Hooker chain.proceed()
+                val values = chain.args[0] as? List<*> ?: return@Hooker chain.proceed()
+                fun info(value: Any?): ServiceInfo? =
+                    (ReflectionAccess.readField(value, "mImi") as? InputMethodInfo)?.serviceInfo
+                val policy = policyProvider.snapshot(userId)
+                val selected = policy.selected(IntentKind.INPUT_METHOD)
+                val filtered = values.filter { value ->
+                    val service = info(value) ?: return@filter true
+                    selected.isEmpty() || policy.displayMode.includes(
+                        ComponentRule(IntentKind.INPUT_METHOD, service.packageName, service.name).id in selected, true,
+                    )
+                }
+                val ordered = prioritizeApps(filtered, policy.priorities(IntentKind.INPUT_METHOD),
+                    { info(it)?.packageName.orEmpty() }, { userId })
+                runtimeCapture.publish(IntentKind.INPUT_METHOD, "INPUT_METHOD_MENU", userId,
+                    ordered.mapNotNull { info(it)?.packageName })
+                if (ordered == values) chain.proceed() else {
+                    val replacement = chain.args.toTypedArray()
+                    replacement[0] = ArrayList(ordered)
+                    chain.proceed(replacement)
+                }
+            })
+        }
     }
 
     private fun installAccessibilityHooks(classLoader: ClassLoader) {
@@ -121,7 +157,7 @@ class SystemManagerEntryFilterModule : XposedModule() {
                         (supportedListResult(method) || method.returnType.name.endsWith("InputMethodInfoSafeList")) ->
                         install(method, IME_OUTER_HOOK_ID, imeOuterHooker())
 
-                    method.name == "getInputMethodListInternal" && List::class.java.isAssignableFrom(method.returnType) ->
+                    method.name in setOf("getInputMethodListInternal", "getEnabledInputMethodListInternal") && List::class.java.isAssignableFrom(method.returnType) ->
                         install(method, IME_INTERNAL_HOOK_ID, imeInternalHooker())
                 }
             }
@@ -133,9 +169,12 @@ class SystemManagerEntryFilterModule : XposedModule() {
         componentOf: (Any?) -> ServiceInfo?,
     ) = XposedInterface.Hooker { chain ->
         val caller = currentCaller()
+        val method = chain.executable as? Method ?: return@Hooker chain.proceed()
+        val userId = HookCallIdentity.managerTargetUserId(method.name, method.parameterTypes.map { it.name }, chain.args)
+            ?: return@Hooker chain.proceed()
         val original = chain.proceed()
-        observeComponentResult(original, kind, componentOf)
-        val policy = policyProvider.snapshot(AndroidUid.userId(caller.uid))
+        observeComponentResult(original, kind, componentOf, userId)
+        val policy = policyProvider.snapshot(userId)
         // ListCleaner's Accessibility preview deliberately queries the installed
         // catalog. Apply the same list-only filter to that manager request; the
         // enabled-services API and persisted accessibility settings are untouched.
@@ -150,7 +189,7 @@ class SystemManagerEntryFilterModule : XposedModule() {
         if (kind == IntentKind.PRINT || kind == IntentKind.ACCESSIBILITY) {
             listResults.extract(returned)?.let { extracted ->
                 runtimeCapture.publish(
-                    kind, "SYSTEM_MANAGER_RETURN", AndroidUid.userId(caller.uid),
+                    kind, "SYSTEM_MANAGER_RETURN", userId,
                     extracted.values.mapNotNull { item -> componentOf(item)?.packageName },
                     components = extracted.values.mapNotNull { item ->
                         componentOf(item)?.let { it.packageName + "/" + it.name }
@@ -164,16 +203,19 @@ class SystemManagerEntryFilterModule : XposedModule() {
 
     private fun credentialHooker() = XposedInterface.Hooker { chain ->
         val caller = currentCaller()
+        val method = chain.executable as? Method ?: return@Hooker chain.proceed()
+        val userId = HookCallIdentity.managerTargetUserId(method.name, method.parameterTypes.map { it.name }, chain.args)
+            ?: return@Hooker chain.proceed()
         val original = chain.proceed()
         val result = listResults.extract(original) ?: return@Hooker original
         val values = result.values
 
         values.forEach { value -> credentialComponent(value)?.let { component ->
-            RuntimeObservedEntryStore.observePackage(IntentKind.CREDENTIAL_PROVIDER, component.packageName)
+            RuntimeObservedEntryStore.observePackage(IntentKind.CREDENTIAL_PROVIDER, component.packageName, userId = userId)
         } }
 
-        val policy = policyProvider.snapshot(AndroidUid.userId(caller.uid))
-        val filtered = if (!shouldFilter(caller, policy)) {
+        val policy = policyProvider.snapshot(userId)
+        val kept = if (!shouldFilter(caller, policy)) {
             record("AUTHORITY_OBSERVED kind=${IntentKind.CREDENTIAL_PROVIDER} callerUid=${caller.uid} filterAllowed=false count=${values.size}")
             values
         } else {
@@ -184,16 +226,20 @@ class SystemManagerEntryFilterModule : XposedModule() {
                 policy.displayMode.includes(component.packageName in selected, selected.isNotEmpty())
             }
         }
+        val filtered = if (!shouldFilter(caller, policy)) kept else prioritizeApps(
+            kept, policy.priorities(IntentKind.CREDENTIAL_PROVIDER),
+            { credentialComponent(it)?.packageName ?: "" }, { userId },
+        )
         runtimeCapture.publish(
             IntentKind.CREDENTIAL_PROVIDER, "CREDENTIAL_MANAGER_RETURN",
-            AndroidUid.userId(caller.uid),
+            userId,
             filtered.mapNotNull { credentialComponent(it)?.packageName },
             components = filtered.mapNotNull { value ->
                 credentialComponent(value)?.flattenToString()
             },
             callerUid = caller.uid,
         )
-        if (filtered.size == values.size) original else {
+        if (filtered == values) original else {
             record("CREDENTIAL_FILTER callerUid=${caller.uid} before=${values.size} after=${filtered.size}")
             result.rebuild(filtered)
         }
@@ -201,13 +247,16 @@ class SystemManagerEntryFilterModule : XposedModule() {
 
     private fun imeOuterHooker() = XposedInterface.Hooker { chain ->
         val caller = currentCaller()
+        val method = chain.executable as? Method ?: return@Hooker chain.proceed()
+        val userId = HookCallIdentity.managerTargetUserId(method.name, method.parameterTypes.map { it.name }, chain.args)
+            ?: return@Hooker chain.proceed()
         val previous = imeCallerContext.get()
-        imeCallerContext.set(caller)
+        imeCallerContext.set(caller.copy(targetUserId = userId))
         try {
             val original = chain.proceed()
-            val policy = policyProvider.snapshot(AndroidUid.userId(caller.uid))
+            val policy = policyProvider.snapshot(userId)
             if (listResults.extract(original) != null) {
-                observeComponentResult(original, IntentKind.INPUT_METHOD, ::inputMethodComponent)
+                observeComponentResult(original, IntentKind.INPUT_METHOD, ::inputMethodComponent, userId)
                 if (shouldFilter(caller, policy)) {
                     filterComponentResult(original, IntentKind.INPUT_METHOD, caller.uid, policy, ::inputMethodComponent)
                 } else {
@@ -228,9 +277,10 @@ class SystemManagerEntryFilterModule : XposedModule() {
 
     private fun imeInternalHooker() = XposedInterface.Hooker { chain ->
         val caller = imeCallerContext.get() ?: return@Hooker chain.proceed()
+        val userId = caller.targetUserId ?: return@Hooker chain.proceed()
         val original = chain.proceed()
-        observeComponentResult(original, IntentKind.INPUT_METHOD, ::inputMethodComponent)
-        val policy = policyProvider.snapshot(AndroidUid.userId(caller.uid))
+        observeComponentResult(original, IntentKind.INPUT_METHOD, ::inputMethodComponent, userId)
+        val policy = policyProvider.snapshot(userId)
         if (!shouldFilter(caller, policy)) return@Hooker original
         filterComponentResult(original, IntentKind.INPUT_METHOD, caller.uid, policy, ::inputMethodComponent)
     }
@@ -239,6 +289,7 @@ class SystemManagerEntryFilterModule : XposedModule() {
         original: Any?,
         kind: IntentKind,
         componentOf: (Any?) -> ServiceInfo?,
+        userId: Int,
     ) {
         val result = listResults.extract(original) ?: return
         result.values.forEach { value ->
@@ -246,6 +297,7 @@ class SystemManagerEntryFilterModule : XposedModule() {
                 RuntimeObservedEntryStore.observeComponent(
                     kind,
                     ComponentName(service.packageName, service.name),
+                    userId = userId,
                 )
             }
         }
@@ -403,8 +455,10 @@ class SystemManagerEntryFilterModule : XposedModule() {
             "com.android.server.inputmethod.InputMethodManagerService",
             "com.android.server.inputmethod.ZeroJankProxy",
         )
-        val IME_OUTER_METHODS = setOf("getInputMethodList", "getInputMethodListLegacy")
+        val IME_OUTER_METHODS = setOf("getInputMethodList", "getInputMethodListLegacy",
+            "getEnabledInputMethodList", "getEnabledInputMethodListLegacy")
         val PRINT_CLASSES = listOf("com.android.server.print.PrintManagerService")
         val CREDENTIAL_CLASSES = listOf("com.android.server.credentials.CredentialManagerService")
     }
 }
+

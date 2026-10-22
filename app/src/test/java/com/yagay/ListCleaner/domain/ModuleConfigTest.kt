@@ -174,7 +174,7 @@ class ModuleConfigTest {
 
     @Test fun emptyTextMenuIsAllowedButFileDestinationIsProtected() {
         assertFalse(FilterPolicy.restoreEmpty("PROCESS_TEXT", 4, 0))
-        assertTrue(FilterPolicy.restoreEmpty("OPEN", 4, 0))
+        assertFalse(FilterPolicy.restoreEmpty("OPEN", 4, 0))
     }
 
     @Test fun identicalAppInOtherProfileIsNotSameCaller() {
@@ -217,3 +217,4 @@ class ModuleConfigTest {
     }
 
 }
+

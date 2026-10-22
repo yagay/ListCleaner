@@ -326,6 +326,7 @@ class EmbeddedDirectShareModule : XposedModule() {
                 label = shortcut?.shortLabel?.toString().orEmpty(),
                 activityClass = component?.className ?: shortcut?.activity?.className,
                 observedAt = System.currentTimeMillis(),
+                userId = ReflectionAccess.userId(shortcut?.userHandle) ?: return ParsedTarget(packageName, rule, null),
             ).validatedOrNull()
         } else null
         return ParsedTarget(packageName, rule, observed)
@@ -351,3 +352,4 @@ class EmbeddedDirectShareModule : XposedModule() {
         val INTENT_ACCESSORS = listOf("getTargetIntent", "getResolvedIntent")
     }
 }
+

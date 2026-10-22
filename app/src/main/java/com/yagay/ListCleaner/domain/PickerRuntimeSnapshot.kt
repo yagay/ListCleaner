@@ -35,6 +35,7 @@ data class PickerRuntimeSnapshot(
     val truncated: Boolean = false,
     /** ROOTS_LOADER is the sidebar loader; PROVIDERS_CACHE is a fallback query. */
     val captureSource: String = "UNKNOWN",
+    val mimeTypes: List<String> = emptyList(),
 )
 
 object PickerRuntimeSnapshotCodec {
@@ -70,7 +71,7 @@ object PickerRuntimeSnapshotCodec {
                 decoded.userId < 0 || decoded.totalRoots < 0 ||
                 decoded.roots.size > MAX_ROOTS ||
                 decoded.requestKind !in setOf("UNKNOWN", "GET_CONTENT", "OPEN_DOCUMENT", "CREATE_DOCUMENT", "DOCUMENT_ROOT") ||
-                decoded.captureSource !in setOf("UNKNOWN", "ROOTS_LOADER", "PROVIDERS_CACHE")
+                decoded.captureSource !in setOf("UNKNOWN", "ROOTS_LOADER", "PROVIDERS_CACHE", "SIDEBAR_ROOTS")
             ) return@runCatching null
             sanitize(decoded)
         }.getOrNull()
@@ -79,6 +80,7 @@ object PickerRuntimeSnapshotCodec {
     private fun sanitize(value: PickerRuntimeSnapshot): PickerRuntimeSnapshot =
         value.copy(
             stateClassName = value.stateClassName.take(160),
+            mimeTypes = value.mimeTypes.filter { it.length in 3..120 && '/' in it }.distinct().take(32),
             knownActionConstants = value.knownActionConstants.take(240),
             roots = value.roots
             .filter {
@@ -93,3 +95,4 @@ object PickerRuntimeSnapshotCodec {
                 it.copy(label = it.label.trim().take(160))
             })
 }
+

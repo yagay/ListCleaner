@@ -27,7 +27,7 @@ class CombinedProviderSettingsModule : XposedModule() {
         EntryPolicyProvider(
             preferences = preferences,
             kinds = PROVIDER_KINDS,
-            includePriorities = false,
+            includePriorities = true,
             record = ::record,
         )
     }
@@ -74,43 +74,51 @@ class CombinedProviderSettingsModule : XposedModule() {
     }
 
     private fun mergedListHooker() = XposedInterface.Hooker { chain ->
-        val original = chain.proceed()
+        val method = chain.executable as? java.lang.reflect.Method ?: return@Hooker chain.proceed()
+        // AOSP buildMergedList(List<AutofillServiceInfo>, List<CredentialProviderInfo>, String).
+        if (method.parameterTypes.map { it.name } != listOf("java.util.List", "java.util.List", "java.lang.String")) {
+            return@Hooker chain.proceed()
+        }
+        val args = chain.args.toTypedArray()
+        listOf(IntentKind.AUTOFILL, IntentKind.CREDENTIAL_PROVIDER).forEachIndexed { index, kind ->
+            val values = args[index] as? List<*> ?: return@forEachIndexed
+            val grouped = values.groupBy { providerUser(it) }
+            grouped.forEach { (user, entries) ->
+                if (user != null) authorityWriter.replacePackages(
+                    kind, entries.mapNotNull { providerService(it)?.packageName }, userId = user,
+                )
+            }
+            args[index] = ArrayList(values.filter { value ->
+                val service = providerService(value) ?: return@filter true
+                val user = providerUser(value) ?: return@filter true
+                val policy = policyProvider.snapshot(user)
+                val selected = policy.selectedPackages(kind)
+                selected.isEmpty() || policy.displayMode.includes(service.packageName in selected, true)
+            })
+        }
+        val original = chain.proceed(args)
         val values = original as? List<*> ?: return@Hooker original
-
-        persistObservations(values)
-        if (values.isEmpty()) return@Hooker original
-
-        val policy = policyProvider.snapshot(com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid()))
-        val selectedAutofill = policy.selectedPackages(IntentKind.AUTOFILL)
-        val selectedCredential = policy.selectedPackages(IntentKind.CREDENTIAL_PROVIDER)
-        val hasSelection = selectedAutofill.isNotEmpty() || selectedCredential.isNotEmpty()
-        if (policy.displayMode == DisplayMode.SHOW_ALL || !hasSelection) return@Hooker original
-
-        val filtered = values.filter { value ->
-            val packageName = packageName(value) ?: return@filter true
-            val selected = (hasAutofill(value) && packageName in selectedAutofill) ||
-                (hasCredential(value) && packageName in selectedCredential)
-            policy.displayMode.includes(selected, hasSelection)
+        val ordered = values.toMutableList()
+        values.indices.groupBy { mergedUser(values[it]) }.forEach { (user, positions) ->
+            if (user == null) return@forEach
+            val policy = policyProvider.snapshot(user)
+            val ranks = (policy.priorities(IntentKind.AUTOFILL) +
+                policy.priorities(IntentKind.CREDENTIAL_PROVIDER)).distinct().withIndex().associate { it.value to it.index }
+            val promoted = positions.map { values[it] }.sortedBy { ranks[packageName(it)] ?: Int.MAX_VALUE }
+            positions.forEachIndexed { index, position -> ordered[position] = promoted[index] }
         }
-        if (filtered.size == values.size) return@Hooker original
-        record(
-            "FILTER before=${values.size} after=${filtered.size} autofill=${selectedAutofill.size} " +
-                "credential=${selectedCredential.size} mode=${policy.displayMode}"
-        )
-        ArrayList(filtered)
+        if (ordered == values) original else ArrayList(ordered)
     }
 
-    private fun persistObservations(values: List<*>) {
-        val autofill = linkedSetOf<String>()
-        val credential = linkedSetOf<String>()
-        values.forEach { value ->
-            val pkg = packageName(value) ?: return@forEach
-            if (hasAutofill(value)) autofill += pkg
-            if (hasCredential(value)) credential += pkg
-        }
-        authorityWriter.replacePackages(IntentKind.AUTOFILL, autofill)
-        authorityWriter.replacePackages(IntentKind.CREDENTIAL_PROVIDER, credential)
-    }
+    private fun providerService(value: Any?): android.content.pm.ServiceInfo? =
+        ReflectionAccess.invokeNoArg(value, "getServiceInfo") as? android.content.pm.ServiceInfo
+
+    private fun providerUser(value: Any?): Int? =
+        providerService(value)?.applicationInfo?.uid?.takeIf { it >= 0 }?.div(100000)
+
+    private fun mergedUser(value: Any?): Int? =
+        (ReflectionAccess.invokeNoArg(value, "getApplicationInfo") as? android.content.pm.ApplicationInfo)
+            ?.uid?.takeIf { it >= 0 }?.div(100000)
 
     private fun packageName(value: Any?): String? =
         ReflectionAccess.invokeNoArg(value, "getPackageName") as? String
@@ -139,3 +147,4 @@ class CombinedProviderSettingsModule : XposedModule() {
         )
     }
 }
+

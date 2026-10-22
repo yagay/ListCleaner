@@ -38,9 +38,10 @@ internal class ObservedEntryCache(context: Context) {
     fun synchronizeRemoteEncoded(
         legacyEncoded: String?,
         segmentedEncoded: Map<IntentKind, String?> = emptyMap(),
+        userId: Int = 0,
     ): List<ObservedEntryRecord> {
         var reconciled = snapshot()
-        if (legacyEncoded != null) {
+        if (legacyEncoded != null && userId == 0) {
             reconciled = ObservedEntryCacheCodec.reconcileRemote(
                 reconciled,
                 ObservedEntryCacheCodec.decode(legacyEncoded),
@@ -48,9 +49,9 @@ internal class ObservedEntryCache(context: Context) {
         }
         segmentedEncoded.forEach { (kind, encoded) ->
             val remote = ObservedEntryCacheCodec.decode(encoded)
-                .filter { it.kind == kind.name }
+                .filter { it.kind == kind.name && it.userId == userId }
             reconciled = if (kind in REMOTE_AUTHORITY_SNAPSHOT_KINDS) {
-                ObservedEntryCacheCodec.reconcileRemote(reconciled, remote, setOf(kind))
+                ObservedEntryCacheCodec.reconcileRemote(reconciled, remote, setOf(kind), userId)
             } else {
                 ObservedEntryCacheCodec.merge(reconciled, remote)
             }
@@ -83,9 +84,11 @@ internal class ObservedEntryCache(context: Context) {
         private const val PREFS = "observed_entries_cache"
         private const val KEY_ENTRIES = "entries_v1"
 
-        fun remoteKey(kind: IntentKind): String = REMOTE_KIND_PREFIX + kind.name
+        fun remoteKey(kind: IntentKind, userId: Int = 0): String =
+            REMOTE_KIND_PREFIX + kind.name + if (userId == 0) "" else "_user_$userId"
 
         fun isRemoteKey(key: String?): Boolean =
             key == REMOTE_KEY || key?.startsWith(REMOTE_KIND_PREFIX) == true
     }
 }
+

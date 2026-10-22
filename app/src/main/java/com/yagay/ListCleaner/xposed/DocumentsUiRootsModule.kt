@@ -32,6 +32,7 @@ class DocumentsUiRootsModule : XposedModule() {
     @Volatile private var processName = ""
     private val installed = ConcurrentHashMap.newKeySet<String>()
     @Volatile private var sidebarLoaderInstalled = false
+    @Volatile private var finalSidebarInstalled = false
     private val seen = ConcurrentHashMap<String, String>()
     private val providers = ConcurrentHashMap<String, ProviderInfo>()
     private val worker = Executors.newSingleThreadExecutor { job ->
@@ -41,7 +42,8 @@ class DocumentsUiRootsModule : XposedModule() {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
     private val policy by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        EntryPolicyProvider(preferences, setOf(IntentKind.DOCUMENT_ROOT), true, ::record)
+        EntryPolicyProvider(preferences, setOf(IntentKind.DOCUMENT_ROOT, IntentKind.DOCUMENT_PROVIDER,
+            IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT, IntentKind.CREATE_DOCUMENT), true, ::record)
     }
     private val persistence by lazy(LazyThreadSafetyMode.PUBLICATION) {
         RemoteObservedEntryPersistence(preferences, ::record)
@@ -54,7 +56,7 @@ class DocumentsUiRootsModule : XposedModule() {
     override fun onHotReloading(param: HotReloadingParam): Boolean = false
     override fun onPackageReady(param: PackageReadyParam) {
         if (param.packageName !in UI_PACKAGES) return
-        var count = 0
+        var count = installFinalSidebar(param.classLoader)
         // RootsLoader is the AOSP navigation drawer's loader, rather than a
         // cache query that can also run on behalf of Recents or other callers.
         // When available it is the preferred source for a picker snapshot.
@@ -132,13 +134,93 @@ class DocumentsUiRootsModule : XposedModule() {
         }
     }
 
+    private fun installFinalSidebar(loader: ClassLoader): Int {
+        val clazz = runCatching {
+            Class.forName("com.android.documentsui.sidebar.RootsFragment", false, loader)
+        }.getOrNull() ?: return 0
+        var count = 0
+        ReflectionAccess.hierarchyMethods(clazz).filter {
+            it.name == "sortLoadResult" && List::class.java.isAssignableFrom(it.returnType)
+        }.forEach { method ->
+            val key = method.toGenericString()
+            if (!installed.add(key)) return@forEach
+            runCatching {
+                hook(method).setId("lc-documentsui-sidebar").intercept(XposedInterface.Hooker { chain ->
+                    val original = chain.proceed()
+                    val items = original as? List<*> ?: return@Hooker original
+                    val context = chain.args.filterIsInstance<Context>().firstOrNull()
+                        ?: return@Hooker original
+                    val request = detectRequestAction(chain.args)
+                    val kind = runCatching { IntentKind.valueOf(request.kind) }.getOrNull()
+                    val kept = items.filter { item ->
+                        val info = sidebarApp(item) ?: return@filter true
+                        val user = sidebarUser(item) ?: return@filter true
+                        val settings = policy.snapshot(user)
+                        val selected = kind?.let(settings::selected).orEmpty()
+                        selected.isEmpty() || settings.displayMode.includes(
+                            ComponentRule(kind ?: return@filter true, info.packageName, info.name).id in selected, true,
+                        )
+                    }.toMutableList()
+                    // Preserve system rows, separators and profile slots. Promote only recognized rows.
+                    kept.indices.filter { sidebarPackage(kept[it], context) != null }
+                        .groupBy { sidebarUser(kept[it]) }.forEach { (user, positions) ->
+                            if (user == null) return@forEach
+                            val settings = policy.snapshot(user)
+                            val ranks = (settings.priorities(IntentKind.DOCUMENT_ROOT) +
+                                kind?.let(settings::priorities).orEmpty()).distinct().withIndex()
+                                .associate { it.value to it.index }
+                            val ordered = positions.map { kept[it] }.sortedBy {
+                                ranks[sidebarPackage(it, context)] ?: Int.MAX_VALUE
+                            }
+                            positions.forEachIndexed { index, position -> kept[position] = ordered[index] }
+                        }
+                    // AOSP also exposes the application rows separately on some layouts.
+                    val applicationRows = ReflectionAccess.readField(chain.thisObject, "mApplicationItemList")
+                    if (applicationRows is MutableList<*>) {
+                        @Suppress("UNCHECKED_CAST")
+                        runCatching {
+                            val removed = items.toSet() - kept.toSet()
+                            (applicationRows as MutableList<Any?>).removeAll(removed)
+                        }
+                    }
+                    snapshotMatchingRoots(kept.mapNotNull(::sidebarRoot), context, request, "SIDEBAR_ROOTS")
+                    if (kept == items) original else ArrayList(kept)
+                })
+                finalSidebarInstalled = true
+                count++
+                record("FINAL_SIDEBAR_HOOK_INSTALLED method=$key")
+            }.onFailure {
+                installed.remove(key)
+                record("FINAL_SIDEBAR_HOOK_FAILED error=${it.javaClass.name}")
+            }
+        }
+        return count
+    }
+
+    private fun sidebarRoot(item: Any?): Any? =
+        ReflectionAccess.readField(item, "root", "mRoot")
+            ?: ReflectionAccess.readField(ReflectionAccess.readField(item, "rootItem", "mRootItem"), "root", "mRoot")
+
+    private fun sidebarApp(item: Any?): android.content.pm.ActivityInfo? =
+        ((ReflectionAccess.readField(item, "info", "mInfo")
+            ?: ReflectionAccess.readField(ReflectionAccess.readField(item, "appItem", "mAppItem"), "info", "mInfo"))
+            as? android.content.pm.ResolveInfo)?.activityInfo
+
+    private fun sidebarUser(item: Any?): Int? =
+        item?.let(::rootUserId) ?: sidebarRoot(item)?.let(::rootUserId)
+            ?: sidebarApp(item)?.applicationInfo?.uid?.takeIf { it >= 0 }?.div(100000)
+
+    private fun sidebarPackage(item: Any?, context: Context): String? =
+        sidebarRoot(item)?.let { findEntry(it, context)?.rule?.packageName }
+            ?: sidebarApp(item)?.takeIf { it.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM == 0 }?.packageName
+
     private fun rootHooker(methodName: String, fromSidebar: Boolean = false) =
         XposedInterface.Hooker { chain ->
         val original = chain.proceed()
         val roots = original as? Collection<*> ?: return@Hooker original
         val ctx = appContext() ?: return@Hooker original
         val isMatching = methodName == "getMatchingRootsBlocking"
-        val shouldCapture = fromSidebar || (isMatching && !sidebarLoaderInstalled)
+        val shouldCapture = !finalSidebarInstalled && (fromSidebar || (isMatching && !sidebarLoaderInstalled))
         val request = if (fromSidebar) {
             detectRequestAction(listOf(ReflectionAccess.readField(chain.thisObject, "mState", "state")))
         } else {
@@ -163,13 +245,13 @@ class DocumentsUiRootsModule : XposedModule() {
                 // The cache may contain work-profile roots in this process.
                 // Never apply the current user's rule to a different user's root.
                 val rootUserId = rootUserId(root)
-                if (rootUserId != null && rootUserId != processUserId) return@forEach
+                val ownerUserId = rootUserId ?: processUserId
                 val entry = findEntry(root, ctx) ?: return@forEach
                 available[root] = entry
-                if (seen.put(entry.rule.id, entry.title) != entry.title) {
+                if (seen.put("$ownerUserId|${entry.rule.id}", entry.title) != entry.title) {
                     observations += ObservedEntryRecord(
                         IntentKind.DOCUMENT_ROOT.name, entry.rule.packageName,
-                        entry.rule.className, entry.title, observedAt = System.currentTimeMillis(),
+                        entry.rule.className, entry.title, observedAt = System.currentTimeMillis(), userId = ownerUserId,
                     )
                 }
             }
@@ -178,33 +260,28 @@ class DocumentsUiRootsModule : XposedModule() {
                     record("AUTHORITY_OBSERVED kind=DOCUMENT_ROOT count=" + observations.size)
                 }
             }
-            val settings = policy.snapshot(processUserId)
-            val chosen = settings.selected(IntentKind.DOCUMENT_ROOT)
-            val priorities = settings.priorities(IntentKind.DOCUMENT_ROOT)
-            record("QUERY kind=DOCUMENT_ROOT count=" + roots.size + " identified=" + available.size)
-            // Inventory and authority-specific cache lookups are not sidebar presentation
-            // queries. Never mutate those shared caches: they may feed other callers.
-            if (!(isMatching || fromSidebar) ||
-                settings.displayMode == DisplayMode.SHOW_ALL ||
-                (chosen.isEmpty() && priorities.isEmpty())) return@runCatching original
-
+            // Shared inventories stay intact; only presentation queries apply rules.
+            if (!(isMatching || fromSidebar)) return@runCatching original
             val filtered = roots.filter { item ->
-                val entry = item?.let { available[it] }
-                // Recents, internal storage, downloads, system roots and unknown OEM types stay visible.
-                entry == null || settings.displayMode.includes(entry.rule.id in chosen, chosen.isNotEmpty())
-            }
-            val ranks = priorities.withIndex().associate { it.value to it.index }
-            val ordered = if (ranks.isEmpty()) filtered else filtered.withIndex()
-                .sortedWith(compareBy(
-                    { it: IndexedValue<Any?> ->
-                        val pkg = it.value?.let { root -> available[root]?.rule?.packageName }
-                        ranks[pkg] ?: Int.MAX_VALUE
-                    },
-                    { it: IndexedValue<Any?> -> it.index }
-                )).map { it.value }
+                val entry = item?.let { available[it] } ?: return@filter true
+                val user = rootUserId(item) ?: processUserId
+                val settings = policy.snapshot(user)
+                val selected = settings.selected(IntentKind.DOCUMENT_ROOT)
+                selected.isEmpty() || settings.displayMode.includes(entry.rule.id in selected, true)
+            }.toMutableList()
+            filtered.indices.filter { filtered[it]?.let(available::containsKey) == true }
+                .groupBy { filtered[it]?.let(::rootUserId) ?: processUserId }.forEach { (user, positions) ->
+                    val ranks = policy.snapshot(user).priorities(IntentKind.DOCUMENT_ROOT)
+                        .withIndex().associate { it.value to it.index }
+                    val promoted = positions.map { filtered[it] }.sortedBy {
+                        ranks[available[it]?.rule?.packageName] ?: Int.MAX_VALUE
+                    }
+                    positions.forEachIndexed { index, position -> filtered[position] = promoted[index] }
+                }
+            val ordered = filtered
             // A zero-root match is meaningful: do not restore third-party
             // providers just because all candidates were filtered.
-            if (ordered.size == roots.size && ranks.isEmpty()) return@runCatching original
+            if (ordered == roots.toList()) return@runCatching original
             record("FILTER kind=DOCUMENT_ROOT before=" + roots.size + " after=" + ordered.size)
             ArrayList(ordered)
         }.onFailure { record("HOOK_FAILED stage=filter error=" + it.javaClass.name) }
@@ -228,6 +305,7 @@ class DocumentsUiRootsModule : XposedModule() {
         val value: Int?,
         val stateType: String,
         val candidates: String,
+        val mimeTypes: List<String> = emptyList(),
     )
 
     /** Use the actual State enum constants from the installed DocumentsUI, not
@@ -266,6 +344,7 @@ class DocumentsUiRootsModule : XposedModule() {
                 code.toInt(),
                 state.javaClass.name.take(160),
                 available.entries.joinToString(",") { it.key + "=" + it.value }.take(240),
+                (ReflectionAccess.readField(state, "acceptMimes") as? Array<*>)?.filterIsInstance<String>().orEmpty(),
             )
         }
         return RequestAction("UNKNOWN", null, "", "")
@@ -320,6 +399,7 @@ class DocumentsUiRootsModule : XposedModule() {
             stateClassName = request.stateType,
             knownActionConstants = request.candidates,
             captureSource = source,
+            mimeTypes = request.mimeTypes,
         )
         val encoded = PickerRuntimeSnapshotCodec.encode(snapshot)
         if (encoded.isEmpty() || encoded.length > PickerRuntimeSnapshotCodec.MAX_CHARS) return
@@ -401,3 +481,4 @@ class DocumentsUiRootsModule : XposedModule() {
         )
     }
 }
+
