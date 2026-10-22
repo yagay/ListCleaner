@@ -55,8 +55,18 @@ class SystemEffectPreviewRouteTest {
     @Test fun defaultAppFallbackActionsAreNotIntentCandidateActions() {
         assertEquals(android.provider.Settings.ACTION_HOME_SETTINGS,
             SystemEffectPreview.settingsActions(IntentKind.HOME).first())
-        assertEquals(android.provider.Settings.ACTION_VOICE_INPUT_SETTINGS,
+        assertEquals("android.intent.action.MANAGE_DEFAULT_APP",
             SystemEffectPreview.settingsActions(IntentKind.ASSISTANT).first())
+        assertEquals(android.provider.Settings.ACTION_VOICE_INPUT_SETTINGS,
+            SystemEffectPreview.settingsActions(IntentKind.ASSISTANT)[1])
+        assertEquals(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS,
+            SystemEffectPreview.settingsActions(IntentKind.ASSISTANT)[2])
+        assertEquals(
+            "am start --user 0 -a android.intent.action.MANAGE_DEFAULT_APP" +
+                " -c android.intent.category.DEFAULT" +
+                " --es android.intent.extra.ROLE_NAME android.app.role.ASSISTANT",
+            SystemEffectPreview.assistantRolePickerShellCommand(0)
+        )
         assertEquals(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS,
             SystemEffectPreview.settingsActions(IntentKind.BROWSER).first())
         assertEquals("android.settings.CREDENTIAL_PROVIDER",

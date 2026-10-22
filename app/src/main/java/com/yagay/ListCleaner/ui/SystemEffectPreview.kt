@@ -14,6 +14,11 @@ import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
 import android.util.Log
 import android.widget.Toast
+import com.yagay.ListCleaner.data.ComponentRootCommand
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.core.content.FileProvider
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.CleanupKind
@@ -74,7 +79,8 @@ internal fun supportsScenarioTest(kind: IntentKind): Boolean = kind in setOf(
 internal fun previewRouteNote(kind: IntentKind): Int = when (kind) {
     IntentKind.CREDENTIAL_PROVIDER -> R.string.preview_credential_navigation
     IntentKind.AUTOFILL -> R.string.preview_autofill_navigation
-    IntentKind.HOME, IntentKind.BROWSER, IntentKind.ASSISTANT,
+    IntentKind.ASSISTANT -> R.string.preview_assistant_role_picker
+    IntentKind.HOME, IntentKind.BROWSER,
     IntentKind.CALL_SCREENING -> R.string.preview_default_apps_settings
     IntentKind.INPUT_METHOD -> R.string.preview_ime_native_picker
     IntentKind.PROCESS_TEXT -> R.string.preview_process_text_selection
@@ -161,17 +167,84 @@ internal object SystemEffectPreview {
     fun launchSettings(context: Context, kind: IntentKind, selectedUserId: Int) {
         if (!checkUser(context, selectedUserId)) return
         val targets = settingsIntents(context, kind)
+        if (kind == IntentKind.ASSISTANT) {
+            launchAssistantRolePicker(context, selectedUserId, targets)
+            return
+        }
+        launchSettingsTargets(context, kind, targets)
+    }
+
+    /** AOSP PermissionController's per-role picker requires MANAGE_ROLE_HOLDERS.
+     * Prefer direct launch when permitted, otherwise use the existing Root
+     * integration for an explicit UI action. Never change role holders in shell.
+     */
+    private fun launchAssistantRolePicker(
+        context: Context, userId: Int, targets: List<Intent>
+    ) {
+        val target = targets.firstOrNull() ?: return
+        try {
+            context.startActivity(target)
+            Log.i("ListCleaner.SystemPreview", "ASSISTANT_ROLE_PICKER launched directly")
+            return
+        } catch (e: ActivityNotFoundException) {
+            Log.w("ListCleaner.SystemPreview", "ASSISTANT_ROLE_PICKER unavailable", e)
+        } catch (e: SecurityException) {
+            Log.i("ListCleaner.SystemPreview",
+                "ASSISTANT_ROLE_PICKER needs MANAGE_ROLE_HOLDERS; trying user-approved Root")
+        } catch (e: RuntimeException) {
+            Log.w("ListCleaner.SystemPreview",
+                "ASSISTANT_ROLE_PICKER direct launch failed", e)
+        }
+
+        CoroutineScope(Dispatchers.Main.immediate).launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    ComponentRootCommand.run(assistantRolePickerShellCommand(userId))
+                }.getOrNull()
+            }
+            if (result != null && result.exitCode == 0 && !result.timedOut &&
+                !result.output.contains("Error:", ignoreCase = true) &&
+                !result.output.contains("Error type", ignoreCase = true) &&
+                !result.output.contains("Permission Denial", ignoreCase = true) &&
+                !result.output.contains("SecurityException", ignoreCase = true)) {
+                Log.i("ListCleaner.SystemPreview",
+                    "ASSISTANT_ROLE_PICKER requested through Root")
+            } else {
+                Log.w("ListCleaner.SystemPreview",
+                    "ASSISTANT_ROLE_PICKER Root unavailable; opening assistant management")
+                show(context, R.string.preview_assistant_fallback)
+                launchSettingsTargets(context, IntentKind.ASSISTANT,
+                    targets.drop(1), firstIndex = 1)
+            }
+        }
+    }
+
+    /** No user input enters this script: the target and role are fixed. */
+    internal fun assistantRolePickerShellCommand(userId: Int): String {
+        require(userId >= 0)
+        return "am start --user $userId -a android.intent.action.MANAGE_DEFAULT_APP" +
+            " -c android.intent.category.DEFAULT" +
+            " --es android.intent.extra.ROLE_NAME android.app.role.ASSISTANT"
+    }
+
+    private fun launchSettingsTargets(
+        context: Context, kind: IntentKind, targets: List<Intent>,
+        firstIndex: Int = 0
+    ) {
         if (targets.isEmpty()) {
             show(context, R.string.system_preview_unavailable)
             return
         }
-        for ((index, candidate) in targets.withIndex()) {
+        for ((offset, candidate) in targets.withIndex()) {
+            val index = firstIndex + offset
             val action = candidate.action.orEmpty()
             try {
                 context.startActivity(candidate)
                 Log.i("ListCleaner.SystemPreview",
                     "SETTINGS_LAUNCHED kind=$kind action=$action fallback=${index != 0}")
-                if (index > 0) show(context, R.string.preview_settings_fallback)
+                if (index > 0 && kind != IntentKind.ASSISTANT) {
+                    show(context, R.string.preview_settings_fallback)
+                }
                 return
             } catch (failure: ActivityNotFoundException) {
                 Log.w("ListCleaner.SystemPreview",
@@ -191,7 +264,9 @@ internal object SystemEffectPreview {
         IntentKind.HOME -> listOf(
             Settings.ACTION_HOME_SETTINGS, Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
         IntentKind.ASSISTANT -> listOf(
-            Settings.ACTION_VOICE_INPUT_SETTINGS, Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+            ACTION_MANAGE_DEFAULT_APP,
+            Settings.ACTION_VOICE_INPUT_SETTINGS,
+            Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
         IntentKind.BROWSER, IntentKind.CALL_SCREENING ->
             listOf(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
         IntentKind.INPUT_METHOD -> listOf(Settings.ACTION_INPUT_METHOD_SETTINGS)
@@ -229,11 +304,17 @@ internal object SystemEffectPreview {
                         IntentKind.CREDENTIAL_PROVIDER, IntentKind.AUTOFILL
                     )) {
                     data = Uri.fromParts("package", context.packageName, null)
+                } else if (index == 0 && kind == IntentKind.ASSISTANT) {
+                    addCategory(Intent.CATEGORY_DEFAULT)
+                    putExtra(EXTRA_ROLE_NAME, ROLE_ASSISTANT)
                 }
             }
         }
 
     private const val ACTION_CREDENTIAL_PROVIDER = "android.settings.CREDENTIAL_PROVIDER"
+    private const val ACTION_MANAGE_DEFAULT_APP = "android.intent.action.MANAGE_DEFAULT_APP"
+    private const val EXTRA_ROLE_NAME = "android.intent.extra.ROLE_NAME"
+    private const val ROLE_ASSISTANT = "android.app.role.ASSISTANT"
 
     /** Build the resolver/PackageManager QUERY, never a Settings navigation intent. */
     internal fun candidateIntent(

@@ -134,4 +134,7 @@
     <string name="preview_autofill_navigation">打开 Android 默认自动填充提供方的系统选择界面。选择其他服务可能更改系统默认提供方。此入口用于测试系统界面，不代表已经验证列表清理过滤结果；不可用时回退到默认应用设置。</string>
     <string name="preview_open_credential_settings">打开凭据设置</string>
     <string name="preview_open_autofill_picker">打开自动填充选择器</string>
+    <string name="preview_assistant_role_picker">优先打开 Android 真正的默认助手角色选择列表。此页面受系统权限保护；在支持的 Root 设备上，列表清理通过 Root 请求打开。若无法访问，则进入助手与语音输入设置，可继续点击“默认数字助手”查看候选应用。</string>
+    <string name="preview_open_assistant_picker">打开助手选择列表</string>
+    <string name="preview_assistant_fallback">系统助手角色选择器无法直接打开，已改为打开助手设置。请点击“默认数字助手”查看可选应用。</string>
 </resources>

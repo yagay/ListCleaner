@@ -134,4 +134,7 @@
     <string name="preview_autofill_navigation">Open the Android preferred Autofill provider picker. Selecting another service can change your system default. This system UI test does not verify the filtered services in List Cleaner; fallback is Default apps settings.</string>
     <string name="preview_open_credential_settings">Open Credential settings</string>
     <string name="preview_open_autofill_picker">Open Autofill picker</string>
+    <string name="preview_assistant_role_picker">Opens the actual Android assistant role chooser. The role picker is protected by a system permission; on supported rooted devices, List Cleaner can request the chooser through Root. If unavailable, the assistant and voice input settings screen opens instead, where you can select Default digital assistant.</string>
+    <string name="preview_open_assistant_picker">Open assistant chooser</string>
+    <string name="preview_assistant_fallback">The protected assistant chooser is unavailable. Opening Assistant settings instead; select Default digital assistant to see the eligible apps.</string>
 </resources>
