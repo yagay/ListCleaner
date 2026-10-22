@@ -93,4 +93,25 @@
     <string name="module_scope_partial">部分推荐的 LSPosed 作用域尚未授权（模块仍可能正常工作）</string>
     <string name="space_package_scan_failed">读取所选 Android 用户空间的应用失败。无法确认列表为空，请检查 Root 授权后重试。</string>
     <string name="backup_root_restore_manual">本次只恢复清理规则。Root 禁用组件记录仅供参考，不会自动修改系统组件状态。</string>
+    <string name="preview_related_settings_only">只能打开相关的系统安全设置。Android 的自动填充／凭据提供方启用流程仅供提供方自身请求，不能作为通用的提供方选择器，且当前列表未经验证。</string>
+    <string name="preview_default_apps_settings">打开 Android 默认应用设置。另提供独立的 Intent 场景测试，但可能直接启动应用；两者均不能证明系统过滤后的实际列表。</string>
+    <string name="preview_process_text_selection">长按下面的示例文字并选中一段，即可打开 Android 原生文字选择菜单。具体“处理文字”选项取决于编辑器与设备。</string>
+    <string name="preview_shortcut_observation">快捷方式由 ShortcutService 与桌面管理。没有通用公开的系统列表选择器，请查看 Hook 观察结果。</string>
+    <string name="preview_provider_picker_not_inventory">打开系统文件／图片选择器。其内容不等于所有提供方或侧栏项目，请结合系统宿主捕获结果查看。</string>
+    <string name="preview_settings_not_filtered">打开相应的 Android 系统设置入口，不代表实际 Hook 过滤后的服务列表。</string>
+    <string name="preview_scenario_not_final_ui">打开 Android 场景测试界面，不一定等于其他应用调用的真实菜单。API 候选与 Hook 观察数据仍独立显示。</string>
+    <string name="preview_tile_no_public_editor">Android 没有向第三方应用公开通用的快捷设置磁贴编辑界面。已安装磁贴目录不等于 SystemUI 编辑面板。</string>
+    <string name="preview_widget_temporary_host">通过临时 List Cleaner 小部件宿主打开系统小部件选择器。选择结果会丢弃并释放临时 ID，不是桌面的专属小部件面板。</string>
+    <string name="preview_launcher_chooser_not_real_host">打开通用 Android 选择器，不是桌面实际的应用或快捷方式面板。</string>
+    <string name="preview_no_public_system_entry">该列表属于系统宿主，没有受支持的公开启动入口；只能查看可取得的 API 候选或运行时观察。</string>
+    <string name="preview_other_user_unavailable">此入口属于其他 Android 用户空间。系统限制跨用户启动界面；这里只能测试当前用户。</string>
+    <string name="preview_no_verified_list">当前没有经过验证的系统列表。可通过 Show API 查看候选，或检查历史 Hook 观察结果。</string>
+    <string name="preview_test_intent">测试应用 Intent</string>
+    <string name="preview_open_related_settings">打开系统设置</string>
+    <string name="preview_widget_picker_unavailable">此设备没有可供当前应用调用的系统小部件选择器。</string>
+    <string name="preview_source_hook_observed">数据来源：已捕获 Hook 返回（不保证等于最终绘制的界面）</string>
+    <string name="preview_source_api_candidates">数据来源：API 候选，不代表系统最终列表</string>
+    <string name="preview_source_root_return">数据来源：本次操作的 DocumentsUI 匹配来源</string>
+    <string name="preview_source_diagnostic">数据来源：原始 API／诊断候选</string>
+    <string name="preview_source_unavailable">数据来源：本次请求没有经过验证的系统返回</string>
 </resources>

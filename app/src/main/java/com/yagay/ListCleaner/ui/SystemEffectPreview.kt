@@ -21,30 +21,74 @@ import com.yagay.ListCleaner.domain.RuntimeProtocol
 import java.io.File
 
 /** Routes for a real OS interface, rather than a local reconstruction of its filtered results. */
-internal enum class SystemPreviewRoute { CHOOSER, PICKER, SETTINGS, UNAVAILABLE }
+/** Launch type describes the actual Android operation, not a simulated cleaned list. */
+internal enum class SystemPreviewRoute {
+    CHOOSER, DIRECT, PICKER, SETTINGS, CONTEXT_MENU, WIDGET_PICKER, UNAVAILABLE
+}
 
 internal fun systemPreviewRoute(kind: IntentKind): SystemPreviewRoute = when (kind) {
-    IntentKind.SHARE, IntentKind.SHARE_MULTIPLE, IntentKind.DIRECT_SHARE,
-    IntentKind.SEND_TO, IntentKind.OPEN, IntentKind.BROWSER, IntentKind.DEEP_LINK,
-    IntentKind.DIAL, IntentKind.CAPTURE_IMAGE, IntentKind.CAPTURE_VIDEO,
-    IntentKind.RECORD_AUDIO, IntentKind.PROCESS_TEXT, IntentKind.HOME,
-    IntentKind.ASSISTANT, IntentKind.WALLPAPER -> SystemPreviewRoute.CHOOSER
+    // ACTION_CHOOSER is appropriate for explicit sharing, not for default-app selection.
+    IntentKind.SHARE, IntentKind.SHARE_MULTIPLE, IntentKind.DIRECT_SHARE ->
+        SystemPreviewRoute.CHOOSER
+
+    IntentKind.SEND_TO, IntentKind.OPEN, IntentKind.DEEP_LINK, IntentKind.DIAL,
+    IntentKind.CAPTURE_IMAGE, IntentKind.CAPTURE_VIDEO, IntentKind.RECORD_AUDIO,
+    IntentKind.WALLPAPER -> SystemPreviewRoute.DIRECT
 
     IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT, IntentKind.CREATE_DOCUMENT,
     IntentKind.DOCUMENT_PROVIDER, IntentKind.DOCUMENT_ROOT, IntentKind.PHOTO_SOURCE ->
         SystemPreviewRoute.PICKER
 
-    IntentKind.INPUT_METHOD, IntentKind.ACCESSIBILITY, IntentKind.PRINT,
-    IntentKind.VPN, IntentKind.NFC_HCE, IntentKind.NOTIFICATION_LISTENER,
-    IntentKind.DREAM, IntentKind.CALL_SCREENING -> SystemPreviewRoute.SETTINGS
+    IntentKind.HOME, IntentKind.BROWSER, IntentKind.ASSISTANT,
+    IntentKind.CALL_SCREENING, IntentKind.INPUT_METHOD, IntentKind.ACCESSIBILITY,
+    IntentKind.PRINT, IntentKind.VPN, IntentKind.NFC_HCE,
+    IntentKind.NOTIFICATION_LISTENER, IntentKind.DREAM,
+    // Credential/Autofill settings below are related navigation only, not a
+    // privileged request to enable a provider from another package.
+    IntentKind.CREDENTIAL_PROVIDER, IntentKind.AUTOFILL ->
+        SystemPreviewRoute.SETTINGS
 
-    IntentKind.AUTOFILL, IntentKind.CREDENTIAL_PROVIDER, IntentKind.SHORTCUT_ITEM,
-    IntentKind.LAUNCHER_SHORTCUT -> SystemPreviewRoute.UNAVAILABLE
+    IntentKind.PROCESS_TEXT -> SystemPreviewRoute.CONTEXT_MENU
+
+    // A dynamic shortcut is owned by the launcher/ShortcutService. A generic
+    // implicit intent would show unrelated apps, not actual shortcuts.
+    IntentKind.SHORTCUT_ITEM, IntentKind.LAUNCHER_SHORTCUT ->
+        SystemPreviewRoute.UNAVAILABLE
 }
 
 internal fun systemPreviewRoute(kind: CleanupKind): SystemPreviewRoute = when (kind) {
     CleanupKind.LAUNCHER, CleanupKind.SHORTCUT -> SystemPreviewRoute.CHOOSER
-    CleanupKind.TILE, CleanupKind.WIDGET -> SystemPreviewRoute.UNAVAILABLE
+    CleanupKind.WIDGET -> SystemPreviewRoute.WIDGET_PICKER
+    CleanupKind.TILE -> SystemPreviewRoute.UNAVAILABLE
+}
+
+/** An extra scenario tester never replaces an Android role/default-app settings UI. */
+internal fun supportsScenarioTest(kind: IntentKind): Boolean = kind in setOf(
+    IntentKind.HOME, IntentKind.BROWSER, IntentKind.ASSISTANT
+)
+
+/** UI wording: a system settings page is NOT evidence of filtered candidates. */
+internal fun previewRouteNote(kind: IntentKind): Int = when (kind) {
+    IntentKind.CREDENTIAL_PROVIDER, IntentKind.AUTOFILL ->
+        R.string.preview_related_settings_only
+    IntentKind.HOME, IntentKind.BROWSER, IntentKind.ASSISTANT,
+    IntentKind.CALL_SCREENING -> R.string.preview_default_apps_settings
+    IntentKind.PROCESS_TEXT -> R.string.preview_process_text_selection
+    IntentKind.SHORTCUT_ITEM, IntentKind.LAUNCHER_SHORTCUT ->
+        R.string.preview_shortcut_observation
+    IntentKind.DOCUMENT_PROVIDER, IntentKind.DOCUMENT_ROOT,
+    IntentKind.PHOTO_SOURCE -> R.string.preview_provider_picker_not_inventory
+    IntentKind.INPUT_METHOD, IntentKind.ACCESSIBILITY, IntentKind.PRINT,
+    IntentKind.VPN, IntentKind.NFC_HCE, IntentKind.NOTIFICATION_LISTENER,
+    IntentKind.DREAM -> R.string.preview_settings_not_filtered
+    else -> R.string.preview_scenario_not_final_ui
+}
+
+internal fun previewRouteNote(kind: CleanupKind): Int = when (kind) {
+    CleanupKind.TILE -> R.string.preview_tile_no_public_editor
+    CleanupKind.WIDGET -> R.string.preview_widget_temporary_host
+    CleanupKind.LAUNCHER, CleanupKind.SHORTCUT ->
+        R.string.preview_launcher_chooser_not_real_host
 }
 
 /**
@@ -62,7 +106,9 @@ internal object SystemEffectPreview {
     ) {
         if (!checkUser(context, selectedUserId)) return
         val route = systemPreviewRoute(kind)
-        if (route == SystemPreviewRoute.UNAVAILABLE) {
+        if (route == SystemPreviewRoute.UNAVAILABLE ||
+            route == SystemPreviewRoute.WIDGET_PICKER ||
+            route == SystemPreviewRoute.CONTEXT_MENU) {
             show(context, R.string.system_preview_unavailable)
             return
         }
@@ -94,9 +140,30 @@ internal object SystemEffectPreview {
         }
     }
 
+    /**
+     * Optional implicit-Intent test beside the authoritative default-app settings.
+     * It can launch a chosen app, so it is never used for passive state inspection.
+     */
+    fun launchScenario(
+        context: Context, kind: IntentKind, selectedUserId: Int,
+        scenario: SystemProbeScenario = defaultProbeScenario(kind),
+    ) {
+        if (!supportsScenarioTest(kind)) return
+        if (!checkUser(context, selectedUserId)) return
+        runCatching {
+            val target = scenarioIntent(context, kind, scenario)
+            context.startActivity(Intent.createChooser(
+                target, context.getString(R.string.system_preview_chooser_title)
+            ))
+        }.onFailure { failure ->
+            show(context, if (failure is ActivityNotFoundException || failure is SecurityException)
+                R.string.system_preview_no_handler else R.string.system_preview_failed)
+        }
+    }
+
     fun launch(context: Context, kind: CleanupKind, selectedUserId: Int) {
         if (!checkUser(context, selectedUserId)) return
-        if (systemPreviewRoute(kind) == SystemPreviewRoute.UNAVAILABLE) {
+        if (systemPreviewRoute(kind) != SystemPreviewRoute.CHOOSER) {
             show(context, R.string.system_preview_root_unavailable)
             return
         }
@@ -130,7 +197,16 @@ internal object SystemEffectPreview {
     internal fun queryIntent(
         context: Context, kind: IntentKind,
         scenario: SystemProbeScenario = defaultProbeScenario(kind),
-    ): Intent = markedQueryIntent(buildIntent(context, kind, scenario))
+    ): Intent = markedQueryIntent(
+        if (supportsScenarioTest(kind)) scenarioIntent(context, kind, scenario)
+        else if (kind == IntentKind.PROCESS_TEXT) Intent(Intent.ACTION_PROCESS_TEXT).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_PROCESS_TEXT,
+                context.getString(R.string.system_preview_example_text))
+            putExtra(Intent.EXTRA_PROCESS_TEXT_READONLY, true)
+        }
+        else buildIntent(context, kind, scenario)
+    )
 
     /** Only PM read-only queries use the marker; do not attach it to native launches. */
     internal fun markedQueryIntent(intent: Intent): Intent = intent.apply {
@@ -175,7 +251,7 @@ internal object SystemEffectPreview {
                 scenario.mimeType ?: "text/plain")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        IntentKind.BROWSER, IntentKind.DEEP_LINK ->
+        IntentKind.DEEP_LINK ->
             Intent(Intent.ACTION_VIEW, Uri.parse(
                 if (scenario == SystemProbeScenario.HTTP) "http://example.com/"
                 else "https://example.com/"
@@ -206,13 +282,8 @@ internal object SystemEffectPreview {
         IntentKind.CAPTURE_IMAGE -> Intent(MediaStore.ACTION_IMAGE_CAPTURE)
         IntentKind.CAPTURE_VIDEO -> Intent(MediaStore.ACTION_VIDEO_CAPTURE)
         IntentKind.RECORD_AUDIO -> Intent(MediaStore.Audio.Media.RECORD_SOUND_ACTION)
-        IntentKind.PROCESS_TEXT -> Intent(Intent.ACTION_PROCESS_TEXT).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_PROCESS_TEXT, context.getString(R.string.system_preview_example_text))
-            putExtra(Intent.EXTRA_PROCESS_TEXT_READONLY, true)
-        }
-        IntentKind.HOME -> Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
-        IntentKind.ASSISTANT -> Intent(Intent.ACTION_ASSIST)
+        IntentKind.HOME, IntentKind.BROWSER, IntentKind.ASSISTANT,
+        IntentKind.CALL_SCREENING -> Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
         IntentKind.WALLPAPER -> Intent(Intent.ACTION_SET_WALLPAPER)
         IntentKind.INPUT_METHOD -> Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)
         IntentKind.ACCESSIBILITY -> Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
@@ -221,9 +292,26 @@ internal object SystemEffectPreview {
         IntentKind.NFC_HCE -> Intent(Settings.ACTION_NFC_PAYMENT_SETTINGS)
         IntentKind.NOTIFICATION_LISTENER -> Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
         IntentKind.DREAM -> Intent(Settings.ACTION_DREAM_SETTINGS)
-        IntentKind.CALL_SCREENING -> Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
-        IntentKind.AUTOFILL, IntentKind.CREDENTIAL_PROVIDER, IntentKind.SHORTCUT_ITEM,
-        IntentKind.LAUNCHER_SHORTCUT -> error("No public Android picker for this entry")
+        // For a third-party manager these are only related settings. Never use
+        // ACTION_REQUEST_SET_AUTOFILL_SERVICE/ACTION_CREDENTIAL_PROVIDER with
+        // another package; those actions request a provider for the caller.
+        IntentKind.AUTOFILL, IntentKind.CREDENTIAL_PROVIDER ->
+            Intent(Settings.ACTION_SECURITY_SETTINGS)
+        IntentKind.PROCESS_TEXT, IntentKind.SHORTCUT_ITEM,
+        IntentKind.LAUNCHER_SHORTCUT ->
+            error("No launchable system preview for this entry")
+    }
+
+    private fun scenarioIntent(
+        context: Context, kind: IntentKind, scenario: SystemProbeScenario
+    ): Intent = when (kind) {
+        IntentKind.HOME -> Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        IntentKind.ASSISTANT -> Intent(Intent.ACTION_ASSIST)
+        IntentKind.BROWSER -> Intent(Intent.ACTION_VIEW, Uri.parse(
+            if (scenario == SystemProbeScenario.HTTP) "http://example.com/"
+            else "https://example.com/"
+        )).addCategory(Intent.CATEGORY_BROWSABLE)
+        else -> error("No scenario test")
     }
 
     /** Small valid files so matching MIME types correspond to real, safe test inputs. */

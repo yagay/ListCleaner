@@ -7,9 +7,18 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.viewinterop.AndroidView
+import android.appwidget.AppWidgetHost
+import android.appwidget.AppWidgetManager
+import android.content.Intent
+import android.os.Process
+import android.widget.TextView
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -46,6 +55,27 @@ internal fun SystemProbeDialog(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var revision by remember { mutableIntStateOf(0) }
+    // A dedicated temporary host id is used only while testing the OS widget
+    // picker. Never leave the chosen widget bound or modify the launcher.
+    val widgetHost = remember(context) { AppWidgetHost(context.applicationContext, 0x4C4301) }
+    var pendingWidgetId by remember(request) { mutableIntStateOf(-1) }
+    val widgetPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (pendingWidgetId >= 0) {
+            runCatching { widgetHost.deleteAppWidgetId(pendingWidgetId) }
+            pendingWidgetId = -1
+        }
+        revision++
+    }
+    DisposableEffect(widgetHost) {
+        onDispose {
+            if (pendingWidgetId >= 0) {
+                runCatching { widgetHost.deleteAppWidgetId(pendingWidgetId) }
+                pendingWidgetId = -1
+            }
+        }
+    }
     // Only a return captured after this dialog launched a system preview can be
     // attributed to the current verification attempt.
     var previewLaunchedAt by remember(request) { mutableStateOf<Long?>(null) }
@@ -60,11 +90,15 @@ internal fun SystemProbeDialog(
     var showDetails by remember(request) { mutableStateOf(false) }
 
     val choices = request.entryKind?.let(::availableProbeScenarios).orEmpty()
-    val nativeAvailable = request.entryKind?.let {
-        systemPreviewRoute(it) != SystemPreviewRoute.UNAVAILABLE
-    } ?: request.componentKind?.let {
-        systemPreviewRoute(it) != SystemPreviewRoute.UNAVAILABLE
-    } ?: false
+    val nativeRoute = request.entryKind?.let(::systemPreviewRoute)
+        ?: request.componentKind?.let(::systemPreviewRoute)
+        ?: SystemPreviewRoute.UNAVAILABLE
+    val nativeAvailable = nativeRoute in setOf(
+        SystemPreviewRoute.CHOOSER, SystemPreviewRoute.DIRECT,
+        SystemPreviewRoute.PICKER, SystemPreviewRoute.SETTINGS,
+        SystemPreviewRoute.WIDGET_PICKER
+    )
+    val scenarioTestAvailable = request.entryKind?.let(::supportsScenarioTest) == true
     val nativeRootsRelevant = request.entryKind in setOf(
         IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT,
         IntentKind.CREATE_DOCUMENT, IntentKind.DOCUMENT_ROOT,
@@ -122,6 +156,13 @@ internal fun SystemProbeDialog(
     val documentSnapshot = if (selectedResult.source == PreviewListSource.DOCUMENT_ROOTS)
         value?.matchingRootsSnapshot else null
     val displayed = selectedResult.items
+    val sourceRes = when (selectedResult.source) {
+        PreviewListSource.HOOK_OBSERVATION -> R.string.preview_source_hook_observed
+        PreviewListSource.DOCUMENT_ROOTS -> R.string.preview_source_root_return
+        PreviewListSource.API_RETURN -> R.string.preview_source_api_candidates
+        PreviewListSource.DIAGNOSTIC -> R.string.preview_source_diagnostic
+        PreviewListSource.UNAVAILABLE -> R.string.preview_source_unavailable
+    }
     val distinctApps = displayed.map(SystemProbeItem::packageName).distinct().size
     val qualityRes = when (value?.evidence) {
         ProbeEvidence.ENABLED -> R.string.system_probe_quality_enabled
@@ -164,6 +205,40 @@ internal fun SystemProbeDialog(
                         }
                     }
                 }
+                item(key = "preview-capability") {
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        AdaptiveText(
+                            stringResource(request.entryKind?.let(::previewRouteNote)
+                                ?: request.componentKind?.let(::previewRouteNote)
+                                ?: R.string.preview_no_public_system_entry),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (request.userId != com.yagay.ListCleaner.domain.AndroidUid.userId(
+                                Process.myUid()
+                            )) {
+                            AdaptiveText(
+                                stringResource(R.string.preview_other_user_unavailable),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+                if (request.entryKind == IntentKind.PROCESS_TEXT) {
+                    item(key = "native-text-selection") {
+                        AndroidView(
+                            modifier = Modifier.fillMaxWidth(),
+                            factory = { ctx ->
+                                TextView(ctx).apply {
+                                    text = ctx.getString(R.string.system_preview_example_text)
+                                    setTextIsSelectable(true)
+                                    setPadding(12, 12, 12, 12)
+                                }
+                            },
+                        )
+                    }
+                }
                 if (value == null) {
                     item(key = "loading") {
                         AdaptiveText(stringResource(R.string.system_probe_loading))
@@ -174,6 +249,9 @@ internal fun SystemProbeDialog(
                             AdaptiveText(stringResource(qualityRes),
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.primary)
+                            AdaptiveText(stringResource(sourceRes),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                             if (value.evidence == ProbeEvidence.PICKER_HOST ||
                                 (nativeRootsRelevant && value.evidence == ProbeEvidence.NOT_PUBLIC)
                             ) {
@@ -316,9 +394,14 @@ internal fun SystemProbeDialog(
                     if (selectedResult.source == PreviewListSource.UNAVAILABLE) {
                         item(key = "no-confirmed-preview") {
                             AdaptiveText(
-                                stringResource(if (documentPicker)
-                                    R.string.system_probe_no_matched_document_roots
-                                else R.string.system_probe_no_filtered_manager_return),
+                                stringResource(when {
+                                    documentPicker -> R.string.system_probe_no_matched_document_roots
+                                    request.entryKind in setOf(
+                                        IntentKind.ACCESSIBILITY, IntentKind.PRINT,
+                                        IntentKind.CREDENTIAL_PROVIDER
+                                    ) -> R.string.system_probe_no_filtered_manager_return
+                                    else -> R.string.preview_no_verified_list
+                                }),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.bodySmall,
                             )
@@ -430,19 +513,67 @@ internal fun SystemProbeDialog(
             }
         },
         confirmButton = {
-            if (nativeAvailable) {
-                AdaptiveTextButton(onClick = {
-                    previewLaunchedAt = System.currentTimeMillis()
-                    request.entryKind?.let {
-                        SystemEffectPreview.launch(context, it, request.userId, scenario)
-                    } ?: request.componentKind?.let {
-                        SystemEffectPreview.launch(context, it, request.userId)
+            if (nativeAvailable || scenarioTestAvailable) {
+                Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
+                    if (scenarioTestAvailable) {
+                        AdaptiveTextButton(onClick = {
+                            request.entryKind?.let { kind ->
+                                previewLaunchedAt = System.currentTimeMillis()
+                                SystemEffectPreview.launchScenario(
+                                    context, kind, request.userId, scenario
+                                )
+                            }
+                        }) {
+                            AdaptiveText(stringResource(R.string.preview_test_intent))
+                        }
                     }
-                }) {
-                    AdaptiveText(stringResource(
-                        if (request.entryKind?.let { systemPreviewRoute(it) } == SystemPreviewRoute.PICKER)
-                            R.string.system_probe_open_picker else R.string.system_probe_open_system
-                    ))
+                    if (nativeAvailable) {
+                        AdaptiveTextButton(onClick = {
+                            if (nativeRoute == SystemPreviewRoute.WIDGET_PICKER) {
+                                if (request.userId != com.yagay.ListCleaner.domain.AndroidUid.userId(
+                                        Process.myUid()
+                                    )) {
+                                    android.widget.Toast.makeText(
+                                        context, R.string.system_preview_other_space,
+                                        android.widget.Toast.LENGTH_LONG
+                                    ).show()
+                                } else if (pendingWidgetId < 0) {
+                                    runCatching {
+                                        val id = widgetHost.allocateAppWidgetId()
+                                        pendingWidgetId = id
+                                        widgetPicker.launch(
+                                            Intent(AppWidgetManager.ACTION_APPWIDGET_PICK).putExtra(
+                                                AppWidgetManager.EXTRA_APPWIDGET_ID, id
+                                            )
+                                        )
+                                    }.onFailure {
+                                        if (pendingWidgetId >= 0) {
+                                            runCatching { widgetHost.deleteAppWidgetId(pendingWidgetId) }
+                                            pendingWidgetId = -1
+                                        }
+                                        android.widget.Toast.makeText(
+                                            context, R.string.preview_widget_picker_unavailable,
+                                            android.widget.Toast.LENGTH_LONG
+                                        ).show()
+                                    }
+                                }
+                            } else {
+                                previewLaunchedAt = System.currentTimeMillis()
+                                request.entryKind?.let {
+                                    SystemEffectPreview.launch(context, it, request.userId, scenario)
+                                } ?: request.componentKind?.let {
+                                    SystemEffectPreview.launch(context, it, request.userId)
+                                }
+                            }
+                        }) {
+                            AdaptiveText(stringResource(when (nativeRoute) {
+                                SystemPreviewRoute.PICKER, SystemPreviewRoute.WIDGET_PICKER ->
+                                    R.string.system_probe_open_picker
+                                SystemPreviewRoute.SETTINGS -> R.string.preview_open_related_settings
+                                else -> R.string.system_probe_open_system
+                            }))
+                        }
+                    }
                 }
             } else {
                 AdaptiveTextButton(onClick = onDismiss) {
@@ -451,7 +582,7 @@ internal fun SystemProbeDialog(
             }
         },
         dismissButton = {
-            if (nativeAvailable) {
+            if (nativeAvailable || scenarioTestAvailable) {
                 AdaptiveTextButton(onClick = onDismiss) {
                     AdaptiveText(stringResource(R.string.system_probe_close))
                 }

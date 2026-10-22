@@ -93,4 +93,25 @@
     <string name="module_scope_partial">Some recommended LSPosed scopes are not granted (module may still work)</string>
     <string name="space_package_scan_failed">Could not read applications in the selected Android space. An empty list is not confirmed; check Root access and retry.</string>
     <string name="backup_root_restore_manual">This import restores rules only. Root-disabled components are recorded for reference and are never changed automatically.</string>
+    <string name="preview_related_settings_only">Only related system security settings can be opened. Android restricts provider-specific Autofill/Credential enable flows to the provider\'s own package; this is not a verified provider picker.</string>
+    <string name="preview_default_apps_settings">Opens Android Default apps settings. Optional Intent testing is separate and may open an application; neither is proof of the filtered system list.</string>
+    <string name="preview_process_text_selection">Long-press the sample text below and select some text to open Android\'s real text-selection menu. Available Process Text actions depend on the text editor and device.</string>
+    <string name="preview_shortcut_observation">Shortcut items are controlled by ShortcutService and the launcher. There is no public system list picker; inspect Hook observations instead.</string>
+    <string name="preview_provider_picker_not_inventory">Opens a system document/photo picker. Its content is not the complete list of providers or sidebar entries; consult captured host results.</string>
+    <string name="preview_settings_not_filtered">Opens the Android Settings entry for this feature, not the actual Hook-filtered service list.</string>
+    <string name="preview_scenario_not_final_ui">Opens an Android test scenario, not necessarily the exact menu used by another app. API candidates and Hook observations remain separate.</string>
+    <string name="preview_tile_no_public_editor">Android does not expose a general public Quick Settings tile editor to third-party apps. The installed tile catalog is not the SystemUI edit panel.</string>
+    <string name="preview_widget_temporary_host">Opens the system widget picker using a temporary List Cleaner widget host. Selection is discarded and the temporary ID is released; it is not the launcher\'s widget drawer.</string>
+    <string name="preview_launcher_chooser_not_real_host">Opens a generic Android chooser, not the launcher\'s actual app or shortcut panel.</string>
+    <string name="preview_no_public_system_entry">This system-owned list has no supported public launcher. Only available API candidates or runtime observations can be inspected.</string>
+    <string name="preview_other_user_unavailable">This system entry belongs to a different Android user. Cross-user UI launch is restricted; only the current user can be tested here.</string>
+    <string name="preview_no_verified_list">No verified current system list is available for this entry. Use Show API for candidates or inspect prior Hook observations.</string>
+    <string name="preview_test_intent">Test application Intent</string>
+    <string name="preview_open_related_settings">Open system settings</string>
+    <string name="preview_widget_picker_unavailable">This device does not provide an accessible system widget picker.</string>
+    <string name="preview_source_hook_observed">Data source: captured Hook return (not guaranteed to match the final rendered UI)</string>
+    <string name="preview_source_api_candidates">Data source: API candidates, not final system list</string>
+    <string name="preview_source_root_return">Data source: DocumentsUI matching roots for this operation</string>
+    <string name="preview_source_diagnostic">Data source: raw API/diagnostic candidates</string>
+    <string name="preview_source_unavailable">Data source: no verified system return for this request</string>
 </resources>
