@@ -21,7 +21,7 @@ internal enum class UiCandidateSource { ALL, OBSERVED, PROACTIVE, HISTORY }
 internal enum class UiComponentStart { CATEGORIES, ALL_COMPONENTS }
 internal enum class UiPreviewDefault { CURRENT, CANDIDATES, ENABLED, HISTORY }
 internal enum class UiProbeDefaultScenario { SYSTEM, TEXT, IMAGE, PDF, LAST_USED }
-internal enum class UiDiagnosticsLevel { SUMMARY, FULL }
+enum class UiDiagnosticsLevel { SUMMARY, FULL }
 internal enum class UiComponentRefresh { CHANGED_ONLY, FULL }
 
 internal data class UiPreferences(
