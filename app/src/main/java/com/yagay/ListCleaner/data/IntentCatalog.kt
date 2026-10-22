@@ -42,6 +42,9 @@ class IntentCatalog(private val context: Context) {
     private val mutableRevision = MutableStateFlow(0L)
     val revision: StateFlow<Long> = mutableRevision.asStateFlow()
     private val specialEntryDiscovery = SpecialEntryDiscovery(context)
+    private val proactiveShortcuts = ProactiveShortcutDiscovery(context)
+    private data class ProactiveCache(val capturedAt: Long, val result: ProactiveShortcutDiscovery.Result)
+    private val proactiveByUser = mutableMapOf<Int, ProactiveCache>()
 
     suspend fun completeConfigured(
         items: List<ComponentCandidate>,
@@ -230,6 +233,30 @@ class IntentCatalog(private val context: Context) {
                 report.appendLine("${probe.label} ERROR=${failure.javaClass.name}")
             }
         }
+        currentCoroutineContext().ensureActive()
+        val sharePackages = found.asSequence()
+            .filter { it.rule.kind in setOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE,
+                IntentKind.SEND_TO, IntentKind.DIRECT_SHARE) }
+            .map { it.rule.packageName }.distinct().toList()
+        val previousActive = proactiveByUser[userId]
+        val timestamp = System.currentTimeMillis()
+        val active = if (!force && previousActive != null &&
+            timestamp - previousActive.capturedAt in 0..300_000L) {
+            previousActive.result
+        } else {
+            proactiveShortcuts.scan(userId, sharePackages).also {
+                if (it.status == "candidates_not_final_chooser") {
+                    proactiveByUser[userId] = ProactiveCache(timestamp, it)
+                }
+            }
+        }
+        report.appendLine("proactiveDirectShare source=${active.source} status=${active.status} " +
+            "candidateCount=${active.candidates.size} queriedPackages=${active.queriedPackages}")
+        // Query errors are not negative evidence. Keep the last successful active
+        // discovery for this space; never borrow another Android user's rows.
+        val usable = if (active.status == "candidates_not_final_chooser") active
+            else previousActive?.result
+        if (usable != null) found += usable.candidates
         currentCoroutineContext().ensureActive()
         val result = merge(found)
         report.appendLine("finishedAt=${Instant.now()} unique=${result.size} failures=$failures")

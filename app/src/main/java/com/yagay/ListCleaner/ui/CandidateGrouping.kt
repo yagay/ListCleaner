@@ -23,8 +23,13 @@ data class AppGroup(
  * a second, slightly different visibility rule elsewhere.
  */
 internal object CandidateVisibilityPolicy {
+    private fun isObservedShortcutHistory(item: ComponentCandidate): Boolean =
+        item.rule.kind in setOf(IntentKind.DIRECT_SHARE, IntentKind.SHORTCUT_ITEM) &&
+            item.evidence.any { it.startsWith("AUTHORITY_OBSERVED ") &&
+                "source=cache_history" in it }
+
     fun retainAfterRefresh(item: ComponentCandidate, selected: Boolean): Boolean =
-        !item.unavailable || selected
+        !item.unavailable || selected || isObservedShortcutHistory(item)
 
     fun visible(item: ComponentCandidate, selected: Boolean, uiFilter: UiFilter): Boolean {
         if (!matchesSelectionFilter(selected, uiFilter)) return false
@@ -36,6 +41,11 @@ internal object CandidateVisibilityPolicy {
                 (uiFilter == UiFilter.SHOW_SELECTED || uiFilter == UiFilter.LOCKED)
             // A configured rule may temporarily disappear from runtime discovery after refresh.
             // Keep it manageable in ALL/Selected/Locked, but never in Unselected.
+            // Historical Direct Share rows remain searchable, but retain unavailable=true
+            // and never claim a current system Chooser result.
+            item.unavailable && isObservedShortcutHistory(item) ->
+                uiFilter == UiFilter.ALL || uiFilter == UiFilter.HIDE_SELECTED ||
+                    (selected && uiFilter == UiFilter.SHOW_SELECTED)
             item.unavailable -> selected && uiFilter != UiFilter.HIDE_SELECTED
             else -> false
         }

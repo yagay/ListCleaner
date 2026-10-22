@@ -54,6 +54,21 @@ class CandidateVisibilityPolicyTest {
             }
     }
 
+    @Test fun historicalDirectShareIsSearchableButRemainsUnavailable() {
+        val historical = ComponentCandidate(
+            rule = ComponentRule(IntentKind.DIRECT_SHARE, "com.example.chat", "@direct#a"),
+            appLabel = "Chat", activityLabel = "Previous conversation",
+            unavailable = true,
+            evidence = listOf("AUTHORITY_OBSERVED kind=DIRECT_SHARE source=cache_history"),
+        )
+        assertTrue(historical.unavailable)
+        assertTrue(CandidateVisibilityPolicy.retainAfterRefresh(historical, selected = false))
+        assertTrue(CandidateVisibilityPolicy.visible(historical, selected = false, uiFilter = UiFilter.ALL))
+        assertTrue(CandidateVisibilityPolicy.visible(historical, selected = false, uiFilter = UiFilter.HIDE_SELECTED))
+        assertFalse(CandidateVisibilityPolicy.visible(historical, selected = false, uiFilter = UiFilter.SHOW_SELECTED))
+        assertFalse(CandidateVisibilityPolicy.visible(historical, selected = false, uiFilter = UiFilter.LOCKED))
+    }
+
     @Test fun selectedUnavailableCandidateSurvivesRefreshInAll() {
         val item = candidate(unavailable = true)
         assertTrue(CandidateVisibilityPolicy.retainAfterRefresh(item, selected = true))

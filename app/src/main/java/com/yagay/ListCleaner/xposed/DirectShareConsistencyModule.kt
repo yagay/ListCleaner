@@ -63,7 +63,7 @@ class DirectShareConsistencyModule : XposedModule() {
     override fun onHotReloading(param: HotReloadingParam): Boolean = false
 
     override fun onPackageReady(param: PackageReadyParam) {
-        if (param.packageName != FRAMEWORK_PACKAGE && param.packageName != INTENT_RESOLVER_PACKAGE) return
+        if (param.packageName !in CHOOSER_HOST_PACKAGES) return
         policyProvider.start()
         installChooserHooks(param.classLoader)
         installChooserGridHooks(param.classLoader)
@@ -302,6 +302,10 @@ class DirectShareConsistencyModule : XposedModule() {
         const val FRAMEWORK_PACKAGE = "android"
         const val INTENT_RESOLVER_PACKAGE = "com.android.intentresolver"
         const val APP_TARGET_CLASS = "android.app.prediction.AppTarget"
+        val CHOOSER_HOST_PACKAGES = setOf(
+            FRAMEWORK_PACKAGE, INTENT_RESOLVER_PACKAGE,
+            "com.oplus.resolver", "com.coloros.resolver",
+        )
 
         val CHOOSER_CLASSES = listOf(
             "com.android.intentresolver.ChooserActivity",
