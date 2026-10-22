@@ -58,7 +58,7 @@ class SystemPreviewSelectionTest {
             SystemPreviewSelection.select(request(IntentKind.ACCESSIBILITY),
                 payload.copy(hostReturn = observedFromSettings.copy(
                     capturedAtMillis = 1L)),
-                false, now, null, 12345).source)
+                false, now + 120_001L, null, 12345).source)
     }
 
     @Test fun oldOrUnattributedManagerObservationRemainsVisibleOnlyInHistory() {
