@@ -5,6 +5,8 @@ import com.yagay.ListCleaner.ListCleanerApp
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.BrowserLinkDiscovery
 import com.yagay.ListCleaner.data.ObservedEntryCache
+import com.yagay.ListCleaner.data.ProactiveScanOptions
+import com.yagay.ListCleaner.data.ProactiveTrigger
 import com.yagay.ListCleaner.domain.AuthorityCandidatePolicy
 import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.ComponentRule
@@ -70,7 +72,7 @@ internal class CandidateController(
         renderedUserId = null
     }
 
-    fun refresh(forceCatalog: Boolean = false) {
+    fun refresh(forceCatalog: Boolean = false, manualProactive: Boolean = false) {
         val userId = app.rules.activeUser.value
         val currentGeneration = ++generation
         // Keep the last known candidates visible during same-profile rescans, and
@@ -104,12 +106,26 @@ internal class CandidateController(
                 if (currentGeneration == generation) {
                     mutableBrowserHosts.value = cachedBrowserDiscovery.hosts
                 }
+                val proactive = UiPreferencesRuntime.current.let { prefs ->
+                    ProactiveScanOptions(
+                        trigger = when (prefs.proactiveScanMode) {
+                            UiProactiveScanMode.ON_SCAN -> ProactiveTrigger.ON_SCAN
+                            UiProactiveScanMode.MANUAL_ONLY -> ProactiveTrigger.MANUAL_ONLY
+                            UiProactiveScanMode.OFF -> ProactiveTrigger.OFF
+                        },
+                        includeDirectShare = prefs.proactiveDirectShare,
+                        includeShortcutItems = prefs.proactiveShortcutItems,
+                        cacheMinutes = prefs.proactiveCacheMinutes,
+                    )
+                }
                 val baseResult = app.catalog.scan(
                     app.rules.openTypes.value.customDefinitions,
                     app.rules.browserLinks.value.hosts + cachedBrowserDiscovery.hosts,
                     browserDiscovery = cachedBrowserDiscovery,
                     force = forceCatalog,
                     userId = userId,
+                    proactiveOptions = proactive,
+                    manualProactive = manualProactive,
                 )
                 if (currentGeneration != generation || app.rules.activeUser.value != userId) return@launch
                 mutableCandidates.value = completeLogical(baseResult, configuredRules())
@@ -131,6 +147,8 @@ internal class CandidateController(
                                 browserDiscovery = browserDiscovery,
                                 force = true,
                                 userId = userId,
+                                proactiveOptions = proactive,
+                                manualProactive = false,
                             )
                             if (currentGeneration == generation) {
                                 mutableCandidates.value = completeLogical(enriched, configuredRules())

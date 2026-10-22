@@ -58,6 +58,15 @@ class UiPreferencesTest {
         assertEquals(Destination.SETTINGS, UiStartPage.SETTINGS.destination())
     }
 
+    @Test fun proactiveScanSettingsHaveSafeDefaultsAndBoundedCache() {
+        val defaults = UiPreferences()
+        assertEquals(UiProactiveScanMode.ON_SCAN, defaults.proactiveScanMode)
+        assertTrue(defaults.proactiveDirectShare)
+        assertFalse(defaults.proactiveShortcutItems)
+        assertEquals(1, UiPreferences(proactiveCacheMinutes = -5).normalized().proactiveCacheMinutes)
+        assertEquals(60, UiPreferences(proactiveCacheMinutes = 1000).normalized().proactiveCacheMinutes)
+    }
+
     @Test fun manualScanningDoesNotStartEvenWhenCacheMissing() {
         assertFalse(ComponentScanRefreshPolicy.shouldRefresh(
             nowElapsedMs = 100_000L, lastFullScanElapsedMs = -1L,

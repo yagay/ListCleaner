@@ -12,4 +12,17 @@
     <string name="lc_retry_seconds">Scan retry delay</string>
     <string name="lc_app_link_enrichment">Scan App Links in background</string>
     <string name="lc_app_link_enrichment_help">Turning this off skips background domain discovery. Manual refresh still runs it.</string>
+    <string name="lc_proactive_scan_title">Proactive shortcut discovery</string>
+    <string name="lc_proactive_scan_mode">Background scanning</string>
+    <string name="lc_proactive_mode_on_scan">When scanning</string>
+    <string name="lc_proactive_mode_manual">Manual only</string>
+    <string name="lc_proactive_mode_off">Off</string>
+    <string name="lc_proactive_direct_share">Direct Share candidates</string>
+    <string name="lc_proactive_direct_share_help">Discover categorized shortcuts without launching the share sheet.</string>
+    <string name="lc_proactive_shortcuts">Shortcut item candidates</string>
+    <string name="lc_proactive_shortcuts_help">Also list categorized shortcuts from matching share apps.</string>
+    <string name="lc_proactive_cache_minutes">Reuse successful scans for</string>
+    <string name="lc_minutes_suffix">min</string>
+    <string name="lc_proactive_scan_now">Scan shortcut candidates now</string>
+    <string name="lc_proactive_scan_help">Read-only ShortcutService discovery. Results are candidates, not proof of current share-sheet visibility. Passive system Hooks remain active; no hidden activities or messages are sent.</string>
 </resources>

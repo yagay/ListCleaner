@@ -412,8 +412,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refresh()
     }
 
-    fun refresh(forceCatalog: Boolean = false) {
-        candidateController.refresh(forceCatalog)
+    fun refresh(forceCatalog: Boolean = false, manualProactive: Boolean = false) {
+        candidateController.refresh(forceCatalog, manualProactive)
         refreshModuleStatus()
     }
 
@@ -426,7 +426,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun applyModuleUpdate() = moduleRuntime.applyUpdate(::refresh)
+    fun applyModuleUpdate() = moduleRuntime.applyUpdate { refresh() }
 
     private fun canEdit(): Boolean = app.rules.hasLocalConfiguration().also {
         if (!it) candidateController.showError(app.getString(R.string.editing_requires_recovery))

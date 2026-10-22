@@ -43,7 +43,10 @@ class IntentCatalog(private val context: Context) {
     val revision: StateFlow<Long> = mutableRevision.asStateFlow()
     private val specialEntryDiscovery = SpecialEntryDiscovery(context)
     private val proactiveShortcuts = ProactiveShortcutDiscovery(context)
-    private data class ProactiveCache(val capturedAt: Long, val result: ProactiveShortcutDiscovery.Result)
+    private data class ProactiveCache(
+        val capturedAt: Long, val kinds: Set<IntentKind>, val packages: Set<String>,
+        val result: ProactiveShortcutDiscovery.Result,
+    )
     private val proactiveByUser = mutableMapOf<Int, ProactiveCache>()
 
     suspend fun completeConfigured(
@@ -115,6 +118,8 @@ class IntentCatalog(private val context: Context) {
         browserDiscovery: BrowserLinkDiscoveryResult = BrowserLinkDiscoveryResult(),
         force: Boolean = false,
         userId: Int = android.os.Process.myUid() / 100000,
+        proactiveOptions: ProactiveScanOptions = ProactiveScanOptions(),
+        manualProactive: Boolean = false,
     ): List<ComponentCandidate> = withContext(Dispatchers.IO) {
         val profile = if (userId == android.os.Process.myUid() / 100000) null else ProfilePackageQuery(context, userId)
         val normalizedBrowserHosts = browserHosts.mapNotNull(::normalizeBrowserHost).toSortedSet()
@@ -133,7 +138,7 @@ class IntentCatalog(private val context: Context) {
         val inputFingerprint = customDefinitions.entries
             .sortedBy { it.key.ordinal }
             .joinToString("|") { (preset, definition) -> "$preset=$definition" } +
-            "|userId=$userId|browserHosts=" + normalizedBrowserHosts.joinToString(",") +
+            "|userId=$userId|proactive=$proactiveOptions|manual=$manualProactive|browserHosts=" + normalizedBrowserHosts.joinToString(",") +
             "|declaredHandlers=" + discoveryFingerprint +
             "|declaredPackages=" + packageFingerprint
         val cached = mutableCandidates.value
@@ -238,25 +243,39 @@ class IntentCatalog(private val context: Context) {
             .filter { it.rule.kind in setOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE,
                 IntentKind.SEND_TO, IntentKind.DIRECT_SHARE) }
             .map { it.rule.packageName }.distinct().toList()
-        val previousActive = proactiveByUser[userId]
+        val activeKinds = proactiveOptions.requestedKinds
+        val allowed = proactiveOptions.mayQuery(manualProactive)
+        val shareSet = sharePackages.toSet()
+        val previousActive = proactiveByUser[userId]?.takeIf {
+            it.kinds == activeKinds && it.packages == shareSet
+        }
         val timestamp = System.currentTimeMillis()
-        val active = if (!force && previousActive != null &&
-            timestamp - previousActive.capturedAt in 0..300_000L) {
-            previousActive.result
-        } else {
-            proactiveShortcuts.scan(userId, sharePackages).also {
-                if (it.status == "candidates_not_final_chooser") {
-                    proactiveByUser[userId] = ProactiveCache(timestamp, it)
+        if (allowed) {
+            val active = if (!manualProactive && previousActive != null &&
+                timestamp - previousActive.capturedAt in 0..proactiveOptions.cacheMillis) {
+                previousActive.result
+            } else {
+                proactiveShortcuts.scan(userId, sharePackages, activeKinds).also {
+                    if (it.status == "candidates_not_final_chooser") {
+                        proactiveByUser[userId] = ProactiveCache(timestamp, activeKinds, shareSet, it)
+                    }
                 }
             }
+            if (active.status in setOf("root_unavailable", "query_failed",
+                    "unsupported_or_locked", "invalid_user")) {
+                failures++
+            }
+            report.appendLine("proactiveShortcuts source=${active.source} status=${active.status} " +
+                "kinds=${activeKinds.joinToString(",")} count=${active.candidates.size} " +
+                "queriedPackages=${active.queriedPackages}")
+            // Failure is not negative evidence. Keep the last successful scan.
+            val usable = if (active.status == "candidates_not_final_chooser") active
+                else previousActive?.result
+            if (usable != null) found += usable.candidates
+        } else {
+            report.appendLine("proactiveShortcuts status=disabled_or_manual " +
+                "mode=${proactiveOptions.trigger} kinds=${activeKinds.joinToString(",")}")
         }
-        report.appendLine("proactiveDirectShare source=${active.source} status=${active.status} " +
-            "candidateCount=${active.candidates.size} queriedPackages=${active.queriedPackages}")
-        // Query errors are not negative evidence. Keep the last successful active
-        // discovery for this space; never borrow another Android user's rows.
-        val usable = if (active.status == "candidates_not_final_chooser") active
-            else previousActive?.result
-        if (usable != null) found += usable.candidates
         currentCoroutineContext().ensureActive()
         val result = merge(found)
         report.appendLine("finishedAt=${Instant.now()} unique=${result.size} failures=$failures")

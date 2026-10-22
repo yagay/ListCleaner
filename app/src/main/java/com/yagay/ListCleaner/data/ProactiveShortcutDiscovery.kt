@@ -20,7 +20,13 @@ internal class ProactiveShortcutDiscovery(private val context: Context) {
         val queriedPackages: Int = 0,
     )
 
-    fun scan(userId: Int, sharePackages: Collection<String>): Result {
+    fun scan(
+        userId: Int,
+        sharePackages: Collection<String>,
+        kinds: Set<IntentKind> = setOf(IntentKind.DIRECT_SHARE),
+    ): Result {
+        val selectedKinds = kinds.intersect(setOf(IntentKind.DIRECT_SHARE, IntentKind.SHORTCUT_ITEM))
+        if (selectedKinds.isEmpty()) return Result(source = "NONE", status = "disabled")
         if (userId !in 0..21474) return Result(source = "NONE", status = "invalid_user")
         val packages = sharePackages.asSequence()
             .filter { PackageIdentity.valid(it) && SAFE_PACKAGE.matches(it) }
@@ -43,12 +49,14 @@ internal class ProactiveShortcutDiscovery(private val context: Context) {
                         it.isEnabled && (it.isDynamic || it.isDeclaredInManifest) &&
                         !it.categories.isNullOrEmpty() }
                     .take(MAX_CANDIDATES)
-                    .mapNotNull { shortcut ->
-                        candidate(shortcut.`package`, shortcut.id,
-                            shortcut.activity?.className,
-                            shortcut.shortLabel?.toString().orEmpty(),
-                            "LAUNCHER_APPS", userId)
-                    }.toList()
+                    .flatMap { shortcut ->
+                        selectedKinds.asSequence().mapNotNull { kind ->
+                            candidate(shortcut.`package`, shortcut.id,
+                                shortcut.activity?.className,
+                                shortcut.shortLabel?.toString().orEmpty(),
+                                "LAUNCHER_APPS", userId, kind)
+                        }
+                    }.take(MAX_CANDIDATES).toList()
             }
             if (result.isSuccess) return Result(result.getOrThrow(), "LAUNCHER_APPS",
                 "candidates_not_final_chooser", packages.size)
@@ -70,26 +78,32 @@ internal class ProactiveShortcutDiscovery(private val context: Context) {
             return Result(source = "ROOT_SHELL", status = "unsupported_or_locked", queriedPackages = packages.size)
         }
         val scanned = ProactiveShortcutParser.parse(result.output, known)
-            .mapNotNull { item ->
+            .flatMap { item ->
                 val activity = item.activity?.let { raw ->
                     val flattened = if (raw.startsWith("ComponentInfo{"))
                         raw.removePrefix("ComponentInfo{").substringBefore('}') else raw
                     ComponentName.unflattenFromString(flattened)
                         ?.takeIf { it.packageName == item.packageName }?.className
                 }
-                candidate(item.packageName, item.shortcutId, activity,
-                    item.label, "ROOT_SHELL", userId)
-            }
+                selectedKinds.mapNotNull { kind ->
+                    candidate(item.packageName, item.shortcutId, activity,
+                        item.label, "ROOT_SHELL", userId, kind)
+                }
+            }.take(MAX_CANDIDATES)
         return Result(scanned, "ROOT_SHELL", "candidates_not_final_chooser", packages.size)
     }
 
     private fun candidate(
         packageName: String, id: String, activity: String?, label: String,
-        source: String, userId: Int,
+        source: String, userId: Int, kind: IntentKind,
     ): ComponentCandidate? {
         if (!PackageIdentity.valid(packageName) || id.isBlank() || id.length > 300) return null
-        val rule = ComponentRule(IntentKind.DIRECT_SHARE, packageName,
-            SyntheticEntryKeys.directShareClass(activity, id))
+        val identity = when (kind) {
+            IntentKind.DIRECT_SHARE -> SyntheticEntryKeys.directShareClass(activity, id)
+            IntentKind.SHORTCUT_ITEM -> SyntheticEntryKeys.shortcutItemClass(activity, id)
+            else -> return null
+        }
+        val rule = ComponentRule(kind, packageName, identity)
         if (!rule.isValid()) return null
         val application = runCatching {
             context.packageManager.getApplicationInfo(packageName, 0)

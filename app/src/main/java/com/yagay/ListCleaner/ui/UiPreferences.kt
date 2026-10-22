@@ -15,6 +15,8 @@ internal enum class UiAccent { DYNAMIC, BLUE, GREEN, PURPLE }
 internal enum class UiStartPage { CLEANUP, ORDERING, SETTINGS }
 internal enum class UiAppSort { SELECTED_FIRST, NAME, PACKAGE }
 internal enum class UiScanMode { SMART, MANUAL, EVERY_ENTRY }
+/** Applies to proactive read-only ShortcutService discovery, not passive Hooks. */
+internal enum class UiProactiveScanMode { ON_SCAN, MANUAL_ONLY, OFF }
 
 internal data class UiPreferences(
     val density: UiDensity = UiDensity.STANDARD,
@@ -34,6 +36,10 @@ internal data class UiPreferences(
     val scanCacheMinutes: Int = 10,
     val scanRetrySeconds: Int = 30,
     val appLinkEnrichment: Boolean = true,
+    val proactiveScanMode: UiProactiveScanMode = UiProactiveScanMode.ON_SCAN,
+    val proactiveDirectShare: Boolean = true,
+    val proactiveShortcutItems: Boolean = false,
+    val proactiveCacheMinutes: Int = 5,
     val fontScalePercent: Int = 100,
     val layoutSpacingPercent: Int = 100,
     val appTitleLines: Int = 1,
@@ -50,6 +56,7 @@ internal data class UiPreferences(
         appIconSize = appIconSize.coerceIn(28, 56),
         listRowHeight = listRowHeight.coerceIn(48, 96),
         scanCacheMinutes = scanCacheMinutes.coerceIn(1, 60),
+        proactiveCacheMinutes = proactiveCacheMinutes.coerceIn(1, 60),
         homeColumns = homeColumns.coerceIn(1, 2),
         scanRetrySeconds = scanRetrySeconds.coerceIn(10, 180),
         fontScalePercent = fontScalePercent.coerceIn(80, 140),
@@ -99,6 +106,11 @@ internal object UiPreferencesStore {
             scanCacheMinutes = p.getInt("scan_cache_minutes", defaults.scanCacheMinutes),
             scanRetrySeconds = p.getInt("scan_retry_seconds", defaults.scanRetrySeconds),
             appLinkEnrichment = p.getBoolean("app_link_enrichment", defaults.appLinkEnrichment),
+            proactiveScanMode = stored(p.getString("proactive_scan_mode", null),
+                UiProactiveScanMode.entries.toTypedArray(), defaults.proactiveScanMode),
+            proactiveDirectShare = p.getBoolean("proactive_direct_share", defaults.proactiveDirectShare),
+            proactiveShortcutItems = p.getBoolean("proactive_shortcut_items", defaults.proactiveShortcutItems),
+            proactiveCacheMinutes = p.getInt("proactive_cache_minutes", defaults.proactiveCacheMinutes),
             fontScalePercent = p.getInt("font_scale_percent", defaults.fontScalePercent),
             layoutSpacingPercent = p.getInt("layout_spacing_percent", defaults.layoutSpacingPercent),
             appTitleLines = p.getInt("app_title_lines", defaults.appTitleLines),
@@ -131,6 +143,10 @@ internal object UiPreferencesStore {
             .putInt("scan_cache_minutes", safe.scanCacheMinutes)
             .putInt("scan_retry_seconds", safe.scanRetrySeconds)
             .putBoolean("app_link_enrichment", safe.appLinkEnrichment)
+            .putString("proactive_scan_mode", safe.proactiveScanMode.name)
+            .putBoolean("proactive_direct_share", safe.proactiveDirectShare)
+            .putBoolean("proactive_shortcut_items", safe.proactiveShortcutItems)
+            .putInt("proactive_cache_minutes", safe.proactiveCacheMinutes)
             .putInt("font_scale_percent", safe.fontScalePercent)
             .putInt("layout_spacing_percent", safe.layoutSpacingPercent)
             .putInt("app_title_lines", safe.appTitleLines)
@@ -179,12 +195,13 @@ internal object UiPreferencesStore {
     }
 
     private val backupTextKeys = setOf("density", "accent", "start_page", "app_sort", "default_filter",
-        "default_app_type", "scan_mode", "last_filter_rules", "last_filter_priority", "last_filter_components",
+        "default_app_type", "scan_mode", "proactive_scan_mode", "last_filter_rules", "last_filter_priority", "last_filter_components",
         "last_app_type_rules", "last_app_type_priority", "last_app_type_components")
     private val backupIntKeys = setOf("card_radius", "button_height", "app_icon_size", "list_row_height",
-        "home_columns", "scan_cache_minutes", "scan_retry_seconds", "font_scale_percent", "layout_spacing_percent",
+        "home_columns", "scan_cache_minutes", "scan_retry_seconds", "proactive_cache_minutes", "font_scale_percent", "layout_spacing_percent",
         "app_title_lines", "app_subtitle_lines")
     private val backupBoolKeys = setOf("remember_filters", "help_default", "app_link_enrichment",
+        "proactive_direct_share", "proactive_shortcut_items",
         "show_app_icons", "show_package_names", "remember_page_search", "expand_first_app", "drag_haptics")
 
     fun exportSnapshot(context: Context): JSONObject {
@@ -197,6 +214,10 @@ internal object UiPreferencesStore {
         snapshot.put("default_filter", v.defaultFilter.name)
         snapshot.put("default_app_type", v.defaultAppType.name)
         snapshot.put("scan_mode", v.scanMode.name)
+        snapshot.put("proactive_scan_mode", v.proactiveScanMode.name)
+        snapshot.put("proactive_direct_share", v.proactiveDirectShare)
+        snapshot.put("proactive_shortcut_items", v.proactiveShortcutItems)
+        snapshot.put("proactive_cache_minutes", v.proactiveCacheMinutes)
         snapshot.put("card_radius", v.cardRadius)
         snapshot.put("button_height", v.buttonHeight)
         snapshot.put("app_icon_size", v.appIconSize)

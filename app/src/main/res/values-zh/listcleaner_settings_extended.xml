@@ -12,4 +12,17 @@
     <string name="lc_retry_seconds">扫描失败重试间隔</string>
     <string name="lc_app_link_enrichment">后台扫描 App Link 域名</string>
     <string name="lc_app_link_enrichment_help">关闭后不自动执行域名深度发现，手动刷新仍可执行。</string>
+    <string name="lc_proactive_scan_title">后台主动扫描快捷方式</string>
+    <string name="lc_proactive_scan_mode">扫描触发方式</string>
+    <string name="lc_proactive_mode_on_scan">扫描时自动</string>
+    <string name="lc_proactive_mode_manual">仅手动</string>
+    <string name="lc_proactive_mode_off">关闭</string>
+    <string name="lc_proactive_direct_share">Direct Share 候选</string>
+    <string name="lc_proactive_direct_share_help">不弹出分享界面，主动读取已发布的带类别快捷方式。</string>
+    <string name="lc_proactive_shortcuts">快捷方式项目候选</string>
+    <string name="lc_proactive_shortcuts_help">同时列出已匹配分享应用的带类别快捷方式。</string>
+    <string name="lc_proactive_cache_minutes">成功结果缓存时间</string>
+    <string name="lc_minutes_suffix">分钟</string>
+    <string name="lc_proactive_scan_now">立即扫描快捷方式候选</string>
+    <string name="lc_proactive_scan_help">只读查询 ShortcutService，结果仅代表候选，不保证出现在当前分享面板。被动系统 Hook 继续生效，不会后台弹窗或发送消息。</string>
 </resources>

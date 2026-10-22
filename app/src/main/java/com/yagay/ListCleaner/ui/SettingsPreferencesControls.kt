@@ -240,6 +240,62 @@ internal fun SettingsScanControls(vm: MainViewModel) {
                 UiPreferencesStore.write(context, current.copy(appLinkEnrichment = it))
             })
         }
+        AdaptiveText(
+            stringResource(R.string.lc_proactive_scan_title),
+            fontWeight = FontWeight.Medium
+        )
+        SettingsChoices(
+            stringResource(R.string.lc_proactive_scan_mode),
+            current.proactiveScanMode,
+            listOf(
+                UiProactiveScanMode.ON_SCAN to stringResource(R.string.lc_proactive_mode_on_scan),
+                UiProactiveScanMode.MANUAL_ONLY to stringResource(R.string.lc_proactive_mode_manual),
+                UiProactiveScanMode.OFF to stringResource(R.string.lc_proactive_mode_off)
+            )
+        ) {
+            UiPreferencesStore.write(context, current.copy(proactiveScanMode = it))
+            vm.refresh()
+        }
+        if (current.proactiveScanMode != UiProactiveScanMode.OFF) {
+            MaterialSettingsRow(
+                title = stringResource(R.string.lc_proactive_direct_share),
+                supportingText = stringResource(R.string.lc_proactive_direct_share_help)
+            ) {
+                AdaptiveSwitch(checked = current.proactiveDirectShare, onCheckedChange = {
+                    UiPreferencesStore.write(context, current.copy(proactiveDirectShare = it))
+                    vm.refresh()
+                })
+            }
+            MaterialSettingsRow(
+                title = stringResource(R.string.lc_proactive_shortcuts),
+                supportingText = stringResource(R.string.lc_proactive_shortcuts_help)
+            ) {
+                AdaptiveSwitch(checked = current.proactiveShortcutItems, onCheckedChange = {
+                    UiPreferencesStore.write(context, current.copy(proactiveShortcutItems = it))
+                    vm.refresh()
+                })
+            }
+            if (current.proactiveScanMode == UiProactiveScanMode.ON_SCAN) {
+                SettingsSlider(
+                    stringResource(R.string.lc_proactive_cache_minutes),
+                    current.proactiveCacheMinutes, 1, 60,
+                    suffix = stringResource(R.string.lc_minutes_suffix)
+                ) {
+                    UiPreferencesRuntime.apply(
+                        UiPreferencesRuntime.current.copy(proactiveCacheMinutes = it)
+                    )
+                }
+            }
+            AdaptiveOutlinedButton(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { vm.refresh(forceCatalog = true, manualProactive = true) }
+            ) { AdaptiveText(stringResource(R.string.lc_proactive_scan_now)) }
+        }
+        AdaptiveText(
+            stringResource(R.string.lc_proactive_scan_help),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         AdaptiveText(stringResource(R.string.settings_scan_help),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         AdaptiveOutlinedButton(
