@@ -68,18 +68,16 @@ required = {
     "WorkspaceAppRow.kt": ["MaterialAppRowBody(", "MaterialUiTokens.listRowHeight"],
     "AppScopePicker.kt": ["MaterialAppRowBody(", "MaterialFullScreenDialog("],
     "ScopeScreen.kt": ["MaterialFullScreenDialog(", "MaterialDialogActions("],
-    "MainTabs.kt": ["SettingsTabContent(", "RuntimePanel(state, vm)",
-                     "SettingsCenterHome(onSelect = { selectedSection = it })",
-                     "BackHandler(enabled = selectedSection != null)",
-                     "SettingsSection.APPEARANCE ->", "SettingsSection.LISTS ->",
-                     "SettingsSection.SCANNING ->", "SettingsSection.COMPATIBILITY ->",
-                     "SettingsSection.BACKUP ->", "SettingsSection.ADVANCED ->",
-                     "MaterialPageColumn {", "MaterialSectionCard {",
-                     "MaterialSettingsRow(", "SettingsAppearanceControls()",
-                     "SettingsListControls()", "SettingsScanControls(vm)",
-                     "SettingsResetControls(onColorModeChange)"],
+    "MainTabs.kt": ["fun RulesTab(", "fun PriorityTab(", "MaterialPageColumn {"],
+    "SettingsNavigation.kt": ["fun SettingsTabContent(", "SettingsCenterHome(",
+                              "TopAppBar(", "LazyColumn(", "SettingsAppearanceControls()",
+                              "SettingsListControls()", "SettingsScanControls(vm)",
+                              "SettingsSection.APPEARANCE ->", "SettingsSection.LISTS ->",
+                              "SettingsSection.SCANNING ->", "SettingsSection.COMPATIBILITY ->",
+                              "SettingsSection.BACKUP ->", "SettingsSection.ADVANCED ->",
+                              "ScopeDialog("],
     "SettingsCenterHome.kt": ["enum class SettingsSection(",
-                              "SettingsSection.entries.forEachIndexed",
+                              "SettingsSection.entries.chunked(2)",
                               "UiCardVariant.LIST_GROUP", "onSelect(section)",
                               "APPEARANCE(R.string.settings_appearance_section",
                               "LISTS(R.string.settings_list_section",
@@ -90,11 +88,21 @@ required = {
     "UiPreferences.kt": ["data class UiPreferences(", "UiPreferencesRuntime",
                          "UiPreferencesStore", "fun write(context:", "fun read(context:",
                          "fun rememberFilter(", "fun rememberAppType(", "homeColumns", "openHelpByDefault"],
-    "SettingsPreferencesControls.kt": ["fun SettingsAppearanceControls()",
-                                       "fun SettingsListControls()", "fun SettingsScanControls(",
-                                       "fun SettingsResetControls(", "SettingsSlider(", "SettingsChoices(",
-                                       "settings_home_columns", "settings_remember_filters",
-                                       "settings_help_expanded"],
+    "SettingsWidgets.kt": ["fun SettingsArea(", "fun <T> SettingsChoices(",
+                           "fun SettingsSlider(", "MaterialSectionCard {",
+                           "AdaptiveAlertDialog("],
+    "AppearanceSettings.kt": ["fun SettingsAppearanceControls()",
+                              "fun SettingsLanguageControls()", "settings_card_radius",
+                              "lc_layout_spacing"],
+    "ListSettings.kt": ["fun SettingsListControls()", "settings_home_columns",
+                        "settings_remember_filters", "settings_help_expanded"],
+    "ScanSettings.kt": ["fun SettingsScanControls(", "settings_scan_mode",
+                       "lc_proactive_scan_mode", "lc_scan_all_now"],
+    "SettingsReset.kt": ["fun SettingsResetControls("],
+    "SettingsSections.kt": ["fun CompatibilitySettings(", "fun BackupSettings(",
+                            "fun DiagnosticsSettings(", "RuntimePanel(state, vm)",
+                            "SettingsResetControls(onColorModeChange)",
+                            "ModuleStatusRow(state", "dashboard_query_hits"],
     "UiAppearance.kt": ["UiPreferencesRuntime.current.accent"],
     "RootComponentsController.kt": ["UiPreferencesRuntime.current.scanMode",
                                     "UiPreferencesRuntime.current.scanCacheMinutes"],
@@ -127,12 +135,15 @@ for obsolete in ("ModuleStatusRow(", "RuntimePanel(", 'item(key = "status")'):
     if obsolete in sorting_source:
         errors.append(f"PriorityDialog.kt: obsolete sort-page status: {obsolete}")
 
-settings_source = (root / "MainTabs.kt").read_text(encoding="utf-8")
-for symbol in ("RuntimePanel(state, vm)", "dashboard_sync_status", "dashboard_runtime_hits",
+settings_source = (
+    (root / "SettingsNavigation.kt").read_text(encoding="utf-8") +
+    (root / "SettingsSections.kt").read_text(encoding="utf-8")
+)
+for symbol in ("RuntimePanel(state, vm)", "dashboard_sync_status", "dashboard_query_hits",
                "dashboard_module_status", "dashboard_diagnostics", "ScopeDialog(",
                "onCollectDiagnostics", "onInspectFile"):
     if symbol not in settings_source:
-        errors.append(f"MainTabs.kt: Settings missing former Status feature: {symbol}")
+        errors.append(f"Settings refactor: missing former Status feature: {symbol}")
 
 for filename in ("AppScopePicker.kt", "ScopeScreen.kt"):
     code = (root / filename).read_text(encoding="utf-8")
