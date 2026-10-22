@@ -6,7 +6,7 @@ public final class FilterPolicyCheck {
         for (String kind : new String[]{"SHARE", "SHARE_MULTIPLE", "OPEN", "BROWSER", "PROCESS_TEXT"}) {
             for (int before : new int[]{0, 1, 9}) {
                 for (int after : new int[]{0, 1, 9}) {
-                    boolean expected = before > 0 && after == 0 && !kind.equals("PROCESS_TEXT");
+                    boolean expected = false;
                     if (FilterPolicy.restoreEmpty(kind, before, after) != expected) throw new AssertionError(kind);
                     checks++;
                 }

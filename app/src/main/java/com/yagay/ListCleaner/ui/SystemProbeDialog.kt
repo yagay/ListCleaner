@@ -159,8 +159,15 @@ internal fun SystemProbeDialog(
     val runtimeAvailable = selectedResult.source in setOf(
         PreviewListSource.HOOK_OBSERVATION, PreviewListSource.HOST_OBSERVATION
     )
-    val runtimeSnapshot = if (selectedResult.source == PreviewListSource.HOST_OBSERVATION)
-        value?.hostReturn else value?.runtimeReturn
+    val runtimeSnapshot = when (selectedResult.source) {
+        PreviewListSource.HOST_OBSERVATION -> value?.hostReturn
+        PreviewListSource.HOOK_OBSERVATION -> value?.runtimeReturn
+        PreviewListSource.HISTORY -> if (request.entryKind in setOf(
+            IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT,
+            IntentKind.CREATE_DOCUMENT, IntentKind.DOCUMENT_ROOT
+        )) null else value?.unattributedReturn ?: value?.hostReturn ?: value?.runtimeReturn
+        else -> null
+    }
     val runtimePackages = runtimeSnapshot?.packages.orEmpty()
     val runtimeComponents = runtimeSnapshot?.components.orEmpty()
     val documentPicker = request.entryKind == IntentKind.OPEN_DOCUMENT ||
@@ -272,7 +279,9 @@ internal fun SystemProbeDialog(
                                 )) add(PreviewListMode.ENABLED)
                             if (value.historicalItems.isNotEmpty() ||
                                 value.matchingRootsSnapshot != null ||
-                                value.observedThirdPartyRoots.isNotEmpty())
+                                value.observedThirdPartyRoots.isNotEmpty() ||
+                                value.unattributedReturn != null ||
+                                value.hostReturn != null || value.runtimeReturn != null)
                                 add(PreviewListMode.HISTORY)
                         }
                         Row(
@@ -335,6 +344,16 @@ internal fun SystemProbeDialog(
                             IntentKind.DOCUMENT_PROVIDER && value.pickerProbeStatus ==
                             PickerProbeStatus.OBSERVED_AFTER_TEST
                         val matching = value.matchingRootsSnapshot
+                        if (matching?.truncated == true) {
+                            item(key = "picker-partial-capture") {
+                                AdaptiveText(
+                                    stringResource(R.string.preview_partial_capture,
+                                        matching.totalRoots, matching.roots.size),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
                         item(key = "picker-verification") {
                             AdaptiveText(
                                 stringResource(when (value.pickerProbeStatus) {
@@ -396,6 +415,24 @@ internal fun SystemProbeDialog(
                                     returned.source),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (returned.truncated) {
+                                    AdaptiveText(
+                                        stringResource(R.string.preview_partial_capture,
+                                            maxOf(returned.totalPackages, returned.totalComponents),
+                                            maxOf(returned.packages.size, returned.components.size)
+                                        ),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                AdaptiveText(
+                                    stringResource(R.string.preview_captured_at,
+                                        DateFormat.getDateTimeInstance(
+                                            DateFormat.SHORT, DateFormat.MEDIUM
+                                        ).format(Date(returned.capturedAtMillis))),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
 
                         }

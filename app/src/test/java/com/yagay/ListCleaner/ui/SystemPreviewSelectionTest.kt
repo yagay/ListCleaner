@@ -61,6 +61,23 @@ class SystemPreviewSelectionTest {
                 false, now, null, 12345).source)
     }
 
+    @Test fun oldOrUnattributedManagerObservationRemainsVisibleOnlyInHistory() {
+        val old = observed(IntentKind.ACCESSIBILITY, uid = 1000).copy(
+            capturedAtMillis = 1L
+        )
+        val payload = result(raw).copy(unattributedReturn = old)
+        val live = SystemPreviewSelection.select(
+            request(IntentKind.ACCESSIBILITY), payload, false, now, null, 12345
+        )
+        assertEquals(PreviewListSource.UNAVAILABLE, live.source)
+        val past = SystemPreviewSelection.select(
+            request(IntentKind.ACCESSIBILITY), payload, false, now, null, 12345,
+            viewMode = PreviewListMode.HISTORY,
+        )
+        assertEquals(PreviewListSource.HISTORY, past.source)
+        assertEquals("com.example.filtered", past.items.single().packageName)
+    }
+
     @Test fun untrustedHostNeverInheritsOwnObservation() {
         val payload = result(raw).copy(
             runtimeReturn = observed(IntentKind.ACCESSIBILITY, uid = 1000)

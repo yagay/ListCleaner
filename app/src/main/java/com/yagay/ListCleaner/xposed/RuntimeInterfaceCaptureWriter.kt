@@ -29,16 +29,28 @@ internal class RuntimeInterfaceCaptureWriter(
         callerUid: Int = -1,
         requestAction: String = "",
     ) {
+        val uniquePackages = packages.distinct()
+        val uniqueComponents = components.distinct()
         val snapshot = RuntimeInterfaceSnapshot(
             kind = kind.name, source = source, callerUserId = userId,
             callerPackage = callerPackage,
             callerUid = callerUid, requestAction = requestAction,
             capturedAtMillis = System.currentTimeMillis(),
-            packages = packages.distinct().take(RuntimeInterfaceSnapshotCodec.MAX_PACKAGES),
-            components = components.distinct().take(RuntimeInterfaceSnapshotCodec.MAX_PACKAGES),
+            packages = uniquePackages.take(RuntimeInterfaceSnapshotCodec.MAX_PACKAGES),
+            components = uniqueComponents.take(RuntimeInterfaceSnapshotCodec.MAX_PACKAGES),
+            totalPackages = uniquePackages.size,
+            totalComponents = uniqueComponents.size,
+            truncated = uniquePackages.size > RuntimeInterfaceSnapshotCodec.MAX_PACKAGES ||
+                uniqueComponents.size > RuntimeInterfaceSnapshotCodec.MAX_PACKAGES,
         )
         val encoded = RuntimeInterfaceSnapshotCodec.encode(snapshot)
-        if (encoded.length > RuntimeInterfaceSnapshotCodec.MAX_CHARS) return
+        if (encoded.isBlank()) {
+            record("RUNTIME_RETURN_CAPTURE_SKIPPED kind=$kind reason=unencodable")
+            return
+        }
+        if (RuntimeInterfaceSnapshotCodec.decode(encoded, kind)?.truncated == true) record(
+            "RUNTIME_RETURN_CAPTURE_PARTIAL kind=$kind packages=${snapshot.totalPackages} components=${snapshot.totalComponents}"
+        )
         executor.execute {
             runCatching {
                 preferences.edit().apply {

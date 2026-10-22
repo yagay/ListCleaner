@@ -128,4 +128,6 @@
     <string name="preview_older_roots_separate">Previous DocumentsUI roots are available in History. They are not part of this test.</string>
     <string name="preview_quality_history">Historical observation</string>
     <string name="preview_count_history">%1$d historical entries · %2$d apps</string>
+    <string name="preview_partial_capture">Partial capture: system returned %1$d items; %2$d were stored. The missing entries were not removed by filtering.</string>
+    <string name="preview_captured_at">Captured: %1$s</string>
 </resources>

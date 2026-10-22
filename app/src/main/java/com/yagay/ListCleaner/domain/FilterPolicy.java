@@ -25,8 +25,8 @@ public final class FilterPolicy {
         return !exported && !sameUid;
     }
 
+    /** Legacy helper. An empty filtered resolver result is a valid user choice. */
     public static boolean restoreEmpty(String kind, int before, int after) {
-        // Text actions are optional menu entries, not a mandatory file-open destination.
-        return before > 0 && after == 0 && !"PROCESS_TEXT".equals(kind);
+        return false;
     }
 }

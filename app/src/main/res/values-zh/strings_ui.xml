@@ -128,4 +128,6 @@
     <string name="preview_older_roots_separate">以前的 DocumentsUI 来源已放入“历史观察”，不属于本次测试结果。</string>
     <string name="preview_quality_history">历史观察结果</string>
     <string name="preview_count_history">历史项目 %1$d 个 · 应用 %2$d 个</string>
+    <string name="preview_partial_capture">快照不完整：系统返回了 %1$d 项，保存了 %2$d 项；未保存的内容不等于被清理。</string>
+    <string name="preview_captured_at">捕获时间：%1$s</string>
 </resources>

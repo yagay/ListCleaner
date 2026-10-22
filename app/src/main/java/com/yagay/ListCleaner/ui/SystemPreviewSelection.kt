@@ -63,12 +63,17 @@ internal object SystemPreviewSelection {
                         SystemProbeItem(root.label, root.packageName, root.syntheticId, root.label)
                     }, PreviewListSource.HISTORY)
                 }
-                val history = if (value.historicalItems.isNotEmpty()) value.historicalItems
-                    else value.observedThirdPartyRoots.map { root ->
-                        SystemProbeItem(
-                            root.label, root.packageName, root.key, root.label
-                        )
+                val recorded = value.historicalItems.ifEmpty {
+                    value.observedThirdPartyRoots.map { root ->
+                        SystemProbeItem(root.label, root.packageName, root.key, root.label)
                     }
+                }
+                val history = if (recorded.isNotEmpty()) recorded else {
+                    val captured = value.unattributedReturn
+                        ?: value.hostReturn ?: value.runtimeReturn
+                    captured?.takeIf { it.callerUserId == request.userId }
+                        ?.let { asEntries(it, value.items) }.orEmpty()
+                }
                 return PreviewListResult(history, PreviewListSource.HISTORY)
             }
             PreviewListMode.CURRENT -> Unit

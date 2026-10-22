@@ -108,7 +108,10 @@ class DocumentsUiRootsModule : XposedModule() {
     private fun rootHooker(methodName: String) = XposedInterface.Hooker { chain ->
         val original = chain.proceed()
         val roots = original as? Collection<*> ?: return@Hooker original
-        if (roots.size > MAX_ROOTS) return@Hooker original
+        if (roots.size > PickerRuntimeSnapshotCodec.MAX_ROOTS) {
+            record("ROOTS_LARGE count=" + roots.size +
+                " captureBudget=" + PickerRuntimeSnapshotCodec.MAX_ROOTS)
+        }
         val ctx = appContext() ?: return@Hooker original
         if (roots.isEmpty()) {
             if (methodName == "getMatchingRootsBlocking") {
@@ -159,10 +162,8 @@ class DocumentsUiRootsModule : XposedModule() {
                     },
                     { it: IndexedValue<Any?> -> it.index }
                 )).map { it.value }
-            if (ordered.isEmpty()) {
-                record("RESTORE_ALL kind=DOCUMENT_ROOT reason=empty_result")
-                return@runCatching original
-            }
+            // A zero-root match is meaningful: do not restore third-party
+            // providers just because all candidates were filtered.
             if (ordered.size == roots.size && ranks.isEmpty()) return@runCatching original
             record("FILTER kind=DOCUMENT_ROOT before=" + roots.size + " after=" + ordered.size)
             ArrayList(ordered)
@@ -255,6 +256,8 @@ class DocumentsUiRootsModule : XposedModule() {
             capturedAt = System.currentTimeMillis(),
             userId = AndroidUid.userId(Process.myUid()),
             roots = entries,
+            totalRoots = roots.size,
+            truncated = roots.size > entries.size,
             requestKind = request.kind,
             actionCode = request.value,
             stateClassName = request.stateType,

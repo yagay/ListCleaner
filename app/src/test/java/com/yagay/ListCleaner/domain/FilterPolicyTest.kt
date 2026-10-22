@@ -6,6 +6,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FilterPolicyTest {
+    @Test fun emptyResolverReturnMustNotRestoreFilteredCandidates() {
+        for (kind in listOf("SHARE", "BROWSER", "OPEN", "PROCESS_TEXT")) {
+            assertFalse(FilterPolicy.restoreEmpty(kind, 20, 0))
+        }
+    }
+
     @Test fun privilegedCallersAreAlwaysPreservedByResolverFilter() {
         assertTrue(FilterPolicy.sameCaller(1000, 10123))
         assertTrue(FilterPolicy.sameCaller(0, 10123))

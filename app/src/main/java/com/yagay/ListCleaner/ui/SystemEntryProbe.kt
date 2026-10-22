@@ -98,6 +98,8 @@ internal data class SystemProbeResult(
     val runtimeReturn: RuntimeInterfaceSnapshot? = null,
     /** Captured in a recognized system settings UID, not proof of its actual rendered rows. */
     val hostReturn: RuntimeInterfaceSnapshot? = null,
+    /** Last same-user return from another caller; unverified unless explicitly attributed. */
+    val unattributedReturn: RuntimeInterfaceSnapshot? = null,
     /** Android-enabled state, independent of catalog registration. */
     val enabledItems: List<SystemProbeItem> = emptyList(),
     /** Previously observed ShortcutService/launcher items, never a live host list. */
@@ -123,8 +125,12 @@ internal object SystemEntryProbe {
             request.entryKind?.let { kind ->
                 val scenario = request.scenario ?: defaultProbeScenario(kind)
                 val initial = probeEntry(context, kind, scenario)
-                val (local, host) = readRuntimeReturns(context, kind)
-                val result = initial.copy(runtimeReturn = local, hostReturn = host)
+                val (local, host, other) = readRuntimeReturns(context, kind)
+                val result = initial.copy(
+                    runtimeReturn = local,
+                    hostReturn = host,
+                    unattributedReturn = other,
+                )
                 if (kind !in setOf(
                         IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT,
                         IntentKind.CREATE_DOCUMENT, IntentKind.DOCUMENT_ROOT,
@@ -152,14 +158,20 @@ internal object SystemEntryProbe {
         }
     }
 
+    private data class RuntimeObservations(
+        val own: RuntimeInterfaceSnapshot?,
+        val host: RuntimeInterfaceSnapshot?,
+        val other: RuntimeInterfaceSnapshot?,
+    )
+
     private fun readRuntimeReturns(
         context: Context, kind: IntentKind,
-    ): Pair<RuntimeInterfaceSnapshot?, RuntimeInterfaceSnapshot?> = runCatching {
+    ): RuntimeObservations = runCatching {
         val app = context.applicationContext as? ListCleanerApp
-            ?: return@runCatching null to null
+            ?: return@runCatching RuntimeObservations(null, null, null)
         val prefs = app.currentSession()?.service
             ?.getRemotePreferences(RuleRepository.REMOTE_PREFS)
-            ?: return@runCatching null to null
+            ?: return@runCatching RuntimeObservations(null, null, null)
         val ownUid = Process.myUid()
         val ourUser = AndroidUid.userId(ownUid)
         fun decode(key: String) = RuntimeInterfaceSnapshotCodec.decode(
@@ -174,8 +186,12 @@ internal object SystemEntryProbe {
             it.callerUid != ownUid && it.callerUid >= 0 &&
                 isRecognizedSettingsUid(context, it.callerUid)
         }
-        (listOfNotNull(local, last?.takeIf { it.callerUid == ownUid })
-            .maxByOrNull { it.capturedAtMillis }) to host
+        RuntimeObservations(
+            own = listOfNotNull(local, last?.takeIf { it.callerUid == ownUid })
+                .maxByOrNull { it.capturedAtMillis },
+            host = host,
+            other = last?.takeIf { it.callerUid != ownUid && it !== host },
+        )
     }.getOrDefault(null to null)
 
     @Suppress("DEPRECATION")
@@ -192,7 +208,7 @@ internal object SystemEntryProbe {
     }
 
     private fun unique(items: List<SystemProbeItem>): List<SystemProbeItem> =
-        items.distinctBy(SystemProbeItem::component).take(1500)
+        items.distinctBy(SystemProbeItem::component)
 
     private fun candidates(
         source: Int,
@@ -242,7 +258,6 @@ internal object SystemEntryProbe {
             }
             .distinctBy { it.packageName to it.key }
             .sortedByDescending { it.capturedAtMillis }
-            .take(120)
             .toList()
 
     private fun probeEntry(
@@ -319,7 +334,6 @@ internal object SystemEntryProbe {
                 // previously observed targets, not a fabricated live panel.
                 val history = ObservedEntryCache(context).snapshot()
                     .asSequence().filter { it.kind == kind.name }
-                    .take(150)
                     .map { record ->
                         SystemProbeItem(
                             label = record.label.ifBlank { record.packageName },

@@ -28,7 +28,7 @@ class PickerRuntimeSnapshotTest {
     @Test fun duplicateAndUnboundedRootsCannotOverloadDialog() {
         val root = PickerRuntimeRoot("com.example", "A".repeat(300), "@docroot_1", false)
         val sample = PickerRuntimeSnapshot(capturedAt = 1792598765432L, userId = 0, roots =
-            List(300) { index ->
+            List(PickerRuntimeSnapshotCodec.MAX_ROOTS + 50) { index ->
                 if (index == 0) root else root.copy(syntheticId = "@docroot_$index")
             })
         val restored = PickerRuntimeSnapshotCodec.decode(
@@ -36,6 +36,8 @@ class PickerRuntimeSnapshotTest {
         )
         assertEquals(PickerRuntimeSnapshotCodec.MAX_ROOTS, restored?.roots?.size)
         assertTrue(restored!!.roots.all { it.label.length <= 160 })
+        assertTrue(restored.truncated)
+        assertEquals(PickerRuntimeSnapshotCodec.MAX_ROOTS + 50, restored.totalRoots)
     }
 
     @Test fun malformedOrFutureDataCannotBeMisrepresentedAsLive() {

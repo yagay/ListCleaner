@@ -17,19 +17,47 @@ data class RuntimeInterfaceSnapshot(
     val packages: List<String>,
     /** Exact flattened ComponentName identifiers, when the captured API exposes them. */
     val components: List<String> = emptyList(),
+    /** Counts from the original Hook result before storage limits are applied. */
+    val totalPackages: Int = 0,
+    val totalComponents: Int = 0,
+    val truncated: Boolean = false,
 )
 
 object RuntimeInterfaceSnapshotCodec {
     private const val PREFIX = "runtime_interface_post_filter_v1_"
-    const val MAX_PACKAGES = 300
-    const val MAX_CHARS = 36_000
+    const val MAX_PACKAGES = 1_000
+    const val MAX_CHARS = 160_000
     private val json = Json { ignoreUnknownKeys = true }
 
     fun key(kind: IntentKind): String = PREFIX + kind.name
     fun keyForCaller(kind: IntentKind, uid: Int): String = key(kind) + "_uid_" + uid
 
-    fun encode(snapshot: RuntimeInterfaceSnapshot): String =
-        json.encodeToString(RuntimeInterfaceSnapshot.serializer(), sanitize(snapshot))
+    fun encode(snapshot: RuntimeInterfaceSnapshot): String {
+        val originalPackages = snapshot.totalPackages.takeIf { it > 0 } ?: snapshot.packages.size
+        val originalComponents = snapshot.totalComponents.takeIf { it > 0 } ?: snapshot.components.size
+        var value = sanitize(snapshot).copy(
+            totalPackages = originalPackages,
+            totalComponents = originalComponents,
+            truncated = snapshot.truncated ||
+                originalPackages > snapshot.packages.size ||
+                originalComponents > snapshot.components.size ||
+                originalPackages > MAX_PACKAGES || originalComponents > MAX_PACKAGES ||
+                originalPackages > sanitize(snapshot).packages.size ||
+                originalComponents > sanitize(snapshot).components.size,
+        )
+        // Keep a bounded, explicit partial observation instead of dropping
+        // the entire capture when many long component names are returned.
+        while (true) {
+            val encoded = json.encodeToString(RuntimeInterfaceSnapshot.serializer(), value)
+            if (encoded.length <= MAX_CHARS) return encoded
+            if (value.packages.isEmpty() && value.components.isEmpty()) return ""
+            value = value.copy(
+                packages = value.packages.take(value.packages.size / 2),
+                components = value.components.take(value.components.size / 2),
+                truncated = true,
+            )
+        }
+    }
 
     fun decode(encoded: String?, expectedKind: IntentKind): RuntimeInterfaceSnapshot? {
         if (encoded.isNullOrBlank() || encoded.length > MAX_CHARS) return null
@@ -38,6 +66,7 @@ object RuntimeInterfaceSnapshotCodec {
             if (parsed.version != 1 || parsed.kind != expectedKind.name ||
                 parsed.capturedAtMillis <= 0L || parsed.callerUserId < 0 ||
                 parsed.callerUid < -1 ||
+                parsed.totalPackages < 0 || parsed.totalComponents < 0 ||
                 parsed.packages.size > MAX_PACKAGES || parsed.components.size > MAX_PACKAGES
             ) return@runCatching null
             sanitize(parsed)

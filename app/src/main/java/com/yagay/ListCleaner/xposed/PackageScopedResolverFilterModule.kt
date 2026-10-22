@@ -111,10 +111,8 @@ class PackageScopedResolverFilterModule : XposedModule() {
             if (effectiveKind != kind) return@filter true
             policy.displayMode.includes(activity.packageName in selected, selected.isNotEmpty())
         }
-        if (FilterPolicy.restoreEmpty(kind.name, result.values.size, filtered.size)) {
-            record("RESTORE_ORIGINAL kind=$kind before=${result.values.size} callerProcess=$processName")
-            return@Hooker original
-        }
+        // Do not restore all hidden activities when an explicit filter yields
+        // zero entries. The OS handles the empty-result presentation.
         if (filtered.size == result.values.size) {
             record("HIT kind=$kind count=${result.values.size} selectedPackages=${selected.size}")
             return@Hooker original

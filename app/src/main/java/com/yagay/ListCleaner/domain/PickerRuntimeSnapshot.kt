@@ -28,26 +28,43 @@ data class PickerRuntimeSnapshot(
     val actionCode: Int? = null,
     val stateClassName: String = "",
     val knownActionConstants: String = "",
+    /** Counts from the original DocumentsUI return, even if storage is bounded. */
+    val totalRoots: Int = 0,
+    val truncated: Boolean = false,
 )
 
 object PickerRuntimeSnapshotCodec {
     const val REMOTE_KEY = "documentsui_matching_roots_preview_v1"
     /** Separate slots prevent successive Open/Save calls from overwriting one another. */
     fun keyForRequest(kind: String): String = REMOTE_KEY + "_" + kind
-    const val MAX_ROOTS = 256
-    const val MAX_CHARS = 90_000
+    const val MAX_ROOTS = 1_024
+    const val MAX_CHARS = 180_000
     private val json = Json { ignoreUnknownKeys = true }
 
-    fun encode(snapshot: PickerRuntimeSnapshot): String = json.encodeToString(
-        PickerRuntimeSnapshot.serializer(), sanitize(snapshot)
-    )
+    fun encode(snapshot: PickerRuntimeSnapshot): String {
+        val total = snapshot.totalRoots.takeIf { it > 0 } ?: snapshot.roots.size
+        var value = sanitize(snapshot).copy(
+            totalRoots = total,
+            truncated = snapshot.truncated || total > snapshot.roots.size ||
+                snapshot.roots.size > MAX_ROOTS ||
+                total > sanitize(snapshot).roots.size,
+        )
+        while (true) {
+            val encoded = json.encodeToString(PickerRuntimeSnapshot.serializer(), value)
+            if (encoded.length <= MAX_CHARS) return encoded
+            if (value.roots.isEmpty()) return ""
+            value = value.copy(roots = value.roots.take(value.roots.size / 2),
+                truncated = true)
+        }
+    }
 
     fun decode(value: String?): PickerRuntimeSnapshot? {
         if (value.isNullOrEmpty() || value.length > MAX_CHARS) return null
         return runCatching {
             val decoded = json.decodeFromString(PickerRuntimeSnapshot.serializer(), value)
             if (decoded.version != 1 || decoded.capturedAt <= 0L ||
-                decoded.userId < 0 || decoded.roots.size > MAX_ROOTS ||
+                decoded.userId < 0 || decoded.totalRoots < 0 ||
+                decoded.roots.size > MAX_ROOTS ||
                 decoded.requestKind !in setOf("UNKNOWN", "GET_CONTENT", "OPEN_DOCUMENT", "CREATE_DOCUMENT", "DOCUMENT_ROOT")
             ) return@runCatching null
             sanitize(decoded)
