@@ -71,7 +71,7 @@ class ProfileComponentCatalog(private val context: Context) {
         }.toSet()
         // Match the local profile's richer discovery where cross-profile API
         // permissions allow it. Never substitute the current user's components.
-        val targetHandle = UserHandle.of(userId)
+        val targetHandle = UserHandle.getUserHandleForUid(userId * 100000 + 10000)
         val platformItems = when (kind) {
             CleanupKind.SHORTCUT -> runCatching {
                 context.getSystemService(LauncherApps::class.java)
