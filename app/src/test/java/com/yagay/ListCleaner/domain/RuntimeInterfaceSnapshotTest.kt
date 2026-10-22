@@ -35,7 +35,7 @@ class RuntimeInterfaceSnapshotTest {
     }
 
     @Test fun veryLongComponentsFitCaptureBudgetWithoutDroppingWholeSnapshot() {
-        val components = (0 until RuntimeInterfaceSnapshotCodec.MAX_PACKAGES).map {
+        val components = (0 until RuntimeInterfaceSnapshotCodec.MAX_PACKAGES).map { i ->
             "com.example.app$i/" + "A".repeat(215)
         }
         val original = snapshot(emptyList()).copy(
