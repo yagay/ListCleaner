@@ -37,8 +37,10 @@ internal object HookCallIdentity {
             "queryIntentActivitiesInternal" -> when {
                 integers == 1 && tail.size == 1 -> PackageQueryLayout(start)
                 integers == 2 && tail.size in setOf(2, 4) -> PackageQueryLayout(start + 1, start)
-                // Legacy form: privateResolveFlags, filterCallingUid, userId, booleans.
-                integers == 3 && tail.size == 5 -> PackageQueryLayout(start + 2, start + 1)
+                // Legacy int flags: privateResolveFlags, filterCallingUid, userId.
+                // Android 16 with an extra long prefix carries callerUid, pid, userId.
+                integers == 3 && tail.size == 5 ->
+                    PackageQueryLayout(start + 2, if (start == 3) start + 1 else start)
                 else -> null
             }
             "queryIntentServicesInternal", "queryIntentReceiversInternal",

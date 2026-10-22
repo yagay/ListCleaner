@@ -61,8 +61,11 @@ object PickerRuntimeSnapshotCodec {
 
     fun encode(snapshot: PickerRuntimeSnapshot): String {
         val total = snapshot.totalRoots.takeIf { it > 0 } ?: snapshot.roots.size
+        // A cache-query result is not a sidebar display. Count sidebar rows
+        // only when the actual sidebar hook supplied their count.
         val visible = snapshot.totalVisibleItems.takeIf { it > 0 }
-            ?: snapshot.roots.size + snapshot.apps.size
+            ?: if (snapshot.captureSource == "SIDEBAR_ROOTS")
+                snapshot.roots.size + snapshot.apps.size else 0
         val normalized = sanitize(snapshot)
         var value = normalized.copy(
             totalRoots = total,
