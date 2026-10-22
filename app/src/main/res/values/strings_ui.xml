@@ -119,4 +119,13 @@
     <string name="preview_settings_fallback">This device does not support the dedicated settings page. A broader related page was opened instead.</string>
     <string name="preview_source_host_observed">Data source: observed system Settings UID Hook return (shared UIDs do not prove the final rendered list)</string>
     <string name="preview_document_action_unknown">DocumentsUI returned roots, but its request action could not be identified (action=%1$s; state=%2$s). The result is history, not a verified Open/Save list.</string>
+    <string name="preview_tab_current">Current API result</string>
+    <string name="preview_tab_candidates">Candidates</string>
+    <string name="preview_tab_enabled">Enabled</string>
+    <string name="preview_tab_history">History</string>
+    <string name="preview_source_enabled">Source: enabled services or current RoleManager holders; not a complete on-screen list</string>
+    <string name="preview_source_history">Source: previously observed runtime entries; not current system visibility</string>
+    <string name="preview_older_roots_separate">Previous DocumentsUI roots are available in History. They are not part of this test.</string>
+    <string name="preview_quality_history">Historical observation</string>
+    <string name="preview_count_history">%1$d historical entries · %2$d apps</string>
 </resources>

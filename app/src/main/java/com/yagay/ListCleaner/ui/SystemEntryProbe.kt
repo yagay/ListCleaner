@@ -98,6 +98,10 @@ internal data class SystemProbeResult(
     val runtimeReturn: RuntimeInterfaceSnapshot? = null,
     /** Captured in a recognized system settings UID, not proof of its actual rendered rows. */
     val hostReturn: RuntimeInterfaceSnapshot? = null,
+    /** Android-enabled state, independent of catalog registration. */
+    val enabledItems: List<SystemProbeItem> = emptyList(),
+    /** Previously observed ShortcutService/launcher items, never a live host list. */
+    val historicalItems: List<SystemProbeItem> = emptyList(),
 )
 
 /**
@@ -214,8 +218,10 @@ internal object SystemEntryProbe {
             val preferences = application.currentSession()?.service
                 ?.getRemotePreferences(RuleRepository.REMOTE_PREFS)
                 ?: return@runCatching null
-            val key = if (kind == IntentKind.OPEN_DOCUMENT || kind == IntentKind.CREATE_DOCUMENT)
-                PickerRuntimeSnapshotCodec.keyForRequest(kind.name)
+            val key = if (kind in setOf(
+                IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT,
+                IntentKind.CREATE_DOCUMENT, IntentKind.DOCUMENT_ROOT
+            )) PickerRuntimeSnapshotCodec.keyForRequest(kind.name)
             else PickerRuntimeSnapshotCodec.REMOTE_KEY
             val encoded = preferences.getString(key, null)
                 ?: preferences.getString(PickerRuntimeSnapshotCodec.REMOTE_KEY, null)
@@ -255,8 +261,8 @@ internal object SystemEntryProbe {
                     SystemProbeResult(
                         R.string.system_probe_source_picker,
                         R.string.system_probe_picker_internal,
-                        supported = false,
-                        evidence = ProbeEvidence.NOT_PUBLIC,
+                        supported = true,
+                        evidence = ProbeEvidence.PICKER_HOST,
                         observedThirdPartyRoots = observed,
                         matchingRootsSnapshot = matching,
                     )
@@ -307,7 +313,24 @@ internal object SystemEntryProbe {
             PreviewAuthority.ENABLED_MANAGER -> enabledManager(context, kind)
             PreviewAuthority.SERVICE_CANDIDATES -> registeredServices(context, kind)
             PreviewAuthority.PROVIDER_CANDIDATES -> registeredProviders(context, kind)
-            PreviewAuthority.SHORTCUT_PRIVATE -> noPublicList(R.string.system_probe_shortcut_final_private)
+            PreviewAuthority.SHORTCUT_PRIVATE -> {
+                // Direct Share and dynamic shortcut targets are owned by
+                // ShortcutService/the calling launcher. We can show only
+                // previously observed targets, not a fabricated live panel.
+                val history = ObservedEntryCache(context).snapshot()
+                    .asSequence().filter { it.kind == kind.name }
+                    .take(150)
+                    .map { record ->
+                        SystemProbeItem(
+                            label = record.label.ifBlank { record.packageName },
+                            packageName = record.packageName,
+                            className = record.syntheticClass,
+                            appLabel = appLabel(pm, record.packageName, record.packageName),
+                        )
+                    }.toList()
+                noPublicList(R.string.system_probe_shortcut_final_private)
+                    .copy(historicalItems = unique(history))
+            }
             PreviewAuthority.HOST_CANDIDATES -> noPublicList()
         }
     }
@@ -341,10 +364,22 @@ internal object SystemEntryProbe {
                     appLabel = appLabel(pm, pkg, pkg),
                 )
             }
+            // AOSP RoleController distinguishes currently-held roles from
+            // eligible activities. Preserve both, with explicit provenance.
+            val candidates = if (kind == IntentKind.CALL_SCREENING) emptyList()
+                else runCatching {
+                    val query = SystemEffectPreview.queryIntent(
+                        context, kind, defaultProbeScenario(kind)
+                    )
+                    pm.queryIntentActivities(query, PackageManager.MATCH_DEFAULT_ONLY)
+                        .mapNotNull { resolvedItem(pm, it) }
+                }.getOrDefault(emptyList())
             SystemProbeResult(
                 R.string.system_probe_source_services,
                 R.string.system_probe_role_notice,
                 items = unique(entries),
+                enabledItems = unique(entries),
+                diagnosticCandidates = unique(candidates),
                 evidence = ProbeEvidence.ENABLED,
             )
         }.getOrNull()
@@ -369,6 +404,7 @@ internal object SystemEntryProbe {
                     R.string.system_probe_source_enabled_input,
                     R.string.system_probe_enabled_input_notice,
                     items = unique(asEntries(manager.enabledInputMethodList)),
+                    enabledItems = unique(asEntries(manager.enabledInputMethodList)),
                     diagnosticCandidates = unique(asEntries(manager.inputMethodList)),
                     evidence = ProbeEvidence.ENABLED,
                 )
@@ -392,7 +428,8 @@ internal object SystemEntryProbe {
                     // Accessibility list-cleaning Hook. Enabled services are different:
                     // they describe active settings, not the cleaned Settings catalog.
                     items = unique(asEntries(manager.installedAccessibilityServiceList)),
-                    diagnosticCandidates = unique(asEntries(manager.getEnabledAccessibilityServiceList(
+                    diagnosticCandidates = unique(asEntries(manager.installedAccessibilityServiceList)),
+                    enabledItems = unique(asEntries(manager.getEnabledAccessibilityServiceList(
                         AccessibilityServiceInfo.FEEDBACK_ALL_MASK
                     ) ?: emptyList())),
                     evidence = ProbeEvidence.REGISTERED,

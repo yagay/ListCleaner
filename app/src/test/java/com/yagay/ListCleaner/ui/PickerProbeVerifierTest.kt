@@ -13,7 +13,7 @@ class PickerProbeVerifierTest {
     )
 
     private fun snapshot(time: Long = 96_000L, user: Int = 0) = PickerRuntimeSnapshot(
-        capturedAt = time, userId = user,
+        capturedAt = time, userId = user, requestKind = "GET_CONTENT",
         roots = listOf(PickerRuntimeRoot("com.example.files", "Files", "id", false)),
     )
 
@@ -67,6 +67,17 @@ class PickerProbeVerifierTest {
         assertEquals(PickerProbeStatus.AWAITING_HOOK,
             verify(tested = openSession, kind = IntentKind.OPEN_DOCUMENT,
                 result = openRoot.copy(requestKind = "CREATE_DOCUMENT")))
+    }
+
+    @Test fun getContentAndOpenTreeRejectDifferentRequestActions() {
+        assertEquals(PickerProbeStatus.AWAITING_HOOK,
+            verify(result = snapshot().copy(requestKind = "UNKNOWN")))
+        assertEquals(PickerProbeStatus.AWAITING_HOOK,
+            verify(result = snapshot().copy(requestKind = "OPEN_DOCUMENT")))
+        val tree = session.copy(kind = IntentKind.DOCUMENT_ROOT)
+        assertEquals(PickerProbeStatus.OBSERVED_AFTER_TEST,
+            verify(tested = tree, kind = IntentKind.DOCUMENT_ROOT,
+                result = snapshot().copy(requestKind = "DOCUMENT_ROOT")))
     }
 
     @Test fun anEmptyMatchingRootsSnapshotStillCountsAsAnObservedResult() {

@@ -1,5 +1,7 @@
 package com.yagay.ListCleaner.ui
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -90,9 +92,9 @@ internal fun SystemProbeDialog(
             ?: SystemProbeScenario.TEXT)
     }
     var scenarioMenu by remember { mutableStateOf(false) }
-    // All API results are visible by default; diagnostics remain a separate source
-    // selector rather than hiding otherwise useful, possibly Hook-filtered results.
-    var showDiagnostics by remember(request) { mutableStateOf(false) }
+    // AOSP separates actual resolver results, provider registries, enabled
+    // managers and shortcut history. Switching tabs never changes provenance.
+    var viewMode by remember(request) { mutableStateOf(PreviewListMode.CURRENT) }
     var showDetails by remember(request) { mutableStateOf(false) }
 
     val choices = request.entryKind?.let(::availableProbeScenarios).orEmpty()
@@ -138,7 +140,8 @@ internal fun SystemProbeDialog(
     val selectedResult = SystemPreviewSelection.select(
         request = activeRequest,
         value = value,
-        showDiagnostics = showDiagnostics,
+        showDiagnostics = false,
+        viewMode = viewMode,
         nowMillis = System.currentTimeMillis(),
         launchedAtMillis = previewLaunchedAt,
         currentCallerUid = android.os.Process.myUid(),
@@ -152,7 +155,7 @@ internal fun SystemProbeDialog(
             else null
         }.getOrNull(),
     )
-    val diagnostic = showDiagnostics && value != null
+    val diagnostic = viewMode == PreviewListMode.CANDIDATES && value != null
     val runtimeAvailable = selectedResult.source in setOf(
         PreviewListSource.HOOK_OBSERVATION, PreviewListSource.HOST_OBSERVATION
     )
@@ -169,6 +172,8 @@ internal fun SystemProbeDialog(
         PreviewListSource.HOOK_OBSERVATION -> R.string.preview_source_hook_observed
         PreviewListSource.HOST_OBSERVATION -> R.string.preview_source_host_observed
         PreviewListSource.DOCUMENT_ROOTS -> R.string.preview_source_root_return
+        PreviewListSource.AUTHORITY_ENABLED -> R.string.preview_source_enabled
+        PreviewListSource.HISTORY -> R.string.preview_source_history
         PreviewListSource.API_RETURN -> R.string.preview_source_api_candidates
         PreviewListSource.DIAGNOSTIC -> R.string.preview_source_diagnostic
         PreviewListSource.UNAVAILABLE -> R.string.preview_source_unavailable
@@ -178,6 +183,8 @@ internal fun SystemProbeDialog(
         PreviewListSource.HOOK_OBSERVATION, PreviewListSource.HOST_OBSERVATION ->
             R.string.system_probe_quality_candidate
         PreviewListSource.DOCUMENT_ROOTS -> R.string.system_probe_quality_picker
+        PreviewListSource.AUTHORITY_ENABLED -> R.string.system_probe_quality_enabled
+        PreviewListSource.HISTORY -> R.string.preview_quality_history
         PreviewListSource.API_RETURN, PreviewListSource.DIAGNOSTIC ->
             if (value?.evidence == ProbeEvidence.ENABLED)
                 R.string.system_probe_quality_enabled
@@ -253,6 +260,44 @@ internal fun SystemProbeDialog(
                         )
                     }
                 }
+                if (value != null) {
+                    item(key = "source-tabs") {
+                        val modes = buildList {
+                            add(PreviewListMode.CURRENT)
+                            if (value.diagnosticCandidates.isNotEmpty() ||
+                                value.items.isNotEmpty()) add(PreviewListMode.CANDIDATES)
+                            if (value.enabledItems.isNotEmpty() ||
+                                request.entryKind in setOf(
+                                    IntentKind.INPUT_METHOD, IntentKind.ACCESSIBILITY
+                                )) add(PreviewListMode.ENABLED)
+                            if (value.historicalItems.isNotEmpty() ||
+                                value.matchingRootsSnapshot != null ||
+                                value.observedThirdPartyRoots.isNotEmpty())
+                                add(PreviewListMode.HISTORY)
+                        }
+                        Row(
+                            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            modes.forEach { mode ->
+                                AdaptiveTextButton(onClick = { viewMode = mode }) {
+                                    AdaptiveText(
+                                        stringResource(when (mode) {
+                                            PreviewListMode.CURRENT -> R.string.preview_tab_current
+                                            PreviewListMode.CANDIDATES -> R.string.preview_tab_candidates
+                                            PreviewListMode.ENABLED -> R.string.preview_tab_enabled
+                                            PreviewListMode.HISTORY -> R.string.preview_tab_history
+                                        }),
+                                        fontWeight = if (viewMode == mode) FontWeight.SemiBold
+                                            else FontWeight.Normal,
+                                        color = if (viewMode == mode) MaterialTheme.colorScheme.primary
+                                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
                 if (value == null) {
                     item(key = "loading") {
                         AdaptiveText(stringResource(R.string.system_probe_loading))
@@ -320,67 +365,17 @@ internal fun SystemProbeDialog(
                                 )
                             }
                         }
-                        if (observedThisTest && matching != null && !documentPicker) {
-                            items(matching.roots, key = { "current/" + it.syntheticId }) { root ->
-                                Column(
-                                    Modifier.fillMaxWidth().padding(vertical = 5.dp),
-                                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                                ) {
-                                    AdaptiveText(root.label,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium)
-                                    AdaptiveText(
-                                        stringResource(
-                                            if (root.systemOwned)
-                                                R.string.system_probe_system_root
-                                            else R.string.system_probe_third_party_root,
-                                            root.packageName
-                                        ),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                        }
-                        if (matching?.requestKind == "UNKNOWN") {
-                            item(key = "picker-action-unresolved") {
+                        // AOSP getMatchingRootsBlocking(State) is already the
+                        // authority-scoped result. Do not repeat the same roots as a
+                        // second list or merge older observations into this test.
+                        if (viewMode == PreviewListMode.CURRENT && !observedThisTest &&
+                            matching != null) {
+                            item(key = "previous-matching-note") {
                                 AdaptiveText(
-                                    stringResource(R.string.preview_document_action_unknown,
-                                        matching.actionCode?.toString() ?: "?",
-                                        matching.stateClassName.ifBlank { "?" }),
+                                    stringResource(R.string.preview_older_roots_separate),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
-                            }
-                        }
-                        // Historical data is only a fallback if this test did not yield a
-                        // verified matching-roots snapshot. Never merge it into the live list.
-                        if (!observedThisTest) {
-                            if (matching != null) {
-                                item(key = "previous-matching") {
-                                    AdaptiveText(
-                                        stringResource(R.string.system_probe_historical_snapshot,
-                                            matching.roots.size),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                                items(matching.roots, key = { "history/" + it.syntheticId }) { root ->
-                                    AdaptiveText(root.label,
-                                        style = MaterialTheme.typography.bodySmall)
-                                }
-                            } else if (value.observedThirdPartyRoots.isNotEmpty()) {
-                                item(key = "historical-root-label") {
-                                    AdaptiveText(stringResource(
-                                        R.string.system_probe_observed_title,
-                                        value.observedThirdPartyRoots.size
-                                    ), style = MaterialTheme.typography.bodySmall)
-                                }
-                                items(value.observedThirdPartyRoots,
-                                    key = { "observed/" + it.packageName + "/" + it.key }) { root ->
-                                    AdaptiveText(root.label,
-                                        style = MaterialTheme.typography.bodySmall)
-                                }
                             }
                         }
                     }
@@ -405,17 +400,6 @@ internal fun SystemProbeDialog(
 
                         }
                     }
-                    if (value.diagnosticCandidates.isNotEmpty() || value.items.isNotEmpty()) {
-                        item(key = "diagnostics-action") {
-                            AdaptiveTextButton(onClick = {
-                                showDiagnostics = !showDiagnostics
-                            }) {
-                                AdaptiveText(stringResource(
-                                    if (showDiagnostics) R.string.system_probe_diagnostic_hide
-                                    else R.string.system_probe_diagnostic_show))
-                            }
-                        }
-                    }
                     if (selectedResult.source == PreviewListSource.UNAVAILABLE) {
                         item(key = "no-confirmed-preview") {
                             AdaptiveText(
@@ -432,13 +416,16 @@ internal fun SystemProbeDialog(
                             )
                         }
                     }
-                    if (selectedResult.source != PreviewListSource.UNAVAILABLE &&
-                        (documentPicker || runtimeAvailable || diagnostic ||
-                            value.items.isNotEmpty() || value.diagnosticCandidates.isNotEmpty())) {
+                    if (selectedResult.source != PreviewListSource.UNAVAILABLE) {
                         item(key = "candidate-count") {
-                            val countRes = if (runtimeAvailable && !diagnostic)
-                                R.string.system_probe_count_enabled
-                                else R.string.system_probe_count_candidate
+                            val countRes = when (selectedResult.source) {
+                                PreviewListSource.HOOK_OBSERVATION,
+                                PreviewListSource.HOST_OBSERVATION,
+                                PreviewListSource.AUTHORITY_ENABLED ->
+                                    R.string.system_probe_count_enabled
+                                PreviewListSource.HISTORY -> R.string.preview_count_history
+                                else -> R.string.system_probe_count_candidate
+                            }
                             AdaptiveText(stringResource(countRes, displayed.size, distinctApps),
                                 style = MaterialTheme.typography.titleSmall)
                         }
@@ -464,7 +451,7 @@ internal fun SystemProbeDialog(
                                 )
                             }
                         }
-                        if (!documentPicker && runtimeAvailable && runtimePackages.isEmpty() && runtimeComponents.isEmpty()) {
+                        if (runtimeAvailable && runtimePackages.isEmpty() && runtimeComponents.isEmpty()) {
                             item(key = "post-filter-empty") {
                                 AdaptiveText(
                                     "Observed Hook post-filter result is empty (the originating request is not independently verified).",
@@ -472,7 +459,8 @@ internal fun SystemProbeDialog(
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                             }
-                        } else if (!documentPicker && !runtimeAvailable && !diagnostic) {
+                        } else if (!documentPicker && !runtimeAvailable && !diagnostic &&
+                            selectedResult.source == PreviewListSource.API_RETURN) {
                             item(key = "post-filter-stale") {
                                 AdaptiveText(
                                     "API return shown; Hook filtering cannot be independently verified for this request. The API result may already be filtered.",
@@ -481,7 +469,7 @@ internal fun SystemProbeDialog(
                                 )
                             }
                         }
-                        if (displayed.isEmpty() && diagnostic) {
+                        if (displayed.isEmpty()) {
                             item(key = "empty") {
                                 AdaptiveText(stringResource(R.string.system_probe_empty))
                             }

@@ -194,6 +194,7 @@ class DocumentsUiRootsModule : XposedModule() {
             "ACTION_OPEN" to "OPEN_DOCUMENT",
             "ACTION_CREATE" to "CREATE_DOCUMENT",
             "ACTION_GET_CONTENT" to "GET_CONTENT",
+            "ACTION_OPEN_TREE" to "DOCUMENT_ROOT",
         )
         args.forEach { possibleState ->
             val state = possibleState ?: return@forEach

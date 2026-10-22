@@ -119,4 +119,13 @@
     <string name="preview_settings_fallback">设备不支持专用设置页面，已打开更上一级的相关设置。</string>
     <string name="preview_source_host_observed">数据来源：系统设置 UID 的 Hook 观察（共享 UID 无法证明最终绘制列表）</string>
     <string name="preview_document_action_unknown">DocumentsUI 已返回来源，但无法识别其请求类型（操作值=%1$s；State=%2$s）。此结果仅属于历史记录，不是已验证的 Open/Save 列表。</string>
+    <string name="preview_tab_current">当前接口结果</string>
+    <string name="preview_tab_candidates">候选项目</string>
+    <string name="preview_tab_enabled">已启用</string>
+    <string name="preview_tab_history">历史观察</string>
+    <string name="preview_source_enabled">来源：已启用服务或 RoleManager 当前角色持有者，不代表完整的屏幕显示列表</string>
+    <string name="preview_source_history">来源：之前观察到的运行时项目，不代表当前系统可见性</string>
+    <string name="preview_older_roots_separate">以前的 DocumentsUI 来源已放入“历史观察”，不属于本次测试结果。</string>
+    <string name="preview_quality_history">历史观察结果</string>
+    <string name="preview_count_history">历史项目 %1$d 个 · 应用 %2$d 个</string>
 </resources>

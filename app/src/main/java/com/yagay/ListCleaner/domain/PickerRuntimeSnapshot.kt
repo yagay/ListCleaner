@@ -48,7 +48,7 @@ object PickerRuntimeSnapshotCodec {
             val decoded = json.decodeFromString(PickerRuntimeSnapshot.serializer(), value)
             if (decoded.version != 1 || decoded.capturedAt <= 0L ||
                 decoded.userId < 0 || decoded.roots.size > MAX_ROOTS ||
-                decoded.requestKind !in setOf("UNKNOWN", "GET_CONTENT", "OPEN_DOCUMENT", "CREATE_DOCUMENT")
+                decoded.requestKind !in setOf("UNKNOWN", "GET_CONTENT", "OPEN_DOCUMENT", "CREATE_DOCUMENT", "DOCUMENT_ROOT")
             ) return@runCatching null
             sanitize(decoded)
         }.getOrNull()

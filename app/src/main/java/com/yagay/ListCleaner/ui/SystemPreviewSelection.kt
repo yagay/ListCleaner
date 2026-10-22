@@ -9,8 +9,12 @@ import com.yagay.ListCleaner.domain.RuntimeInterfaceSnapshot
  * This class contains no Android services, Compose state or rule simulation.
  */
 internal enum class PreviewListSource {
-    HOOK_OBSERVATION, HOST_OBSERVATION, DOCUMENT_ROOTS, API_RETURN, DIAGNOSTIC, UNAVAILABLE
+    HOOK_OBSERVATION, HOST_OBSERVATION, DOCUMENT_ROOTS, AUTHORITY_ENABLED,
+    API_RETURN, DIAGNOSTIC, HISTORY, UNAVAILABLE
 }
+
+/** Sources remain distinct: "history" can never silently become a current UI list. */
+internal enum class PreviewListMode { CURRENT, CANDIDATES, ENABLED, HISTORY }
 
 internal data class PreviewListResult(
     val items: List<SystemProbeItem>,
@@ -28,31 +32,69 @@ internal object SystemPreviewSelection {
         launchedAtMillis: Long?,
         currentCallerUid: Int,
         expectedAction: String? = null,
+        viewMode: PreviewListMode = PreviewListMode.CURRENT,
     ): PreviewListResult {
         if (value == null) return PreviewListResult(emptyList(), PreviewListSource.UNAVAILABLE)
         val kind = request.entryKind
-        val isDocument = kind == IntentKind.OPEN_DOCUMENT || kind == IntentKind.CREATE_DOCUMENT
         val isManager = kind == IntentKind.ACCESSIBILITY ||
             kind == IntentKind.PRINT || kind == IntentKind.CREDENTIAL_PROVIDER
 
-        if (showDiagnostics) {
-            val diagnostic = if (isDocument || isManager)
-                value.diagnosticCandidates.ifEmpty { value.items }
-            else value.items.ifEmpty { value.diagnosticCandidates }
-            return PreviewListResult(diagnostic, PreviewListSource.DIAGNOSTIC)
+        val mode = if (showDiagnostics) PreviewListMode.CANDIDATES else viewMode
+        when (mode) {
+            PreviewListMode.CANDIDATES -> return PreviewListResult(
+                // Never replace a missing candidate inventory with a role holder,
+                // filtered result or historical document root.
+                value.diagnosticCandidates.ifEmpty {
+                    if (kind == IntentKind.INPUT_METHOD) emptyList()
+                    else value.items
+                },
+                PreviewListSource.DIAGNOSTIC,
+            )
+            PreviewListMode.ENABLED -> return PreviewListResult(
+                value.enabledItems, PreviewListSource.AUTHORITY_ENABLED,
+            )
+            PreviewListMode.HISTORY -> {
+                val snapshot = value.matchingRootsSnapshot
+                if (snapshot != null && kind in setOf(
+                        IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT,
+                        IntentKind.CREATE_DOCUMENT, IntentKind.DOCUMENT_ROOT
+                    ) && snapshot.userId == request.userId) {
+                    return PreviewListResult(snapshot.roots.map { root ->
+                        SystemProbeItem(root.label, root.packageName, root.syntheticId, root.label)
+                    }, PreviewListSource.HISTORY)
+                }
+                val history = if (value.historicalItems.isNotEmpty()) value.historicalItems
+                    else value.observedThirdPartyRoots.map { root ->
+                        SystemProbeItem(
+                            root.label, root.packageName, root.key, root.label
+                        )
+                    }
+                return PreviewListResult(history, PreviewListSource.HISTORY)
+            }
+            PreviewListMode.CURRENT -> Unit
         }
 
+        val isDocument = kind in setOf(
+            IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT,
+            IntentKind.CREATE_DOCUMENT, IntentKind.DOCUMENT_ROOT
+        )
         if (isDocument) {
-            val snapshot = value.matchingRootsSnapshot
-            if (snapshot != null && snapshot.userId == request.userId &&
-                snapshot.requestKind == kind?.name &&
+            val roots = value.matchingRootsSnapshot
+            if (roots != null && roots.userId == request.userId &&
+                roots.requestKind == kind?.name &&
                 value.pickerProbeStatus == PickerProbeStatus.OBSERVED_AFTER_TEST
             ) {
-                return PreviewListResult(snapshot.roots.map { root ->
+                return PreviewListResult(roots.roots.map { root ->
                     SystemProbeItem(root.label, root.packageName, root.syntheticId, root.label)
                 }, PreviewListSource.DOCUMENT_ROOTS)
             }
             return PreviewListResult(emptyList(), PreviewListSource.UNAVAILABLE)
+        }
+
+        if (kind in setOf(IntentKind.SHORTCUT_ITEM, IntentKind.DIRECT_SHARE)) {
+            return if (value.historicalItems.isNotEmpty())
+                PreviewListResult(value.historicalItems, PreviewListSource.HISTORY)
+            else PreviewListResult(emptyList(), PreviewListSource.UNAVAILABLE)
         }
 
         val snapshot = value.runtimeReturn
@@ -98,9 +140,12 @@ internal object SystemPreviewSelection {
             return PreviewListResult(emptyList(), PreviewListSource.UNAVAILABLE)
         }
 
-        return PreviewListResult(
-            value.items.ifEmpty { value.diagnosticCandidates }, PreviewListSource.API_RETURN
-        )
+        // RoleManager holders and enabled IMEs are system authority values,
+        // not PackageManager candidate inventories. Other kinds only expose
+        // the current caller's API candidate list.
+        return if (value.evidence == ProbeEvidence.ENABLED)
+            PreviewListResult(value.items, PreviewListSource.AUTHORITY_ENABLED)
+        else PreviewListResult(value.items, PreviewListSource.API_RETURN)
     }
 
     private fun asEntries(
