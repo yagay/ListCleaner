@@ -43,7 +43,7 @@ internal fun WorkspaceCategoryCard(
     ) {
         Column(
             Modifier.fillMaxWidth().padding(MaterialUiTokens.categoryPadding),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(MaterialUiTokens.categoryContentGap)
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 AdaptiveIcon(icon, null, Modifier.size(26.dp), tint = MaterialTheme.colorScheme.primary)
