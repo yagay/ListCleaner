@@ -2,6 +2,7 @@ package com.yagay.ListCleaner.ui
 
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.PickerRuntimeRoot
+import com.yagay.ListCleaner.domain.PickerRuntimeApp
 import com.yagay.ListCleaner.domain.PickerRuntimeSnapshot
 import com.yagay.ListCleaner.domain.RuntimeInterfaceSnapshot
 import org.junit.Assert.assertEquals
@@ -141,6 +142,26 @@ class SystemPreviewSelectionTest {
             assertEquals(2, displayed.items.size)
             assertEquals(2, displayed.items.map { it.component }.distinct().size)
         }
+    }
+
+    @Test fun getContentSidebarAppsAppearWithoutFakeStorageRoots() {
+        val snapshot = PickerRuntimeSnapshot(
+            capturedAt = now - 100L, userId = 0, roots = emptyList(),
+            requestKind = "GET_CONTENT", captureSource = "SIDEBAR_ROOTS",
+            apps = listOf(
+                PickerRuntimeApp("com.example.viewer", "com.example.viewer.Picker", "Viewer", 0),
+                PickerRuntimeApp("com.example.viewer", "com.example.viewer.Picker", "Work viewer", 10),
+            ),
+            totalVisibleItems = 2,
+        )
+        val payload = result().copy(matchingRootsSnapshot = snapshot,
+            pickerProbeStatus = PickerProbeStatus.OBSERVED_AFTER_TEST)
+        val current = SystemPreviewSelection.select(
+            request(IntentKind.GET_CONTENT), payload, false, now, now - 1000L, 12345)
+        assertEquals(PreviewListSource.DOCUMENT_ROOTS, current.source)
+        assertEquals(2, current.items.size)
+        assertEquals(2, current.items.map { it.component }.distinct().size)
+        assertTrue(current.items.all { it.packageName == "com.example.viewer" })
     }
 
     @Test fun enabledAndInstalledServicesRemainSeparate() {

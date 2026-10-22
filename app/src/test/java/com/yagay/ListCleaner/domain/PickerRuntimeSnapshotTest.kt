@@ -98,6 +98,38 @@ class PickerRuntimeSnapshotTest {
         assertEquals("Good", restored.roots.single().label)
     }
 
+    @Test fun sidebarAppItemsAreNotMisreportedAsDocumentRoots() {
+        val snapshot = PickerRuntimeSnapshot(
+            capturedAt = 100L, userId = 0, requestKind = "GET_CONTENT",
+            captureSource = "SIDEBAR_ROOTS", roots = emptyList(),
+            apps = listOf(
+                PickerRuntimeApp("com.example.photos", "com.example.photos.Picker", "Photos", 0, 2),
+                PickerRuntimeApp("com.example.work", "com.example.work.Picker", "Work", 10, 4),
+            ),
+            totalVisibleItems = 2,
+        )
+        val decoded = PickerRuntimeSnapshotCodec.decode(
+            PickerRuntimeSnapshotCodec.encode(snapshot)
+        )!!
+        assertEquals(0, decoded.totalRoots)
+        assertEquals(2, decoded.apps.size)
+        assertEquals(2, decoded.totalVisibleItems)
+        assertEquals(setOf(0, 10), decoded.apps.mapNotNull { it.userId }.toSet())
+    }
+
+    @Test fun invalidAppRowsDoNotLeakIntoPickerPreview() {
+        val snapshot = PickerRuntimeSnapshot(
+            capturedAt = 100L, userId = 0, roots = emptyList(),
+            apps = listOf(
+                PickerRuntimeApp("com.example", "com.example.Picker", "Picker"),
+                PickerRuntimeApp("bad\npackage", "Bad", "Bad"),
+            ),
+        )
+        assertEquals(1, PickerRuntimeSnapshotCodec.decode(
+            PickerRuntimeSnapshotCodec.encode(snapshot)
+        )!!.apps.size)
+    }
+
     @Test fun samplingNeverContainsRawDocumentIds() {
         val sample = PickerRuntimeSnapshot(capturedAt = 1792598765432L, userId = 0, roots =
             listOf(PickerRuntimeRoot("com.example", "Drive", "@docroot_token", false)))

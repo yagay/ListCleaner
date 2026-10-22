@@ -2,6 +2,7 @@ package com.yagay.ListCleaner.ui
 
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.PickerRuntimeRoot
+import com.yagay.ListCleaner.domain.PickerRuntimeSnapshot
 import com.yagay.ListCleaner.domain.RuntimeInterfaceSnapshot
 
 /**
@@ -60,7 +61,7 @@ internal object SystemPreviewSelection {
                         IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT,
                         IntentKind.CREATE_DOCUMENT, IntentKind.DOCUMENT_ROOT
                     ) && snapshot.userId == request.userId) {
-                    return PreviewListResult(snapshot.roots.map(::documentRootItem), PreviewListSource.HISTORY)
+                    return PreviewListResult(documentItems(snapshot), PreviewListSource.HISTORY)
                 }
                 val recorded = value.historicalItems.ifEmpty {
                     value.observedThirdPartyRoots.map { root ->
@@ -88,7 +89,7 @@ internal object SystemPreviewSelection {
                 roots.requestKind == kind?.name &&
                 value.pickerProbeStatus == PickerProbeStatus.OBSERVED_AFTER_TEST
             ) {
-                return PreviewListResult(roots.roots.map(::documentRootItem), PreviewListSource.DOCUMENT_ROOTS)
+                return PreviewListResult(documentItems(roots), PreviewListSource.DOCUMENT_ROOTS)
             }
             return PreviewListResult(emptyList(), PreviewListSource.UNAVAILABLE)
         }
@@ -149,6 +150,17 @@ internal object SystemPreviewSelection {
             PreviewListResult(value.items, PreviewListSource.AUTHORITY_ENABLED)
         else PreviewListResult(value.items, PreviewListSource.API_RETURN)
     }
+
+    /** Only actual sidebar AppItems are included; never infer them from providers. */
+    private fun documentItems(snapshot: PickerRuntimeSnapshot): List<SystemProbeItem> =
+        snapshot.roots.map(::documentRootItem) + snapshot.apps.map { app ->
+            SystemProbeItem(
+                label = app.label,
+                packageName = app.packageName,
+                className = app.className + "@user" + (app.userId?.toString() ?: "unknown"),
+                appLabel = app.label,
+            )
+        }
 
     /** The UI key includes the profile; the rule key remains unchanged. */
     private fun documentRootItem(root: PickerRuntimeRoot): SystemProbeItem {

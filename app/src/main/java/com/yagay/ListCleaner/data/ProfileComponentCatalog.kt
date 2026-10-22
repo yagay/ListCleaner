@@ -6,6 +6,9 @@ import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
 import android.content.pm.ComponentInfo
 import android.content.pm.PackageManager
+import android.content.pm.LauncherApps
+import android.appwidget.AppWidgetManager
+import android.os.UserHandle
 import android.content.pm.ServiceInfo
 import android.util.Log
 import androidx.core.graphics.drawable.toBitmap
@@ -57,7 +60,7 @@ class ProfileComponentCatalog(private val context: Context) {
         }
         val output = shell("cmd package $command --brief --components --query-flags 512 --user $userId $intent")
             ?: return null
-        return output.lineSequence().mapNotNull { raw ->
+        val shellItems = output.lineSequence().mapNotNull { raw ->
             val match = componentLine.matchEntire(raw.trim()) ?: return@mapNotNull null
             val packageName = match.groupValues[1]
             val className = match.groupValues[2].let {
@@ -66,6 +69,25 @@ class ProfileComponentCatalog(private val context: Context) {
             if (!ComponentStatePolicy.valid(packageName, className, userId)) null
             else ComponentName(packageName, className)
         }.toSet()
+        // Match the local profile's richer discovery where cross-profile API
+        // permissions allow it. Never substitute the current user's components.
+        val targetHandle = UserHandle.of(userId)
+        val platformItems = when (kind) {
+            CleanupKind.SHORTCUT -> runCatching {
+                context.getSystemService(LauncherApps::class.java)
+                    ?.getShortcutConfigActivityList(null, targetHandle)
+                    ?.map { it.componentName }.orEmpty()
+            }.getOrDefault(emptyList())
+            CleanupKind.WIDGET -> runCatching {
+                AppWidgetManager.getInstance(context)
+                    .getInstalledProvidersForProfile(targetHandle)
+                    .mapNotNull { it.provider }
+            }.getOrDefault(emptyList())
+            else -> emptyList()
+        }
+        return (shellItems + platformItems.filter {
+            ComponentStatePolicy.valid(it.packageName, it.className, userId)
+        }).toSet()
     }
 
     private fun readPackageState(userId: Int, packageName: String): UserPackageState? {

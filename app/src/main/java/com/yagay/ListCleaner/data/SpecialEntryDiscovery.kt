@@ -38,8 +38,13 @@ internal class SpecialEntryDiscovery(private val context: Context) {
     private val pm = context.packageManager
     private val flags = PackageManager.MATCH_ALL or PackageManager.GET_META_DATA
     private val observedCache = ObservedEntryCache(context)
+    /** Failed queries must be exposed to the caller, never silently counted as zero. */
+    @Volatile var scanFailures: List<String> = emptyList()
+        private set
 
     fun scan(): List<ComponentCandidate> {
+        val failures = mutableListOf<String>()
+        scanFailures = emptyList()
         val observed = observedRuntimeEntries()
         val liveObservedKinds = observed.asSequence()
             .filterNot { it.unavailable }
@@ -52,10 +57,10 @@ internal class SpecialEntryDiscovery(private val context: Context) {
             addAll(browserRoleEntries())
             addAll(inputMethodEntries())
             addAll(accessibilityEntries())
-            addAll(vpnEntries())
-            addAll(autofillEntries())
-            addAll(documentProviders())
-            addAll(cloudMediaProviders())
+            addAll(vpnEntries(failures))
+            addAll(autofillEntries(failures))
+            addAll(documentProviders(failures))
+            addAll(cloudMediaProviders(failures))
 
             // These managers are hidden from a normal app. Once their final system result has been
             // observed, do not mix PackageManager guesses back into the live catalog.
@@ -65,6 +70,7 @@ internal class SpecialEntryDiscovery(private val context: Context) {
 
             addAll(packageManagerAuthoritativeServiceEntries())
         }
+        scanFailures = failures.distinct()
         return mergeSpecialCandidates(items).sortedWith(
             compareBy<ComponentCandidate>(
                 { it.rule.kind.ordinal },
@@ -292,9 +298,12 @@ internal class SpecialEntryDiscovery(private val context: Context) {
     }
 
     /** AOSP VpnSettings uses allowed ACTIVATE_VPN/AppOps packages, one row per package. */
-    private fun vpnEntries(): List<ComponentCandidate> {
+    private fun vpnEntries(failures: MutableList<String>): List<ComponentCandidate> {
         val outputs = VPN_APP_OPS.map { op -> runReadOnlyRoot("cmd appops query-op --user current $op allow") }
-        if (outputs.any { it == null }) return packageScopedServiceFallback(IntentKind.VPN, "VPN_APPOPS unavailable")
+        if (outputs.any { it == null }) {
+            failures += "VPN:appops_unavailable"
+            return packageScopedServiceFallback(IntentKind.VPN, "VPN_APPOPS unavailable")
+        }
         val packages = outputs.filterNotNull().flatMap { output ->
             output.lineSequence().map(String::trim).filter(PACKAGE_NAME::matches).toList()
         }.toSortedSet()
@@ -304,12 +313,13 @@ internal class SpecialEntryDiscovery(private val context: Context) {
 
     /** Android 16 Settings merges autofill rows by package name. */
     @Suppress("DEPRECATION")
-    private fun autofillEntries(): List<ComponentCandidate> {
+    private fun autofillEntries(failures: MutableList<String>): List<ComponentCandidate> {
         val definition = SYSTEM_SERVICE_ENTRY_DEFINITIONS.first { it.kind == IntentKind.AUTOFILL }
         val internalCredentialAutofill = defaultCredentialAutofillComponent()
         val evidence = linkedMapOf<String, MutableList<String>>()
         val apps = linkedMapOf<String, ApplicationInfo>()
         runCatching { pm.queryIntentServices(Intent(definition.action), PackageManager.GET_META_DATA) }
+            .onFailure { failures += "AUTOFILL:${it.javaClass.simpleName}" }
             .getOrDefault(emptyList())
             .forEach { resolved ->
                 val service = resolved.serviceInfo ?: return@forEach
@@ -331,8 +341,9 @@ internal class SpecialEntryDiscovery(private val context: Context) {
 
     /** DocumentsUI trusts the PROVIDER_INTERFACE PackageManager query; do not invent extra gates. */
     @Suppress("DEPRECATION")
-    private fun documentProviders(): List<ComponentCandidate> {
+    private fun documentProviders(failures: MutableList<String>): List<ComponentCandidate> {
         return runCatching { pm.queryIntentContentProviders(Intent(DocumentsContract.PROVIDER_INTERFACE), flags) }
+            .onFailure { failures += "DOCUMENT_PROVIDER:${it.javaClass.simpleName}" }
             .getOrDefault(emptyList())
             .mapNotNull { resolved ->
                 val provider = resolved.providerInfo ?: return@mapNotNull null
@@ -353,8 +364,9 @@ internal class SpecialEntryDiscovery(private val context: Context) {
 
     /** Scanning this interface does not imply control of the privileged Photo Picker. */
     @Suppress("DEPRECATION")
-    private fun cloudMediaProviders(): List<ComponentCandidate> =
+    private fun cloudMediaProviders(failures: MutableList<String>): List<ComponentCandidate> =
         runCatching { pm.queryIntentContentProviders(Intent(CLOUD_MEDIA_PROVIDER_INTERFACE), flags) }
+            .onFailure { failures += "PHOTO_SOURCE:${it.javaClass.simpleName}" }
             .getOrDefault(emptyList()).mapNotNull { resolved ->
                 val provider = resolved.providerInfo ?: return@mapNotNull null
                 val app = provider.applicationInfo ?: return@mapNotNull null

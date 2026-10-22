@@ -41,6 +41,7 @@ internal class CandidateController(
     private var refreshJob: Job? = null
     private var browserRefreshJob: Job? = null
     private var generation = 0L
+    private var renderedUserId: Int? = null
 
     init {
         scope.launch {
@@ -66,13 +67,19 @@ internal class CandidateController(
         browserRefreshJob?.cancel()
         mutableCandidates.value = emptyList()
         mutableBrowserHosts.value = emptySet()
+        renderedUserId = null
     }
 
     fun refresh(forceCatalog: Boolean = false) {
         val userId = app.rules.activeUser.value
         val currentGeneration = ++generation
-        mutableCandidates.value = emptyList()
-        mutableBrowserHosts.value = emptySet()
+        // Keep the last known candidates visible during same-profile rescans, and
+        // retain them if a transient scan fails. Never carry them to another profile.
+        if (renderedUserId != userId) {
+            mutableCandidates.value = emptyList()
+            mutableBrowserHosts.value = emptySet()
+            renderedUserId = userId
+        }
         refreshJob?.cancel()
         browserRefreshJob?.cancel()
         refreshJob = scope.launch {

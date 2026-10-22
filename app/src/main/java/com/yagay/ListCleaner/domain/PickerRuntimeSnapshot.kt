@@ -18,6 +18,16 @@ data class PickerRuntimeRoot(
     val userId: Int? = null,
 )
 
+/** Handler-app sidebar row; not a DocumentsProvider root. */
+@Serializable
+data class PickerRuntimeApp(
+    val packageName: String,
+    val className: String,
+    val label: String,
+    val userId: Int? = null,
+    val position: Int = -1,
+)
+
 @Serializable
 data class PickerRuntimeSnapshot(
     val version: Int = 1,
@@ -36,6 +46,9 @@ data class PickerRuntimeSnapshot(
     /** ROOTS_LOADER is the sidebar loader; PROVIDERS_CACHE is a fallback query. */
     val captureSource: String = "UNKNOWN",
     val mimeTypes: List<String> = emptyList(),
+    /** Only Apps shown in the real sidebar, distinct from document provider roots. */
+    val apps: List<PickerRuntimeApp> = emptyList(),
+    val totalVisibleItems: Int = 0,
 )
 
 object PickerRuntimeSnapshotCodec {
@@ -48,18 +61,26 @@ object PickerRuntimeSnapshotCodec {
 
     fun encode(snapshot: PickerRuntimeSnapshot): String {
         val total = snapshot.totalRoots.takeIf { it > 0 } ?: snapshot.roots.size
-        var value = sanitize(snapshot).copy(
+        val visible = snapshot.totalVisibleItems.takeIf { it > 0 }
+            ?: snapshot.roots.size + snapshot.apps.size
+        val normalized = sanitize(snapshot)
+        var value = normalized.copy(
             totalRoots = total,
-            truncated = snapshot.truncated || total > snapshot.roots.size ||
+            totalVisibleItems = visible,
+            truncated = snapshot.truncated || total > normalized.roots.size ||
                 snapshot.roots.size > MAX_ROOTS ||
-                total > sanitize(snapshot).roots.size,
+                snapshot.apps.size > normalized.apps.size ||
+                visible > normalized.roots.size + normalized.apps.size,
         )
         while (true) {
             val encoded = json.encodeToString(PickerRuntimeSnapshot.serializer(), value)
             if (encoded.length <= MAX_CHARS) return encoded
-            if (value.roots.isEmpty()) return ""
-            value = value.copy(roots = value.roots.take(value.roots.size / 2),
-                truncated = true)
+            if (value.roots.isEmpty() && value.apps.isEmpty()) return ""
+            value = if (value.roots.size >= value.apps.size) {
+                value.copy(roots = value.roots.take(value.roots.size / 2), truncated = true)
+            } else {
+                value.copy(apps = value.apps.take(value.apps.size / 2), truncated = true)
+            }
         }
     }
 
@@ -69,7 +90,8 @@ object PickerRuntimeSnapshotCodec {
             val decoded = json.decodeFromString(PickerRuntimeSnapshot.serializer(), value)
             if (decoded.version != 1 || decoded.capturedAt <= 0L ||
                 decoded.userId < 0 || decoded.totalRoots < 0 ||
-                decoded.roots.size > MAX_ROOTS ||
+                decoded.totalVisibleItems < 0 ||
+                decoded.roots.size > MAX_ROOTS || decoded.apps.size > MAX_ROOTS ||
                 decoded.requestKind !in setOf("UNKNOWN", "GET_CONTENT", "OPEN_DOCUMENT", "CREATE_DOCUMENT", "DOCUMENT_ROOT") ||
                 decoded.captureSource !in setOf("UNKNOWN", "ROOTS_LOADER", "PROVIDERS_CACHE", "SIDEBAR_ROOTS")
             ) return@runCatching null
@@ -93,6 +115,16 @@ object PickerRuntimeSnapshotCodec {
             .take(MAX_ROOTS)
             .map {
                 it.copy(label = it.label.trim().take(160))
-            })
+            },
+            apps = value.apps.asSequence()
+                .filter {
+                    it.packageName.length in 1..240 && it.className.length in 1..300 &&
+                        it.label.isNotBlank() && (it.userId == null || it.userId >= 0) &&
+                        !it.packageName.contains('\n') && !it.className.contains('\n')
+                }
+                .distinctBy { Triple(it.userId, it.packageName, it.className) }
+                .take(MAX_ROOTS)
+                .map { it.copy(label = it.label.trim().take(160)) }.toList(),
+        )
 }
 

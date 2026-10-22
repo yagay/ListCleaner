@@ -32,8 +32,20 @@ internal class ProfilePackageQuery(private val context: Context, val userId: Int
             val flags = PackageManager.GET_ACTIVITIES or PackageManager.GET_SERVICES or
                 PackageManager.GET_RECEIVERS or PackageManager.GET_PROVIDERS or
                 PackageManager.GET_META_DATA or PackageManager.MATCH_DISABLED_COMPONENTS
-            context.packageManager.getPackageArchiveInfo(apk, flags)?.also { info ->
-                info.applicationInfo?.apply { sourceDir = apk; publicSourceDir = apk }
+            // Parsing only base.apk drops components declared by installed feature splits.
+            // Android's package parser accepts an APK cluster directory on supported builds;
+            // retain the base-APK fallback on OEM versions that do not expose cluster parsing.
+            val archivePath = if (paths.size > 1) java.io.File(apk).parent else null
+            val parsed = archivePath?.let { directory ->
+                runCatching { context.packageManager.getPackageArchiveInfo(directory, flags) }.getOrNull()
+            } ?: context.packageManager.getPackageArchiveInfo(apk, flags)
+            parsed?.also { info ->
+                info.applicationInfo?.apply {
+                    sourceDir = apk
+                    publicSourceDir = apk
+                    splitSourceDirs = paths.filter { it != apk }.toTypedArray()
+                    splitPublicSourceDirs = splitSourceDirs
+                }
             }
         }.getOrNull()
     }

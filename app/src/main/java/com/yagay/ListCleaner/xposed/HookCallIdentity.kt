@@ -37,7 +37,8 @@ internal object HookCallIdentity {
             "queryIntentActivitiesInternal" -> when {
                 integers == 1 && tail.size == 1 -> PackageQueryLayout(start)
                 integers == 2 && tail.size in setOf(2, 4) -> PackageQueryLayout(start + 1, start)
-                integers == 3 && tail.size == 5 -> PackageQueryLayout(start + 2, start)
+                // Legacy form: privateResolveFlags, filterCallingUid, userId, booleans.
+                integers == 3 && tail.size == 5 -> PackageQueryLayout(start + 2, start + 1)
                 else -> null
             }
             "queryIntentServicesInternal", "queryIntentReceiversInternal",

@@ -12,6 +12,7 @@ import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.ObservedEntryRecord
 import com.yagay.ListCleaner.domain.AndroidUid
 import com.yagay.ListCleaner.domain.PickerRuntimeRoot
+import com.yagay.ListCleaner.domain.PickerRuntimeApp
 import com.yagay.ListCleaner.domain.PickerRuntimeSnapshot
 import com.yagay.ListCleaner.domain.PickerRuntimeSnapshotCodec
 import com.yagay.ListCleaner.domain.SyntheticEntryKeys
@@ -149,7 +150,7 @@ class DocumentsUiRootsModule : XposedModule() {
                     val original = chain.proceed()
                     val items = original as? List<*> ?: return@Hooker original
                     val context = chain.args.filterIsInstance<Context>().firstOrNull()
-                        ?: return@Hooker original
+                        ?: appContext() ?: return@Hooker original
                     val request = detectRequestAction(chain.args)
                     val kind = runCatching { IntentKind.valueOf(request.kind) }.getOrNull()
                     val kept = items.filter { item ->
@@ -183,7 +184,27 @@ class DocumentsUiRootsModule : XposedModule() {
                             (applicationRows as MutableList<Any?>).removeAll(removed)
                         }
                     }
-                    snapshotMatchingRoots(kept.mapNotNull(::sidebarRoot), context, request, "SIDEBAR_ROOTS")
+                    // RootItems and AppItems are distinct types in AOSP. A RootAndAppItem
+                    // represents one visible row and must not be counted twice.
+                    val sidebarApps = kept.mapIndexedNotNull { index, item ->
+                        if (sidebarRoot(item) != null) return@mapIndexedNotNull null
+                        val activity = sidebarApp(item) ?: return@mapIndexedNotNull null
+                        val label = runCatching {
+                            activity.loadLabel(context.packageManager).toString()
+                        }.getOrDefault(activity.name.substringAfterLast('.'))
+                        PickerRuntimeApp(
+                            packageName = activity.packageName,
+                            className = activity.name,
+                            label = label,
+                            userId = sidebarUser(item),
+                            position = index,
+                        )
+                    }
+                    val visibleCount = kept.count { sidebarRoot(it) != null || sidebarApp(it) != null }
+                    snapshotMatchingRoots(
+                        kept.mapNotNull(::sidebarRoot), context, request, "SIDEBAR_ROOTS",
+                        sidebarApps = sidebarApps, totalVisibleItems = visibleCount,
+                    )
                     if (kept == items) original else ArrayList(kept)
                 })
                 finalSidebarInstalled = true
@@ -363,6 +384,7 @@ class DocumentsUiRootsModule : XposedModule() {
 
     private fun snapshotMatchingRoots(
         roots: Collection<*>, context: Context, request: RequestAction, source: String,
+        sidebarApps: List<PickerRuntimeApp> = emptyList(), totalVisibleItems: Int = 0,
     ) {
         // Never persist raw document paths, root IDs or URI grants.
         val entries = roots.asSequence().take(PickerRuntimeSnapshotCodec.MAX_ROOTS)
@@ -400,6 +422,8 @@ class DocumentsUiRootsModule : XposedModule() {
             knownActionConstants = request.candidates,
             captureSource = source,
             mimeTypes = request.mimeTypes,
+            apps = sidebarApps,
+            totalVisibleItems = totalVisibleItems,
         )
         val encoded = PickerRuntimeSnapshotCodec.encode(snapshot)
         if (encoded.isEmpty() || encoded.length > PickerRuntimeSnapshotCodec.MAX_CHARS) return
@@ -415,6 +439,7 @@ class DocumentsUiRootsModule : XposedModule() {
                 if (saved) record(
                     "PICKER_MATCHING_ROOTS kind=" + request.kind +
                         " captured=" + entries.size +
+                        " apps=" + sidebarApps.size + " visible=" + totalVisibleItems +
                         " source=" + source +
                         " action=" + (request.value?.toString() ?: "missing") +
                         " state=" + request.stateType +

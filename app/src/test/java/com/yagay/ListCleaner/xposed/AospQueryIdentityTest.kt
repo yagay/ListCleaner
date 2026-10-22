@@ -33,6 +33,18 @@ class AospQueryIdentityTest {
         assertEquals(10, HookCallIdentity.packageManagerTargetUserId("queryIntentActivitiesInternal", types, args))
     }
 
+    @Test fun legacyPrivateResolveFlagsAreNotMistakenForCallerUid() {
+        val types = listOf(
+            "android.content.Intent", "java.lang.String", "int", "int", "int",
+            "int", "boolean", "boolean"
+        )
+        val args = listOf<Any?>(null, null, 65536, 42, 10345, 10, false, true)
+        assertEquals(10, HookCallIdentity.packageManagerTargetUserId(
+            "queryIntentActivitiesInternal", types, args))
+        assertEquals(10345, HookCallIdentity.packageManagerCallerUid(
+            "queryIntentActivitiesInternal", types, args, 1000))
+    }
+
     @Test fun managerSelectionFlagsAreNotPrintUserId() {
         assertEquals(10, HookCallIdentity.managerTargetUserId("getPrintServices", listOf("int", "int"), listOf(3, 10)))
         assertEquals(10, HookCallIdentity.managerTargetUserId("getCredentialProviderServices", listOf("int", "int"), listOf(10, 3)))

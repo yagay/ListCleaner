@@ -142,8 +142,26 @@ class IntentCatalog(private val context: Context) {
             return@withContext cached
         }
 
-        val specialCandidates = if (profile == null) specialEntryDiscovery.scan()
-            else ProfileEntryDiscovery(context, profile).scan()
+        val specialFailures = mutableListOf<String>()
+        val specialCandidates: List<ComponentCandidate> = if (profile == null) {
+            runCatching { specialEntryDiscovery.scan() }.onSuccess {
+                specialFailures += specialEntryDiscovery.scanFailures
+            }.getOrElse { failure ->
+                specialFailures += "current_user:${failure.javaClass.simpleName}"
+                emptyList()
+            }
+        } else {
+            runCatching { ProfileEntryDiscovery(context, profile).scan() }.fold(
+                onSuccess = { result ->
+                    specialFailures += result.failedSources
+                    result.candidates
+                },
+                onFailure = { failure ->
+                    specialFailures += "profile:${failure.javaClass.simpleName}"
+                    emptyList()
+                },
+            )
+        }
         val specialFingerprint = specialCandidates.asSequence()
             .map { it.rule.id }
             .sorted()
@@ -191,7 +209,10 @@ class IntentCatalog(private val context: Context) {
                 report.appendLine("browserBaseline scheme=$scheme flags=0x${PackageManager.MATCH_DEFAULT_ONLY.toString(16)} count=${menu.size} resolved=${resolved?.packageName}/${resolved?.name}")
             }.onFailure { report.appendLine("browserBaseline scheme=$scheme error=${it.javaClass.simpleName}") }
         }
-        var failures = 0
+        var failures = specialFailures.size
+        if (specialFailures.isNotEmpty()) {
+            report.appendLine("specialScanFailures=${specialFailures.joinToString(",")}")
+        }
         scanWarning = null
         val allProbes = probes(customDefinitions, normalizedBrowserHosts) +
             appLinkFallbackProbes(browserDiscovery)
@@ -218,7 +239,9 @@ class IntentCatalog(private val context: Context) {
         mutableSnapshot.value = Snapshot(userId, result)
         cachedInputFingerprint = inputFingerprint
         cachedDefinitionFingerprint = fingerprint
-        invalidated = false
+        // An incomplete scan must be retried; caching a partial scan as complete
+        // can turn a transient Shell/PackageManager failure into a persistent zero.
+        invalidated = failures > 0
         result
     }
 
@@ -253,7 +276,12 @@ class IntentCatalog(private val context: Context) {
             ?: context.packageManager.queryIntentActivities(probe.intent, flags)
         val candidates = raw.mapNotNull { info ->
             val activity = info.activityInfo ?: return@mapNotNull null
-            val kind = if (intentKind == IntentKind.BROWSER) info.webTargetKind() else intentKind
+            // Shell reconstructs ResolveInfo without resolved IntentFilter metadata.
+            // webTargetKind() would incorrectly label every cross-user browser as DEEP_LINK.
+            // Keep those web handlers as provisional BROWSER candidates until a role
+            // observation or explicit IntentFilter evidence can classify them.
+            val kind = if (intentKind == IntentKind.BROWSER && profile == null)
+                info.webTargetKind() else intentKind
             val canonicalClass = ComponentIdentity.canonicalClassName(activity.packageName, activity.name, activity.targetActivity)
             val rule = ComponentRule(kind, activity.packageName, canonicalClass)
             if (!rule.isValid()) return@mapNotNull null
@@ -267,6 +295,8 @@ class IntentCatalog(private val context: Context) {
                     add("activityAlias=${activity.name} targetActivity=${activity.targetActivity} canonical=$canonicalClass")
                 }
                 if (restricted) add("RESTRICTED non-exported foreign component; excluded from ordinary catalog")
+                if (profile != null && intentKind == IntentKind.BROWSER)
+                    add("PROFILE_WEB_HANDLER roleEligibility=unverified filterUnavailable=true")
                 activity.permission?.takeIf { it.isNotBlank() }?.let { permission ->
                     val granted = runCatching {
                         context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
