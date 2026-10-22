@@ -1,6 +1,7 @@
 package com.yagay.ListCleaner.ui
 
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.PickerRuntimeRoot
 import com.yagay.ListCleaner.domain.RuntimeInterfaceSnapshot
 
 /**
@@ -59,9 +60,7 @@ internal object SystemPreviewSelection {
                         IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT,
                         IntentKind.CREATE_DOCUMENT, IntentKind.DOCUMENT_ROOT
                     ) && snapshot.userId == request.userId) {
-                    return PreviewListResult(snapshot.roots.map { root ->
-                        SystemProbeItem(root.label, root.packageName, root.syntheticId, root.label)
-                    }, PreviewListSource.HISTORY)
+                    return PreviewListResult(snapshot.roots.map(::documentRootItem), PreviewListSource.HISTORY)
                 }
                 val recorded = value.historicalItems.ifEmpty {
                     value.observedThirdPartyRoots.map { root ->
@@ -89,9 +88,7 @@ internal object SystemPreviewSelection {
                 roots.requestKind == kind?.name &&
                 value.pickerProbeStatus == PickerProbeStatus.OBSERVED_AFTER_TEST
             ) {
-                return PreviewListResult(roots.roots.map { root ->
-                    SystemProbeItem(root.label, root.packageName, root.syntheticId, root.label)
-                }, PreviewListSource.DOCUMENT_ROOTS)
+                return PreviewListResult(roots.roots.map(::documentRootItem), PreviewListSource.DOCUMENT_ROOTS)
             }
             return PreviewListResult(emptyList(), PreviewListSource.UNAVAILABLE)
         }
@@ -151,6 +148,13 @@ internal object SystemPreviewSelection {
         return if (value.evidence == ProbeEvidence.ENABLED)
             PreviewListResult(value.items, PreviewListSource.AUTHORITY_ENABLED)
         else PreviewListResult(value.items, PreviewListSource.API_RETURN)
+    }
+
+    /** The UI key includes the profile; the rule key remains unchanged. */
+    private fun documentRootItem(root: PickerRuntimeRoot): SystemProbeItem {
+        val displayKey = root.syntheticId +
+            (root.userId?.let { "@user$it" } ?: "@user_unknown")
+        return SystemProbeItem(root.label, root.packageName, displayKey, root.label)
     }
 
     private fun asEntries(

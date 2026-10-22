@@ -120,6 +120,29 @@ class SystemPreviewSelectionTest {
         ).source)
     }
 
+    @Test fun documentRootsFromDifferentProfilesHaveUniquePreviewKeys() {
+        val roots = listOf(
+            PickerRuntimeRoot("com.example.drive", "Personal", "@same-root", false, 0),
+            PickerRuntimeRoot("com.example.drive", "Work", "@same-root", false, 10),
+        )
+        val snapshot = PickerRuntimeSnapshot(
+            capturedAt = now - 100L, userId = 0, roots = roots,
+            requestKind = "OPEN_DOCUMENT", captureSource = "ROOTS_LOADER",
+        )
+        val payload = result().copy(
+            matchingRootsSnapshot = snapshot,
+            pickerProbeStatus = PickerProbeStatus.OBSERVED_AFTER_TEST,
+        )
+        for (mode in listOf(PreviewListMode.CURRENT, PreviewListMode.HISTORY)) {
+            val displayed = SystemPreviewSelection.select(
+                request(IntentKind.OPEN_DOCUMENT), payload, false, now,
+                now - 1000L, 12345, viewMode = mode,
+            )
+            assertEquals(2, displayed.items.size)
+            assertEquals(2, displayed.items.map { it.component }.distinct().size)
+        }
+    }
+
     @Test fun enabledAndInstalledServicesRemainSeparate() {
         val enabled = SystemProbeItem("Enabled keyboard", "com.example.ime", ".Keyboard")
         val installed = SystemProbeItem("Installed keyboard", "com.example.other", ".Keyboard")
