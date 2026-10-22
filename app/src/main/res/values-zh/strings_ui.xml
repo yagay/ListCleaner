@@ -134,7 +134,13 @@
     <string name="preview_autofill_navigation">打开 Android 默认自动填充提供方的系统选择界面。选择其他服务可能更改系统默认提供方。此入口用于测试系统界面，不代表已经验证列表清理过滤结果；不可用时回退到默认应用设置。</string>
     <string name="preview_open_credential_settings">打开凭据设置</string>
     <string name="preview_open_autofill_picker">打开自动填充选择器</string>
-    <string name="preview_assistant_role_picker">按 AOSP 的实现定向调用设备 PermissionController 的助手角色列表，而不是只打开助手与语音输入设置。系统权限不足时仅通过 Root 请求原生选择器；无法访问才回退到助手设置，可点击第一行“默认数字助手应用”进入选择列表。</string>
+    <string name="preview_assistant_role_picker">使用 Root 查询设备实际注册的 PermissionController 助手选择器，打开后再检查真正处于前台的 Activity。不更改默认助手；若系统阻止选择器，会明确提示失败，而不会悄悄回到助手设置上一级。也可以单独打开助手设置。</string>
     <string name="preview_open_assistant_picker">打开助手选择列表</string>
     <string name="preview_assistant_fallback">系统助手角色选择器无法直接打开，已改为打开助手设置。请点击“默认数字助手”查看可选应用。</string>
+    <string name="preview_open_assistant_settings">打开助手设置</string>
+    <string name="preview_assistant_discovery_failed">无法查询系统助手选择器。请检查 Root 授权与诊断日志，本次没有自动打开其他页面。</string>
+    <string name="preview_assistant_missing_component">当前用户空间没有找到 PermissionController 的助手角色选择组件。可点击“打开助手设置”，再选择第一行“默认数字助手应用”。</string>
+    <string name="preview_assistant_launch_failed">Android 拒绝打开助手角色选择器，请查看 ListCleaner.SystemPreview 诊断。默认助手没有被更改。</string>
+    <string name="preview_assistant_redirected">OxygenOS 把助手选择请求重定向回了设置页面，并不是最终助手列表。请点击“打开助手设置”，再进入第一行。</string>
+    <string name="preview_assistant_not_verified">已发送系统助手选择请求，但无法验证最终前台页面。请根据诊断日志判断，不能当作打开成功。</string>
 </resources>

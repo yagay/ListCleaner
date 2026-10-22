@@ -134,7 +134,13 @@
     <string name="preview_autofill_navigation">Open the Android preferred Autofill provider picker. Selecting another service can change your system default. This system UI test does not verify the filtered services in List Cleaner; fallback is Default apps settings.</string>
     <string name="preview_open_credential_settings">Open Credential settings</string>
     <string name="preview_open_autofill_picker">Open Autofill picker</string>
-    <string name="preview_assistant_role_picker">Opens the Android assistant role chooser through the device PermissionController, matching AOSP Settings. It requires privileged access; Root is used only to request the system chooser. If unavailable, the assistant settings page opens, and its first Default digital assistant app row leads to the list.</string>
+    <string name="preview_assistant_role_picker">Uses Root to discover the actual Android PermissionController role picker and verify the foreground Activity after launch. No assistant is changed. If the device blocks the role picker, an error is shown instead of silently opening the assistant settings parent. You may open that settings page separately.</string>
     <string name="preview_open_assistant_picker">Open assistant chooser</string>
     <string name="preview_assistant_fallback">The protected assistant chooser is unavailable. Opening Assistant settings instead; select Default digital assistant to see the eligible apps.</string>
+    <string name="preview_open_assistant_settings">Open assistant settings</string>
+    <string name="preview_assistant_discovery_failed">Unable to query the system assistant picker. Check Root authorization and the diagnostic log; no substitute page was opened.</string>
+    <string name="preview_assistant_missing_component">No PermissionController assistant role picker was found for this user. Open assistant settings and select Default digital assistant app instead.</string>
+    <string name="preview_assistant_launch_failed">Android refused to launch the assistant role picker. See ListCleaner.SystemPreview diagnostics. Nothing was changed.</string>
+    <string name="preview_assistant_redirected">OxygenOS redirected the assistant picker back to Settings. This is not the actual assistant list. Use Open assistant settings and tap the first row.</string>
+    <string name="preview_assistant_not_verified">The assistant role picker request was sent, but its final foreground screen could not be verified. Check system diagnostics rather than assuming success.</string>
 </resources>

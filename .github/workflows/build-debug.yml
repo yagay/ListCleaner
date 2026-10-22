@@ -107,6 +107,11 @@ jobs:
           set -o pipefail
           bash ./gradlew --no-daemon --build-cache --console=plain --stacktrace :app:assembleDebug 2>&1 | tee debug-build.log
 
+      - name: Run assistant picker regression tests
+        run: |
+          set -o pipefail
+          bash ./gradlew --no-daemon --build-cache --console=plain :app:testDebugUnitTest --tests com.yagay.ListCleaner.ui.AssistantRolePickerBridgeTest --tests com.yagay.ListCleaner.ui.SystemEffectPreviewRouteTest 2>&1 | tee assistant-regression.log
+
       - name: Upload Debug APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -127,6 +132,7 @@ jobs:
             sdk-packages.log
             sdk-install.log
             debug-build.log
+            assistant-regression.log
             app/build/reports/
             build/reports/
           if-no-files-found: ignore

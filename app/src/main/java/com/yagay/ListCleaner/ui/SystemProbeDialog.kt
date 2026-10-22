@@ -574,6 +574,15 @@ internal fun SystemProbeDialog(
                             AdaptiveText(stringResource(R.string.preview_open_keyboard_settings))
                         }
                     }
+                    if (request.entryKind == IntentKind.ASSISTANT) {
+                        AdaptiveTextButton(onClick = {
+                            SystemEffectPreview.launchAssistantSettings(
+                                context, request.userId
+                            )
+                        }) {
+                            AdaptiveText(stringResource(R.string.preview_open_assistant_settings))
+                        }
+                    }
                     if (scenarioTestAvailable) {
                         AdaptiveTextButton(onClick = {
                             request.entryKind?.let { kind ->
