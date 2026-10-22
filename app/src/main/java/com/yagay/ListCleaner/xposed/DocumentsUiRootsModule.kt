@@ -112,7 +112,7 @@ class DocumentsUiRootsModule : XposedModule() {
         val ctx = appContext() ?: return@Hooker original
         if (roots.isEmpty()) {
             if (methodName == "getMatchingRootsBlocking") {
-                snapshotMatchingRoots(roots, ctx, detectRequestKind(chain.args))
+                snapshotMatchingRoots(roots, ctx, detectRequestAction(chain.args))
             }
             return@Hooker original
         }
@@ -173,46 +173,60 @@ class DocumentsUiRootsModule : XposedModule() {
                 // The other cache methods may expose entire provider inventories or subsets.
                 if (methodName == "getMatchingRootsBlocking") {
                     (returned as? Collection<*>)?.let { returnedRoots ->
-                        snapshotMatchingRoots(returnedRoots, ctx, detectRequestKind(chain.args))
+                        snapshotMatchingRoots(returnedRoots, ctx, detectRequestAction(chain.args))
                     }
                 }
             }
     }
 
-    private fun detectRequestKind(args: List<Any?>): String {
-        // Read the DocumentsUI State action by its own symbolic constants.
-        // Never assume OEM forks reuse AOSP's numeric action values.
-        args.forEach { arg ->
-            val state = arg ?: return@forEach
-            val action = ReflectionAccess.readField(state, "action", "mAction") as? Number
+    private data class RequestAction(
+        val kind: String,
+        val value: Int?,
+        val stateType: String,
+        val candidates: String,
+    )
+
+    /** Use the actual State enum constants from the installed DocumentsUI, not
+     * guessed AOSP/OEM integer IDs. Keep UNKNOWN as diagnostic, never live proof.
+     */
+    private fun detectRequestAction(args: List<Any?>): RequestAction {
+        val names = mapOf(
+            "ACTION_OPEN" to "OPEN_DOCUMENT",
+            "ACTION_CREATE" to "CREATE_DOCUMENT",
+            "ACTION_GET_CONTENT" to "GET_CONTENT",
+        )
+        args.forEach { possibleState ->
+            val state = possibleState ?: return@forEach
+            val code = ReflectionAccess.readField(state, "action", "mAction") as? Number
                 ?: return@forEach
-            val clazz = state.javaClass
-            val labels = listOf(
-                "ACTION_OPEN" to "OPEN_DOCUMENT",
-                "ACTION_CREATE" to "CREATE_DOCUMENT",
-                "ACTION_GET_CONTENT" to "GET_CONTENT",
-            )
-            labels.forEach { (constant, kind) ->
-                val value = runCatching {
-                    var owner: Class<*>? = clazz
-                    var found: Int? = null
-                    while (owner != null && found == null) {
-                        val field = runCatching { owner!!.getDeclaredField(constant) }.getOrNull()
-                        if (field != null && Modifier.isStatic(field.modifiers)) {
+            val available = linkedMapOf<String, Int>()
+            names.forEach { (name, _) ->
+                var owner: Class<*>? = state.javaClass
+                while (owner != null && name !in available) {
+                    val clazz = owner ?: break
+                    runCatching {
+                        clazz.getDeclaredField(name).takeIf {
+                            Modifier.isStatic(it.modifiers) && it.type == Int::class.javaPrimitiveType
+                        }?.let { field ->
                             field.isAccessible = true
-                            found = field.getInt(null)
+                            available[name] = field.getInt(null)
                         }
-                        owner = owner?.superclass
                     }
-                    found
-                }.getOrNull()
-                if (value != null && value == action.toInt()) return kind
+                    owner = clazz.superclass
+                }
             }
+            val found = available.entries.firstOrNull { it.value == code.toInt() }
+            return RequestAction(
+                found?.let { names.getValue(it.key) } ?: "UNKNOWN",
+                code.toInt(),
+                state.javaClass.name.take(160),
+                available.entries.joinToString(",") { it.key + "=" + it.value }.take(240),
+            )
         }
-        return "UNKNOWN"
+        return RequestAction("UNKNOWN", null, "", "")
     }
 
-    private fun snapshotMatchingRoots(roots: Collection<*>, context: Context, requestKind: String) {
+    private fun snapshotMatchingRoots(roots: Collection<*>, context: Context, request: RequestAction) {
         // Never persist raw document paths, root IDs or URI grants.
         val entries = roots.asSequence().take(PickerRuntimeSnapshotCodec.MAX_ROOTS)
             .mapNotNull { root ->
@@ -240,7 +254,10 @@ class DocumentsUiRootsModule : XposedModule() {
             capturedAt = System.currentTimeMillis(),
             userId = AndroidUid.userId(Process.myUid()),
             roots = entries,
-            requestKind = requestKind,
+            requestKind = request.kind,
+            actionCode = request.value,
+            stateClassName = request.stateType,
+            knownActionConstants = request.candidates,
         )
         val encoded = PickerRuntimeSnapshotCodec.encode(snapshot)
         if (encoded.length > PickerRuntimeSnapshotCodec.MAX_CHARS) return
@@ -248,12 +265,18 @@ class DocumentsUiRootsModule : XposedModule() {
             runCatching {
                 preferences.edit().apply {
                     putString(PickerRuntimeSnapshotCodec.REMOTE_KEY, encoded)
-                    if (requestKind != "UNKNOWN") {
-                        putString(PickerRuntimeSnapshotCodec.keyForRequest(requestKind), encoded)
+                    if (request.kind != "UNKNOWN") {
+                        putString(PickerRuntimeSnapshotCodec.keyForRequest(request.kind), encoded)
                     }
                 }.commit()
             }.onSuccess { saved ->
-                if (saved) record("PICKER_MATCHING_ROOTS captured=" + entries.size)
+                if (saved) record(
+                    "PICKER_MATCHING_ROOTS kind=" + request.kind +
+                        " captured=" + entries.size +
+                        " action=" + (request.value?.toString() ?: "missing") +
+                        " state=" + request.stateType +
+                        " constants=" + request.candidates
+                )
             }.onFailure {
                 record("PICKER_SNAPSHOT_FAILED error=" + it.javaClass.name)
             }

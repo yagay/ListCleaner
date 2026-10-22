@@ -57,7 +57,13 @@ internal fun SystemProbeDialog(
     var revision by remember { mutableIntStateOf(0) }
     // A dedicated temporary host id is used only while testing the OS widget
     // picker. Never leave the chosen widget bound or modify the launcher.
-    val widgetHost = remember(context) { AppWidgetHost(context.applicationContext, 0x4C4301) }
+    val widgetHost = remember(context) {
+        AppWidgetHost(context.applicationContext, 0x4C4301).also { host ->
+            // Isolated testing-only host ID. Reclaim abandoned allocations from
+            // a previous process crash or a killed picker before using it again.
+            runCatching { host.deleteHost() }
+        }
+    }
     var pendingWidgetId by remember(request) { mutableIntStateOf(-1) }
     val widgetPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -96,7 +102,7 @@ internal fun SystemProbeDialog(
     val nativeAvailable = nativeRoute in setOf(
         SystemPreviewRoute.CHOOSER, SystemPreviewRoute.DIRECT,
         SystemPreviewRoute.PICKER, SystemPreviewRoute.SETTINGS,
-        SystemPreviewRoute.WIDGET_PICKER
+        SystemPreviewRoute.WIDGET_PICKER, SystemPreviewRoute.INPUT_METHOD_PICKER
     )
     val scenarioTestAvailable = request.entryKind?.let(::supportsScenarioTest) == true
     val nativeRootsRelevant = request.entryKind in setOf(
@@ -147,10 +153,13 @@ internal fun SystemProbeDialog(
         }.getOrNull(),
     )
     val diagnostic = showDiagnostics && value != null
-    val runtimeSnapshot = value?.runtimeReturn
+    val runtimeAvailable = selectedResult.source in setOf(
+        PreviewListSource.HOOK_OBSERVATION, PreviewListSource.HOST_OBSERVATION
+    )
+    val runtimeSnapshot = if (selectedResult.source == PreviewListSource.HOST_OBSERVATION)
+        value?.hostReturn else value?.runtimeReturn
     val runtimePackages = runtimeSnapshot?.packages.orEmpty()
     val runtimeComponents = runtimeSnapshot?.components.orEmpty()
-    val runtimeAvailable = selectedResult.source == PreviewListSource.HOOK_OBSERVATION
     val documentPicker = request.entryKind == IntentKind.OPEN_DOCUMENT ||
         request.entryKind == IntentKind.CREATE_DOCUMENT
     val documentSnapshot = if (selectedResult.source == PreviewListSource.DOCUMENT_ROOTS)
@@ -158,17 +167,22 @@ internal fun SystemProbeDialog(
     val displayed = selectedResult.items
     val sourceRes = when (selectedResult.source) {
         PreviewListSource.HOOK_OBSERVATION -> R.string.preview_source_hook_observed
+        PreviewListSource.HOST_OBSERVATION -> R.string.preview_source_host_observed
         PreviewListSource.DOCUMENT_ROOTS -> R.string.preview_source_root_return
         PreviewListSource.API_RETURN -> R.string.preview_source_api_candidates
         PreviewListSource.DIAGNOSTIC -> R.string.preview_source_diagnostic
         PreviewListSource.UNAVAILABLE -> R.string.preview_source_unavailable
     }
     val distinctApps = displayed.map(SystemProbeItem::packageName).distinct().size
-    val qualityRes = when (value?.evidence) {
-        ProbeEvidence.ENABLED -> R.string.system_probe_quality_enabled
-        ProbeEvidence.REGISTERED -> R.string.system_probe_quality_candidate
-        ProbeEvidence.PICKER_HOST -> R.string.system_probe_quality_picker
-        ProbeEvidence.NOT_PUBLIC, null -> R.string.system_probe_quality_unavailable
+    val qualityRes = when (selectedResult.source) {
+        PreviewListSource.HOOK_OBSERVATION, PreviewListSource.HOST_OBSERVATION ->
+            R.string.system_probe_quality_candidate
+        PreviewListSource.DOCUMENT_ROOTS -> R.string.system_probe_quality_picker
+        PreviewListSource.API_RETURN, PreviewListSource.DIAGNOSTIC ->
+            if (value?.evidence == ProbeEvidence.ENABLED)
+                R.string.system_probe_quality_enabled
+            else R.string.system_probe_quality_candidate
+        PreviewListSource.UNAVAILABLE -> R.string.system_probe_quality_unavailable
     }
 
     AdaptiveAlertDialog(
@@ -328,6 +342,17 @@ internal fun SystemProbeDialog(
                                 }
                             }
                         }
+                        if (matching?.requestKind == "UNKNOWN") {
+                            item(key = "picker-action-unresolved") {
+                                AdaptiveText(
+                                    stringResource(R.string.preview_document_action_unknown,
+                                        matching.actionCode?.toString() ?: "?",
+                                        matching.stateClassName.ifBlank { "?" }),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
                         // Historical data is only a fallback if this test did not yield a
                         // verified matching-roots snapshot. Never merge it into the live list.
                         if (!observedThisTest) {
@@ -359,7 +384,7 @@ internal fun SystemProbeDialog(
                             }
                         }
                     }
-                    value.runtimeReturn?.let { returned ->
+                    runtimeSnapshot?.let { returned ->
                         // Capture details stay visible, but don't duplicate the same package
                         // list below the primary results or imply a rendered UI snapshot.
                         run {
@@ -515,6 +540,15 @@ internal fun SystemProbeDialog(
         confirmButton = {
             if (nativeAvailable || scenarioTestAvailable) {
                 Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
+                    if (request.entryKind == IntentKind.INPUT_METHOD) {
+                        AdaptiveTextButton(onClick = {
+                            SystemEffectPreview.launchSettings(
+                                context, IntentKind.INPUT_METHOD, request.userId
+                            )
+                        }) {
+                            AdaptiveText(stringResource(R.string.preview_open_keyboard_settings))
+                        }
+                    }
                     if (scenarioTestAvailable) {
                         AdaptiveTextButton(onClick = {
                             request.entryKind?.let { kind ->
@@ -567,7 +601,8 @@ internal fun SystemProbeDialog(
                             }
                         }) {
                             AdaptiveText(stringResource(when (nativeRoute) {
-                                SystemPreviewRoute.PICKER, SystemPreviewRoute.WIDGET_PICKER ->
+                                SystemPreviewRoute.PICKER, SystemPreviewRoute.WIDGET_PICKER,
+                                SystemPreviewRoute.INPUT_METHOD_PICKER ->
                                     R.string.system_probe_open_picker
                                 SystemPreviewRoute.SETTINGS -> R.string.preview_open_related_settings
                                 else -> R.string.system_probe_open_system

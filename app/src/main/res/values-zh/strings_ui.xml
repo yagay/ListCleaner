@@ -114,4 +114,9 @@
     <string name="preview_source_root_return">数据来源：本次操作的 DocumentsUI 匹配来源</string>
     <string name="preview_source_diagnostic">数据来源：原始 API／诊断候选</string>
     <string name="preview_source_unavailable">数据来源：本次请求没有经过验证的系统返回</string>
+    <string name="preview_ime_native_picker">打开 Android 原生输入法切换弹窗，仅显示已启用的输入法；如需安装或启用输入法，请使用系统设置按钮。</string>
+    <string name="preview_open_keyboard_settings">打开输入法设置</string>
+    <string name="preview_settings_fallback">设备不支持专用设置页面，已打开更上一级的相关设置。</string>
+    <string name="preview_source_host_observed">数据来源：系统设置 UID 的 Hook 观察（共享 UID 无法证明最终绘制列表）</string>
+    <string name="preview_document_action_unknown">DocumentsUI 已返回来源，但无法识别其请求类型（操作值=%1$s；State=%2$s）。此结果仅属于历史记录，不是已验证的 Open/Save 列表。</string>
 </resources>

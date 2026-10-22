@@ -42,6 +42,34 @@ class SystemPreviewSelectionTest {
                 payload, false, now, null, 1000).source)
     }
 
+    @Test fun systemSettingsObservationIsSeparatedFromOwnHookResult() {
+        val observedFromSettings = observed(IntentKind.ACCESSIBILITY, uid = 1000)
+        val payload = result(raw).copy(hostReturn = observedFromSettings)
+        val actual = SystemPreviewSelection.select(
+            request(IntentKind.ACCESSIBILITY), payload, false, now, null, 12345
+        )
+        assertEquals(PreviewListSource.HOST_OBSERVATION, actual.source)
+        assertEquals("com.example.filtered", actual.items.single().packageName)
+        assertEquals(PreviewListSource.UNAVAILABLE,
+            SystemPreviewSelection.select(request(IntentKind.ACCESSIBILITY),
+                payload.copy(hostReturn = observedFromSettings.copy(callerUserId = 10)),
+                false, now, null, 12345).source)
+        assertEquals(PreviewListSource.UNAVAILABLE,
+            SystemPreviewSelection.select(request(IntentKind.ACCESSIBILITY),
+                payload.copy(hostReturn = observedFromSettings.copy(
+                    capturedAtMillis = 1L)),
+                false, now, null, 12345).source)
+    }
+
+    @Test fun untrustedHostNeverInheritsOwnObservation() {
+        val payload = result(raw).copy(
+            runtimeReturn = observed(IntentKind.ACCESSIBILITY, uid = 1000)
+        )
+        assertEquals(PreviewListSource.UNAVAILABLE,
+            SystemPreviewSelection.select(request(IntentKind.ACCESSIBILITY),
+                payload, false, now, null, 12345).source)
+    }
+
     @Test fun trueEmptyHookReturnIsNotConfusedWithMissingCapture() {
         val payload = result(raw).copy(runtimeReturn = observed(IntentKind.ACCESSIBILITY).copy(
             packages = emptyList(), components = emptyList()

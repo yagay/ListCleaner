@@ -11,6 +11,10 @@ class PickerRuntimeSnapshotTest {
         val sample = PickerRuntimeSnapshot(
             capturedAt = 1792598765432L,
             userId = 0,
+            requestKind = "OPEN_DOCUMENT",
+            actionCode = 2,
+            stateClassName = "com.android.documentsui.base.State",
+            knownActionConstants = "ACTION_OPEN=2",
             roots = listOf(
                 PickerRuntimeRoot("com.android.documentsui", "Downloads", "@docroot_a", true),
                 PickerRuntimeRoot("com.example.cloud", "Cloud drive", "@docroot_b", false),
@@ -45,6 +49,21 @@ class PickerRuntimeSnapshotTest {
                 PickerRuntimeSnapshot(version = 2, capturedAt = 5, userId = 0, roots = emptyList())
             )
         ))
+    }
+
+    @Test fun actionDiagnosticsAreSanitizedWithoutLeakingPaths() {
+        val sample = PickerRuntimeSnapshot(
+            capturedAt = 123L, userId = 0, roots = emptyList(),
+            stateClassName = "S".repeat(500),
+            knownActionConstants = "A".repeat(500),
+            actionCode = 5,
+        )
+        val actual = PickerRuntimeSnapshotCodec.decode(
+            PickerRuntimeSnapshotCodec.encode(sample)
+        )!!
+        assertEquals(160, actual.stateClassName.length)
+        assertEquals(240, actual.knownActionConstants.length)
+        assertEquals(5, actual.actionCode)
     }
 
     @Test fun samplingNeverContainsRawDocumentIds() {

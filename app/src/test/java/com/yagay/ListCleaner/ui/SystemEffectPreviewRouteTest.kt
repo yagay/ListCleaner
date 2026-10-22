@@ -38,11 +38,31 @@ class SystemEffectPreviewRouteTest {
     }
 
     @Test fun systemServicesUseSettingsWithExplicitLimitations() {
-        listOf(IntentKind.INPUT_METHOD, IntentKind.ACCESSIBILITY,
+        listOf(IntentKind.ACCESSIBILITY,
             IntentKind.PRINT, IntentKind.VPN, IntentKind.NFC_HCE,
             IntentKind.NOTIFICATION_LISTENER, IntentKind.DREAM,
             IntentKind.AUTOFILL, IntentKind.CREDENTIAL_PROVIDER)
             .forEach { assertEquals(it.name, SystemPreviewRoute.SETTINGS, systemPreviewRoute(it)) }
+    }
+
+    @Test fun keyboardSwitchIsNativePickerWithSeparateSettings() {
+        assertEquals(SystemPreviewRoute.INPUT_METHOD_PICKER,
+            systemPreviewRoute(IntentKind.INPUT_METHOD))
+        assertEquals(android.provider.Settings.ACTION_INPUT_METHOD_SETTINGS,
+            SystemEffectPreview.settingsActions(IntentKind.INPUT_METHOD).first())
+    }
+
+    @Test fun defaultAppFallbackActionsAreNotIntentCandidateActions() {
+        assertEquals(android.provider.Settings.ACTION_HOME_SETTINGS,
+            SystemEffectPreview.settingsActions(IntentKind.HOME).first())
+        assertEquals(android.provider.Settings.ACTION_VOICE_INPUT_SETTINGS,
+            SystemEffectPreview.settingsActions(IntentKind.ASSISTANT).first())
+        assertEquals(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS,
+            SystemEffectPreview.settingsActions(IntentKind.BROWSER).first())
+        assertEquals(android.provider.Settings.ACTION_SYNC_SETTINGS,
+            SystemEffectPreview.settingsActions(IntentKind.CREDENTIAL_PROVIDER).first())
+        assertEquals(android.provider.Settings.ACTION_SYNC_SETTINGS,
+            SystemEffectPreview.settingsActions(IntentKind.AUTOFILL).first())
     }
 
     @Test fun dynamicShortcutsAndTextSelectionAreNotMisrepresented() {

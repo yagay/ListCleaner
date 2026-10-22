@@ -114,4 +114,9 @@
     <string name="preview_source_root_return">Data source: DocumentsUI matching roots for this operation</string>
     <string name="preview_source_diagnostic">Data source: raw API/diagnostic candidates</string>
     <string name="preview_source_unavailable">Data source: no verified system return for this request</string>
+    <string name="preview_ime_native_picker">Open the native Android input-method switcher. This popup lists enabled keyboards; the system settings button manages installation and activation.</string>
+    <string name="preview_open_keyboard_settings">Open keyboard settings</string>
+    <string name="preview_settings_fallback">This device does not support the dedicated settings page. A broader related page was opened instead.</string>
+    <string name="preview_source_host_observed">Data source: observed system Settings UID Hook return (shared UIDs do not prove the final rendered list)</string>
+    <string name="preview_document_action_unknown">DocumentsUI returned roots, but its request action could not be identified (action=%1$s; state=%2$s). The result is history, not a verified Open/Save list.</string>
 </resources>

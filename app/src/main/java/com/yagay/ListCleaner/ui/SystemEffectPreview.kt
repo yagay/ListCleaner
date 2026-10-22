@@ -11,6 +11,8 @@ import android.os.Build
 import android.os.Process
 import android.provider.MediaStore
 import android.provider.Settings
+import android.view.inputmethod.InputMethodManager
+import android.util.Log
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import com.yagay.ListCleaner.R
@@ -23,7 +25,7 @@ import java.io.File
 /** Routes for a real OS interface, rather than a local reconstruction of its filtered results. */
 /** Launch type describes the actual Android operation, not a simulated cleaned list. */
 internal enum class SystemPreviewRoute {
-    CHOOSER, DIRECT, PICKER, SETTINGS, CONTEXT_MENU, WIDGET_PICKER, UNAVAILABLE
+    CHOOSER, DIRECT, PICKER, SETTINGS, INPUT_METHOD_PICKER, CONTEXT_MENU, WIDGET_PICKER, UNAVAILABLE
 }
 
 internal fun systemPreviewRoute(kind: IntentKind): SystemPreviewRoute = when (kind) {
@@ -40,7 +42,7 @@ internal fun systemPreviewRoute(kind: IntentKind): SystemPreviewRoute = when (ki
         SystemPreviewRoute.PICKER
 
     IntentKind.HOME, IntentKind.BROWSER, IntentKind.ASSISTANT,
-    IntentKind.CALL_SCREENING, IntentKind.INPUT_METHOD, IntentKind.ACCESSIBILITY,
+    IntentKind.CALL_SCREENING, IntentKind.ACCESSIBILITY,
     IntentKind.PRINT, IntentKind.VPN, IntentKind.NFC_HCE,
     IntentKind.NOTIFICATION_LISTENER, IntentKind.DREAM,
     // Credential/Autofill settings below are related navigation only, not a
@@ -48,6 +50,7 @@ internal fun systemPreviewRoute(kind: IntentKind): SystemPreviewRoute = when (ki
     IntentKind.CREDENTIAL_PROVIDER, IntentKind.AUTOFILL ->
         SystemPreviewRoute.SETTINGS
 
+    IntentKind.INPUT_METHOD -> SystemPreviewRoute.INPUT_METHOD_PICKER
     IntentKind.PROCESS_TEXT -> SystemPreviewRoute.CONTEXT_MENU
 
     // A dynamic shortcut is owned by the launcher/ShortcutService. A generic
@@ -73,6 +76,7 @@ internal fun previewRouteNote(kind: IntentKind): Int = when (kind) {
         R.string.preview_related_settings_only
     IntentKind.HOME, IntentKind.BROWSER, IntentKind.ASSISTANT,
     IntentKind.CALL_SCREENING -> R.string.preview_default_apps_settings
+    IntentKind.INPUT_METHOD -> R.string.preview_ime_native_picker
     IntentKind.PROCESS_TEXT -> R.string.preview_process_text_selection
     IntentKind.SHORTCUT_ITEM, IntentKind.LAUNCHER_SHORTCUT ->
         R.string.preview_shortcut_observation
@@ -112,6 +116,20 @@ internal object SystemEffectPreview {
             show(context, R.string.system_preview_unavailable)
             return
         }
+        if (route == SystemPreviewRoute.INPUT_METHOD_PICKER) {
+            runCatching {
+                context.getSystemService(InputMethodManager::class.java)
+                    ?.showInputMethodPicker() ?: error("No input method manager")
+            }.onFailure {
+                Log.w("ListCleaner.SystemPreview", "IME_PICKER_FAILED " + it.javaClass.simpleName)
+                show(context, R.string.system_preview_failed)
+            }
+            return
+        }
+        if (route == SystemPreviewRoute.SETTINGS) {
+            launchSettings(context, kind, selectedUserId)
+            return
+        }
         val tracked = kind in setOf(
             IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT,
             IntentKind.CREATE_DOCUMENT, IntentKind.DOCUMENT_ROOT,
@@ -119,9 +137,6 @@ internal object SystemEffectPreview {
         val sessionStore = if (tracked) PickerProbeSessionStore(context) else null
         runCatching {
             val target = buildIntent(context, kind, scenario)
-            if (route == SystemPreviewRoute.SETTINGS) {
-                show(context, R.string.system_preview_settings_notice)
-            }
             val launch = if (route == SystemPreviewRoute.CHOOSER)
                 Intent.createChooser(target, context.getString(R.string.system_preview_chooser_title))
             else target
@@ -138,6 +153,78 @@ internal object SystemEffectPreview {
                 show(context, R.string.system_preview_failed)
             }
         }
+    }
+
+    /** Open only supported, exported Android settings actions; never assume an OEM
+     * retains an AOSP-specific Activity class or pretend that this is the final list.
+     */
+    fun launchSettings(context: Context, kind: IntentKind, selectedUserId: Int) {
+        if (!checkUser(context, selectedUserId)) return
+        val actions = settingsActions(kind)
+        if (actions.isEmpty()) {
+            show(context, R.string.system_preview_unavailable)
+            return
+        }
+        for ((index, action) in actions.withIndex()) {
+            val candidate = Intent(action)
+            try {
+                context.startActivity(candidate)
+                Log.i("ListCleaner.SystemPreview",
+                    "SETTINGS_LAUNCHED kind=$kind action=$action fallback=${index != 0}")
+                if (index > 0) show(context, R.string.preview_settings_fallback)
+                return
+            } catch (failure: ActivityNotFoundException) {
+                Log.w("ListCleaner.SystemPreview",
+                    "SETTINGS_UNSUPPORTED kind=$kind action=$action")
+            } catch (failure: SecurityException) {
+                Log.w("ListCleaner.SystemPreview",
+                    "SETTINGS_BLOCKED kind=$kind action=$action")
+            } catch (failure: RuntimeException) {
+                Log.w("ListCleaner.SystemPreview",
+                    "SETTINGS_FAILED kind=$kind action=$action error=${failure.javaClass.simpleName}")
+            }
+        }
+        show(context, R.string.system_preview_no_handler)
+    }
+
+    internal fun settingsActions(kind: IntentKind): List<String> = when (kind) {
+        IntentKind.HOME -> listOf(
+            Settings.ACTION_HOME_SETTINGS, Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+        IntentKind.ASSISTANT -> listOf(
+            Settings.ACTION_VOICE_INPUT_SETTINGS, Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+        IntentKind.BROWSER, IntentKind.CALL_SCREENING ->
+            listOf(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+        IntentKind.INPUT_METHOD -> listOf(Settings.ACTION_INPUT_METHOD_SETTINGS)
+        IntentKind.ACCESSIBILITY -> listOf(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+        IntentKind.PRINT -> listOf(Settings.ACTION_PRINT_SETTINGS)
+        IntentKind.VPN -> listOf(Settings.ACTION_VPN_SETTINGS)
+        IntentKind.NFC_HCE -> listOf(Settings.ACTION_NFC_PAYMENT_SETTINGS)
+        IntentKind.NOTIFICATION_LISTENER ->
+            listOf(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+        IntentKind.DREAM -> listOf(Settings.ACTION_DREAM_SETTINGS)
+        // The credential-provider and autofill request actions require a
+        // package: URI and a provider belonging to the caller. This app is a
+        // manager, not a credential provider; only navigate to related settings.
+        IntentKind.CREDENTIAL_PROVIDER, IntentKind.AUTOFILL -> listOf(
+            Settings.ACTION_SYNC_SETTINGS, Settings.ACTION_SECURITY_SETTINGS)
+        else -> emptyList()
+    }
+
+    /** Build the resolver/PackageManager QUERY, never a Settings navigation intent. */
+    internal fun candidateIntent(
+        context: Context, kind: IntentKind,
+        scenario: SystemProbeScenario = defaultProbeScenario(kind),
+    ): Intent = when (kind) {
+        IntentKind.HOME, IntentKind.BROWSER, IntentKind.ASSISTANT ->
+            scenarioIntent(context, kind, scenario)
+        IntentKind.CALL_SCREENING -> Intent(kind.action)
+        IntentKind.PROCESS_TEXT -> Intent(Intent.ACTION_PROCESS_TEXT).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_PROCESS_TEXT,
+                context.getString(R.string.system_preview_example_text))
+            putExtra(Intent.EXTRA_PROCESS_TEXT_READONLY, true)
+        }
+        else -> buildIntent(context, kind, scenario)
     }
 
     /**
@@ -193,20 +280,11 @@ internal object SystemEffectPreview {
     private fun show(context: Context, resourceId: Int) =
         Toast.makeText(context, resourceId, Toast.LENGTH_LONG).show()
 
-    /** Shared exact test Intent for native picker and in-app PackageManager probing. */
+    /** Read-only PM query uses resolver semantics, never the destination settings page. */
     internal fun queryIntent(
         context: Context, kind: IntentKind,
         scenario: SystemProbeScenario = defaultProbeScenario(kind),
-    ): Intent = markedQueryIntent(
-        if (supportsScenarioTest(kind)) scenarioIntent(context, kind, scenario)
-        else if (kind == IntentKind.PROCESS_TEXT) Intent(Intent.ACTION_PROCESS_TEXT).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_PROCESS_TEXT,
-                context.getString(R.string.system_preview_example_text))
-            putExtra(Intent.EXTRA_PROCESS_TEXT_READONLY, true)
-        }
-        else buildIntent(context, kind, scenario)
-    )
+    ): Intent = markedQueryIntent(candidateIntent(context, kind, scenario))
 
     /** Only PM read-only queries use the marker; do not attach it to native launches. */
     internal fun markedQueryIntent(intent: Intent): Intent = intent.apply {
@@ -283,20 +361,16 @@ internal object SystemEffectPreview {
         IntentKind.CAPTURE_VIDEO -> Intent(MediaStore.ACTION_VIDEO_CAPTURE)
         IntentKind.RECORD_AUDIO -> Intent(MediaStore.Audio.Media.RECORD_SOUND_ACTION)
         IntentKind.HOME, IntentKind.BROWSER, IntentKind.ASSISTANT,
-        IntentKind.CALL_SCREENING -> Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+        IntentKind.CALL_SCREENING -> error("System roles use settingsActions for UI and candidateIntent for candidates")
         IntentKind.WALLPAPER -> Intent(Intent.ACTION_SET_WALLPAPER)
-        IntentKind.INPUT_METHOD -> Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)
-        IntentKind.ACCESSIBILITY -> Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-        IntentKind.PRINT -> Intent(Settings.ACTION_PRINT_SETTINGS)
-        IntentKind.VPN -> Intent(Settings.ACTION_VPN_SETTINGS)
-        IntentKind.NFC_HCE -> Intent(Settings.ACTION_NFC_PAYMENT_SETTINGS)
-        IntentKind.NOTIFICATION_LISTENER -> Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-        IntentKind.DREAM -> Intent(Settings.ACTION_DREAM_SETTINGS)
+        IntentKind.INPUT_METHOD, IntentKind.ACCESSIBILITY, IntentKind.PRINT,
+        IntentKind.VPN, IntentKind.NFC_HCE, IntentKind.NOTIFICATION_LISTENER,
+        IntentKind.DREAM -> error("Manager settings are not resolver candidate Intents")
         // For a third-party manager these are only related settings. Never use
         // ACTION_REQUEST_SET_AUTOFILL_SERVICE/ACTION_CREDENTIAL_PROVIDER with
         // another package; those actions request a provider for the caller.
         IntentKind.AUTOFILL, IntentKind.CREDENTIAL_PROVIDER ->
-            Intent(Settings.ACTION_SECURITY_SETTINGS)
+            error("Provider settings are not resolver candidate Intents")
         IntentKind.PROCESS_TEXT, IntentKind.SHORTCUT_ITEM,
         IntentKind.LAUNCHER_SHORTCUT ->
             error("No launchable system preview for this entry")

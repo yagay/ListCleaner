@@ -24,6 +24,10 @@ data class PickerRuntimeSnapshot(
     val roots: List<PickerRuntimeRoot>,
     /** DocumentsUI State action, if readable from the matching-roots invocation. */
     val requestKind: String = "UNKNOWN",
+    /** Diagnostics only; no document ID, URI, or user file contents are stored. */
+    val actionCode: Int? = null,
+    val stateClassName: String = "",
+    val knownActionConstants: String = "",
 )
 
 object PickerRuntimeSnapshotCodec {
@@ -51,7 +55,10 @@ object PickerRuntimeSnapshotCodec {
     }
 
     private fun sanitize(value: PickerRuntimeSnapshot): PickerRuntimeSnapshot =
-        value.copy(roots = value.roots
+        value.copy(
+            stateClassName = value.stateClassName.take(160),
+            knownActionConstants = value.knownActionConstants.take(240),
+            roots = value.roots
             .filter {
                 it.packageName.length in 1..240 && it.label.isNotBlank() &&
                     it.syntheticId.length in 1..200 &&

@@ -6,6 +6,7 @@ import android.app.role.RoleManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.LauncherApps
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import android.content.pm.ServiceInfo
@@ -95,6 +96,8 @@ internal data class SystemProbeResult(
     val pickerProbeStatus: PickerProbeStatus? = null,
     /** Framework Hook post-filter return, distinct from both PM candidates and actual UI. */
     val runtimeReturn: RuntimeInterfaceSnapshot? = null,
+    /** Captured in a recognized system settings UID, not proof of its actual rendered rows. */
+    val hostReturn: RuntimeInterfaceSnapshot? = null,
 )
 
 /**
@@ -116,7 +119,8 @@ internal object SystemEntryProbe {
             request.entryKind?.let { kind ->
                 val scenario = request.scenario ?: defaultProbeScenario(kind)
                 val initial = probeEntry(context, kind, scenario)
-                val result = initial.copy(runtimeReturn = readRuntimeReturn(context, kind))
+                val (local, host) = readRuntimeReturns(context, kind)
+                val result = initial.copy(runtimeReturn = local, hostReturn = host)
                 if (kind !in setOf(
                         IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT,
                         IntentKind.CREATE_DOCUMENT, IntentKind.DOCUMENT_ROOT,
@@ -144,25 +148,43 @@ internal object SystemEntryProbe {
         }
     }
 
-    private fun readRuntimeReturn(context: Context, kind: IntentKind): RuntimeInterfaceSnapshot? {
-        // All entry kinds may provide a captured post-filter return. Absence of a
-        // snapshot is expected for host-owned lists without a compatible Hook.
+    private fun readRuntimeReturns(
+        context: Context, kind: IntentKind,
+    ): Pair<RuntimeInterfaceSnapshot?, RuntimeInterfaceSnapshot?> = runCatching {
+        val app = context.applicationContext as? ListCleanerApp
+            ?: return@runCatching null to null
+        val prefs = app.currentSession()?.service
+            ?.getRemotePreferences(RuleRepository.REMOTE_PREFS)
+            ?: return@runCatching null to null
+        val ownUid = Process.myUid()
+        val ourUser = AndroidUid.userId(ownUid)
+        fun decode(key: String) = RuntimeInterfaceSnapshotCodec.decode(
+            prefs.getString(key, null), kind
+        )?.takeIf { it.callerUserId == ourUser }
+        val local = decode(RuntimeInterfaceSnapshotCodec.keyForCaller(kind, ownUid))
+        val last = decode(RuntimeInterfaceSnapshotCodec.key(kind))
+        // Do not silently substitute a random application's manager call.
+        // A Settings UID observation is separately labeled, even though
+        // a shared UID does not prove which Activity was rendered.
+        val host = last?.takeIf {
+            it.callerUid != ownUid && it.callerUid >= 0 &&
+                isRecognizedSettingsUid(context, it.callerUid)
+        }
+        (listOfNotNull(local, last?.takeIf { it.callerUid == ownUid })
+            .maxByOrNull { it.capturedAtMillis }) to host
+    }.getOrDefault(null to null)
+
+    @Suppress("DEPRECATION")
+    private fun isRecognizedSettingsUid(context: Context, uid: Int): Boolean {
+        val pm = context.packageManager
         return runCatching {
-            val app = context.applicationContext as? ListCleanerApp
-                ?: return@runCatching null
-            val prefs = app.currentSession()?.service
-                ?.getRemotePreferences(RuleRepository.REMOTE_PREFS)
-                ?: return@runCatching null
-            val callerSpecific = prefs.getString(
-                RuntimeInterfaceSnapshotCodec.keyForCaller(kind, Process.myUid()), null
-            )
-            val result = RuntimeInterfaceSnapshotCodec.decode(
-                callerSpecific ?: prefs.getString(RuntimeInterfaceSnapshotCodec.key(kind), null),
-                kind,
-            )
-            if (result?.callerUserId == AndroidUid.userId(Process.myUid())) result
-            else null
-        }.getOrNull()
+            pm.getPackagesForUid(uid).orEmpty().any { pkg ->
+                // The package AND its installed system flag are needed: a third
+                // party can choose a misleading package name.
+                pkg.contains("settings", ignoreCase = true) &&
+                    (pm.getApplicationInfo(pkg, 0).flags and ApplicationInfo.FLAG_SYSTEM) != 0
+            }
+        }.getOrDefault(false)
     }
 
     private fun unique(items: List<SystemProbeItem>): List<SystemProbeItem> =

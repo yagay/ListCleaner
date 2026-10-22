@@ -9,7 +9,7 @@ import com.yagay.ListCleaner.domain.RuntimeInterfaceSnapshot
  * This class contains no Android services, Compose state or rule simulation.
  */
 internal enum class PreviewListSource {
-    HOOK_OBSERVATION, DOCUMENT_ROOTS, API_RETURN, DIAGNOSTIC, UNAVAILABLE
+    HOOK_OBSERVATION, HOST_OBSERVATION, DOCUMENT_ROOTS, API_RETURN, DIAGNOSTIC, UNAVAILABLE
 }
 
 internal data class PreviewListResult(
@@ -76,10 +76,27 @@ internal object SystemPreviewSelection {
             return PreviewListResult(asEntries(snapshot, value.items), PreviewListSource.HOOK_OBSERVATION)
         }
 
-        // Manager APIs are frequently exempt for app callers or expose different
-        // lists from Settings. Never promote installed/enabled candidates to a
-        // post-filter result just because the observed Hook is missing.
-        if (isManager) return PreviewListResult(emptyList(), PreviewListSource.UNAVAILABLE)
+        if (isManager) {
+            // The host result is independently classified and only supplied when
+            // the repository has verified that its caller UID belongs to a system
+            // Settings package. Shared UIDs can still include multiple processes:
+            // do NOT call this the final rendered Settings UI.
+            val host = value.hostReturn
+            val validHostSource = when (kind) {
+                IntentKind.ACCESSIBILITY, IntentKind.PRINT ->
+                    host?.source == "SYSTEM_MANAGER_RETURN"
+                IntentKind.CREDENTIAL_PROVIDER ->
+                    host?.source == "CREDENTIAL_MANAGER_RETURN"
+                else -> false
+            }
+            if (host != null && host.callerUid != currentCallerUid &&
+                host.callerUid >= 0 && host.callerUserId == request.userId &&
+                nowMillis - host.capturedAtMillis in 0L..MAX_AGE_MS && validHostSource
+            ) return PreviewListResult(
+                asEntries(host, value.items), PreviewListSource.HOST_OBSERVATION
+            )
+            return PreviewListResult(emptyList(), PreviewListSource.UNAVAILABLE)
+        }
 
         return PreviewListResult(
             value.items.ifEmpty { value.diagnosticCandidates }, PreviewListSource.API_RETURN
