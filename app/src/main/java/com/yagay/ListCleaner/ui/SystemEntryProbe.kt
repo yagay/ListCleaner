@@ -192,7 +192,7 @@ internal object SystemEntryProbe {
             host = host,
             other = last?.takeIf { it.callerUid != ownUid && it !== host },
         )
-    }.getOrDefault(null to null)
+    }.getOrDefault(RuntimeObservations(null, null, null))
 
     @Suppress("DEPRECATION")
     private fun isRecognizedSettingsUid(context: Context, uid: Int): Boolean {
