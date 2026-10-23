@@ -63,7 +63,9 @@ fun RootComponentsScreen(
     val busy by vm.componentBusy.collectAsStateWithLifecycle()
     val prefsContext = LocalContext.current
     val navigate: (() -> Unit) -> Unit = { action ->
-        if (pendingNavigation != null) pendingNavigation.request(action) else action()
+        if (!busy) {
+            if (pendingNavigation != null) pendingNavigation.request(action) else action()
+        }
     }
     val confirmation = rememberSelectionConfirmationController()
     SelectionConfirmationDialog(confirmation)
