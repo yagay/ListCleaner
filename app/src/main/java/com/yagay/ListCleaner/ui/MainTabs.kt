@@ -30,6 +30,7 @@ import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.EntryGroup
 import com.yagay.ListCleaner.domain.entryGroup
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.AppType
 import com.yagay.ListCleaner.domain.AppTypeFilter
 import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.ComponentRule
@@ -308,6 +309,15 @@ fun RulesTab(
     val visibleRules = remember(shownGroups) {
         shownGroups.flatMap { it.components }.map { it.rule }.distinct()
     }
+    val visibleSystemPackages = remember(shownGroups) {
+        shownGroups.asSequence().filter { it.appType == AppType.SYSTEM }
+            .map { it.packageName }.toSet()
+    }
+    val newlySelectedSystemAppCount = {
+        visibleRules.asSequence().filter(canStageRule)
+            .filter { it !in displayedSelected && it.packageName in visibleSystemPackages }
+            .map { it.packageName }.distinct().count()
+    }
 
     val applyChanges: () -> Boolean = {
             val changes = selectionDraft.changes.filterKeys(canStageRule)
@@ -426,7 +436,11 @@ fun RulesTab(
                         },
                         batchCount = visibleRules.size,
                         onSelectAll = {
-                            confirmation.request(prefsContext.getString(R.string.select_all)) {
+                            confirmation.request(
+                                prefsContext.getString(R.string.select_all),
+                                systemAppCount = newlySelectedSystemAppCount(),
+                                risk = SystemSelectionRisk.ENTRY
+                            ) {
                                 visibleRules.filter(canStageRule).forEach { rule ->
                                     val current = selectionDraft.selected(rule, rule in activeSelected)
                                     selectionDraft.set(rule, rule in activeSelected, true)
@@ -442,7 +456,11 @@ fun RulesTab(
                             }
                         },
                         onInvert = {
-                            confirmation.request(prefsContext.getString(R.string.invert_selection)) {
+                            confirmation.request(
+                                prefsContext.getString(R.string.invert_selection),
+                                systemAppCount = newlySelectedSystemAppCount(),
+                                risk = SystemSelectionRisk.ENTRY
+                            ) {
                                 visibleRules.filter(canStageRule).forEach { rule ->
                                     val current = selectionDraft.selected(rule, rule in activeSelected)
                                     selectionDraft.set(rule, rule in activeSelected, !current)
@@ -511,8 +529,15 @@ fun RulesTab(
                     ),
                     { vm.toggleExpandedApp(key) },
                     { selected ->
-                        group.components.map { it.rule }.filter(canStageRule).forEach { rule ->
-                            selectionDraft.set(rule, rule in activeSelected, selected)
+                        val editableRules = group.components.map { it.rule }.filter(canStageRule)
+                        val warnCount = if (selected && group.appType == AppType.SYSTEM &&
+                            editableRules.any { it !in displayedSelected }) 1 else 0
+                        confirmation.requestForSystemSelection(
+                            group.appLabel, warnCount, SystemSelectionRisk.ENTRY
+                        ) {
+                            editableRules.forEach { rule ->
+                                selectionDraft.set(rule, rule in activeSelected, selected)
+                            }
                         }
                     },
                     {
@@ -581,7 +606,13 @@ fun RulesTab(
                         onToggle = {
                             val rule = component.rule
                             if (canStageRule(rule)) {
-                                selectionDraft.set(rule, rule in activeSelected, rule !in displayedSelected)
+                                val selecting = rule !in displayedSelected
+                                val warnCount = if (selecting && component.appType == AppType.SYSTEM) 1 else 0
+                                confirmation.requestForSystemSelection(
+                                    component.activityLabel, warnCount, SystemSelectionRisk.ENTRY
+                                ) {
+                                    selectionDraft.set(rule, rule in activeSelected, selecting)
+                                }
                             }
                         },
                         onLock = {
