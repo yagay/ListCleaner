@@ -67,7 +67,12 @@ internal fun SelectionConfirmationDialog(controller: SelectionConfirmationContro
     val pending = controller.pending ?: return
     AdaptiveAlertDialog(
         onDismissRequest = controller::cancel,
-        title = { AdaptiveText(stringResource(R.string.lc_selection_confirm_title)) },
+        title = {
+            AdaptiveText(stringResource(
+                if (pending.systemAppCount > 0) R.string.lc_system_app_warning_title
+                else R.string.lc_selection_confirm_title
+            ))
+        },
         text = {
             val ordinary = stringResource(R.string.lc_selection_confirm_body, pending.description)
             val warning = pending.risk?.takeIf { pending.systemAppCount > 0 }?.let { risk ->
