@@ -230,6 +230,29 @@ for expected in ("ModalBottomSheet(", "draftAppType", "draftView",
         errors.append(f"WorkspaceCommon.kt: unified filter sheet or list actions missing: {expected}")
 if "AdaptiveDropdownMenu(expanded = appMenu" in sheet:
     errors.append("WorkspaceCommon.kt: obsolete Apps dropdown must not return")
+# Both cleanup modes must remain fully legible at typical font scales.
+if "widthIn(min = 350.dp)" not in classic:
+    errors.append("ClassicListLayout.kt: segmented row can clip Component/Root label")
+# The pinned filter must have the same density and touch affordance as the
+# adjacent category chips; neither list should paint into the pinned control.
+if "CompactCategoryButton(" not in sheet.split("internal fun WorkspaceFilterBar(", 1)[1].split(
+    "/** Batch operations", 1
+)[0]:
+    errors.append("WorkspaceCommon.kt: pinned filter must use Material 3 category chip")
+for file, expected in (
+    ("MainControls.kt", "Modifier.weight(1f).clipToBounds()"),
+    ("RootComponentsScreen.kt", "Modifier.weight(1f).clipToBounds()"),
+):
+    code = (root / file).read_text(encoding="utf-8")
+    if expected not in code:
+        errors.append(f"{file}: horizontal categories must be clipped before pinned filter")
+entry = (root / "MainTabs.kt").read_text(encoding="utf-8")
+entry_help = entry.split("if (ruleHelpExpanded) WorkspaceHelpSection", 1)
+if len(entry_help) < 2 or "system_preview_explanation" not in entry_help[1].split(
+    "if (openPreset == null", 1
+)[0]:
+    errors.append("MainTabs.kt: preview explanation belongs in expandable help")
+
 for filename in ("MainTabs.kt", "RootComponentsScreen.kt", "PriorityDialog.kt"):
     code = (root / filename).read_text(encoding="utf-8")
     if "WorkspaceListActions(" not in code and "actions = listOf(" not in code:

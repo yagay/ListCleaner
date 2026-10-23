@@ -474,13 +474,12 @@ fun RulesTab(
                 helpExpanded = ruleHelpExpanded,
                 onHelpToggle = { ruleHelpExpanded = !ruleHelpExpanded }
             )
-            AdaptiveText(
-                stringResource(R.string.system_preview_explanation),
-                modifier = Modifier.padding(horizontal = 16.dp),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
             if (ruleHelpExpanded) WorkspaceHelpSection {
+                AdaptiveText(
+                    stringResource(R.string.system_preview_explanation),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 AdaptiveText(
                     if (state.filter == null) stringResource(R.string.entry_rules_general_help)
                     else stringResource(state.filter.descriptionRes()),

@@ -176,16 +176,25 @@ internal fun WorkspaceFilterBar(
     val activeCount = (if (appTypeFilter != AppTypeFilter.ALL) 1 else 0) +
         (if (viewFilter != UiFilter.ALL) 1 else 0)
 
-    AdaptiveOutlinedButton(
+    // The fixed Filter control shares the same Material 3 chip dimensions as
+    // category choices. A large OutlinedButton used to dominate the strip.
+    CompactCategoryButton(
         modifier = modifier,
+        selected = activeCount > 0,
         onClick = {
             draftAppType = appTypeFilter
             draftView = viewFilter
             showSheet = true
         }
     ) {
-        AdaptiveIcon(Icons.Rounded.FilterList, null, Modifier.size(18.dp))
-        AdaptiveText(stringResource(R.string.lc_filter_sheet_button))
+        AdaptiveIcon(
+            Icons.Rounded.FilterList, null, Modifier.size(18.dp),
+            tint = compactCategoryLabelColor(activeCount > 0)
+        )
+        WorkspaceControlLabel(
+            stringResource(R.string.lc_filter_sheet_button),
+            color = compactCategoryLabelColor(activeCount > 0)
+        )
         if (activeCount > 0) {
             androidx.compose.material3.Badge {
                 AdaptiveText(activeCount.toString())

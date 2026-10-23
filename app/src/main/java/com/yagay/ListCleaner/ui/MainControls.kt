@@ -25,6 +25,7 @@ import com.yagay.ListCleaner.data.UserSpace
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -187,9 +188,12 @@ internal fun ListControls(
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (showEntryGroups) {
+                // Isolate the horizontally scrolling chips from the fixed filter
+                // control: a partially visible chip must not paint underneath it.
+                Box(Modifier.weight(1f).clipToBounds()) {
                 androidx.compose.foundation.lazy.LazyRow(
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(start = MaterialUiTokens.pageHorizontal, end = 4.dp, top = 2.dp, bottom = 2.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(start = MaterialUiTokens.pageHorizontal, end = 8.dp, top = 2.dp, bottom = 2.dp),
                     horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.filterChipGap),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -219,6 +223,7 @@ internal fun ListControls(
                     if (extraFilter != null) {
                         item(key = "special-filter") { extraFilter() }
                     }
+                }
                 }
             } else {
                 Row(

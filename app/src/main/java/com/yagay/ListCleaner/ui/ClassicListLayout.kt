@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -41,7 +42,11 @@ internal fun ClassicCleanupTabs(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            SingleChoiceSegmentedButtonRow(modifier = Modifier) {
+            // Native SegmentedButtonRow divides its measured width evenly across both
+            // buttons. An intrinsic-width row was too narrow for Component · Root.
+            // A minimum width preserves full labels; horizontal scroll handles
+            // unusually large font scales or narrow screens.
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.widthIn(min = 350.dp)) {
             SegmentedButton(
                 selected = active == ClassicCleanupMode.ENTRIES,
                 onClick = { if (active != ClassicCleanupMode.ENTRIES) onEntries() },
