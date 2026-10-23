@@ -173,7 +173,7 @@ internal fun WorkspaceFilterBar(
             horizontal = MaterialUiTokens.pageHorizontal,
             vertical = 2.dp
         ),
-        horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.categoryGap),
+        horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.filterChipGap),
         verticalAlignment = Alignment.CenterVertically
     ) {
         item(key = "apps") {
