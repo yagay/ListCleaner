@@ -28,6 +28,9 @@ for file in sorted(root.glob("*.kt")):
         continue
     for line_no, line in enumerate(file.read_text(encoding="utf-8").splitlines(), 1):
         code = line.split("//", 1)[0]
+        if "ButtonDefaults.TextButtonContentPadding" in code:
+            # Standard Material 3 content padding is not a custom color override.
+            continue
         if re.search(r"\b(?:ButtonDefaults|IconButtonDefaults|FilterChipDefaults|NavigationBarItemDefaults)\s*\.", code):
             errors.append(f"{file.name}:{line_no}: use MaterialActionColors for action colors")
 
