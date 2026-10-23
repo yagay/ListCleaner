@@ -199,6 +199,30 @@ fun RulesTab(
     val deepLinkSelected = genericDeepLinkSelected + explicitDeepLinkSelected
     val deepLinkScoped = deepLinkHost != null
     val lockScope = deepLinkHost?.let(::browserRuleBulkLockScope) ?: ruleBulkLockScope(state.filter, openPreset)
+    val activeSelected = when {
+        typedOpenPreset != null -> typedSelected
+        deepLinkHost != null -> deepLinkSelected
+        else -> state.selected
+    }
+    val selectionDraft = remember(state.filter, typedOpenPreset, deepLinkHost, vm.selectedSpace.value) {
+        PendingSelectionDraft<ComponentRule>()
+    }
+    val displayedSelected = activeSelected.toMutableSet().apply {
+        selectionDraft.changes.forEach { (rule, selected) ->
+            if (selected) add(rule) else remove(rule)
+        }
+    }.toSet()
+    val canStageRule: (ComponentRule) -> Boolean = { rule ->
+        when {
+            typedOpenPreset != null -> rule !in state.selected &&
+                !vm.isBulkProtected(lockScope, rule.packageName, rule.id)
+            deepLinkHost != null -> rule !in genericDeepLinkSelected &&
+                !vm.isBulkProtected(lockScope, rule.packageName, rule.id)
+            else -> !vm.isRuleBulkProtected(state.filter, openPreset, rule)
+        }
+    }
+
+
     // Independent navigation and runtime heartbeat updates must not re-filter every app.
     val lockScopeCandidates = remember(
         typedOpenPreset, deepLinkHost, state.candidates,
@@ -276,29 +300,6 @@ fun RulesTab(
             }
         }
     }
-    val activeSelected = when {
-        typedOpenPreset != null -> typedSelected
-        deepLinkHost != null -> deepLinkSelected
-        else -> state.selected
-    }
-    val selectionDraft = remember(state.filter, typedOpenPreset, deepLinkHost, vm.selectedSpace.value) {
-        PendingSelectionDraft<ComponentRule>()
-    }
-    val displayedSelected = activeSelected.toMutableSet().apply {
-        selectionDraft.changes.forEach { (rule, selected) ->
-            if (selected) add(rule) else remove(rule)
-        }
-    }.toSet()
-    val canStageRule: (ComponentRule) -> Boolean = { rule ->
-        when {
-            typedOpenPreset != null -> rule !in state.selected &&
-                !vm.isBulkProtected(lockScope, rule.packageName, rule.id)
-            deepLinkHost != null -> rule !in genericDeepLinkSelected &&
-                !vm.isBulkProtected(lockScope, rule.packageName, rule.id)
-            else -> !vm.isRuleBulkProtected(state.filter, openPreset, rule)
-        }
-    }
-
     val visibleRules = remember(shownGroups) {
         shownGroups.flatMap { it.components }.map { it.rule }.distinct()
     }
