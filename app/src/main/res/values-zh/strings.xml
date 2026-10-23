@@ -13,4 +13,10 @@
     <string name="lc_pending_leave_stay">继续编辑</string>
     <string name="lc_apply_conflict_title">未能应用更改</string>
     <string name="lc_apply_conflict_body">已保存的顺序发生变化，或者部分应用被锁定。待应用的修改仍然保留，请检查后重试。</string>
+    <string name="lc_system_app_warning_count">涉及的系统应用：%1$d 个</string>
+    <string name="lc_system_app_warning_entry">隐藏系统应用入口，可能导致 Android 或其他应用无法使用某些选项。请确认这些入口可以安全隐藏后再继续。</string>
+    <string name="lc_system_app_warning_root">禁用系统应用组件可能导致 Android 功能异常，甚至影响设备正常运行。请确认了解该组件的作用后再继续。</string>
+    <string name="lc_system_app_warning_priority">调整系统应用的排序优先级，可能改变 Android 默认推荐或打开的应用。请确认这是你想要的结果。</string>
+    <string name="lc_system_app_warning_select">选择系统应用</string>
+    <string name="lc_system_app_warning_title">系统应用风险提醒</string>
 </resources>
