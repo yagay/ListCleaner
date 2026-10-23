@@ -150,4 +150,6 @@
     <string name="lc_filter_sheet_title">列表筛选</string>
     <string name="lc_filter_sheet_reset">重置</string>
     <string name="lc_filter_sheet_apply">应用筛选</string>
+    <string name="lc_category_picker_entry_title">选择入口分类</string>
+    <string name="lc_category_picker_component_title">选择组件分类</string>
 </resources>
