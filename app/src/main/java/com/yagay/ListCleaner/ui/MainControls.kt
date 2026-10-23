@@ -162,7 +162,9 @@ internal fun ListControls(
                 viewFilter = state.uiFilter,
                 onViewFilter = onUiFilter,
                 viewTitle = viewTitle,
-                extraFilter = extraFilter
+                extraFilter = if (
+                    state.filter == IntentKind.OPEN || state.filter == IntentKind.DEEP_LINK
+                ) extraFilter else null
             )
         }
         if (state.loading) WorkspaceProgress()
