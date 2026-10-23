@@ -639,6 +639,7 @@ fun RulesTab(
         modifier = Modifier.align(Alignment.BottomCenter)
     )
 }
+}
 
 @Composable
 private fun SummaryRow(state: MainState, displayedApps: Int) {
