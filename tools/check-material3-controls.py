@@ -216,13 +216,16 @@ compact = (root / "CompactCategoryButton.kt").read_text(encoding="utf-8")
 if "Arrangement.spacedBy(4.dp)" not in compact:
     errors.append("CompactCategoryButton.kt: 4dp label/icon spacing must be consistent")
 
-# Categories use one hierarchical Material 3 sheet instead of clipped chips.
+# Categories use an anchored, scrollable Material 3 dropdown, not a distant bottom sheet.
 category = (root / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
-for expected in ("ModalBottomSheet(", "UiCard(", "EntryCategoryPicker(",
+for expected in ("DropdownMenu(", "UiCard(", "EntryCategoryPicker(",
                  "ComponentCategoryPicker(", "expandedGroup", "group.kinds()",
-                 "availableKinds", "onSelected(null)"):
+                 "availableKinds", "onSelected(null)", "widthIn(min = 240.dp",
+                 "AdaptiveDropdownMenuItem("):
     if expected not in category:
-        errors.append(f"WorkspaceCategorySelector.kt: category picker regression: {expected}")
+        errors.append(f"WorkspaceCategorySelector.kt: anchored category picker regression: {expected}")
+if "ModalBottomSheet(" in category or "LazyRow(" in category:
+    errors.append("WorkspaceCategorySelector.kt: category selection must stay in an anchored popup")
 for filename in ("MainControls.kt", "ComponentCategoryFilter.kt"):
     code = (root / filename).read_text(encoding="utf-8")
     if "LazyRow(" in code:
