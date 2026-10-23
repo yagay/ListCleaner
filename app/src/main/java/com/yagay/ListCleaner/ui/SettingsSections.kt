@@ -26,7 +26,7 @@ internal fun CompatibilitySettings(
         AdaptiveText(stringResource(R.string.dashboard_sync_status),
             style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium)
         AdaptiveText(state.syncStatus, style = MaterialTheme.typography.bodySmall)
-        AdaptiveOutlinedButton(onClick = vm::refreshModuleStatus, modifier = Modifier.fillMaxWidth()) {
+        SettingsActionButton(onClick = vm::refreshModuleStatus, modifier = Modifier.fillMaxWidth()) {
             AdaptiveText(stringResource(R.string.dashboard_refresh_runtime))
         }
     }
@@ -44,7 +44,7 @@ internal fun CompatibilitySettings(
     SettingsArea(stringResource(R.string.dashboard_app_visibility)) {
         AdaptiveText(stringResource(R.string.dashboard_app_visibility_help),
             style = MaterialTheme.typography.bodySmall)
-        AdaptiveOutlinedButton(onClick = onAppPicker, modifier = Modifier.fillMaxWidth()) {
+        SettingsActionButton(onClick = onAppPicker, modifier = Modifier.fillMaxWidth()) {
             AdaptiveText(stringResource(R.string.dashboard_manage_app_visibility_plain))
         }
         AdaptiveText(stringResource(R.string.dashboard_app_visibility_warning),
@@ -66,10 +66,10 @@ internal fun BackupSettings(
         AdaptiveText(stringResource(R.string.settings_backup_note),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        AdaptiveOutlinedButton(onClick = onExport, modifier = Modifier.fillMaxWidth()) {
+        SettingsActionButton(onClick = onExport, modifier = Modifier.fillMaxWidth()) {
             AdaptiveText(stringResource(R.string.dashboard_export_json))
         }
-        AdaptiveOutlinedButton(onClick = onRestore, modifier = Modifier.fillMaxWidth()) {
+        SettingsActionButton(onClick = onRestore, modifier = Modifier.fillMaxWidth()) {
             AdaptiveText(stringResource(R.string.dashboard_restore_json))
         }
     }
@@ -109,7 +109,7 @@ internal fun DiagnosticsSettings(
         AdaptiveText(stringResource(R.string.lc_diagnostics_summary_help),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        AdaptiveButton(
+        SettingsActionButton(style = SettingsActionStyle.PRIMARY, 
             onClick = onCollectDiagnostics,
             enabled = !collectingDiagnostics,
             modifier = Modifier.fillMaxWidth()
@@ -137,7 +137,7 @@ internal fun DiagnosticsSettings(
     SettingsArea(stringResource(R.string.dashboard_diagnostics)) {
         AdaptiveText(stringResource(R.string.dashboard_scan_disclaimer),
             style = MaterialTheme.typography.bodySmall)
-        AdaptiveOutlinedButton(
+        SettingsActionButton(
             onClick = onInspectFile,
             enabled = !checkingFile,
             modifier = Modifier.fillMaxWidth()
@@ -148,7 +148,7 @@ internal fun DiagnosticsSettings(
         fileCheckStatus?.let { AdaptiveText(it, style = MaterialTheme.typography.bodySmall) }
     }
     SettingsArea(stringResource(R.string.lc_settings_technical_group)) {
-        AdaptiveOutlinedButton(onClick = { showTechnical = !showTechnical },
+        SettingsActionButton(onClick = { showTechnical = !showTechnical },
             modifier = Modifier.fillMaxWidth()) {
             AdaptiveText(stringResource(if (showTechnical)
                 R.string.lc_settings_hide_technical else R.string.lc_settings_show_technical))
@@ -166,7 +166,7 @@ internal fun DiagnosticsSettings(
             AdaptiveText(stringResource(R.string.dashboard_hits_help),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-            AdaptiveOutlinedButton(onClick = vm::refreshModuleStatus,
+            SettingsActionButton(onClick = vm::refreshModuleStatus,
                 modifier = Modifier.fillMaxWidth()) {
                 AdaptiveText(stringResource(R.string.dashboard_refresh_runtime))
             }
