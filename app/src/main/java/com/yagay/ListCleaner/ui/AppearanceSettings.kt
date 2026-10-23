@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.AppTypeFilter
@@ -26,10 +27,47 @@ import kotlin.math.roundToInt
 
 
 @Composable
-internal fun SettingsAppearanceControls() {
+internal fun SettingsAppearanceControls(
+    colorMode: UiColorMode,
+    onColorModeChange: (UiColorMode) -> Unit,
+) {
     val context = LocalContext.current
     val current = UiPreferencesRuntime.current
     SettingsArea(stringResource(R.string.lc_settings_theme_group)) {
+        // Keep the light/dark choice immediately visible. Generic three-option
+        // SettingsChoices opens a secondary dialog and obscured this feature.
+        AdaptiveText(
+            stringResource(R.string.ui_color_mode_title),
+            fontWeight = FontWeight.Medium
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap)
+        ) {
+            UiColorMode.entries.forEach { mode ->
+                val label = stringResource(when (mode) {
+                    UiColorMode.SYSTEM -> R.string.ui_color_mode_system
+                    UiColorMode.LIGHT -> R.string.ui_color_mode_light
+                    UiColorMode.DARK -> R.string.ui_color_mode_dark
+                })
+                AdaptiveFilterChip(
+                    selected = colorMode == mode,
+                    onClick = { onColorModeChange(mode) },
+                    modifier = Modifier.weight(1f),
+                    label = {
+                        AdaptiveText(
+                            label, modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center, maxLines = 2
+                        )
+                    }
+                )
+            }
+        }
+        AdaptiveText(
+            stringResource(R.string.ui_color_mode_help),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         SettingsChoices(
             stringResource(R.string.lc_home_layout_title), current.homeLayout,
             listOf(

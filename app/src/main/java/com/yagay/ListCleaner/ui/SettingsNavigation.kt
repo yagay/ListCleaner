@@ -4,7 +4,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -87,8 +86,7 @@ internal fun SettingsTabContent(
                         ) {
                             when (page) {
                                 SettingsSection.APPEARANCE -> {
-                                    SettingsAppearanceTheme(colorMode, onColorModeChange)
-                                    SettingsAppearanceControls()
+                                    SettingsAppearanceControls(colorMode, onColorModeChange)
                                     SettingsLanguageControls()
                                 }
                                 SettingsSection.LISTS -> SettingsListControls()
@@ -111,30 +109,5 @@ internal fun SettingsTabContent(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun SettingsAppearanceTheme(
-    colorMode: UiColorMode,
-    onColorModeChange: (UiColorMode) -> Unit,
-) {
-    SettingsArea(stringResource(R.string.ui_color_mode_title)) {
-        SettingsChoices(
-            stringResource(R.string.ui_color_mode_title),
-            colorMode,
-            UiColorMode.entries.map { mode ->
-                mode to stringResource(when (mode) {
-                    UiColorMode.SYSTEM -> R.string.ui_color_mode_system
-                    UiColorMode.LIGHT -> R.string.ui_color_mode_light
-                    UiColorMode.DARK -> R.string.ui_color_mode_dark
-                })
-            }
-        ) { onColorModeChange(it) }
-        AdaptiveText(
-            stringResource(R.string.ui_color_mode_help),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
