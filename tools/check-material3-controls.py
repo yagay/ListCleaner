@@ -122,7 +122,7 @@ required = {
     "ClassicListLayout.kt": ["fun ClassicCleanupTabs(", "WorkspaceControlLabel(",
                              "active == ClassicCleanupMode.ENTRIES", "active == ClassicCleanupMode.COMPONENTS"],
     "ComponentCategoryFilter.kt": ["fun ClassicComponentCategoryFilter(",
-                                    "WorkspaceControlLabel(", "CompactCategoryButton("],
+                                    "ComponentCategoryPicker("],
     "OpenPresetFilterRow.kt": ["fun OpenPresetFilterMenu(", "WorkspaceControlLabel(",
                                "CompactCategoryButton("],
     "BrowserHostFilterRow.kt": ["fun BrowserHostFilterMenu(", "WorkspaceControlLabel(",
@@ -216,12 +216,19 @@ compact = (root / "CompactCategoryButton.kt").read_text(encoding="utf-8")
 if "Arrangement.spacedBy(4.dp)" not in compact:
     errors.append("CompactCategoryButton.kt: 4dp label/icon spacing must be consistent")
 
-# Category strips remain scrollable, while Apps/View live in a shared M3 bottom sheet.
+# Categories use one hierarchical Material 3 sheet instead of clipped chips.
+category = (root / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
+for expected in ("ModalBottomSheet(", "OutlinedCard(", "EntryCategoryPicker(",
+                 "ComponentCategoryPicker(", "expandedGroup", "group.kinds()",
+                 "availableKinds", "onSelected(null)"):
+    if expected not in category:
+        errors.append(f"WorkspaceCategorySelector.kt: category picker regression: {expected}")
 for filename in ("MainControls.kt", "ComponentCategoryFilter.kt"):
     code = (root / filename).read_text(encoding="utf-8")
-    for expected in ("LazyRow(", "Arrangement.spacedBy(MaterialUiTokens.filterChipGap)"):
-        if expected not in code:
-            errors.append(f"{filename}: inconsistent Material 3 category strip: {expected}")
+    if "LazyRow(" in code:
+        errors.append(f"{filename}: old horizontal category chips returned")
+    if "EntryCategoryPicker(" not in code and "ComponentCategoryPicker(" not in code:
+        errors.append(f"{filename}: missing shared category picker")
 sheet = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
 for expected in ("ModalBottomSheet(", "draftAppType", "draftView",
                  "lc_filter_sheet_apply", "lc_filter_sheet_reset", "Badge {",
@@ -239,13 +246,11 @@ if "CompactCategoryButton(" not in sheet.split("internal fun WorkspaceFilterBar(
     "/** Batch operations", 1
 )[0]:
     errors.append("WorkspaceCommon.kt: pinned filter must use Material 3 category chip")
-for file, expected in (
-    ("MainControls.kt", "Modifier.weight(1f).clipToBounds()"),
-    ("RootComponentsScreen.kt", "Modifier.weight(1f).clipToBounds()"),
-):
+# Fixed Filter stays beside the full-width category selector.
+for file in ("MainControls.kt", "RootComponentsScreen.kt"):
     code = (root / file).read_text(encoding="utf-8")
-    if expected not in code:
-        errors.append(f"{file}: horizontal categories must be clipped before pinned filter")
+    if "WorkspaceFilterBar(" not in code:
+        errors.append(f"{file}: fixed filter must remain beside category selector")
 entry = (root / "MainTabs.kt").read_text(encoding="utf-8")
 entry_help = entry.split("if (ruleHelpExpanded) WorkspaceHelpSection", 1)
 if len(entry_help) < 2 or "system_preview_explanation" not in entry_help[1].split(
