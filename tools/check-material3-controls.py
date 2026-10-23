@@ -218,7 +218,7 @@ if "Arrangement.spacedBy(4.dp)" not in compact:
 
 # Categories use one hierarchical Material 3 sheet instead of clipped chips.
 category = (root / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
-for expected in ("ModalBottomSheet(", "OutlinedCard(", "EntryCategoryPicker(",
+for expected in ("ModalBottomSheet(", "UiCard(", "EntryCategoryPicker(",
                  "ComponentCategoryPicker(", "expandedGroup", "group.kinds()",
                  "availableKinds", "onSelected(null)"):
     if expected not in category:
