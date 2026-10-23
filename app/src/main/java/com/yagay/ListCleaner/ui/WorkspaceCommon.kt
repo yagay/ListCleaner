@@ -14,7 +14,6 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.InfoOutline
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Lock
@@ -274,7 +273,7 @@ internal fun WorkspaceListActions(
         if (onHelpToggle != null) {
             AdaptiveIconButton(onClick = onHelpToggle) {
                 AdaptiveIcon(
-                    if (helpExpanded) Icons.Rounded.Info else Icons.Rounded.InfoOutline,
+                    Icons.Rounded.Info,
                     stringResource(R.string.lc_filter_help_short),
                     Modifier.size(20.dp),
                     tint = if (helpExpanded) MaterialTheme.colorScheme.primary
