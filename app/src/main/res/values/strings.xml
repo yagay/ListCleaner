@@ -6,4 +6,11 @@
     <string name="lc_discard_changes">Discard</string>
     <string name="lc_apply_changes">Apply changes</string>
     <string name="lc_pending_apply_confirm">Apply %1$d pending changes?</string>
+    <string name="lc_pending_leave_title">Unsaved changes</string>
+    <string name="lc_pending_leave_body">You have unapplied changes. Apply them before leaving, discard them, or continue editing?</string>
+    <string name="lc_pending_leave_apply">Apply and leave</string>
+    <string name="lc_pending_leave_discard">Discard and leave</string>
+    <string name="lc_pending_leave_stay">Keep editing</string>
+    <string name="lc_apply_conflict_title">Changes not applied</string>
+    <string name="lc_apply_conflict_body">The saved order changed or an item is locked. Your selections are still pending. Review the list and try again.</string>
 </resources>
