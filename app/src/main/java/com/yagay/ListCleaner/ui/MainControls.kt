@@ -147,7 +147,6 @@ private fun EntryGroupButton(
                 modifier = Modifier.widthIn(max = 132.dp),
                 color = compactCategoryLabelColor(active)
             )
-            Spacer(Modifier.width(4.dp))
             AdaptiveIcon(
                 Icons.Rounded.ExpandMore, null, Modifier.size(16.dp),
                 tint = compactCategoryLabelColor(active)
@@ -204,7 +203,7 @@ internal fun ListControls(
                     horizontal = MaterialUiTokens.pageHorizontal,
                     vertical = 2.dp
                 ),
-                horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.categoryGap),
+                horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.filterChipGap),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (includeAllKinds) {
