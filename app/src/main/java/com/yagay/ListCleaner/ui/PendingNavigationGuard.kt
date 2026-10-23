@@ -5,6 +5,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import com.yagay.ListCleaner.R
@@ -15,7 +16,8 @@ import com.yagay.ListCleaner.R
  */
 class PendingNavigationGuard {
     private var owner: Any? = null
-    private var pendingCount = 0
+    private var pendingCount by mutableIntStateOf(0)
+    val hasChanges: Boolean get() = pendingCount > 0
     private var apply: (() -> Boolean)? = null
     private var discard: (() -> Unit)? = null
     private var rootEditor = false
