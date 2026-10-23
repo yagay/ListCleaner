@@ -81,16 +81,16 @@ internal fun <T> SettingsChoices(
             text = {
                 Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
                     options.forEach { (item, label) ->
-                        Row(Modifier.fillMaxWidth().clickable {
-                            choosing = false
-                            onSelected(item)
-                        }.heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(selected = item == value, onClick = {
+                        androidx.compose.material3.ListItem(
+                            modifier = Modifier.fillMaxWidth().clickable {
                                 choosing = false
                                 onSelected(item)
-                            })
-                            AdaptiveText(label)
-                        }
+                            },
+                            headlineContent = { AdaptiveText(label) },
+                            leadingContent = {
+                                RadioButton(selected = item == value, onClick = null)
+                            }
+                        )
                     }
                 }
             },
