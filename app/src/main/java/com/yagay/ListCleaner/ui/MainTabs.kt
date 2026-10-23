@@ -61,6 +61,7 @@ fun RulesTab(
     var selectedComponentKind by rememberSaveable { mutableStateOf<CleanupKind?>(null) }
     var browseAllComponents by rememberSaveable { mutableStateOf(false) }
     var savedRuleQuery by rememberSaveable { mutableStateOf("") }
+    var savedRuleKind by rememberSaveable { mutableStateOf<IntentKind?>(null) }
     var savedComponentQuery by rememberSaveable { mutableStateOf("") }
     // Main-branch inspired list-first layout; the other mode keeps category navigation.
     val classicLayout = UiPreferencesRuntime.current.homeLayout == UiHomeLayout.CLASSIC_LIST
@@ -91,6 +92,7 @@ fun RulesTab(
                 browseAllComponents = false
                 savedComponentQuery = state.query
                 vm.setQuery(savedRuleQuery)
+                if (classicLayout) vm.setFilter(savedRuleKind)
             }
             )
         }
@@ -285,6 +287,7 @@ fun RulesTab(
                     onEntries = {},
                     onComponents = {
                         savedRuleQuery = state.query
+                        savedRuleKind = state.filter
                         selectedComponentKind = null
                         browseAllComponents = true
                         selectedGroup = null

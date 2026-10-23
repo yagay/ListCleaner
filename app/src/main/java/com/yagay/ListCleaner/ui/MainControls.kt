@@ -157,15 +157,31 @@ private fun EntryGroupButton(
     availableKinds: Set<IntentKind>? = null,
 ) {
     var expanded by remember(group) { mutableStateOf(false) }
-    val active = activeKind?.entryGroup() == group
+    val chosen = EntryCategorySelectionPolicy.selectedKind(group, activeKind, availableKinds)
+    val active = chosen != null
+    val label = stringResource(group.titleRes()) +
+        if (chosen != null) " · " + stringResource(chosen.titleRes()) else ""
     Box {
-        AdaptiveTextButton(onClick = { expanded = true }, contentPadding = MaterialUiTokens.compactButtonPadding) {
-            AdaptiveText(
-                stringResource(group.titleRes()),
-                fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
-            )
-            AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
-        }
+        AdaptiveFilterChip(
+            selected = active,
+            onClick = { expanded = true },
+            leadingIcon = if (active) {
+                { AdaptiveIcon(Icons.Rounded.Check, null, Modifier.size(16.dp)) }
+            } else null,
+            label = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    AdaptiveText(
+                        label,
+                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                        maxLines = 1
+                    )
+                    AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
+                }
+            }
+        )
         AdaptiveDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             group.kinds().filter { availableKinds == null || it in availableKinds }.forEach { kind ->
                 AdaptiveDropdownMenuItem(
@@ -218,8 +234,11 @@ internal fun ListControls(
             ) {
                 if (includeAllKinds) {
                     AdaptiveFilterChip(
-                        selected = state.filter == null,
+                        selected = EntryCategorySelectionPolicy.allSelected(state.filter),
                         onClick = { onFilter(null) },
+                        leadingIcon = if (EntryCategorySelectionPolicy.allSelected(state.filter)) {
+                            { AdaptiveIcon(Icons.Rounded.Check, null, Modifier.size(16.dp)) }
+                        } else null,
                         label = { AdaptiveText(stringResource(R.string.common_all)) }
                     )
                 }

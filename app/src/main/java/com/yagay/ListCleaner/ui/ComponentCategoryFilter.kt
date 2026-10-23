@@ -3,6 +3,8 @@ package com.yagay.ListCleaner.ui
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -34,9 +36,13 @@ internal fun ClassicComponentCategoryFilter(
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         ComponentCategoryFilterPolicy.choices.forEach { kind ->
+            val active = selected == kind
             AdaptiveFilterChip(
-                selected = selected == kind,
+                selected = active,
                 onClick = { onSelected(kind) },
+                leadingIcon = if (active) {
+                    { AdaptiveIcon(Icons.Rounded.Check, null, Modifier.size(16.dp)) }
+                } else null,
                 label = {
                     AdaptiveText(
                         if (kind == null) stringResource(R.string.common_all)
