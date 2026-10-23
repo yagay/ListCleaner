@@ -198,32 +198,38 @@ internal fun ListControls(
         MaterialTheme.colorScheme.surface
     )) {
         if (showEntryGroups) {
-            Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
+            androidx.compose.foundation.lazy.LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(
+                    horizontal = MaterialUiTokens.pageHorizontal,
+                    vertical = 2.dp
+                ),
+                horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.categoryGap),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (includeAllKinds) {
-                    val allActive = EntryCategorySelectionPolicy.allSelected(state.filter)
-                    CompactCategoryButton(
-                        selected = allActive,
-                        onClick = { onFilter(null) }
-                    ) {
-                        WorkspaceControlLabel(
-                            stringResource(R.string.common_all),
-                            color = compactCategoryLabelColor(allActive)
-                        )
+                    item(key = "all") {
+                        val allActive = EntryCategorySelectionPolicy.allSelected(state.filter)
+                        CompactCategoryButton(
+                            selected = allActive,
+                            onClick = { onFilter(null) }
+                        ) {
+                            WorkspaceControlLabel(
+                                stringResource(R.string.common_all),
+                                color = compactCategoryLabelColor(allActive)
+                            )
+                        }
                     }
                 }
-                EntryGroup.entries
+                val groups = EntryGroup.entries
                     .filter { includeAllKinds || it != EntryGroup.DESKTOP }
                     .filter { group ->
                         availableEntryKinds == null ||
                             group.kinds().any { it in availableEntryKinds }
                     }
-                    .forEach { group ->
-                        EntryGroupButton(group, state.filter, onFilter, availableEntryKinds)
-                    }
+                items(groups.size, key = { groups[it].name }) { index ->
+                    EntryGroupButton(groups[index], state.filter, onFilter, availableEntryKinds)
+                }
             }
         }
 

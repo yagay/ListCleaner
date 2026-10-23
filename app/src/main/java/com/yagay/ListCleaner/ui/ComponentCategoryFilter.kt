@@ -25,14 +25,20 @@ internal fun ClassicComponentCategoryFilter(
     selected: CleanupKind?,
     onSelected: (CleanupKind?) -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 8.dp, vertical = 2.dp),
+    androidx.compose.foundation.lazy.LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(
+            horizontal = MaterialUiTokens.pageHorizontal,
+            vertical = 2.dp
+        ),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+        horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.categoryGap)
     ) {
-        ComponentCategoryFilterPolicy.choices.forEach { kind ->
+        items(
+            count = ComponentCategoryFilterPolicy.choices.size,
+            key = { index -> ComponentCategoryFilterPolicy.choices[index]?.name ?: "ALL" }
+        ) { index ->
+            val kind = ComponentCategoryFilterPolicy.choices[index]
             val active = selected == kind
             CompactCategoryButton(
                 selected = active,

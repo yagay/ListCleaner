@@ -1,18 +1,22 @@
 package com.yagay.ListCleaner.ui
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.R
 
-/** Two top-level modes for the classic (main-style) cleanup workspace.
- * They are tabs over the existing editors, not two copies of the rule data.
- */
+/** Two mutually exclusive cleanup editors, not unrelated filter chips. */
 internal enum class ClassicCleanupMode { ENTRIES, COMPONENTS }
 
 @Composable
@@ -21,42 +25,47 @@ internal fun ClassicCleanupTabs(
     onEntries: () -> Unit,
     onComponents: () -> Unit,
 ) {
-    Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
-        Row(
+    val entryDescription = stringResource(R.string.workspace_rule_section)
+    val componentDescription = stringResource(R.string.root_screen_title)
+    Surface(color = MaterialTheme.colorScheme.surface) {
+        SingleChoiceSegmentedButtonRow(
             modifier = Modifier.fillMaxWidth().padding(
                 horizontal = MaterialUiTokens.pageHorizontal,
-                vertical = MaterialUiTokens.contentGap
-            ),
-            horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.categoryGap)
+                vertical = 4.dp
+            )
         ) {
-            AdaptiveFilterChip(
-                modifier = Modifier.weight(1f),
+            SegmentedButton(
                 selected = active == ClassicCleanupMode.ENTRIES,
                 onClick = { if (active != ClassicCleanupMode.ENTRIES) onEntries() },
-                label = {
-                    WorkspaceControlLabel(
-                        stringResource(R.string.workspace_rule_section),
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center,
-                        minLines = 2,
-                        maxLines = 2
-                    )
-                }
-            )
-            AdaptiveFilterChip(
-                modifier = Modifier.weight(1f),
+                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                modifier = Modifier.weight(1f).semantics {
+                    contentDescription = entryDescription
+                },
+                icon = {}
+            ) {
+                WorkspaceControlLabel(
+                    stringResource(R.string.lc_cleanup_mode_entry_short),
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1
+                )
+            }
+            SegmentedButton(
                 selected = active == ClassicCleanupMode.COMPONENTS,
                 onClick = { if (active != ClassicCleanupMode.COMPONENTS) onComponents() },
-                label = {
-                    WorkspaceControlLabel(
-                        stringResource(R.string.root_screen_title),
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center,
-                        minLines = 2,
-                        maxLines = 2
-                    )
-                }
-            )
+                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                modifier = Modifier.weight(1f).semantics {
+                    contentDescription = componentDescription
+                },
+                icon = {}
+            ) {
+                WorkspaceControlLabel(
+                    stringResource(R.string.lc_cleanup_mode_component_short),
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1
+                )
+            }
         }
     }
 }

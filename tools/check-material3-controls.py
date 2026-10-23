@@ -198,6 +198,28 @@ for filename in ("AppScopePicker.kt", "ScopeScreen.kt"):
     if re.search(r"\bScaffold\s*\(", code):
         errors.append(f"{filename}: use MaterialFullScreenDialog instead of a private Scaffold")
 
+# Cleanup modes use a single-choice segmented control, not oversized FilterChips.
+classic = (root / "ClassicListLayout.kt").read_text(encoding="utf-8")
+for expected in ("SingleChoiceSegmentedButtonRow(", "SegmentedButton(",
+                 "lc_cleanup_mode_entry_short", "lc_cleanup_mode_component_short",
+                 "maxLines = 1"):
+    if expected not in classic:
+        errors.append(f"ClassicListLayout.kt: missing compact segmented navigation: {expected}")
+if "minLines = 2" in classic:
+    errors.append("ClassicListLayout.kt: full-size two-line mode tabs must not return")
+
+# Entry/Root category selectors and Apps/View toolbar use the same scroll/spacing.
+for filename in ("MainControls.kt", "WorkspaceCommon.kt", "ComponentCategoryFilter.kt"):
+    code = (root / filename).read_text(encoding="utf-8")
+    for expected in ("LazyRow(", "Arrangement.spacedBy(MaterialUiTokens.categoryGap)"):
+        if expected not in code:
+            errors.append(f"{filename}: inconsistent Material 3 filter row: {expected}")
+toolbar = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
+for expected in ("appTypeFilter != AppTypeFilter.ALL", "viewFilter != UiFilter.ALL",
+                 "lc_filter_help_short"):
+    if expected not in toolbar:
+        errors.append(f"WorkspaceCommon.kt: filter highlight or text regression: {expected}")
+
 if errors:
     print("\n".join(errors), file=sys.stderr)
     sys.exit(1)
