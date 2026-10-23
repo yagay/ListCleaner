@@ -37,31 +37,34 @@ internal fun WorkspaceCategoryCard(
     onClick: () -> Unit
 ) {
     UiCard(
-        modifier = modifier.heightIn(min = MaterialUiTokens.categoryHeight),
+        modifier = modifier,
         variant = UiCardVariant.CATEGORY,
         onClick = onClick
     ) {
-        Column(
-            Modifier.fillMaxWidth().padding(MaterialUiTokens.categoryPadding),
-            verticalArrangement = Arrangement.spacedBy(MaterialUiTokens.categoryContentGap)
-        ) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                AdaptiveIcon(icon, null, Modifier.size(26.dp), tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.weight(1f))
-                AdaptiveIcon(Icons.Rounded.ChevronRight, null, Modifier.size(18.dp))
+        androidx.compose.material3.ListItem(
+            colors = androidx.compose.material3.ListItemDefaults.colors(
+                containerColor = androidx.compose.ui.graphics.Color.Transparent
+            ),
+            headlineContent = {
+                AdaptiveText(title, style = MaterialTheme.typography.titleMedium, maxLines = 2)
+            },
+            supportingContent = description?.let { subtitle ->
+                {
+                    AdaptiveText(
+                        subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            leadingContent = {
+                AdaptiveIcon(icon, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+            },
+            trailingContent = {
+                AdaptiveIcon(Icons.Rounded.ChevronRight, null)
             }
-            AdaptiveText(
-                title, style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis
-            )
-            AdaptiveText(
-                description.orEmpty(),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
+        )
     }
 }
 
