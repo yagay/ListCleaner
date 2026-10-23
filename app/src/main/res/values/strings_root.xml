@@ -40,7 +40,7 @@
     <string name="root_permission_ack">Got it</string>
     <string name="root_screen_help">This page is different from Rules: Rules only filter candidate entries, while Component cleanup really enables or disables Android components with Root. It manages launcher entries, tiles, create-shortcut entries, and widgets. Desired disabled state is persisted and reconciled after boot, unlock, and app updates.</string>
     <string name="root_filter_help">Apps filters All, User apps, or System apps; counts and bulk actions apply only to the current view. Long-press an app or child item to open the lock menu. Unlocked rows show no lock icon; a status icon appears only after locking. Full locks protect the whole app, partial locks protect selected child entries, and Locked under All aggregates locks from Launcher, Tile, Create shortcut, and Widget categories. Locks only skip bulk actions, remain manually editable, do not change Root disabled state, and do not participate in ordering. Core protected system components remain display-only.</string>
-    <string name="root_selection_semantics">Checked means the component is actually disabled. Current state is read back from Android, while List Cleaner also stores the desired disabled policy so restored components can be filtered and automatically disabled again after startup or updates.</string>
+    <string name="root_selection_semantics">Checked means the component is selected to be disabled. Changes are staged until you tap Apply changes; the actual state is then read back from Android. List Cleaner also stores the desired disabled policy for future refreshes.</string>
     <string name="root_change_semantics">Checking disables immediately and unchecking explicitly enables immediately, without an extra confirmation dialog. This is a real component-state change, unlike Rules-page filtering. Disabling can affect features currently using the component; enabling does not restore any previous default choice or layout.</string>
     <string name="root_kind_all_help">Uses Android subsystem registries where available: launcher activities, standard TileService entries, LauncherApps shortcut configuration activities plus legacy creation entries, and AppWidgetManager providers with manifest fallback. This never disables the entire app.</string>
     <string name="root_kind_launcher_help">Lists exported ACTION_MAIN + CATEGORY_LAUNCHER activities and aliases. Disabling one removes that launcher entry and can make an app harder to open if it is the app’s only launcher activity; the app itself remains installed.</string>
@@ -76,7 +76,7 @@
     <string name="root_batch_stop_remaining">Stop remaining</string>
     <string name="root_empty_filtered">No components match the current filters.</string>
     <string name="root_clear_filters">Clear filters</string>
-    <string name="root_batch_confirmation_text">%1$s the eligible components in the current selection? Locked, unavailable and unchanged entries will be skipped. Changes take effect immediately.</string>
+    <string name="root_batch_confirmation_text">%1$s the eligible components in the current selection? Locked, unavailable and unchanged entries will be skipped. Changes will be staged until you tap Apply changes.</string>
     <string name="root_batch_processing">Processing components…</string>
     <string name="root_partially_disabled">Partially disabled</string>
     <string name="root_component_status_categories">%1$s · %2$s</string>

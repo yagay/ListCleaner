@@ -374,16 +374,38 @@ for expected in ("data class WorkspacePrimarySelection(", "AdaptiveTriStateCheck
 entry_source = (root / "MainTabs.kt").read_text(encoding="utf-8")
 priority_source = (root / "PriorityDialog.kt").read_text(encoding="utf-8")
 root_source = (root / "RootComponentsScreen.kt").read_text(encoding="utf-8")
-for filename, source in (("MainTabs.kt", entry_source), ("PriorityDialog.kt", priority_source)):
-    if "WorkspacePrimarySelection(" not in source or "ToggleableState.Indeterminate" not in source:
-        errors.append(f"{filename}: tri-state select-all must reflect visible editable items")
-for expected in ("WorkspacePrimarySelection(", "ToggleableState.Indeterminate",
-                 "editableVisibleComponents", "if (visibleBulkState == ToggleableState.On) true else false",
-                 "root_batch_action_invert", "PendingRootBatch("):
+for filename, source in (("MainTabs.kt", entry_source), ("PriorityDialog.kt", priority_source),
+                         ("RootComponentsScreen.kt", root_source)):
+    if "WorkspacePrimarySelection(" not in source:
+        errors.append(f"{filename}: visible select-all toolbar missing")
+for filename, source in (("MainTabs.kt", entry_source), ("RootComponentsScreen.kt", root_source)):
+    if "workspaceBulkSelectionState(" not in source:
+        errors.append(f"{filename}: select-all must share one tri-state calculation")
+for expected in ("WorkspacePrimarySelection(", "editableVisibleComponents",
+                 "if (visibleBulkState == ToggleableState.On) true else false",
+                 "R.string.invert_selection", "PendingRootBatch(",
+                 "title = stringResource(R.string.app_list_count, groups.size)"):
     if expected not in root_source:
         errors.append(f"RootComponentsScreen.kt: Entry-style Root selection missing: {expected}")
+if 'R.string.root_batch_action_invert), {' in root_source:
+    errors.append("RootComponentsScreen.kt: overflow action text must match Entry: Invert selection")
 if "prominentActions = true" in root_source or "lc_bulk_actions_label" in common:
     errors.append("RootComponentsScreen.kt: obsolete Root-only bulk action button must not return")
+# Do not regress help position or create two independent toggle actions.
+selection_ui = common.split("internal fun WorkspaceListActions(", 1)[1].split(
+    "internal fun WorkspaceListSummary(", 1
+)[0]
+for needed in ("triStateToggleable(", "onClick = null",
+               "workspaceBulkSelectionState("):
+    if needed not in common:
+        errors.append(f"WorkspaceCommon.kt: accessible unified selection missing: {needed}")
+if selection_ui.index("if (onHelpToggle != null)") < selection_ui.index("if (actions.isNotEmpty())"):
+    errors.append("WorkspaceCommon.kt: Help must be the last toolbar action after overflow")
+if selection_ui.count("primarySelection.onToggle") != 1:
+    errors.append("WorkspaceCommon.kt: only one click handler may toggle the full selection")
+if "Modifier.clickable(" in selection_ui:
+    errors.append("WorkspaceCommon.kt: no nested independently clickable selection controls")
+
 
 # Entry/Root list internals must use exactly one render-only implementation.
 # Their LSPosed and Root callbacks are intentionally *not* shared.
