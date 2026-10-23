@@ -6,7 +6,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.selection.triStateToggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
@@ -396,11 +396,11 @@ internal fun WorkspaceListActions(
             Row(
                 modifier = Modifier
                     .heightIn(min = MaterialUiTokens.iconTouchTarget)
-                    .toggleable(
-                        value = primarySelection.state == ToggleableState.On,
+                    .triStateToggleable(
+                        state = primarySelection.state,
                         enabled = primarySelection.enabled,
                         role = Role.Checkbox,
-                        onValueChange = { primarySelection.onToggle() }
+                        onClick = primarySelection.onToggle
                     ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -415,17 +415,6 @@ internal fun WorkspaceListActions(
                     color = if (primarySelection.enabled) MaterialTheme.colorScheme.onSurface
                     else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1
-                )
-            }
-        }
-        if (onHelpToggle != null) {
-            AdaptiveIconButton(onClick = onHelpToggle) {
-                AdaptiveIcon(
-                    Icons.Rounded.Info,
-                    stringResource(R.string.lc_filter_help_short),
-                    Modifier.size(20.dp),
-                    tint = if (helpExpanded) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -449,6 +438,18 @@ internal fun WorkspaceListActions(
                         )
                     }
                 }
+            }
+        }
+        // Help always comes last, after select-all and the overflow menu.
+        if (onHelpToggle != null) {
+            AdaptiveIconButton(onClick = onHelpToggle) {
+                AdaptiveIcon(
+                    Icons.Rounded.Info,
+                    stringResource(R.string.lc_filter_help_short),
+                    Modifier.size(20.dp),
+                    tint = if (helpExpanded) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
