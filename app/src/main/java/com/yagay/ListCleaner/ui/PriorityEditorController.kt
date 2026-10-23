@@ -121,6 +121,31 @@ internal class PriorityEditorController(
         if (canEdit() && target != null) target.write(emptyList())
     }
 
+    private fun applyDraft(
+        target: PriorityTarget?,
+        expected: List<String>,
+        desired: List<String>,
+        lockScope: String
+    ): Boolean {
+        if (!canEdit() || target == null) return false
+        val current = target.read()
+        if (current != expected) return false
+        val next = desired.distinct().take(MAX_PRIORITY_APPS)
+        val locked = (current + next).distinct().filter { bulkLocks.isAppLocked(lockScope, it) }
+        if (locked.any { current.indexOf(it) != next.indexOf(it) }) return false
+        if (next != current) target.write(next)
+        return true
+    }
+
+    fun applyKindDraft(kind: IntentKind, expected: List<String>, desired: List<String>, scope: String): Boolean =
+        applyDraft(kindTarget(kind), expected, desired, scope)
+
+    fun applyOpenTypeDraft(preset: OpenPreset, expected: List<String>, desired: List<String>, scope: String): Boolean =
+        applyDraft(openTarget(preset), expected, desired, scope)
+
+    fun applyBrowserHostDraft(host: String, expected: List<String>, desired: List<String>, scope: String): Boolean =
+        applyDraft(browserTarget(host), expected, desired, scope)
+
     fun selectApps(kind: IntentKind, packageNames: Collection<String>, lockScope: String) =
         select(kindTarget(kind), packageNames, lockScope)
 

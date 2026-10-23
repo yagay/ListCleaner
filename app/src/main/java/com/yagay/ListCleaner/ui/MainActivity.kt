@@ -81,6 +81,10 @@ class MainActivity : ComponentActivity() {
         val state by vm.state.collectAsStateWithLifecycle()
         val spaces by vm.spaces.collectAsStateWithLifecycle()
         val selectedSpace by vm.selectedSpace.collectAsStateWithLifecycle()
+        val componentBusy by vm.componentBusy.collectAsStateWithLifecycle()
+        val pendingNavigation = remember { PendingNavigationGuard() }
+        PendingNavigationDialog(pendingNavigation)
+        LaunchedEffect(componentBusy) { pendingNavigation.observeRootBusy(componentBusy) }
         var searchExpanded by rememberSaveable { mutableStateOf(false) }
         // The merged cleanup tab hosts both rule and Root component editors.
         var componentModeActive by remember { mutableStateOf(false) }
@@ -112,7 +116,7 @@ class MainActivity : ComponentActivity() {
                 dismissButton = {
                     AdaptiveTextButton(onClick = {
                         restartPromptDismissed = true
-                        vm.setDestination(Destination.SETTINGS)
+                        pendingNavigation.request { vm.setDestination(Destination.SETTINGS) }
                     }) {
                         AdaptiveText(stringResource(R.string.restart_required_open_status))
                     }
@@ -158,14 +162,18 @@ class MainActivity : ComponentActivity() {
             keyboard?.hide()
         }
         BackHandler(enabled = searchExpanded, onBack = closeSearch)
-        BackHandler(enabled = !searchExpanded && (state.filter != null || state.destination != Destination.RULES)) {
-            when {
-                state.destination != Destination.RULES && state.destination != Destination.PRIORITY ->
-                    vm.setDestination(Destination.RULES)
-                vm.ruleOpenPreset.value != null -> vm.setRuleOpenPreset(null)
-                vm.ruleBrowserHost.value != null -> vm.setRuleBrowserHost(null)
-                state.filter != null -> vm.setFilter(null)
-                else -> vm.setDestination(Destination.RULES)
+        BackHandler(enabled = !searchExpanded && (
+            state.filter != null || state.destination != Destination.RULES || pendingNavigation.hasChanges
+        )) {
+            pendingNavigation.request {
+                when {
+                    state.destination != Destination.RULES && state.destination != Destination.PRIORITY ->
+                        vm.setDestination(Destination.RULES)
+                    vm.ruleOpenPreset.value != null -> vm.setRuleOpenPreset(null)
+                    vm.ruleBrowserHost.value != null -> vm.setRuleBrowserHost(null)
+                    state.filter != null -> vm.setFilter(null)
+                    else -> finish()
+                }
             }
         }
         LaunchedEffect(state.destination) {
@@ -248,14 +256,15 @@ class MainActivity : ComponentActivity() {
                     Destination.RULES -> RulesTab(
                         state, vm,
                         searchExpanded = searchExpanded,
+                        pendingNavigation = pendingNavigation,
                         onComponentModeChanged = { componentModeActive = it },
                         onOpenModuleStatus = {
                             openModuleStatus = true
-                            vm.setDestination(Destination.SETTINGS)
+                            pendingNavigation.request { vm.setDestination(Destination.SETTINGS) }
                         }
                     )
-                    Destination.PRIORITY -> PriorityTab(state, vm)
-                    Destination.TILES -> RootComponentsScreen(state, vm)
+                    Destination.PRIORITY -> PriorityTab(state, vm, pendingNavigation)
+                    Destination.TILES -> RootComponentsScreen(state, vm, pendingNavigation = pendingNavigation)
                     Destination.SETTINGS -> SettingsTabContent(
                         state,
                         vm,
@@ -291,9 +300,11 @@ class MainActivity : ComponentActivity() {
                     spaces = spaces,
                     selectedSpace = selectedSpace,
                     onSpaceSelected = { target ->
-                        closeSearch()
-                        componentModeActive = false
-                        vm.selectSpace(target)
+                        if (!componentBusy) pendingNavigation.request {
+                            closeSearch()
+                            componentModeActive = false
+                            vm.selectSpace(target)
+                        }
                     }
                 )
             },
@@ -303,7 +314,11 @@ class MainActivity : ComponentActivity() {
                         NavigationBarItem(
                             selected = state.destination == dest ||
                                 (dest == Destination.RULES && state.destination == Destination.TILES),
-                            onClick = { vm.setDestination(dest) },
+                            onClick = {
+                                if (!componentBusy || state.destination != Destination.TILES && !componentModeActive) {
+                                    pendingNavigation.request { vm.setDestination(dest) }
+                                }
+                            },
                             colors = MaterialActionColors.navigation(),
                             icon = { AdaptiveIcon(dest.icon, null) },
                             label = { AdaptiveText(stringResource(dest.labelRes())) }

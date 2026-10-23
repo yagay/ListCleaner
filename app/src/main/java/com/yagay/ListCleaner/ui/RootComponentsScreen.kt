@@ -56,11 +56,17 @@ fun RootComponentsScreen(
     initialKind: CleanupKind? = null,
     embedded: Boolean = false,
     backEnabled: Boolean = true,
+    pendingNavigation: PendingNavigationGuard? = null,
     onExit: () -> Unit = {}
 ) {
     val scan by vm.componentScan.collectAsStateWithLifecycle()
     val busy by vm.componentBusy.collectAsStateWithLifecycle()
     val prefsContext = LocalContext.current
+    val navigate: (() -> Unit) -> Unit = { action ->
+        if (!busy) {
+            if (pendingNavigation != null) pendingNavigation.request(action) else action()
+        }
+    }
     val confirmation = rememberSelectionConfirmationController()
     SelectionConfirmationDialog(confirmation)
     val message by vm.componentMessage.collectAsStateWithLifecycle()
@@ -94,14 +100,39 @@ fun RootComponentsScreen(
             )
         )
     }
+    // Draft is scoped to the current user space and component category.
+    val selectionDraft = remember(kind, vm.selectedSpace.value) { PendingSelectionDraft<String>() }
     BackHandler(enabled = backEnabled && (embedded || kind != null || browseAll)) {
-        if (embedded) {
-            onExit()
-        } else {
-            kind = null
-            browseAll = false
+        navigate {
+            if (embedded) {
+                onExit()
+            } else {
+                kind = null
+                browseAll = false
+            }
         }
     }
+    val applyChanges: () -> Boolean = {
+        if (busy) false else {
+            val currentItems = scan.items.associateBy { it.id }
+            val desired = selectionDraft.changes.mapNotNull { (id, disabled) ->
+                currentItems[id]
+                    ?.takeIf { it.blocked == null && it.enabled != null &&
+                        !vm.isComponentBulkProtected(kind, it) && it.enabled != !disabled }
+                    ?.let { it to !disabled }
+            }.toMap()
+            if (desired.isEmpty()) false else {
+                vm.changeComponentsDesired(kind, desired)
+                selectionDraft.discard()
+                true
+            }
+        }
+    }
+    RegisterPendingNavigation(
+        pendingNavigation, selectionDraft, selectionDraft.count,
+        applyChanges, selectionDraft::discard, rootEditor = true
+    )
+
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
     var viewFilter by rememberSaveable { mutableStateOf(UiPreferencesStore.initialFilter(prefsContext, "components")) }
     var appTypeFilter by rememberSaveable { mutableStateOf(UiPreferencesStore.initialAppType(prefsContext, "components")) }
@@ -112,7 +143,7 @@ fun RootComponentsScreen(
         val eligible = batch.targets.filter { item ->
             item.blocked == null && item.enabled != null &&
                 !vm.isComponentBulkProtected(batch.kind, item) &&
-                (batch.enable == null || item.enabled != batch.enable)
+                (batch.enable == null || selectionDraft.selected(item.id, item.enabled == false) == batch.enable)
         }.distinctBy { "${it.user}|${it.component.flattenToString()}" }
         val action = stringResource(when (batch.enable) {
             true -> R.string.root_batch_action_enable
@@ -126,8 +157,15 @@ fun RootComponentsScreen(
             confirmButton = {
                 AdaptiveTextButton(enabled = eligible.isNotEmpty() && !busy, onClick = {
                     pendingBatch = null
-                    if (batch.enable == null) vm.invertComponentsBulk(batch.kind, eligible)
-                    else vm.changeComponentsBulk(batch.kind, eligible, batch.enable)
+                    eligible.forEach { item ->
+                        val currentDisabled = selectionDraft.selected(item.id, item.enabled == false)
+                        val desiredDisabled = when (batch.enable) {
+                            true -> false
+                            false -> true
+                            null -> !currentDisabled
+                        }
+                        selectionDraft.set(item.id, item.enabled == false, desiredDisabled)
+                    }
                 }) { AdaptiveText(stringResource(R.string.common_ok)) }
             },
             dismissButton = {
@@ -201,12 +239,16 @@ fun RootComponentsScreen(
 
     val classicComponentMode = embedded &&
         UiPreferencesRuntime.current.homeLayout == UiHomeLayout.CLASSIC_LIST
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+    Box(Modifier.fillMaxSize()) {
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = if (selectionDraft.count > 0) 90.dp else 16.dp)
+    ) {
         if (classicComponentMode) {
             stickyHeader(key = "classic-mode-tabs") {
                 ClassicCleanupTabs(
                     active = ClassicCleanupMode.COMPONENTS,
-                    onEntries = onExit,
+                    onEntries = { navigate(onExit) },
                     onComponents = {}
                 )
             }
@@ -215,11 +257,13 @@ fun RootComponentsScreen(
                 WorkspaceBreadcrumb(
                     homeLabel = stringResource(R.string.workspace_groups),
                     onHome = {
-                        if (embedded) onExit()
-                        else {
-                            kind = null
-                            browseAll = false
-                            vm.setQuery("")
+                        navigate {
+                            if (embedded) onExit()
+                            else {
+                                kind = null
+                                browseAll = false
+                                vm.setQuery("")
+                            }
                         }
                     },
                     currentLabel = kind?.let { stringResource(it.titleRes()) }
@@ -236,7 +280,7 @@ fun RootComponentsScreen(
                         ClassicComponentCategoryFilter(
                             selected = kind,
                             onSelected = { selected ->
-                                if (kind != selected) {
+                                if (kind != selected) navigate {
                                     kind = selected
                                     browseAll = true
                                     expandedAppKey = null
@@ -340,7 +384,9 @@ fun RootComponentsScreen(
         groups.forEach { (appKey, unsorted) ->
             val components = unsorted.sortedWith(compareBy({ it.kind.ordinal }, { it.label.lowercase() }, { it.id }))
             val editableComponents = components.filter { it.blocked == null && it.enabled != null }
-            val disabledCount = editableComponents.count { it.enabled == false }
+            val disabledCount = editableComponents.count {
+                selectionDraft.selected(it.id, it.enabled == false)
+            }
             val selectionState = listSelectionState(disabledCount, editableComponents.size)
             val first = components.first()
             val expansionKey = "${kind?.name ?: "ALL"}|$appKey"
@@ -360,7 +406,7 @@ fun RootComponentsScreen(
                     packageName = first.component.packageName,
                     subtitle = stringResource(
                         R.string.root_disabled_summary,
-                        components.count { it.enabled == false },
+                        components.count { selectionDraft.selected(it.id, it.enabled == false) },
                         components.size,
                         kindTitles.joinToString(" · ")
                     ),
@@ -378,9 +424,13 @@ fun RootComponentsScreen(
                             state = selectionState,
                             enabled = !busy && editableComponents.isNotEmpty(),
                             onClick = {
-                                pendingBatch = PendingRootBatch(
-                                    kind, editableComponents, selectionState == ToggleableState.On
-                                )
+                                // Group checkbox is an ordinary selection gesture, not a bulk menu action.
+                                // Stage it immediately; the bottom bar still confirms final application.
+                                val disable = selectionState != ToggleableState.On
+                                editableComponents.filterNot { vm.isComponentBulkProtected(kind, it) }
+                                    .forEach { item ->
+                                        selectionDraft.set(item.id, item.enabled == false, disable)
+                                    }
                             }
                         )
                     },
@@ -407,21 +457,14 @@ fun RootComponentsScreen(
                 WorkspaceDetailRow(
                     position = if (componentIndex == components.lastIndex)
                         ListRowPosition.LAST else ListRowPosition.MIDDLE,
-                    checked = item.enabled == false,
+                    checked = selectionDraft.selected(item.id, item.enabled == false),
                     enabled = editable && !itemLocked,
                     locked = itemLocked,
                     lockToggleEnabled = lockToggleEnabled,
                     onToggle = {
-                        val enabling = item.enabled == false
-                        val label = prefsContext.getString(
-                            R.string.lc_selection_item,
-                            item.label,
-                            prefsContext.getString(if (enabling) R.string.lc_selection_enable else R.string.lc_selection_disable)
-                        )
-                        confirmation.request(label) {
-                            if (!busy && vm.selectedSpace.value == item.user) {
-                                vm.changeComponent(item, enabling)
-                            }
+                        if (!busy && vm.selectedSpace.value == item.user) {
+                            val currentDisabled = selectionDraft.selected(item.id, item.enabled == false)
+                            selectionDraft.set(item.id, item.enabled == false, !currentDisabled)
                         }
                     },
                     onLock = { vm.setComponentItemLocked(kind, item, true) },
@@ -500,4 +543,11 @@ fun RootComponentsScreen(
             }
         }
     }
+    PendingChangesBar(
+        count = selectionDraft.count,
+        onDiscard = selectionDraft::discard,
+        onApply = { applyChanges() },
+        modifier = Modifier.align(Alignment.BottomCenter)
+    )
+}
 }

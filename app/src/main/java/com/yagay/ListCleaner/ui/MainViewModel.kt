@@ -222,6 +222,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (editable.isNotEmpty()) rootComponents.change(editable, enable)
     }
 
+    fun changeComponentsDesired(kind: CleanupKind?, desired: Map<RootComponent, Boolean>) {
+        val editable = desired.filter { (item, _) -> !isComponentBulkProtected(kind, item) }
+        if (editable.isNotEmpty()) rootComponents.changeDesired(editable)
+    }
+
     fun invertComponentsBulk(kind: CleanupKind?, targets: List<RootComponent>) {
         val editable = targets.filterNot { isComponentBulkProtected(kind, it) }
         if (editable.isNotEmpty()) rootComponents.invert(editable)
@@ -797,6 +802,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setComponentTitle(ruleId: String, title: String?) {
         if (canEdit()) app.rules.setComponentTitle(ruleId, title)
     }
+
+    fun applyPriorityDraft(kind: IntentKind, expected: List<String>, desired: List<String>, lockScope: String): Boolean =
+        priorityEditor.applyKindDraft(kind, expected, desired, lockScope)
+
+    fun applyOpenTypePriorityDraft(preset: OpenPreset, expected: List<String>, desired: List<String>, lockScope: String): Boolean =
+        priorityEditor.applyOpenTypeDraft(preset, expected, desired, lockScope)
+
+    fun applyBrowserHostPriorityDraft(host: String, expected: List<String>, desired: List<String>, lockScope: String): Boolean =
+        priorityEditor.applyBrowserHostDraft(host, expected, desired, lockScope)
 
     fun selectPriorityApps(kind: IntentKind, packageNames: Collection<String>, lockScope: String) =
         priorityEditor.selectApps(kind, packageNames, lockScope)

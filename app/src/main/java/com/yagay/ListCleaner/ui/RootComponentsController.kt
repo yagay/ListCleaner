@@ -216,6 +216,30 @@ internal class RootComponentsController(
         )
     }
 
+    /** One verified Root operation for mixed enable/disable requests; never race two batches. */
+    fun changeDesired(desired: Map<RootComponent, Boolean>) {
+        val eligible = desired.filter { (target, enable) ->
+            target.blocked == null && target.enabled != null && target.enabled != enable
+        }
+        mutateBatch(
+            visibleTargets = eligible.keys.toList(),
+            initialMessage = app.getString(R.string.root_requesting_verify),
+            targetEnable = { target -> eligible.getValue(target) },
+            progressMessage = { _, _, target ->
+                app.getString(
+                    if (eligible.getValue(target)) R.string.root_progress_enable_plain
+                    else R.string.root_progress_disable_plain,
+                    target.label
+                )
+            },
+            successMessage = { _, lastResult -> lastResult },
+            stoppedMessage = { _, _, reason ->
+                app.getString(R.string.root_batch_stopped_plain, reason)
+            },
+            operationName = "mixed-mutation",
+        )
+    }
+
     fun invert(visibleTargets: List<RootComponent>) {
         mutateBatch(
             visibleTargets = visibleTargets.filter { it.blocked == null && it.enabled != null },
