@@ -13,7 +13,7 @@ for file in sorted(root.glob("*.kt")):
     source = file.read_text(encoding="utf-8")
     if "top.yukonga.miuix" in source or "UiThemeStyle" in source:
         errors.append(f"{file.name}: legacy dual-theme code is not allowed")
-    if file.name == "AdaptiveWidgets.kt":
+    if file.name in ("AdaptiveWidgets.kt", "CompactCategoryButton.kt"):
         continue
     for line_no, line in enumerate(source.splitlines(), 1):
         code = line.split("//", 1)[0]
@@ -46,26 +46,22 @@ for file in sorted(root.glob("*.kt")):
             errors.append(f"{file.name}: obsolete layout tokens; use MaterialUiTokens")
 
 required = {
-    "AdaptiveWidgets.kt": ["MaterialUiTokens.buttonHeight", "UiCard(",
-                           "MaterialActionColors.filled()", "MaterialActionColors.outlined()",
-                           "MaterialActionColors.text()", "MaterialActionColors.icon()",
-                           "MaterialActionColors.filter()"],
+    "AdaptiveWidgets.kt": ["FilterChip(", "OutlinedButton(", "TextButton(", "Button(",
+                           "Checkbox(", "IconButton(", "UiCard("],
     "MaterialActionColors.kt": ["fun filled()", "fun outlined()", "fun outlinedBorder(",
-                                "fun text()", "fun icon()", "fun filter()", "fun navigation()",
-                                "selectedIconColor = MaterialTheme.colorScheme.onPrimary",
-                                "selectedTextColor = MaterialTheme.colorScheme.primary",
-                                "indicatorColor = MaterialTheme.colorScheme.primary"],
+                                 "fun text()", "fun icon()", "fun filter()", "fun navigation()",
+                                 "NavigationBarItemDefaults.colors()", "FilterChipDefaults.filterChipColors()"],
     "UiCard.kt": ["enum class UiCardVariant", "UiCardVariant.SECTION", "UiCardVariant.CATEGORY",
-                  "UiCardVariant.LIST_GROUP", "UiCardVariant.STATUS", "position.shape()",
-                  "onClick = onClick", "UiCardDetailRow("],
+                   "UiCardVariant.LIST_GROUP", "UiCardVariant.STATUS", "MaterialTheme.shapes.medium",
+                   "onClick = onClick", "UiCardDetailRow(", "ListItem("],
     "MaterialDesignSystem.kt": ["UiCard(", "UiCardVariant.SECTION", "val cardShape get() ="],
-    "WorkspaceLayout.kt": ["MaterialUiTokens.cardRadius", "MaterialUiTokens.groupedInnerRadius"],
+    "WorkspaceLayout.kt": ["enum class ListRowPosition", "MaterialTheme.typography.titleMedium"],
     "MainControls.kt": ["UiCardVariant.STATUS", "warning = true"],
     "MainActivity.kt": ["NavigationBarItem(", "colors = MaterialActionColors.navigation()",
                         "Destination.SETTINGS -> SettingsTabContent(",
                         "state.destination != Destination.SETTINGS"],
     "RuntimePanel.kt": ["UiCardVariant.STATUS"],
-    "WorkspaceAppRow.kt": ["MaterialAppRowBody(", "MaterialUiTokens.listRowHeight"],
+    "WorkspaceAppRow.kt": ["MaterialAppRowBody(", "ListItem(", "ListItemDefaults.colors("],
     "AppScopePicker.kt": ["MaterialAppRowBody(", "MaterialFullScreenDialog("],
     "ScopeScreen.kt": ["MaterialFullScreenDialog(", "MaterialDialogActions("],
     "MainTabs.kt": ["fun RulesTab(", "fun PriorityTab(", "LazyColumn("],
@@ -118,8 +114,8 @@ required = {
     "WorkspaceCommon.kt": ["MaterialInlineStatus(", "MaterialUiTokens.",
                            "WorkspaceControlLabel(", "CompactCategoryButton("],
     "WorkspaceControlLabel.kt": ["fun WorkspaceControlLabel(", "MaterialTheme.typography.labelLarge"],
-    "CompactCategoryButton.kt": ["fun CompactCategoryButton(", "MaterialTheme.colorScheme.primary",
-                                 "MaterialTheme.colorScheme.onPrimary", "MaterialTheme.colorScheme.outlineVariant"],
+    "CompactCategoryButton.kt": ["fun CompactCategoryButton(", "FilterChip(",
+                                  "MaterialTheme.colorScheme.onSecondaryContainer"],
     "ClassicListLayout.kt": ["fun ClassicCleanupTabs(", "WorkspaceControlLabel(",
                              "active == ClassicCleanupMode.ENTRIES", "active == ClassicCleanupMode.COMPONENTS"],
     "ComponentCategoryFilter.kt": ["fun ClassicComponentCategoryFilter(",
@@ -129,6 +125,23 @@ required = {
     "BrowserHostFilterRow.kt": ["fun BrowserHostFilterMenu(", "WorkspaceControlLabel(",
                                  "CompactCategoryButton("],
 }
+# Never regress back to bespoke paints for list rows and selection surfaces.
+native_checks = {
+    "MainControls.kt": ("OutlinedTextField(",),
+    "SettingsCenterHome.kt": ("ListItem(",),
+    "WorkspaceCommon.kt": ("ListItem(",),
+    "EntryWorkspaceHome.kt": ("ListItem(",),
+}
+for filename, symbols in native_checks.items():
+    content = (root / filename).read_text(encoding="utf-8")
+    for symbol in symbols:
+        if symbol not in content:
+            errors.append(f"{filename}: expected Material 3 native component: {symbol}")
+if "BasicTextField(" in (root / "MainControls.kt").read_text(encoding="utf-8"):
+    errors.append("MainControls.kt: obsolete custom-drawn search input")
+if "ComponentSelectionMark(" in (root / "AppListRows.kt").read_text(encoding="utf-8"):
+    errors.append("AppListRows.kt: obsolete hand-drawn selection circle")
+
 for filename, symbols in required.items():
     content = (root / filename).read_text(encoding="utf-8")
     for symbol in symbols:
