@@ -314,43 +314,43 @@ fun RootComponentsScreen(
                 Column(Modifier.fillMaxWidth().background(
                     MaterialTheme.colorScheme.surface
                 )) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        ClassicComponentCategoryFilter(
-                            selected = kind,
-                            modifier = Modifier.weight(1f),
-                            onSelected = { selected ->
-                                if (kind != selected) navigate {
-                                    kind = selected
-                                    browseAll = true
-                                    expandedAppKey = null
+                    WorkspaceCategoryFilterRow(
+                        category = {
+                            ClassicComponentCategoryFilter(
+                                selected = kind,
+                                modifier = Modifier.fillMaxWidth(),
+                                onSelected = { selected ->
+                                    if (kind != selected) navigate {
+                                        kind = selected
+                                        browseAll = true
+                                        expandedAppKey = null
+                                    }
                                 }
-                            }
-                        )
-                        WorkspaceFilterBar(
-                            appTypeFilter = appTypeFilter,
-                            onAppTypeFilter = {
-                                appTypeFilter = it
-                                UiPreferencesStore.rememberAppType(prefsContext, it, "components")
-                            },
-                            viewFilter = viewFilter,
-                            onViewFilter = {
-                                viewFilter = it
-                                UiPreferencesStore.rememberFilter(prefsContext, it, "components")
-                            },
-                            viewTitle = { filter ->
-                                stringResource(when (filter) {
-                                    UiFilter.ALL -> R.string.common_all
-                                    UiFilter.SHOW_SELECTED -> R.string.root_filter_disabled
-                                    UiFilter.HIDE_SELECTED -> R.string.root_filter_enabled
-                                    UiFilter.LOCKED -> R.string.filter_locked
-                                })
-                            },
-                            modifier = Modifier.padding(end = MaterialUiTokens.pageHorizontal)
-                        )
-                    }
+                            )
+                        },
+                        filter = {
+                            WorkspaceFilterBar(
+                                appTypeFilter = appTypeFilter,
+                                onAppTypeFilter = {
+                                    appTypeFilter = it
+                                    UiPreferencesStore.rememberAppType(prefsContext, it, "components")
+                                },
+                                viewFilter = viewFilter,
+                                onViewFilter = {
+                                    viewFilter = it
+                                    UiPreferencesStore.rememberFilter(prefsContext, it, "components")
+                                },
+                                viewTitle = { filter ->
+                                    stringResource(when (filter) {
+                                        UiFilter.ALL -> R.string.common_all
+                                        UiFilter.SHOW_SELECTED -> R.string.root_filter_disabled
+                                        UiFilter.HIDE_SELECTED -> R.string.root_filter_enabled
+                                        UiFilter.LOCKED -> R.string.filter_locked
+                                    })
+                                }
+                            )
+                        }
+                    )
                     if (batchProgress != null) {
                         val current = requireNotNull(batchProgress)
                         WorkspaceProgress(current.completed.toFloat() / current.total.coerceAtLeast(1))
