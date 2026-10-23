@@ -357,35 +357,26 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                             },
                             onSelectAll = {
                                 confirmation.request(prefsContext.getString(R.string.select_all)) {
-                                when {
-                                    typedOpenPreset != null ->
-                                        vm.selectOpenTypePriorityApps(typedOpenPreset, groups.map { it.packageName }, lockScope)
-                                    deepLinkHost != null ->
-                                        vm.selectBrowserHostPriorityApps(deepLinkHost, groups.map { it.packageName }, lockScope)
-                                    else -> vm.selectPriorityApps(kind, groups.map { it.packageName }, lockScope)
-                                }
+                                    val current = orderDraft.effective(rankedRaw)
+                                    val eligible = groups.map { it.packageName }
+                                        .filterNot { vm.isBulkAppLocked(lockScope, it) }
+                                    orderDraft.stage(rankedRaw, (current + eligible.filterNot { it in current }).take(200))
                                 }
                             },
                             onSelectNone = {
                                 confirmation.request(prefsContext.getString(R.string.select_none)) {
-                                when {
-                                    typedOpenPreset != null ->
-                                        vm.deselectOpenTypePriorityApps(typedOpenPreset, groups.map { it.packageName }, lockScope)
-                                    deepLinkHost != null ->
-                                        vm.deselectBrowserHostPriorityApps(deepLinkHost, groups.map { it.packageName }, lockScope)
-                                    else -> vm.deselectPriorityApps(kind, groups.map { it.packageName }, lockScope)
-                                }
+                                    val current = orderDraft.effective(rankedRaw)
+                                    val eligible = groups.map { it.packageName }
+                                        .filterNot { vm.isBulkAppLocked(lockScope, it) }
+                                    orderDraft.stage(rankedRaw, current.filterNot { it in eligible })
                                 }
                             },
                             onInvert = {
                                 confirmation.request(prefsContext.getString(R.string.invert_selection)) {
-                                when {
-                                    typedOpenPreset != null ->
-                                        vm.invertOpenTypePriorityApps(typedOpenPreset, groups.map { it.packageName }, lockScope)
-                                    deepLinkHost != null ->
-                                        vm.invertBrowserHostPriorityApps(deepLinkHost, groups.map { it.packageName }, lockScope)
-                                    else -> vm.invertPriorityApps(kind, groups.map { it.packageName }, lockScope)
-                                }
+                                    val current = orderDraft.effective(rankedRaw)
+                                    val eligible = groups.map { it.packageName }
+                                        .filterNot { vm.isBulkAppLocked(lockScope, it) }
+                                    orderDraft.stage(rankedRaw, (current.filterNot { it in eligible } + eligible.filterNot { it in current }).take(200))
                                 }
                             }
                         )
@@ -562,24 +553,11 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 checked = packageName in stagedOrder,
                                 enabled = packageName in stagedOrder || stagedOrder.size < 200,
                                 onCheckedChange = { checked ->
-                                    val label = prefsContext.getString(
-                                        R.string.lc_selection_group,
-                                        first.appLabel,
-                                        prefsContext.getString(if (checked) R.string.lc_selection_select else R.string.lc_selection_deselect)
-                                    )
-                                    confirmation.request(label) {
-                                        when {
-                                            typedOpenPreset != null -> {
-                                                if (checked) vm.pinOpenTypeApp(typedOpenPreset, packageName)
-                                                else vm.removeOpenTypePriority(typedOpenPreset, packageName)
-                                            }
-                                            deepLinkHost != null -> {
-                                                if (checked) vm.pinBrowserHostApp(deepLinkHost, packageName)
-                                                else vm.removeBrowserHostPriority(deepLinkHost, packageName)
-                                            }
-                                            checked -> vm.pinApp(kind, packageName)
-                                            else -> vm.removePriority(kind, packageName)
-                                        }
+                                    if (!vm.isBulkAppLocked(lockScope, packageName)) {
+                                        val current = orderDraft.effective(rankedRaw)
+                                        val next = if (checked) (current + packageName).distinct().take(200)
+                                            else current - packageName
+                                        orderDraft.stage(rankedRaw, next)
                                     }
                                 }
                             )
@@ -612,22 +590,11 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                                 onDragCancel = { dragState.cancel() },
                                                 onDragEnd = {
                                                     dragState.finish()?.let { finished ->
-                                                        when {
-                                                            typedOpenPreset != null ->
-                                                                vm.moveOpenTypePriorityTo(
-                                                                    typedOpenPreset, finished.packageName,
-                                                                    finished.target, finished.visible, finished.saved
-                                                                )
-                                                            deepLinkHost != null ->
-                                                                vm.moveBrowserHostPriorityTo(
-                                                                    deepLinkHost, finished.packageName,
-                                                                    finished.target, finished.visible, finished.saved
-                                                                )
-                                                            else -> vm.movePriorityTo(
-                                                                kind, finished.packageName,
-                                                                finished.target, finished.visible, finished.saved
-                                                            )
-                                                        }
+                                                        val next = moveVisiblePriorityTo(
+                                                            orderDraft.effective(rankedRaw),
+                                                            finished.visible, finished.packageName, finished.target
+                                                        )
+                                                        orderDraft.stage(rankedRaw, next)
                                                     }
                                                 }
                                             )
@@ -662,13 +629,9 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 )
                                 AdaptiveTextButton(
                                     onClick = {
-                                        when {
-                                            typedOpenPreset != null ->
-                                                vm.moveOpenTypePriority(typedOpenPreset, packageName, -1, moveTargets)
-                                            deepLinkHost != null ->
-                                                vm.moveBrowserHostPriority(deepLinkHost, packageName, -1, moveTargets)
-                                            else -> vm.movePriority(kind, packageName, -1, moveTargets)
-                                        }
+                                        orderDraft.stage(
+                                            rankedRaw, moveVisiblePriority(stagedOrder, moveTargets, packageName, -1)
+                                        )
                                     },
                                     enabled = index > 0
                                 ) {
@@ -677,13 +640,9 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 }
                                 AdaptiveTextButton(
                                     onClick = {
-                                        when {
-                                            typedOpenPreset != null ->
-                                                vm.moveOpenTypePriority(typedOpenPreset, packageName, 1, moveTargets)
-                                            deepLinkHost != null ->
-                                                vm.moveBrowserHostPriority(deepLinkHost, packageName, 1, moveTargets)
-                                            else -> vm.movePriority(kind, packageName, 1, moveTargets)
-                                        }
+                                        orderDraft.stage(
+                                            rankedRaw, moveVisiblePriority(stagedOrder, moveTargets, packageName, 1)
+                                        )
                                     },
                                     enabled = index >= 0 && index < moveTargets.lastIndex
                                 ) {
