@@ -160,7 +160,12 @@ fun RootComponentsScreen(
             .map { it.component.packageName }.distinct().count()
         AdaptiveAlertDialog(
             onDismissRequest = { pendingBatch = null },
-            title = { AdaptiveText(stringResource(R.string.root_batch_confirm_title)) },
+            title = {
+                AdaptiveText(stringResource(
+                    if (systemAppCount > 0) R.string.lc_system_app_warning_title
+                    else R.string.root_batch_confirm_title
+                ))
+            },
             text = {
                 val base = stringResource(R.string.root_batch_confirmation_text, action)
                 val warning = if (systemAppCount > 0) {
