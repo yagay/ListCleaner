@@ -58,9 +58,9 @@ internal fun AppRow(
         icon = group.appIcon,
         title = group.appLabel,
         packageName = group.packageName,
-        subtitle = stringResource(
-            R.string.app_row_selection_summary, selectedCount,
-            group.components.size, kindTitles.joinToString(" · ")
+        subtitle = WorkspaceAppSummaryText(
+            R.string.app_row_selection_summary,
+            selectedCount, group.components.size, kindTitles
         ),
         expanded = expanded,
         lockState = lockState,
@@ -68,18 +68,16 @@ internal fun AppRow(
         onLock = onLock,
         onUnlock = onUnlock,
         selection = {
-            AdaptiveTriStateCheckbox(
+            WorkspaceAppSelectionCheckbox(
                 state = selectionState,
                 onClick = { onSelect(selectionState != ToggleableState.On) }
             )
         },
         details = {
             if (group.components.any { it.unavailable || it.restricted }) {
-                AdaptiveText(
+                WorkspaceAppNote(
                     stringResource(R.string.app_row_unavailable_warning),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.error,
-                    maxLines = 1
+                    warning = true
                 )
             }
         }
@@ -112,57 +110,39 @@ internal fun ComponentRow(
         onLock = onLock,
         onUnlock = onUnlock,
         content = {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                AdaptiveText(
-                    item.activityLabel,
-                    modifier = Modifier.weight(1f).padding(end = 12.dp),
-                    maxLines = 1, overflow = TextOverflow.Ellipsis
-                )
-                AdaptiveText(
-                    stringResource(item.rule.kind.titleRes()),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis
-                )
-            }
+            WorkspaceDetailHeading(
+                item.activityLabel,
+                stringResource(item.rule.kind.titleRes())
+            )
             selectionNote?.let {
-                AdaptiveText(
-                    it, style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis
-                )
+                WorkspaceDetailCaption(it, emphasized = true)
             }
             if (!customTitle.isNullOrBlank()) {
-                AdaptiveText(
+                WorkspaceDetailCaption(
                     stringResource(R.string.component_shown_as, customTitle),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis
+                    emphasized = true
                 )
             }
-            AdaptiveText(
-                item.rule.className, style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1, overflow = TextOverflow.Ellipsis
-            )
-            if (item.unavailable) AdaptiveText(
-                stringResource(R.string.component_unavailable),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.error
-            ) else if (item.restricted) AdaptiveText(
-                stringResource(R.string.component_restricted),
-                style = MaterialTheme.typography.labelSmall
+            WorkspaceDetailCaption(item.rule.className)
+            if (item.unavailable) WorkspaceDetailStatus(
+                stringResource(R.string.component_unavailable), warning = true
+            ) else if (item.restricted) WorkspaceDetailStatus(
+                stringResource(R.string.component_restricted)
             )
         },
         trailing = {
             onPreview?.let { launch ->
-                AdaptiveIconButton(onClick = launch) {
-                    AdaptiveIcon(Icons.Rounded.Visibility, stringResource(R.string.system_preview_action))
-                }
+                WorkspaceDetailIconAction(
+                    Icons.Rounded.Visibility,
+                    stringResource(R.string.system_preview_action),
+                    launch
+                )
             }
-            AdaptiveIconButton(onClick = onEditTitle) {
-                AdaptiveIcon(Icons.Rounded.Edit, stringResource(R.string.component_edit_display_name))
-            }
+            WorkspaceDetailIconAction(
+                Icons.Rounded.Edit,
+                stringResource(R.string.component_edit_display_name),
+                onEditTitle
+            )
         }
     )
 }

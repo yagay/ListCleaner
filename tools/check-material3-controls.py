@@ -343,6 +343,33 @@ for expected in ("WorkspacePrimarySelection(", "ToggleableState.Indeterminate",
 if "prominentActions = true" in root_source or "lc_bulk_actions_label" in common:
     errors.append("RootComponentsScreen.kt: obsolete Root-only bulk action button must not return")
 
+# Entry/Root list internals must use exactly one render-only implementation.
+# Their LSPosed and Root callbacks are intentionally *not* shared.
+parts = (root / "WorkspaceListParts.kt").read_text(encoding="utf-8")
+for expected in ("fun WorkspaceAppSelectionCheckbox(", "fun WorkspaceAppSummaryText(",
+                 "fun WorkspaceAppNote(", "fun WorkspaceDetailHeading(",
+                 "fun WorkspaceDetailCaption(", "fun WorkspaceDetailStatus(",
+                 "fun WorkspaceDetailIconAction(", "detailKindMaxWidth",
+                 "maxLines = 2", "Modifier.size(18.dp)"):
+    if expected not in parts:
+        errors.append(f"WorkspaceListParts.kt: shared Entry/Root primitive missing: {expected}")
+for filename in ("AppListRows.kt", "RootComponentsScreen.kt"):
+    source = (root / filename).read_text(encoding="utf-8")
+    for expected in ("WorkspaceAppSelectionCheckbox(", "WorkspaceAppSummaryText(",
+                     "WorkspaceAppNote(", "WorkspaceDetailHeading(",
+                     "WorkspaceDetailCaption(", "WorkspaceDetailStatus(",
+                     "WorkspaceDetailIconAction("):
+        if expected not in source:
+            errors.append(f"{filename}: Entry/Root detail presentation divergence: {expected}")
+root_rows = (root / "RootComponentsScreen.kt").read_text(encoding="utf-8")
+for expected in ('item(key = "app|$expansionKey", contentType = "app")',
+                 'contentType = { _, _ -> "component" }'):
+    if expected not in root_rows:
+        errors.append(f"RootComponentsScreen.kt: lazy list row reuse must match Entry: {expected}")
+tokens = (root / "MaterialDesignSystem.kt").read_text(encoding="utf-8")
+if "val detailKindMaxWidth get() =" not in tokens:
+    errors.append("MaterialDesignSystem.kt: shared detail kind-width token missing")
+
 toolbar = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
 for expected in ("appTypeFilter != AppTypeFilter.ALL", "viewFilter != UiFilter.ALL",
                  "lc_filter_help_short"):

@@ -67,6 +67,8 @@ internal object MaterialUiTokens {
     val detailHeight get() = (48f * density).dp
     val detailHorizontal get() = (14f * density).dp
     val detailVertical get() = (4f * density).dp
+    // Shared Entry/Root details: kind labels must not crowd multi-line titles.
+    val detailKindMaxWidth get() = (112f * density).dp
     val buttonHeight get() = UiPreferencesRuntime.current.buttonHeight.dp
     // 48dp remains the minimum icon touch target for accessible controls.
     val iconTouchTarget = 48.dp
