@@ -437,7 +437,7 @@ fun RootComponentsScreen(
             val expanded = expandedAppKey == expansionKey
             val onExpand = { expandedAppKey = if (expandedAppKey == expansionKey) null else expansionKey }
 
-            item(key = "app|$expansionKey") {
+            item(key = "app|$expansionKey", contentType = "app") {
                 val kindTitles = CleanupKind.entries.filter { category ->
                     components.any { it.kind == category }
                 }.map { stringResource(it.titleRes()) }
@@ -448,11 +448,11 @@ fun RootComponentsScreen(
                     icon = first.icon,
                     title = first.owner,
                     packageName = first.component.packageName,
-                    subtitle = stringResource(
+                    subtitle = WorkspaceAppSummaryText(
                         R.string.root_disabled_summary,
                         components.count { selectionDraft.selected(it.id, it.enabled == false) },
                         components.size,
-                        kindTitles.joinToString(" · ")
+                        kindTitles
                     ),
                     expanded = expanded,
                     lockState = lockState,
@@ -464,7 +464,7 @@ fun RootComponentsScreen(
                         vm.setComponentAppLocked(kind, appKey, lockItemsByApp[appKey].orEmpty(), false)
                     },
                     selection = {
-                        AdaptiveTriStateCheckbox(
+                        WorkspaceAppSelectionCheckbox(
                             state = selectionState,
                             enabled = !busy && editableComponents.isNotEmpty(),
                             onClick = {
@@ -488,21 +488,22 @@ fun RootComponentsScreen(
                     },
                     details = {
                         if (editableComponents.size < components.size) {
-                            AdaptiveText(
+                            WorkspaceAppNote(
                                 stringResource(
                                     R.string.root_display_only_count,
                                     components.size - editableComponents.size
-                                ),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1
+                                )
                             )
                         }
                     }
                 )
             }
 
-            if (expanded) itemsIndexed(components, key = { _, item -> item.id }) { componentIndex, item ->
+            if (expanded) itemsIndexed(
+                components,
+                key = { _, item -> item.id },
+                contentType = { _, _ -> "component" }
+            ) { componentIndex, item ->
                 val editable = !busy && item.blocked == null && item.enabled != null
                 val lockToggleEnabled = !vm.isComponentAppLockedForItem(kind, item)
                 val itemLocked = vm.isComponentBulkProtected(kind, item)
@@ -527,24 +528,14 @@ fun RootComponentsScreen(
                     onLock = { vm.setComponentItemLocked(kind, item, true) },
                     onUnlock = { vm.setComponentItemLocked(kind, item, false) },
                     content = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            AdaptiveText(
-                                item.label, modifier = Modifier.weight(1f),
-                                maxLines = 2, overflow = TextOverflow.Ellipsis
-                            )
-                            AdaptiveText(
-                                stringResource(item.kind.titleRes()),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        AdaptiveText(
-                            item.component.flattenToShortString(),
-                            maxLines = 2, overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        WorkspaceDetailHeading(
+                            item.label,
+                            stringResource(item.kind.titleRes())
                         )
-                        AdaptiveText(
+                        WorkspaceDetailCaption(
+                            item.component.flattenToShortString()
+                        )
+                        WorkspaceDetailStatus(
                             item.blocked ?: stringResource(
                                 when (item.overrideState) {
                                     0 -> if (item.enabled == true)
@@ -554,26 +545,22 @@ fun RootComponentsScreen(
                                     else -> R.string.root_unknown_state
                                 }
                             ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (item.blocked != null)
-                                MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                            warning = item.blocked != null
                         )
                     },
                     trailing = {
-                        AdaptiveIconButton(onClick = {
-                            systemProbeRequest = SystemProbeRequest(
-                                componentKind = item.kind,
-                                userId = item.user,
-                                focusPackage = item.component.packageName,
-                                focusClass = item.component.className,
-                            )
-                        }) {
-                            AdaptiveIcon(
-                                Icons.Rounded.Visibility,
-                                stringResource(R.string.system_preview_action),
-                                Modifier.size(18.dp)
-                            )
-                        }
+                        WorkspaceDetailIconAction(
+                            Icons.Rounded.Visibility,
+                            stringResource(R.string.system_preview_action),
+                            onClick = {
+                                systemProbeRequest = SystemProbeRequest(
+                                    componentKind = item.kind,
+                                    userId = item.user,
+                                    focusPackage = item.component.packageName,
+                                    focusClass = item.component.className,
+                                )
+                            }
+                        )
                     }
                 )
             }
