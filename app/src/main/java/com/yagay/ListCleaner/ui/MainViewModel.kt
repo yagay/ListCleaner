@@ -222,6 +222,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (editable.isNotEmpty()) rootComponents.change(editable, enable)
     }
 
+    fun changeComponentsDesired(kind: CleanupKind?, desired: Map<RootComponent, Boolean>) {
+        val editable = desired.filter { (item, _) -> !isComponentBulkProtected(kind, item) }
+        if (editable.isNotEmpty()) rootComponents.changeDesired(editable)
+    }
+
     fun invertComponentsBulk(kind: CleanupKind?, targets: List<RootComponent>) {
         val editable = targets.filterNot { isComponentBulkProtected(kind, it) }
         if (editable.isNotEmpty()) rootComponents.invert(editable)
