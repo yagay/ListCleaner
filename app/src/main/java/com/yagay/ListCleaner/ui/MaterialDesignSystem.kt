@@ -105,22 +105,23 @@ internal fun MaterialSettingsRow(
     supportingText: String? = null,
     trailing: @Composable RowScope.() -> Unit = {}
 ) {
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = MaterialUiTokens.listRowHeight),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    androidx.compose.material3.ListItem(
+        headlineContent = {
             AdaptiveText(title, style = MaterialTheme.typography.bodyLarge)
-            if (!supportingText.isNullOrBlank()) {
+        },
+        supportingContent = if (supportingText.isNullOrBlank()) null else {
+            {
                 AdaptiveText(
                     supportingText,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        },
+        trailingContent = {
+            Row(verticalAlignment = Alignment.CenterVertically, content = trailing)
         }
-        trailing()
-    }
+    )
 }
 
 /** All full-screen picker and scope dialogs share one Material header and insets. */
