@@ -2,7 +2,10 @@ package com.yagay.ListCleaner.ui
 
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.InputChip
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -20,12 +23,18 @@ internal fun CompactCategoryButton(
     enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit
 ) {
-    FilterChip(
+    InputChip(
         selected = selected,
         onClick = onClick,
         modifier = modifier,
         enabled = enabled,
-        label = { Row(content = content) }
+        label = {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                content = content
+            )
+        }
     )
 }
 

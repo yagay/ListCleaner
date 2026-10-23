@@ -6,7 +6,7 @@ import sys
 
 root = Path(__file__).resolve().parents[1] / "app/src/main/java/com/yagay/ListCleaner/ui"
 direct_button = re.compile(
-    r"(?<![A-Za-z0-9_])(?:Button|OutlinedButton|TextButton|IconButton|FilterChip)\s*\("
+    r"(?<![A-Za-z0-9_])(?:Button|OutlinedButton|TextButton|IconButton|FilterChip|InputChip)\s*\("
 )
 errors = []
 for file in sorted(root.glob("*.kt")):
@@ -117,7 +117,7 @@ required = {
     "WorkspaceCommon.kt": ["MaterialInlineStatus(", "MaterialUiTokens.",
                            "WorkspaceControlLabel(", "CompactCategoryButton("],
     "WorkspaceControlLabel.kt": ["fun WorkspaceControlLabel(", "MaterialTheme.typography.labelLarge"],
-    "CompactCategoryButton.kt": ["fun CompactCategoryButton(", "FilterChip(",
+    "CompactCategoryButton.kt": ["fun CompactCategoryButton(", "InputChip(",
                                   "MaterialTheme.colorScheme.onSecondaryContainer"],
     "ClassicListLayout.kt": ["fun ClassicCleanupTabs(", "WorkspaceControlLabel(",
                              "active == ClassicCleanupMode.ENTRIES", "active == ClassicCleanupMode.COMPONENTS"],
@@ -207,11 +207,19 @@ for expected in ("SingleChoiceSegmentedButtonRow(", "SegmentedButton(",
         errors.append(f"ClassicListLayout.kt: missing compact segmented navigation: {expected}")
 if "minLines = 2" in classic:
     errors.append("ClassicListLayout.kt: full-size two-line mode tabs must not return")
+if "Modifier.weight(1f)" in classic or "modifier = Modifier.fillMaxWidth()," in classic:
+    errors.append("ClassicListLayout.kt: segmented borders must size to labels, not half the screen")
+source = (root / "MaterialDesignSystem.kt").read_text(encoding="utf-8")
+if "val filterChipGap get() = (6f * density).dp" not in source:
+    errors.append("MaterialDesignSystem.kt: compact filter spacing token missing")
+compact = (root / "CompactCategoryButton.kt").read_text(encoding="utf-8")
+if "Arrangement.spacedBy(4.dp)" not in compact:
+    errors.append("CompactCategoryButton.kt: 4dp label/icon spacing must be consistent")
 
 # Entry/Root category selectors and Apps/View toolbar use the same scroll/spacing.
 for filename in ("MainControls.kt", "WorkspaceCommon.kt", "ComponentCategoryFilter.kt"):
     code = (root / filename).read_text(encoding="utf-8")
-    for expected in ("LazyRow(", "Arrangement.spacedBy(MaterialUiTokens.categoryGap)"):
+    for expected in ("LazyRow(", "Arrangement.spacedBy(MaterialUiTokens.filterChipGap)"):
         if expected not in code:
             errors.append(f"{filename}: inconsistent Material 3 filter row: {expected}")
 toolbar = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")

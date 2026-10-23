@@ -56,6 +56,8 @@ internal object MaterialUiTokens {
     val categoryPadding get() = (8f * density).dp
     val categoryContentGap get() = (3f * density).dp
     val categoryGap get() = (8f * density).dp
+    // Spacing between interactive filter chips, separate from home card spacing.
+    val filterChipGap get() = (6f * density).dp
     val listRowHeight get() = UiPreferencesRuntime.current.listRowHeight.dp
     val listRowHorizontal get() = (8f * density).dp
     val listRowVertical get() = (6f * density).dp

@@ -32,7 +32,7 @@ internal fun ClassicComponentCategoryFilter(
             vertical = 2.dp
         ),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.categoryGap)
+        horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.filterChipGap)
     ) {
         items(
             count = ComponentCategoryFilterPolicy.choices.size,
