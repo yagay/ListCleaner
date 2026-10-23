@@ -117,9 +117,11 @@ internal fun SettingsSwitchRow(
         supportingText = supportingText,
         onClick = if (enabled) ({ onCheckedChange(!checked) }) else null
     ) {
+        // The parent row owns the click; the switch is a visual state only.
+        // Keeping two independent toggle handlers could apply a change twice.
         AdaptiveSwitch(
             checked = checked,
-            onCheckedChange = if (enabled) onCheckedChange else null,
+            onCheckedChange = null,
             enabled = enabled
         )
     }
@@ -142,7 +144,11 @@ internal fun SettingsActionButton(
             onClick = onClick, modifier = size, enabled = enabled, content = content
         )
         SettingsActionStyle.SECONDARY, SettingsActionStyle.DANGER -> AdaptiveOutlinedButton(
-            onClick = onClick, modifier = size, enabled = enabled, content = content
+            onClick = onClick,
+            modifier = size,
+            enabled = enabled,
+            danger = style == SettingsActionStyle.DANGER,
+            content = content
         )
     }
 }
