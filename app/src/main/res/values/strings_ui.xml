@@ -145,4 +145,5 @@
     <string name="preview_assistant_not_verified">The assistant role picker request was sent, but its final foreground screen could not be verified. Check system diagnostics rather than assuming success.</string>
     <string name="lc_cleanup_mode_entry_short">Entry · LSPosed</string>
     <string name="lc_cleanup_mode_component_short">Component · Root</string>
+    <string name="lc_filter_help_short">Help</string>
 </resources>
