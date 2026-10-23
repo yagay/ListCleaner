@@ -95,20 +95,17 @@ internal fun DiagnosticsSettings(
     var showTechnical by rememberSaveable { mutableStateOf(false) }
 
     SettingsArea(stringResource(R.string.lc_diagnostics_export)) {
-        MaterialSettingsRow(
+        SettingsSwitchRow(
             title = stringResource(R.string.lc_diagnostics_full),
-            supportingText = stringResource(R.string.lc_diagnostics_full_help)
-        ) {
-            AdaptiveSwitch(
-                checked = UiPreferencesRuntime.current.diagnosticsLevel == UiDiagnosticsLevel.FULL,
-                onCheckedChange = { full ->
+            supportingText = stringResource(R.string.lc_diagnostics_full_help),
+            checked = UiPreferencesRuntime.current.diagnosticsLevel == UiDiagnosticsLevel.FULL,
+            onCheckedChange = { full ->
                     UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(
                         diagnosticsLevel = if (full) UiDiagnosticsLevel.FULL
                             else UiDiagnosticsLevel.SUMMARY
                     ))
                 }
-            )
-        }
+        )
         AdaptiveText(stringResource(R.string.lc_diagnostics_summary_help),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -126,12 +123,12 @@ internal fun DiagnosticsSettings(
         }
     }
     SettingsArea(stringResource(R.string.diagnostic_mode)) {
-        MaterialSettingsRow(
+        SettingsSwitchRow(
             title = stringResource(R.string.diagnostic_mode),
-            supportingText = stringResource(R.string.diagnostic_mode_help)
-        ) {
-            AdaptiveSwitch(checked = state.diagnosticMode, onCheckedChange = vm::setDiagnosticMode)
-        }
+            supportingText = stringResource(R.string.diagnostic_mode_help),
+            checked = state.diagnosticMode,
+            onCheckedChange = vm::setDiagnosticMode
+        )
         if (state.diagnosticMode) {
             AdaptiveText(stringResource(R.string.diagnostic_enabled_help),
                 style = MaterialTheme.typography.bodySmall)
