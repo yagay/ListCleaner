@@ -4,6 +4,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -126,7 +128,7 @@ internal fun SettingsLanguageControls() {
             }
         ) {
             AdaptiveIcon(
-                androidx.compose.material.icons.Icons.Rounded.ChevronRight,
+                Icons.Rounded.ChevronRight,
                 stringResource(R.string.settings_open_system),
                 Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.primary
