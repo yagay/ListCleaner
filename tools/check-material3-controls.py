@@ -22,6 +22,48 @@ for file in sorted(root.glob("*.kt")):
         if "Icons.AutoMirrored.Rounded.ArrowBack" in code:
             errors.append(f"{file.name}:{line_no}: use AdaptiveBackButton")
 
+# Six Settings sections use one Material 3 settings control system.
+settings_core = (root / "SettingsWidgets.kt").read_text(encoding="utf-8")
+for required in ("fun SettingsArea(", "fun <T> SettingsChoices(",
+                 "fun SettingsSwitchRow(", "fun SettingsActionButton(",
+                 "fun SettingsHint(", "fun SettingsSlider(",
+                 "MaterialSettingsRow(", "selectedLabel",
+                 "ListItemDefaults.colors(containerColor = Color.Transparent)"):
+    if required not in settings_core:
+        errors.append(f"SettingsWidgets.kt: unified settings component missing {required}")
+if "AdaptiveFilterChip(" in settings_core or "options.size <= 2" in settings_core:
+    errors.append("SettingsWidgets.kt: avoid different layout patterns based on arbitrary choice count")
+row = (root / "MaterialDesignSystem.kt").read_text(encoding="utf-8")
+settings_row = row.split("internal fun MaterialSettingsRow(", 1)[1].split(
+    "/** All full-screen picker", 1
+)[0]
+for required in ("heightIn(min = MaterialUiTokens.settingsRowHeight)",
+                 "Modifier.clickable(onClick = onClick)",
+                 "MaterialUiTokens.settingsRowGap",
+                 "MaterialTheme.typography.bodyLarge"):
+    if required not in settings_row:
+        errors.append(f"MaterialDesignSystem.kt: settings row geometry missing {required}")
+if "ListItem(" in settings_row:
+    errors.append("MaterialDesignSystem.kt: nested M3 ListItem adds duplicated settings card padding/color")
+for file in ("AppearanceSettings.kt", "ListSettings.kt", "ScanSettings.kt", "SettingsSections.kt"):
+    content = (root / file).read_text(encoding="utf-8")
+    if "AdaptiveSwitch(" in content or "AdaptiveFilterChip(" in content:
+        errors.append(f"{file}: migrate independent switch/chip layout to shared settings controls")
+    if "SettingsSwitchRow(" not in content:
+        errors.append(f"{file}: missing shared SettingsSwitchRow")
+for file in ("ScanSettings.kt", "SettingsSections.kt", "SettingsReset.kt", "RuntimePanel.kt"):
+    content = (root / file).read_text(encoding="utf-8")
+    if "AdaptiveOutlinedButton(" in content or "AdaptiveButton(" in content:
+        errors.append(f"{file}: use SettingsActionButton for consistent action dimensions")
+    if "SettingsActionButton(" not in content:
+        errors.append(f"{file}: missing unified settings action")
+if "SettingsActionStyle.DANGER" not in (root / "SettingsReset.kt").read_text(encoding="utf-8"):
+    errors.append("SettingsReset.kt: Reset must have clear semantic danger treatment")
+palette = (root / "UiAppearance.kt").read_text(encoding="utf-8")
+for required in ("secondary = primary", "tertiary = primary", "onSecondaryContainer = primary"):
+    if required not in palette:
+        errors.append(f"UiAppearance.kt: custom accent palette not harmonized: {required}")
+
 # Keep action palette definitions in exactly one file.
 for file in sorted(root.glob("*.kt")):
     if file.name == "MaterialActionColors.kt":
@@ -90,7 +132,7 @@ required = {
     "SettingsWidgets.kt": ["fun SettingsArea(", "fun <T> SettingsChoices(",
                            "fun SettingsSlider(", "MaterialSectionCard {",
                            "AdaptiveAlertDialog("],
-    "AppearanceSettings.kt": ["fun SettingsAppearanceControls(", "R.string.ui_color_mode_title", "UiColorMode.entries.forEach", "onColorModeChange(mode)",
+    "AppearanceSettings.kt": ["fun SettingsAppearanceControls(", "R.string.ui_color_mode_title", "UiColorMode.entries.map", "onSelected = onColorModeChange",
                               "fun SettingsLanguageControls()", "settings_icon_size",
                               "lc_layout_spacing"],
     "ListSettings.kt": ["fun SettingsListControls()", "settings_home_columns",
