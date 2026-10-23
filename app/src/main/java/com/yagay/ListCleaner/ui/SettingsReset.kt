@@ -48,7 +48,7 @@ internal fun SettingsResetControls(onColorModeChange: (UiColorMode) -> Unit) {
             }
         )
     }
-    AdaptiveOutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { confirm = true }) {
-        AdaptiveText(stringResource(R.string.settings_reset_title))
+    SettingsActionButton(style = SettingsActionStyle.DANGER, onClick = { confirm = true }) {
+        AdaptiveText(stringResource(R.string.settings_reset_title), color = MaterialTheme.colorScheme.error)
     }
 }
