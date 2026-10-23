@@ -167,76 +167,107 @@ internal fun WorkspaceFilterBar(
     var appMenu by remember { mutableStateOf(false) }
     var viewMenu by remember { mutableStateOf(false) }
     var actionMenu by remember { mutableStateOf(false) }
-    Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-            .padding(horizontal = MaterialUiTokens.listRowHorizontal),
+    androidx.compose.foundation.lazy.LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(
+            horizontal = MaterialUiTokens.pageHorizontal,
+            vertical = 2.dp
+        ),
+        horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.categoryGap),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box {
-            CompactCategoryButton(selected = true, onClick = { appMenu = true }) {
-                WorkspaceControlLabel(stringResource(
-                    R.string.compact_filter_format,
-                    stringResource(R.string.app_type_filter),
-                    stringResource(appTypeFilter.titleRes())
-                ), color = compactCategoryLabelColor(true))
-                AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp), tint = compactCategoryLabelColor(true))
-            }
-            AdaptiveDropdownMenu(expanded = appMenu, onDismissRequest = { appMenu = false }) {
-                AppTypeFilter.entries.forEach { option ->
-                    AdaptiveDropdownMenuItem(
-                        text = { AdaptiveText(stringResource(option.titleRes())) },
-                        leadingIcon = {
-                            if (option == appTypeFilter) AdaptiveIcon(Icons.Rounded.Check, null)
-                        },
-                        onClick = { appMenu = false; onAppTypeFilter(option) }
-                    )
-                }
-            }
-        }
-        Box {
-            CompactCategoryButton(selected = true, onClick = { viewMenu = true }) {
-                WorkspaceControlLabel(stringResource(
-                    R.string.compact_filter_format,
-                    stringResource(R.string.view_filter),
-                    viewTitle(viewFilter)
-                ), color = compactCategoryLabelColor(true))
-                AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp), tint = compactCategoryLabelColor(true))
-            }
-            AdaptiveDropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
-                UiFilter.entries.forEach { option ->
-                    AdaptiveDropdownMenuItem(
-                        text = { AdaptiveText(viewTitle(option)) },
-                        leadingIcon = {
-                            if (option == viewFilter) AdaptiveIcon(Icons.Rounded.Check, null)
-                        },
-                        onClick = { viewMenu = false; onViewFilter(option) }
-                    )
-                }
-            }
-        }
-        extraFilter?.invoke()
-        if (actions.isNotEmpty()) {
+        item(key = "apps") {
+            val selected = appTypeFilter != AppTypeFilter.ALL
             Box {
-                CompactCategoryButton(
-                    selected = false,
-                    onClick = { actionMenu = true },
-                    enabled = actions.any { it.enabled }
-                ) {
-                    WorkspaceControlLabel(stringResource(R.string.selection_actions))
-                    AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
+                CompactCategoryButton(selected = selected, onClick = { appMenu = true }) {
+                    WorkspaceControlLabel(
+                        stringResource(
+                            R.string.compact_filter_format,
+                            stringResource(R.string.app_type_filter),
+                            stringResource(appTypeFilter.titleRes())
+                        ),
+                        color = compactCategoryLabelColor(selected)
+                    )
+                    AdaptiveIcon(
+                        Icons.Rounded.ExpandMore, null, Modifier.size(16.dp),
+                        tint = compactCategoryLabelColor(selected)
+                    )
                 }
-                AdaptiveDropdownMenu(expanded = actionMenu, onDismissRequest = { actionMenu = false }) {
-                    actions.forEach { action ->
+                AdaptiveDropdownMenu(expanded = appMenu, onDismissRequest = { appMenu = false }) {
+                    AppTypeFilter.entries.forEach { option ->
                         AdaptiveDropdownMenuItem(
-                            text = { AdaptiveText(action.label) },
-                            enabled = action.enabled,
-                            onClick = { actionMenu = false; action.onClick() }
+                            text = { AdaptiveText(stringResource(option.titleRes())) },
+                            leadingIcon = {
+                                if (option == appTypeFilter) AdaptiveIcon(Icons.Rounded.Check, null)
+                            },
+                            onClick = { appMenu = false; onAppTypeFilter(option) }
                         )
                     }
                 }
             }
         }
-        help?.invoke()
+        item(key = "view") {
+            val selected = viewFilter != UiFilter.ALL
+            Box {
+                CompactCategoryButton(selected = selected, onClick = { viewMenu = true }) {
+                    WorkspaceControlLabel(
+                        stringResource(
+                            R.string.compact_filter_format,
+                            stringResource(R.string.view_filter),
+                            viewTitle(viewFilter)
+                        ),
+                        color = compactCategoryLabelColor(selected)
+                    )
+                    AdaptiveIcon(
+                        Icons.Rounded.ExpandMore, null, Modifier.size(16.dp),
+                        tint = compactCategoryLabelColor(selected)
+                    )
+                }
+                AdaptiveDropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
+                    UiFilter.entries.forEach { option ->
+                        AdaptiveDropdownMenuItem(
+                            text = { AdaptiveText(viewTitle(option)) },
+                            leadingIcon = {
+                                if (option == viewFilter) AdaptiveIcon(Icons.Rounded.Check, null)
+                            },
+                            onClick = { viewMenu = false; onViewFilter(option) }
+                        )
+                    }
+                }
+            }
+        }
+        if (extraFilter != null) {
+            item(key = "extra") { extraFilter() }
+        }
+        if (actions.isNotEmpty()) {
+            item(key = "actions") {
+                Box {
+                    CompactCategoryButton(
+                        selected = false,
+                        onClick = { actionMenu = true },
+                        enabled = actions.any { it.enabled }
+                    ) {
+                        WorkspaceControlLabel(stringResource(R.string.selection_actions))
+                        AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
+                    }
+                    AdaptiveDropdownMenu(
+                        expanded = actionMenu,
+                        onDismissRequest = { actionMenu = false }
+                    ) {
+                        actions.forEach { action ->
+                            AdaptiveDropdownMenuItem(
+                                text = { AdaptiveText(action.label) },
+                                enabled = action.enabled,
+                                onClick = { actionMenu = false; action.onClick() }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        if (help != null) {
+            item(key = "help") { help() }
+        }
     }
 }
 
@@ -284,7 +315,7 @@ internal fun WorkspaceHelpToggle(expanded: Boolean, onClick: () -> Unit) {
         selected = expanded,
         onClick = onClick
     ) {
-        WorkspaceControlLabel(stringResource(R.string.entry_help_title), color = compactCategoryLabelColor(expanded))
+        WorkspaceControlLabel(stringResource(R.string.lc_filter_help_short), color = compactCategoryLabelColor(expanded))
         AdaptiveIcon(
             if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
             null, Modifier.size(16.dp), tint = compactCategoryLabelColor(expanded)
