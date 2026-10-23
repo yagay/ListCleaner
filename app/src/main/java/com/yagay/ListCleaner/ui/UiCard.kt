@@ -37,20 +37,23 @@ internal fun UiCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val shape = if (variant == UiCardVariant.LIST_GROUP) position.shape() else MaterialUiTokens.cardShape
-    val containerColor = when (variant) {
-        UiCardVariant.SECTION -> MaterialTheme.colorScheme.surfaceContainerLow
-        UiCardVariant.CATEGORY -> MaterialTheme.colorScheme.surfaceContainer
-        UiCardVariant.LIST_GROUP -> MaterialTheme.colorScheme.surfaceContainerLow
-        UiCardVariant.STATUS -> MaterialTheme.colorScheme.surfaceContainerLow
+    val shape = when (variant) {
+        UiCardVariant.CATEGORY -> MaterialTheme.shapes.large
+        UiCardVariant.SECTION, UiCardVariant.LIST_GROUP, UiCardVariant.STATUS ->
+            MaterialTheme.shapes.medium
     }
-    val colors = CardDefaults.cardColors(containerColor = containerColor)
-    val border = if (warning) BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.60f)) else null
-    val surfaceModifier = modifier.padding(horizontal = horizontalInset)
-        .then(
-            if (variant == UiCardVariant.LIST_GROUP) Modifier.padding(position.verticalPadding())
-            else Modifier
-        )
+    val colors = CardDefaults.cardColors(
+        containerColor = when {
+            warning -> MaterialTheme.colorScheme.errorContainer
+            variant == UiCardVariant.CATEGORY -> MaterialTheme.colorScheme.surfaceContainer
+            else -> MaterialTheme.colorScheme.surfaceContainerLow
+        }
+    )
+    val border = if (warning) CardDefaults.outlinedCardBorder() else null
+    val surfaceModifier = modifier.padding(
+        horizontal = horizontalInset,
+        vertical = if (variant == UiCardVariant.LIST_GROUP) 2.dp else 0.dp
+    )
     if (onClick != null) {
         Card(
             onClick = onClick,
@@ -77,16 +80,17 @@ internal fun UiCardDetailRow(
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.35f))
-            .then(modifier)
-            .heightIn(min = MaterialUiTokens.detailHeight)
-            .padding(
-                horizontal = MaterialUiTokens.detailHorizontal,
-                vertical = MaterialUiTokens.detailVertical
-            ),
-        verticalAlignment = Alignment.CenterVertically,
-        content = content
+    androidx.compose.material3.ListItem(
+        modifier = modifier.fillMaxWidth(),
+        colors = androidx.compose.material3.ListItemDefaults.colors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        headlineContent = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                content = content
+            )
+        }
     )
 }
