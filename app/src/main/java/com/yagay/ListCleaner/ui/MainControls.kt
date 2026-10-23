@@ -166,13 +166,10 @@ private fun EntryGroupButton(
             selected = active,
             onClick = { expanded = true }
         ) {
-            AdaptiveText(
+            WorkspaceControlLabel(
                 label,
                 modifier = Modifier.widthIn(max = 132.dp),
-                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                color = compactCategoryLabelColor(active),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                color = compactCategoryLabelColor(active)
             )
             Spacer(Modifier.width(4.dp))
             AdaptiveIcon(
@@ -236,7 +233,7 @@ internal fun ListControls(
                         selected = allActive,
                         onClick = { onFilter(null) }
                     ) {
-                        AdaptiveText(
+                        WorkspaceControlLabel(
                             stringResource(R.string.common_all),
                             color = compactCategoryLabelColor(allActive)
                         )

@@ -34,10 +34,11 @@ internal fun ClassicCleanupTabs(
                 selected = active == ClassicCleanupMode.ENTRIES,
                 onClick = { if (active != ClassicCleanupMode.ENTRIES) onEntries() },
                 label = {
-                    AdaptiveText(
+                    WorkspaceControlLabel(
                         stringResource(R.string.workspace_rule_section),
-                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.fillMaxWidth(),
                         textAlign = TextAlign.Center,
+                        minLines = 2,
                         maxLines = 2
                     )
                 }
@@ -47,10 +48,11 @@ internal fun ClassicCleanupTabs(
                 selected = active == ClassicCleanupMode.COMPONENTS,
                 onClick = { if (active != ClassicCleanupMode.COMPONENTS) onComponents() },
                 label = {
-                    AdaptiveText(
+                    WorkspaceControlLabel(
                         stringResource(R.string.root_screen_title),
-                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.fillMaxWidth(),
                         textAlign = TextAlign.Center,
+                        minLines = 2,
                         maxLines = 2
                     )
                 }

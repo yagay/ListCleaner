@@ -5,6 +5,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandMore
@@ -40,21 +41,21 @@ fun OpenPresetFilterMenu(
     val selectedTitle = if (selected == null) stringResource(R.string.common_all) else config.localizedTitle(selected)
 
     Box {
-        AdaptiveTextButton(
-            onClick = { expanded = true },
-            contentPadding = MaterialUiTokens.compactButtonPadding
+        CompactCategoryButton(
+            selected = true,
+            onClick = { expanded = true }
         ) {
-            AdaptiveText(
+            WorkspaceControlLabel(
                 stringResource(
                     R.string.compact_filter_format,
                     stringResource(R.string.open_type_filter),
                     selectedTitle
                 ),
                 modifier = Modifier.widthIn(max = 150.dp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                color = compactCategoryLabelColor(true)
             )
-            AdaptiveIcon(Icons.Rounded.ExpandMore, null)
+            AdaptiveIcon(Icons.Rounded.ExpandMore, null, modifier = Modifier.size(16.dp),
+                tint = compactCategoryLabelColor(true))
         }
 
         AdaptiveDropdownMenu(

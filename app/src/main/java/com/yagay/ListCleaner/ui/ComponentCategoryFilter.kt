@@ -3,7 +3,6 @@ package com.yagay.ListCleaner.ui
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,12 +38,10 @@ internal fun ClassicComponentCategoryFilter(
                 selected = active,
                 onClick = { onSelected(kind) }
             ) {
-                AdaptiveText(
+                WorkspaceControlLabel(
                     if (kind == null) stringResource(R.string.common_all)
                     else stringResource(kind.titleRes()),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = compactCategoryLabelColor(active),
-                    maxLines = 1
+                    color = compactCategoryLabelColor(active)
                 )
             }
         }

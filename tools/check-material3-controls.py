@@ -115,7 +115,19 @@ required = {
     "TextResources.kt": ["Destination.SETTINGS -> R.string.nav_settings"],
     "EntryWorkspaceHome.kt": ["MaterialPageColumn {"],
     "RootWorkspaceHome.kt": ["MaterialPageColumn {"],
-    "WorkspaceCommon.kt": ["MaterialInlineStatus(", "MaterialUiTokens."],
+    "WorkspaceCommon.kt": ["MaterialInlineStatus(", "MaterialUiTokens.",
+                           "WorkspaceControlLabel(", "CompactCategoryButton("],
+    "WorkspaceControlLabel.kt": ["fun WorkspaceControlLabel(", "MaterialTheme.typography.labelLarge"],
+    "CompactCategoryButton.kt": ["fun CompactCategoryButton(", "MaterialTheme.colorScheme.primary",
+                                 "MaterialTheme.colorScheme.onPrimary", "MaterialTheme.colorScheme.outlineVariant"],
+    "ClassicListLayout.kt": ["fun ClassicCleanupTabs(", "WorkspaceControlLabel(",
+                             "active == ClassicCleanupMode.ENTRIES", "active == ClassicCleanupMode.COMPONENTS"],
+    "ComponentCategoryFilter.kt": ["fun ClassicComponentCategoryFilter(",
+                                    "WorkspaceControlLabel(", "CompactCategoryButton("],
+    "OpenPresetFilterRow.kt": ["fun OpenPresetFilterMenu(", "WorkspaceControlLabel(",
+                               "CompactCategoryButton("],
+    "BrowserHostFilterRow.kt": ["fun BrowserHostFilterMenu(", "WorkspaceControlLabel(",
+                                 "CompactCategoryButton("],
 }
 for filename, symbols in required.items():
     content = (root / filename).read_text(encoding="utf-8")

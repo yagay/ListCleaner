@@ -53,22 +53,22 @@ fun BrowserHostFilterMenu(
     }
 
     Box {
-        AdaptiveTextButton(
+        CompactCategoryButton(
+            selected = true,
             onClick = { expanded = true },
-            modifier = Modifier.onSizeChanged { anchorWidthPx = it.width },
-            contentPadding = MaterialUiTokens.compactButtonPadding
+            modifier = Modifier.onSizeChanged { anchorWidthPx = it.width }
         ) {
-            AdaptiveText(
+            WorkspaceControlLabel(
                 stringResource(
                     R.string.compact_filter_format,
                     stringResource(R.string.browser_domain_filter),
                     selectedTitle
                 ),
                 modifier = Modifier.widthIn(max = 170.dp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                color = compactCategoryLabelColor(true)
             )
-            AdaptiveIcon(Icons.Rounded.ExpandMore, null)
+            AdaptiveIcon(Icons.Rounded.ExpandMore, null, modifier = Modifier.size(16.dp),
+                tint = compactCategoryLabelColor(true))
         }
         AdaptiveDropdownMenu(
             expanded = expanded,

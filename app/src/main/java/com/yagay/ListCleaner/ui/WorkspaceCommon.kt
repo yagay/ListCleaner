@@ -148,13 +148,13 @@ internal fun WorkspaceFilterBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box {
-            AdaptiveTextButton(onClick = { appMenu = true }, contentPadding = MaterialUiTokens.compactButtonPadding) {
-                AdaptiveText(stringResource(
+            CompactCategoryButton(selected = true, onClick = { appMenu = true }) {
+                WorkspaceControlLabel(stringResource(
                     R.string.compact_filter_format,
                     stringResource(R.string.app_type_filter),
                     stringResource(appTypeFilter.titleRes())
-                ))
-                AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
+                ), color = compactCategoryLabelColor(true))
+                AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp), tint = compactCategoryLabelColor(true))
             }
             AdaptiveDropdownMenu(expanded = appMenu, onDismissRequest = { appMenu = false }) {
                 AppTypeFilter.entries.forEach { option ->
@@ -169,13 +169,13 @@ internal fun WorkspaceFilterBar(
             }
         }
         Box {
-            AdaptiveTextButton(onClick = { viewMenu = true }, contentPadding = MaterialUiTokens.compactButtonPadding) {
-                AdaptiveText(stringResource(
+            CompactCategoryButton(selected = true, onClick = { viewMenu = true }) {
+                WorkspaceControlLabel(stringResource(
                     R.string.compact_filter_format,
                     stringResource(R.string.view_filter),
                     viewTitle(viewFilter)
-                ))
-                AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
+                ), color = compactCategoryLabelColor(true))
+                AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp), tint = compactCategoryLabelColor(true))
             }
             AdaptiveDropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
                 UiFilter.entries.forEach { option ->
@@ -192,12 +192,12 @@ internal fun WorkspaceFilterBar(
         extraFilter?.invoke()
         if (actions.isNotEmpty()) {
             Box {
-                AdaptiveTextButton(
+                CompactCategoryButton(
+                    selected = false,
                     onClick = { actionMenu = true },
-                    enabled = actions.any { it.enabled },
-                    contentPadding = MaterialUiTokens.compactButtonPadding
+                    enabled = actions.any { it.enabled }
                 ) {
-                    AdaptiveText(stringResource(R.string.selection_actions))
+                    WorkspaceControlLabel(stringResource(R.string.selection_actions))
                     AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
                 }
                 AdaptiveDropdownMenu(expanded = actionMenu, onDismissRequest = { actionMenu = false }) {
@@ -255,14 +255,14 @@ internal fun WorkspaceEmptyState(
 /** One help toggle in the filter toolbar for both engines. */
 @Composable
 internal fun WorkspaceHelpToggle(expanded: Boolean, onClick: () -> Unit) {
-    AdaptiveTextButton(
-        onClick = onClick,
-        contentPadding = MaterialUiTokens.compactButtonPadding
+    CompactCategoryButton(
+        selected = expanded,
+        onClick = onClick
     ) {
-        AdaptiveText(stringResource(R.string.entry_help_title), maxLines = 1)
+        WorkspaceControlLabel(stringResource(R.string.entry_help_title), color = compactCategoryLabelColor(expanded))
         AdaptiveIcon(
             if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-            null, Modifier.size(16.dp)
+            null, Modifier.size(16.dp), tint = compactCategoryLabelColor(expanded)
         )
     }
 }

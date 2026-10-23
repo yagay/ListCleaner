@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.dp
 
 /**
  * The clickable TextButton keeps its Material3 minimum touch target, but the
- * highlight is drawn only around the inner label row (not the 40-48dp target).
+ * primary-filled highlight is drawn only around the inner label row (not the 40-48dp target).
  * This prevents the selected option from looking taller than its neighbours.
  */
 @Composable
@@ -24,21 +24,27 @@ internal fun CompactCategoryButton(
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit
 ) {
     val shape = MaterialTheme.shapes.medium
     AdaptiveTextButton(
         onClick = onClick,
         modifier = modifier,
+        enabled = enabled,
         contentPadding = PaddingValues(0.dp)
     ) {
         Row(
             modifier = Modifier
-                .then(if (selected) {
-                    Modifier
-                        .background(MaterialTheme.colorScheme.primaryContainer, shape)
-                        .border(1.dp, MaterialTheme.colorScheme.primary, shape)
-                } else Modifier)
+                .background(
+                    if (selected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.surface, shape
+                )
+                .border(
+                    1.dp,
+                    if (selected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.outlineVariant, shape
+                )
                 .padding(horizontal = 8.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
@@ -49,5 +55,5 @@ internal fun CompactCategoryButton(
 
 @Composable
 internal fun compactCategoryLabelColor(selected: Boolean): Color =
-    if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+    if (selected) MaterialTheme.colorScheme.onPrimary
     else MaterialTheme.colorScheme.primary
