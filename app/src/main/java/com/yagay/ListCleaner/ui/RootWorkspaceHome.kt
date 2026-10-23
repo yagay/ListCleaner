@@ -88,7 +88,10 @@ internal fun RootWorkspaceCategorySection(
         if (warning.isNotBlank()) WorkspaceStatusMessage(warning, isError = false)
         val columns = UiPreferencesRuntime.current.homeColumns
         kinds.chunked(columns).forEach { pair ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.categoryGap)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
+                horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.categoryGap)
+            ) {
                 pair.forEach { kind ->
                     WorkspaceCategoryCard(
                         icon = when (kind) {
@@ -101,7 +104,7 @@ internal fun RootWorkspaceCategorySection(
                         description = if (scanned) stringResource(
                             R.string.root_category_count, counts[kind] ?: 0
                         ) else stringResource(R.string.root_category_open_to_scan),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
                         onClick = { onChoose(kind) }
                     )
                 }

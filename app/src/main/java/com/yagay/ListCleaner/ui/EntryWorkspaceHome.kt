@@ -60,11 +60,14 @@ internal fun EntryWorkspaceHome(
             val groups = availableGroups
             val columns = UiPreferencesRuntime.current.homeColumns
             groups.chunked(columns).forEach { pair ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.categoryGap)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
+                    horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.categoryGap)
+                ) {
                     pair.forEach { group ->
                         EntryGroupTile(
                             group = group,
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
                             onClick = { onGroup(group) }
                         )
                     }

@@ -132,7 +132,7 @@ required = {
 native_checks = {
     "MainControls.kt": ("OutlinedTextField(",),
     "SettingsCenterHome.kt": ("ListItem(",),
-    "WorkspaceCommon.kt": ("ListItem(",),
+    "WorkspaceCommon.kt": ("WorkspaceCategoryCard(", "UiCard(", "minLines = 2"),
     "EntryWorkspaceHome.kt": ("ListItem(",),
 }
 for filename, symbols in native_checks.items():
@@ -144,6 +144,18 @@ if "BasicTextField(" in (root / "MainControls.kt").read_text(encoding="utf-8"):
     errors.append("MainControls.kt: obsolete custom-drawn search input")
 if "ComponentSelectionMark(" in (root / "AppListRows.kt").read_text(encoding="utf-8"):
     errors.append("AppListRows.kt: obsolete hand-drawn selection circle")
+# Grid cards are Material 3 Card surfaces, not ListItem rows with 3 horizontal slots.
+workspace_cards = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
+card_source = workspace_cards.split("internal fun WorkspaceCategoryCard(", 1)[1].split(
+    "/** Identical action in both cleanup groups", 1
+)[0]
+if "ListItem(" in card_source:
+    errors.append("WorkspaceCommon.kt: M3 ListItem crowds two-column home card; use M3 Card content")
+for page in ("EntryWorkspaceHome.kt", "RootWorkspaceHome.kt"):
+    content = (root / page).read_text(encoding="utf-8")
+    if "height(IntrinsicSize.Max)" not in content or "fillMaxHeight()" not in content:
+        errors.append(f"{page}: home grid must align card heights within each row")
+
 
 for filename, symbols in required.items():
     content = (root / filename).read_text(encoding="utf-8")
