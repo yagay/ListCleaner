@@ -146,4 +146,8 @@
     <string name="lc_cleanup_mode_entry_short">入口 · LSPosed</string>
     <string name="lc_cleanup_mode_component_short">组件 · Root</string>
     <string name="lc_filter_help_short">帮助</string>
+    <string name="lc_filter_sheet_button">筛选</string>
+    <string name="lc_filter_sheet_title">列表筛选</string>
+    <string name="lc_filter_sheet_reset">重置</string>
+    <string name="lc_filter_sheet_apply">应用筛选</string>
 </resources>

@@ -216,12 +216,24 @@ compact = (root / "CompactCategoryButton.kt").read_text(encoding="utf-8")
 if "Arrangement.spacedBy(4.dp)" not in compact:
     errors.append("CompactCategoryButton.kt: 4dp label/icon spacing must be consistent")
 
-# Entry/Root category selectors and Apps/View toolbar use the same scroll/spacing.
-for filename in ("MainControls.kt", "WorkspaceCommon.kt", "ComponentCategoryFilter.kt"):
+# Category strips remain scrollable, while Apps/View live in a shared M3 bottom sheet.
+for filename in ("MainControls.kt", "ComponentCategoryFilter.kt"):
     code = (root / filename).read_text(encoding="utf-8")
     for expected in ("LazyRow(", "Arrangement.spacedBy(MaterialUiTokens.filterChipGap)"):
         if expected not in code:
-            errors.append(f"{filename}: inconsistent Material 3 filter row: {expected}")
+            errors.append(f"{filename}: inconsistent Material 3 category strip: {expected}")
+sheet = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
+for expected in ("ModalBottomSheet(", "draftAppType", "draftView",
+                 "lc_filter_sheet_apply", "lc_filter_sheet_reset", "Badge {",
+                 "fun WorkspaceListActions(", "WorkspaceListActions(actions, helpExpanded, onHelpToggle)"):
+    if expected not in sheet:
+        errors.append(f"WorkspaceCommon.kt: unified filter sheet or list actions missing: {expected}")
+if "AdaptiveDropdownMenu(expanded = appMenu" in sheet:
+    errors.append("WorkspaceCommon.kt: obsolete Apps dropdown must not return")
+for filename in ("MainTabs.kt", "RootComponentsScreen.kt", "PriorityDialog.kt"):
+    code = (root / filename).read_text(encoding="utf-8")
+    if "WorkspaceListActions(" not in code and "actions = listOf(" not in code:
+        errors.append(f"{filename}: bulk actions must live beside the list summary")
 toolbar = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
 for expected in ("appTypeFilter != AppTypeFilter.ALL", "viewFilter != UiFilter.ALL",
                  "lc_filter_help_short"):

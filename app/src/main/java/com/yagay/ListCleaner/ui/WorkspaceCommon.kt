@@ -12,6 +12,8 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.FilterList
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Lock
@@ -153,6 +155,12 @@ internal data class WorkspaceMenuAction(
  * App-type and selected/locked filters share one implementation.
  * Operations differ per backend and are supplied as labeled callbacks.
  */
+/**
+ * Entry, Root and Ordering share one compact filter affordance. Changing the
+ * radio choices only changes a temporary sheet draft; Apply updates the
+ * existing screen-level filters, never rule or Root mutation state.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 internal fun WorkspaceFilterBar(
     appTypeFilter: AppTypeFilter,
@@ -160,113 +168,140 @@ internal fun WorkspaceFilterBar(
     viewFilter: UiFilter,
     onViewFilter: (UiFilter) -> Unit,
     viewTitle: @Composable (UiFilter) -> String = { stringResource(it.titleRes()) },
-    actions: List<WorkspaceMenuAction> = emptyList(),
-    extraFilter: (@Composable () -> Unit)? = null,
-    help: (@Composable () -> Unit)? = null
+    modifier: Modifier = Modifier,
 ) {
-    var appMenu by remember { mutableStateOf(false) }
-    var viewMenu by remember { mutableStateOf(false) }
-    var actionMenu by remember { mutableStateOf(false) }
-    androidx.compose.foundation.lazy.LazyRow(
-        modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(
-            horizontal = MaterialUiTokens.pageHorizontal,
-            vertical = 2.dp
-        ),
-        horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.filterChipGap),
-        verticalAlignment = Alignment.CenterVertically
+    var showSheet by remember { mutableStateOf(false) }
+    var draftAppType by remember { mutableStateOf(appTypeFilter) }
+    var draftView by remember { mutableStateOf(viewFilter) }
+    val activeCount = (if (appTypeFilter != AppTypeFilter.ALL) 1 else 0) +
+        (if (viewFilter != UiFilter.ALL) 1 else 0)
+
+    AdaptiveOutlinedButton(
+        modifier = modifier,
+        onClick = {
+            draftAppType = appTypeFilter
+            draftView = viewFilter
+            showSheet = true
+        }
     ) {
-        item(key = "apps") {
-            val selected = appTypeFilter != AppTypeFilter.ALL
-            Box {
-                CompactCategoryButton(selected = selected, onClick = { appMenu = true }) {
-                    WorkspaceControlLabel(
-                        stringResource(
-                            R.string.compact_filter_format,
-                            stringResource(R.string.app_type_filter),
-                            stringResource(appTypeFilter.titleRes())
-                        ),
-                        color = compactCategoryLabelColor(selected)
-                    )
-                    AdaptiveIcon(
-                        Icons.Rounded.ExpandMore, null, Modifier.size(16.dp),
-                        tint = compactCategoryLabelColor(selected)
-                    )
-                }
-                AdaptiveDropdownMenu(expanded = appMenu, onDismissRequest = { appMenu = false }) {
-                    AppTypeFilter.entries.forEach { option ->
-                        AdaptiveDropdownMenuItem(
-                            text = { AdaptiveText(stringResource(option.titleRes())) },
-                            leadingIcon = {
-                                if (option == appTypeFilter) AdaptiveIcon(Icons.Rounded.Check, null)
-                            },
-                            onClick = { appMenu = false; onAppTypeFilter(option) }
-                        )
-                    }
-                }
+        AdaptiveIcon(Icons.Rounded.FilterList, null, Modifier.size(18.dp))
+        AdaptiveText(stringResource(R.string.lc_filter_sheet_button))
+        if (activeCount > 0) {
+            androidx.compose.material3.Badge {
+                AdaptiveText(activeCount.toString())
             }
         }
-        item(key = "view") {
-            val selected = viewFilter != UiFilter.ALL
-            Box {
-                CompactCategoryButton(selected = selected, onClick = { viewMenu = true }) {
-                    WorkspaceControlLabel(
-                        stringResource(
-                            R.string.compact_filter_format,
-                            stringResource(R.string.view_filter),
-                            viewTitle(viewFilter)
-                        ),
-                        color = compactCategoryLabelColor(selected)
-                    )
-                    AdaptiveIcon(
-                        Icons.Rounded.ExpandMore, null, Modifier.size(16.dp),
-                        tint = compactCategoryLabelColor(selected)
-                    )
-                }
-                AdaptiveDropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
-                    UiFilter.entries.forEach { option ->
-                        AdaptiveDropdownMenuItem(
-                            text = { AdaptiveText(viewTitle(option)) },
-                            leadingIcon = {
-                                if (option == viewFilter) AdaptiveIcon(Icons.Rounded.Check, null)
-                            },
-                            onClick = { viewMenu = false; onViewFilter(option) }
-                        )
-                    }
-                }
-            }
-        }
-        if (extraFilter != null) {
-            item(key = "extra") { extraFilter() }
-        }
-        if (actions.isNotEmpty()) {
-            item(key = "actions") {
-                Box {
-                    CompactCategoryButton(
-                        selected = false,
-                        onClick = { actionMenu = true },
-                        enabled = actions.any { it.enabled }
-                    ) {
-                        WorkspaceControlLabel(stringResource(R.string.selection_actions))
-                        AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
-                    }
-                    AdaptiveDropdownMenu(
-                        expanded = actionMenu,
-                        onDismissRequest = { actionMenu = false }
-                    ) {
-                        actions.forEach { action ->
-                            AdaptiveDropdownMenuItem(
-                                text = { AdaptiveText(action.label) },
-                                enabled = action.enabled,
-                                onClick = { actionMenu = false; action.onClick() }
+    }
+    if (showSheet) {
+        androidx.compose.material3.ModalBottomSheet(
+            onDismissRequest = { showSheet = false }
+        ) {
+            Column(
+                Modifier.fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = MaterialUiTokens.pageHorizontal),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                AdaptiveText(
+                    stringResource(R.string.lc_filter_sheet_title),
+                    style = MaterialTheme.typography.titleLarge
+                )
+                AdaptiveText(
+                    stringResource(R.string.app_type_filter),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                AppTypeFilter.entries.forEach { option ->
+                    androidx.compose.material3.ListItem(
+                        modifier = Modifier.fillMaxWidth().clickable { draftAppType = option },
+                        headlineContent = { AdaptiveText(stringResource(option.titleRes())) },
+                        trailingContent = {
+                            androidx.compose.material3.RadioButton(
+                                selected = draftAppType == option,
+                                onClick = { draftAppType = option }
                             )
                         }
-                    }
+                    )
+                }
+                AdaptiveHorizontalDivider()
+                AdaptiveText(
+                    stringResource(R.string.view_filter),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                UiFilter.entries.forEach { option ->
+                    androidx.compose.material3.ListItem(
+                        modifier = Modifier.fillMaxWidth().clickable { draftView = option },
+                        headlineContent = { AdaptiveText(viewTitle(option)) },
+                        trailingContent = {
+                            androidx.compose.material3.RadioButton(
+                                selected = draftView == option,
+                                onClick = { draftView = option }
+                            )
+                        }
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AdaptiveTextButton(onClick = {
+                        draftAppType = AppTypeFilter.ALL
+                        draftView = UiFilter.ALL
+                    }) { AdaptiveText(stringResource(R.string.lc_filter_sheet_reset)) }
+                    AdaptiveButton(onClick = {
+                        if (draftAppType != appTypeFilter) onAppTypeFilter(draftAppType)
+                        if (draftView != viewFilter) onViewFilter(draftView)
+                        showSheet = false
+                    }) { AdaptiveText(stringResource(R.string.lc_filter_sheet_apply)) }
                 }
             }
         }
-        if (help != null) {
-            item(key = "help") { help() }
+    }
+}
+
+/** Batch operations and help belong beside the list summary, not inside filters. */
+@Composable
+internal fun WorkspaceListActions(
+    actions: List<WorkspaceMenuAction> = emptyList(),
+    helpExpanded: Boolean = false,
+    onHelpToggle: (() -> Unit)? = null,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (onHelpToggle != null) {
+            AdaptiveIconButton(onClick = onHelpToggle) {
+                AdaptiveIcon(
+                    Icons.Rounded.Info,
+                    stringResource(R.string.lc_filter_help_short),
+                    Modifier.size(20.dp),
+                    tint = if (helpExpanded) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        if (actions.isNotEmpty()) {
+            Box {
+                AdaptiveIconButton(
+                    onClick = { expanded = true },
+                    enabled = actions.any { it.enabled }
+                ) {
+                    AdaptiveIcon(
+                        Icons.Rounded.MoreVert,
+                        stringResource(R.string.selection_actions)
+                    )
+                }
+                AdaptiveDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    actions.forEach { action ->
+                        AdaptiveDropdownMenuItem(
+                            text = { AdaptiveText(action.label) },
+                            enabled = action.enabled,
+                            onClick = { expanded = false; action.onClick() }
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -274,18 +309,22 @@ internal fun WorkspaceFilterBar(
 @Composable
 internal fun WorkspaceListSummary(
     title: String,
-    secondary: String? = null
+    secondary: String? = null,
+    actions: List<WorkspaceMenuAction> = emptyList(),
+    helpExpanded: Boolean = false,
+    onHelpToggle: (() -> Unit)? = null,
 ) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = 5.dp),
+        Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         AdaptiveText(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelMedium)
         if (secondary != null) AdaptiveText(
             secondary, color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.labelSmall, maxLines = 1
         )
+        WorkspaceListActions(actions, helpExpanded, onHelpToggle)
     }
 }
 

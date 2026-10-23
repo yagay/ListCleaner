@@ -373,47 +373,6 @@ fun PriorityDialogContent(
                                     )
                                     else -> Unit
                                 }
-                            },
-                            onSelectAll = {
-                                val current = orderDraft.effective(rankedRaw)
-                                val eligible = groups.map { it.packageName }
-                                    .filterNot { vm.isBulkAppLocked(lockScope, it) }
-                                val next = (current + eligible.filterNot { it in current }).take(200)
-                                val systemPackages = groups.filter { it.appType == AppType.SYSTEM }
-                                    .map { it.packageName }.toSet()
-                                val warnCount = next.count { it !in current && it in systemPackages }
-                                confirmation.request(
-                                    prefsContext.getString(R.string.select_all),
-                                    systemAppCount = warnCount,
-                                    risk = SystemSelectionRisk.PRIORITY
-                                ) {
-                                    orderDraft.stage(rankedRaw, next)
-                                }
-                            },
-                            onSelectNone = {
-                                confirmation.request(prefsContext.getString(R.string.select_none)) {
-                                    val current = orderDraft.effective(rankedRaw)
-                                    val eligible = groups.map { it.packageName }
-                                        .filterNot { vm.isBulkAppLocked(lockScope, it) }
-                                    orderDraft.stage(rankedRaw, current.filterNot { it in eligible })
-                                }
-                            },
-                            onInvert = {
-                                val current = orderDraft.effective(rankedRaw)
-                                val eligible = groups.map { it.packageName }
-                                    .filterNot { vm.isBulkAppLocked(lockScope, it) }
-                                val next = (current.filterNot { it in eligible } +
-                                    eligible.filterNot { it in current }).take(200)
-                                val systemPackages = groups.filter { it.appType == AppType.SYSTEM }
-                                    .map { it.packageName }.toSet()
-                                val warnCount = next.count { it !in current && it in systemPackages }
-                                confirmation.request(
-                                    prefsContext.getString(R.string.invert_selection),
-                                    systemAppCount = warnCount,
-                                    risk = SystemSelectionRisk.PRIORITY
-                                ) {
-                                    orderDraft.stage(rankedRaw, next)
-                                }
                             }
                         )
                     }
@@ -437,11 +396,49 @@ fun PriorityDialogContent(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        AdaptiveTextButton(onClick = { sortHelpExpanded = !sortHelpExpanded }) {
-                            AdaptiveText(stringResource(
-                                if (sortHelpExpanded) R.string.common_collapse else R.string.entry_help_title
-                            ))
-                        }
+                        WorkspaceListActions(
+                            actions = listOf(
+                                WorkspaceMenuAction(stringResource(R.string.select_all), {
+                                    val current = orderDraft.effective(rankedRaw)
+                                    val eligible = groups.map { it.packageName }
+                                        .filterNot { vm.isBulkAppLocked(lockScope, it) }
+                                    val next = (current + eligible.filterNot { it in current }).take(200)
+                                    val systemPackages = groups.filter { it.appType == AppType.SYSTEM }
+                                        .map { it.packageName }.toSet()
+                                    val warnCount = next.count { it !in current && it in systemPackages }
+                                    confirmation.request(
+                                        prefsContext.getString(R.string.select_all),
+                                        systemAppCount = warnCount,
+                                        risk = SystemSelectionRisk.PRIORITY
+                                    ) { orderDraft.stage(rankedRaw, next) }
+                                }, groups.isNotEmpty()),
+                                WorkspaceMenuAction(stringResource(R.string.select_none), {
+                                    confirmation.request(prefsContext.getString(R.string.select_none)) {
+                                        val current = orderDraft.effective(rankedRaw)
+                                        val eligible = groups.map { it.packageName }
+                                            .filterNot { vm.isBulkAppLocked(lockScope, it) }
+                                        orderDraft.stage(rankedRaw, current.filterNot { it in eligible })
+                                    }
+                                }, groups.isNotEmpty()),
+                                WorkspaceMenuAction(stringResource(R.string.invert_selection), {
+                                    val current = orderDraft.effective(rankedRaw)
+                                    val eligible = groups.map { it.packageName }
+                                        .filterNot { vm.isBulkAppLocked(lockScope, it) }
+                                    val next = (current.filterNot { it in eligible } +
+                                        eligible.filterNot { it in current }).take(200)
+                                    val systemPackages = groups.filter { it.appType == AppType.SYSTEM }
+                                        .map { it.packageName }.toSet()
+                                    val warnCount = next.count { it !in current && it in systemPackages }
+                                    confirmation.request(
+                                        prefsContext.getString(R.string.invert_selection),
+                                        systemAppCount = warnCount,
+                                        risk = SystemSelectionRisk.PRIORITY
+                                    ) { orderDraft.stage(rankedRaw, next) }
+                                }, groups.isNotEmpty())
+                            ),
+                            helpExpanded = sortHelpExpanded,
+                            onHelpToggle = { sortHelpExpanded = !sortHelpExpanded }
+                        )
                     }
                     if (sortHelpExpanded) {
                         AdaptiveText(

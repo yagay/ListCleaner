@@ -146,4 +146,8 @@
     <string name="lc_cleanup_mode_entry_short">Entry · LSPosed</string>
     <string name="lc_cleanup_mode_component_short">Component · Root</string>
     <string name="lc_filter_help_short">Help</string>
+    <string name="lc_filter_sheet_button">Filter</string>
+    <string name="lc_filter_sheet_title">List filters</string>
+    <string name="lc_filter_sheet_reset">Reset</string>
+    <string name="lc_filter_sheet_apply">Apply filters</string>
 </resources>

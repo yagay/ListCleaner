@@ -414,8 +414,6 @@ fun RulesTab(
                             UiPreferencesStore.rememberAppType(prefsContext, it, "rules")
                         },
                         showEntryGroups = classicLayout,
-                        externalHelpExpanded = ruleHelpExpanded,
-                        onExternalHelpChange = { ruleHelpExpanded = it },
                         extraFilter = {
                             when (state.filter) {
                                 IntentKind.OPEN -> OpenPresetFilterMenu(
@@ -433,46 +431,49 @@ fun RulesTab(
                                 )
                                 else -> Unit
                             }
-                        },
-                        batchCount = visibleRules.size,
-                        onSelectAll = {
-                            confirmation.request(
-                                prefsContext.getString(R.string.select_all),
-                                systemAppCount = newlySelectedSystemAppCount(),
-                                risk = SystemSelectionRisk.ENTRY
-                            ) {
-                                visibleRules.filter(canStageRule).forEach { rule ->
-                                    val current = selectionDraft.selected(rule, rule in activeSelected)
-                                    selectionDraft.set(rule, rule in activeSelected, true)
-                                }
-                            }
-                        },
-                        onSelectNone = {
-                            confirmation.request(prefsContext.getString(R.string.select_none)) {
-                                visibleRules.filter(canStageRule).forEach { rule ->
-                                    val current = selectionDraft.selected(rule, rule in activeSelected)
-                                    selectionDraft.set(rule, rule in activeSelected, false)
-                                }
-                            }
-                        },
-                        onInvert = {
-                            confirmation.request(
-                                prefsContext.getString(R.string.invert_selection),
-                                systemAppCount = newlySelectedSystemAppCount(),
-                                risk = SystemSelectionRisk.ENTRY
-                            ) {
-                                visibleRules.filter(canStageRule).forEach { rule ->
-                                    val current = selectionDraft.selected(rule, rule in activeSelected)
-                                    selectionDraft.set(rule, rule in activeSelected, !current)
-                                }
-                            }
                         }
                     )
                 }
             }
         }
         item(key = "list-summary") {
-            SummaryRow(state, shownGroups.size)
+            SummaryRow(
+                state, shownGroups.size,
+                actions = listOf(
+                    WorkspaceMenuAction(stringResource(R.string.select_all), {
+                        confirmation.request(
+                            prefsContext.getString(R.string.select_all),
+                            systemAppCount = newlySelectedSystemAppCount(),
+                            risk = SystemSelectionRisk.ENTRY
+                        ) {
+                            visibleRules.filter(canStageRule).forEach { rule ->
+                                selectionDraft.set(rule, rule in activeSelected, true)
+                            }
+                        }
+                    }, visibleRules.isNotEmpty()),
+                    WorkspaceMenuAction(stringResource(R.string.select_none), {
+                        confirmation.request(prefsContext.getString(R.string.select_none)) {
+                            visibleRules.filter(canStageRule).forEach { rule ->
+                                selectionDraft.set(rule, rule in activeSelected, false)
+                            }
+                        }
+                    }, visibleRules.isNotEmpty()),
+                    WorkspaceMenuAction(stringResource(R.string.invert_selection), {
+                        confirmation.request(
+                            prefsContext.getString(R.string.invert_selection),
+                            systemAppCount = newlySelectedSystemAppCount(),
+                            risk = SystemSelectionRisk.ENTRY
+                        ) {
+                            visibleRules.filter(canStageRule).forEach { rule ->
+                                val current = selectionDraft.selected(rule, rule in activeSelected)
+                                selectionDraft.set(rule, rule in activeSelected, !current)
+                            }
+                        }
+                    }, visibleRules.isNotEmpty())
+                ),
+                helpExpanded = ruleHelpExpanded,
+                onHelpToggle = { ruleHelpExpanded = !ruleHelpExpanded }
+            )
             AdaptiveText(
                 stringResource(R.string.system_preview_explanation),
                 modifier = Modifier.padding(horizontal = 16.dp),
@@ -673,10 +674,19 @@ fun RulesTab(
 }
 
 @Composable
-private fun SummaryRow(state: MainState, displayedApps: Int) {
+private fun SummaryRow(
+    state: MainState,
+    displayedApps: Int,
+    actions: List<WorkspaceMenuAction>,
+    helpExpanded: Boolean,
+    onHelpToggle: () -> Unit
+) {
     WorkspaceListSummary(
         title = stringResource(R.string.app_list_count, displayedApps),
-        secondary = stringResource(state.displayMode.titleRes())
+        secondary = stringResource(state.displayMode.titleRes()),
+        actions = actions,
+        helpExpanded = helpExpanded,
+        onHelpToggle = onHelpToggle
     )
     if (state.error != null) {
         WorkspaceStatusMessage(
