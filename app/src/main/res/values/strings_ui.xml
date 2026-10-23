@@ -153,5 +153,4 @@
     <string name="lc_category_picker_entry_title">Choose entry category</string>
     <string name="lc_category_picker_component_title">Choose component category</string>
     <string name="lc_category_picker_current">Category: %1$s</string>
-    <string name="lc_bulk_actions_label">Batch actions</string>
 </resources>
