@@ -65,30 +65,33 @@ internal fun SettingsCenterHome(onSelect: (SettingsSection) -> Unit) {
                         horizontalInset = 0.dp,
                         onClick = { onSelect(section) }
                     ) {
-                        Row(
-                            Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(
-                                horizontal = MaterialUiTokens.cardPadding,
-                                vertical = MaterialUiTokens.contentGap
+                        androidx.compose.material3.ListItem(
+                            colors = androidx.compose.material3.ListItemDefaults.colors(
+                                containerColor = androidx.compose.ui.graphics.Color.Transparent
                             ),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap)
-                        ) {
-                            AdaptiveIcon(section.icon, null, Modifier.size(24.dp),
-                                tint = MaterialTheme.colorScheme.primary)
-                            Column(Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                AdaptiveText(stringResource(section.titleRes),
-                                    fontWeight = FontWeight.Medium,
+                            leadingContent = {
+                                AdaptiveIcon(section.icon, null, Modifier.size(24.dp),
+                                    tint = MaterialTheme.colorScheme.primary)
+                            },
+                            headlineContent = {
+                                AdaptiveText(
+                                    stringResource(section.titleRes),
                                     style = MaterialTheme.typography.bodyLarge,
-                                    maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                AdaptiveText(stringResource(section.descriptionRes),
-                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            },
+                            supportingContent = {
+                                AdaptiveText(
+                                    stringResource(section.descriptionRes),
+                                    style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            }
-                            AdaptiveIcon(Icons.Rounded.ChevronRight, null, Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            },
+                            trailingContent = { AdaptiveIcon(Icons.Rounded.ChevronRight, null) }
+                        )
                     }
                 }
             }
