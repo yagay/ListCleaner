@@ -58,7 +58,7 @@ internal fun SettingsScanControls(vm: MainViewModel) {
         AdaptiveText(stringResource(R.string.lc_root_scan_note),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        AdaptiveOutlinedButton(
+        SettingsActionButton(
             modifier = Modifier.fillMaxWidth(), enabled = !busy,
             onClick = vm::refreshComponents
         ) { AdaptiveText(stringResource(R.string.lc_root_scan_now)) }
@@ -106,7 +106,7 @@ internal fun SettingsScanControls(vm: MainViewModel) {
                     )
                 }
             }
-            AdaptiveOutlinedButton(
+            SettingsActionButton(
                 modifier = Modifier.fillMaxWidth(),
                 onClick = { vm.refresh(forceCatalog = true, manualProactive = true) }
             ) { AdaptiveText(stringResource(R.string.lc_proactive_scan_now)) }
@@ -128,11 +128,11 @@ internal fun SettingsScanControls(vm: MainViewModel) {
         )
         AdaptiveText(stringResource(R.string.settings_scan_help),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        AdaptiveOutlinedButton(
+        SettingsActionButton(
             modifier = Modifier.fillMaxWidth(), enabled = !busy,
             onClick = vm::refreshAllCategories
         ) { AdaptiveText(stringResource(R.string.lc_scan_all_now)) }
-        AdaptiveOutlinedButton(
+        SettingsActionButton(
             modifier = Modifier.fillMaxWidth(),
             onClick = { showScanDetails = !showScanDetails }
         ) { AdaptiveText(stringResource(R.string.lc_scan_details)) }
