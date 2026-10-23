@@ -79,47 +79,25 @@ fun BrowserHostFilterMenu(
             offset = DpOffset(menuHorizontalOffset, 0.dp),
             scrollState = menuScroll
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 48.dp)
-                    .clickable {
-                        hostQuery = ""
-                        expanded = false
-                        onSelected(null)
-                    }
-                    .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier.width(24.dp),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    if (selected == null) {
-                        AdaptiveIcon(
-                            Icons.Rounded.Check,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
+            AdaptiveDropdownMenuItem(
+                text = { AdaptiveText(stringResource(R.string.common_all)) },
+                leadingIcon = {
+                    if (selected == null) AdaptiveIcon(Icons.Rounded.Check, null)
+                },
+                onClick = {
+                    hostQuery = ""
+                    expanded = false
+                    onSelected(null)
                 }
-                AdaptiveText(stringResource(R.string.common_all))
-            }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 48.dp)
-                    .clickable {
-                        hostQuery = ""
-                        expanded = false
-                        onManage()
-                    }
-                    .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Spacer(Modifier.width(24.dp))
-                AdaptiveText(stringResource(R.string.browser_hosts_manage))
-            }
+            )
+            AdaptiveDropdownMenuItem(
+                text = { AdaptiveText(stringResource(R.string.browser_hosts_manage)) },
+                onClick = {
+                    hostQuery = ""
+                    expanded = false
+                    onManage()
+                }
+            )
             AdaptiveHorizontalDivider()
             AdaptiveOutlinedTextField(
                 value = hostQuery,
@@ -146,36 +124,19 @@ fun BrowserHostFilterMenu(
                 )
             } else {
                 visibleHosts.forEach { host ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 48.dp)
-                            .clickable {
-                                hostQuery = ""
-                                expanded = false
-                                onSelected(host)
-                            }
-                            .padding(horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier.width(24.dp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            if (selected == host) {
-                                AdaptiveIcon(
-                                    Icons.Rounded.Check,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
+                    AdaptiveDropdownMenuItem(
+                        text = {
+                            AdaptiveText(host, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        },
+                        leadingIcon = {
+                            if (selected == host) AdaptiveIcon(Icons.Rounded.Check, null)
+                        },
+                        onClick = {
+                            hostQuery = ""
+                            expanded = false
+                            onSelected(host)
                         }
-                        AdaptiveText(
-                            host,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    )
                 }
             }
         }
