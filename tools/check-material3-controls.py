@@ -132,7 +132,7 @@ required = {
 native_checks = {
     "MainControls.kt": ("OutlinedTextField(",),
     "SettingsCenterHome.kt": ("ListItem(",),
-    "WorkspaceCommon.kt": ("WorkspaceCategoryCard(", "UiCard(", "minLines = 2"),
+    "WorkspaceCommon.kt": ("WorkspaceCategoryCard(", "UiCard(", "minLines = 1", "maxLines = 2"),
     "EntryWorkspaceHome.kt": ("ListItem(",),
 }
 for filename, symbols in native_checks.items():
@@ -151,6 +151,14 @@ card_source = workspace_cards.split("internal fun WorkspaceCategoryCard(", 1)[1]
 )[0]
 if "ListItem(" in card_source:
     errors.append("WorkspaceCommon.kt: M3 ListItem crowds two-column home card; use M3 Card content")
+if "minLines = 2" in card_source:
+    errors.append("WorkspaceCommon.kt: home card titles must not reserve a blank second line")
+tokens = (root / "MaterialDesignSystem.kt").read_text(encoding="utf-8")
+for expected in ("val categoryHeight get() = (88f * density).dp",
+                 "val categoryPadding get() = (8f * density).dp",
+                 "val categoryContentGap get() = (3f * density).dp"):
+    if expected not in tokens:
+        errors.append(f"MaterialDesignSystem.kt: compact home-card token missing: {expected}")
 for page in ("EntryWorkspaceHome.kt", "RootWorkspaceHome.kt"):
     content = (root / page).read_text(encoding="utf-8")
     if "height(IntrinsicSize.Max)" not in content or "fillMaxHeight()" not in content:
