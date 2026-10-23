@@ -261,7 +261,7 @@ if "heightIn(max = 480.dp)" in filter_popup or "widthIn(min = 270.dp" in filter_
 if filter_popup.count("AdaptiveDropdownMenuItem(") < 4:
     errors.append("WorkspaceCommon.kt: Filter group rows and choices must use native M3 menu items")
 for expected in ("fun WorkspaceListActions(",
-                 "WorkspaceListActions(actions, helpExpanded, onHelpToggle, primarySelection, prominentActions)"):
+                 "WorkspaceListActions(actions, helpExpanded, onHelpToggle, primarySelection)"):
     if expected not in sheet:
         errors.append(f"WorkspaceCommon.kt: list actions regression: {expected}")
 if "AdaptiveDropdownMenu(expanded = appMenu" in sheet:
@@ -306,7 +306,7 @@ for filename in ("MainTabs.kt", "RootComponentsScreen.kt", "PriorityDialog.kt"):
 common = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
 for expected in ("data class WorkspacePrimarySelection(", "AdaptiveTriStateCheckbox(",
                  "primarySelection: WorkspacePrimarySelection? = null",
-                 "prominentActions: Boolean = false", "lc_bulk_actions_label"):
+                 "selection_actions"):
     if expected not in common:
         errors.append(f"WorkspaceCommon.kt: visible bulk selection contract missing: {expected}")
 entry_source = (root / "MainTabs.kt").read_text(encoding="utf-8")
@@ -315,8 +315,13 @@ root_source = (root / "RootComponentsScreen.kt").read_text(encoding="utf-8")
 for filename, source in (("MainTabs.kt", entry_source), ("PriorityDialog.kt", priority_source)):
     if "WorkspacePrimarySelection(" not in source or "ToggleableState.Indeterminate" not in source:
         errors.append(f"{filename}: tri-state select-all must reflect visible editable items")
-if "prominentActions = true" not in root_source:
-    errors.append("RootComponentsScreen.kt: Root batch actions must be visibly labeled")
+for expected in ("WorkspacePrimarySelection(", "ToggleableState.Indeterminate",
+                 "editableVisibleComponents", "if (visibleBulkState == ToggleableState.On) true else false",
+                 "root_batch_action_invert", "PendingRootBatch("):
+    if expected not in root_source:
+        errors.append(f"RootComponentsScreen.kt: Entry-style Root selection missing: {expected}")
+if "prominentActions = true" in root_source or "lc_bulk_actions_label" in common:
+    errors.append("RootComponentsScreen.kt: obsolete Root-only bulk action button must not return")
 
 toolbar = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
 for expected in ("appTypeFilter != AppTypeFilter.ALL", "viewFilter != UiFilter.ALL",

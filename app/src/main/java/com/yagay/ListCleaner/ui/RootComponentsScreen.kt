@@ -257,6 +257,23 @@ fun RootComponentsScreen(
         }
     }
     val visible = remember(groups) { groups.flatMap { it.second } }
+    // The checkbox reflects the staged disabled state of the same editable,
+    // unlocked, currently visible components targeted by Root batch actions.
+    // Locked/read-only entries do not skew the checked/indeterminate state.
+    val editableVisibleComponents = visible.asSequence()
+        .filter { it.blocked == null && it.enabled != null &&
+            !vm.isComponentBulkProtected(kind, it) }
+        .distinctBy { "${it.user}|${it.component.flattenToString()}" }
+        .toList()
+    val disabledVisibleCount = editableVisibleComponents.count {
+        selectionDraft.selected(it.id, it.enabled == false)
+    }
+    val visibleBulkState = when {
+        editableVisibleComponents.isEmpty() || disabledVisibleCount == 0 -> ToggleableState.Off
+        disabledVisibleCount == editableVisibleComponents.size -> ToggleableState.On
+        else -> ToggleableState.Indeterminate
+    }
+
 
     val classicComponentMode = embedded &&
         UiPreferencesRuntime.current.homeLayout == UiHomeLayout.CLASSIC_LIST
@@ -350,29 +367,30 @@ fun RootComponentsScreen(
                         }
                     } else if (busy) WorkspaceProgress()
                     AdaptiveHorizontalDivider()
-                WorkspaceListSummary(
-                    title = stringResource(R.string.root_summary, groups.size, visible.size),
-                    actions = listOf(
-                        WorkspaceMenuAction(stringResource(R.string.root_batch_action_disable), {
-                            pendingBatch = PendingRootBatch(kind, visible, false)
-                        }, !busy && visible.any {
-                            it.blocked == null && it.enabled == true && !vm.isComponentBulkProtected(kind, it)
-                        }),
-                        WorkspaceMenuAction(stringResource(R.string.root_batch_action_enable), {
-                            pendingBatch = PendingRootBatch(kind, visible, true)
-                        }, !busy && visible.any {
-                            it.blocked == null && it.enabled == false && !vm.isComponentBulkProtected(kind, it)
-                        }),
-                        WorkspaceMenuAction(stringResource(R.string.root_batch_action_invert), {
-                            pendingBatch = PendingRootBatch(kind, visible, null)
-                        }, !busy && visible.any {
-                            it.blocked == null && it.enabled != null && !vm.isComponentBulkProtected(kind, it)
-                        })
-                    ),
-                    prominentActions = true,
-                    helpExpanded = detailsExpanded,
-                    onHelpToggle = { detailsExpanded = !detailsExpanded }
-                )
+                    WorkspaceListSummary(
+                        title = stringResource(R.string.root_summary, groups.size, visible.size),
+                        primarySelection = WorkspacePrimarySelection(
+                            state = visibleBulkState,
+                            enabled = !busy && editableVisibleComponents.isNotEmpty(),
+                            onToggle = {
+                                // The Root checkbox denotes DISABLED components.
+                                // Checking selects them for disable; unchecking enables
+                                // only the visible/unlocked subset. Confirmation and
+                                // staged changes are handled by the existing batch flow.
+                                pendingBatch = PendingRootBatch(
+                                    kind, editableVisibleComponents,
+                                    if (visibleBulkState == ToggleableState.On) true else false
+                                )
+                            }
+                        ),
+                        actions = listOf(
+                            WorkspaceMenuAction(stringResource(R.string.root_batch_action_invert), {
+                                pendingBatch = PendingRootBatch(kind, editableVisibleComponents, null)
+                            }, !busy && editableVisibleComponents.isNotEmpty())
+                        ),
+                        helpExpanded = detailsExpanded,
+                        onHelpToggle = { detailsExpanded = !detailsExpanded }
+                    )
                 }
             }
         }
