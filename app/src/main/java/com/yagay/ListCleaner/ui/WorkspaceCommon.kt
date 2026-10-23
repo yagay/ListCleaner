@@ -75,7 +75,7 @@ internal fun WorkspaceCategoryCard(
                 title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Medium,
-                minLines = 2,
+                minLines = 1,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
