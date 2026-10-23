@@ -431,14 +431,16 @@ fun RulesTab(
                                     val current = selectionDraft.selected(rule, rule in activeSelected)
                                     selectionDraft.set(rule, rule in activeSelected, true)
                                 }
-                            },
+                            }
+                        },
                         onSelectNone = {
                             confirmation.request(prefsContext.getString(R.string.select_none)) {
                                 visibleRules.filter(canStageRule).forEach { rule ->
                                     val current = selectionDraft.selected(rule, rule in activeSelected)
                                     selectionDraft.set(rule, rule in activeSelected, false)
                                 }
-                            },
+                            }
+                        },
                         onInvert = {
                             confirmation.request(prefsContext.getString(R.string.invert_selection)) {
                                 visibleRules.filter(canStageRule).forEach { rule ->
@@ -446,6 +448,7 @@ fun RulesTab(
                                     selectionDraft.set(rule, rule in activeSelected, !current)
                                 }
                             }
+                        }
                     )
                 }
             }
