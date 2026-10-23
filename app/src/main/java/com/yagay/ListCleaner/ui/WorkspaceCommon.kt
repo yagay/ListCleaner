@@ -153,15 +153,12 @@ internal data class WorkspaceMenuAction(
 )
 
 /**
- * App-type and selected/locked filters share one implementation.
- * Operations differ per backend and are supplied as labeled callbacks.
+ * One anchored Material 3 filter popup for Entry, Root and Ordering.
+ *
+ * Radio choices are draft-only until "Apply filters". Dismissal discards
+ * these drafts and never changes LSPosed/Root/priority mutations.
+ * OPEN/Browser's additional subfilters keep their existing callbacks.
  */
-/**
- * Entry, Root and Ordering share one compact filter affordance. Changing the
- * radio choices only changes a temporary sheet draft; Apply updates the
- * existing screen-level filters, never rule or Root mutation state.
- */
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 internal fun WorkspaceFilterBar(
     appTypeFilter: AppTypeFilter,
@@ -172,111 +169,114 @@ internal fun WorkspaceFilterBar(
     modifier: Modifier = Modifier,
     extraFilter: (@Composable () -> Unit)? = null,
 ) {
-    var showSheet by remember { mutableStateOf(false) }
+    var expanded by remember { mutableStateOf(false) }
     var draftAppType by remember { mutableStateOf(appTypeFilter) }
     var draftView by remember { mutableStateOf(viewFilter) }
     val activeCount = (if (appTypeFilter != AppTypeFilter.ALL) 1 else 0) +
         (if (viewFilter != UiFilter.ALL) 1 else 0)
 
-    // The fixed Filter control shares the same Material 3 chip dimensions as
-    // category choices. A large OutlinedButton used to dominate the strip.
-    CompactCategoryButton(
-        modifier = modifier,
-        selected = activeCount > 0,
-        onClick = {
-            draftAppType = appTypeFilter
-            draftView = viewFilter
-            showSheet = true
-        }
-    ) {
-        AdaptiveIcon(
-            Icons.Rounded.FilterList, null, Modifier.size(18.dp),
-            tint = compactCategoryLabelColor(activeCount > 0)
-        )
-        WorkspaceControlLabel(
-            stringResource(R.string.lc_filter_sheet_button),
-            color = compactCategoryLabelColor(activeCount > 0)
-        )
-        if (activeCount > 0) {
-            androidx.compose.material3.Badge {
-                AdaptiveText(activeCount.toString())
+    // Put the popup in the trigger's Box so Material 3 anchors its position
+    // directly below the top Filter button, just like the Category menu.
+    Box(modifier = modifier) {
+        CompactCategoryButton(
+            selected = activeCount > 0,
+            onClick = {
+                draftAppType = appTypeFilter
+                draftView = viewFilter
+                expanded = true
+            }
+        ) {
+            AdaptiveIcon(
+                Icons.Rounded.FilterList, null, Modifier.size(18.dp),
+                tint = compactCategoryLabelColor(activeCount > 0)
+            )
+            WorkspaceControlLabel(
+                stringResource(R.string.lc_filter_sheet_button),
+                color = compactCategoryLabelColor(activeCount > 0)
+            )
+            if (activeCount > 0) {
+                androidx.compose.material3.Badge {
+                    AdaptiveText(activeCount.toString())
+                }
             }
         }
-    }
-    if (showSheet) {
-        androidx.compose.material3.ModalBottomSheet(
-            onDismissRequest = { showSheet = false }
+        androidx.compose.material3.DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.widthIn(min = 270.dp, max = 340.dp)
+                .heightIn(max = 480.dp)
         ) {
-            Column(
-                Modifier.fillMaxWidth()
-                    .heightIn(max = 640.dp)
-                    .verticalScroll(rememberScrollState())
-                    .navigationBarsPadding()
-                    .padding(horizontal = MaterialUiTokens.pageHorizontal),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                AdaptiveText(
-                    stringResource(R.string.lc_filter_sheet_title),
-                    style = MaterialTheme.typography.titleLarge
-                )
-                if (extraFilter != null) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        extraFilter()
-                    }
-                    AdaptiveHorizontalDivider()
-                }
-                AdaptiveText(
-                    stringResource(R.string.app_type_filter),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                AppTypeFilter.entries.forEach { option ->
-                    androidx.compose.material3.ListItem(
-                        modifier = Modifier.fillMaxWidth().clickable { draftAppType = option },
-                        headlineContent = { AdaptiveText(stringResource(option.titleRes())) },
-                        trailingContent = {
-                            androidx.compose.material3.RadioButton(
-                                selected = draftAppType == option,
-                                onClick = { draftAppType = option }
-                            )
-                        }
-                    )
-                }
-                AdaptiveHorizontalDivider()
-                AdaptiveText(
-                    stringResource(R.string.view_filter),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                UiFilter.entries.forEach { option ->
-                    androidx.compose.material3.ListItem(
-                        modifier = Modifier.fillMaxWidth().clickable { draftView = option },
-                        headlineContent = { AdaptiveText(viewTitle(option)) },
-                        trailingContent = {
-                            androidx.compose.material3.RadioButton(
-                                selected = draftView == option,
-                                onClick = { draftView = option }
-                            )
-                        }
-                    )
-                }
+            AdaptiveText(
+                stringResource(R.string.lc_filter_sheet_title),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.titleMedium
+            )
+            if (extraFilter != null) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                    modifier = Modifier.fillMaxWidth().padding(
+                        horizontal = 8.dp, vertical = 4.dp
+                    ),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    AdaptiveTextButton(onClick = {
-                        draftAppType = AppTypeFilter.ALL
-                        draftView = UiFilter.ALL
-                    }) { AdaptiveText(stringResource(R.string.lc_filter_sheet_reset)) }
-                    AdaptiveButton(onClick = {
-                        if (draftAppType != appTypeFilter) onAppTypeFilter(draftAppType)
-                        if (draftView != viewFilter) onViewFilter(draftView)
-                        showSheet = false
-                    }) { AdaptiveText(stringResource(R.string.lc_filter_sheet_apply)) }
+                    extraFilter()
+                }
+                AdaptiveHorizontalDivider()
+            }
+            AdaptiveText(
+                stringResource(R.string.app_type_filter),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+            AppTypeFilter.entries.forEach { option ->
+                AdaptiveDropdownMenuItem(
+                    text = { AdaptiveText(stringResource(option.titleRes())) },
+                    trailingIcon = {
+                        if (draftAppType == option) {
+                            AdaptiveIcon(Icons.Rounded.Check, null, Modifier.size(20.dp))
+                        }
+                    },
+                    onClick = { draftAppType = option }
+                )
+            }
+            AdaptiveHorizontalDivider()
+            AdaptiveText(
+                stringResource(R.string.view_filter),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+            UiFilter.entries.forEach { option ->
+                AdaptiveDropdownMenuItem(
+                    text = { AdaptiveText(viewTitle(option)) },
+                    trailingIcon = {
+                        if (draftView == option) {
+                            AdaptiveIcon(Icons.Rounded.Check, null, Modifier.size(20.dp))
+                        }
+                    },
+                    onClick = { draftView = option }
+                )
+            }
+            AdaptiveHorizontalDivider()
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(
+                    horizontal = 8.dp, vertical = 4.dp
+                ),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AdaptiveTextButton(onClick = {
+                    draftAppType = AppTypeFilter.ALL
+                    draftView = UiFilter.ALL
+                }) {
+                    AdaptiveText(stringResource(R.string.lc_filter_sheet_reset))
+                }
+                AdaptiveButton(onClick = {
+                    if (draftAppType != appTypeFilter) onAppTypeFilter(draftAppType)
+                    if (draftView != viewFilter) onViewFilter(draftView)
+                    expanded = false
+                }) {
+                    AdaptiveText(stringResource(R.string.lc_filter_sheet_apply))
                 }
             }
         }

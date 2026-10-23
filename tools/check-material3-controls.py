@@ -233,11 +233,21 @@ for filename in ("MainControls.kt", "ComponentCategoryFilter.kt"):
     if "EntryCategoryPicker(" not in code and "ComponentCategoryPicker(" not in code:
         errors.append(f"{filename}: missing shared category picker")
 sheet = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
-for expected in ("ModalBottomSheet(", "draftAppType", "draftView",
-                 "lc_filter_sheet_apply", "lc_filter_sheet_reset", "Badge {",
-                 "fun WorkspaceListActions(", "WorkspaceListActions(actions, helpExpanded, onHelpToggle)"):
+filter_popup = sheet.split("internal fun WorkspaceFilterBar(", 1)[1].split(
+    "/** Batch operations", 1
+)[0]
+for expected in ("DropdownMenu(", "onDismissRequest = { expanded = false }",
+                 "draftAppType", "draftView", "lc_filter_sheet_apply",
+                 "lc_filter_sheet_reset", "Badge {", "extraFilter()",
+                 "widthIn(min = 270.dp"):
+    if expected not in filter_popup:
+        errors.append(f"WorkspaceCommon.kt: anchored M3 Filter menu regression: {expected}")
+if "ModalBottomSheet(" in filter_popup or "LazyRow(" in filter_popup:
+    errors.append("WorkspaceCommon.kt: Filter must open near its top button, not as a sheet")
+for expected in ("fun WorkspaceListActions(",
+                 "WorkspaceListActions(actions, helpExpanded, onHelpToggle)"):
     if expected not in sheet:
-        errors.append(f"WorkspaceCommon.kt: unified filter sheet or list actions missing: {expected}")
+        errors.append(f"WorkspaceCommon.kt: list actions regression: {expected}")
 if "AdaptiveDropdownMenu(expanded = appMenu" in sheet:
     errors.append("WorkspaceCommon.kt: obsolete Apps dropdown must not return")
 # Both cleanup modes must remain fully legible at typical font scales.
