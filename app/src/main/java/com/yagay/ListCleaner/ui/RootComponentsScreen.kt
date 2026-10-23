@@ -198,20 +198,30 @@ fun RootComponentsScreen(
     val visible = remember(groups) { groups.flatMap { it.second } }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-        item(key = "root-breadcrumb") {
-            WorkspaceBreadcrumb(
-                homeLabel = stringResource(R.string.workspace_groups),
-                onHome = {
-                    if (embedded) onExit()
-                    else {
-                        kind = null
-                        browseAll = false
-                        vm.setQuery("")
-                    }
-                },
-                currentLabel = kind?.let { stringResource(it.titleRes()) }
-                    ?: stringResource(R.string.workspace_browse_components)
-            )
+        if (embedded && UiPreferencesRuntime.current.homeLayout == UiHomeLayout.CLASSIC_LIST) {
+            stickyHeader(key = "classic-mode-tabs") {
+                ClassicCleanupTabs(
+                    active = ClassicCleanupMode.COMPONENTS,
+                    onEntries = onExit,
+                    onComponents = {}
+                )
+            }
+        } else {
+            item(key = "root-breadcrumb") {
+                WorkspaceBreadcrumb(
+                    homeLabel = stringResource(R.string.workspace_groups),
+                    onHome = {
+                        if (embedded) onExit()
+                        else {
+                            kind = null
+                            browseAll = false
+                            vm.setQuery("")
+                        }
+                    },
+                    currentLabel = kind?.let { stringResource(it.titleRes()) }
+                        ?: stringResource(R.string.workspace_browse_components)
+                )
+            }
         }
         stickyHeader(key = "controls") {
             PageFilterSection {

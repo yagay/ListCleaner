@@ -278,12 +278,12 @@ fun RulesTab(
     }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-        item(key = "workspace-breadcrumb") {
-            if (classicLayout) {
-                ClassicListHeader(
-                    state = state,
-                    onOpenStatus = onOpenModuleStatus,
-                    onOpenComponents = {
+        if (classicLayout) {
+            stickyHeader(key = "classic-mode-tabs") {
+                ClassicCleanupTabs(
+                    active = ClassicCleanupMode.ENTRIES,
+                    onEntries = {},
+                    onComponents = {
                         savedRuleQuery = state.query
                         selectedComponentKind = null
                         browseAllComponents = true
@@ -292,6 +292,14 @@ fun RulesTab(
                         vm.setFilter(null)
                         vm.setQuery(savedComponentQuery)
                     }
+                )
+            }
+        }
+        item(key = "workspace-breadcrumb") {
+            if (classicLayout) {
+                ClassicListHeader(
+                    state = state,
+                    onOpenStatus = onOpenModuleStatus
                 )
             } else {
                 EntryWorkspaceBreadcrumb(
