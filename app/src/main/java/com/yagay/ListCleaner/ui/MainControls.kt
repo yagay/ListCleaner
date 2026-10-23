@@ -180,99 +180,62 @@ internal fun ListControls(
     availableEntryKinds: Set<IntentKind>? = null,
     viewTitle: @Composable (UiFilter) -> String = { stringResource(it.titleRes()) },
     extraFilter: (@Composable () -> Unit)? = null,
-    onSelectAll: (() -> Unit)? = null,
-    onSelectNone: (() -> Unit)? = null,
-    onInvert: (() -> Unit)? = null,
-    batchCount: Int? = null,
-    externalHelpExpanded: Boolean? = null,
-    onExternalHelpChange: ((Boolean) -> Unit)? = null,
 ) {
-    var localHelpExpanded by remember(state.filter) { mutableStateOf(false) }
-    val helpExpanded = externalHelpExpanded ?: localHelpExpanded
-    val updateHelp: (Boolean) -> Unit = { next ->
-        if (onExternalHelpChange != null) onExternalHelpChange(next)
-        else localHelpExpanded = next
-    }
-    Column(Modifier.fillMaxWidth().background(
-        MaterialTheme.colorScheme.surface
-    )) {
-        if (showEntryGroups) {
-            androidx.compose.foundation.lazy.LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(
-                    horizontal = MaterialUiTokens.pageHorizontal,
-                    vertical = 2.dp
-                ),
-                horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.filterChipGap),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (includeAllKinds) {
-                    item(key = "all") {
-                        val allActive = EntryCategorySelectionPolicy.allSelected(state.filter)
-                        CompactCategoryButton(
-                            selected = allActive,
-                            onClick = { onFilter(null) }
-                        ) {
-                            WorkspaceControlLabel(
-                                stringResource(R.string.common_all),
-                                color = compactCategoryLabelColor(allActive)
-                            )
+    Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (showEntryGroups) {
+                androidx.compose.foundation.lazy.LazyRow(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(start = MaterialUiTokens.pageHorizontal, end = 4.dp, top = 2.dp, bottom = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.filterChipGap),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (includeAllKinds) {
+                        item(key = "all") {
+                            val allActive = EntryCategorySelectionPolicy.allSelected(state.filter)
+                            CompactCategoryButton(
+                                selected = allActive,
+                                onClick = { onFilter(null) }
+                            ) {
+                                WorkspaceControlLabel(
+                                    stringResource(R.string.common_all),
+                                    color = compactCategoryLabelColor(allActive)
+                                )
+                            }
                         }
                     }
-                }
-                val groups = EntryGroup.entries
-                    .filter { includeAllKinds || it != EntryGroup.DESKTOP }
-                    .filter { group ->
-                        availableEntryKinds == null ||
-                            group.kinds().any { it in availableEntryKinds }
+                    val groups = EntryGroup.entries
+                        .filter { includeAllKinds || it != EntryGroup.DESKTOP }
+                        .filter { group ->
+                            availableEntryKinds == null ||
+                                group.kinds().any { it in availableEntryKinds }
+                        }
+                    items(groups.size, key = { groups[it].name }) { index ->
+                        EntryGroupButton(groups[index], state.filter, onFilter, availableEntryKinds)
                     }
-                items(groups.size, key = { groups[it].name }) { index ->
-                    EntryGroupButton(groups[index], state.filter, onFilter, availableEntryKinds)
+                    if (extraFilter != null) {
+                        item(key = "special-filter") { extraFilter() }
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier.weight(1f).padding(start = MaterialUiTokens.pageHorizontal),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    extraFilter?.invoke()
                 }
             }
-        }
-
-        val allLabel = stringResource(R.string.select_all)
-        val noneLabel = stringResource(R.string.select_none)
-        val invertLabel = stringResource(R.string.invert_selection)
-        val actions = listOfNotNull(
-            onSelectAll?.let { WorkspaceMenuAction(allLabel, it, batchCount == null || batchCount > 0) },
-            onSelectNone?.let { WorkspaceMenuAction(noneLabel, it, batchCount == null || batchCount > 0) },
-            onInvert?.let { WorkspaceMenuAction(invertLabel, it, batchCount == null || batchCount > 0) }
-        )
-        WorkspaceFilterBar(
-            appTypeFilter = appTypeFilter,
-            onAppTypeFilter = onAppTypeFilter,
-            viewFilter = state.uiFilter,
-            onViewFilter = onUiFilter,
-            viewTitle = viewTitle,
-            actions = actions,
-            extraFilter = extraFilter,
-            help = {
-                WorkspaceHelpToggle(
-                    expanded = helpExpanded,
-                    onClick = { updateHelp(!helpExpanded) }
-                )
-            }
-        )
-        val selectedKind = state.filter
-        if (helpExpanded && onExternalHelpChange == null) {
-            WorkspaceHelpSection {
-                AdaptiveText(
-                    if (selectedKind == null) stringResource(R.string.entry_rules_general_help)
-                    else stringResource(selectedKind.descriptionRes()),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (selectedKind?.entryGroup() == EntryGroup.ADVANCED) {
-                    Spacer(Modifier.height(4.dp))
-                    AdaptiveText(
-                        stringResource(R.string.entry_advanced_safety_note),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+            WorkspaceFilterBar(
+                appTypeFilter = appTypeFilter,
+                onAppTypeFilter = onAppTypeFilter,
+                viewFilter = state.uiFilter,
+                onViewFilter = onUiFilter,
+                viewTitle = viewTitle,
+                modifier = Modifier.padding(end = MaterialUiTokens.pageHorizontal)
+            )
         }
         if (state.loading) WorkspaceProgress()
         AdaptiveHorizontalDivider()
