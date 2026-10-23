@@ -51,26 +51,37 @@ private fun WorkspaceCategoryPicker(
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
         UiCard(
-            variant = UiCardVariant.SECTION,
+            variant = UiCardVariant.CATEGORY,
             onClick = { expanded = true },
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
+            // Measure the *content row* to at least 48dp, not only the Card.
+            // Otherwise the 36dp row stays top-aligned inside a 48dp Card,
+            // leaving extra space below and making "All" look too high.
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
+                modifier = Modifier.fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                AdaptiveIcon(Icons.Rounded.Layers, null, Modifier.size(18.dp))
+                AdaptiveIcon(
+                    Icons.Rounded.Layers, null, Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
                 AdaptiveText(
-                    selectedTitle,
+                    stringResource(R.string.lc_category_picker_current, selectedTitle),
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.labelLarge,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 AdaptiveIcon(
                     if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                    null, Modifier.size(18.dp)
+                    null, Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
         }

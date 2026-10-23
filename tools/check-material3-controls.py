@@ -226,6 +226,16 @@ for expected in ("DropdownMenu(", "UiCard(", "EntryCategoryPicker(",
         errors.append(f"WorkspaceCategorySelector.kt: anchored category picker regression: {expected}")
 if "ModalBottomSheet(" in category or "LazyRow(" in category:
     errors.append("WorkspaceCategorySelector.kt: category selection must stay in an anchored popup")
+picker_body = category.split("private fun WorkspaceCategoryPicker(", 1)[1].split(
+    "@Composable\\nprivate fun CategoryChoice", 1
+)[0]
+for expected in ("variant = UiCardVariant.CATEGORY", "heightIn(min = 48.dp)",
+                 "verticalAlignment = Alignment.CenterVertically",
+                 "lc_category_picker_current", "FontWeight.SemiBold"):
+    if expected not in picker_body:
+        errors.append(f"WorkspaceCategorySelector.kt: centered/visible category label missing: {expected}")
+if "modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)" in picker_body:
+    errors.append("WorkspaceCategorySelector.kt: minimum height on Card rather than Row shifts label upward")
 for filename in ("MainControls.kt", "ComponentCategoryFilter.kt"):
     code = (root / filename).read_text(encoding="utf-8")
     if "LazyRow(" in code:
