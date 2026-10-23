@@ -152,6 +152,9 @@ internal data class WorkspaceMenuAction(
     val enabled: Boolean = true
 )
 
+/** Filter accordion state; exactly one group may be expanded. */
+private enum class FilterMenuSection { APPS, VIEW }
+
 /**
  * One anchored Material 3 filter popup for Entry, Root and Ordering.
  *
@@ -172,6 +175,8 @@ internal fun WorkspaceFilterBar(
     var expanded by remember { mutableStateOf(false) }
     var draftAppType by remember { mutableStateOf(appTypeFilter) }
     var draftView by remember { mutableStateOf(viewFilter) }
+    // Match the category picker: show two group headers, not every filter row.
+    var openSection by remember { mutableStateOf<FilterMenuSection?>(null) }
     val activeCount = (if (appTypeFilter != AppTypeFilter.ALL) 1 else 0) +
         (if (viewFilter != UiFilter.ALL) 1 else 0)
 
@@ -183,6 +188,7 @@ internal fun WorkspaceFilterBar(
             onClick = {
                 draftAppType = appTypeFilter
                 draftView = viewFilter
+                openSection = null
                 expanded = true
             }
         ) {
@@ -203,15 +209,114 @@ internal fun WorkspaceFilterBar(
         androidx.compose.material3.DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            modifier = Modifier.widthIn(min = 270.dp, max = 340.dp)
-                .heightIn(max = 480.dp)
+            modifier = Modifier.widthIn(min = 240.dp, max = 328.dp)
+                .heightIn(max = 440.dp)
         ) {
             AdaptiveText(
                 stringResource(R.string.lc_filter_sheet_title),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                style = MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            // Only one section is expanded at a time, as in Category.
+            val appsOpen = openSection == FilterMenuSection.APPS
+            AdaptiveDropdownMenuItem(
+                text = {
+                    AdaptiveText(
+                        stringResource(
+                            R.string.compact_filter_format,
+                            stringResource(R.string.app_type_filter),
+                            stringResource(draftAppType.titleRes())
+                        ),
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
+                trailingIcon = {
+                    AdaptiveIcon(
+                        if (appsOpen) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                        null, Modifier.size(20.dp)
+                    )
+                },
+                onClick = {
+                    openSection = if (appsOpen) null else FilterMenuSection.APPS
+                }
+            )
+            if (appsOpen) {
+                AppTypeFilter.entries.forEach { option ->
+                    AdaptiveDropdownMenuItem(
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Spacer(Modifier.width(16.dp))
+                                AdaptiveText(
+                                    stringResource(option.titleRes()),
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+                        },
+                        trailingIcon = {
+                            if (draftAppType == option) {
+                                AdaptiveIcon(Icons.Rounded.Check, null, Modifier.size(20.dp))
+                            }
+                        },
+                        onClick = {
+                            draftAppType = option
+                            openSection = null
+                        }
+                    )
+                }
+            }
+            val viewOpen = openSection == FilterMenuSection.VIEW
+            AdaptiveDropdownMenuItem(
+                text = {
+                    AdaptiveText(
+                        stringResource(
+                            R.string.compact_filter_format,
+                            stringResource(R.string.view_filter),
+                            viewTitle(draftView)
+                        ),
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
+                trailingIcon = {
+                    AdaptiveIcon(
+                        if (viewOpen) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                        null, Modifier.size(20.dp)
+                    )
+                },
+                onClick = {
+                    openSection = if (viewOpen) null else FilterMenuSection.VIEW
+                }
+            )
+            if (viewOpen) {
+                UiFilter.entries.forEach { option ->
+                    AdaptiveDropdownMenuItem(
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Spacer(Modifier.width(16.dp))
+                                AdaptiveText(
+                                    viewTitle(option),
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+                        },
+                        trailingIcon = {
+                            if (draftView == option) {
+                                AdaptiveIcon(Icons.Rounded.Check, null, Modifier.size(20.dp))
+                            }
+                        },
+                        onClick = {
+                            draftView = option
+                            openSection = null
+                        }
+                    )
+                }
+            }
             if (extraFilter != null) {
+                AdaptiveHorizontalDivider()
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(
                         horizontal = 8.dp, vertical = 4.dp
@@ -220,42 +325,6 @@ internal fun WorkspaceFilterBar(
                 ) {
                     extraFilter()
                 }
-                AdaptiveHorizontalDivider()
-            }
-            AdaptiveText(
-                stringResource(R.string.app_type_filter),
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary
-            )
-            AppTypeFilter.entries.forEach { option ->
-                AdaptiveDropdownMenuItem(
-                    text = { AdaptiveText(stringResource(option.titleRes())) },
-                    trailingIcon = {
-                        if (draftAppType == option) {
-                            AdaptiveIcon(Icons.Rounded.Check, null, Modifier.size(20.dp))
-                        }
-                    },
-                    onClick = { draftAppType = option }
-                )
-            }
-            AdaptiveHorizontalDivider()
-            AdaptiveText(
-                stringResource(R.string.view_filter),
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary
-            )
-            UiFilter.entries.forEach { option ->
-                AdaptiveDropdownMenuItem(
-                    text = { AdaptiveText(viewTitle(option)) },
-                    trailingIcon = {
-                        if (draftView == option) {
-                            AdaptiveIcon(Icons.Rounded.Check, null, Modifier.size(20.dp))
-                        }
-                    },
-                    onClick = { draftView = option }
-                )
             }
             AdaptiveHorizontalDivider()
             Row(
