@@ -41,7 +41,7 @@ internal fun ClassicCleanupTabs(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            SingleChoiceSegmentedButtonRow {
+            SingleChoiceSegmentedButtonRow(modifier = Modifier) {
             SegmentedButton(
                 selected = active == ClassicCleanupMode.ENTRIES,
                 onClick = { if (active != ClassicCleanupMode.ENTRIES) onEntries() },
