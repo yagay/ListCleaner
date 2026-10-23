@@ -32,6 +32,7 @@ import com.yagay.ListCleaner.domain.entryGroup
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.AppTypeFilter
 import com.yagay.ListCleaner.domain.OpenPreset
+import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.matchesOpenPreset
 import com.yagay.ListCleaner.domain.matchesBrowserHost
 
@@ -222,12 +223,12 @@ fun RulesTab(
     val baseShownGroups = remember(
         typedOpenPreset, deepLinkHost, state.candidates,
         state.openTypesExplicit.customDefinitions, typedSelected,
-        deepLinkSelected, state.query, state.uiFilter, state.groups, UiPreferencesRuntime.current
+        deepLinkSelected, displayedSelected, state.query, state.uiFilter, state.groups, UiPreferencesRuntime.current
     ) {
         when {
             typedOpenPreset != null -> groupCandidates(
                 state.candidates.filter { it.matchesOpenPreset(typedOpenPreset, state.openTypesExplicit.customDefinitions) },
-                typedSelected,
+                displayedSelected,
                 IntentKind.OPEN,
                 state.query,
                 state.uiFilter,
@@ -238,13 +239,16 @@ fun RulesTab(
                     it.rule.kind == IntentKind.DEEP_LINK &&
                         (it.matchesBrowserHost(deepLinkHost) || it.rule in deepLinkSelected)
                 },
-                deepLinkSelected,
+                displayedSelected,
                 IntentKind.DEEP_LINK,
                 state.query,
                 state.uiFilter,
                 UiPreferencesRuntime.current.appSort
             )
-            else -> state.groups
+            else -> groupCandidates(
+                state.candidates, displayedSelected, state.filter, state.query,
+                state.uiFilter, UiPreferencesRuntime.current.appSort
+            )
         }
     }
     val lockFilteredGroups = remember(
@@ -277,11 +281,32 @@ fun RulesTab(
         deepLinkHost != null -> deepLinkSelected
         else -> state.selected
     }
+    val selectionDraft = remember(state.filter, typedOpenPreset, deepLinkHost, vm.selectedSpace.value) {
+        PendingSelectionDraft<ComponentRule>()
+    }
+    val displayedSelected = activeSelected.toMutableSet().apply {
+        selectionDraft.changes.forEach { (rule, selected) ->
+            if (selected) add(rule) else remove(rule)
+        }
+    }.toSet()
+    val canStageRule: (ComponentRule) -> Boolean = { rule ->
+        when {
+            typedOpenPreset != null -> rule !in state.selected &&
+                !vm.isBulkProtected(lockScope, rule.packageName, rule.id)
+            deepLinkHost != null -> rule !in genericDeepLinkSelected &&
+                !vm.isBulkProtected(lockScope, rule.packageName, rule.id)
+            else -> !vm.isRuleBulkProtected(state.filter, openPreset, rule)
+        }
+    }
+
     val visibleRules = remember(shownGroups) {
         shownGroups.flatMap { it.components }.map { it.rule }.distinct()
     }
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+    Box(Modifier.fillMaxSize()) {
+    LazyColumn(Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = if (selectionDraft.count > 0) 90.dp else 16.dp)
+    ) {
         if (classicLayout) {
             stickyHeader(key = "classic-mode-tabs") {
                 ClassicCleanupTabs(
@@ -364,37 +389,25 @@ fun RulesTab(
                         batchCount = visibleRules.size,
                         onSelectAll = {
                             confirmation.request(prefsContext.getString(R.string.select_all)) {
-                            when {
-                                typedOpenPreset != null ->
-                                    vm.selectOpenTypeRules(typedOpenPreset, visibleRules, lockScope)
-                                deepLinkHost != null ->
-                                    vm.selectBrowserHostRules(deepLinkHost, visibleRules, lockScope)
-                                else -> vm.selectRules(visibleRules, state.filter, openPreset)
-                            }
-                            }
-                        },
+                                visibleRules.filter(canStageRule).forEach { rule ->
+                                    val current = selectionDraft.selected(rule, rule in activeSelected)
+                                    selectionDraft.set(rule, rule in activeSelected, true)
+                                }
+                            },
                         onSelectNone = {
                             confirmation.request(prefsContext.getString(R.string.select_none)) {
-                            when {
-                                typedOpenPreset != null ->
-                                    vm.deselectOpenTypeRules(typedOpenPreset, visibleRules, lockScope)
-                                deepLinkHost != null ->
-                                    vm.deselectBrowserHostRules(deepLinkHost, visibleRules, lockScope)
-                                else -> vm.deselectRules(visibleRules, state.filter, openPreset)
-                            }
-                            }
-                        },
+                                visibleRules.filter(canStageRule).forEach { rule ->
+                                    val current = selectionDraft.selected(rule, rule in activeSelected)
+                                    selectionDraft.set(rule, rule in activeSelected, false)
+                                }
+                            },
                         onInvert = {
                             confirmation.request(prefsContext.getString(R.string.invert_selection)) {
-                            when {
-                                typedOpenPreset != null ->
-                                    vm.invertOpenTypeRules(typedOpenPreset, visibleRules, lockScope)
-                                deepLinkHost != null ->
-                                    vm.invertBrowserHostRules(deepLinkHost, visibleRules, lockScope)
-                                else -> vm.invertRules(visibleRules, state.filter, openPreset)
+                                visibleRules.filter(canStageRule).forEach { rule ->
+                                    val current = selectionDraft.selected(rule, rule in activeSelected)
+                                    selectionDraft.set(rule, rule in activeSelected, !current)
+                                }
                             }
-                            }
-                        }
                     )
                 }
             }
@@ -443,7 +456,7 @@ fun RulesTab(
             item(key = "app|${group.packageName}", contentType = "app") {
                 AppRow(
                     group,
-                    activeSelected,
+                    displayedSelected,
                     expanded,
                     if (deepLinkScoped) vm.bulkLockState(
                         lockScope,
@@ -457,19 +470,8 @@ fun RulesTab(
                     ),
                     { vm.toggleExpandedApp(key) },
                     { selected ->
-                        val label = prefsContext.getString(
-                            R.string.lc_selection_group,
-                            group.components.firstOrNull()?.appLabel ?: group.packageName,
-                            prefsContext.getString(if (selected) R.string.lc_selection_select else R.string.lc_selection_deselect)
-                        )
-                        confirmation.request(label) {
-                            when {
-                                typedOpenPreset != null ->
-                                    vm.setOpenTypeGroupSelected(typedOpenPreset, group, selected)
-                                deepLinkHost != null ->
-                                    vm.setBrowserHostGroupSelected(deepLinkHost, group, selected)
-                                else -> vm.setGroupSelected(group, selected, state.filter, openPreset)
-                            }
+                        group.components.map { it.rule }.filter(canStageRule).forEach { rule ->
+                            selectionDraft.set(rule, rule in activeSelected, selected)
                         }
                     },
                     {
@@ -505,7 +507,7 @@ fun RulesTab(
             if (expanded) {
                 itemsIndexed(group.components, key = { _, item -> "component|${item.rule.id}" }, contentType = { _, _ -> "component" }) { componentIndex, component ->
                     val sourceNote = when {
-                        typedOpenPreset != null && component.rule in activeSelected -> when {
+                        typedOpenPreset != null && component.rule in displayedSelected -> when {
                             component.rule in state.selected -> stringResource(R.string.rules_inherited_from_all)
                             component.rule in explicitTypedSelected -> stringResource(
                                 R.string.rules_dedicated_rule,
@@ -513,7 +515,7 @@ fun RulesTab(
                             )
                             else -> null
                         }
-                        deepLinkHost != null && component.rule in activeSelected -> when {
+                        deepLinkHost != null && component.rule in displayedSelected -> when {
                             component.rule in genericDeepLinkSelected -> stringResource(R.string.rules_browser_inherited)
                             component.rule in explicitDeepLinkSelected -> stringResource(
                                 R.string.rules_browser_dedicated,
@@ -525,7 +527,7 @@ fun RulesTab(
                     }
                     ComponentRow(
                         component,
-                        component.rule in activeSelected,
+                        component.rule in displayedSelected,
                         state.priorities.titles[component.rule.id],
                         selectionNote = sourceNote,
                         position = if (componentIndex == group.components.lastIndex) ListRowPosition.LAST else ListRowPosition.MIDDLE,
@@ -536,20 +538,9 @@ fun RulesTab(
                             !vm.isBulkAppLocked(lockScope, component.rule.packageName)
                         } else !vm.isRuleAppLockedForRule(state.filter, openPreset, component.rule),
                         onToggle = {
-                            val label = prefsContext.getString(
-                                R.string.lc_selection_item,
-                                component.activityLabel,
-                                prefsContext.getString(
-                                    if (component.rule in activeSelected) R.string.lc_selection_deselect else R.string.lc_selection_select
-                                )
-                            )
-                            confirmation.request(label) {
-                                when {
-                                    typedOpenPreset != null ->
-                                        vm.toggleOpenType(typedOpenPreset, component.rule)
-                                    deepLinkHost != null -> vm.toggleBrowserHost(deepLinkHost, component.rule)
-                                    else -> vm.toggle(component.rule)
-                                }
+                            val rule = component.rule
+                            if (canStageRule(rule)) {
+                                selectionDraft.set(rule, rule in activeSelected, rule !in displayedSelected)
                             }
                         },
                         onLock = {
@@ -600,6 +591,31 @@ fun RulesTab(
             }
         }
     }
+    PendingChangesBar(
+        count = selectionDraft.count,
+        onDiscard = selectionDraft::discard,
+        onApply = {
+            val changes = selectionDraft.changes.filterKeys(canStageRule)
+            val add = changes.filterValues { it }.keys
+            val remove = changes.filterValues { !it }.keys
+            when {
+                typedOpenPreset != null -> {
+                    vm.selectOpenTypeRules(typedOpenPreset, add, lockScope)
+                    vm.deselectOpenTypeRules(typedOpenPreset, remove, lockScope)
+                }
+                deepLinkHost != null -> {
+                    vm.selectBrowserHostRules(deepLinkHost, add, lockScope)
+                    vm.deselectBrowserHostRules(deepLinkHost, remove, lockScope)
+                }
+                else -> {
+                    vm.selectRules(add, state.filter, openPreset)
+                    vm.deselectRules(remove, state.filter, openPreset)
+                }
+            }
+            selectionDraft.discard()
+        },
+        modifier = Modifier.align(Alignment.BottomCenter)
+    )
 }
 
 @Composable
