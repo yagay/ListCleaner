@@ -1,28 +1,22 @@
 package com.yagay.ListCleaner.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Layers
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ListItem
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.RadioButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,55 +35,57 @@ import com.yagay.ListCleaner.domain.entryGroup
 import com.yagay.ListCleaner.domain.kinds
 
 /**
- * A shared Material 3 category selector for Entry, Root and Ordering.
- * Only the current selection is shown in the toolbar. Groups and subtypes
- * are displayed in the bottom sheet instead of a row of clipped chips.
+ * Anchored Material 3 category menu for Entry, Root and Ordering.
+ *
+ * Unlike a bottom sheet, the popup opens next to its toolbar trigger.
+ * Unlike a horizontal chip list, it never clips adjacent categories or
+ * competes with the pinned Filter control for scrolling space.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun WorkspaceCategoryPicker(
     selectedTitle: String,
-    sheetTitle: String,
+    menuTitle: String,
     modifier: Modifier = Modifier,
     content: @Composable (dismiss: () -> Unit) -> Unit,
 ) {
-    var open by remember { mutableStateOf(false) }
-    UiCard(
-        variant = UiCardVariant.SECTION,
-        onClick = { open = true },
-        modifier = modifier.heightIn(min = 48.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = modifier) {
+        UiCard(
+            variant = UiCardVariant.SECTION,
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
         ) {
-            AdaptiveIcon(Icons.Rounded.Layers, null, Modifier.size(18.dp))
-            AdaptiveText(
-                selectedTitle,
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.labelLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(18.dp))
-        }
-    }
-    if (open) {
-        ModalBottomSheet(onDismissRequest = { open = false }) {
-            Column(
-                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
-                    .navigationBarsPadding()
-                    .padding(horizontal = MaterialUiTokens.pageHorizontal),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                AdaptiveIcon(Icons.Rounded.Layers, null, Modifier.size(18.dp))
                 AdaptiveText(
-                    sheetTitle,
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    selectedTitle,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                content { open = false }
+                AdaptiveIcon(
+                    if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    null, Modifier.size(18.dp)
+                )
             }
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.widthIn(min = 240.dp, max = 328.dp)
+        ) {
+            AdaptiveText(
+                menuTitle,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            content { expanded = false }
         }
     }
 }
@@ -101,15 +97,21 @@ private fun CategoryChoice(
     onClick: () -> Unit,
     indented: Boolean = false,
 ) {
-    ListItem(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        leadingContent = if (indented) {
-            { Spacer(Modifier.width(16.dp)) }
-        } else null,
-        headlineContent = {
-            AdaptiveText(title, style = MaterialTheme.typography.bodyLarge, maxLines = 2)
+    AdaptiveDropdownMenuItem(
+        text = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (indented) Spacer(Modifier.width(16.dp))
+                AdaptiveText(
+                    title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 2
+                )
+            }
         },
-        trailingContent = { RadioButton(selected = selected, onClick = null) }
+        trailingIcon = {
+            if (selected) AdaptiveIcon(Icons.Rounded.Check, null, Modifier.size(20.dp))
+        },
+        onClick = onClick
     )
 }
 
@@ -128,10 +130,10 @@ internal fun EntryCategoryPicker(
         }
     val currentTitle = if (selected == null) stringResource(R.string.common_all)
         else stringResource(selected.titleRes())
-    var expandedGroup by remember { mutableStateOf(selected?.entryGroup()) }
+    var expandedGroup by remember(selected) { mutableStateOf(selected?.entryGroup()) }
     WorkspaceCategoryPicker(
         selectedTitle = currentTitle,
-        sheetTitle = stringResource(R.string.lc_category_picker_entry_title),
+        menuTitle = stringResource(R.string.lc_category_picker_entry_title),
         modifier = modifier
     ) { dismiss ->
         if (includeAllKinds) {
@@ -143,25 +145,25 @@ internal fun EntryCategoryPicker(
         }
         availableGroups.forEach { group ->
             val expanded = expandedGroup == group
-            ListItem(
-                modifier = Modifier.fillMaxWidth().clickable {
-                    expandedGroup = if (expanded) null else group
-                },
-                headlineContent = {
+            AdaptiveDropdownMenuItem(
+                text = {
                     AdaptiveText(
                         stringResource(group.titleRes()),
-                        style = MaterialTheme.typography.titleMedium
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 2
                     )
                 },
-                trailingContent = {
+                trailingIcon = {
                     AdaptiveIcon(
                         if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                        null
+                        null, Modifier.size(20.dp)
                     )
-                }
+                },
+                onClick = { expandedGroup = if (expanded) null else group }
             )
             if (expanded) {
-                group.kinds().filter { availableKinds == null || it in availableKinds }
+                group.kinds()
+                    .filter { availableKinds == null || it in availableKinds }
                     .forEach { kind ->
                         CategoryChoice(
                             title = stringResource(kind.titleRes()),
@@ -184,7 +186,7 @@ internal fun ComponentCategoryPicker(
     WorkspaceCategoryPicker(
         selectedTitle = if (selected == null) stringResource(R.string.common_all)
             else stringResource(selected.titleRes()),
-        sheetTitle = stringResource(R.string.lc_category_picker_component_title),
+        menuTitle = stringResource(R.string.lc_category_picker_component_title),
         modifier = modifier
     ) { dismiss ->
         ComponentCategoryFilterPolicy.choices.forEach { kind ->
