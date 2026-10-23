@@ -313,6 +313,15 @@ fun RulesTab(
         shownGroups.asSequence().filter { it.appType == AppType.SYSTEM }
             .map { it.packageName }.toSet()
     }
+    val editableVisibleRules = visibleRules.filter(canStageRule)
+    val selectedEditableCount = editableVisibleRules.count { it in displayedSelected }
+    val visibleBulkState = when {
+        editableVisibleRules.isEmpty() || selectedEditableCount == 0 ->
+            androidx.compose.ui.state.ToggleableState.Off
+        selectedEditableCount == editableVisibleRules.size ->
+            androidx.compose.ui.state.ToggleableState.On
+        else -> androidx.compose.ui.state.ToggleableState.Indeterminate
+    }
     val newlySelectedSystemAppCount = {
         visibleRules.asSequence().filter(canStageRule)
             .filter { it !in displayedSelected && it.packageName in visibleSystemPackages }
@@ -433,47 +442,57 @@ fun RulesTab(
                             }
                         }
                     )
+                    SummaryRow(
+                        state, shownGroups.size,
+                        actions = listOf(
+                            WorkspaceMenuAction(stringResource(R.string.invert_selection), {
+                                confirmation.request(
+                                    prefsContext.getString(R.string.invert_selection),
+                                    systemAppCount = newlySelectedSystemAppCount(),
+                                    risk = SystemSelectionRisk.ENTRY
+                                ) {
+                                    editableVisibleRules.forEach { rule ->
+                                        val current = selectionDraft.selected(rule, rule in activeSelected)
+                                        selectionDraft.set(rule, rule in activeSelected, !current)
+                                    }
+                                }
+                            }, editableVisibleRules.isNotEmpty())
+                        ),
+                        primarySelection = WorkspacePrimarySelection(
+                            state = visibleBulkState,
+                            enabled = editableVisibleRules.isNotEmpty(),
+                            onToggle = {
+                                if (visibleBulkState == androidx.compose.ui.state.ToggleableState.On) {
+                                    confirmation.request(prefsContext.getString(R.string.select_none)) {
+                                        editableVisibleRules.forEach { rule ->
+                                            selectionDraft.set(rule, rule in activeSelected, false)
+                                        }
+                                    }
+                                } else {
+                                    confirmation.request(
+                                        prefsContext.getString(R.string.select_all),
+                                        systemAppCount = newlySelectedSystemAppCount(),
+                                        risk = SystemSelectionRisk.ENTRY
+                                    ) {
+                                        editableVisibleRules.forEach { rule ->
+                                            selectionDraft.set(rule, rule in activeSelected, true)
+                                        }
+                                    }
+                                }
+                            }
+                        ),
+                        helpExpanded = ruleHelpExpanded,
+                        onHelpToggle = { ruleHelpExpanded = !ruleHelpExpanded }
+                    )
                 }
             }
         }
         item(key = "list-summary") {
-            SummaryRow(
-                state, shownGroups.size,
-                actions = listOf(
-                    WorkspaceMenuAction(stringResource(R.string.select_all), {
-                        confirmation.request(
-                            prefsContext.getString(R.string.select_all),
-                            systemAppCount = newlySelectedSystemAppCount(),
-                            risk = SystemSelectionRisk.ENTRY
-                        ) {
-                            visibleRules.filter(canStageRule).forEach { rule ->
-                                selectionDraft.set(rule, rule in activeSelected, true)
-                            }
-                        }
-                    }, visibleRules.isNotEmpty()),
-                    WorkspaceMenuAction(stringResource(R.string.select_none), {
-                        confirmation.request(prefsContext.getString(R.string.select_none)) {
-                            visibleRules.filter(canStageRule).forEach { rule ->
-                                selectionDraft.set(rule, rule in activeSelected, false)
-                            }
-                        }
-                    }, visibleRules.isNotEmpty()),
-                    WorkspaceMenuAction(stringResource(R.string.invert_selection), {
-                        confirmation.request(
-                            prefsContext.getString(R.string.invert_selection),
-                            systemAppCount = newlySelectedSystemAppCount(),
-                            risk = SystemSelectionRisk.ENTRY
-                        ) {
-                            visibleRules.filter(canStageRule).forEach { rule ->
-                                val current = selectionDraft.selected(rule, rule in activeSelected)
-                                selectionDraft.set(rule, rule in activeSelected, !current)
-                            }
-                        }
-                    }, visibleRules.isNotEmpty())
-                ),
-                helpExpanded = ruleHelpExpanded,
-                onHelpToggle = { ruleHelpExpanded = !ruleHelpExpanded }
-            )
+            if (state.error != null) {
+                WorkspaceStatusMessage(
+                    stringResource(R.string.rules_refresh_incomplete), isError = true
+                )
+            }
             if (ruleHelpExpanded) WorkspaceHelpSection {
                 AdaptiveText(
                     stringResource(R.string.system_preview_explanation),
@@ -677,6 +696,7 @@ private fun SummaryRow(
     state: MainState,
     displayedApps: Int,
     actions: List<WorkspaceMenuAction>,
+    primarySelection: WorkspacePrimarySelection,
     helpExpanded: Boolean,
     onHelpToggle: () -> Unit
 ) {
@@ -684,15 +704,10 @@ private fun SummaryRow(
         title = stringResource(R.string.app_list_count, displayedApps),
         secondary = stringResource(state.displayMode.titleRes()),
         actions = actions,
+        primarySelection = primarySelection,
         helpExpanded = helpExpanded,
         onHelpToggle = onHelpToggle
     )
-    if (state.error != null) {
-        WorkspaceStatusMessage(
-            stringResource(R.string.rules_refresh_incomplete),
-            isError = true
-        )
-    }
 }
 
 @Composable
