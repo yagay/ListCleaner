@@ -27,7 +27,14 @@ import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.AppTypeFilter
 
-/** One card specification; null description reserves the same subtitle space. */
+/**
+ * Home categories are *cards*, not list rows. Material 3 ListItem reserves
+ * horizontal room for its leading/trailing slots, leaving only a few characters
+ * for a headline inside a two-column grid. In a card, put those actions above
+ * full-width text so long translated titles never create mismatched row heights.
+ *
+ * All geometry is shared by Entry Cleanup and Root Component Cleanup.
+ */
 @Composable
 internal fun WorkspaceCategoryCard(
     icon: ImageVector,
@@ -37,34 +44,49 @@ internal fun WorkspaceCategoryCard(
     onClick: () -> Unit
 ) {
     UiCard(
-        modifier = modifier,
+        modifier = modifier.fillMaxHeight(),
         variant = UiCardVariant.CATEGORY,
         onClick = onClick
     ) {
-        androidx.compose.material3.ListItem(
-            colors = androidx.compose.material3.ListItemDefaults.colors(
-                containerColor = androidx.compose.ui.graphics.Color.Transparent
-            ),
-            headlineContent = {
-                AdaptiveText(title, style = MaterialTheme.typography.titleMedium, maxLines = 2)
-            },
-            supportingContent = description?.let { subtitle ->
-                {
-                    AdaptiveText(
-                        subtitle,
-                        style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 2,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            },
-            leadingContent = {
-                AdaptiveIcon(icon, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
-            },
-            trailingContent = {
-                AdaptiveIcon(Icons.Rounded.ChevronRight, null)
+        Column(
+            modifier = Modifier.fillMaxWidth()
+                .heightIn(min = MaterialUiTokens.categoryHeight)
+                .padding(
+                    horizontal = MaterialUiTokens.categoryPadding,
+                    vertical = MaterialUiTokens.categoryPadding
+                ),
+            verticalArrangement = Arrangement.spacedBy(MaterialUiTokens.categoryContentGap)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AdaptiveIcon(
+                    icon, null, Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.weight(1f))
+                AdaptiveIcon(
+                    Icons.Rounded.ChevronRight, null, Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-        )
+            AdaptiveText(
+                title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium,
+                minLines = 2,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            AdaptiveText(
+                description.orEmpty(),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
