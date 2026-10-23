@@ -61,6 +61,8 @@ fun RootComponentsScreen(
     val scan by vm.componentScan.collectAsStateWithLifecycle()
     val busy by vm.componentBusy.collectAsStateWithLifecycle()
     val prefsContext = LocalContext.current
+    val confirmation = rememberSelectionConfirmationController()
+    SelectionConfirmationDialog(confirmation)
     val message by vm.componentMessage.collectAsStateWithLifecycle()
     val batchProgress by vm.componentBatchProgress.collectAsStateWithLifecycle()
     val rootNotice by vm.componentRootNotice.collectAsStateWithLifecycle()
@@ -409,7 +411,19 @@ fun RootComponentsScreen(
                     enabled = editable && !itemLocked,
                     locked = itemLocked,
                     lockToggleEnabled = lockToggleEnabled,
-                    onToggle = { vm.changeComponent(item, item.enabled == false) },
+                    onToggle = {
+                        val enabling = item.enabled == false
+                        val label = prefsContext.getString(
+                            R.string.lc_selection_item,
+                            item.label,
+                            prefsContext.getString(if (enabling) R.string.lc_selection_enable else R.string.lc_selection_disable)
+                        )
+                        confirmation.request(label) {
+                            if (!busy && vm.selectedSpace.value == item.user) {
+                                vm.changeComponent(item, enabling)
+                            }
+                        }
+                    },
                     onLock = { vm.setComponentItemLocked(kind, item, true) },
                     onUnlock = { vm.setComponentItemLocked(kind, item, false) },
                     content = {

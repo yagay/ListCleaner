@@ -49,6 +49,8 @@ fun RulesTab(
     val spaceScanState by vm.spaceScanState.collectAsStateWithLifecycle()
     val componentBusy by vm.componentBusy.collectAsStateWithLifecycle()
     val prefsContext = LocalContext.current
+    val confirmation = rememberSelectionConfirmationController()
+    SelectionConfirmationDialog(confirmation)
     var editingTitle by remember { mutableStateOf<com.yagay.ListCleaner.domain.ComponentCandidate?>(null) }
     var showCustomTypes by rememberSaveable { mutableStateOf(false) }
     var showBrowserHosts by rememberSaveable { mutableStateOf(false) }
@@ -361,6 +363,7 @@ fun RulesTab(
                         },
                         batchCount = visibleRules.size,
                         onSelectAll = {
+                            confirmation.request(prefsContext.getString(R.string.select_all)) {
                             when {
                                 typedOpenPreset != null ->
                                     vm.selectOpenTypeRules(typedOpenPreset, visibleRules, lockScope)
@@ -368,8 +371,10 @@ fun RulesTab(
                                     vm.selectBrowserHostRules(deepLinkHost, visibleRules, lockScope)
                                 else -> vm.selectRules(visibleRules, state.filter, openPreset)
                             }
+                            }
                         },
                         onSelectNone = {
+                            confirmation.request(prefsContext.getString(R.string.select_none)) {
                             when {
                                 typedOpenPreset != null ->
                                     vm.deselectOpenTypeRules(typedOpenPreset, visibleRules, lockScope)
@@ -377,14 +382,17 @@ fun RulesTab(
                                     vm.deselectBrowserHostRules(deepLinkHost, visibleRules, lockScope)
                                 else -> vm.deselectRules(visibleRules, state.filter, openPreset)
                             }
+                            }
                         },
                         onInvert = {
+                            confirmation.request(prefsContext.getString(R.string.invert_selection)) {
                             when {
                                 typedOpenPreset != null ->
                                     vm.invertOpenTypeRules(typedOpenPreset, visibleRules, lockScope)
                                 deepLinkHost != null ->
                                     vm.invertBrowserHostRules(deepLinkHost, visibleRules, lockScope)
                                 else -> vm.invertRules(visibleRules, state.filter, openPreset)
+                            }
                             }
                         }
                     )
@@ -449,12 +457,19 @@ fun RulesTab(
                     ),
                     { vm.toggleExpandedApp(key) },
                     { selected ->
-                        when {
-                            typedOpenPreset != null ->
-                                vm.setOpenTypeGroupSelected(typedOpenPreset, group, selected)
-                            deepLinkHost != null ->
-                                vm.setBrowserHostGroupSelected(deepLinkHost, group, selected)
-                            else -> vm.setGroupSelected(group, selected, state.filter, openPreset)
+                        val label = prefsContext.getString(
+                            R.string.lc_selection_group,
+                            group.components.firstOrNull()?.appLabel ?: group.packageName,
+                            prefsContext.getString(if (selected) R.string.lc_selection_select else R.string.lc_selection_deselect)
+                        )
+                        confirmation.request(label) {
+                            when {
+                                typedOpenPreset != null ->
+                                    vm.setOpenTypeGroupSelected(typedOpenPreset, group, selected)
+                                deepLinkHost != null ->
+                                    vm.setBrowserHostGroupSelected(deepLinkHost, group, selected)
+                                else -> vm.setGroupSelected(group, selected, state.filter, openPreset)
+                            }
                         }
                     },
                     {
@@ -521,11 +536,20 @@ fun RulesTab(
                             !vm.isBulkAppLocked(lockScope, component.rule.packageName)
                         } else !vm.isRuleAppLockedForRule(state.filter, openPreset, component.rule),
                         onToggle = {
-                            when {
-                                typedOpenPreset != null ->
-                                    vm.toggleOpenType(typedOpenPreset, component.rule)
-                                deepLinkHost != null -> vm.toggleBrowserHost(deepLinkHost, component.rule)
-                                else -> vm.toggle(component.rule)
+                            val label = prefsContext.getString(
+                                R.string.lc_selection_item,
+                                component.activityLabel,
+                                prefsContext.getString(
+                                    if (component.rule in activeSelected) R.string.lc_selection_deselect else R.string.lc_selection_select
+                                )
+                            )
+                            confirmation.request(label) {
+                                when {
+                                    typedOpenPreset != null ->
+                                        vm.toggleOpenType(typedOpenPreset, component.rule)
+                                    deepLinkHost != null -> vm.toggleBrowserHost(deepLinkHost, component.rule)
+                                    else -> vm.toggle(component.rule)
+                                }
                             }
                         },
                         onLock = {

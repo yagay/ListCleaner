@@ -128,6 +128,8 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     val browserHost by vm.ruleBrowserHost.collectAsStateWithLifecycle()
     var confirmPriorityReset by remember { mutableStateOf(false) }
     val prefsContext = LocalContext.current
+    val confirmation = rememberSelectionConfirmationController()
+    SelectionConfirmationDialog(confirmation)
     var sortHelpExpanded by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.openHelpByDefault) }
     var viewFilter by rememberSaveable { mutableStateOf(UiPreferencesStore.initialFilter(prefsContext, "priority")) }
     var appTypeFilter by rememberSaveable { mutableStateOf(UiPreferencesStore.initialAppType(prefsContext, "priority")) }
@@ -327,6 +329,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 }
                             },
                             onSelectAll = {
+                                confirmation.request(prefsContext.getString(R.string.select_all)) {
                                 when {
                                     typedOpenPreset != null ->
                                         vm.selectOpenTypePriorityApps(typedOpenPreset, groups.map { it.packageName }, lockScope)
@@ -334,8 +337,10 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                         vm.selectBrowserHostPriorityApps(deepLinkHost, groups.map { it.packageName }, lockScope)
                                     else -> vm.selectPriorityApps(kind, groups.map { it.packageName }, lockScope)
                                 }
+                                }
                             },
                             onSelectNone = {
+                                confirmation.request(prefsContext.getString(R.string.select_none)) {
                                 when {
                                     typedOpenPreset != null ->
                                         vm.deselectOpenTypePriorityApps(typedOpenPreset, groups.map { it.packageName }, lockScope)
@@ -343,14 +348,17 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                         vm.deselectBrowserHostPriorityApps(deepLinkHost, groups.map { it.packageName }, lockScope)
                                     else -> vm.deselectPriorityApps(kind, groups.map { it.packageName }, lockScope)
                                 }
+                                }
                             },
                             onInvert = {
+                                confirmation.request(prefsContext.getString(R.string.invert_selection)) {
                                 when {
                                     typedOpenPreset != null ->
                                         vm.invertOpenTypePriorityApps(typedOpenPreset, groups.map { it.packageName }, lockScope)
                                     deepLinkHost != null ->
                                         vm.invertBrowserHostPriorityApps(deepLinkHost, groups.map { it.packageName }, lockScope)
                                     else -> vm.invertPriorityApps(kind, groups.map { it.packageName }, lockScope)
+                                }
                                 }
                             }
                         )
@@ -527,17 +535,24 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 checked = group.rank != null,
                                 enabled = group.rank != null || rankedRaw.size < 200,
                                 onCheckedChange = { checked ->
-                                    when {
-                                        typedOpenPreset != null -> {
-                                            if (checked) vm.pinOpenTypeApp(typedOpenPreset, packageName)
-                                            else vm.removeOpenTypePriority(typedOpenPreset, packageName)
+                                    val label = prefsContext.getString(
+                                        R.string.lc_selection_group,
+                                        first.appLabel,
+                                        prefsContext.getString(if (checked) R.string.lc_selection_select else R.string.lc_selection_deselect)
+                                    )
+                                    confirmation.request(label) {
+                                        when {
+                                            typedOpenPreset != null -> {
+                                                if (checked) vm.pinOpenTypeApp(typedOpenPreset, packageName)
+                                                else vm.removeOpenTypePriority(typedOpenPreset, packageName)
+                                            }
+                                            deepLinkHost != null -> {
+                                                if (checked) vm.pinBrowserHostApp(deepLinkHost, packageName)
+                                                else vm.removeBrowserHostPriority(deepLinkHost, packageName)
+                                            }
+                                            checked -> vm.pinApp(kind, packageName)
+                                            else -> vm.removePriority(kind, packageName)
                                         }
-                                        deepLinkHost != null -> {
-                                            if (checked) vm.pinBrowserHostApp(deepLinkHost, packageName)
-                                            else vm.removeBrowserHostPriority(deepLinkHost, packageName)
-                                        }
-                                        checked -> vm.pinApp(kind, packageName)
-                                        else -> vm.removePriority(kind, packageName)
                                     }
                                 }
                             )
