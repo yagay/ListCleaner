@@ -118,36 +118,38 @@ internal fun EntryWorkspaceHome(
                     else -> ListRowPosition.MIDDLE
                 }
                 AdaptiveGroupSurface(Modifier.fillMaxWidth(), position, horizontalInset = 0.dp) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onKind(kind) }
-                            .heightIn(min = 58.dp)
-                            .padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    androidx.compose.material3.ListItem(
+                        modifier = Modifier.fillMaxWidth().clickable { onKind(kind) },
+                        colors = androidx.compose.material3.ListItemDefaults.colors(
+                            containerColor = androidx.compose.ui.graphics.Color.Transparent
+                        ),
+                        headlineContent = {
                             AdaptiveText(
                                 stringResource(kind.titleRes()),
                                 style = MaterialTheme.typography.bodyLarge,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
+                                maxLines = 2, overflow = TextOverflow.Ellipsis
                             )
+                        },
+                        supportingContent = {
                             AdaptiveText(
                                 stringResource(kind.descriptionRes()),
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.labelSmall,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
+                                maxLines = 2, overflow = TextOverflow.Ellipsis
                             )
+                        },
+                        trailingContent = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                AdaptiveIconButton(onClick = { onPreviewKind(kind) }) {
+                                    AdaptiveIcon(
+                                        Icons.Rounded.Visibility,
+                                        stringResource(R.string.system_preview_action)
+                                    )
+                                }
+                                AdaptiveIcon(Icons.Rounded.ChevronRight, null)
+                            }
                         }
-                        AdaptiveIconButton(onClick = { onPreviewKind(kind) }) {
-                            AdaptiveIcon(
-                                Icons.Rounded.Visibility,
-                                stringResource(R.string.system_preview_action),
-                                Modifier.size(18.dp)
-                            )
-                        }
-                        AdaptiveIcon(Icons.Rounded.ChevronRight, null, Modifier.size(20.dp))
-                    }
+                    )
                 }
             }
         }
