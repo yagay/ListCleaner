@@ -77,24 +77,24 @@ internal fun SettingsScanControls(vm: MainViewModel) {
             vm.refresh()
         }
         if (current.proactiveScanMode != UiProactiveScanMode.OFF) {
-            MaterialSettingsRow(
-                title = stringResource(R.string.lc_proactive_direct_share),
-                supportingText = stringResource(R.string.lc_proactive_direct_share_help)
-            ) {
-                AdaptiveSwitch(checked = current.proactiveDirectShare, onCheckedChange = {
+            SettingsSwitchRow(
+            title = stringResource(R.string.lc_proactive_direct_share),
+            supportingText = stringResource(R.string.lc_proactive_direct_share_help),
+            checked = current.proactiveDirectShare,
+            onCheckedChange = {
                     UiPreferencesStore.write(context, current.copy(proactiveDirectShare = it))
                     vm.refresh()
-                })
-            }
-            MaterialSettingsRow(
-                title = stringResource(R.string.lc_proactive_shortcuts),
-                supportingText = stringResource(R.string.lc_proactive_shortcuts_help)
-            ) {
-                AdaptiveSwitch(checked = current.proactiveShortcutItems, onCheckedChange = {
+                }
+        )
+            SettingsSwitchRow(
+            title = stringResource(R.string.lc_proactive_shortcuts),
+            supportingText = stringResource(R.string.lc_proactive_shortcuts_help),
+            checked = current.proactiveShortcutItems,
+            onCheckedChange = {
                     UiPreferencesStore.write(context, current.copy(proactiveShortcutItems = it))
                     vm.refresh()
-                })
-            }
+                }
+        )
             if (current.proactiveScanMode == UiProactiveScanMode.ON_SCAN) {
                 SettingsSlider(
                     stringResource(R.string.lc_proactive_cache_minutes),
@@ -118,12 +118,14 @@ internal fun SettingsScanControls(vm: MainViewModel) {
         )
     }
     SettingsArea(stringResource(R.string.lc_settings_other_scan_group)) {
-        MaterialSettingsRow(title = stringResource(R.string.lc_app_link_enrichment),
-            supportingText = stringResource(R.string.lc_app_link_enrichment_help)) {
-            AdaptiveSwitch(checked = current.appLinkEnrichment, onCheckedChange = {
+        SettingsSwitchRow(
+            title = stringResource(R.string.lc_app_link_enrichment),
+            supportingText = stringResource(R.string.lc_app_link_enrichment_help),
+            checked = current.appLinkEnrichment,
+            onCheckedChange = {
                 UiPreferencesStore.write(context, current.copy(appLinkEnrichment = it))
-            })
-        }
+            }
+        )
         AdaptiveText(stringResource(R.string.settings_scan_help),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         AdaptiveOutlinedButton(
