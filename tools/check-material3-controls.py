@@ -280,6 +280,26 @@ for file in ("MainControls.kt", "RootComponentsScreen.kt"):
     code = (root / file).read_text(encoding="utf-8")
     if "WorkspaceFilterBar(" not in code:
         errors.append(f"{file}: fixed filter must remain beside category selector")
+# Entry/Ordering and Component must share their *parent Row* geometry too.
+# Previously the pickers were identical but only Entry provided a symmetric
+# page inset, 8dp gap and 4dp vertical padding.
+category_layout = (root / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
+shared_row = category_layout.split("internal fun WorkspaceCategoryFilterRow(", 1)
+if len(shared_row) != 2:
+    errors.append("WorkspaceCategorySelector.kt: shared Category/Filter toolbar missing")
+else:
+    shared_row_body = shared_row[1].split("/**", 1)[0]
+    for expected in ("MaterialUiTokens.pageHorizontal", "vertical = 4.dp",
+                     "Arrangement.spacedBy(8.dp)", "Box(Modifier.weight(1f))"):
+        if expected not in shared_row_body:
+            errors.append(f"WorkspaceCategorySelector.kt: shared toolbar geometry missing {expected}")
+for file in ("MainControls.kt", "RootComponentsScreen.kt"):
+    code = (root / file).read_text(encoding="utf-8")
+    if "WorkspaceCategoryFilterRow(" not in code:
+        errors.append(f"{file}: category and Filter must share the same Row geometry")
+    if "modifier = Modifier.padding(end = MaterialUiTokens.pageHorizontal)" in code:
+        errors.append(f"{file}: legacy asymmetric Filter padding must not return")
+
 entry = (root / "MainTabs.kt").read_text(encoding="utf-8")
 entry_help = entry.split("if (ruleHelpExpanded) WorkspaceHelpSection", 1)
 if len(entry_help) < 2 or "system_preview_explanation" not in entry_help[1].split(
