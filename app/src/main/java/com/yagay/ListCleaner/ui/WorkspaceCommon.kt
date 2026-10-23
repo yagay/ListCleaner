@@ -369,8 +369,7 @@ internal fun WorkspaceListActions(
     actions: List<WorkspaceMenuAction> = emptyList(),
     helpExpanded: Boolean = false,
     onHelpToggle: (() -> Unit)? = null,
-    primarySelection: WorkspacePrimarySelection? = null,
-    prominentActions: Boolean = false
+    primarySelection: WorkspacePrimarySelection? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -413,24 +412,14 @@ internal fun WorkspaceListActions(
         }
         if (actions.isNotEmpty()) {
             Box {
-                if (prominentActions) {
-                    AdaptiveTextButton(
-                        onClick = { expanded = true },
-                        enabled = actions.any { it.enabled }
-                    ) {
-                        AdaptiveText(stringResource(R.string.lc_bulk_actions_label))
-                        AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(18.dp))
-                    }
-                } else {
-                    AdaptiveIconButton(
-                        onClick = { expanded = true },
-                        enabled = actions.any { it.enabled }
-                    ) {
-                        AdaptiveIcon(
-                            Icons.Rounded.MoreVert,
-                            stringResource(R.string.selection_actions)
-                        )
-                    }
+                AdaptiveIconButton(
+                    onClick = { expanded = true },
+                    enabled = actions.any { it.enabled }
+                ) {
+                    AdaptiveIcon(
+                        Icons.Rounded.MoreVert,
+                        stringResource(R.string.selection_actions)
+                    )
                 }
                 AdaptiveDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                     actions.forEach { action ->
@@ -453,8 +442,7 @@ internal fun WorkspaceListSummary(
     actions: List<WorkspaceMenuAction> = emptyList(),
     helpExpanded: Boolean = false,
     onHelpToggle: (() -> Unit)? = null,
-    primarySelection: WorkspacePrimarySelection? = null,
-    prominentActions: Boolean = false
+    primarySelection: WorkspacePrimarySelection? = null
 ) {
     Row(
         Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)
@@ -474,7 +462,7 @@ internal fun WorkspaceListSummary(
             secondary, color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.labelSmall, maxLines = 1
         )
-        WorkspaceListActions(actions, helpExpanded, onHelpToggle, primarySelection, prominentActions)
+        WorkspaceListActions(actions, helpExpanded, onHelpToggle, primarySelection)
     }
 }
 
