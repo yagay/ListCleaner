@@ -4,11 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
@@ -80,16 +77,16 @@ internal fun PendingChangesBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
+            AdaptiveText(
                 text = stringResource(R.string.lc_pending_changes_count, count),
                 style = MaterialTheme.typography.labelMedium,
                 modifier = Modifier.weight(1f)
             )
-            TextButton(onClick = onDiscard) {
-                Text(stringResource(R.string.lc_discard_changes))
+            AdaptiveTextButton(onClick = onDiscard) {
+                AdaptiveText(stringResource(R.string.lc_discard_changes))
             }
-            Button(onClick = { confirmApply = true }) {
-                Text(stringResource(R.string.lc_apply_changes))
+            AdaptiveButton(onClick = { confirmApply = true }) {
+                AdaptiveText(stringResource(R.string.lc_apply_changes))
             }
         }
     }
