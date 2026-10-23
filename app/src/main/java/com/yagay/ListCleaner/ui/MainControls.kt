@@ -162,26 +162,24 @@ private fun EntryGroupButton(
     val label = stringResource(group.titleRes()) +
         if (chosen != null) " · " + stringResource(chosen.titleRes()) else ""
     Box {
-        AdaptiveFilterChip(
+        CompactCategoryButton(
             selected = active,
-            onClick = { expanded = true },
-            leadingIcon = if (active) {
-                { AdaptiveIcon(Icons.Rounded.Check, null, Modifier.size(16.dp)) }
-            } else null,
-            label = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    AdaptiveText(
-                        label,
-                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                        maxLines = 1
-                    )
-                    AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
-                }
-            }
-        )
+            onClick = { expanded = true }
+        ) {
+            AdaptiveText(
+                label,
+                modifier = Modifier.widthIn(max = 132.dp),
+                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                color = compactCategoryLabelColor(active),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.width(4.dp))
+            AdaptiveIcon(
+                Icons.Rounded.ExpandMore, null, Modifier.size(16.dp),
+                tint = compactCategoryLabelColor(active)
+            )
+        }
         AdaptiveDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             group.kinds().filter { availableKinds == null || it in availableKinds }.forEach { kind ->
                 AdaptiveDropdownMenuItem(
@@ -233,14 +231,16 @@ internal fun ListControls(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (includeAllKinds) {
-                    AdaptiveFilterChip(
-                        selected = EntryCategorySelectionPolicy.allSelected(state.filter),
-                        onClick = { onFilter(null) },
-                        leadingIcon = if (EntryCategorySelectionPolicy.allSelected(state.filter)) {
-                            { AdaptiveIcon(Icons.Rounded.Check, null, Modifier.size(16.dp)) }
-                        } else null,
-                        label = { AdaptiveText(stringResource(R.string.common_all)) }
-                    )
+                    val allActive = EntryCategorySelectionPolicy.allSelected(state.filter)
+                    CompactCategoryButton(
+                        selected = allActive,
+                        onClick = { onFilter(null) }
+                    ) {
+                        AdaptiveText(
+                            stringResource(R.string.common_all),
+                            color = compactCategoryLabelColor(allActive)
+                        )
+                    }
                 }
                 EntryGroup.entries
                     .filter { includeAllKinds || it != EntryGroup.DESKTOP }
