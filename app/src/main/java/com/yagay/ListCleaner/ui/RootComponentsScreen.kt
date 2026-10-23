@@ -296,58 +296,48 @@ fun RootComponentsScreen(
                 Column(Modifier.fillMaxWidth().background(
                     MaterialTheme.colorScheme.surface
                 )) {
-                    if (classicComponentMode) {
-                        ClassicComponentCategoryFilter(
-                            selected = kind,
-                            onSelected = { selected ->
-                                if (kind != selected) navigate {
-                                    kind = selected
-                                    browseAll = true
-                                    expandedAppKey = null
-                                }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (classicComponentMode) {
+                            Box(Modifier.weight(1f)) {
+                                ClassicComponentCategoryFilter(
+                                    selected = kind,
+                                    onSelected = { selected ->
+                                        if (kind != selected) navigate {
+                                            kind = selected
+                                            browseAll = true
+                                            expandedAppKey = null
+                                        }
+                                    }
+                                )
                             }
+                        } else {
+                            Spacer(Modifier.weight(1f))
+                        }
+                        WorkspaceFilterBar(
+                            appTypeFilter = appTypeFilter,
+                            onAppTypeFilter = {
+                                appTypeFilter = it
+                                UiPreferencesStore.rememberAppType(prefsContext, it, "components")
+                            },
+                            viewFilter = viewFilter,
+                            onViewFilter = {
+                                viewFilter = it
+                                UiPreferencesStore.rememberFilter(prefsContext, it, "components")
+                            },
+                            viewTitle = { filter ->
+                                stringResource(when (filter) {
+                                    UiFilter.ALL -> R.string.common_all
+                                    UiFilter.SHOW_SELECTED -> R.string.root_filter_disabled
+                                    UiFilter.HIDE_SELECTED -> R.string.root_filter_enabled
+                                    UiFilter.LOCKED -> R.string.filter_locked
+                                })
+                            },
+                            modifier = Modifier.padding(end = MaterialUiTokens.pageHorizontal)
                         )
                     }
-                    val canDisable = !busy && visible.any { it.blocked == null && it.enabled == true && !vm.isComponentBulkProtected(kind, it) }
-                    val canEnable = !busy && visible.any { it.blocked == null && it.enabled == false && !vm.isComponentBulkProtected(kind, it) }
-                    val canInvert = !busy && visible.any { it.blocked == null && it.enabled != null && !vm.isComponentBulkProtected(kind, it) }
-                    WorkspaceFilterBar(
-                        appTypeFilter = appTypeFilter,
-                        onAppTypeFilter = {
-                            appTypeFilter = it
-                            UiPreferencesStore.rememberAppType(prefsContext, it, "components")
-                        },
-                        viewFilter = viewFilter,
-                        onViewFilter = {
-                            viewFilter = it
-                            UiPreferencesStore.rememberFilter(prefsContext, it, "components")
-                        },
-                        viewTitle = { filter ->
-                            stringResource(when (filter) {
-                                UiFilter.ALL -> R.string.common_all
-                                UiFilter.SHOW_SELECTED -> R.string.root_filter_disabled
-                                UiFilter.HIDE_SELECTED -> R.string.root_filter_enabled
-                                UiFilter.LOCKED -> R.string.filter_locked
-                            })
-                        },
-                        actions = listOf(
-                            WorkspaceMenuAction(stringResource(R.string.root_batch_action_disable), {
-                                pendingBatch = PendingRootBatch(kind, visible, false)
-                            }, canDisable),
-                            WorkspaceMenuAction(stringResource(R.string.root_batch_action_enable), {
-                                pendingBatch = PendingRootBatch(kind, visible, true)
-                            }, canEnable),
-                            WorkspaceMenuAction(stringResource(R.string.root_batch_action_invert), {
-                                pendingBatch = PendingRootBatch(kind, visible, null)
-                            }, canInvert)
-                        ),
-                        help = {
-                            WorkspaceHelpToggle(
-                                expanded = detailsExpanded,
-                                onClick = { detailsExpanded = !detailsExpanded }
-                            )
-                        }
-                    )
                     if (batchProgress != null) {
                         val current = requireNotNull(batchProgress)
                         WorkspaceProgress(current.completed.toFloat() / current.total.coerceAtLeast(1))
@@ -369,7 +359,26 @@ fun RootComponentsScreen(
         }
         item(key = "summary") {
             WorkspaceListSummary(
-                title = stringResource(R.string.root_summary, groups.size, visible.size)
+                title = stringResource(R.string.root_summary, groups.size, visible.size),
+                actions = listOf(
+                    WorkspaceMenuAction(stringResource(R.string.root_batch_action_disable), {
+                        pendingBatch = PendingRootBatch(kind, visible, false)
+                    }, !busy && visible.any {
+                        it.blocked == null && it.enabled == true && !vm.isComponentBulkProtected(kind, it)
+                    }),
+                    WorkspaceMenuAction(stringResource(R.string.root_batch_action_enable), {
+                        pendingBatch = PendingRootBatch(kind, visible, true)
+                    }, !busy && visible.any {
+                        it.blocked == null && it.enabled == false && !vm.isComponentBulkProtected(kind, it)
+                    }),
+                    WorkspaceMenuAction(stringResource(R.string.root_batch_action_invert), {
+                        pendingBatch = PendingRootBatch(kind, visible, null)
+                    }, !busy && visible.any {
+                        it.blocked == null && it.enabled != null && !vm.isComponentBulkProtected(kind, it)
+                    })
+                ),
+                helpExpanded = detailsExpanded,
+                onHelpToggle = { detailsExpanded = !detailsExpanded }
             )
             if (detailsExpanded) WorkspaceHelpSection {
                 AdaptiveText(
