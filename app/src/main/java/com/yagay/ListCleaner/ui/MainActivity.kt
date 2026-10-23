@@ -162,16 +162,18 @@ class MainActivity : ComponentActivity() {
             keyboard?.hide()
         }
         BackHandler(enabled = searchExpanded, onBack = closeSearch)
-        BackHandler(enabled = !searchExpanded && (state.filter != null || state.destination != Destination.RULES)) {
+        BackHandler(enabled = !searchExpanded && (
+            state.filter != null || state.destination != Destination.RULES || pendingNavigation.hasChanges
+        )) {
             pendingNavigation.request {
-            when {
-                state.destination != Destination.RULES && state.destination != Destination.PRIORITY ->
-                    vm.setDestination(Destination.RULES)
-                vm.ruleOpenPreset.value != null -> vm.setRuleOpenPreset(null)
-                vm.ruleBrowserHost.value != null -> vm.setRuleBrowserHost(null)
-                state.filter != null -> vm.setFilter(null)
-                else -> vm.setDestination(Destination.RULES)
-            }
+                when {
+                    state.destination != Destination.RULES && state.destination != Destination.PRIORITY ->
+                        vm.setDestination(Destination.RULES)
+                    vm.ruleOpenPreset.value != null -> vm.setRuleOpenPreset(null)
+                    vm.ruleBrowserHost.value != null -> vm.setRuleBrowserHost(null)
+                    state.filter != null -> vm.setFilter(null)
+                    else -> finish()
+                }
             }
         }
         LaunchedEffect(state.destination) {
