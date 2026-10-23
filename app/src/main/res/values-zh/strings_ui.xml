@@ -145,4 +145,5 @@
     <string name="preview_assistant_not_verified">已发送系统助手选择请求，但无法验证最终前台页面。请根据诊断日志判断，不能当作打开成功。</string>
     <string name="lc_cleanup_mode_entry_short">入口 · LSPosed</string>
     <string name="lc_cleanup_mode_component_short">组件 · Root</string>
+    <string name="lc_filter_help_short">帮助</string>
 </resources>
