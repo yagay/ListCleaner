@@ -35,6 +35,32 @@ import com.yagay.ListCleaner.domain.entryGroup
 import com.yagay.ListCleaner.domain.kinds
 
 /**
+ * Shared category/Filter toolbar geometry for Entry, Component and Ordering.
+ *
+ * Category and Filter intentionally use one Row measure contract: the category
+ * takes all remaining space while Filter stays content-sized. Keeping insets
+ * and gap here prevents screens from accidentally displaying differently sized
+ * category cards even though they use the same picker.
+ */
+@Composable
+internal fun WorkspaceCategoryFilterRow(
+    category: @Composable () -> Unit,
+    filter: @Composable () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(
+            horizontal = MaterialUiTokens.pageHorizontal,
+            vertical = 4.dp
+        ),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.weight(1f)) { category() }
+        filter()
+    }
+}
+
+/**
  * Anchored Material 3 category menu for Entry, Root and Ordering.
  *
  * Unlike a bottom sheet, the popup opens next to its toolbar trigger.
