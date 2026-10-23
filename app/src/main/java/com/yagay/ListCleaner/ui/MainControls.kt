@@ -126,49 +126,7 @@ internal fun MainToolbar(
     )
 }
 
-@Composable
-private fun EntryGroupButton(
-    group: EntryGroup,
-    activeKind: IntentKind?,
-    onFilter: (IntentKind?) -> Unit,
-    availableKinds: Set<IntentKind>? = null,
-) {
-    var expanded by remember(group) { mutableStateOf(false) }
-    val chosen = EntryCategorySelectionPolicy.selectedKind(group, activeKind, availableKinds)
-    val active = chosen != null
-    val label = stringResource(group.titleRes()) +
-        if (chosen != null) " · " + stringResource(chosen.titleRes()) else ""
-    Box {
-        CompactCategoryButton(
-            selected = active,
-            onClick = { expanded = true }
-        ) {
-            WorkspaceControlLabel(
-                label,
-                modifier = Modifier.widthIn(max = 132.dp),
-                color = compactCategoryLabelColor(active)
-            )
-            AdaptiveIcon(
-                Icons.Rounded.ExpandMore, null, Modifier.size(16.dp),
-                tint = compactCategoryLabelColor(active)
-            )
-        }
-        AdaptiveDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            group.kinds().filter { availableKinds == null || it in availableKinds }.forEach { kind ->
-                AdaptiveDropdownMenuItem(
-                    text = {
-                        AdaptiveText(
-                            stringResource(kind.titleRes())
-                        )
-                    },
-                    leadingIcon = { if (kind == activeKind) AdaptiveIcon(Icons.Rounded.Check, null) },
-                    onClick = { expanded = false; onFilter(kind) },
-                )
-            }
-        }
-    }
-}
-
+/** The category choice is now a single full-width Material 3 picker. */
 @Composable
 internal fun ListControls(
     state: MainState,
@@ -184,62 +142,29 @@ internal fun ListControls(
 ) {
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(
+                horizontal = MaterialUiTokens.pageHorizontal,
+                vertical = 4.dp
+            ),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (showEntryGroups) {
-                // Isolate the horizontally scrolling chips from the fixed filter
-                // control: a partially visible chip must not paint underneath it.
-                Box(Modifier.weight(1f).clipToBounds()) {
-                androidx.compose.foundation.lazy.LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(start = MaterialUiTokens.pageHorizontal, end = 8.dp, top = 2.dp, bottom = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.filterChipGap),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (includeAllKinds) {
-                        item(key = "all") {
-                            val allActive = EntryCategorySelectionPolicy.allSelected(state.filter)
-                            CompactCategoryButton(
-                                selected = allActive,
-                                onClick = { onFilter(null) }
-                            ) {
-                                WorkspaceControlLabel(
-                                    stringResource(R.string.common_all),
-                                    color = compactCategoryLabelColor(allActive)
-                                )
-                            }
-                        }
-                    }
-                    val groups = EntryGroup.entries
-                        .filter { includeAllKinds || it != EntryGroup.DESKTOP }
-                        .filter { group ->
-                            availableEntryKinds == null ||
-                                group.kinds().any { it in availableEntryKinds }
-                        }
-                    items(groups.size, key = { groups[it].name }) { index ->
-                        EntryGroupButton(groups[index], state.filter, onFilter, availableEntryKinds)
-                    }
-                    if (extraFilter != null) {
-                        item(key = "special-filter") { extraFilter() }
-                    }
-                }
-                }
-            } else {
-                Row(
-                    modifier = Modifier.weight(1f).padding(start = MaterialUiTokens.pageHorizontal),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    extraFilter?.invoke()
-                }
-            }
+            EntryCategoryPicker(
+                selected = state.filter,
+                onSelected = onFilter,
+                modifier = Modifier.weight(1f),
+                includeAllKinds = includeAllKinds,
+                availableKinds = availableEntryKinds
+            )
             WorkspaceFilterBar(
                 appTypeFilter = appTypeFilter,
                 onAppTypeFilter = onAppTypeFilter,
                 viewFilter = state.uiFilter,
                 onViewFilter = onUiFilter,
                 viewTitle = viewTitle,
-                modifier = Modifier.padding(end = MaterialUiTokens.pageHorizontal)
+                extraFilter = if (
+                    state.filter == IntentKind.OPEN || state.filter == IntentKind.DEEP_LINK
+                ) extraFilter else null
             )
         }
         if (state.loading) WorkspaceProgress()

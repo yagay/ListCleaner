@@ -6,6 +6,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Check
@@ -169,6 +170,7 @@ internal fun WorkspaceFilterBar(
     onViewFilter: (UiFilter) -> Unit,
     viewTitle: @Composable (UiFilter) -> String = { stringResource(it.titleRes()) },
     modifier: Modifier = Modifier,
+    extraFilter: (@Composable () -> Unit)? = null,
 ) {
     var showSheet by remember { mutableStateOf(false) }
     var draftAppType by remember { mutableStateOf(appTypeFilter) }
@@ -207,6 +209,8 @@ internal fun WorkspaceFilterBar(
         ) {
             Column(
                 Modifier.fillMaxWidth()
+                    .heightIn(max = 640.dp)
+                    .verticalScroll(rememberScrollState())
                     .navigationBarsPadding()
                     .padding(horizontal = MaterialUiTokens.pageHorizontal),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -215,6 +219,15 @@ internal fun WorkspaceFilterBar(
                     stringResource(R.string.lc_filter_sheet_title),
                     style = MaterialTheme.typography.titleLarge
                 )
+                if (extraFilter != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        extraFilter()
+                    }
+                    AdaptiveHorizontalDivider()
+                }
                 AdaptiveText(
                     stringResource(R.string.app_type_filter),
                     style = MaterialTheme.typography.titleSmall,

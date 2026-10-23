@@ -150,4 +150,6 @@
     <string name="lc_filter_sheet_title">List filters</string>
     <string name="lc_filter_sheet_reset">Reset</string>
     <string name="lc_filter_sheet_apply">Apply filters</string>
+    <string name="lc_category_picker_entry_title">Choose entry category</string>
+    <string name="lc_category_picker_component_title">Choose component category</string>
 </resources>
