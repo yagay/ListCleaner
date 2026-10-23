@@ -34,6 +34,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.data.RootComponent
+import com.yagay.ListCleaner.domain.AppType
 import com.yagay.ListCleaner.domain.AppTypeFilter
 
 private data class PendingRootBatch(val kind: CleanupKind?, val targets: List<RootComponent>, val enable: Boolean?)
@@ -150,10 +151,24 @@ fun RootComponentsScreen(
             false -> R.string.root_batch_action_disable
             null -> R.string.root_batch_action_invert
         })
+        val systemAppCount = eligible.asSequence()
+            .filter { item ->
+                item.appType == AppType.SYSTEM &&
+                    (batch.enable == false || (batch.enable == null &&
+                        !selectionDraft.selected(item.id, item.enabled == false)))
+            }
+            .map { it.component.packageName }.distinct().count()
         AdaptiveAlertDialog(
             onDismissRequest = { pendingBatch = null },
             title = { AdaptiveText(stringResource(R.string.root_batch_confirm_title)) },
-            text = { AdaptiveText(stringResource(R.string.root_batch_confirmation_text, action)) },
+            text = {
+                val base = stringResource(R.string.root_batch_confirmation_text, action)
+                val warning = if (systemAppCount > 0) {
+                    "\n\n" + stringResource(R.string.lc_system_app_warning_count, systemAppCount) +
+                        "\n" + stringResource(R.string.lc_system_app_warning_root)
+                } else ""
+                AdaptiveText(base + warning)
+            },
             confirmButton = {
                 AdaptiveTextButton(enabled = eligible.isNotEmpty() && !busy, onClick = {
                     pendingBatch = null
@@ -424,13 +439,21 @@ fun RootComponentsScreen(
                             state = selectionState,
                             enabled = !busy && editableComponents.isNotEmpty(),
                             onClick = {
-                                // Group checkbox is an ordinary selection gesture, not a bulk menu action.
-                                // Stage it immediately; the bottom bar still confirms final application.
                                 val disable = selectionState != ToggleableState.On
-                                editableComponents.filterNot { vm.isComponentBulkProtected(kind, it) }
-                                    .forEach { item ->
+                                val editableTargets = editableComponents.filterNot {
+                                    vm.isComponentBulkProtected(kind, it)
+                                }
+                                val warnCount = if (disable && first.appType == AppType.SYSTEM &&
+                                    editableTargets.any {
+                                        !selectionDraft.selected(it.id, it.enabled == false)
+                                    }) 1 else 0
+                                confirmation.requestForSystemSelection(
+                                    first.owner, warnCount, SystemSelectionRisk.ROOT
+                                ) {
+                                    editableTargets.forEach { item ->
                                         selectionDraft.set(item.id, item.enabled == false, disable)
                                     }
+                                }
                             }
                         )
                     },
@@ -464,7 +487,12 @@ fun RootComponentsScreen(
                     onToggle = {
                         if (!busy && vm.selectedSpace.value == item.user) {
                             val currentDisabled = selectionDraft.selected(item.id, item.enabled == false)
-                            selectionDraft.set(item.id, item.enabled == false, !currentDisabled)
+                            val warnCount = if (!currentDisabled && item.appType == AppType.SYSTEM) 1 else 0
+                            confirmation.requestForSystemSelection(
+                                item.label, warnCount, SystemSelectionRisk.ROOT
+                            ) {
+                                selectionDraft.set(item.id, item.enabled == false, !currentDisabled)
+                            }
                         }
                     },
                     onLock = { vm.setComponentItemLocked(kind, item, true) },
