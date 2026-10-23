@@ -42,6 +42,7 @@ fun RulesTab(
     state: MainState,
     vm: MainViewModel,
     searchExpanded: Boolean = false,
+    pendingNavigation: PendingNavigationGuard? = null,
     onComponentModeChanged: (Boolean) -> Unit = {},
     onOpenModuleStatus: () -> Unit = {}
 ) {
@@ -50,6 +51,9 @@ fun RulesTab(
     val spaceScanState by vm.spaceScanState.collectAsStateWithLifecycle()
     val componentBusy by vm.componentBusy.collectAsStateWithLifecycle()
     val prefsContext = LocalContext.current
+    val navigate: (() -> Unit) -> Unit = { action ->
+        if (pendingNavigation != null) pendingNavigation.request(action) else action()
+    }
     val confirmation = rememberSelectionConfirmationController()
     SelectionConfirmationDialog(confirmation)
     var editingTitle by remember { mutableStateOf<com.yagay.ListCleaner.domain.ComponentCandidate?>(null) }
@@ -90,6 +94,7 @@ fun RulesTab(
             initialKind = selectedComponentKind,
             embedded = true,
             backEnabled = !searchExpanded,
+            pendingNavigation = pendingNavigation,
             onExit = {
                 selectedComponentKind = null
                 browseAllComponents = false
@@ -102,7 +107,7 @@ fun RulesTab(
         return
     }
     BackHandler(enabled = !classicLayout && state.filter == null && (selectedGroup != null || browseAll)) {
-        if (browseAll) browseAll = false else selectedGroup = null
+        navigate { if (browseAll) browseAll = false else selectedGroup = null }
     }
 
     editingTitle?.let { item ->
@@ -304,6 +309,32 @@ fun RulesTab(
         shownGroups.flatMap { it.components }.map { it.rule }.distinct()
     }
 
+    val applyChanges: () -> Boolean = {
+            val changes = selectionDraft.changes.filterKeys(canStageRule)
+            val add = changes.filterValues { it }.keys
+            val remove = changes.filterValues { !it }.keys
+            when {
+                typedOpenPreset != null -> {
+                    vm.selectOpenTypeRules(typedOpenPreset, add, lockScope)
+                    vm.deselectOpenTypeRules(typedOpenPreset, remove, lockScope)
+                }
+                deepLinkHost != null -> {
+                    vm.selectBrowserHostRules(deepLinkHost, add, lockScope)
+                    vm.deselectBrowserHostRules(deepLinkHost, remove, lockScope)
+                }
+                else -> {
+                    vm.selectRules(add, state.filter, openPreset)
+                    vm.deselectRules(remove, state.filter, openPreset)
+                }
+            }
+            selectionDraft.discard()
+            true
+        }
+    RegisterPendingNavigation(
+        pendingNavigation, selectionDraft, selectionDraft.count,
+        applyChanges, selectionDraft::discard
+    )
+
     Box(Modifier.fillMaxSize()) {
     LazyColumn(Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = if (selectionDraft.count > 0) 90.dp else 16.dp)
@@ -314,6 +345,7 @@ fun RulesTab(
                     active = ClassicCleanupMode.ENTRIES,
                     onEntries = {},
                     onComponents = {
+                        navigate {
                         savedRuleQuery = state.query
                         savedRuleKind = state.filter
                         selectedComponentKind = null
@@ -322,6 +354,7 @@ fun RulesTab(
                         browseAll = false
                         vm.setFilter(null)
                         vm.setQuery(savedComponentQuery)
+                        }
                     }
                 )
             }
@@ -336,16 +369,20 @@ fun RulesTab(
                 EntryWorkspaceBreadcrumb(
                     kind = state.filter,
                     onHome = {
+                        navigate {
                         vm.setFilter(null)
                         selectedGroup = null
                         browseAll = false
                         vm.setQuery("")
+                        }
                     },
                     onGroup = {
+                        navigate {
                         selectedGroup = state.filter?.entryGroup()
                         browseAll = false
                         vm.setFilter(null)
                         vm.setQuery("")
+                        }
                     }
                 )
                 if (state.runtime.needsDecision) RuntimePanel(
@@ -359,7 +396,7 @@ fun RulesTab(
                 Column {
                     ListControls(
                         state,
-                        vm::setFilter,
+                        { filter -> navigate { vm.setFilter(filter) } },
                         vm::setUiFilter,
                         appTypeFilter = appTypeFilter,
                         onAppTypeFilter = {
@@ -374,14 +411,14 @@ fun RulesTab(
                                 IntentKind.OPEN -> OpenPresetFilterMenu(
                                     selected = openPreset,
                                     config = state.openTypesExplicit,
-                                    onSelected = vm::setRuleOpenPreset,
+                                    onSelected = { preset -> navigate { vm.setRuleOpenPreset(preset) } },
                                     onManageCustom = { showCustomTypes = true }
                                 )
                                 IntentKind.DEEP_LINK -> BrowserHostFilterMenu(
                                     selected = browserHost,
                                     config = state.browserLinks,
                                     availableHosts = state.browserAvailableHosts,
-                                    onSelected = vm::setRuleBrowserHost,
+                                    onSelected = { host -> navigate { vm.setRuleBrowserHost(host) } },
                                     onManage = { showBrowserHosts = true }
                                 )
                                 else -> Unit
@@ -595,26 +632,7 @@ fun RulesTab(
     PendingChangesBar(
         count = selectionDraft.count,
         onDiscard = selectionDraft::discard,
-        onApply = {
-            val changes = selectionDraft.changes.filterKeys(canStageRule)
-            val add = changes.filterValues { it }.keys
-            val remove = changes.filterValues { !it }.keys
-            when {
-                typedOpenPreset != null -> {
-                    vm.selectOpenTypeRules(typedOpenPreset, add, lockScope)
-                    vm.deselectOpenTypeRules(typedOpenPreset, remove, lockScope)
-                }
-                deepLinkHost != null -> {
-                    vm.selectBrowserHostRules(deepLinkHost, add, lockScope)
-                    vm.deselectBrowserHostRules(deepLinkHost, remove, lockScope)
-                }
-                else -> {
-                    vm.selectRules(add, state.filter, openPreset)
-                    vm.deselectRules(remove, state.filter, openPreset)
-                }
-            }
-            selectionDraft.discard()
-        },
+        onApply = { applyChanges() },
         modifier = Modifier.align(Alignment.BottomCenter)
     )
 }
@@ -634,6 +652,6 @@ private fun SummaryRow(state: MainState, displayedApps: Int) {
 }
 
 @Composable
-fun PriorityTab(state: MainState, vm: MainViewModel) {
-    PriorityDialogContent(state, vm)
+fun PriorityTab(state: MainState, vm: MainViewModel, pendingNavigation: PendingNavigationGuard? = null) {
+    PriorityDialogContent(state, vm, pendingNavigation)
 }
