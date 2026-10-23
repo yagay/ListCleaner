@@ -13,4 +13,10 @@
     <string name="lc_pending_leave_stay">Keep editing</string>
     <string name="lc_apply_conflict_title">Changes not applied</string>
     <string name="lc_apply_conflict_body">The saved order changed or an item is locked. Your selections are still pending. Review the list and try again.</string>
+    <string name="lc_system_app_warning_count">System applications affected: %1$d</string>
+    <string name="lc_system_app_warning_entry">Hiding system app entries can remove options used by Android or other apps. Check that these entries are safe to hide before proceeding.</string>
+    <string name="lc_system_app_warning_root">Disabling system app components may break Android features or prevent the device from working normally. Continue only if you understand the component.</string>
+    <string name="lc_system_app_warning_priority">Changing the priority of system apps may alter which app Android offers or opens by default. Confirm that this is what you want.</string>
+    <string name="lc_system_app_warning_select">Select system app</string>
+    <string name="lc_system_app_warning_title">System app warning</string>
 </resources>
