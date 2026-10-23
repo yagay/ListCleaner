@@ -5,4 +5,5 @@
     <string name="lc_pending_changes_count">Pending: %1$d</string>
     <string name="lc_discard_changes">Discard</string>
     <string name="lc_apply_changes">Apply changes</string>
+    <string name="lc_pending_apply_confirm">Apply %1$d pending changes?</string>
 </resources>
