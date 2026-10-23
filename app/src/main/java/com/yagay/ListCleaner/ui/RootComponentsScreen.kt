@@ -56,11 +56,15 @@ fun RootComponentsScreen(
     initialKind: CleanupKind? = null,
     embedded: Boolean = false,
     backEnabled: Boolean = true,
+    pendingNavigation: PendingNavigationGuard? = null,
     onExit: () -> Unit = {}
 ) {
     val scan by vm.componentScan.collectAsStateWithLifecycle()
     val busy by vm.componentBusy.collectAsStateWithLifecycle()
     val prefsContext = LocalContext.current
+    val navigate: (() -> Unit) -> Unit = { action ->
+        if (pendingNavigation != null) pendingNavigation.request(action) else action()
+    }
     val confirmation = rememberSelectionConfirmationController()
     SelectionConfirmationDialog(confirmation)
     val message by vm.componentMessage.collectAsStateWithLifecycle()
@@ -97,13 +101,36 @@ fun RootComponentsScreen(
     // Draft is scoped to the current user space and component category.
     val selectionDraft = remember(kind, vm.selectedSpace.value) { PendingSelectionDraft<String>() }
     BackHandler(enabled = backEnabled && (embedded || kind != null || browseAll)) {
-        if (embedded) {
-            onExit()
-        } else {
-            kind = null
-            browseAll = false
+        navigate {
+            if (embedded) {
+                onExit()
+            } else {
+                kind = null
+                browseAll = false
+            }
         }
     }
+    val applyChanges: () -> Boolean = {
+        if (busy) false else {
+            val currentItems = scan.items.associateBy { it.id }
+            val desired = selectionDraft.changes.mapNotNull { (id, disabled) ->
+                currentItems[id]
+                    ?.takeIf { it.blocked == null && it.enabled != null &&
+                        !vm.isComponentBulkProtected(kind, it) && it.enabled != !disabled }
+                    ?.let { it to !disabled }
+            }.toMap()
+            if (desired.isEmpty()) false else {
+                vm.changeComponentsDesired(kind, desired)
+                selectionDraft.discard()
+                true
+            }
+        }
+    }
+    RegisterPendingNavigation(
+        pendingNavigation, selectionDraft, selectionDraft.count,
+        applyChanges, selectionDraft::discard, rootEditor = true
+    )
+
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
     var viewFilter by rememberSaveable { mutableStateOf(UiPreferencesStore.initialFilter(prefsContext, "components")) }
     var appTypeFilter by rememberSaveable { mutableStateOf(UiPreferencesStore.initialAppType(prefsContext, "components")) }
@@ -219,7 +246,7 @@ fun RootComponentsScreen(
             stickyHeader(key = "classic-mode-tabs") {
                 ClassicCleanupTabs(
                     active = ClassicCleanupMode.COMPONENTS,
-                    onEntries = onExit,
+                    onEntries = { navigate(onExit) },
                     onComponents = {}
                 )
             }
@@ -228,11 +255,13 @@ fun RootComponentsScreen(
                 WorkspaceBreadcrumb(
                     homeLabel = stringResource(R.string.workspace_groups),
                     onHome = {
-                        if (embedded) onExit()
-                        else {
-                            kind = null
-                            browseAll = false
-                            vm.setQuery("")
+                        navigate {
+                            if (embedded) onExit()
+                            else {
+                                kind = null
+                                browseAll = false
+                                vm.setQuery("")
+                            }
                         }
                     },
                     currentLabel = kind?.let { stringResource(it.titleRes()) }
@@ -249,7 +278,7 @@ fun RootComponentsScreen(
                         ClassicComponentCategoryFilter(
                             selected = kind,
                             onSelected = { selected ->
-                                if (kind != selected) {
+                                if (kind != selected) navigate {
                                     kind = selected
                                     browseAll = true
                                     expandedAppKey = null
@@ -511,18 +540,7 @@ fun RootComponentsScreen(
     PendingChangesBar(
         count = selectionDraft.count,
         onDiscard = selectionDraft::discard,
-        onApply = {
-            if (!busy) {
-                val desired = selectionDraft.changes.mapNotNull { (id, disabled) ->
-                    scan.items.firstOrNull { it.id == id }
-                        ?.takeIf { it.blocked == null && it.enabled != null &&
-                            !vm.isComponentBulkProtected(kind, it) }
-                        ?.let { it to !disabled }
-                }.toMap()
-                if (desired.isNotEmpty()) vm.changeComponentsDesired(kind, desired)
-                selectionDraft.discard()
-            }
-        },
+        onApply = { applyChanges() },
         modifier = Modifier.align(Alignment.BottomCenter)
     )
 }
