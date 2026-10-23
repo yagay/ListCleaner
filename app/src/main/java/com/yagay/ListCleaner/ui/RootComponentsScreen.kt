@@ -544,3 +544,4 @@ fun RootComponentsScreen(
         modifier = Modifier.align(Alignment.BottomCenter)
     )
 }
+}
