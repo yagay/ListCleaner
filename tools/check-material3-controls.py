@@ -261,7 +261,7 @@ if "heightIn(max = 480.dp)" in filter_popup or "widthIn(min = 270.dp" in filter_
 if filter_popup.count("AdaptiveDropdownMenuItem(") < 4:
     errors.append("WorkspaceCommon.kt: Filter group rows and choices must use native M3 menu items")
 for expected in ("fun WorkspaceListActions(",
-                 "WorkspaceListActions(actions, helpExpanded, onHelpToggle)"):
+                 "WorkspaceListActions(actions, helpExpanded, onHelpToggle, primarySelection, prominentActions)"):
     if expected not in sheet:
         errors.append(f"WorkspaceCommon.kt: list actions regression: {expected}")
 if "AdaptiveDropdownMenu(expanded = appMenu" in sheet:
