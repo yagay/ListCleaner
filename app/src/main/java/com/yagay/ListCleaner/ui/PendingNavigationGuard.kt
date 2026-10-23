@@ -13,7 +13,7 @@ import com.yagay.ListCleaner.R
  * Guards navigation away from an unsaved editor (including spaces and bottom tabs).
  * In-flight Root mutation completes before the deferred navigation is allowed.
  */
-internal class PendingNavigationGuard {
+class PendingNavigationGuard {
     private var owner: Any? = null
     private var pendingCount = 0
     private var apply: (() -> Boolean)? = null
