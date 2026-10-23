@@ -88,7 +88,7 @@ required = {
                            "fun SettingsSlider(", "MaterialSectionCard {",
                            "AdaptiveAlertDialog("],
     "AppearanceSettings.kt": ["fun SettingsAppearanceControls(", "R.string.ui_color_mode_title", "UiColorMode.entries.forEach", "onColorModeChange(mode)",
-                              "fun SettingsLanguageControls()", "settings_card_radius",
+                              "fun SettingsLanguageControls()", "settings_icon_size",
                               "lc_layout_spacing"],
     "ListSettings.kt": ["fun SettingsListControls()", "settings_home_columns",
                         "settings_remember_filters", "settings_help_expanded"],
