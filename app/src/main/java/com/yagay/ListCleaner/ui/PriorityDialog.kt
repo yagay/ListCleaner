@@ -45,6 +45,7 @@ import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.EntryGroup
 import com.yagay.ListCleaner.domain.entryGroup
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.AppType
 import com.yagay.ListCleaner.domain.AppTypeFilter
 import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.PriorityListFilter
@@ -374,11 +375,19 @@ fun PriorityDialogContent(
                                 }
                             },
                             onSelectAll = {
-                                confirmation.request(prefsContext.getString(R.string.select_all)) {
-                                    val current = orderDraft.effective(rankedRaw)
-                                    val eligible = groups.map { it.packageName }
-                                        .filterNot { vm.isBulkAppLocked(lockScope, it) }
-                                    orderDraft.stage(rankedRaw, (current + eligible.filterNot { it in current }).take(200))
+                                val current = orderDraft.effective(rankedRaw)
+                                val eligible = groups.map { it.packageName }
+                                    .filterNot { vm.isBulkAppLocked(lockScope, it) }
+                                val next = (current + eligible.filterNot { it in current }).take(200)
+                                val systemPackages = groups.filter { it.appType == AppType.SYSTEM }
+                                    .map { it.packageName }.toSet()
+                                val warnCount = next.count { it !in current && it in systemPackages }
+                                confirmation.request(
+                                    prefsContext.getString(R.string.select_all),
+                                    systemAppCount = warnCount,
+                                    risk = SystemSelectionRisk.PRIORITY
+                                ) {
+                                    orderDraft.stage(rankedRaw, next)
                                 }
                             },
                             onSelectNone = {
@@ -390,11 +399,20 @@ fun PriorityDialogContent(
                                 }
                             },
                             onInvert = {
-                                confirmation.request(prefsContext.getString(R.string.invert_selection)) {
-                                    val current = orderDraft.effective(rankedRaw)
-                                    val eligible = groups.map { it.packageName }
-                                        .filterNot { vm.isBulkAppLocked(lockScope, it) }
-                                    orderDraft.stage(rankedRaw, (current.filterNot { it in eligible } + eligible.filterNot { it in current }).take(200))
+                                val current = orderDraft.effective(rankedRaw)
+                                val eligible = groups.map { it.packageName }
+                                    .filterNot { vm.isBulkAppLocked(lockScope, it) }
+                                val next = (current.filterNot { it in eligible } +
+                                    eligible.filterNot { it in current }).take(200)
+                                val systemPackages = groups.filter { it.appType == AppType.SYSTEM }
+                                    .map { it.packageName }.toSet()
+                                val warnCount = next.count { it !in current && it in systemPackages }
+                                confirmation.request(
+                                    prefsContext.getString(R.string.invert_selection),
+                                    systemAppCount = warnCount,
+                                    risk = SystemSelectionRisk.PRIORITY
+                                ) {
+                                    orderDraft.stage(rankedRaw, next)
                                 }
                             }
                         )
@@ -575,7 +593,13 @@ fun PriorityDialogContent(
                                         val current = orderDraft.effective(rankedRaw)
                                         val next = if (checked) (current + packageName).distinct().take(200)
                                             else current - packageName
-                                        orderDraft.stage(rankedRaw, next)
+                                        val warnCount = if (checked && packageName !in current &&
+                                            packageName in next && group.appType == AppType.SYSTEM) 1 else 0
+                                        confirmation.requestForSystemSelection(
+                                            first.appLabel, warnCount, SystemSelectionRisk.PRIORITY
+                                        ) {
+                                            orderDraft.stage(rankedRaw, next)
+                                        }
                                     }
                                 }
                             )
