@@ -803,6 +803,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (canEdit()) app.rules.setComponentTitle(ruleId, title)
     }
 
+    fun applyPriorityDraft(kind: IntentKind, expected: List<String>, desired: List<String>, lockScope: String): Boolean =
+        priorityEditor.applyKindDraft(kind, expected, desired, lockScope)
+
+    fun applyOpenTypePriorityDraft(preset: OpenPreset, expected: List<String>, desired: List<String>, lockScope: String): Boolean =
+        priorityEditor.applyOpenTypeDraft(preset, expected, desired, lockScope)
+
+    fun applyBrowserHostPriorityDraft(host: String, expected: List<String>, desired: List<String>, lockScope: String): Boolean =
+        priorityEditor.applyBrowserHostDraft(host, expected, desired, lockScope)
+
     fun selectPriorityApps(kind: IntentKind, packageNames: Collection<String>, lockScope: String) =
         priorityEditor.selectApps(kind, packageNames, lockScope)
     fun deselectPriorityApps(kind: IntentKind, packageNames: Collection<String>, lockScope: String) =
