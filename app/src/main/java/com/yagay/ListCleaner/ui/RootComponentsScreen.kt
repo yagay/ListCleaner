@@ -301,22 +301,17 @@ fun RootComponentsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (classicComponentMode) {
-                            Box(Modifier.weight(1f).clipToBounds()) {
-                                ClassicComponentCategoryFilter(
-                                    selected = kind,
-                                    onSelected = { selected ->
-                                        if (kind != selected) navigate {
-                                            kind = selected
-                                            browseAll = true
-                                            expandedAppKey = null
-                                        }
-                                    }
-                                )
+                        ClassicComponentCategoryFilter(
+                            selected = kind,
+                            modifier = Modifier.weight(1f),
+                            onSelected = { selected ->
+                                if (kind != selected) navigate {
+                                    kind = selected
+                                    browseAll = true
+                                    expandedAppKey = null
+                                }
                             }
-                        } else {
-                            Spacer(Modifier.weight(1f))
-                        }
+                        )
                         WorkspaceFilterBar(
                             appTypeFilter = appTypeFilter,
                             onAppTypeFilter = {
