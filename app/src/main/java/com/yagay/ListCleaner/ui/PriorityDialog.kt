@@ -640,7 +640,7 @@ fun PriorityDialogContent(
                                 AdaptiveText(
                                     stringResource(
                                         if (inheritsOpenPriority) R.string.priority_rank_inherited_short else R.string.priority_rank,
-                                        group.rank
+                                        group.rank ?: (stagedOrder.indexOf(packageName) + 1)
                                     ),
                                     Modifier.weight(1f),
                                     style = MaterialTheme.typography.labelMedium
@@ -730,13 +730,13 @@ fun PriorityDialogContent(
                 }
             }
         }
+        PendingChangesBar(
+            count = if (orderDraft.hasChanges()) 1 else 0,
+            onDiscard = orderDraft::discard,
+            onApply = { applyOrder() },
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
-    PendingChangesBar(
-        count = if (orderDraft.hasChanges()) 1 else 0,
-        onDiscard = orderDraft::discard,
-        onApply = { applyOrder() },
-        modifier = Modifier.align(Alignment.BottomCenter)
-    )
 }
 
 @Composable
