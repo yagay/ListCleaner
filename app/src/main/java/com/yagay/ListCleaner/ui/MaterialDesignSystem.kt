@@ -1,5 +1,6 @@
 package com.yagay.ListCleaner.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -70,6 +71,10 @@ internal object MaterialUiTokens {
     // Shared Entry/Root details: kind labels must not crowd multi-line titles.
     val detailKindMaxWidth get() = (112f * density).dp
     val buttonHeight get() = UiPreferencesRuntime.current.buttonHeight.dp
+    // Settings have one row/button geometry regardless of control type.
+    val settingsRowHeight get() = (56f * density).dp.coerceAtLeast(48.dp)
+    val settingsActionHeight get() = buttonHeight.coerceAtLeast(48.dp)
+    val settingsRowGap get() = contentGap
     // 48dp remains the minimum icon touch target for accessible controls.
     val iconTouchTarget = 48.dp
     val compactButtonPadding get() = PaddingValues(horizontal = (8f * density).dp, vertical = (4f * density).dp)
@@ -104,30 +109,45 @@ internal fun MaterialSectionCard(
     }
 }
 
-/** Shared settings row layout; controls are supplied by each feature. */
+/**
+ * One settings-row geometry: no nested ListItem surface or second 16dp inset.
+ * Every setting lives on its section card's background; width and touch
+ * target are consistent for choices, switches, links and informational rows.
+ */
 @Composable
 internal fun MaterialSettingsRow(
     title: String,
     supportingText: String? = null,
+    onClick: (() -> Unit)? = null,
     trailing: @Composable RowScope.() -> Unit = {}
 ) {
-    androidx.compose.material3.ListItem(
-        headlineContent = {
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .heightIn(min = MaterialUiTokens.settingsRowHeight)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(vertical = MaterialUiTokens.detailVertical),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.settingsRowGap)
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
             AdaptiveText(title, style = MaterialTheme.typography.bodyLarge)
-        },
-        supportingContent = if (supportingText.isNullOrBlank()) null else {
-            {
+            if (!supportingText.isNullOrBlank()) {
                 AdaptiveText(
                     supportingText,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-        },
-        trailingContent = {
-            Row(verticalAlignment = Alignment.CenterVertically, content = trailing)
         }
-    )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.settingsRowGap),
+            content = trailing
+        )
+    }
 }
 
 /** All full-screen picker and scope dialogs share one Material header and insets. */
