@@ -270,6 +270,16 @@ fun PriorityDialogContent(
             }
         }
     }
+    val editablePriorityPackages = groups.map { it.packageName }
+        .filterNot { vm.isBulkAppLocked(lockScope, it) }
+    val editableRankedCount = editablePriorityPackages.count { it in stagedOrder }
+    val visiblePrioritySelectionState = when {
+        editablePriorityPackages.isEmpty() || editableRankedCount == 0 ->
+            androidx.compose.ui.state.ToggleableState.Off
+        editableRankedCount == editablePriorityPackages.size ->
+            androidx.compose.ui.state.ToggleableState.On
+        else -> androidx.compose.ui.state.ToggleableState.Indeterminate
+    }
     val moveTargets = groups.filter { it.rank != null }.sortedBy { it.rank }.map { it.packageName }
 
     val listState = rememberLazyListState()
@@ -375,6 +385,54 @@ fun PriorityDialogContent(
                                 }
                             }
                         )
+                        WorkspaceListSummary(
+                            title = stringResource(R.string.app_list_count, groups.size),
+                            primarySelection = WorkspacePrimarySelection(
+                                state = visiblePrioritySelectionState,
+                                enabled = editablePriorityPackages.isNotEmpty(),
+                                onToggle = {
+                                    if (visiblePrioritySelectionState == androidx.compose.ui.state.ToggleableState.On) {
+                                        confirmation.request(prefsContext.getString(R.string.select_none)) {
+                                            val current = orderDraft.effective(rankedRaw)
+                                            orderDraft.stage(
+                                                rankedRaw,
+                                                current.filterNot { it in editablePriorityPackages }
+                                            )
+                                        }
+                                    } else {
+                                        val current = orderDraft.effective(rankedRaw)
+                                        val next = (current + editablePriorityPackages.filterNot {
+                                            it in current
+                                        }).take(200)
+                                        val systemPackages = groups.filter { it.appType == AppType.SYSTEM }
+                                            .map { it.packageName }.toSet()
+                                        val warnCount = next.count { it !in current && it in systemPackages }
+                                        confirmation.request(
+                                            prefsContext.getString(R.string.select_all),
+                                            systemAppCount = warnCount,
+                                            risk = SystemSelectionRisk.PRIORITY
+                                        ) { orderDraft.stage(rankedRaw, next) }
+                                    }
+                                }
+                            ),
+                            actions = listOf(
+                                WorkspaceMenuAction(stringResource(R.string.invert_selection), {
+                                    val current = orderDraft.effective(rankedRaw)
+                                    val next = (current.filterNot { it in editablePriorityPackages } +
+                                        editablePriorityPackages.filterNot { it in current }).take(200)
+                                    val systemPackages = groups.filter { it.appType == AppType.SYSTEM }
+                                        .map { it.packageName }.toSet()
+                                    val warnCount = next.count { it !in current && it in systemPackages }
+                                    confirmation.request(
+                                        prefsContext.getString(R.string.invert_selection),
+                                        systemAppCount = warnCount,
+                                        risk = SystemSelectionRisk.PRIORITY
+                                    ) { orderDraft.stage(rankedRaw, next) }
+                                }, editablePriorityPackages.isNotEmpty())
+                            ),
+                            helpExpanded = sortHelpExpanded,
+                            onHelpToggle = { sortHelpExpanded = !sortHelpExpanded }
+                        )
                     }
                 }
             }
@@ -396,49 +454,7 @@ fun PriorityDialogContent(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        WorkspaceListActions(
-                            actions = listOf(
-                                WorkspaceMenuAction(stringResource(R.string.select_all), {
-                                    val current = orderDraft.effective(rankedRaw)
-                                    val eligible = groups.map { it.packageName }
-                                        .filterNot { vm.isBulkAppLocked(lockScope, it) }
-                                    val next = (current + eligible.filterNot { it in current }).take(200)
-                                    val systemPackages = groups.filter { it.appType == AppType.SYSTEM }
-                                        .map { it.packageName }.toSet()
-                                    val warnCount = next.count { it !in current && it in systemPackages }
-                                    confirmation.request(
-                                        prefsContext.getString(R.string.select_all),
-                                        systemAppCount = warnCount,
-                                        risk = SystemSelectionRisk.PRIORITY
-                                    ) { orderDraft.stage(rankedRaw, next) }
-                                }, groups.isNotEmpty()),
-                                WorkspaceMenuAction(stringResource(R.string.select_none), {
-                                    confirmation.request(prefsContext.getString(R.string.select_none)) {
-                                        val current = orderDraft.effective(rankedRaw)
-                                        val eligible = groups.map { it.packageName }
-                                            .filterNot { vm.isBulkAppLocked(lockScope, it) }
-                                        orderDraft.stage(rankedRaw, current.filterNot { it in eligible })
-                                    }
-                                }, groups.isNotEmpty()),
-                                WorkspaceMenuAction(stringResource(R.string.invert_selection), {
-                                    val current = orderDraft.effective(rankedRaw)
-                                    val eligible = groups.map { it.packageName }
-                                        .filterNot { vm.isBulkAppLocked(lockScope, it) }
-                                    val next = (current.filterNot { it in eligible } +
-                                        eligible.filterNot { it in current }).take(200)
-                                    val systemPackages = groups.filter { it.appType == AppType.SYSTEM }
-                                        .map { it.packageName }.toSet()
-                                    val warnCount = next.count { it !in current && it in systemPackages }
-                                    confirmation.request(
-                                        prefsContext.getString(R.string.invert_selection),
-                                        systemAppCount = warnCount,
-                                        risk = SystemSelectionRisk.PRIORITY
-                                    ) { orderDraft.stage(rankedRaw, next) }
-                                }, groups.isNotEmpty())
-                            ),
-                            helpExpanded = sortHelpExpanded,
-                            onHelpToggle = { sortHelpExpanded = !sortHelpExpanded }
-                        )
+
                     }
                     if (sortHelpExpanded) {
                         AdaptiveText(

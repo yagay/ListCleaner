@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -352,15 +353,53 @@ internal fun WorkspaceFilterBar(
     }
 }
 
-/** Batch operations and help belong beside the list summary, not inside filters. */
+/** Current visible, editable items only; protects Root/LSPosed draft semantics. */
+internal data class WorkspacePrimarySelection(
+    val state: ToggleableState,
+    val enabled: Boolean,
+    val onToggle: () -> Unit
+)
+
+/**
+ * Shared compact list actions. Frequent select-all lives in sight, while
+ * infrequent inverse-selection actions remain in the overflow popup.
+ */
 @Composable
 internal fun WorkspaceListActions(
     actions: List<WorkspaceMenuAction> = emptyList(),
     helpExpanded: Boolean = false,
     onHelpToggle: (() -> Unit)? = null,
+    primarySelection: WorkspacePrimarySelection? = null,
+    prominentActions: Boolean = false
 ) {
     var expanded by remember { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically) {
+        if (primarySelection != null) {
+            val label = stringResource(
+                if (primarySelection.state == ToggleableState.On) R.string.select_none
+                else R.string.select_all
+            )
+            Row(
+                modifier = Modifier.clickable(
+                    enabled = primarySelection.enabled,
+                    onClick = primarySelection.onToggle
+                ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AdaptiveTriStateCheckbox(
+                    state = primarySelection.state,
+                    onClick = primarySelection.onToggle,
+                    enabled = primarySelection.enabled
+                )
+                AdaptiveText(
+                    label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (primarySelection.enabled) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
+        }
         if (onHelpToggle != null) {
             AdaptiveIconButton(onClick = onHelpToggle) {
                 AdaptiveIcon(
@@ -374,14 +413,24 @@ internal fun WorkspaceListActions(
         }
         if (actions.isNotEmpty()) {
             Box {
-                AdaptiveIconButton(
-                    onClick = { expanded = true },
-                    enabled = actions.any { it.enabled }
-                ) {
-                    AdaptiveIcon(
-                        Icons.Rounded.MoreVert,
-                        stringResource(R.string.selection_actions)
-                    )
+                if (prominentActions) {
+                    AdaptiveTextButton(
+                        onClick = { expanded = true },
+                        enabled = actions.any { it.enabled }
+                    ) {
+                        AdaptiveText(stringResource(R.string.lc_bulk_actions_label))
+                        AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(18.dp))
+                    }
+                } else {
+                    AdaptiveIconButton(
+                        onClick = { expanded = true },
+                        enabled = actions.any { it.enabled }
+                    ) {
+                        AdaptiveIcon(
+                            Icons.Rounded.MoreVert,
+                            stringResource(R.string.selection_actions)
+                        )
+                    }
                 }
                 AdaptiveDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                     actions.forEach { action ->
@@ -404,18 +453,28 @@ internal fun WorkspaceListSummary(
     actions: List<WorkspaceMenuAction> = emptyList(),
     helpExpanded: Boolean = false,
     onHelpToggle: (() -> Unit)? = null,
+    primarySelection: WorkspacePrimarySelection? = null,
+    prominentActions: Boolean = false
 ) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = 2.dp),
+        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        AdaptiveText(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelMedium)
-        if (secondary != null) AdaptiveText(
+        AdaptiveText(
+            title,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.labelMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        // The direct selection button takes priority on narrow phones.
+        if (secondary != null && primarySelection == null) AdaptiveText(
             secondary, color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.labelSmall, maxLines = 1
         )
-        WorkspaceListActions(actions, helpExpanded, onHelpToggle)
+        WorkspaceListActions(actions, helpExpanded, onHelpToggle, primarySelection, prominentActions)
     }
 }
 

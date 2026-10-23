@@ -261,7 +261,7 @@ if "heightIn(max = 480.dp)" in filter_popup or "widthIn(min = 270.dp" in filter_
 if filter_popup.count("AdaptiveDropdownMenuItem(") < 4:
     errors.append("WorkspaceCommon.kt: Filter group rows and choices must use native M3 menu items")
 for expected in ("fun WorkspaceListActions(",
-                 "WorkspaceListActions(actions, helpExpanded, onHelpToggle)"):
+                 "WorkspaceListActions(actions, helpExpanded, onHelpToggle, primarySelection, prominentActions)"):
     if expected not in sheet:
         errors.append(f"WorkspaceCommon.kt: list actions regression: {expected}")
 if "AdaptiveDropdownMenu(expanded = appMenu" in sheet:
@@ -291,6 +291,33 @@ for filename in ("MainTabs.kt", "RootComponentsScreen.kt", "PriorityDialog.kt"):
     code = (root / filename).read_text(encoding="utf-8")
     if "WorkspaceListActions(" not in code and "actions = listOf(" not in code:
         errors.append(f"{filename}: bulk actions must live beside the list summary")
+# The list summary must share the same pinned LazyColumn header as Category/Filter.
+# Two distinct stickyHeader calls cannot stack: the later one replaces the earlier.
+for filename in ("MainTabs.kt", "RootComponentsScreen.kt", "PriorityDialog.kt"):
+    code = (root / filename).read_text(encoding="utf-8")
+    start = code.find('stickyHeader(key = "list-controls")') if filename == "MainTabs.kt" else code.find('stickyHeader(key = "controls")')
+    summary_item = code.find('item(key = "list-summary")') if filename == "MainTabs.kt" else code.find('item(key = "summary")')
+    sticky = code[start:summary_item] if start >= 0 and summary_item > start else ""
+    expected = "SummaryRow(" if filename == "MainTabs.kt" else "WorkspaceListSummary("
+    if expected not in sticky:
+        errors.append(f"{filename}: list selection must share the pinned category header")
+    if "item(key = " + ('"list-summary"' if filename == "MainTabs.kt" else '"summary"') not in code:
+        errors.append(f"{filename}: explanatory list content must remain scrollable")
+common = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
+for expected in ("data class WorkspacePrimarySelection(", "AdaptiveTriStateCheckbox(",
+                 "primarySelection: WorkspacePrimarySelection? = null",
+                 "prominentActions: Boolean = false", "lc_bulk_actions_label"):
+    if expected not in common:
+        errors.append(f"WorkspaceCommon.kt: visible bulk selection contract missing: {expected}")
+entry_source = (root / "MainTabs.kt").read_text(encoding="utf-8")
+priority_source = (root / "PriorityDialog.kt").read_text(encoding="utf-8")
+root_source = (root / "RootComponentsScreen.kt").read_text(encoding="utf-8")
+for filename, source in (("MainTabs.kt", entry_source), ("PriorityDialog.kt", priority_source)):
+    if "WorkspacePrimarySelection(" not in source or "ToggleableState.Indeterminate" not in source:
+        errors.append(f"{filename}: tri-state select-all must reflect visible editable items")
+if "prominentActions = true" not in root_source:
+    errors.append("RootComponentsScreen.kt: Root batch actions must be visibly labeled")
+
 toolbar = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
 for expected in ("appTypeFilter != AppTypeFilter.ALL", "viewFilter != UiFilter.ALL",
                  "lc_filter_help_short"):

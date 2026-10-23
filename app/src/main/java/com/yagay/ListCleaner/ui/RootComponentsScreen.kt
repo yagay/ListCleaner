@@ -350,32 +350,33 @@ fun RootComponentsScreen(
                         }
                     } else if (busy) WorkspaceProgress()
                     AdaptiveHorizontalDivider()
+                WorkspaceListSummary(
+                    title = stringResource(R.string.root_summary, groups.size, visible.size),
+                    actions = listOf(
+                        WorkspaceMenuAction(stringResource(R.string.root_batch_action_disable), {
+                            pendingBatch = PendingRootBatch(kind, visible, false)
+                        }, !busy && visible.any {
+                            it.blocked == null && it.enabled == true && !vm.isComponentBulkProtected(kind, it)
+                        }),
+                        WorkspaceMenuAction(stringResource(R.string.root_batch_action_enable), {
+                            pendingBatch = PendingRootBatch(kind, visible, true)
+                        }, !busy && visible.any {
+                            it.blocked == null && it.enabled == false && !vm.isComponentBulkProtected(kind, it)
+                        }),
+                        WorkspaceMenuAction(stringResource(R.string.root_batch_action_invert), {
+                            pendingBatch = PendingRootBatch(kind, visible, null)
+                        }, !busy && visible.any {
+                            it.blocked == null && it.enabled != null && !vm.isComponentBulkProtected(kind, it)
+                        })
+                    ),
+                    prominentActions = true,
+                    helpExpanded = detailsExpanded,
+                    onHelpToggle = { detailsExpanded = !detailsExpanded }
+                )
                 }
             }
         }
         item(key = "summary") {
-            WorkspaceListSummary(
-                title = stringResource(R.string.root_summary, groups.size, visible.size),
-                actions = listOf(
-                    WorkspaceMenuAction(stringResource(R.string.root_batch_action_disable), {
-                        pendingBatch = PendingRootBatch(kind, visible, false)
-                    }, !busy && visible.any {
-                        it.blocked == null && it.enabled == true && !vm.isComponentBulkProtected(kind, it)
-                    }),
-                    WorkspaceMenuAction(stringResource(R.string.root_batch_action_enable), {
-                        pendingBatch = PendingRootBatch(kind, visible, true)
-                    }, !busy && visible.any {
-                        it.blocked == null && it.enabled == false && !vm.isComponentBulkProtected(kind, it)
-                    }),
-                    WorkspaceMenuAction(stringResource(R.string.root_batch_action_invert), {
-                        pendingBatch = PendingRootBatch(kind, visible, null)
-                    }, !busy && visible.any {
-                        it.blocked == null && it.enabled != null && !vm.isComponentBulkProtected(kind, it)
-                    })
-                ),
-                helpExpanded = detailsExpanded,
-                onHelpToggle = { detailsExpanded = !detailsExpanded }
-            )
             if (detailsExpanded) WorkspaceHelpSection {
                 AdaptiveText(
                     stringResource(R.string.root_filter_help),
