@@ -197,23 +197,6 @@ internal fun BulkLockContextMenu(
 }
 
 @Composable
-private fun ComponentSelectionMark(checked: Boolean) {
-    val colors = MaterialTheme.colorScheme
-    Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-        Box(
-            Modifier.size(20.dp)
-                .background(if (checked) colors.primary else Color.Transparent, CircleShape)
-                .border(1.5.dp, if (checked) colors.primary else colors.outline, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            if (checked) {
-                AdaptiveIcon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(14.dp), tint = colors.onPrimary)
-            }
-        }
-    }
-}
-
-@Composable
 internal fun AppIcon(bitmap: Bitmap?, appLabel: String) {
     if (!UiPreferencesRuntime.current.showAppIcons) return
     Box(
