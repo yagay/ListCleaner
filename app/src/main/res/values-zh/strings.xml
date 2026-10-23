@@ -5,4 +5,5 @@
     <string name="lc_pending_changes_count">待应用：%1$d 项</string>
     <string name="lc_discard_changes">取消更改</string>
     <string name="lc_apply_changes">应用更改</string>
+    <string name="lc_pending_apply_confirm">确定提交 %1$d 项待应用更改吗？</string>
 </resources>
