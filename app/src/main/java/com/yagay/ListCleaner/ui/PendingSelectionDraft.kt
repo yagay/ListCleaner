@@ -10,6 +10,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -54,6 +55,25 @@ internal fun PendingChangesBar(
     modifier: Modifier = Modifier,
 ) {
     if (count == 0) return
+    var confirmApply by remember { mutableStateOf(false) }
+    if (confirmApply) {
+        AdaptiveAlertDialog(
+            onDismissRequest = { confirmApply = false },
+            title = { AdaptiveText(stringResource(R.string.lc_apply_changes)) },
+            text = { AdaptiveText(stringResource(R.string.lc_pending_apply_confirm, count)) },
+            confirmButton = {
+                AdaptiveTextButton(onClick = {
+                    confirmApply = false
+                    onApply()
+                }) { AdaptiveText(stringResource(R.string.common_ok)) }
+            },
+            dismissButton = {
+                AdaptiveTextButton(onClick = { confirmApply = false }) {
+                    AdaptiveText(stringResource(R.string.common_cancel))
+                }
+            }
+        )
+    }
     Surface(modifier = modifier.fillMaxWidth(), tonalElevation = 4.dp, shadowElevation = 3.dp) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
@@ -68,7 +88,7 @@ internal fun PendingChangesBar(
             TextButton(onClick = onDiscard) {
                 Text(stringResource(R.string.lc_discard_changes))
             }
-            Button(onClick = onApply) {
+            Button(onClick = { confirmApply = true }) {
                 Text(stringResource(R.string.lc_apply_changes))
             }
         }
