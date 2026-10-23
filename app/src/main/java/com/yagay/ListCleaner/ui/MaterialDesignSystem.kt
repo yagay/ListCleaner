@@ -50,9 +50,11 @@ internal object MaterialUiTokens {
     val cardShape get() = RoundedCornerShape(cardRadius)
     val groupHorizontal get() = pageHorizontal
     // Compact category cards: typography and icon size stay unchanged.
-    val categoryHeight get() = (104f * density).dp
-    val categoryPadding get() = (10f * density).dp
-    val categoryContentGap get() = (4f * density).dp
+    // Minimum only: content can grow for large fonts and longer translations.
+    // A single-line title must not reserve the space of a second line.
+    val categoryHeight get() = (88f * density).dp
+    val categoryPadding get() = (8f * density).dp
+    val categoryContentGap get() = (3f * density).dp
     val categoryGap get() = (8f * density).dp
     val listRowHeight get() = UiPreferencesRuntime.current.listRowHeight.dp
     val listRowHorizontal get() = (8f * density).dp
