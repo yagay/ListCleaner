@@ -27,6 +27,23 @@ class HomeLayoutPolicyTest {
             UiHomeLayout.CLASSIC_LIST, UiComponentStart.CATEGORIES))
     }
 
+    @Test fun sortingUsesTheSameVerticalClassicListChoiceAsCleanup() {
+        assertTrue(HomeLayoutPolicy.showPriorityCategoryHome(UiHomeLayout.CATEGORY_CARDS, null, ""))
+        assertFalse(HomeLayoutPolicy.showPriorityCategoryHome(UiHomeLayout.CLASSIC_LIST, null, ""))
+        assertFalse(HomeLayoutPolicy.showPriorityCategoryHome(UiHomeLayout.CATEGORY_CARDS, IntentKind.SHARE, ""))
+        assertFalse(HomeLayoutPolicy.showPriorityCategoryHome(UiHomeLayout.CATEGORY_CARDS, null, "search"))
+        assertEquals(IntentKind.SHARE, HomeLayoutPolicy.priorityKind(null))
+    }
+
+    @Test fun sortingCategoryFiltersAreRestrictedToEditableKinds() {
+        assertTrue(IntentKind.SHARE in HomeLayoutPolicy.sortableKinds)
+        assertTrue(IntentKind.OPEN in HomeLayoutPolicy.sortableKinds)
+        assertFalse(IntentKind.PHOTO_SOURCE in HomeLayoutPolicy.sortableKinds)
+        assertFalse(IntentKind.NOTIFICATION_LISTENER in HomeLayoutPolicy.sortableKinds)
+        assertEquals(IntentKind.SHARE, HomeLayoutPolicy.priorityKind(IntentKind.PHOTO_SOURCE))
+        assertEquals(IntentKind.OPEN, HomeLayoutPolicy.priorityKind(IntentKind.OPEN))
+    }
+
     @Test fun currentModeDoesNotChangeExistingComponentPreference() {
         assertFalse(HomeLayoutPolicy.startWithComponentList(
             UiHomeLayout.CATEGORY_CARDS, UiComponentStart.CATEGORIES))

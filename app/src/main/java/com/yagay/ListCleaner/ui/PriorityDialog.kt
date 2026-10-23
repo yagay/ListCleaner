@@ -40,7 +40,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
-import com.yagay.ListCleaner.domain.supportsPriorityEditing
 import com.yagay.ListCleaner.domain.supportsTitleEditing
 import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.EntryGroup
@@ -88,14 +87,20 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     }
 
     var sortingGroup by rememberSaveable { mutableStateOf<EntryGroup?>(null) }
-    BackHandler(enabled = state.filter == null && sortingGroup != null) {
+    val classicLayout = HomeLayoutPolicy.showCategoryFilterBar(UiPreferencesRuntime.current.homeLayout)
+    val priorityKinds = HomeLayoutPolicy.sortableKinds
+    BackHandler(enabled = !classicLayout && state.filter == null && sortingGroup != null) {
         sortingGroup = null
     }
-    if (state.filter == null && state.query.isBlank()) {
+    // Category-card mode retains its existing home; classic mode opens the vertical
+    // sortable app list immediately, matching RulesTab instead of adding fake Root ordering.
+    if (HomeLayoutPolicy.showPriorityCategoryHome(
+            UiPreferencesRuntime.current.homeLayout, state.filter, state.query
+        )) {
         EntryWorkspaceHome(
             selectedGroup = sortingGroup,
             availableGroups = EntryGroup.entries.filter { it != EntryGroup.DESKTOP },
-            availableKinds = IntentKind.entries.filter { it.supportsPriorityEditing() }.toSet(),
+            availableKinds = priorityKinds,
             showUtilities = false,
             showComponentSection = false,
             onGroup = { sortingGroup = it },
@@ -118,7 +123,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
         )
         return
     }
-    val kind = state.filter ?: IntentKind.SHARE
+    val kind = HomeLayoutPolicy.priorityKind(state.filter)
     val openPreset by vm.ruleOpenPreset.collectAsStateWithLifecycle()
     val browserHost by vm.ruleBrowserHost.collectAsStateWithLifecycle()
     var confirmPriorityReset by remember { mutableStateOf(false) }
@@ -258,20 +263,22 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
             state = listState,
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
-            item(key = "workspace-breadcrumb") {
-                EntryWorkspaceBreadcrumb(
-                    kind = kind,
-                    onHome = {
-                        sortingGroup = null
-                        vm.setFilter(null)
-                        vm.setQuery("")
-                    },
-                    onGroup = {
-                        sortingGroup = kind.entryGroup()
-                        vm.setFilter(null)
-                        vm.setQuery("")
-                    }
-                )
+            if (!classicLayout) {
+                item(key = "workspace-breadcrumb") {
+                    EntryWorkspaceBreadcrumb(
+                        kind = kind,
+                        onHome = {
+                            sortingGroup = null
+                            vm.setFilter(null)
+                            vm.setQuery("")
+                        },
+                        onGroup = {
+                            sortingGroup = kind.entryGroup()
+                            vm.setFilter(null)
+                            vm.setQuery("")
+                        }
+                    )
+                }
             }
             stickyHeader(key = "controls") {
                 PageFilterSection {
@@ -289,7 +296,8 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 UiPreferencesStore.rememberAppType(prefsContext, it, "priority")
                             },
                             includeAllKinds = false,
-                            showEntryGroups = false,
+                            showEntryGroups = classicLayout,
+                            availableEntryKinds = priorityKinds,
                             viewTitle = {
                                 stringResource(
                                     when (it) {

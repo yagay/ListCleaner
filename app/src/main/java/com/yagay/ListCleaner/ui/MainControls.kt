@@ -154,6 +154,7 @@ private fun EntryGroupButton(
     group: EntryGroup,
     activeKind: IntentKind?,
     onFilter: (IntentKind?) -> Unit,
+    availableKinds: Set<IntentKind>? = null,
 ) {
     var expanded by remember(group) { mutableStateOf(false) }
     val active = activeKind?.entryGroup() == group
@@ -166,7 +167,7 @@ private fun EntryGroupButton(
             AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
         }
         AdaptiveDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            group.kinds().forEach { kind ->
+            group.kinds().filter { availableKinds == null || it in availableKinds }.forEach { kind ->
                 AdaptiveDropdownMenuItem(
                     text = {
                         AdaptiveText(
@@ -190,6 +191,7 @@ internal fun ListControls(
     onAppTypeFilter: (AppTypeFilter) -> Unit = {},
     includeAllKinds: Boolean = true,
     showEntryGroups: Boolean = true,
+    availableEntryKinds: Set<IntentKind>? = null,
     viewTitle: @Composable (UiFilter) -> String = { stringResource(it.titleRes()) },
     extraFilter: (@Composable () -> Unit)? = null,
     onSelectAll: (() -> Unit)? = null,
@@ -221,9 +223,15 @@ internal fun ListControls(
                         label = { AdaptiveText(stringResource(R.string.common_all)) }
                     )
                 }
-                EntryGroup.entries.filter { includeAllKinds || it != EntryGroup.DESKTOP }.forEach { group ->
-                    EntryGroupButton(group, state.filter, onFilter)
-                }
+                EntryGroup.entries
+                    .filter { includeAllKinds || it != EntryGroup.DESKTOP }
+                    .filter { group ->
+                        availableEntryKinds == null ||
+                            group.kinds().any { it in availableEntryKinds }
+                    }
+                    .forEach { group ->
+                        EntryGroupButton(group, state.filter, onFilter, availableEntryKinds)
+                    }
             }
         }
 
