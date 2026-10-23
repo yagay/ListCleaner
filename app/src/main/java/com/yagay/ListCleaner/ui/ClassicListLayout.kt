@@ -25,6 +25,8 @@ internal fun ClassicCleanupTabs(
     onEntries: () -> Unit,
     onComponents: () -> Unit,
 ) {
+    val entryDescription = stringResource(R.string.workspace_rule_section)
+    val componentDescription = stringResource(R.string.root_screen_title)
     Surface(color = MaterialTheme.colorScheme.surface) {
         SingleChoiceSegmentedButtonRow(
             modifier = Modifier.fillMaxWidth().padding(
@@ -37,7 +39,7 @@ internal fun ClassicCleanupTabs(
                 onClick = { if (active != ClassicCleanupMode.ENTRIES) onEntries() },
                 shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
                 modifier = Modifier.weight(1f).semantics {
-                    contentDescription = "Entry cleanup (LSPosed)"
+                    contentDescription = entryDescription
                 },
                 icon = {}
             ) {
@@ -53,7 +55,7 @@ internal fun ClassicCleanupTabs(
                 onClick = { if (active != ClassicCleanupMode.COMPONENTS) onComponents() },
                 shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
                 modifier = Modifier.weight(1f).semantics {
-                    contentDescription = "Component cleanup (Root)"
+                    contentDescription = componentDescription
                 },
                 icon = {}
             ) {
