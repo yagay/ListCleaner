@@ -1,5 +1,9 @@
 package com.yagay.ListCleaner.ui
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -9,6 +13,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
@@ -28,24 +33,26 @@ internal fun ClassicCleanupTabs(
     val entryDescription = stringResource(R.string.workspace_rule_section)
     val componentDescription = stringResource(R.string.root_screen_title)
     Surface(color = MaterialTheme.colorScheme.surface) {
-        SingleChoiceSegmentedButtonRow(
-            modifier = Modifier.fillMaxWidth().padding(
-                horizontal = MaterialUiTokens.pageHorizontal,
-                vertical = 4.dp
-            )
+        // Keep the controls content-sized instead of stretching each border to half
+        // the display. A narrow device can scroll without shrinking the labels.
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                .padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = 2.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            SingleChoiceSegmentedButtonRow {
             SegmentedButton(
                 selected = active == ClassicCleanupMode.ENTRIES,
                 onClick = { if (active != ClassicCleanupMode.ENTRIES) onEntries() },
                 shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                modifier = Modifier.weight(1f).semantics {
+                modifier = Modifier.semantics {
                     contentDescription = entryDescription
                 },
                 icon = {}
             ) {
                 WorkspaceControlLabel(
                     stringResource(R.string.lc_cleanup_mode_entry_short),
-                    modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Center,
                     maxLines = 1
                 )
@@ -54,17 +61,17 @@ internal fun ClassicCleanupTabs(
                 selected = active == ClassicCleanupMode.COMPONENTS,
                 onClick = { if (active != ClassicCleanupMode.COMPONENTS) onComponents() },
                 shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                modifier = Modifier.weight(1f).semantics {
+                modifier = Modifier.semantics {
                     contentDescription = componentDescription
                 },
                 icon = {}
             ) {
                 WorkspaceControlLabel(
                     stringResource(R.string.lc_cleanup_mode_component_short),
-                    modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Center,
                     maxLines = 1
                 )
+            }
             }
         }
     }
