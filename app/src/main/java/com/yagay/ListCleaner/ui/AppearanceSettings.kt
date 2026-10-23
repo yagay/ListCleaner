@@ -99,20 +99,8 @@ internal fun SettingsAppearanceControls(
         ) { UiPreferencesStore.write(context, current.copy(density = it)) }
     }
     SettingsArea(stringResource(R.string.lc_settings_layout_group)) {
-        SettingsSlider(stringResource(R.string.settings_card_radius), current.cardRadius, 0, 32) {
-            UiPreferencesRuntime.apply(UiPreferencesRuntime.current.copy(cardRadius = it))
-        }
-        SettingsSlider(stringResource(R.string.settings_button_height), current.buttonHeight, 36, 64) {
-            UiPreferencesRuntime.apply(UiPreferencesRuntime.current.copy(buttonHeight = it))
-        }
-        SettingsSlider(stringResource(R.string.settings_row_height), current.listRowHeight, 48, 96) {
-            UiPreferencesRuntime.apply(UiPreferencesRuntime.current.copy(listRowHeight = it))
-        }
         SettingsSlider(stringResource(R.string.settings_icon_size), current.appIconSize, 28, 56) {
             UiPreferencesRuntime.apply(UiPreferencesRuntime.current.copy(appIconSize = it))
-        }
-        SettingsSlider(stringResource(R.string.lc_font_scale), current.fontScalePercent, 80, 140, suffix = "%") {
-            UiPreferencesRuntime.apply(UiPreferencesRuntime.current.copy(fontScalePercent = it))
         }
         SettingsSlider(stringResource(R.string.lc_layout_spacing), current.layoutSpacingPercent, 70, 150, suffix = "%") {
             UiPreferencesRuntime.apply(UiPreferencesRuntime.current.copy(layoutSpacingPercent = it))

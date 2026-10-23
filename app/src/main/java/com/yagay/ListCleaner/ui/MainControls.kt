@@ -44,42 +44,18 @@ import com.yagay.ListCleaner.domain.kinds
 
 @Composable
 internal fun CompactSearchField(query: String, onQueryChange: (String) -> Unit) {
-    val colors = MaterialTheme.colorScheme
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
-    BasicTextField(
+    OutlinedTextField(
         value = query,
         onValueChange = onQueryChange,
         singleLine = true,
+        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+        placeholder = { AdaptiveText(stringResource(R.string.search_apps_components_packages)) },
+        leadingIcon = { AdaptiveIcon(Icons.Rounded.Search, contentDescription = null) },
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
-        textStyle = MaterialTheme.typography.bodyMedium.copy(color = colors.onSurface),
-        cursorBrush = SolidColor(colors.primary),
-        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester)
-            .heightIn(min = 48.dp)
-            .border(1.dp, colors.outlineVariant, RoundedCornerShape(12.dp)),
-        decorationBox = { innerTextField ->
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                AdaptiveIcon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(20.dp), tint = colors.onSurfaceVariant)
-                Box(Modifier.weight(1f)) {
-                    if (query.isEmpty()) {
-                        AdaptiveText(
-                            stringResource(R.string.search_apps_components_packages),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = colors.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    innerTextField()
-                }
-            }
-        }
+        keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() })
     )
 }
 

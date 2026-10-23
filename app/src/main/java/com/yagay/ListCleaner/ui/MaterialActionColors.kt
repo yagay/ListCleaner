@@ -1,67 +1,21 @@
 package com.yagay.ListCleaner.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
 
 /**
- * One theme accent for filled, outlined, text, icon and selected-filter actions.
- * Hierarchy stays visible without separate default palettes per component.
+ * Compatibility adapters intentionally delegate to native Material 3 colors.
+ * Never override an indicator, disabled color or selected chip palette here.
  */
 internal object MaterialActionColors {
-    @Composable
-    fun filled() = ButtonDefaults.buttonColors(
-        containerColor = MaterialTheme.colorScheme.primary,
-        contentColor = MaterialTheme.colorScheme.onPrimary
-    )
-
-    @Composable
-    fun outlined() = ButtonDefaults.outlinedButtonColors(
-        contentColor = MaterialTheme.colorScheme.primary
-    )
-
-    @Composable
-    fun outlinedBorder(enabled: Boolean): BorderStroke = BorderStroke(
-        width = 1.dp,
-        color = if (enabled) MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
-            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-    )
-
-    @Composable
-    fun text() = ButtonDefaults.textButtonColors(
-        contentColor = MaterialTheme.colorScheme.primary
-    )
-
-    @Composable
-    fun icon() = IconButtonDefaults.iconButtonColors(
-        contentColor = MaterialTheme.colorScheme.primary
-    )
-
-    /**
-     * Material 3 only draws the pill behind the icon. The selected label sits
-     * outside that pill, so it uses primary rather than onPrimary for contrast.
-     */
-    @Composable
-    fun navigation() = NavigationBarItemDefaults.colors(
-        selectedIconColor = MaterialTheme.colorScheme.onPrimary,
-        selectedTextColor = MaterialTheme.colorScheme.primary,
-        indicatorColor = MaterialTheme.colorScheme.primary,
-        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-    )
-
-    @Composable
-    fun filter() = FilterChipDefaults.filterChipColors(
-        containerColor = Color.Transparent,
-        labelColor = MaterialTheme.colorScheme.primary,
-        selectedContainerColor = MaterialTheme.colorScheme.primary,
-        selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-        selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimary
-    )
+    @Composable fun filled() = ButtonDefaults.buttonColors()
+    @Composable fun outlined() = ButtonDefaults.outlinedButtonColors()
+    @Composable fun outlinedBorder(enabled: Boolean) = ButtonDefaults.outlinedButtonBorder(enabled)
+    @Composable fun text() = ButtonDefaults.textButtonColors()
+    @Composable fun icon() = IconButtonDefaults.iconButtonColors()
+    @Composable fun navigation() = NavigationBarItemDefaults.colors()
+    @Composable fun filter() = FilterChipDefaults.filterChipColors()
 }

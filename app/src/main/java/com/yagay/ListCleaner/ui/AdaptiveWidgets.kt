@@ -35,13 +35,12 @@ internal fun AdaptiveTextButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    contentPadding: PaddingValues = MaterialUiTokens.normalButtonPadding,
+    contentPadding: PaddingValues = androidx.compose.material3.ButtonDefaults.TextButtonContentPadding,
     content: @Composable RowScope.() -> Unit
 ) = TextButton(
     onClick = onClick,
-    modifier = modifier.heightIn(min = MaterialUiTokens.buttonHeight),
-    shape = MaterialTheme.shapes.medium,
-    enabled = enabled, colors = MaterialActionColors.text(),
+    modifier = modifier,
+    enabled = enabled,
     contentPadding = contentPadding, content = content
 )
 
@@ -52,10 +51,8 @@ internal fun AdaptiveOutlinedButton(
     enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit
 ) = OutlinedButton(
-    onClick = onClick, modifier = modifier.heightIn(min = MaterialUiTokens.buttonHeight),
-    enabled = enabled, shape = MaterialTheme.shapes.medium,
-    colors = MaterialActionColors.outlined(),
-    border = MaterialActionColors.outlinedBorder(enabled),
+    onClick = onClick, modifier = modifier,
+    enabled = enabled,
     content = content
 )
 
@@ -67,8 +64,8 @@ internal fun AdaptiveIconButton(
     content: @Composable () -> Unit
 ) = IconButton(
     onClick = onClick,
-    modifier = modifier.sizeIn(minWidth = MaterialUiTokens.iconTouchTarget, minHeight = MaterialUiTokens.iconTouchTarget),
-    enabled = enabled, colors = MaterialActionColors.icon(), content = content
+    modifier = modifier,
+    enabled = enabled, content = content
 )
 
 @Composable
@@ -91,9 +88,8 @@ internal fun AdaptiveFilterChip(
     leadingIcon: @Composable (() -> Unit)? = null
 ) = FilterChip(
     selected = selected, onClick = onClick, label = label,
-    modifier = modifier.heightIn(min = MaterialUiTokens.buttonHeight),
-    shape = MaterialTheme.shapes.medium, enabled = enabled,
-    colors = MaterialActionColors.filter(), leadingIcon = leadingIcon
+    modifier = modifier,
+    enabled = enabled, leadingIcon = leadingIcon
 )
 
 @Composable
@@ -137,9 +133,8 @@ internal fun AdaptiveButton(
     enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit
 ) = Button(
-    onClick = onClick, modifier = modifier.heightIn(min = MaterialUiTokens.buttonHeight),
-    enabled = enabled, shape = MaterialTheme.shapes.medium,
-    colors = MaterialActionColors.filled(), content = content
+    onClick = onClick, modifier = modifier,
+    enabled = enabled, content = content
 )
 
 @Composable
