@@ -6,6 +6,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
@@ -25,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -353,6 +355,17 @@ internal fun WorkspaceFilterBar(
     }
 }
 
+/**
+ * Shared visible/eligible selection state for Entry, Component and Ordering.
+ * Callers filter locked/read-only items first; zero eligible is never selected.
+ */
+internal fun workspaceBulkSelectionState(selectedCount: Int, eligibleCount: Int): ToggleableState =
+    when {
+        eligibleCount == 0 || selectedCount == 0 -> ToggleableState.Off
+        selectedCount >= eligibleCount -> ToggleableState.On
+        else -> ToggleableState.Indeterminate
+    }
+
 /** Current visible, editable items only; protects Root/LSPosed draft semantics. */
 internal data class WorkspacePrimarySelection(
     val state: ToggleableState,
@@ -378,16 +391,22 @@ internal fun WorkspaceListActions(
                 if (primarySelection.state == ToggleableState.On) R.string.select_none
                 else R.string.select_all
             )
+            // Exactly one toggle target for both text and checkbox. Having a
+            // clickable parent *and* a clickable child duplicated semantics.
             Row(
-                modifier = Modifier.clickable(
-                    enabled = primarySelection.enabled,
-                    onClick = primarySelection.onToggle
-                ),
+                modifier = Modifier
+                    .heightIn(min = MaterialUiTokens.iconTouchTarget)
+                    .toggleable(
+                        value = primarySelection.state == ToggleableState.On,
+                        enabled = primarySelection.enabled,
+                        role = Role.Checkbox,
+                        onValueChange = { primarySelection.onToggle() }
+                    ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 AdaptiveTriStateCheckbox(
                     state = primarySelection.state,
-                    onClick = primarySelection.onToggle,
+                    onClick = null,
                     enabled = primarySelection.enabled
                 )
                 AdaptiveText(
