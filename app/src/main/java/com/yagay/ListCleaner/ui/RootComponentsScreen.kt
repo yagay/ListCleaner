@@ -384,7 +384,7 @@ fun RootComponentsScreen(
                             }
                         ),
                         actions = listOf(
-                            WorkspaceMenuAction(stringResource(R.string.root_batch_action_invert), {
+                            WorkspaceMenuAction(stringResource(R.string.invert_selection), {
                                 pendingBatch = PendingRootBatch(kind, editableVisibleComponents, null)
                             }, !busy && editableVisibleComponents.isNotEmpty())
                         ),
