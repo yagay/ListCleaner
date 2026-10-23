@@ -249,11 +249,17 @@ filter_popup = sheet.split("internal fun WorkspaceFilterBar(", 1)[1].split(
 for expected in ("DropdownMenu(", "onDismissRequest = { expanded = false }",
                  "draftAppType", "draftView", "lc_filter_sheet_apply",
                  "lc_filter_sheet_reset", "Badge {", "extraFilter()",
-                 "widthIn(min = 270.dp"):
+                 "widthIn(min = 240.dp", "FilterMenuSection.APPS",
+                 "FilterMenuSection.VIEW", "if (appsOpen)", "if (viewOpen)",
+                 "openSection = null"):
     if expected not in filter_popup:
         errors.append(f"WorkspaceCommon.kt: anchored M3 Filter menu regression: {expected}")
 if "ModalBottomSheet(" in filter_popup or "LazyRow(" in filter_popup:
     errors.append("WorkspaceCommon.kt: Filter must open near its top button, not as a sheet")
+if "heightIn(max = 480.dp)" in filter_popup or "widthIn(min = 270.dp" in filter_popup:
+    errors.append("WorkspaceCommon.kt: Filter must use Category-scale dropdown dimensions")
+if filter_popup.count("AdaptiveDropdownMenuItem(") < 4:
+    errors.append("WorkspaceCommon.kt: Filter group rows and choices must use native M3 menu items")
 for expected in ("fun WorkspaceListActions(",
                  "WorkspaceListActions(actions, helpExpanded, onHelpToggle)"):
     if expected not in sheet:
