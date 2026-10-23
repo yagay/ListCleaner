@@ -115,11 +115,13 @@ internal fun SettingsAppearanceControls(
             listOf(1 to "1", 2 to "2", 3 to "3")) {
             UiPreferencesStore.write(context, current.copy(appSubtitleLines = it))
         }
-        MaterialSettingsRow(title = stringResource(R.string.lc_show_app_icons)) {
-            AdaptiveSwitch(checked = current.showAppIcons, onCheckedChange = {
+        SettingsSwitchRow(
+            title = stringResource(R.string.lc_show_app_icons),
+            checked = current.showAppIcons,
+            onCheckedChange = {
                 UiPreferencesStore.write(context, current.copy(showAppIcons = it))
-            })
-        }
+            }
+        )
         AdaptiveText(stringResource(R.string.settings_appearance_help),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
