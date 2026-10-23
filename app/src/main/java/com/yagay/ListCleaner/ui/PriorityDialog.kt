@@ -57,7 +57,13 @@ import com.yagay.ListCleaner.domain.moveVisiblePriorityTo
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
+fun PriorityDialogContent(
+    state: MainState, vm: MainViewModel,
+    pendingNavigation: PendingNavigationGuard? = null
+) {
+    val navigate: (() -> Unit) -> Unit = { action ->
+        if (pendingNavigation != null) pendingNavigation.request(action) else action()
+    }
     var systemProbeRequest by remember { mutableStateOf<SystemProbeRequest?>(null) }
     systemProbeRequest?.let { request ->
         SystemProbeDialog(request, onDismiss = { systemProbeRequest = null })
@@ -92,7 +98,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     val classicLayout = HomeLayoutPolicy.showCategoryFilterBar(UiPreferencesRuntime.current.homeLayout)
     val priorityKinds = HomeLayoutPolicy.sortableKinds
     BackHandler(enabled = !classicLayout && state.filter == null && sortingGroup != null) {
-        sortingGroup = null
+        navigate { sortingGroup = null }
     }
     // Category-card mode retains its existing home; classic mode opens the vertical
     // sortable app list immediately, matching RulesTab instead of adding fake Root ordering.
@@ -107,8 +113,10 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
             showComponentSection = false,
             onGroup = { sortingGroup = it },
             onKind = { kind ->
-                sortingGroup = kind.entryGroup()
-                vm.setFilter(kind)
+                navigate {
+                    sortingGroup = kind.entryGroup()
+                    vm.setFilter(kind)
+                }
             },
             onPreviewKind = { kind ->
                 systemProbeRequest = SystemProbeRequest(
@@ -116,7 +124,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                     userId = vm.selectedSpace.value,
                 )
             },
-            onBack = { sortingGroup = null },
+            onBack = { navigate { sortingGroup = null } },
             onAllApps = {},
             onComponentKind = {},
             onAllComponents = {},
@@ -150,24 +158,6 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
 
     val typedOpenPreset = openPreset.takeIf { kind == IntentKind.OPEN }
     val deepLinkHost = browserHost.takeIf { kind == IntentKind.DEEP_LINK }
-    if (confirmPriorityReset) {
-        AdaptiveAlertDialog(
-            onDismissRequest = { confirmPriorityReset = false },
-            title = { AdaptiveText(stringResource(R.string.priority_reset_confirm_title)) },
-            text = { AdaptiveText(stringResource(R.string.priority_reset_confirm_body)) },
-            confirmButton = {
-                AdaptiveTextButton(onClick = {
-                    confirmPriorityReset = false
-                    orderDraft.stage(rankedRaw, emptyList())
-                }) { AdaptiveText(stringResource(R.string.common_ok)) }
-            },
-            dismissButton = {
-                AdaptiveTextButton(onClick = { confirmPriorityReset = false }) {
-                    AdaptiveText(stringResource(R.string.common_cancel))
-                }
-            }
-        )
-    }
 
     val typedSelected = typedOpenPreset?.let { state.openTypes.selectedRules(it) }.orEmpty()
     val explicitDeepLinkSelected = deepLinkHost?.let { state.browserLinks.selectedRules(it) }.orEmpty()
@@ -212,6 +202,25 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
         if (ok) orderDraft.discard() else priorityApplyConflict = true
         ok
     }
+    if (confirmPriorityReset) {
+        AdaptiveAlertDialog(
+            onDismissRequest = { confirmPriorityReset = false },
+            title = { AdaptiveText(stringResource(R.string.priority_reset_confirm_title)) },
+            text = { AdaptiveText(stringResource(R.string.priority_reset_confirm_body)) },
+            confirmButton = {
+                AdaptiveTextButton(onClick = {
+                    confirmPriorityReset = false
+                    orderDraft.stage(rankedRaw, emptyList())
+                }) { AdaptiveText(stringResource(R.string.common_ok)) }
+            },
+            dismissButton = {
+                AdaptiveTextButton(onClick = { confirmPriorityReset = false }) {
+                    AdaptiveText(stringResource(R.string.common_cancel))
+                }
+            }
+        )
+    }
+
     if (priorityApplyConflict) {
         AdaptiveAlertDialog(
             onDismissRequest = { priorityApplyConflict = false },
@@ -225,6 +234,11 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
         )
     }
     val scopedExtraSelected = if (deepLinkScoped) explicitDeepLinkSelected else typedSelected
+    RegisterPendingNavigation(
+        pendingNavigation, orderDraft,
+        if (orderDraft.hasChanges()) 1 else 0,
+        applyOrder, orderDraft::discard
+    )
     val baseGroups = remember(scopedCandidates, state.selected, scopedExtraSelected, state.displayMode, kind, openPreset, browserHost, stagedOrder, state.query, viewFilter, bulkLockRevision) {
         priorityAppGroups(
             scopedCandidates,
@@ -297,14 +311,18 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                     EntryWorkspaceBreadcrumb(
                         kind = kind,
                         onHome = {
-                            sortingGroup = null
-                            vm.setFilter(null)
-                            vm.setQuery("")
+                            navigate {
+                                sortingGroup = null
+                                vm.setFilter(null)
+                                vm.setQuery("")
+                            }
                         },
                         onGroup = {
-                            sortingGroup = kind.entryGroup()
-                            vm.setFilter(null)
-                            vm.setQuery("")
+                            navigate {
+                                sortingGroup = kind.entryGroup()
+                                vm.setFilter(null)
+                                vm.setQuery("")
+                            }
                         }
                     )
                 }
@@ -314,7 +332,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                     Column {
                         ListControls(
                             state.copy(filter = kind, uiFilter = viewFilter),
-                            onFilter = { entry -> if (entry != null) { vm.setFilter(entry); expandedKey = null } },
+                            onFilter = { entry -> if (entry != null) navigate { vm.setFilter(entry); expandedKey = null } },
                             onUiFilter = {
                                 viewFilter = it
                                 UiPreferencesStore.rememberFilter(prefsContext, it, "priority")
@@ -342,14 +360,14 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     IntentKind.OPEN -> OpenPresetFilterMenu(
                                         selected = openPreset,
                                         config = state.openTypesExplicit,
-                                        onSelected = vm::setRuleOpenPreset,
+                                        onSelected = { preset -> navigate { vm.setRuleOpenPreset(preset) } },
                                         onManageCustom = { showCustomTypes = true }
                                     )
                                     IntentKind.DEEP_LINK -> BrowserHostFilterMenu(
                                         selected = browserHost,
                                         config = state.browserLinks,
                                         availableHosts = state.browserAvailableHosts,
-                                        onSelected = vm::setRuleBrowserHost,
+                                        onSelected = { host -> navigate { vm.setRuleBrowserHost(host) } },
                                         onManage = { showBrowserHosts = true }
                                     )
                                     else -> Unit
