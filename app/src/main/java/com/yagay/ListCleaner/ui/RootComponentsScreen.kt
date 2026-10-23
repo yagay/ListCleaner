@@ -268,11 +268,9 @@ fun RootComponentsScreen(
     val disabledVisibleCount = editableVisibleComponents.count {
         selectionDraft.selected(it.id, it.enabled == false)
     }
-    val visibleBulkState = when {
-        editableVisibleComponents.isEmpty() || disabledVisibleCount == 0 -> ToggleableState.Off
-        disabledVisibleCount == editableVisibleComponents.size -> ToggleableState.On
-        else -> ToggleableState.Indeterminate
-    }
+    val visibleBulkState = workspaceBulkSelectionState(
+        disabledVisibleCount, editableVisibleComponents.size
+    )
 
 
     val classicComponentMode = embedded &&
@@ -368,7 +366,9 @@ fun RootComponentsScreen(
                     } else if (busy) WorkspaceProgress()
                     AdaptiveHorizontalDivider()
                     WorkspaceListSummary(
-                        title = stringResource(R.string.root_summary, groups.size, visible.size),
+                        // Match Entry exactly: a long "N apps · M components" label
+                        // squeezes the same select-all checkbox on narrow screens.
+                        title = stringResource(R.string.app_list_count, groups.size),
                         primarySelection = WorkspacePrimarySelection(
                             state = visibleBulkState,
                             enabled = !busy && editableVisibleComponents.isNotEmpty(),
@@ -396,6 +396,12 @@ fun RootComponentsScreen(
         }
         item(key = "summary") {
             if (detailsExpanded) WorkspaceHelpSection {
+                // Preserve the full component count in the optional details.
+                AdaptiveText(
+                    stringResource(R.string.root_summary, groups.size, visible.size),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 AdaptiveText(
                     stringResource(R.string.root_filter_help),
                     style = MaterialTheme.typography.labelSmall,
