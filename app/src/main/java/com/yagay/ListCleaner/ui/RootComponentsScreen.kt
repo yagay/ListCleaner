@@ -156,7 +156,7 @@ fun RootComponentsScreen(
     // Project source snapshots only when their inputs change. Progress updates, expanded
     // rows and navigation recomposition must not regroup the entire PackageManager catalog.
     val kindItems = remember(scan.items, kind) {
-        scan.items.filter { kind == null || it.kind == kind }
+        scan.items.filter { ComponentCategoryFilterPolicy.matches(kind, it.kind) }
     }
     val lockItemsByApp = remember(kindItems) {
         kindItems.groupBy(::componentBulkLockAppId)
@@ -197,8 +197,10 @@ fun RootComponentsScreen(
     }
     val visible = remember(groups) { groups.flatMap { it.second } }
 
+    val classicComponentMode = embedded &&
+        UiPreferencesRuntime.current.homeLayout == UiHomeLayout.CLASSIC_LIST
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-        if (embedded && UiPreferencesRuntime.current.homeLayout == UiHomeLayout.CLASSIC_LIST) {
+        if (classicComponentMode) {
             stickyHeader(key = "classic-mode-tabs") {
                 ClassicCleanupTabs(
                     active = ClassicCleanupMode.COMPONENTS,
@@ -228,6 +230,18 @@ fun RootComponentsScreen(
                 Column(Modifier.fillMaxWidth().background(
                     MaterialTheme.colorScheme.surface
                 )) {
+                    if (classicComponentMode) {
+                        ClassicComponentCategoryFilter(
+                            selected = kind,
+                            onSelected = { selected ->
+                                if (kind != selected) {
+                                    kind = selected
+                                    browseAll = true
+                                    expandedAppKey = null
+                                }
+                            }
+                        )
+                    }
                     val canDisable = !busy && visible.any { it.blocked == null && it.enabled == true && !vm.isComponentBulkProtected(kind, it) }
                     val canEnable = !busy && visible.any { it.blocked == null && it.enabled == false && !vm.isComponentBulkProtected(kind, it) }
                     val canInvert = !busy && visible.any { it.blocked == null && it.enabled != null && !vm.isComponentBulkProtected(kind, it) }
