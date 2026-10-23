@@ -43,4 +43,51 @@ class SelectionConfirmationControllerTest {
         controller.confirm()
         assertEquals("second", result)
     }
+
+    @Test fun ordinaryAppSelectionStagesImmediatelyWithoutPrompt() {
+        val controller = SelectionConfirmationController()
+        var drafts = 0
+        controller.requestForSystemSelection(
+            "User app", 0, SystemSelectionRisk.ENTRY
+        ) { drafts++ }
+        assertEquals(1, drafts)
+        assertNull(controller.pending)
+    }
+
+    @Test fun selectingSystemAppRequiresConfirmationAndCancelIsSafe() {
+        val controller = SelectionConfirmationController()
+        var drafts = 0
+        controller.requestForSystemSelection(
+            "System UI", 1, SystemSelectionRisk.ROOT
+        ) { drafts++ }
+        assertEquals(0, drafts)
+        assertEquals(1, controller.pending?.systemAppCount)
+        assertEquals(SystemSelectionRisk.ROOT, controller.pending?.risk)
+        controller.cancel()
+        assertEquals(0, drafts)
+        assertNull(controller.pending)
+    }
+
+    @Test fun oneConfirmationAppliesSystemAppDraftOnlyOnce() {
+        val controller = SelectionConfirmationController()
+        var drafts = 0
+        controller.requestForSystemSelection(
+            "Settings", 1, SystemSelectionRisk.ENTRY
+        ) { drafts++ }
+        controller.confirm()
+        controller.confirm()
+        assertEquals(1, drafts)
+    }
+
+    @Test fun bulkSystemSelectionKeepsSystemAppCountInExistingConfirmation() {
+        val controller = SelectionConfirmationController()
+        var drafts = 0
+        controller.request(
+            "Invert", systemAppCount = 3, risk = SystemSelectionRisk.PRIORITY
+        ) { drafts++ }
+        assertEquals(3, controller.pending?.systemAppCount)
+        assertEquals(0, drafts)
+        controller.confirm()
+        assertEquals(1, drafts)
+    }
 }
