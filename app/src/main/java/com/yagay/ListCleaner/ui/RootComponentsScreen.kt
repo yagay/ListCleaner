@@ -424,9 +424,13 @@ fun RootComponentsScreen(
                             state = selectionState,
                             enabled = !busy && editableComponents.isNotEmpty(),
                             onClick = {
-                                pendingBatch = PendingRootBatch(
-                                    kind, editableComponents, selectionState == ToggleableState.On
-                                )
+                                // Group checkbox is an ordinary selection gesture, not a bulk menu action.
+                                // Stage it immediately; the bottom bar still confirms final application.
+                                val disable = selectionState != ToggleableState.On
+                                editableComponents.filterNot { vm.isComponentBulkProtected(kind, it) }
+                                    .forEach { item ->
+                                        selectionDraft.set(item.id, item.enabled == false, disable)
+                                    }
                             }
                         )
                     },
