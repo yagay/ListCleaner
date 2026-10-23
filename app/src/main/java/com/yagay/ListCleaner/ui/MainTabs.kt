@@ -315,13 +315,9 @@ fun RulesTab(
     }
     val editableVisibleRules = visibleRules.filter(canStageRule)
     val selectedEditableCount = editableVisibleRules.count { it in displayedSelected }
-    val visibleBulkState = when {
-        editableVisibleRules.isEmpty() || selectedEditableCount == 0 ->
-            androidx.compose.ui.state.ToggleableState.Off
-        selectedEditableCount == editableVisibleRules.size ->
-            androidx.compose.ui.state.ToggleableState.On
-        else -> androidx.compose.ui.state.ToggleableState.Indeterminate
-    }
+    val visibleBulkState = workspaceBulkSelectionState(
+        selectedEditableCount, editableVisibleRules.size
+    )
     val newlySelectedSystemAppCount = {
         visibleRules.asSequence().filter(canStageRule)
             .filter { it !in displayedSelected && it.packageName in visibleSystemPackages }
