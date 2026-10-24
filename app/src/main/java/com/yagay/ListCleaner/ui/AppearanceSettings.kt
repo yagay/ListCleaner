@@ -262,7 +262,7 @@ private fun ThemeColorRoleEditor(role: String, dark: Boolean, title: String) {
                     AdaptiveText(colorHex)
                     listOf(
                         Triple(stringResource(R.string.settings_color_red), red, { v: Float -> red = v }),
-                        Triple(stringResource(R.string.settings_color_green), green, { v: Float -> green = v }),
+                        Triple(stringResource(R.string.settings_color_green_channel), green, { v: Float -> green = v }),
                         Triple(stringResource(R.string.settings_color_blue_channel), blue, { v: Float -> blue = v })
                     ).forEach { (label, value, setter) ->
                         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
