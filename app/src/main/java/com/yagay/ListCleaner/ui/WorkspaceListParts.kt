@@ -50,13 +50,17 @@ internal fun WorkspaceAppSummaryText(
 @Composable
 internal fun WorkspaceAppNote(
     text: String,
-    warning: Boolean = false
+    warning: Boolean = false,
+    informational: Boolean = false,
 ) {
     AdaptiveText(
         text,
         style = MaterialTheme.typography.labelSmall,
-        color = if (warning) MaterialTheme.colorScheme.error
-        else MaterialTheme.colorScheme.onSurfaceVariant,
+        color = when {
+            warning -> MaterialTheme.colorScheme.error
+            informational -> MaterialTheme.colorScheme.tertiary
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
+        },
         maxLines = 1,
         overflow = TextOverflow.Ellipsis
     )
@@ -119,13 +123,17 @@ internal fun WorkspaceDetailCaption(
 @Composable
 internal fun WorkspaceDetailStatus(
     text: String,
-    warning: Boolean = false
+    warning: Boolean = false,
+    informational: Boolean = false,
 ) {
     AdaptiveText(
         text,
         style = MaterialTheme.typography.bodySmall,
-        color = if (warning) MaterialTheme.colorScheme.error
-        else MaterialTheme.colorScheme.onSurfaceVariant,
+        color = when {
+            warning -> MaterialTheme.colorScheme.error
+            informational -> MaterialTheme.colorScheme.tertiary
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
+        },
         maxLines = 2,
         overflow = TextOverflow.Ellipsis
     )
