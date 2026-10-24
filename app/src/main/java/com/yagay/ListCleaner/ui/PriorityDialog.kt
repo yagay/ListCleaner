@@ -533,7 +533,7 @@ fun PriorityDialogContent(
             groups.forEachIndexed { index, group ->
                 if (index == 0 || (groups[index - 1].rank == null) != (group.rank == null)) {
                     item(key = "priority-section-${if (group.rank == null) "available" else "pinned"}") {
-                        Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                        Box(Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.groupHorizontal)) {
                             PageSectionTitle(
                                 stringResource(
                                     if (group.rank != null) R.string.priority_selected
