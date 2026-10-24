@@ -87,9 +87,14 @@ internal fun AppRow(
             if (openTypeSummary != null && !openTypeSummary.isEmpty) {
                 OpenWithTypeIndicator(openTypeSummary, openWithDefinitions.orEmpty(), expanded)
             }
-            if (group.components.any { it.unavailable || it.restricted }) {
+            // A missing scan result is not evidence that a saved entry was deleted.
+            // Keep it informational; only separately verified restrictions are warnings.
+            if (group.components.any { it.unavailable }) {
+                WorkspaceAppNote(stringResource(R.string.app_row_not_observed))
+            }
+            if (group.components.any { it.restricted }) {
                 WorkspaceAppNote(
-                    stringResource(R.string.app_row_unavailable_warning),
+                    stringResource(R.string.component_restricted),
                     warning = true
                 )
             }
@@ -170,10 +175,13 @@ internal fun ComponentRow(
                 )
             }
             WorkspaceDetailCaption(item.rule.className)
-            if (item.unavailable) WorkspaceDetailStatus(
-                stringResource(R.string.component_unavailable), warning = true
-            ) else if (item.restricted) WorkspaceDetailStatus(
-                stringResource(R.string.component_restricted)
+            if (item.restricted) WorkspaceDetailStatus(
+                stringResource(R.string.component_restricted), warning = true
+            ) else if (item.unavailable) WorkspaceDetailStatus(
+                stringResource(
+                    if (item.mayBeDynamicEntry()) R.string.component_potentially_dynamic
+                    else R.string.component_unavailable
+                )
             )
         },
         trailing = {
