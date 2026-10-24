@@ -46,7 +46,7 @@ internal fun UiCard(
     val colors = CardDefaults.cardColors(
         containerColor = when {
             warning -> MaterialTheme.colorScheme.errorContainer
-            filterPalette -> MaterialSelectionPalette.background()
+            filterPalette -> MaterialSelectionPalette.categoryBackground()
             variant == UiCardVariant.CATEGORY -> MaterialTheme.colorScheme.surfaceContainer
             else -> MaterialTheme.colorScheme.surfaceContainerLow
         }
