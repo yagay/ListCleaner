@@ -132,7 +132,7 @@ private fun WorkspaceCategoryPicker(
 
 /** Single selected-category treatment for Entry, Component and Ordering. */
 @Composable
-private fun CategoryChoice(
+internal fun WorkspaceMenuChoice(
     title: String,
     selected: Boolean,
     onClick: () -> Unit,
@@ -171,6 +171,47 @@ private fun CategoryChoice(
     }
 }
 
+/** Same inset, selected background, typography and arrow geometry as choice rows. */
+@Composable
+internal fun WorkspaceMenuSection(
+    title: String,
+    active: Boolean,
+    expanded: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+            .background(
+                if (active) MaterialTheme.colorScheme.secondaryContainer
+                else MaterialTheme.colorScheme.surface.copy(alpha = 0f),
+                RoundedCornerShape(12.dp)
+            )
+    ) {
+        AdaptiveDropdownMenuItem(
+            text = {
+                AdaptiveText(
+                    title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                    color = if (active) MaterialTheme.colorScheme.onSecondaryContainer
+                        else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            },
+            trailingIcon = {
+                AdaptiveIcon(
+                    if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    null, Modifier.size(20.dp),
+                    tint = if (active) MaterialTheme.colorScheme.onSecondaryContainer
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            onClick = onClick
+        )
+    }
+}
+
 @Composable
 internal fun EntryCategoryPicker(
     selected: IntentKind?,
@@ -193,7 +234,7 @@ internal fun EntryCategoryPicker(
         modifier = modifier
     ) { dismiss ->
         if (includeAllKinds) {
-            CategoryChoice(
+            WorkspaceMenuChoice(
                 title = stringResource(R.string.common_all),
                 selected = selected == null,
                 onClick = { dismiss(); onSelected(null) }
@@ -239,7 +280,7 @@ internal fun EntryCategoryPicker(
                 group.kinds()
                     .filter { availableKinds == null || it in availableKinds }
                     .forEach { kind ->
-                        CategoryChoice(
+                        WorkspaceMenuChoice(
                             title = stringResource(kind.titleRes()),
                             selected = selected == kind,
                             onClick = { dismiss(); onSelected(kind) },
@@ -264,7 +305,7 @@ internal fun ComponentCategoryPicker(
         modifier = modifier
     ) { dismiss ->
         ComponentCategoryFilterPolicy.choices.forEach { kind ->
-            CategoryChoice(
+            WorkspaceMenuChoice(
                 title = if (kind == null) stringResource(R.string.common_all)
                     else stringResource(kind.titleRes()),
                 selected = selected == kind,
