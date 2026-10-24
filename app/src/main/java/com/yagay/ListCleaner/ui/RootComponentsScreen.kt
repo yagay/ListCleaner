@@ -297,13 +297,11 @@ fun RootComponentsScreen(
                 Column(Modifier.fillMaxWidth().background(
                     MaterialTheme.colorScheme.surface
                 )) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    WorkspaceCategoryFilterRow(
+                    category = {
                         ClassicComponentCategoryFilter(
                             selected = kind,
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.fillMaxWidth(),
                             onSelected = { selected ->
                                 if (kind != selected) navigate {
                                     kind = selected
@@ -312,6 +310,8 @@ fun RootComponentsScreen(
                                 }
                             }
                         )
+                    },
+                    filter = {
                         WorkspaceFilterBar(
                             appTypeFilter = appTypeFilter,
                             onAppTypeFilter = {
@@ -330,10 +330,10 @@ fun RootComponentsScreen(
                                     UiFilter.HIDE_SELECTED -> R.string.root_filter_enabled
                                     UiFilter.LOCKED -> R.string.filter_locked
                                 })
-                            },
-                            modifier = Modifier.padding(end = MaterialUiTokens.pageHorizontal)
+                            }
                         )
                     }
+                )
                     if (batchProgress != null) {
                         val current = requireNotNull(batchProgress)
                         WorkspaceProgress(current.completed.toFloat() / current.total.coerceAtLeast(1))
@@ -429,11 +429,11 @@ fun RootComponentsScreen(
                     icon = first.icon,
                     title = first.owner,
                     packageName = first.component.packageName,
-                    subtitle = stringResource(
+                    subtitle = WorkspaceAppSummaryText(
                         R.string.root_disabled_summary,
                         components.count { selectionDraft.selected(it.id, it.enabled == false) },
                         components.size,
-                        kindTitles.joinToString(" · ")
+                        kindTitles
                     ),
                     expanded = expanded,
                     lockState = lockState,
@@ -445,7 +445,7 @@ fun RootComponentsScreen(
                         vm.setComponentAppLocked(kind, appKey, lockItemsByApp[appKey].orEmpty(), false)
                     },
                     selection = {
-                        AdaptiveTriStateCheckbox(
+                        WorkspaceAppSelectionCheckbox(
                             state = selectionState,
                             enabled = !busy && editableComponents.isNotEmpty(),
                             onClick = {
