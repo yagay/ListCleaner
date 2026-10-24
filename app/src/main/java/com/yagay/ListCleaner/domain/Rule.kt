@@ -95,10 +95,11 @@ data class ComponentCandidate(
         }
     }
 
-    fun matchesQuery(query: String): Boolean {
-        val needle = query.trim()
-        return needle.isEmpty() || normalizedSearch.contains(needle.lowercase())
-    }
+    fun matchesQuery(query: String): Boolean = matchesNormalizedQuery(query.trim().lowercase())
+
+    /** Fast path for list filtering: normalize the search text once per search, not per item. */
+    internal fun matchesNormalizedQuery(needle: String): Boolean =
+        needle.isEmpty() || normalizedSearch.contains(needle)
 }
 
 @Serializable
