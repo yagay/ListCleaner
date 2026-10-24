@@ -89,7 +89,7 @@ class RuleRepository(context: Context) {
         mutableRevision.value++
     }
 
-    private val mutableRules = MutableStateFlow(initialConfig.rules)
+    private val mutableRules = MutableStateFlow(initialConfig.rules.mapNotNull { ComponentRule.fromId(it.id) }.toSet())
     private val mutableMode = MutableStateFlow(initialConfig.mode)
     private val mutablePriorities = MutableStateFlow(initialConfig.priorities)
     private val mutableOpenTypes = MutableStateFlow(initialConfig.openTypes)
