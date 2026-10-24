@@ -185,29 +185,19 @@ internal fun WorkspaceFilterBar(
     // Put the popup in the trigger's Box so Material 3 anchors its position
     // directly below the top Filter button, just like the Category menu.
     Box(modifier = modifier) {
-        CompactCategoryButton(
+        WorkspacePickerButton(
+            label = stringResource(R.string.lc_filter_sheet_button),
+            icon = Icons.Rounded.FilterList,
             selected = activeCount > 0,
+            expanded = expanded,
+            count = activeCount,
             onClick = {
                 draftAppType = appTypeFilter
                 draftView = viewFilter
                 openSection = null
                 expanded = true
             }
-        ) {
-            AdaptiveIcon(
-                Icons.Rounded.FilterList, null, Modifier.size(18.dp),
-                tint = compactCategoryLabelColor(activeCount > 0)
-            )
-            WorkspaceControlLabel(
-                stringResource(R.string.lc_filter_sheet_button),
-                color = compactCategoryLabelColor(activeCount > 0)
-            )
-            if (activeCount > 0) {
-                androidx.compose.material3.Badge {
-                    AdaptiveText(activeCount.toString())
-                }
-            }
-        }
+        )
         androidx.compose.material3.DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
