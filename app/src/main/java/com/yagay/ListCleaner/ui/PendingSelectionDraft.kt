@@ -31,6 +31,9 @@ internal class PendingSelectionDraft<K> {
     }
 
     fun discard() = overrides.clear()
+
+    /** Drop only mutations verified by the backing service after Apply. */
+    fun acknowledge(keys: Collection<K>) { keys.forEach(overrides::remove) }
 }
 
 /** Holds the entire draft priority ordering, including add/remove and drag actions. */
