@@ -218,7 +218,7 @@ if "Arrangement.spacedBy(4.dp)" not in compact:
 
 # Categories use an anchored, scrollable Material 3 dropdown, not a distant bottom sheet.
 category = (root / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
-for expected in ("DropdownMenu(", "UiCard(", "EntryCategoryPicker(",
+for expected in ("DropdownMenu(", "Surface(", "EntryCategoryPicker(",
                  "ComponentCategoryPicker(", "expandedGroup", "group.kinds()",
                  "availableKinds", "onSelected(null)", "widthIn(min = 240.dp",
                  "AdaptiveDropdownMenuItem("):
