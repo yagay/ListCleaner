@@ -58,8 +58,9 @@ internal fun UiCard(
         containerColor = when {
             warning -> MaterialTheme.colorScheme.errorContainer
             filterPalette -> MaterialSelectionPalette.categoryBackground()
-            connected && position == ListRowPosition.FIRST -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.38f)
+            connected && (position == ListRowPosition.FIRST || position == ListRowPosition.SINGLE) -> MaterialTheme.colorScheme.secondaryContainer
             variant == UiCardVariant.CATEGORY -> MaterialTheme.colorScheme.surfaceContainer
+            connected -> MaterialTheme.colorScheme.surfaceContainerLowest
             else -> MaterialTheme.colorScheme.surfaceContainerLow
         }
     )
