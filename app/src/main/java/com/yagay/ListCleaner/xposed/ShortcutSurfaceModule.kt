@@ -75,6 +75,7 @@ class ShortcutSurfaceModule : XposedModule() {
             val methods = ReflectionAccess.hierarchyMethods(clazz)
                 .filter { it.name == "getShortcuts" && List::class.java.isAssignableFrom(it.returnType) }
                 .distinctBy(Method::toGenericString)
+                .toList()
             discovered += methods.size
             methods.forEach { method -> install(method, SHORTCUT_HOOK_ID, shortcutHooker(method)) }
         }
