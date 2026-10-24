@@ -68,11 +68,17 @@ class ShortcutSurfaceModule : XposedModule() {
     }
 
     private fun installShortcutHooks(classLoader: ClassLoader) {
-        val clazz = runCatching { Class.forName(SHORTCUT_LOCAL_SERVICE, false, classLoader) }.getOrNull() ?: return
-        ReflectionAccess.hierarchyMethods(clazz)
-            .filter { it.name == "getShortcuts" && List::class.java.isAssignableFrom(it.returnType) }
-            .distinctBy(Method::toGenericString)
-            .forEach { method -> install(method, SHORTCUT_HOOK_ID, shortcutHooker(method)) }
+        var discovered = 0
+        SHORTCUT_SERVICE_CLASSES.forEach { className ->
+            val clazz = runCatching { Class.forName(className, false, classLoader) }.getOrNull()
+                ?: return@forEach
+            val methods = ReflectionAccess.hierarchyMethods(clazz)
+                .filter { it.name == "getShortcuts" && List::class.java.isAssignableFrom(it.returnType) }
+                .distinctBy(Method::toGenericString)
+            discovered += methods.size
+            methods.forEach { method -> install(method, SHORTCUT_HOOK_ID, shortcutHooker(method)) }
+        }
+        record("SHORTCUT_HOOK_SCAN candidates=$discovered installed=${installedMethods.count { it.startsWith("$SHORTCUT_HOOK_ID#") }}")
     }
 
     private fun shortcutHooker(method: Method) = XposedInterface.Hooker { chain ->
@@ -89,6 +95,7 @@ class ShortcutSurfaceModule : XposedModule() {
             return@Hooker original
         }
         if (call.queryFlags != null && call.queryFlags and SHORTCUT_MATCH_MASK == 0) {
+            record("SHORTCUT_QUERY_SKIP reason=flags caller=${call.callingPackage} flags=${call.queryFlags}")
             return@Hooker original
         }
 
@@ -100,7 +107,10 @@ class ShortcutSurfaceModule : XposedModule() {
         if (ManagerIdentity.matches(call.callerUid, policy.managerAppId)) return@Hooker original
         val selected = policy.selected(IntentKind.SHORTCUT_ITEM)
         val priorities = policy.priorities(IntentKind.SHORTCUT_ITEM)
-        if (selected.isEmpty() && priorities.isEmpty()) return@Hooker original
+        if (selected.isEmpty() && priorities.isEmpty()) {
+            record("SHORTCUT_QUERY caller=${call.callingPackage} user=$userId candidates=${values.size} selected=0 mode=${policy.displayMode}")
+            return@Hooker original
+        }
 
         val filtered = if (policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) values else values.filter { value ->
             val shortcut = value as? ShortcutInfo ?: return@filter true
@@ -112,6 +122,10 @@ class ShortcutSurfaceModule : XposedModule() {
             { (it as? ShortcutInfo)?.`package` ?: "" },
             { ReflectionAccess.userId((it as? ShortcutInfo)?.userHandle) ?: userId },
         )
+        record("SHORTCUT_POLICY caller=${call.callingPackage} user=$userId mode=${policy.displayMode} " +
+            "candidates=${values.size} parsed=${values.count { it is ShortcutInfo }} " +
+            "selected=${selected.size} matched=${values.count { item -> (item as? ShortcutInfo)?.let { shortcutRule(it, it.activity)?.id in selected } == true }} " +
+            "removed=${values.size - filtered.size} ordered=${ordered != values}")
         if (ordered == values) {
             original
         } else {
@@ -315,7 +329,9 @@ class ShortcutSurfaceModule : XposedModule() {
             .filter { EntryRuntimePath.SHORTCUT_SERVICE in it.expectedPaths }
             .mapTo(linkedSetOf()) { it.kind }
         val SHORTCUT_MATCH_MASK = LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or
-            LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST
+            LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST or
+            LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED or
+            LauncherApps.ShortcutQuery.FLAG_MATCH_CACHED
         val SHORTCUT_SERVICE_CLASSES = listOf(
             "com.android.server.pm.ShortcutService\$LocalService",
             "com.android.server.pm.ShortcutService",
