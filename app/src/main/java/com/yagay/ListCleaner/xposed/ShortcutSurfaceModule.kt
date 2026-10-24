@@ -55,41 +55,6 @@ class ShortcutSurfaceModule : XposedModule() {
     override fun onModuleLoaded(param: ModuleLoadedParam) {
         processName = param.processName
         record("MODULE_LOADED")
-        // A launcher can keep ShortcutInfo in its own process between system queries.
-        // This optional second barrier is active only when the user scopes the launcher
-        // in LSPosed; the system_server barrier remains the default.
-        if (param.processName == "com.android.launcher") {
-            policyProvider.start()
-            installLauncherShortcutHooks()
-        }
-    }
-
-    private fun installLauncherShortcutHooks() {
-        LauncherApps::class.java.declaredMethods
-            .filter { method ->
-                method.name == "getShortcuts" && List::class.java.isAssignableFrom(method.returnType)
-            }
-            .forEach { method ->
-                install(method, LAUNCHER_HOOK_ID, XposedInterface.Hooker { chain ->
-                    val original = chain.proceed()
-                    val shortcuts = original as? List<*> ?: return@Hooker original
-                    if (shortcuts.isEmpty()) return@Hooker original
-                    val userId = chain.args.firstOrNull { it is android.os.UserHandle }
-                        ?.let(ReflectionAccess::userId) ?: (ReflectionAccess.userId(Process.myUserHandle()) ?: 0)
-                    val policy = policyProvider.snapshot(userId)
-                    val selected = policy.selected(IntentKind.SHORTCUT_ITEM)
-                    if (selected.isEmpty() || policy.displayMode == DisplayMode.SHOW_ALL) {
-                        return@Hooker original
-                    }
-                    val filtered = shortcuts.filter { value ->
-                        val shortcut = value as? ShortcutInfo ?: return@filter true
-                        val rule = shortcutRule(shortcut, shortcut.activity) ?: return@filter true
-                        policy.displayMode.includes(rule.id in selected, true)
-                    }
-                    record("LAUNCHER_SHORTCUT_FILTER user=$userId before=${shortcuts.size} after=${filtered.size} selected=${selected.size}")
-                    if (filtered.size == shortcuts.size) original else filtered
-                })
-            }
     }
 
     override fun onHotReloading(param: HotReloadingParam): Boolean = false
@@ -354,7 +319,6 @@ class ShortcutSurfaceModule : XposedModule() {
     private companion object {
         const val TAG = "ListCleaner.ShortcutSurface"
         const val SHORTCUT_HOOK_ID = "lc-shortcut-items"
-        const val LAUNCHER_HOOK_ID = "lc-launcher-shortcut-items"
         const val DIRECT_HOOK_ID = "lc-direct-observer"
         const val DISCOVERY_HOOK_ID = "lc-observed-discovery"
         const val SHORTCUT_LOCAL_SERVICE = "com.android.server.pm.ShortcutService\$LocalService"
