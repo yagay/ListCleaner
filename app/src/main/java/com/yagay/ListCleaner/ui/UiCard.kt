@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
@@ -38,10 +40,19 @@ internal fun UiCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val shape = when (variant) {
+    val connected = variant == UiCardVariant.LIST_GROUP &&
+        UiPreferencesRuntime.current.componentGrouping == UiComponentGrouping.CONNECTED
+    val shape = when {
+        connected && position == ListRowPosition.FIRST ->
+            RoundedCornerShape(topStart = MaterialUiTokens.cardRadius, topEnd = MaterialUiTokens.cardRadius)
+        connected && position == ListRowPosition.MIDDLE -> RoundedCornerShape(0.dp)
+        connected && position == ListRowPosition.LAST ->
+            RoundedCornerShape(bottomStart = MaterialUiTokens.cardRadius, bottomEnd = MaterialUiTokens.cardRadius)
+        else -> when (variant) {
         UiCardVariant.CATEGORY -> MaterialTheme.shapes.large
         UiCardVariant.SECTION, UiCardVariant.LIST_GROUP, UiCardVariant.STATUS ->
             MaterialTheme.shapes.medium
+    }
     }
     val colors = CardDefaults.cardColors(
         containerColor = when {
@@ -56,8 +67,14 @@ internal fun UiCard(
         else null
     val surfaceModifier = modifier.padding(
         horizontal = horizontalInset,
-        vertical = if (variant == UiCardVariant.LIST_GROUP) 2.dp else 0.dp
+        vertical = if (variant == UiCardVariant.LIST_GROUP && !connected) 2.dp else 0.dp
     )
+    val rowContent: @Composable ColumnScope.() -> Unit = {
+        content()
+        if (connected && (position == ListRowPosition.FIRST || position == ListRowPosition.MIDDLE)) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+        }
+    }
     if (onClick != null) {
         Card(
             onClick = onClick,
@@ -65,7 +82,7 @@ internal fun UiCard(
             shape = shape,
             colors = colors,
             border = border,
-            content = content
+            content = rowContent
         )
     } else {
         Card(
@@ -73,7 +90,7 @@ internal fun UiCard(
             shape = shape,
             colors = colors,
             border = border,
-            content = content
+            content = rowContent
         )
     }
 }
@@ -93,7 +110,7 @@ internal fun UiCardDetailRow(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                content = content
+                content = rowContent
             )
         }
     )
