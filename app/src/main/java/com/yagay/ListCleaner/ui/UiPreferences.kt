@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 internal enum class UiDensity { COMPACT, STANDARD, COMFORTABLE }
 /** Page arrangement only; both modes share the same rules, Root data, Material3 controls and scanner. */
 internal enum class UiHomeLayout { CATEGORY_CARDS, CLASSIC_LIST }
-internal enum class UiAccent { DYNAMIC, BLUE, GREEN, PURPLE }
+internal enum class UiAccent { DYNAMIC, BLUE, GREEN, PURPLE, CUSTOM }
 internal enum class UiStartPage { CLEANUP, ORDERING, SETTINGS }
 internal enum class UiAppSort { SELECTED_FIRST, NAME, PACKAGE }
 internal enum class UiScanMode { SMART, MANUAL, EVERY_ENTRY }
@@ -29,6 +29,7 @@ internal enum class UiComponentRefresh { CHANGED_ONLY, FULL }
 internal data class UiPreferences(
     val density: UiDensity = UiDensity.STANDARD,
     val accent: UiAccent = UiAccent.DYNAMIC,
+    val customAccentHex: String = "#2859AB",
     val homeLayout: UiHomeLayout = UiHomeLayout.CATEGORY_CARDS,
     val cardRadius: Int = 20,
     val buttonHeight: Int = 40,
@@ -69,6 +70,7 @@ internal data class UiPreferences(
     val dragHaptics: Boolean = true,
 ) {
     fun normalized(): UiPreferences = copy(
+        customAccentHex = customAccentHex.takeIf { it.matches(Regex("#[0-9a-fA-F]{6}")) } ?: "#2859AB",
         cardRadius = cardRadius.coerceIn(0, 32),
         buttonHeight = buttonHeight.coerceIn(36, 64),
         appIconSize = appIconSize.coerceIn(28, 56),
@@ -110,6 +112,7 @@ internal object UiPreferencesStore {
         return UiPreferences(
             density = stored(p.getString("density", null), UiDensity.entries.toTypedArray(), defaults.density),
             accent = stored(p.getString("accent", null), UiAccent.entries.toTypedArray(), defaults.accent),
+            customAccentHex = p.getString("custom_accent_hex", defaults.customAccentHex) ?: defaults.customAccentHex,
             homeLayout = stored(p.getString("home_layout", null), UiHomeLayout.entries.toTypedArray(), defaults.homeLayout),
             cardRadius = p.getInt("card_radius", defaults.cardRadius),
             buttonHeight = p.getInt("button_height", defaults.buttonHeight),
@@ -156,6 +159,7 @@ internal object UiPreferencesStore {
         context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
             .putString("density", safe.density.name)
             .putString("accent", safe.accent.name)
+            .putString("custom_accent_hex", safe.customAccentHex)
             .putString("home_layout", safe.homeLayout.name)
             .putInt("card_radius", safe.cardRadius)
             .putInt("button_height", safe.buttonHeight)
