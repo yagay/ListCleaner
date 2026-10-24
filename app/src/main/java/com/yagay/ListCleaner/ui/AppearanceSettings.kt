@@ -110,6 +110,44 @@ internal fun SettingsAppearanceControls(
             )
         ) { UiPreferencesStore.write(context, current.copy(density = it)) }
     }
+    SettingsArea(stringResource(R.string.settings_color_details)) {
+            ThemeColorRoleEditor(
+                role = "buttonBackground",
+                title = stringResource(R.string.color_role_buttonBackground)
+            )
+            ThemeColorRoleEditor(
+                role = "buttonText",
+                title = stringResource(R.string.color_role_buttonText)
+            )
+            ThemeColorRoleEditor(
+                role = "buttonOutline",
+                title = stringResource(R.string.color_role_buttonOutline)
+            )
+            ThemeColorRoleEditor(
+                role = "selectedBackground",
+                title = stringResource(R.string.color_role_selectedBackground)
+            )
+            ThemeColorRoleEditor(
+                role = "selectedText",
+                title = stringResource(R.string.color_role_selectedText)
+            )
+            ThemeColorRoleEditor(
+                role = "categoryBackground",
+                title = stringResource(R.string.color_role_categoryBackground)
+            )
+            ThemeColorRoleEditor(
+                role = "filterBackground",
+                title = stringResource(R.string.color_role_filterBackground)
+            )
+            ThemeColorRoleEditor(
+                role = "navigationBackground",
+                title = stringResource(R.string.color_role_navigationBackground)
+            )
+            ThemeColorRoleEditor(
+                role = "navigationText",
+                title = stringResource(R.string.color_role_navigationText)
+            )
+    }
     SettingsArea(stringResource(R.string.lc_settings_layout_group)) {
         SettingsSlider(stringResource(R.string.settings_icon_size), current.appIconSize, 28, 56) {
             UiPreferencesRuntime.apply(UiPreferencesRuntime.current.copy(appIconSize = it))
@@ -164,3 +202,46 @@ internal fun SettingsLanguageControls() {
     }
 }
 
+
+@Composable
+private fun ThemeColorRoleEditor(role: String, title: String) {
+    val context = LocalContext.current
+    val preferences = UiPreferencesRuntime.current
+    val currentHex = preferences.colorOverrides[role].orEmpty()
+    var typedHex by remember(role, currentHex) { mutableStateOf(currentHex) }
+    val valid = typedHex.matches(Regex("#[0-9a-fA-F]{6}"))
+    androidx.compose.foundation.layout.Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        AdaptiveText(title, style = MaterialTheme.typography.labelMedium)
+        androidx.compose.foundation.layout.Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            androidx.compose.material3.OutlinedTextField(
+                value = typedHex,
+                onValueChange = { if (it.length <= 7) typedHex = it },
+                singleLine = true,
+                placeholder = { AdaptiveText("#RRGGBB") },
+                modifier = Modifier.weight(1f)
+            )
+            androidx.compose.material3.TextButton(
+                onClick = {
+                    UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(
+                        colorOverrides = UiPreferencesRuntime.current.colorOverrides - role
+                    ))
+                },
+                enabled = currentHex.isNotBlank()
+            ) { AdaptiveText(stringResource(R.string.settings_color_reset)) }
+            androidx.compose.material3.TextButton(
+                onClick = {
+                    UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(
+                        colorOverrides = UiPreferencesRuntime.current.colorOverrides + (role to typedHex)
+                    ))
+                },
+                enabled = valid && typedHex != currentHex
+            ) { AdaptiveText(stringResource(R.string.settings_custom_color_apply)) }
+        }
+    }
+}
