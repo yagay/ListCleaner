@@ -80,4 +80,7 @@
     <string name="settings_color_red">红</string>
     <string name="settings_color_green_channel">绿</string>
     <string name="settings_color_blue_channel">蓝</string>
+    <string name="settings_component_grouping">组件列表样式</string>
+    <string name="settings_component_grouping_separate">独立卡片</string>
+    <string name="settings_component_grouping_connected">连体列表</string>
 </resources>
