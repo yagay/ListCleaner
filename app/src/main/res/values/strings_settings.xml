@@ -74,4 +74,10 @@
     <string name="color_role_filterBackground">Filter background</string>
     <string name="color_role_navigationBackground">Navigation indicator</string>
     <string name="color_role_navigationText">Navigation selected icon</string>
+    <string name="settings_colors_light">Light mode</string>
+    <string name="settings_colors_dark">Dark mode</string>
+    <string name="settings_color_default">System default</string>
+    <string name="settings_color_red">Red</string>
+    <string name="settings_color_green">Green</string>
+    <string name="settings_color_blue_channel">Blue</string>
 </resources>
