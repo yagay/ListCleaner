@@ -9,7 +9,15 @@ object SyntheticEntryKeys {
     private const val DIRECT_SHARE_MARKER = "#direct#"
 
     fun shortcutItemClass(activityClass: String?, shortcutId: String): String =
-        baseClass(activityClass) + SHORTCUT_MARKER + token(shortcutId)
+        "@entry" + SHORTCUT_MARKER + token(shortcutId)
+
+    /** Canonicalizes older activity-qualified launcher shortcut keys without losing their ID hash. */
+    fun canonicalShortcutClass(className: String): String {
+        val suffix = className.substringAfter(SHORTCUT_MARKER, "")
+        return if (suffix.length == 24 && suffix.all { it in '0'..'9' || it in 'a'..'f' })
+            "@entry" + SHORTCUT_MARKER + suffix
+        else className
+    }
 
     fun directShareClass(targetClass: String?, shortcutId: String): String =
         baseClass(targetClass) + DIRECT_SHARE_MARKER + token(shortcutId)
