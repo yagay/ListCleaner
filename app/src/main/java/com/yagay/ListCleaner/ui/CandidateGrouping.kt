@@ -155,7 +155,25 @@ fun retainConfiguredCandidates(
         CandidateVisibilityPolicy.retainAfterRefresh(item, item.rule in selected)
     }
     val ids = kept.map { it.rule.id }.toSet()
-    return kept + selected.filter { it.id !in ids }.map { rule ->
+    // A launcher can publish the same shortcut ID under a different Activity.
+    // Preserve the old persisted rule without synthesizing a duplicate missing
+    // row when the current catalog already shows that logical shortcut.
+    fun logicalShortcut(rule: ComponentRule): String? {
+        val marker = when (rule.kind) {
+            IntentKind.SHORTCUT_ITEM -> "#shortcut#"
+            IntentKind.DIRECT_SHARE -> "#direct#"
+            else -> return null
+        }
+        val token = rule.className.substringAfter(marker, "")
+        if (token.length != 24 || !token.all { it in '0'..'9' || it in 'a'..'f' }) return null
+        return "${rule.kind.name}|${rule.packageName}|$token"
+    }
+    val observedShortcutKeys = kept.mapNotNullTo(hashSetOf()) {
+        logicalShortcut(it.rule)
+    }
+    return kept + selected.filter { rule ->
+        rule.id !in ids && logicalShortcut(rule)?.let { it in observedShortcutKeys } != true
+    }.map { rule ->
         ComponentCandidate(
             rule,
             rule.packageName,
