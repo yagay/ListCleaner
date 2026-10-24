@@ -345,8 +345,9 @@ fun RulesTab(
                     vm.deselectRules(remove, state.filter, openPreset)
                 }
             }
-            // Do not clear pending changes here: confirmation is asynchronous.
-            // The effect above acknowledges only values observed in saved state.
+            // The repository selection calls are synchronous. End the edit session
+            // after dispatching them so Apply/Discard closes immediately.
+            selectionDraft.discard()
             true
         }
     RegisterPendingNavigation(
