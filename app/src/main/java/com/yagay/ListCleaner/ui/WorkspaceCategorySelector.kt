@@ -76,8 +76,8 @@ private fun WorkspaceCategoryPicker(
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
-        UiCard(
-            variant = UiCardVariant.CATEGORY,
+        CompactCategoryButton(
+            selected = false,
             onClick = { expanded = true },
             modifier = Modifier.fillMaxWidth()
         ) {
