@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.DropdownMenu
@@ -59,7 +59,7 @@ fun OpenPresetFilterMenu(
             ) {
                 Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                     AdaptiveIcon(
-                        Icons.Rounded.Tune,
+                        Icons.Rounded.Description,
                         stringResource(R.string.open_type_filter) + ": " + selectedTitle,
                         modifier = Modifier.size(20.dp)
                     )
