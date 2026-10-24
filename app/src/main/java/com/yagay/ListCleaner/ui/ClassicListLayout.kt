@@ -3,6 +3,7 @@ package com.yagay.ListCleaner.ui
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -34,19 +35,22 @@ internal fun ClassicCleanupTabs(
     val entryDescription = stringResource(R.string.workspace_rule_section)
     val componentDescription = stringResource(R.string.root_screen_title)
     Surface(color = MaterialSelectionPalette.background()) {
-        // Keep the controls content-sized instead of stretching each border to half
-        // the display. A narrow device can scroll without shrinking the labels.
-        Row(
-            modifier = Modifier.fillMaxWidth()
-                .padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = 2.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Native SegmentedButtonRow divides its measured width evenly across both
-            // buttons. An intrinsic-width row was too narrow for Component · Root.
-            // A minimum width preserves full labels; horizontal scroll handles
-            // unusually large font scales or narrow screens.
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        BoxWithConstraints {
+            // Full-width like the flat prototype on normal displays. Narrower
+            // windows keep the 350dp text-safe control and scroll instead of clipping.
+            val needsScroll = maxWidth < 390.dp
+            Row(
+                modifier = (if (needsScroll)
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                else Modifier.fillMaxWidth())
+                    .padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = 2.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+            SingleChoiceSegmentedButtonRow(
+                modifier = if (needsScroll) Modifier.widthIn(min = 350.dp)
+                    else Modifier.fillMaxWidth()
+            ) {
             SegmentedButton(
                 selected = active == ClassicCleanupMode.ENTRIES,
                 onClick = { if (active != ClassicCleanupMode.ENTRIES) onEntries() },
@@ -78,6 +82,7 @@ internal fun ClassicCleanupTabs(
                     textAlign = TextAlign.Center,
                     maxLines = 1
                 )
+            }
             }
             }
         }
