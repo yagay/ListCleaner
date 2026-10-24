@@ -48,7 +48,14 @@ class RuleRepository(context: Context) {
     private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
     // v13 discriminator and version MUST be present, even though their Kotlin fields have defaults.
     private val portableBackupJson = Json { prettyPrint = true; ignoreUnknownKeys = true; encodeDefaults = true }
-    private val initialConfig = loadInitialConfig()
+    private val initialConfig = loadInitialConfig().let { config ->
+        config.copy(
+            rules = config.rules.mapNotNull { ComponentRule.fromId(it.id) }.toSet(),
+            userSpaces = config.userSpaces.mapValues { (_, space) ->
+                space.copy(rules = space.rules.mapNotNull { ComponentRule.fromId(it.id) }.toSet())
+            }
+        )
+    }
     /** Each Android user has independent rules; 0 is always the legacy-compatible base. */
     private val storedSpaces = mutableMapOf<Int, UserSpaceRules>().apply {
         put(0, initialConfig.toSpaceRules())
@@ -67,7 +74,7 @@ class RuleRepository(context: Context) {
         derivedVisibility[activeUserId] = mutableVisibilityFullPackages.value
         activeUserId = userId
         val next = storedSpaces[userId] ?: UserSpaceRules()
-        mutableRules.value = next.rules
+        mutableRules.value = next.rules.mapNotNull { ComponentRule.fromId(it.id) }.toSet()
         mutableMode.value = next.mode
         mutablePriorities.value = next.priorities
         mutableOpenTypes.value = next.openTypes
