@@ -110,12 +110,8 @@ required = {
     "ComponentScanRefreshPolicy.kt": ["scanMode: UiScanMode", "freshnessMs: Long"],
     "CandidateGrouping.kt": ["sortMode: UiAppSort", "UiAppSort.SELECTED_FIRST", "UiAppSort.NAME",
                              "UiAppSort.PACKAGE"],
-    "EntryWorkspaceHome.kt": ["availableGroups.forEach", "WorkspaceCategoryRow("],
-    "RootWorkspaceHome.kt": ["kinds.forEach", "WorkspaceCategoryRow("],
     "MainViewModel.kt": ["SETTINGS(Icons.Rounded.Settings)"],
     "TextResources.kt": ["Destination.SETTINGS -> R.string.nav_settings"],
-    "EntryWorkspaceHome.kt": ["MaterialPageColumn(fullBleed = true) {"],
-    "RootWorkspaceHome.kt": ["MaterialPageColumn(fullBleed = true) {"],
     "WorkspaceCommon.kt": ["MaterialInlineStatus(", "MaterialUiTokens.",
                            "WorkspaceControlLabel(", "CompactCategoryButton("],
     "WorkspaceControlLabel.kt": ["fun WorkspaceControlLabel(", "MaterialTheme.typography.labelLarge"],
@@ -150,13 +146,8 @@ flat_visual_checks = {
     "SettingsWidgets.kt": ("FlatSectionHeader(title)", "MaterialSectionCard { content() }",
                            "FlatRowSurface(dividerInset = 0.dp)", "FlatRowSurface("),
     "SettingsCenterHome.kt": ("FlatCategoryRow(", "onSelect(section)",
-                               "MaterialPageColumn(fullBleed = true)"),
-    "AdaptiveWidgets.kt": ("fun AdaptiveGroupSurface(", "= FlatRowSurface("),
+      "AdaptiveWidgets.kt": ("fun AdaptiveGroupSurface(", "= FlatRowSurface("),
     "AppScopePicker.kt": ("FlatRowSurface(Modifier.fillMaxWidth())",),
-    "EntryWorkspaceHome.kt": ("availableGroups.forEach", "EntryGroupTile(",
-                               "selectedGroup.kinds().filter", "FlatRowSurface {",
-                               "MaterialPageColumn(fullBleed = true)"),
-    "RootWorkspaceHome.kt": ("kinds.forEach", "WorkspaceCategoryRow(",
                              "MaterialPageColumn(fullBleed = true)"),
     "WorkspaceCategorySelector.kt": ("filter()", "Box(Modifier.weight(1f)) { category() }",
                                       "MaterialFlatPalette.selectedSurface()"),
@@ -210,11 +201,10 @@ for filename in ("WorkspaceAppRow.kt", "WorkspaceCommon.kt", "RootComponentsScre
 if "FlatRowSurface(dividerInset = 0.dp)" not in (root / "SystemProbeDialog.kt").read_text(encoding="utf-8"):
     errors.append("SystemProbeDialog.kt: runtime candidate rows are not flat list rows")
 
-# Legacy home columns remain persisted for upgrades, but are not used by List First.
+# Only one editor presentation remains; legacy category landing files are removed.
 for filename in ("EntryWorkspaceHome.kt", "RootWorkspaceHome.kt"):
-    content = (root / filename).read_text(encoding="utf-8")
-    if "chunked(columns)" in content or "UiPreferencesRuntime.current.homeColumns" in content:
-        errors.append(f"{filename}: old category grid reintroduced")
+    if (root / filename).exists():
+        errors.append(f"{filename}: obsolete category-home renderer must not return")
 if "settings_home_columns" in (root / "ListSettings.kt").read_text(encoding="utf-8"):
     errors.append("ListSettings.kt: irrelevant legacy grid control is still visible")
 
@@ -229,7 +219,6 @@ native_checks = {
     "FlatListDesign.kt": ("ListItem(",),
     "SettingsCenterHome.kt": ("FlatCategoryRow(",),
     "WorkspaceCommon.kt": ("WorkspaceCategoryRow(", "FlatCategoryRow("),
-    "EntryWorkspaceHome.kt": ("ListItem(",),
 }
 for filename, symbols in native_checks.items():
     content = (root / filename).read_text(encoding="utf-8")

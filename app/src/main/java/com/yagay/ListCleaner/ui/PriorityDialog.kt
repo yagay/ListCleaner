@@ -95,6 +95,7 @@ fun PriorityDialogContent(
         )
     }
 
+    val priorityKinds = HomeLayoutPolicy.sortableKinds
     val kind = HomeLayoutPolicy.priorityKind(state.filter)
     val openPreset by vm.ruleOpenPreset.collectAsStateWithLifecycle()
     val browserHost by vm.ruleBrowserHost.collectAsStateWithLifecycle()
