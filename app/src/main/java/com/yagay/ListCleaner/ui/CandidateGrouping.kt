@@ -116,25 +116,34 @@ internal fun filterAppGroups(
     uiFilter: UiFilter,
     sortMode: UiAppSort = UiAppSort.SELECTED_FIRST,
     preferences: UiPreferences = UiPreferencesRuntime.current,
-): List<AppGroup> = groups.mapNotNull { group ->
-    val matching = group.components.filter { item ->
-        val isSelected = item.rule in selected
-        CandidateVisibilityPolicy.visible(item, isSelected, uiFilter, preferences) &&
-            (filter == null || item.rule.kind == filter) &&
-            item.matchesQuery(query)
+): List<AppGroup> {
+    val filtered = groups.mapNotNull { group ->
+        val matching = group.components.filter { item ->
+            val isSelected = item.rule in selected
+            CandidateVisibilityPolicy.visible(item, isSelected, uiFilter, preferences) &&
+                (filter == null || item.rule.kind == filter) &&
+                item.matchesQuery(query)
+        }
+        if (matching.isEmpty()) null else group.copy(components = matching)
     }
-    if (matching.isEmpty()) null else group.copy(components = matching)
-}.sortedWith(
-    when (sortMode) {
-        UiAppSort.SELECTED_FIRST -> compareBy<AppGroup> { appSelectionRank(it, selected) }
-            .thenBy { it.components.firstOrNull()?.normalizedAppLabel ?: it.appLabel.lowercase() }
-            .thenBy { it.packageName }
-        UiAppSort.NAME -> compareBy<AppGroup> {
-            it.components.firstOrNull()?.normalizedAppLabel ?: it.appLabel.lowercase()
-        }.thenBy { it.packageName }
-        UiAppSort.PACKAGE -> compareBy<AppGroup> { it.packageName.lowercase() }
-    }
-)
+    // Comparator callbacks run O(apps * log(apps)) times. Computing selection
+    // rank inside the comparator rescanned every component many times on a large
+    // Entry catalog. Calculate the rank once for each visible app instead.
+    val selectionRanks = if (sortMode == UiAppSort.SELECTED_FIRST) {
+        filtered.associate { it.packageName to appSelectionRank(it, selected) }
+    } else emptyMap()
+    return filtered.sortedWith(
+        when (sortMode) {
+            UiAppSort.SELECTED_FIRST -> compareBy<AppGroup> { selectionRanks.getValue(it.packageName) }
+                .thenBy { it.components.firstOrNull()?.normalizedAppLabel ?: it.appLabel.lowercase() }
+                .thenBy { it.packageName }
+            UiAppSort.NAME -> compareBy<AppGroup> {
+                it.components.firstOrNull()?.normalizedAppLabel ?: it.appLabel.lowercase()
+            }.thenBy { it.packageName }
+            UiAppSort.PACKAGE -> compareBy<AppGroup> { it.packageName.lowercase() }
+        }
+    )
+}
 
 internal fun groupCandidates(
     candidates: List<ComponentCandidate>,
