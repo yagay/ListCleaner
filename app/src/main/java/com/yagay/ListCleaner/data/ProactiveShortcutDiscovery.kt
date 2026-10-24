@@ -3,6 +3,8 @@ package com.yagay.ListCleaner.data
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.LauncherApps
+import android.os.Process
+import android.util.Log
 import android.content.pm.PackageManager
 import android.os.UserHandle
 import com.yagay.ListCleaner.domain.ComponentCandidate
@@ -13,6 +15,54 @@ import com.yagay.ListCleaner.domain.SyntheticEntryKeys
 
 /** Read-only, bounded active discovery; never starts a Chooser or sends content. */
 internal class UnifiedShortcutEngine(private val context: Context) {
+    /** Published shortcut snapshot; never confuses ShortcutInfo with components. */
+    fun scanPublished(): ShortcutDiscoveryResult {
+        val manager = context.getSystemService(LauncherApps::class.java)
+            ?: return ShortcutDiscoveryResult(ShortcutDiscoveryStatus.SERVICE_UNAVAILABLE)
+        if (!runCatching { manager.hasShortcutHostPermission() }.getOrDefault(false)) {
+            return ShortcutDiscoveryResult(
+                ShortcutDiscoveryStatus.HOST_PERMISSION_REQUIRED,
+                detail = "Shortcut host permission is not granted"
+            )
+        }
+        return try {
+            val query = LauncherApps.ShortcutQuery().setQueryFlags(
+                LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or
+                    LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST or
+                    LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED or
+                    LauncherApps.ShortcutQuery.FLAG_MATCH_CACHED
+            )
+            val userId = Process.myUid() / 100000
+            val records = manager.getShortcuts(query, Process.myUserHandle()).orEmpty()
+                .map { shortcut ->
+                    PublishedShortcut(
+                        userId = userId,
+                        packageName = shortcut.`package`,
+                        shortcutId = shortcut.id,
+                        label = shortcut.shortLabel?.toString().orEmpty(),
+                        enabled = shortcut.isEnabled,
+                        manifest = shortcut.isDeclaredInManifest,
+                        dynamic = shortcut.isDynamic,
+                        pinned = shortcut.isPinned,
+                        cached = shortcut.isCached
+                    )
+                }.distinctBy { Triple(it.userId, it.packageName, it.shortcutId) }
+            ShortcutDiscoveryResult(ShortcutDiscoveryStatus.AVAILABLE, records)
+        } catch (error: SecurityException) {
+            ShortcutDiscoveryResult(
+                ShortcutDiscoveryStatus.HOST_PERMISSION_REQUIRED,
+                detail = error.javaClass.simpleName
+            )
+        } catch (error: Exception) {
+            Log.w("ShortcutDiscovery", "Read-only shortcut query failed", error)
+            ShortcutDiscoveryResult(
+                ShortcutDiscoveryStatus.QUERY_FAILED,
+                detail = error.javaClass.simpleName
+            )
+        }
+    }
+
+
     data class Result(
         val candidates: List<ComponentCandidate> = emptyList(),
         val source: String,
