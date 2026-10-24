@@ -46,7 +46,7 @@ enum class IntentKind(val action: String) {
 
 @Serializable
 data class ComponentRule(val kind: IntentKind, val packageName: String, val className: String) {
-    val id: String get() = "${kind.name}|$packageName|${if (className.startsWith('.')) packageName + className else className}"
+    val id: String get() = "${kind.name}|$packageName|${if (kind == IntentKind.SHORTCUT_ITEM) SyntheticEntryKeys.canonicalShortcutClass(className) else if (className.startsWith('.')) packageName + className else className}"
 
     fun isValid(): Boolean =
         packageName.isNotBlank() && packageName.length <= 255 &&
@@ -62,7 +62,7 @@ data class ComponentRule(val kind: IntentKind, val packageName: String, val clas
                 ComponentRule(
                     IntentKind.valueOf(parts[0]),
                     parts[1],
-                    if (parts[2].startsWith('.')) parts[1] + parts[2] else parts[2],
+                    if (IntentKind.valueOf(parts[0]) == IntentKind.SHORTCUT_ITEM) SyntheticEntryKeys.canonicalShortcutClass(parts[2]) else if (parts[2].startsWith('.')) parts[1] + parts[2] else parts[2],
                 ).takeIf { it.isValid() && it.kind.isSelectableEntryKind() }
             }.getOrNull() else null
         }
