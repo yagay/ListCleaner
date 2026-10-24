@@ -359,22 +359,32 @@ internal fun WorkspaceListActions(
     helpExpanded: Boolean = false,
     onHelpToggle: (() -> Unit)? = null,
 ) {
+    var selectionMenuExpanded by remember { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        // Fixed actions: never compute or display a bulk tri-state.
-        // Keep all three commands together instead of hiding two in overflow.
-        Row(
-            modifier = Modifier.weight(1f, fill = false)
-                .horizontalScroll(rememberScrollState()),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(0.dp)
-        ) {
-            actions.forEach { action ->
-                androidx.compose.material3.TextButton(
-                    onClick = action.onClick,
-                    enabled = action.enabled,
-                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp)
+        // A labeled menu provides all batch actions without a visible tri-state.
+        if (actions.isNotEmpty()) {
+            Box {
+                AdaptiveTextButton(
+                    onClick = { selectionMenuExpanded = true },
+                    enabled = actions.any { it.enabled }
                 ) {
-                    AdaptiveText(action.label, maxLines = 1)
+                    AdaptiveText(stringResource(R.string.selection_actions), maxLines = 1)
+                    AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(18.dp))
+                }
+                AdaptiveDropdownMenu(
+                    expanded = selectionMenuExpanded,
+                    onDismissRequest = { selectionMenuExpanded = false }
+                ) {
+                    actions.forEach { action ->
+                        AdaptiveDropdownMenuItem(
+                            text = { AdaptiveText(action.label) },
+                            enabled = action.enabled,
+                            onClick = {
+                                selectionMenuExpanded = false
+                                action.onClick()
+                            }
+                        )
+                    }
                 }
             }
         }
