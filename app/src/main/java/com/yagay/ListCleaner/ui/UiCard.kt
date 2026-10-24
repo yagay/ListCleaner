@@ -110,7 +110,7 @@ internal fun UiCardDetailRow(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                content = rowContent
+                content = content
             )
         }
     )
