@@ -13,8 +13,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 internal fun GroupedApplicationSurface(expanded: Boolean, content: @Composable () -> Unit) {
     val shape = if (expanded) RoundedCornerShape(
-        topStart = MaterialUiTokens.cardRadius, topEnd = MaterialUiTokens.cardRadius
-    ) else RoundedCornerShape(MaterialUiTokens.cardRadius)
+        topStart = MaterialUiTokens.listCardRadius, topEnd = MaterialUiTokens.listCardRadius
+    ) else RoundedCornerShape(MaterialUiTokens.listCardRadius)
     Surface(
         modifier = Modifier.fillMaxWidth()
             .padding(horizontal = MaterialUiTokens.groupHorizontal)
@@ -37,8 +37,8 @@ internal fun GroupedComponentSurface(position: ListRowPosition, selected: Boolea
             .padding(start = MaterialUiTokens.groupHorizontal,
                 end = MaterialUiTokens.groupHorizontal),
         shape = if (last) RoundedCornerShape(
-            bottomStart = MaterialUiTokens.cardRadius,
-            bottomEnd = MaterialUiTokens.cardRadius
+            bottomStart = MaterialUiTokens.listCardRadius,
+            bottomEnd = MaterialUiTokens.listCardRadius
         ) else RoundedCornerShape(0.dp),
         // Component and expanded app header share one surface color; selection
         // remains visible through the trailing checked icon.
