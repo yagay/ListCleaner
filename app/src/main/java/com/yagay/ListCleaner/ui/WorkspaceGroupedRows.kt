@@ -24,7 +24,7 @@ internal fun GroupedApplicationSurface(expanded: Boolean, content: @Composable (
     ) {
         Column {
             content()
-            if (expanded) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            if (expanded) HorizontalDivider(color = WorkspaceListPalette.outline())
         }
     }
 }

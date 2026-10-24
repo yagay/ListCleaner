@@ -48,7 +48,7 @@ internal object MaterialUiTokens {
     // Visual-only list rounding: use half the configured radius for lighter
     // cards. The same token drives original and grouped lists, without changing
     // padding, row height, bounds, click targets, or any item position.
-    val listCardRadius get() = (UiPreferencesRuntime.current.cardRadius * 0.5f).dp
+    val listCardRadius get() = (UiPreferencesRuntime.current.cardRadius * 0.45f).dp
     val groupedInnerRadius get() = (4f * density).dp
     val groupedOuterGap get() = (4f * density).dp
     val groupedInnerGap get() = (1f * density).dp

@@ -88,7 +88,7 @@ internal fun WorkspacePickerButton(
             else MaterialFlatPalette.surface(),
         contentColor = if (selected) MaterialSelectionPalette.activeText()
             else MaterialSelectionPalette.text(),
-        border = BorderStroke(0.75.dp, MaterialFlatPalette.outline())
+        border = BorderStroke(0.5.dp, MaterialFlatPalette.outline())
     ) {
         Row(
             modifier = Modifier.heightIn(min = 48.dp)
@@ -153,7 +153,7 @@ private fun WorkspaceCategoryPicker(
                 shape = RoundedCornerShape(MaterialUiTokens.listCardRadius),
                 color = MaterialFlatPalette.selectedSurface(),
                 contentColor = MaterialSelectionPalette.activeText(),
-                border = BorderStroke(0.75.dp, MaterialFlatPalette.outline()),
+                border = BorderStroke(0.5.dp, MaterialFlatPalette.outline()),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Row(

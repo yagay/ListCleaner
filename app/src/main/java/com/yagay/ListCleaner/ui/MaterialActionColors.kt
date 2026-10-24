@@ -46,9 +46,16 @@ internal object MaterialStatusPalette {
  * callers retain their shape bounds, padding, position and click behaviour.
  */
 internal object MaterialFlatPalette {
-    @Composable fun surface(): Color = MaterialTheme.colorScheme.surfaceContainerLowest
+    // Slightly tinted page-surface, not pure-white cards floating on lavender.
+    // The small tonal difference preserves individual card boundaries without
+    // changing any list spacing, size, or hierarchy.
+    @Composable fun surface(): Color = MaterialTheme.colorScheme.primary.copy(
+        alpha = if (LocalListCleanerDarkTheme.current) 0.045f else 0.018f
+    ).compositeOver(MaterialTheme.colorScheme.surface)
     @Composable fun sectionSurface(): Color = MaterialTheme.colorScheme.surfaceContainerLow
-    @Composable fun outline(): Color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f)
+    @Composable fun outline(): Color = MaterialTheme.colorScheme.outlineVariant.copy(
+        alpha = if (LocalListCleanerDarkTheme.current) 0.42f else 0.30f
+    )
 
     @Composable
     fun selectedSurface(): Color {
@@ -56,7 +63,7 @@ internal object MaterialFlatPalette {
         val key = if (LocalListCleanerDarkTheme.current) "dark_selectedBackground" else "selectedBackground"
         val selected = MaterialSelectionPalette.activeBackground()
         return if (key in UiPreferencesRuntime.current.colorOverrides) selected
-        else selected.copy(alpha = if (LocalListCleanerDarkTheme.current) 0.76f else 0.62f)
+        else selected.copy(alpha = if (LocalListCleanerDarkTheme.current) 0.70f else 0.44f)
             .compositeOver(surface())
     }
 }
