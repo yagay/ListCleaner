@@ -35,7 +35,7 @@ for file in sorted(root.glob("*.kt")):
             errors.append(f"{file.name}:{line_no}: use MaterialActionColors for action colors")
 
 # Guard the complete visual system, not just the original button wrappers.
-# Card implementations must only exist in UiCard.kt; feature wrappers delegate to it.
+# Shared section surfaces are centralized in UiCard.kt, now using cardless Material 3 Surface.
 direct_card = re.compile(r"(?<![A-Za-z0-9_])(?:Card|OutlinedCard|ElevatedCard)\s*\(")
 for file in sorted(root.glob("*.kt")):
     source = file.read_text(encoding="utf-8")
@@ -56,8 +56,7 @@ required = {
                                  "NavigationBarItemDefaults.colors(", "FilterChipDefaults.filterChipColors("],
     "UiCard.kt": ["enum class UiCardVariant", "UiCardVariant.SECTION", "UiCardVariant.CATEGORY",
                    "UiCardVariant.LIST_GROUP", "UiCardVariant.STATUS",
-                   "RoundedCornerShape(MaterialUiTokens.listCardRadius)",
-                   "MaterialFlatPalette.sectionSurface()",
+                   "Surface(", "RectangleShape", "MaterialFlatPalette.sectionSurface()",
                    "onClick = onClick", "UiCardDetailRow(", "ListItem("],
     "MaterialDesignSystem.kt": ["UiCard(", "UiCardVariant.SECTION", "val cardShape get() ="],
     "WorkspaceLayout.kt": ["enum class ListRowPosition", "MaterialTheme.typography.titleMedium"],
@@ -135,10 +134,9 @@ required = {
 flat_visual_checks = {
     "MaterialActionColors.kt": ("object MaterialFlatPalette", "fun selectedSurface()",
                                   "MaterialSelectionPalette.activeBackground()"),
-    "UiCard.kt": ("variant == UiCardVariant.CATEGORY || variant == UiCardVariant.LIST_GROUP",
-                  "horizontal = horizontalInset",
-                  "vertical = if (variant == UiCardVariant.LIST_GROUP) 2.dp else 0.dp",
-                  "CardDefaults.cardElevation(", "defaultElevation = 0.dp"),
+    "UiCard.kt": ("variant == UiCardVariant.LIST_GROUP || variant == UiCardVariant.CATEGORY",
+                  "horizontal = horizontalInset", "drawWithContent",
+                  "shape = RectangleShape", "Column(content = content)"),
     "WorkspaceGroupedRows.kt": ("padding(horizontal = MaterialUiTokens.groupHorizontal)",
                                 "padding(top = MaterialUiTokens.groupedOuterGap)",
                                 "WorkspaceListPalette.surface()"),
@@ -152,6 +150,11 @@ for filename, symbols in flat_visual_checks.items():
     for symbol in symbols:
         if symbol not in content:
             errors.append(f"{filename}: flat visual contract/unchanged geometry missing: {symbol}")
+
+# Reject Material Card reintroduction in the shared renderer.
+cardless_source = (root / "UiCard.kt").read_text(encoding="utf-8")
+if direct_card.search(cardless_source):
+    errors.append("UiCard.kt: standalone card returned; use shared cardless Surface")
 
 # Never regress back to bespoke paints for list rows and selection surfaces.
 native_checks = {
