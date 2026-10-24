@@ -361,6 +361,34 @@ internal fun WorkspaceListActions(
 ) {
     var expanded by remember { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically) {
+        // The primary batch operation is explicit and never reads a bulk
+        // checked/indeterminate state. Keep the remaining actions in overflow.
+        val primary = actions.firstOrNull()
+        if (primary != null) {
+            AdaptiveTextButton(onClick = primary.onClick, enabled = primary.enabled) {
+                AdaptiveText(primary.label, maxLines = 1)
+            }
+        }
+        if (actions.size > 1) {
+            Box {
+                AdaptiveIconButton(
+                    onClick = { expanded = true },
+                    enabled = actions.drop(1).any { it.enabled }
+                ) {
+                    AdaptiveIcon(Icons.Rounded.MoreVert, stringResource(R.string.selection_actions))
+                }
+                AdaptiveDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    actions.drop(1).forEach { action ->
+                        AdaptiveDropdownMenuItem(
+                            text = { AdaptiveText(action.label) },
+                            enabled = action.enabled,
+                            onClick = { expanded = false; action.onClick() }
+                        )
+                    }
+                }
+            }
+        }
+        // Help is always the final control for Entry, Component and Ordering.
         if (onHelpToggle != null) {
             AdaptiveIconButton(onClick = onHelpToggle) {
                 AdaptiveIcon(
@@ -370,28 +398,6 @@ internal fun WorkspaceListActions(
                     tint = if (helpExpanded) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
-        }
-        if (actions.isNotEmpty()) {
-            Box {
-                AdaptiveIconButton(
-                    onClick = { expanded = true },
-                    enabled = actions.any { it.enabled }
-                ) {
-                    AdaptiveIcon(
-                        Icons.Rounded.MoreVert,
-                        stringResource(R.string.selection_actions)
-                    )
-                }
-                AdaptiveDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                    actions.forEach { action ->
-                        AdaptiveDropdownMenuItem(
-                            text = { AdaptiveText(action.label) },
-                            enabled = action.enabled,
-                            onClick = { expanded = false; action.onClick() }
-                        )
-                    }
-                }
             }
         }
     }
