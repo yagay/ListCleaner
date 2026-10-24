@@ -20,8 +20,7 @@ internal fun GroupedApplicationSurface(expanded: Boolean, content: @Composable (
             .padding(horizontal = MaterialUiTokens.groupHorizontal)
             .padding(top = MaterialUiTokens.groupedOuterGap),
         shape = shape,
-        color = if (expanded) MaterialTheme.colorScheme.secondaryContainer
-            else MaterialTheme.colorScheme.surfaceContainerLow
+        color = WorkspaceListPalette.surface()
     ) {
         Column {
             content()
@@ -43,7 +42,7 @@ internal fun GroupedComponentSurface(position: ListRowPosition, selected: Boolea
         ) else RoundedCornerShape(0.dp),
         // Component and expanded app header share one surface color; selection
         // remains visible through the trailing checked icon.
-        color = MaterialTheme.colorScheme.secondaryContainer
+        color = WorkspaceListPalette.surface()
     ) {
         Column {
             content()
@@ -54,7 +53,7 @@ internal fun GroupedComponentSurface(position: ListRowPosition, selected: Boolea
                     end = MaterialUiTokens.groupedDetailEndPadding
                 ),
                 thickness = 1.dp,
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.24f)
+                color = WorkspaceListPalette.outline()
             )
         }
     }
