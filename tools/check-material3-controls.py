@@ -229,7 +229,7 @@ if "ModalBottomSheet(" in category or "LazyRow(" in category:
 picker_body = category.split("internal fun WorkspacePickerButton(", 1)[1].split(
     "/**\n * Anchored Material 3 category menu", 1
 )[0]
-for expected in ("variant = UiCardVariant.CATEGORY", "heightIn(min = 48.dp)",
+for expected in ("Surface(", "MaterialTheme.colorScheme.primaryContainer", "heightIn(min = 48.dp)",
                  "verticalAlignment = Alignment.CenterVertically",
                  "FontWeight.SemiBold"):
     if expected not in picker_body:
