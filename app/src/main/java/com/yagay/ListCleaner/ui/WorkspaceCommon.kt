@@ -220,48 +220,24 @@ internal fun WorkspaceFilterBar(
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            // Only one section is expanded at a time, as in Category.
+            // Reuse the category menu's section and choice geometry.
             val appsOpen = openSection == FilterMenuSection.APPS
-            AdaptiveDropdownMenuItem(
-                text = {
-                    AdaptiveText(
-                        stringResource(
-                            R.string.compact_filter_format,
-                            stringResource(R.string.app_type_filter),
-                            stringResource(draftAppType.titleRes())
-                        ),
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                },
-                trailingIcon = {
-                    AdaptiveIcon(
-                        if (appsOpen) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                        null, Modifier.size(20.dp)
-                    )
-                },
-                onClick = {
-                    openSection = if (appsOpen) null else FilterMenuSection.APPS
-                }
+            WorkspaceMenuSection(
+                title = stringResource(
+                    R.string.compact_filter_format,
+                    stringResource(R.string.app_type_filter),
+                    stringResource(draftAppType.titleRes())
+                ),
+                active = draftAppType != AppTypeFilter.ALL,
+                expanded = appsOpen,
+                onClick = { openSection = if (appsOpen) null else FilterMenuSection.APPS }
             )
             if (appsOpen) {
                 AppTypeFilter.entries.forEach { option ->
-                    AdaptiveDropdownMenuItem(
-                        text = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Spacer(Modifier.width(16.dp))
-                                AdaptiveText(
-                                    stringResource(option.titleRes()),
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                            }
-                        },
-                        trailingIcon = {
-                            if (draftAppType == option) {
-                                AdaptiveIcon(Icons.Rounded.Check, null, Modifier.size(20.dp))
-                            }
-                        },
+                    WorkspaceMenuChoice(
+                        title = stringResource(option.titleRes()),
+                        selected = draftAppType == option,
+                        indented = true,
                         onClick = {
                             draftAppType = option
                             openSection = null
@@ -270,46 +246,22 @@ internal fun WorkspaceFilterBar(
                 }
             }
             val viewOpen = openSection == FilterMenuSection.VIEW
-            AdaptiveDropdownMenuItem(
-                text = {
-                    AdaptiveText(
-                        stringResource(
-                            R.string.compact_filter_format,
-                            stringResource(R.string.view_filter),
-                            viewTitle(draftView)
-                        ),
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                },
-                trailingIcon = {
-                    AdaptiveIcon(
-                        if (viewOpen) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                        null, Modifier.size(20.dp)
-                    )
-                },
-                onClick = {
-                    openSection = if (viewOpen) null else FilterMenuSection.VIEW
-                }
+            WorkspaceMenuSection(
+                title = stringResource(
+                    R.string.compact_filter_format,
+                    stringResource(R.string.view_filter),
+                    viewTitle(draftView)
+                ),
+                active = draftView != UiFilter.ALL,
+                expanded = viewOpen,
+                onClick = { openSection = if (viewOpen) null else FilterMenuSection.VIEW }
             )
             if (viewOpen) {
                 UiFilter.entries.forEach { option ->
-                    AdaptiveDropdownMenuItem(
-                        text = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Spacer(Modifier.width(16.dp))
-                                AdaptiveText(
-                                    viewTitle(option),
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                            }
-                        },
-                        trailingIcon = {
-                            if (draftView == option) {
-                                AdaptiveIcon(Icons.Rounded.Check, null, Modifier.size(20.dp))
-                            }
-                        },
+                    WorkspaceMenuChoice(
+                        title = viewTitle(option),
+                        selected = draftView == option,
+                        indented = true,
                         onClick = {
                             draftView = option
                             openSection = null
