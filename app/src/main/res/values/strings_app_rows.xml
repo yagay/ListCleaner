@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_row_selection_summary">Selected %1$d/%2$d · %3$s</string>
-    <string name="app_row_unavailable_rules">Some entries were not observed in this scan · saved rules retained</string>
+    <string name="app_row_unavailable_rules">Contains %1$d currently unavailable rules</string>
     <string name="component_unavailable">Not observed this scan · may depend on context · rule retained</string>
     <string name="component_potentially_dynamic">Possibly dynamic · not observed this scan · rule retained</string>
     <string name="app_row_not_observed">Some entries were not observed in this scan · saved rules retained</string>
