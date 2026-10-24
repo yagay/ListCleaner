@@ -1,5 +1,7 @@
 package com.yagay.ListCleaner.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -24,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -127,6 +130,7 @@ private fun WorkspaceCategoryPicker(
     }
 }
 
+/** Single selected-category treatment for Entry, Component and Ordering. */
 @Composable
 private fun CategoryChoice(
     title: String,
@@ -134,22 +138,37 @@ private fun CategoryChoice(
     onClick: () -> Unit,
     indented: Boolean = false,
 ) {
-    AdaptiveDropdownMenuItem(
-        text = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (indented) Spacer(Modifier.width(16.dp))
-                AdaptiveText(
-                    title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 2
+    Box(
+        Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+            .background(
+                if (selected) MaterialTheme.colorScheme.secondaryContainer
+                else MaterialTheme.colorScheme.surface.copy(alpha = 0f),
+                RoundedCornerShape(12.dp)
+            )
+    ) {
+        AdaptiveDropdownMenuItem(
+            text = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (indented) Spacer(Modifier.width(16.dp))
+                    AdaptiveText(
+                        title,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
+                            else MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2
+                    )
+                }
+            },
+            trailingIcon = {
+                if (selected) AdaptiveIcon(
+                    Icons.Rounded.Check, null, Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer
                 )
-            }
-        },
-        trailingIcon = {
-            if (selected) AdaptiveIcon(Icons.Rounded.Check, null, Modifier.size(20.dp))
-        },
-        onClick = onClick
-    )
+            },
+            onClick = onClick
+        )
+    }
 }
 
 @Composable
@@ -182,22 +201,40 @@ internal fun EntryCategoryPicker(
         }
         availableGroups.forEach { group ->
             val expanded = expandedGroup == group
-            AdaptiveDropdownMenuItem(
-                text = {
-                    AdaptiveText(
-                        stringResource(group.titleRes()),
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 2
+            Box(
+                Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    .background(
+                        if (selected?.entryGroup() == group)
+                            MaterialTheme.colorScheme.secondaryContainer
+                        else MaterialTheme.colorScheme.surface.copy(alpha = 0f),
+                        RoundedCornerShape(12.dp)
                     )
-                },
-                trailingIcon = {
-                    AdaptiveIcon(
-                        if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                        null, Modifier.size(20.dp)
-                    )
-                },
-                onClick = { expandedGroup = if (expanded) null else group }
-            )
+            ) {
+                AdaptiveDropdownMenuItem(
+                    text = {
+                        AdaptiveText(
+                            stringResource(group.titleRes()),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = if (selected?.entryGroup() == group)
+                                MaterialTheme.colorScheme.onSecondaryContainer
+                                else MaterialTheme.colorScheme.onSurface,
+                            fontWeight = if (selected?.entryGroup() == group)
+                                FontWeight.SemiBold else FontWeight.Normal,
+                            maxLines = 2
+                        )
+                    },
+                    trailingIcon = {
+                        AdaptiveIcon(
+                            if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                            null, Modifier.size(20.dp),
+                            tint = if (selected?.entryGroup() == group)
+                                MaterialTheme.colorScheme.onSecondaryContainer
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    onClick = { expandedGroup = if (expanded) null else group }
+                )
+            }
             if (expanded) {
                 group.kinds()
                     .filter { availableKinds == null || it in availableKinds }
