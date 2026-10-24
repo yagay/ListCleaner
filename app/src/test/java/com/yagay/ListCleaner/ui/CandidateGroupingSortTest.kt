@@ -62,4 +62,21 @@ class CandidateGroupingSortTest {
         assertEquals(2, base.size)
         assertEquals(2, base.sumOf { it.components.size })
     }
+    @Test fun filteringNormalizesSearchNeedleOnceWithoutChangingResults() {
+        val github = entry("com.example.github", "GitHub", "DeepLinkActivity")
+        val gmail = entry("com.example.gmail", "Gmail", "MailActivity")
+        val base = baseAppGroups(listOf(github, gmail))
+
+        val result = filterAppGroups(
+            base, emptySet(), IntentKind.SHARE, "  gItHuB  ",
+            UiFilter.ALL, UiAppSort.NAME,
+        )
+        assertEquals(listOf("com.example.github"), result.map { it.packageName })
+        assertEquals(
+            listOf("com.example.github", "com.example.gmail"),
+            filterAppGroups(base, emptySet(), IntentKind.SHARE, " ",
+                UiFilter.ALL, UiAppSort.NAME).map { it.packageName },
+        )
+    }
+
 }
