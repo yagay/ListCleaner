@@ -6,9 +6,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
+
+internal val LocalListCleanerDarkTheme = compositionLocalOf { false }
 
 /** Appearance only: never changes rules, Root component state or LSPosed revisions. */
 internal enum class UiColorMode {
@@ -84,5 +88,7 @@ internal fun ListCleanerUiTheme(
             )
         }
     }
-    MaterialTheme(colorScheme = scheme, content = content)
+    CompositionLocalProvider(LocalListCleanerDarkTheme provides dark) {
+        MaterialTheme(colorScheme = scheme, content = content)
+    }
 }
