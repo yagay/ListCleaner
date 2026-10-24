@@ -105,6 +105,15 @@ internal fun UiCardDetailRow(
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit
 ) {
+    if (UiPreferencesRuntime.current.componentGrouping == UiComponentGrouping.CONNECTED) {
+        Row(
+            modifier = modifier.fillMaxWidth()
+                .padding(horizontal = MaterialUiTokens.connectedDetailHorizontal,
+                    vertical = MaterialUiTokens.connectedDetailVertical),
+            verticalAlignment = Alignment.CenterVertically,
+            content = content
+        )
+    } else {
     androidx.compose.material3.ListItem(
         modifier = modifier.fillMaxWidth(),
         colors = androidx.compose.material3.ListItemDefaults.colors(
@@ -118,4 +127,5 @@ internal fun UiCardDetailRow(
             )
         }
     )
+    }
 }
