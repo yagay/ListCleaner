@@ -33,7 +33,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.ComponentCandidate
+import com.yagay.ListCleaner.domain.CustomOpenDefinition
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.OpenPreset
+import com.yagay.ListCleaner.domain.OpenWithTypeSummary
+import com.yagay.ListCleaner.domain.summarizeOpenWithTypes
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -45,8 +49,14 @@ internal fun AppRow(
     onExpand: () -> Unit,
     onSelect: (Boolean) -> Unit,
     onLock: () -> Unit,
-    onUnlock: () -> Unit
+    onUnlock: () -> Unit,
+    openWithDefinitions: Map<OpenPreset, CustomOpenDefinition>? = null,
 ) {
+    val openTypeSummary = if (openWithDefinitions != null) {
+        remember(group.components, openWithDefinitions) {
+            summarizeOpenWithTypes(group.components, openWithDefinitions)
+        }
+    } else null
     val selectedCount = group.components.count { it.rule in selected }
     val selectionState = listSelectionState(selectedCount, group.components.size)
     val expandLabel = stringResource(if (expanded) R.string.common_collapse else R.string.common_expand)
@@ -74,6 +84,9 @@ internal fun AppRow(
             )
         },
         details = {
+            if (openTypeSummary != null && !openTypeSummary.isEmpty) {
+                OpenWithTypeIndicator(openTypeSummary, openWithDefinitions.orEmpty(), expanded)
+            }
             if (group.components.any { it.unavailable || it.restricted }) {
                 WorkspaceAppNote(
                     stringResource(R.string.app_row_unavailable_warning),
@@ -82,6 +95,39 @@ internal fun AppRow(
             }
         }
     )
+}
+
+/** A single read-only label for all detected formats; no extra selection controls. */
+@Composable
+private fun OpenWithTypeIndicator(
+    summary: OpenWithTypeSummary,
+    customDefinitions: Map<OpenPreset, CustomOpenDefinition>,
+    expanded: Boolean,
+) {
+    val labels = buildList {
+        if (summary.universal) add(stringResource(R.string.open_type_universal))
+        summary.presets.forEach { preset ->
+            add(customDefinitions[preset]?.title ?: stringResource(preset.titleRes()))
+        }
+    }
+    // Compact app rows stay a single line; expanding reveals every detected type.
+    val compactCount = 3
+    val label = if (!expanded && labels.size > compactCount) {
+        labels.take(compactCount).joinToString(" · ") + " · +${labels.size - compactCount}"
+    } else labels.joinToString(" · ")
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        shape = RoundedCornerShape(MaterialUiTokens.groupedInnerRadius),
+    ) {
+        AdaptiveText(
+            label,
+            modifier = Modifier.padding(horizontal = MaterialUiTokens.contentGap, vertical = 2.dp),
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = if (expanded) Int.MAX_VALUE else 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
