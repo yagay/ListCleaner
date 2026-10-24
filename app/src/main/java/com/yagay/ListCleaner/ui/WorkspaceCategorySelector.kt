@@ -1,9 +1,11 @@
 package com.yagay.ListCleaner.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,6 +23,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -128,18 +131,59 @@ private fun WorkspaceCategoryPicker(
     selectedTitle: String,
     menuTitle: String,
     modifier: Modifier = Modifier,
+    trailingSelector: (@Composable () -> Unit)? = null,
     content: @Composable (dismiss: () -> Unit) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
-        WorkspacePickerButton(
-            label = stringResource(R.string.lc_category_picker_current, selectedTitle),
-            icon = Icons.Rounded.Layers,
-            selected = true,
-            expanded = expanded,
-            onClick = { expanded = true },
-            modifier = Modifier.fillMaxWidth()
-        )
+        if (trailingSelector == null) {
+            WorkspacePickerButton(
+                label = stringResource(R.string.lc_category_picker_current, selectedTitle),
+                icon = Icons.Rounded.Layers,
+                selected = true,
+                expanded = expanded,
+                onClick = { expanded = true },
+                modifier = Modifier.fillMaxWidth()
+            )
+        } else {
+            // One shared outline, with two independent 48dp touch targets:
+            // category on the left, format/domain selector on the right.
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                color = MaterialSelectionPalette.activeBackground(),
+                contentColor = MaterialSelectionPalette.activeText(),
+                border = BorderStroke(1.dp, MaterialSelectionPalette.outline()),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                            .clickable { expanded = true }
+                            .padding(start = 12.dp, end = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        val color = MaterialSelectionPalette.activeText()
+                        AdaptiveIcon(Icons.Rounded.Layers, null, Modifier.size(18.dp), tint = color)
+                        AdaptiveText(
+                            stringResource(R.string.lc_category_picker_current, selectedTitle),
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = color,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        AdaptiveIcon(
+                            if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                            null, Modifier.size(18.dp), tint = color
+                        )
+                    }
+                    VerticalDivider(modifier = Modifier.height(24.dp))
+                    trailingSelector()
+                }
+            }
+        }
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
@@ -244,7 +288,9 @@ internal fun EntryCategoryPicker(
     onSelected: (IntentKind?) -> Unit,
     modifier: Modifier = Modifier,
     includeAllKinds: Boolean = true,
-    availableKinds: Set<IntentKind>? = null
+    availableKinds: Set<IntentKind>? = null,
+    subtypeTitle: String? = null,
+    subtypeSelector: (@Composable () -> Unit)? = null,
 ) {
     val availableGroups = EntryGroup.entries
         .filter { includeAllKinds || it != EntryGroup.DESKTOP }
@@ -255,9 +301,10 @@ internal fun EntryCategoryPicker(
         else stringResource(selected.titleRes())
     var expandedGroup by remember(selected) { mutableStateOf(selected?.entryGroup()) }
     WorkspaceCategoryPicker(
-        selectedTitle = currentTitle,
+        selectedTitle = if (subtypeTitle == null) currentTitle else "$currentTitle · $subtypeTitle",
         menuTitle = stringResource(R.string.lc_category_picker_entry_title),
-        modifier = modifier
+        modifier = modifier,
+        trailingSelector = subtypeSelector,
     ) { dismiss ->
         if (includeAllKinds) {
             WorkspaceMenuChoice(
