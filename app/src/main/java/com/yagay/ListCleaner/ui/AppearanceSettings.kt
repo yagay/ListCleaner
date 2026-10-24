@@ -110,6 +110,14 @@ internal fun SettingsAppearanceControls(
                 UiDensity.COMFORTABLE to stringResource(R.string.settings_density_comfortable)
             )
         ) { UiPreferencesStore.write(context, current.copy(density = it)) }
+        SettingsChoices(
+            stringResource(R.string.settings_component_grouping),
+            current.componentGrouping,
+            listOf(
+                UiComponentGrouping.SEPARATE to stringResource(R.string.settings_component_grouping_separate),
+                UiComponentGrouping.CONNECTED to stringResource(R.string.settings_component_grouping_connected)
+            )
+        ) { UiPreferencesStore.write(context, current.copy(componentGrouping = it)) }
     }
     var editingDarkPalette by remember { mutableStateOf(false) }
     SettingsArea(stringResource(R.string.settings_color_details)) {
