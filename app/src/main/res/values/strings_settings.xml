@@ -81,6 +81,6 @@
     <string name="settings_color_green_channel">Green</string>
     <string name="settings_color_blue_channel">Blue</string>
     <string name="settings_list_style">Application list style</string>
-    <string name="settings_list_style_original">Flat list</string>
+    <string name="settings_list_style_original">Original cards</string>
     <string name="settings_list_style_grouped">Grouped list</string>
 </resources>

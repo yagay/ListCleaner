@@ -81,6 +81,6 @@
     <string name="settings_color_green_channel">绿</string>
     <string name="settings_color_blue_channel">蓝</string>
     <string name="settings_list_style">应用列表样式</string>
-    <string name="settings_list_style_original">扁平列表</string>
+    <string name="settings_list_style_original">原始独立卡片</string>
     <string name="settings_list_style_grouped">分层连体列表</string>
 </resources>

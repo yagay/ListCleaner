@@ -452,7 +452,7 @@ internal fun WorkspaceReadOnlyDetailRow(
             )
         }
     } else {
-        FlatWorkspaceRowSurface {
+        AdaptiveGroupSurface(Modifier.fillMaxWidth(), position = position) {
             UiCardDetailRow(content = content)
         }
     }
@@ -528,6 +528,6 @@ internal fun WorkspaceDetailRow(
     if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
         GroupedComponentSurface(position, checked, contentBlock)
     } else {
-        FlatWorkspaceRowSurface { contentBlock() }
+        AdaptiveGroupSurface(Modifier.fillMaxWidth(), position = position) { contentBlock() }
     }
 }

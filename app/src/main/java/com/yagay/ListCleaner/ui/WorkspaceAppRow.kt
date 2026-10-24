@@ -91,7 +91,10 @@ internal fun WorkspaceAppRow(
     if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
         GroupedApplicationSurface(expanded, appContent)
     } else {
-        FlatWorkspaceRowSurface { appContent() }
+        AdaptiveGroupSurface(
+            Modifier.fillMaxWidth(),
+            position = if (expanded) ListRowPosition.FIRST else ListRowPosition.SINGLE
+        ) { appContent() }
     }
 }
 
@@ -146,7 +149,7 @@ internal fun MaterialAppRowBody(
     androidx.compose.material3.ListItem(
         modifier = modifier.fillMaxWidth(),
         colors = androidx.compose.material3.ListItemDefaults.colors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ),
         leadingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
