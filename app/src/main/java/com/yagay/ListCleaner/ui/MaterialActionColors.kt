@@ -9,6 +9,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.runtime.Composable
 
 /**
@@ -40,6 +41,26 @@ internal object MaterialStatusPalette {
         else Color(0xFF006C62)
 }
 
+/**
+ * Unified flat surfaces across existing screens. These are paint-only tokens:
+ * callers retain their shape bounds, padding, position and click behaviour.
+ */
+internal object MaterialFlatPalette {
+    @Composable fun surface(): Color = MaterialTheme.colorScheme.surfaceContainerLowest
+    @Composable fun sectionSurface(): Color = MaterialTheme.colorScheme.surfaceContainerLow
+    @Composable fun outline(): Color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f)
+
+    @Composable
+    fun selectedSurface(): Color {
+        // Preserve explicit user overrides instead of silently washing them out.
+        val key = if (LocalListCleanerDarkTheme.current) "dark_selectedBackground" else "selectedBackground"
+        val selected = MaterialSelectionPalette.activeBackground()
+        return if (key in UiPreferencesRuntime.current.colorOverrides) selected
+        else selected.copy(alpha = if (LocalListCleanerDarkTheme.current) 0.76f else 0.62f)
+            .compositeOver(surface())
+    }
+}
+
 internal object MaterialSelectionPalette {
     @Composable fun background(): Color = UiColorRoles.resolve("buttonBackground", MaterialTheme.colorScheme.surface)
     @Composable fun outline(): Color = UiColorRoles.resolve("buttonOutline", MaterialTheme.colorScheme.outline)
@@ -55,7 +76,7 @@ internal object MaterialSelectionPalette {
 
 internal object MaterialActionColors {
     @Composable fun segmented() = SegmentedButtonDefaults.colors(
-        activeContainerColor = MaterialSelectionPalette.activeBackground(),
+        activeContainerColor = MaterialFlatPalette.selectedSurface(),
         activeContentColor = MaterialSelectionPalette.activeText(),
         inactiveContainerColor = MaterialSelectionPalette.background(),
         inactiveContentColor = MaterialSelectionPalette.text()
@@ -73,13 +94,13 @@ internal object MaterialActionColors {
     @Composable fun navigation() = NavigationBarItemDefaults.colors(
         selectedIconColor = MaterialSelectionPalette.navigationText(),
         selectedTextColor = MaterialSelectionPalette.title(),
-        indicatorColor = MaterialSelectionPalette.navigationBackground(),
+        indicatorColor = MaterialFlatPalette.selectedSurface(),
         unselectedIconColor = MaterialSelectionPalette.text(),
         unselectedTextColor = MaterialSelectionPalette.text()
     )
     @Composable fun filter() = FilterChipDefaults.filterChipColors(
         containerColor = MaterialSelectionPalette.filterBackground(),
-        selectedContainerColor = MaterialSelectionPalette.activeBackground(),
+        selectedContainerColor = MaterialFlatPalette.selectedSurface(),
         labelColor = MaterialSelectionPalette.text(),
         selectedLabelColor = MaterialSelectionPalette.activeText()
     )

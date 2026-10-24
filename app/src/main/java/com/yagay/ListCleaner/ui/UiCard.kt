@@ -24,8 +24,8 @@ import androidx.compose.ui.unit.dp
  * card shapes, paddings, row measures and list structure remain untouched.
  */
 internal object WorkspaceListPalette {
-    @Composable fun surface() = MaterialTheme.colorScheme.surfaceContainerLowest
-    @Composable fun outline() = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.38f)
+    @Composable fun surface() = MaterialFlatPalette.surface()
+    @Composable fun outline() = MaterialFlatPalette.outline()
 }
 
 /** Four visual purposes, one Material 3 Card implementation. */
@@ -49,35 +49,31 @@ internal fun UiCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val shape = when (variant) {
-        UiCardVariant.CATEGORY -> MaterialTheme.shapes.large
-        UiCardVariant.LIST_GROUP -> RoundedCornerShape(MaterialUiTokens.listCardRadius)
-        UiCardVariant.SECTION, UiCardVariant.STATUS -> MaterialTheme.shapes.medium
-    }
+    // A single visual radius; the Card modifier and content geometry stay intact.
+    val shape = RoundedCornerShape(MaterialUiTokens.listCardRadius)
     val colors = CardDefaults.cardColors(
         containerColor = when {
             warning -> MaterialTheme.colorScheme.errorContainer
             filterPalette -> MaterialSelectionPalette.categoryBackground()
-            variant == UiCardVariant.CATEGORY -> MaterialTheme.colorScheme.surfaceContainer
-            variant == UiCardVariant.LIST_GROUP -> WorkspaceListPalette.surface()
-            else -> MaterialTheme.colorScheme.surfaceContainerLow
+            variant == UiCardVariant.STATUS || variant == UiCardVariant.SECTION ->
+                MaterialFlatPalette.sectionSurface()
+            else -> WorkspaceListPalette.surface()
         }
     )
-    val border = if (warning) CardDefaults.outlinedCardBorder()
-        else if (filterPalette) BorderStroke(1.dp, MaterialSelectionPalette.outline())
-        else if (variant == UiCardVariant.LIST_GROUP)
-            BorderStroke(0.5.dp, WorkspaceListPalette.outline())
-        else null
-    val elevation = if (variant == UiCardVariant.LIST_GROUP)
-        CardDefaults.cardElevation(
-            defaultElevation = 0.dp,
-            pressedElevation = 0.dp,
-            focusedElevation = 0.dp,
-            hoveredElevation = 0.dp,
-            draggedElevation = 0.dp,
-            disabledElevation = 0.dp
-        )
-        else CardDefaults.cardElevation()
+    val border = when {
+        warning -> CardDefaults.outlinedCardBorder()
+        filterPalette -> BorderStroke(1.dp, MaterialSelectionPalette.outline())
+        else -> BorderStroke(0.5.dp, MaterialFlatPalette.outline())
+    }
+    // Zero tonal/shadow elevation for every card variant (tap ripple retained).
+    val elevation = CardDefaults.cardElevation(
+        defaultElevation = 0.dp,
+        pressedElevation = 0.dp,
+        focusedElevation = 0.dp,
+        hoveredElevation = 0.dp,
+        draggedElevation = 0.dp,
+        disabledElevation = 0.dp
+    )
     val surfaceModifier = modifier.padding(
         horizontal = horizontalInset,
         vertical = if (variant == UiCardVariant.LIST_GROUP) 2.dp else 0.dp

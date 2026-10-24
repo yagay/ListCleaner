@@ -124,9 +124,10 @@ private fun OpenWithTypeIndicator(
         labels.take(compactCount).joinToString(" · ") + " · +${labels.size - compactCount}"
     } else labels.joinToString(" · ")
     Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        color = MaterialFlatPalette.sectionSurface(),
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         shape = RoundedCornerShape(MaterialUiTokens.groupedInnerRadius),
+        border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialFlatPalette.outline()),
     ) {
         AdaptiveText(
             label,

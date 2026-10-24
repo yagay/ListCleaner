@@ -30,8 +30,8 @@ internal fun CompactCategoryButton(
         modifier = modifier,
         enabled = enabled,
         colors = InputChipDefaults.inputChipColors(
-            containerColor = MaterialSelectionPalette.filterBackground(),
-            selectedContainerColor = MaterialSelectionPalette.activeBackground(),
+            containerColor = MaterialFlatPalette.surface(),
+            selectedContainerColor = MaterialFlatPalette.selectedSurface(),
             labelColor = MaterialSelectionPalette.text(),
             selectedLabelColor = MaterialSelectionPalette.activeText()
         ),

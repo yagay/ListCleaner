@@ -52,9 +52,9 @@ fun OpenPresetFilterMenu(
             Surface(
                 onClick = { expanded = true },
                 modifier = Modifier.size(48.dp),
-                shape = MaterialTheme.shapes.medium,
-                color = if (selected != null) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-                contentColor = if (selected != null) MaterialTheme.colorScheme.onPrimaryContainer
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(MaterialUiTokens.listCardRadius),
+                color = if (selected != null) MaterialFlatPalette.selectedSurface() else Color.Transparent,
+                contentColor = if (selected != null) MaterialSelectionPalette.activeText()
                     else MaterialSelectionPalette.activeText(),
             ) {
                 Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {

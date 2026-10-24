@@ -2,6 +2,9 @@ package com.yagay.ListCleaner.ui
 
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -29,6 +32,9 @@ internal fun AdaptiveAlertDialog(
         icon = icon,
         title = title,
         text = text,
+        shape = RoundedCornerShape(MaterialUiTokens.listCardRadius),
+        containerColor = MaterialFlatPalette.sectionSurface(),
+        tonalElevation = 0.dp,
         properties = properties
     )
 }

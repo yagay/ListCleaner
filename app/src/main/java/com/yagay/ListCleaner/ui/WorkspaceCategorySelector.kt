@@ -83,12 +83,12 @@ internal fun WorkspacePickerButton(
     Surface(
         onClick = onClick,
         modifier = modifier,
-        shape = MaterialTheme.shapes.large,
-        color = if (selected) MaterialSelectionPalette.activeBackground()
-            else MaterialSelectionPalette.background(),
+        shape = RoundedCornerShape(MaterialUiTokens.listCardRadius),
+        color = if (selected) MaterialFlatPalette.selectedSurface()
+            else MaterialFlatPalette.surface(),
         contentColor = if (selected) MaterialSelectionPalette.activeText()
             else MaterialSelectionPalette.text(),
-        border = BorderStroke(1.dp, MaterialSelectionPalette.outline())
+        border = BorderStroke(0.75.dp, MaterialFlatPalette.outline())
     ) {
         Row(
             modifier = Modifier.heightIn(min = 48.dp)
@@ -150,10 +150,10 @@ private fun WorkspaceCategoryPicker(
             // category on the left, format/domain selector on the right.
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.large,
-                color = MaterialSelectionPalette.activeBackground(),
+                shape = RoundedCornerShape(MaterialUiTokens.listCardRadius),
+                color = MaterialFlatPalette.selectedSurface(),
                 contentColor = MaterialSelectionPalette.activeText(),
-                border = BorderStroke(1.dp, MaterialSelectionPalette.outline()),
+                border = BorderStroke(0.75.dp, MaterialFlatPalette.outline()),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Row(
@@ -211,9 +211,9 @@ internal fun WorkspaceMenuChoice(
     Box(
         Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
             .background(
-                if (selected) MaterialTheme.colorScheme.secondaryContainer
+                if (selected) MaterialFlatPalette.selectedSurface()
                 else MaterialTheme.colorScheme.surface.copy(alpha = 0f),
-                RoundedCornerShape(12.dp)
+                RoundedCornerShape(MaterialUiTokens.listCardRadius)
             )
     ) {
         AdaptiveDropdownMenuItem(
@@ -252,9 +252,9 @@ internal fun WorkspaceMenuSection(
     Box(
         Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
             .background(
-                if (active) MaterialTheme.colorScheme.secondaryContainer
+                if (active) MaterialFlatPalette.selectedSurface()
                 else MaterialTheme.colorScheme.surface.copy(alpha = 0f),
-                RoundedCornerShape(12.dp)
+                RoundedCornerShape(MaterialUiTokens.listCardRadius)
             )
     ) {
         AdaptiveDropdownMenuItem(

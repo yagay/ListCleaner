@@ -61,9 +61,9 @@ fun BrowserHostFilterMenu(
             Surface(
                 onClick = { expanded = true },
                 modifier = Modifier.size(48.dp).onSizeChanged { anchorWidthPx = it.width },
-                shape = MaterialTheme.shapes.medium,
-                color = if (selected != null) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-                contentColor = if (selected != null) MaterialTheme.colorScheme.onPrimaryContainer
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(MaterialUiTokens.listCardRadius),
+                color = if (selected != null) MaterialFlatPalette.selectedSurface() else Color.Transparent,
+                contentColor = if (selected != null) MaterialSelectionPalette.activeText()
                     else MaterialSelectionPalette.activeText(),
             ) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
