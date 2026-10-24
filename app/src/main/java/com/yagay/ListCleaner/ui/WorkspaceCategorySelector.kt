@@ -81,12 +81,11 @@ internal fun WorkspacePickerButton(
         onClick = onClick,
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
-        color = if (selected) MaterialTheme.colorScheme.primaryContainer
-            else MaterialTheme.colorScheme.surfaceContainer,
-        contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
-            else MaterialTheme.colorScheme.onSurface,
-        border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-            else null
+        color = if (selected) MaterialSelectionPalette.activeBackground()
+            else MaterialSelectionPalette.background(),
+        contentColor = if (selected) MaterialSelectionPalette.activeText()
+            else MaterialSelectionPalette.text(),
+        border = BorderStroke(1.dp, MaterialSelectionPalette.outline())
     ) {
         Row(
             modifier = Modifier.heightIn(min = 48.dp)
@@ -94,8 +93,8 @@ internal fun WorkspacePickerButton(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            val color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
-                else MaterialTheme.colorScheme.onSurface
+            val color = if (selected) MaterialSelectionPalette.activeText()
+                else MaterialSelectionPalette.text()
             AdaptiveIcon(icon, null, Modifier.size(18.dp), tint = color)
             AdaptiveText(
                 label,
