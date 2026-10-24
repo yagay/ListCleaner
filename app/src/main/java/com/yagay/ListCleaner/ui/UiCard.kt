@@ -46,13 +46,13 @@ internal fun UiCard(
     val colors = CardDefaults.cardColors(
         containerColor = when {
             warning -> MaterialTheme.colorScheme.errorContainer
-            filterPalette -> MaterialTheme.colorScheme.surface
+            filterPalette -> MaterialSelectionPalette.background()
             variant == UiCardVariant.CATEGORY -> MaterialTheme.colorScheme.surfaceContainer
             else -> MaterialTheme.colorScheme.surfaceContainerLow
         }
     )
     val border = if (warning) CardDefaults.outlinedCardBorder()
-        else if (filterPalette) BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        else if (filterPalette) BorderStroke(1.dp, MaterialSelectionPalette.outline())
         else null
     val surfaceModifier = modifier.padding(
         horizontal = horizontalInset,
