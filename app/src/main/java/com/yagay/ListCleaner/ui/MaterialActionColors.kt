@@ -24,6 +24,12 @@ internal object MaterialActionColors {
     @Composable fun outlinedBorder(enabled: Boolean) = ButtonDefaults.outlinedButtonBorder(enabled)
     @Composable fun text() = ButtonDefaults.textButtonColors()
     @Composable fun icon() = IconButtonDefaults.iconButtonColors()
-    @Composable fun navigation() = NavigationBarItemDefaults.colors()
+    @Composable fun navigation() = NavigationBarItemDefaults.colors(
+        selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        selectedTextColor = MaterialTheme.colorScheme.onSurface,
+        indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    )
     @Composable fun filter() = FilterChipDefaults.filterChipColors()
 }
