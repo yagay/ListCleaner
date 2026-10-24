@@ -57,6 +57,7 @@ internal fun UiCard(
             filterPalette -> MaterialSelectionPalette.categoryBackground()
             variant == UiCardVariant.CATEGORY || variant == UiCardVariant.LIST_GROUP ->
                 WorkspaceListPalette.surface()
+            variant == UiCardVariant.STATUS -> MaterialFlatPalette.sectionSurface()
             else -> MaterialFlatPalette.sectionSurface()
         }
     )
