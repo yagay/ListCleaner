@@ -49,10 +49,13 @@ internal fun AdaptiveOutlinedButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    danger: Boolean = false,
     content: @Composable RowScope.() -> Unit
 ) = OutlinedButton(
     onClick = onClick, modifier = modifier,
     enabled = enabled,
+    colors = if (danger) MaterialActionColors.dangerOutlined() else MaterialActionColors.outlined(),
+    border = if (danger) MaterialActionColors.dangerOutlinedBorder() else MaterialActionColors.outlinedBorder(enabled),
     content = content
 )
 
@@ -95,7 +98,7 @@ internal fun AdaptiveFilterChip(
 @Composable
 internal fun AdaptiveTriStateCheckbox(
     state: ToggleableState,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) = TriStateCheckbox(state = state, onClick = onClick, modifier = modifier, enabled = enabled)
