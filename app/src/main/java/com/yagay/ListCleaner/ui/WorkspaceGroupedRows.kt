@@ -47,7 +47,7 @@ internal fun GroupedComponentSurface(position: ListRowPosition, selected: Boolea
         Column {
             content()
             if (!last) HorizontalDivider(
-                modifier = Modifier.padding(start = MaterialUiTokens.groupedDetailIndent),
+                modifier = Modifier.padding(start = MaterialUiTokens.groupedDetailStartPadding),
                 color = MaterialTheme.colorScheme.outlineVariant
             )
         }
