@@ -64,7 +64,7 @@ required = {
                         "Destination.SETTINGS -> SettingsTabContent(",
                         "state.destination != Destination.SETTINGS"],
     "RuntimePanel.kt": ["UiCardVariant.STATUS"],
-    "WorkspaceAppRow.kt": ["MaterialAppRowBody(", "ListItem(", "ListItemDefaults.colors("],
+    "WorkspaceAppRow.kt": ["MaterialAppRowBody(", "MaterialUiTokens.appRowVertical", "MaterialUiTokens.listRowHeight"],
     "AppScopePicker.kt": ["MaterialAppRowBody(", "MaterialFullScreenDialog("],
     "ScopeScreen.kt": ["MaterialFullScreenDialog(", "MaterialDialogActions("],
     "MainTabs.kt": ["fun RulesTab(", "fun PriorityTab(", "LazyColumn("],
