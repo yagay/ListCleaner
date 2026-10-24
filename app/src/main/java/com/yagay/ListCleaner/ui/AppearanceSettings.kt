@@ -226,7 +226,7 @@ private fun ThemeColorRoleEditor(role: String, title: String) {
                 placeholder = { AdaptiveText("#RRGGBB") },
                 modifier = Modifier.weight(1f)
             )
-            androidx.compose.material3.TextButton(
+            AdaptiveTextButton(
                 onClick = {
                     UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(
                         colorOverrides = UiPreferencesRuntime.current.colorOverrides - role
@@ -234,7 +234,7 @@ private fun ThemeColorRoleEditor(role: String, title: String) {
                 },
                 enabled = currentHex.isNotBlank()
             ) { AdaptiveText(stringResource(R.string.settings_color_reset)) }
-            androidx.compose.material3.TextButton(
+            AdaptiveTextButton(
                 onClick = {
                     UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(
                         colorOverrides = UiPreferencesRuntime.current.colorOverrides + (role to typedHex)
