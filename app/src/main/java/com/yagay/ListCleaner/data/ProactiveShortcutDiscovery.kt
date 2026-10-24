@@ -106,13 +106,6 @@ internal class UnifiedShortcutEngine(private val context: Context) {
         return ScanSnapshot(fresh, previous?.result)
     }
 
-    companion object {
-        @Volatile private var shared: UnifiedShortcutEngine? = null
-        fun get(context: Context): UnifiedShortcutEngine =
-            shared ?: synchronized(this) {
-                shared ?: UnifiedShortcutEngine(context.applicationContext).also { shared = it }
-            }
-    }
 
     fun scan(
         userId: Int,
@@ -217,7 +210,13 @@ internal class UnifiedShortcutEngine(private val context: Context) {
         )
     }
 
-    private companion object {
+    companion object {
+        @Volatile private var shared: UnifiedShortcutEngine? = null
+        fun get(context: Context): UnifiedShortcutEngine =
+            shared ?: synchronized(this) {
+                shared ?: UnifiedShortcutEngine(context.applicationContext).also { shared = it }
+            }
+
         const val MAX_PACKAGES = 48
         const val MAX_CANDIDATES = 512
         val SAFE_PACKAGE = Regex("[A-Za-z][A-Za-z0-9_.]*")
