@@ -75,7 +75,7 @@ class ShortcutSurfaceModule : XposedModule() {
                     val shortcuts = original as? List<*> ?: return@Hooker original
                     if (shortcuts.isEmpty()) return@Hooker original
                     val userId = chain.args.firstOrNull { it is android.os.UserHandle }
-                        ?.let(ReflectionAccess::userId) ?: android.os.UserHandle.myUserId()
+                        ?.let(ReflectionAccess::userId) ?: (ReflectionAccess.userId(Process.myUserHandle()) ?: 0)
                     val policy = policyProvider.snapshot(userId)
                     val selected = policy.selected(IntentKind.SHORTCUT_ITEM)
                     if (selected.isEmpty() || policy.displayMode == DisplayMode.SHOW_ALL) {
