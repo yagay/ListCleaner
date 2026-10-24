@@ -90,7 +90,10 @@ internal fun AppRow(
             // A missing scan result is not evidence that a saved entry was deleted.
             // Keep it informational; only separately verified restrictions are warnings.
             if (group.components.any { it.unavailable }) {
-                WorkspaceAppNote(stringResource(R.string.app_row_not_observed))
+                WorkspaceAppNote(
+                    stringResource(R.string.app_row_not_observed),
+                    informational = true
+                )
             }
             if (group.components.any { it.restricted }) {
                 WorkspaceAppNote(
@@ -181,7 +184,8 @@ internal fun ComponentRow(
                 stringResource(
                     if (item.mayBeDynamicEntry()) R.string.component_potentially_dynamic
                     else R.string.component_unavailable
-                )
+                ),
+                informational = true
             )
         },
         trailing = {
