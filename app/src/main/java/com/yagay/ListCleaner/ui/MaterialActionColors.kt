@@ -28,6 +28,18 @@ internal object UiColorRoles {
     }
 }
 
+/**
+ * Semantic text colors must remain distinct from selected control backgrounds.
+ * In custom-accent themes tertiary is deliberately mapped to primary, so it
+ * cannot be used for non-selected informational status text.
+ */
+internal object MaterialStatusPalette {
+    @Composable
+    fun informationalText(): Color =
+        if (LocalListCleanerDarkTheme.current) Color(0xFF80DFD0)
+        else Color(0xFF006C62)
+}
+
 internal object MaterialSelectionPalette {
     @Composable fun background(): Color = UiColorRoles.resolve("buttonBackground", MaterialTheme.colorScheme.surface)
     @Composable fun outline(): Color = UiColorRoles.resolve("buttonOutline", MaterialTheme.colorScheme.outline)
