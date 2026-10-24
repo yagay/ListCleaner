@@ -218,7 +218,7 @@ internal fun WorkspaceFilterBar(
                 stringResource(R.string.lc_filter_sheet_title),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialSelectionPalette.text()
             )
             // Reuse the category menu's section and choice geometry.
             val appsOpen = openSection == FilterMenuSection.APPS
