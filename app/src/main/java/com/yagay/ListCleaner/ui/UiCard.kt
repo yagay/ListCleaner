@@ -17,6 +17,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
+/**
+ * The same low-contrast material for app cards and their expanded component
+ * rows across Cleanup, Ordering and Root. Only appearance changes: existing
+ * card shapes, paddings, row measures and list structure remain untouched.
+ */
+internal object WorkspaceListPalette {
+    @Composable fun surface() = MaterialTheme.colorScheme.surfaceContainerLowest
+    @Composable fun outline() = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.38f)
+}
+
 /** Four visual purposes, one Material 3 Card implementation. */
 internal enum class UiCardVariant { SECTION, CATEGORY, LIST_GROUP, STATUS }
 
@@ -48,12 +58,25 @@ internal fun UiCard(
             warning -> MaterialTheme.colorScheme.errorContainer
             filterPalette -> MaterialSelectionPalette.categoryBackground()
             variant == UiCardVariant.CATEGORY -> MaterialTheme.colorScheme.surfaceContainer
+            variant == UiCardVariant.LIST_GROUP -> WorkspaceListPalette.surface()
             else -> MaterialTheme.colorScheme.surfaceContainerLow
         }
     )
     val border = if (warning) CardDefaults.outlinedCardBorder()
         else if (filterPalette) BorderStroke(1.dp, MaterialSelectionPalette.outline())
+        else if (variant == UiCardVariant.LIST_GROUP)
+            BorderStroke(0.5.dp, WorkspaceListPalette.outline())
         else null
+    val elevation = if (variant == UiCardVariant.LIST_GROUP)
+        CardDefaults.cardElevation(
+            defaultElevation = 0.dp,
+            pressedElevation = 0.dp,
+            focusedElevation = 0.dp,
+            hoveredElevation = 0.dp,
+            draggedElevation = 0.dp,
+            disabledElevation = 0.dp
+        )
+        else CardDefaults.cardElevation()
     val surfaceModifier = modifier.padding(
         horizontal = horizontalInset,
         vertical = if (variant == UiCardVariant.LIST_GROUP) 2.dp else 0.dp
@@ -65,6 +88,7 @@ internal fun UiCard(
             shape = shape,
             colors = colors,
             border = border,
+            elevation = elevation,
             content = content
         )
     } else {
@@ -73,6 +97,7 @@ internal fun UiCard(
             shape = shape,
             colors = colors,
             border = border,
+            elevation = elevation,
             content = content
         )
     }
@@ -87,7 +112,7 @@ internal fun UiCardDetailRow(
     androidx.compose.material3.ListItem(
         modifier = modifier.fillMaxWidth(),
         colors = androidx.compose.material3.ListItemDefaults.colors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            containerColor = WorkspaceListPalette.surface()
         ),
         headlineContent = {
             Row(
