@@ -18,6 +18,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.yagay.ListCleaner.R
 
 /** Shared interaction contract for rule, priority and Root-component app rows.
@@ -42,10 +43,7 @@ internal fun WorkspaceAppRow(
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     val expandLabel = stringResource(if (expanded) R.string.common_collapse else R.string.common_expand)
-    AdaptiveGroupSurface(
-        Modifier.fillMaxWidth(),
-        position = if (expanded) ListRowPosition.FIRST else ListRowPosition.SINGLE
-    ) {
+    val appContent: @Composable () -> Unit = {
         MaterialAppRowBody(
             icon = icon,
             title = title,
@@ -90,6 +88,14 @@ internal fun WorkspaceAppRow(
             onUnlock = onUnlock
         )
     }
+    if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
+        GroupedApplicationSurface(expanded, appContent)
+    } else {
+        AdaptiveGroupSurface(
+            Modifier.fillMaxWidth(),
+            position = if (expanded) ListRowPosition.FIRST else ListRowPosition.SINGLE
+        ) { appContent() }
+    }
 }
 
 /**
@@ -107,6 +113,39 @@ internal fun MaterialAppRowBody(
     details: @Composable ColumnScope.() -> Unit = {},
     trailing: @Composable RowScope.() -> Unit = {}
 ) {
+    if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
+        Row(
+            modifier = modifier.fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = MaterialUiTokens.groupedHeaderPadding),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                selection()
+                AppIcon(icon, title)
+            }
+            Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                AdaptiveText(title,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontSize = 18.sp, fontWeight = FontWeight.SemiBold
+                    ),
+                    maxLines = UiPreferencesRuntime.current.appTitleLines,
+                    overflow = TextOverflow.Ellipsis
+                )
+                AdaptiveText(subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = UiPreferencesRuntime.current.appSubtitleLines,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (UiPreferencesRuntime.current.showPackageNames && !packageName.isNullOrBlank()) {
+                    AdaptiveText(packageName, style = MaterialTheme.typography.labelSmall)
+                }
+                details()
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) { trailing() }
+        }
+        return
+    }
     androidx.compose.material3.ListItem(
         modifier = modifier.fillMaxWidth(),
         colors = androidx.compose.material3.ListItemDefaults.colors(
