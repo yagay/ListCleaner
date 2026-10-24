@@ -260,7 +260,7 @@ if "heightIn(max = 480.dp)" in filter_popup or "widthIn(min = 270.dp" in filter_
     errors.append("WorkspaceCommon.kt: Filter must use Category-scale dropdown dimensions")
 # Filter and Category now render through the same shared M3 menu primitives.
 # Inspect both call sites and the shared implementation, not only inline rows.
-menu_shared = (UI_DIR / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
+menu_shared = (root / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
 if filter_popup.count("WorkspaceMenuSection(") < 2 or filter_popup.count("WorkspaceMenuChoice(") < 2:
     errors.append("WorkspaceCommon.kt: Filter must reuse shared M3 menu sections and choices")
 if menu_shared.count("AdaptiveDropdownMenuItem(") < 2 or "fun WorkspaceMenuChoice(" not in menu_shared or "fun WorkspaceMenuSection(" not in menu_shared:
