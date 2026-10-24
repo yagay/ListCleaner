@@ -57,21 +57,14 @@ internal fun EntryWorkspaceHome(
                     else R.string.workspace_choose_group
                 )
             )
-            val groups = availableGroups
-            val columns = UiPreferencesRuntime.current.homeColumns
-            groups.chunked(columns).forEach { pair ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
-                    horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.categoryGap)
-                ) {
-                    pair.forEach { group ->
-                        EntryGroupTile(
-                            group = group,
-                            modifier = Modifier.weight(1f).fillMaxHeight(),
-                            onClick = { onGroup(group) }
-                        )
-                    }
-                    repeat(columns - pair.size) { Spacer(Modifier.weight(1f)) }
+            // One continuous, single-column list regardless of legacy grid preferences.
+            Column(Modifier.fillMaxWidth()) {
+                availableGroups.forEach { group ->
+                    EntryGroupTile(
+                        group = group,
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { onGroup(group) }
+                    )
                 }
             }
             if (showUtilities) WorkspaceBrowseAllButton(
@@ -167,7 +160,7 @@ private fun EntryGroupTile(group: EntryGroup, modifier: Modifier, onClick: () ->
         EntryGroup.DESKTOP -> Icons.Rounded.Home
         EntryGroup.ADVANCED -> Icons.Rounded.Tune
     }
-    WorkspaceCategoryCard(
+    WorkspaceCategoryRow(
         icon = icon,
         title = stringResource(group.titleRes()),
         description = stringResource(R.string.workspace_entry_count, group.kinds().size),

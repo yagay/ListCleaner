@@ -119,13 +119,8 @@ internal fun SettingsListControls() {
         ) { UiPreferencesStore.write(context, current.copy(probeDefaultScenario = it)) }
     }
     SettingsArea(stringResource(R.string.lc_settings_list_behaviour_group)) {
-        SettingsChoices(
-            stringResource(R.string.settings_home_columns), current.homeColumns,
-            listOf(
-                1 to stringResource(R.string.settings_one_column),
-                2 to stringResource(R.string.settings_two_columns)
-            )
-        ) { UiPreferencesStore.write(context, current.copy(homeColumns = it)) }
+        // Home categories are always a single list. Preserve the previously
+        // saved homeColumns preference for a future optional card presentation.
         SettingsSwitchRow(
             title = stringResource(R.string.lc_show_package_names),
             checked = current.showPackageNames,

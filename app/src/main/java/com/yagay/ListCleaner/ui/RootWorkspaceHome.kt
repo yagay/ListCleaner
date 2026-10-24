@@ -86,29 +86,23 @@ internal fun RootWorkspaceCategorySection(
             }
         }
         if (warning.isNotBlank()) WorkspaceStatusMessage(warning, isError = false)
-        val columns = UiPreferencesRuntime.current.homeColumns
-        kinds.chunked(columns).forEach { pair ->
-            Row(
-                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
-                horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.categoryGap)
-            ) {
-                pair.forEach { kind ->
-                    WorkspaceCategoryCard(
-                        icon = when (kind) {
-                            CleanupKind.LAUNCHER -> Icons.Rounded.Home
-                            CleanupKind.TILE -> Icons.Rounded.GridView
-                            CleanupKind.SHORTCUT -> Icons.Rounded.Link
-                            CleanupKind.WIDGET -> Icons.Rounded.Widgets
-                        },
-                        title = stringResource(kind.titleRes()),
-                        description = if (scanned) stringResource(
-                            R.string.root_category_count, counts[kind] ?: 0
-                        ) else stringResource(R.string.root_category_open_to_scan),
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                        onClick = { onChoose(kind) }
-                    )
-                }
-                repeat(columns - pair.size) { Spacer(Modifier.weight(1f)) }
+        // Root categories share the exact same full-width list renderer as Entry.
+        Column(Modifier.fillMaxWidth()) {
+            kinds.forEach { kind ->
+                WorkspaceCategoryRow(
+                    icon = when (kind) {
+                        CleanupKind.LAUNCHER -> Icons.Rounded.Home
+                        CleanupKind.TILE -> Icons.Rounded.GridView
+                        CleanupKind.SHORTCUT -> Icons.Rounded.Link
+                        CleanupKind.WIDGET -> Icons.Rounded.Widgets
+                    },
+                    title = stringResource(kind.titleRes()),
+                    description = if (scanned) stringResource(
+                        R.string.root_category_count, counts[kind] ?: 0
+                    ) else stringResource(R.string.root_category_open_to_scan),
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { onChoose(kind) }
+                )
             }
         }
         WorkspaceBrowseAllButton(

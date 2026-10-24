@@ -32,77 +32,28 @@ import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.AppTypeFilter
 
-/**
- * Home categories are *cards*, not list rows. Material 3 ListItem reserves
- * horizontal room for its leading/trailing slots, leaving only a few characters
- * for a headline inside a two-column grid. In a card, put those actions above
- * full-width text so long translated titles never create mismatched row heights.
- *
- * All geometry is shared by Entry Cleanup and Root Component Cleanup.
- */
+/** Entry and Root category rows always use the shared flat list presentation. */
 @Composable
-internal fun WorkspaceCategoryCard(
+internal fun WorkspaceCategoryRow(
     icon: ImageVector,
     title: String,
     description: String?,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    UiCard(
-        modifier = modifier.fillMaxHeight(),
-        variant = UiCardVariant.CATEGORY,
-        onClick = onClick
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth()
-                .heightIn(min = MaterialUiTokens.categoryHeight)
-                .padding(
-                    horizontal = MaterialUiTokens.categoryPadding,
-                    vertical = MaterialUiTokens.categoryPadding
-                ),
-            verticalArrangement = Arrangement.spacedBy(MaterialUiTokens.categoryContentGap)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                AdaptiveIcon(
-                    icon, null, Modifier.size(24.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(Modifier.weight(1f))
-                AdaptiveIcon(
-                    Icons.Rounded.ChevronRight, null, Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            AdaptiveText(
-                title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Medium,
-                minLines = 1,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-            AdaptiveText(
-                description.orEmpty(),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
+    FlatCategoryRow(icon, title, description, modifier, onClick)
 }
 
-/** Identical action in both cleanup groups, using shared Material 3 rendering. */
+/** Browse-all is a navigation row, never a visually distinct oversized button. */
 @Composable
 internal fun WorkspaceBrowseAllButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    AdaptiveOutlinedButton(onClick = onClick, modifier = modifier.fillMaxWidth()) {
-        AdaptiveIcon(Icons.Rounded.Apps, null, Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        AdaptiveText(label, maxLines = 2, overflow = TextOverflow.Ellipsis)
-    }
+    FlatCategoryRow(
+        icon = Icons.Rounded.Apps,
+        title = label,
+        description = null,
+        modifier = modifier.fillMaxWidth(),
+        onClick = onClick
+    )
 }
 
 /** Used by both rule and Root editors; no duplicate back-header implementations. */

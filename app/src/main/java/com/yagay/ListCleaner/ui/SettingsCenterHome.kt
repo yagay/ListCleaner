@@ -52,45 +52,14 @@ internal fun SettingsCenterHome(onSelect: (SettingsSection) -> Unit) {
     MaterialPageColumn {
         SettingsSection.entries.chunked(2).forEachIndexed { groupIndex, sections ->
             Column(verticalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap)) {
-                AdaptiveText(stringResource(headings[groupIndex]),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                sections.forEachIndexed { index, section ->
-                    val position = if (index == 0) ListRowPosition.FIRST else ListRowPosition.LAST
-                    UiCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        variant = UiCardVariant.LIST_GROUP,
-                        position = position,
-                        horizontalInset = 0.dp,
-                        onClick = { onSelect(section) }
-                    ) {
-                        androidx.compose.material3.ListItem(
-                            colors = androidx.compose.material3.ListItemDefaults.colors(
-                                containerColor = androidx.compose.ui.graphics.Color.Transparent
-                            ),
-                            leadingContent = {
-                                AdaptiveIcon(section.icon, null, Modifier.size(24.dp),
-                                    tint = MaterialTheme.colorScheme.primary)
-                            },
-                            headlineContent = {
-                                AdaptiveText(
-                                    stringResource(section.titleRes),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            },
-                            supportingContent = {
-                                AdaptiveText(
-                                    stringResource(section.descriptionRes),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            },
-                            trailingContent = { AdaptiveIcon(Icons.Rounded.ChevronRight, null) }
+                FlatSectionHeader(stringResource(headings[groupIndex]))
+                Column(Modifier.fillMaxWidth()) {
+                    sections.forEach { section ->
+                        FlatCategoryRow(
+                            icon = section.icon,
+                            title = stringResource(section.titleRes),
+                            description = stringResource(section.descriptionRes),
+                            onClick = { onSelect(section) }
                         )
                     }
                 }

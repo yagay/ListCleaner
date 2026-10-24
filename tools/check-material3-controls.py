@@ -58,7 +58,7 @@ required = {
                    "UiCardVariant.LIST_GROUP", "UiCardVariant.STATUS",
                    "Surface(", "RectangleShape", "MaterialFlatPalette.sectionSurface()",
                    "onClick = onClick", "UiCardDetailRow(", "ListItem("],
-    "MaterialDesignSystem.kt": ["UiCard(", "UiCardVariant.SECTION", "val cardShape get() ="],
+    "MaterialDesignSystem.kt": ["MaterialSectionCard(", "FlatRowSurface(", "val cardShape get() ="],
     "WorkspaceLayout.kt": ["enum class ListRowPosition", "MaterialTheme.typography.titleMedium"],
     "MainControls.kt": ["UiCardVariant.STATUS", "warning = true"],
     "MainActivity.kt": ["NavigationBarItem(", "colors = MaterialActionColors.navigation()",
@@ -78,7 +78,7 @@ required = {
                               "ScopeDialog("],
     "SettingsCenterHome.kt": ["enum class SettingsSection(",
                               "SettingsSection.entries.chunked(2)",
-                              "UiCardVariant.LIST_GROUP", "onSelect(section)",
+                              "FlatCategoryRow(", "onSelect(section)",
                               "APPEARANCE(R.string.settings_appearance_section",
                               "LISTS(R.string.settings_list_section",
                               "SCANNING(R.string.settings_scan_section",
@@ -94,7 +94,7 @@ required = {
     "AppearanceSettings.kt": ["fun SettingsAppearanceControls(", "R.string.ui_color_mode_title", "UiColorMode.entries.map", "onSelected = onColorModeChange",
                               "fun SettingsLanguageControls()", "settings_icon_size",
                               "lc_layout_spacing"],
-    "ListSettings.kt": ["fun SettingsListControls()", "settings_home_columns",
+    "ListSettings.kt": ["fun SettingsListControls()",
                         "settings_remember_filters", "settings_help_expanded"],
     "ScanSettings.kt": ["fun SettingsScanControls(", "settings_scan_mode",
                        "lc_proactive_scan_mode", "lc_scan_all_now"],
@@ -109,8 +109,8 @@ required = {
     "ComponentScanRefreshPolicy.kt": ["scanMode: UiScanMode", "freshnessMs: Long"],
     "CandidateGrouping.kt": ["sortMode: UiAppSort", "UiAppSort.SELECTED_FIRST", "UiAppSort.NAME",
                              "UiAppSort.PACKAGE"],
-    "EntryWorkspaceHome.kt": ["UiPreferencesRuntime.current.homeColumns"],
-    "RootWorkspaceHome.kt": ["UiPreferencesRuntime.current.homeColumns"],
+    "EntryWorkspaceHome.kt": ["availableGroups.forEach", "WorkspaceCategoryRow("],
+    "RootWorkspaceHome.kt": ["kinds.forEach", "WorkspaceCategoryRow("],
     "MainViewModel.kt": ["SETTINGS(Icons.Rounded.Settings)"],
     "TextResources.kt": ["Destination.SETTINGS -> R.string.nav_settings"],
     "EntryWorkspaceHome.kt": ["MaterialPageColumn {"],
@@ -129,25 +129,28 @@ required = {
     "BrowserHostFilterRow.kt": ["fun BrowserHostFilterMenu(", "WorkspaceControlLabel(",
                                  "CompactCategoryButton("],
 }
-# The flat visual system may change colors/shapes, but must never change
-# the existing list/group geometry or replace selectable Material 3 rows.
+# Unified List First renderer across Cleanup, Ordering, Settings and details.
 flat_visual_checks = {
-    "MaterialActionColors.kt": ("object MaterialFlatPalette", "fun selectedSurface()",
-                                  "MaterialSelectionPalette.activeBackground()"),
-    "UiCard.kt": ("variant == UiCardVariant.LIST_GROUP || variant == UiCardVariant.CATEGORY",
-                  "horizontal = horizontalInset", "drawWithContent",
-                  "shape = RectangleShape", "Column(content = content)"),
-    "WorkspaceGroupedRows.kt": ("WorkspaceListRowSurface(",
-                                "ContinuousApplicationSurface(",
-                                "ContinuousDetailSurface(",
-                                "showSeparator = false",
-                                "WorkspaceListPalette.surface()"),
+    "FlatListDesign.kt": ("fun FlatRowSurface(", "fun FlatCategoryRow(",
+                          "fun FlatSectionHeader(", "drawWithContent", "ListItem(",
+                          "RectangleShape", "onClick = onClick"),
+    "MaterialActionColors.kt": ("object MaterialFlatPalette",
+                                 "fun detailSurface()", "fun selectedSurface()"),
+    "MaterialDesignSystem.kt": ("FlatRowSurface(", "fun MaterialSettingsRow(",
+                                "fun MaterialSectionCard(", "shadowElevation = 0.dp"),
+    "WorkspaceGroupedRows.kt": ("FlatRowSurface(", "ContinuousApplicationSurface(",
+                                 "ContinuousDetailSurface(", "GroupedComponentSurface("),
     "WorkspaceAppRow.kt": ("GroupedApplicationSurface(expanded, appContent)",
-                           "ContinuousApplicationSurface { appContent() }",
-                           "WorkspaceListPalette.surface()"),
-    "WorkspaceCommon.kt": ("WorkspaceDetailContainer(position, selected = false)",
-                           "WorkspaceDetailContainer(position, checked, contentBlock)",
-                           "UiCardDetailRow(modifier = clickModifier, content = rowContents)"),
+                            "ContinuousApplicationSurface { appContent() }",
+                            "MaterialAppRowBody("),
+    "WorkspaceCommon.kt": ("WorkspaceCategoryRow(", "FlatCategoryRow(",
+                            "WorkspaceDetailContainer(position, selected = false)",
+                            "WorkspaceDetailContainer(position, checked, contentBlock)",
+                            "UiCardDetailRow(modifier = clickModifier, content = rowContents)"),
+    "SettingsWidgets.kt": ("FlatSectionHeader(title)", "MaterialSectionCard { content() }"),
+    "SettingsCenterHome.kt": ("FlatCategoryRow(", "onSelect(section)"),
+    "EntryWorkspaceHome.kt": ("availableGroups.forEach", "EntryGroupTile("),
+    "RootWorkspaceHome.kt": ("kinds.forEach", "WorkspaceCategoryRow("),
     "WorkspaceCategorySelector.kt": ("filter()", "Box(Modifier.weight(1f)) { category() }",
                                       "MaterialFlatPalette.selectedSurface()"),
 }
@@ -155,16 +158,24 @@ for filename, symbols in flat_visual_checks.items():
     content = (root / filename).read_text(encoding="utf-8")
     for symbol in symbols:
         if symbol not in content:
-            errors.append(f"{filename}: flat visual contract/unchanged geometry missing: {symbol}")
+            errors.append(f"{filename}: missing shared List First visual contract: {symbol}")
 
-# Ensure the continuous app-header refactor does not change expanded details.
-component_rows = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
+# Expansion controls and Root/LSPosed actions must not be dropped.
+details = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
 for symbol in ("WorkspaceReadOnlyDetailRow(", "WorkspaceDetailRow(",
                "UiCardDetailRow(modifier = clickModifier, content = rowContents)",
                "GroupedComponentSurface(position, selected, content)",
-               "ContinuousDetailSurface(content)"):
-    if symbol not in component_rows:
-        errors.append(f"WorkspaceCommon.kt: expanded details contract missing: {symbol}")
+               "ContinuousDetailSurface(content)", "BulkLockContextMenu("):
+    if symbol not in details:
+        errors.append(f"WorkspaceCommon.kt: expanded component contract missing: {symbol}")
+
+# Legacy home columns remain persisted for upgrades, but are not used by List First.
+for filename in ("EntryWorkspaceHome.kt", "RootWorkspaceHome.kt"):
+    content = (root / filename).read_text(encoding="utf-8")
+    if "chunked(columns)" in content or "UiPreferencesRuntime.current.homeColumns" in content:
+        errors.append(f"{filename}: old category grid reintroduced")
+if "settings_home_columns" in (root / "ListSettings.kt").read_text(encoding="utf-8"):
+    errors.append("ListSettings.kt: irrelevant legacy grid control is still visible")
 
 # Reject Material Card reintroduction in the shared renderer.
 cardless_source = (root / "UiCard.kt").read_text(encoding="utf-8")
@@ -174,8 +185,9 @@ if direct_card.search(cardless_source):
 # Never regress back to bespoke paints for list rows and selection surfaces.
 native_checks = {
     "MainControls.kt": ("OutlinedTextField(",),
-    "SettingsCenterHome.kt": ("ListItem(",),
-    "WorkspaceCommon.kt": ("WorkspaceCategoryCard(", "UiCard(", "minLines = 1", "maxLines = 2"),
+    "FlatListDesign.kt": ("ListItem(",),
+    "SettingsCenterHome.kt": ("FlatCategoryRow(",),
+    "WorkspaceCommon.kt": ("WorkspaceCategoryRow(", "FlatCategoryRow("),
     "EntryWorkspaceHome.kt": ("ListItem(",),
 }
 for filename, symbols in native_checks.items():
@@ -187,25 +199,11 @@ if "BasicTextField(" in (root / "MainControls.kt").read_text(encoding="utf-8"):
     errors.append("MainControls.kt: obsolete custom-drawn search input")
 if "ComponentSelectionMark(" in (root / "AppListRows.kt").read_text(encoding="utf-8"):
     errors.append("AppListRows.kt: obsolete hand-drawn selection circle")
-# Grid cards are Material 3 Card surfaces, not ListItem rows with 3 horizontal slots.
-workspace_cards = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
-card_source = workspace_cards.split("internal fun WorkspaceCategoryCard(", 1)[1].split(
-    "/** Identical action in both cleanup groups", 1
-)[0]
-if "ListItem(" in card_source:
-    errors.append("WorkspaceCommon.kt: M3 ListItem crowds two-column home card; use M3 Card content")
-if "minLines = 2" in card_source:
-    errors.append("WorkspaceCommon.kt: home card titles must not reserve a blank second line")
-tokens = (root / "MaterialDesignSystem.kt").read_text(encoding="utf-8")
-for expected in ("val categoryHeight get() = (88f * density).dp",
-                 "val categoryPadding get() = (8f * density).dp",
-                 "val categoryContentGap get() = (3f * density).dp"):
-    if expected not in tokens:
-        errors.append(f"MaterialDesignSystem.kt: compact home-card token missing: {expected}")
-for page in ("EntryWorkspaceHome.kt", "RootWorkspaceHome.kt"):
-    content = (root / page).read_text(encoding="utf-8")
-    if "height(IntrinsicSize.Max)" not in content or "fillMaxHeight()" not in content:
-        errors.append(f"{page}: home grid must align card heights within each row")
+# A category row must retain multiline names and minimum touch height.
+category_source = (root / "FlatListDesign.kt").read_text(encoding="utf-8")
+for expected in ("maxLines = 2", "heightIn(min = 56.dp)", "FlatRowSurface("):
+    if expected not in category_source:
+        errors.append(f"FlatListDesign.kt: category row invariant missing: {expected}")
 
 
 for filename, symbols in required.items():
@@ -351,4 +349,4 @@ for expected in ("appTypeFilter != AppTypeFilter.ALL", "viewFilter != UiFilter.A
 if errors:
     print("\n".join(errors), file=sys.stderr)
     sys.exit(1)
-print("Material 3 shared navigation, selected-state palette, layouts, cards and app rows OK")
+print("Material 3 List First rows, navigation, details and settings OK")

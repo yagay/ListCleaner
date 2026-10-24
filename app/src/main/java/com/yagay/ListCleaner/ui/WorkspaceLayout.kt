@@ -13,10 +13,7 @@ internal enum class ListRowPosition { SINGLE, FIRST, MIDDLE, LAST }
 
 @Composable
 internal fun PageSectionTitle(title: String) {
-    AdaptiveText(
-        title, style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.SemiBold, maxLines = 2
-    )
+    FlatSectionHeader(title)
 }
 
 @Composable

@@ -33,7 +33,7 @@ internal fun AdaptiveAlertDialog(
         title = title,
         text = text,
         shape = RoundedCornerShape(MaterialUiTokens.listCardRadius),
-        containerColor = MaterialFlatPalette.sectionSurface(),
+        containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
         properties = properties
     )

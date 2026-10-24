@@ -50,6 +50,7 @@ internal object MaterialFlatPalette {
     // retain the current Material theme highlight.
     @Composable fun surface(): Color = MaterialTheme.colorScheme.surface
     @Composable fun sectionSurface(): Color = MaterialTheme.colorScheme.surfaceContainerLow
+    @Composable fun detailSurface(): Color = MaterialTheme.colorScheme.surfaceContainerLow
     @Composable fun outline(): Color = MaterialTheme.colorScheme.outlineVariant.copy(
         alpha = if (LocalListCleanerDarkTheme.current) 0.42f else 0.30f
     )

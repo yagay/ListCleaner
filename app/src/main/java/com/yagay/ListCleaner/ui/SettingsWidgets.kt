@@ -33,16 +33,11 @@ import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.R
 import kotlin.math.roundToInt
 
-/** All six Settings areas share the same section, card and spacing hierarchy. */
+/** All six Settings areas share a flat section title and continuous setting rows. */
 @Composable
 internal fun SettingsArea(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap)) {
-        AdaptiveText(
-            title,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        FlatSectionHeader(title)
         MaterialSectionCard { content() }
     }
 }

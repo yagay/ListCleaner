@@ -12,7 +12,9 @@ import kotlinx.coroutines.flow.asStateFlow
 /** Local display preferences only. Never included in the remote Hook/Root configuration. */
 internal enum class UiDensity { COMPACT, STANDARD, COMFORTABLE }
 internal enum class UiListStyle { ORIGINAL, GROUPED }
-/** Page arrangement only; both modes share the same rules, Root data, Material3 controls and scanner. */
+/** Persisted names for compatibility: CATEGORY_CARDS now renders a category LIST.
+ * CLASSIC_LIST opens the editor list directly. Neither uses card layouts.
+ */
 internal enum class UiHomeLayout { CATEGORY_CARDS, CLASSIC_LIST }
 internal enum class UiAccent { DYNAMIC, BLUE, GREEN, PURPLE, CUSTOM }
 internal enum class UiStartPage { CLEANUP, ORDERING, SETTINGS }

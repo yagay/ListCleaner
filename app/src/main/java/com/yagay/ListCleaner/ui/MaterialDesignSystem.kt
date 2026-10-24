@@ -104,25 +104,23 @@ internal fun MaterialPageColumn(
     )
 }
 
-/** Standard page section surface with consistent padding and child spacing. */
+/** Flat settings section: a semantic grouping, not a second nested card. */
 @Composable
 internal fun MaterialSectionCard(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    UiCard(modifier = modifier.fillMaxWidth(), variant = UiCardVariant.SECTION) {
-        Column(
-            Modifier.fillMaxWidth().padding(MaterialUiTokens.cardPadding),
-            verticalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap),
-            content = content
-        )
-    }
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap),
+        content = content
+    )
 }
 
 /**
- * One settings-row geometry: no nested ListItem surface or second 16dp inset.
- * Every setting lives on its section card's background; width and touch
- * target are consistent for choices, switches, links and informational rows.
+ * One settings-row geometry: no nested Card and no duplicate inner insets.
+ * Every setting now has a continuous flat-row surface and an inset divider.
+ * Choices, switches, links and informational rows share hit targets and type.
  */
 @Composable
 internal fun MaterialSettingsRow(
@@ -131,10 +129,13 @@ internal fun MaterialSettingsRow(
     onClick: (() -> Unit)? = null,
     trailing: @Composable RowScope.() -> Unit = {}
 ) {
+    FlatRowSurface(
+        onClick = onClick,
+        dividerInset = 0.dp
+    ) {
     Row(
         modifier = Modifier.fillMaxWidth()
             .heightIn(min = MaterialUiTokens.settingsRowHeight)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(vertical = MaterialUiTokens.detailVertical),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.settingsRowGap)
@@ -157,6 +158,7 @@ internal fun MaterialSettingsRow(
             horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.settingsRowGap),
             content = trailing
         )
+    }
     }
 }
 
@@ -192,7 +194,7 @@ internal fun MaterialDialogActions(
     dismissButton: @Composable () -> Unit,
     confirmButton: @Composable () -> Unit
 ) {
-    Surface(shadowElevation = 2.dp) {
+    Surface(shadowElevation = 0.dp, color = MaterialTheme.colorScheme.surface) {
         Row(
             Modifier.fillMaxWidth().navigationBarsPadding()
                 .padding(horizontal = MaterialUiTokens.pageHorizontal),

@@ -74,7 +74,7 @@ internal fun UiCard(
     }
 }
 
-/** Shared detail-row surface inside a list-group card, read-only or selectable. */
+/** Shared selectable detail-row body; outer FlatRowSurface owns the background. */
 @Composable
 internal fun UiCardDetailRow(
     modifier: Modifier = Modifier,
@@ -83,7 +83,7 @@ internal fun UiCardDetailRow(
     androidx.compose.material3.ListItem(
         modifier = modifier.fillMaxWidth(),
         colors = androidx.compose.material3.ListItemDefaults.colors(
-            containerColor = WorkspaceListPalette.surface()
+            containerColor = MaterialFlatPalette.detailSurface()
         ),
         headlineContent = {
             Row(
