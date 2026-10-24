@@ -345,10 +345,12 @@ fun RulesTab(
                     vm.deselectRules(remove, state.filter, openPreset)
                 }
             }
-            // The repository selection calls are synchronous. End the edit session
-            // after dispatching them so Apply/Discard closes immediately.
-            selectionDraft.discard()
-            true
+            // Shortcut Item keys are synthetic; verify their canonical persisted
+            // rule IDs before clearing the draft, instead of silently losing ticks.
+            val saved = state.filter != IntentKind.SHORTCUT_ITEM ||
+                vm.entryRulesMatch(changes)
+            if (saved) selectionDraft.discard()
+            saved
         }
     RegisterPendingNavigation(
         pendingNavigation, selectionDraft, selectionDraft.count,
