@@ -70,7 +70,7 @@ class RootComponentCatalog(
     private val componentDiscoveryProtocol: () -> Int = { 0 },
 ) {
     private val pm = context.packageManager
-    private val shortcutDiscovery = ShortcutDiscoveryBridge(LauncherShortcutQueryTransport(context))
+    private val shortcutDiscovery = UnifiedShortcutEngine(context)
     @Volatile internal var lastShortcutDiscovery = ShortcutDiscoveryResult(ShortcutDiscoveryStatus.SERVICE_UNAVAILABLE)
         private set
     private val user = AndroidUid.userId(Process.myUid())
@@ -226,7 +226,7 @@ class RootComponentCatalog(
     fun scan(): RootComponentScan {
         // Independently discover published shortcuts; never treat IDs as components.
         // Permission denial must not abort the existing manifest/config fallback.
-        lastShortcutDiscovery = shortcutDiscovery.scan()
+        lastShortcutDiscovery = shortcutDiscovery.scanPublished()
         val errors = mutableListOf<String>()
         val appEnabledCache = mutableMapOf<String, Boolean?>()
         val items = CleanupKind.entries.flatMap { kind ->
