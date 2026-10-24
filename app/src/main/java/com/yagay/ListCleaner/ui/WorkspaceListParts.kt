@@ -76,14 +76,18 @@ internal fun WorkspaceDetailHeading(
         AdaptiveText(
             title,
             modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
+            style = if (UiPreferencesRuntime.current.componentGrouping == UiComponentGrouping.CONNECTED)
+                MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                else MaterialTheme.typography.bodyLarge,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
         AdaptiveText(
             kind,
             modifier = Modifier.widthIn(max = MaterialUiTokens.detailKindMaxWidth),
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+            style = if (UiPreferencesRuntime.current.componentGrouping == UiComponentGrouping.CONNECTED)
+                MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp)
+                else MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -100,13 +104,15 @@ internal fun WorkspaceDetailCaption(
 ) {
     AdaptiveText(
         text,
-        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+        style = if (UiPreferencesRuntime.current.componentGrouping == UiComponentGrouping.CONNECTED)
+            MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp)
+            else MaterialTheme.typography.labelSmall,
         color = when {
             warning -> MaterialTheme.colorScheme.error
             emphasized -> MaterialTheme.colorScheme.primary
             else -> MaterialTheme.colorScheme.onSurfaceVariant
         },
-        // Component class names must be visible in full even in compact mode.
+        // Full technical names are never truncated.
     )
 }
 
