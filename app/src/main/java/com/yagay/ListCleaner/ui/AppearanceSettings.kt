@@ -110,41 +110,63 @@ internal fun SettingsAppearanceControls(
             )
         ) { UiPreferencesStore.write(context, current.copy(density = it)) }
     }
+    var editingDarkPalette by remember { mutableStateOf(false) }
     SettingsArea(stringResource(R.string.settings_color_details)) {
+        androidx.compose.material3.SingleChoiceSegmentedButtonRow {
+            androidx.compose.material3.SegmentedButton(
+                selected = !editingDarkPalette,
+                onClick = { editingDarkPalette = false },
+                shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(0, 2)
+            ) { AdaptiveText(stringResource(R.string.settings_colors_light)) }
+            androidx.compose.material3.SegmentedButton(
+                selected = editingDarkPalette,
+                onClick = { editingDarkPalette = true },
+                shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(1, 2)
+            ) { AdaptiveText(stringResource(R.string.settings_colors_dark)) }
+        }
             ThemeColorRoleEditor(
                 role = "buttonBackground",
+                dark = editingDarkPalette,
                 title = stringResource(R.string.color_role_buttonBackground)
             )
             ThemeColorRoleEditor(
                 role = "buttonText",
+                dark = editingDarkPalette,
                 title = stringResource(R.string.color_role_buttonText)
             )
             ThemeColorRoleEditor(
                 role = "buttonOutline",
+                dark = editingDarkPalette,
                 title = stringResource(R.string.color_role_buttonOutline)
             )
             ThemeColorRoleEditor(
                 role = "selectedBackground",
+                dark = editingDarkPalette,
                 title = stringResource(R.string.color_role_selectedBackground)
             )
             ThemeColorRoleEditor(
                 role = "selectedText",
+                dark = editingDarkPalette,
                 title = stringResource(R.string.color_role_selectedText)
             )
             ThemeColorRoleEditor(
                 role = "categoryBackground",
+                dark = editingDarkPalette,
                 title = stringResource(R.string.color_role_categoryBackground)
             )
             ThemeColorRoleEditor(
                 role = "filterBackground",
+                dark = editingDarkPalette,
                 title = stringResource(R.string.color_role_filterBackground)
             )
             ThemeColorRoleEditor(
                 role = "navigationBackground",
+                dark = editingDarkPalette,
                 title = stringResource(R.string.color_role_navigationBackground)
             )
             ThemeColorRoleEditor(
                 role = "navigationText",
+                dark = editingDarkPalette,
                 title = stringResource(R.string.color_role_navigationText)
             )
     }
@@ -203,45 +225,74 @@ internal fun SettingsLanguageControls() {
 }
 
 
+
 @Composable
-private fun ThemeColorRoleEditor(role: String, title: String) {
+private fun ThemeColorRoleEditor(role: String, dark: Boolean, title: String) {
     val context = LocalContext.current
-    val preferences = UiPreferencesRuntime.current
-    val currentHex = preferences.colorOverrides[role].orEmpty()
-    var typedHex by remember(role, currentHex) { mutableStateOf(currentHex) }
-    val valid = typedHex.matches(Regex("#[0-9a-fA-F]{6}"))
-    androidx.compose.foundation.layout.Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+    val key = if (dark) "dark_$role" else role
+    val saved = UiPreferencesRuntime.current.colorOverrides[key]
+    var expanded by remember { mutableStateOf(false) }
+    val defaultHex = saved ?: "#808080"
+    var red by remember(key, saved) { mutableStateOf(android.graphics.Color.red(android.graphics.Color.parseColor(defaultHex)).toFloat()) }
+    var green by remember(key, saved) { mutableStateOf(android.graphics.Color.green(android.graphics.Color.parseColor(defaultHex)).toFloat()) }
+    var blue by remember(key, saved) { mutableStateOf(android.graphics.Color.blue(android.graphics.Color.parseColor(defaultHex)).toFloat()) }
+    val colorHex = "#%02X%02X%02X".format(red.toInt(), green.toInt(), blue.toInt())
+    MaterialSettingsRow(
+        title = title,
+        supportingText = saved ?: stringResource(R.string.settings_color_default),
+        onClick = { expanded = true }
     ) {
-        AdaptiveText(title, style = MaterialTheme.typography.labelMedium)
-        androidx.compose.foundation.layout.Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            androidx.compose.material3.OutlinedTextField(
-                value = typedHex,
-                onValueChange = { if (it.length <= 7) typedHex = it },
-                singleLine = true,
-                placeholder = { AdaptiveText("#RRGGBB") },
-                modifier = Modifier.weight(1f)
-            )
-            AdaptiveTextButton(
-                onClick = {
+        androidx.compose.material3.Surface(
+            color = androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor(defaultHex)),
+            shape = MaterialTheme.shapes.small,
+            modifier = Modifier.size(36.dp)
+        ) {}
+    }
+    if (expanded) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { expanded = false },
+            title = { AdaptiveText(title) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    androidx.compose.material3.Surface(
+                        color = androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor(colorHex)),
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.fillMaxWidth().height(56.dp)
+                    ) {}
+                    AdaptiveText(colorHex)
+                    listOf(
+                        Triple(stringResource(R.string.settings_color_red), red, { v: Float -> red = v }),
+                        Triple(stringResource(R.string.settings_color_green), green, { v: Float -> green = v }),
+                        Triple(stringResource(R.string.settings_color_blue_channel), blue, { v: Float -> blue = v })
+                    ).forEach { (label, value, setter) ->
+                        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            AdaptiveText(label, modifier = Modifier.width(52.dp))
+                            Slider(value = value, onValueChange = setter, valueRange = 0f..255f, modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                AdaptiveTextButton(onClick = {
                     UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(
-                        colorOverrides = UiPreferencesRuntime.current.colorOverrides - role
+                        colorOverrides = UiPreferencesRuntime.current.colorOverrides + (key to colorHex)
                     ))
-                },
-                enabled = currentHex.isNotBlank()
-            ) { AdaptiveText(stringResource(R.string.settings_color_reset)) }
-            AdaptiveTextButton(
-                onClick = {
-                    UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(
-                        colorOverrides = UiPreferencesRuntime.current.colorOverrides + (role to typedHex)
-                    ))
-                },
-                enabled = valid && typedHex != currentHex
-            ) { AdaptiveText(stringResource(R.string.settings_custom_color_apply)) }
-        }
+                    expanded = false
+                }) { AdaptiveText(stringResource(R.string.settings_custom_color_apply)) }
+            },
+            dismissButton = {
+                Row {
+                    AdaptiveTextButton(onClick = {
+                        UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(
+                            colorOverrides = UiPreferencesRuntime.current.colorOverrides - key
+                        ))
+                        expanded = false
+                    }) { AdaptiveText(stringResource(R.string.settings_color_reset)) }
+                    AdaptiveTextButton(onClick = { expanded = false }) {
+                        AdaptiveText(stringResource(R.string.common_cancel))
+                    }
+                }
+            }
+        )
     }
 }
