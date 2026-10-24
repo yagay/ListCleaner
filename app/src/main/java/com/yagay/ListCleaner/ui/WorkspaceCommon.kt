@@ -508,6 +508,7 @@ internal fun WorkspaceDetailRow(
     trailing: @Composable RowScope.() -> Unit = {}
 ) {
     var lockMenuExpanded by remember { mutableStateOf(false) }
+    val connected = UiPreferencesRuntime.current.componentGrouping == UiComponentGrouping.CONNECTED
     AdaptiveGroupSurface(Modifier.fillMaxWidth(), position = position) {
         UiCardDetailRow(
             modifier = Modifier.combinedClickable(
@@ -518,9 +519,9 @@ internal fun WorkspaceDetailRow(
         ) {
             AdaptiveCheckbox(
                 checked = checked, enabled = enabled, onCheckedChange = null,
-                modifier = Modifier.padding(horizontal = 8.dp)
+                modifier = Modifier.padding(horizontal = if (connected) MaterialUiTokens.connectedDetailHorizontal else 8.dp)
             )
-            Column(Modifier.weight(1f).padding(vertical = 4.dp)) { content() }
+            Column(Modifier.weight(1f).padding(vertical = if (connected) MaterialUiTokens.connectedDetailVertical else 4.dp)) { content() }
             if (locked) AdaptiveIcon(
                 Icons.Rounded.Lock, stringResource(R.string.bulk_lock_full),
                 modifier = Modifier.padding(horizontal = 8.dp).size(18.dp)
