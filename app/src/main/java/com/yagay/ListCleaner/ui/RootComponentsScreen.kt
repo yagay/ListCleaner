@@ -525,8 +525,7 @@ fun RootComponentsScreen(
                             )
                         }
                         AdaptiveText(
-                            item.component.flattenToShortString(),
-                            maxLines = 2, overflow = TextOverflow.Ellipsis,
+                            item.component.flattenToString(),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
