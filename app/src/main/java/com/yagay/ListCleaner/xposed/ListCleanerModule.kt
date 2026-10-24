@@ -1044,7 +1044,10 @@ class ListCleanerModule : XposedModule() {
                 .mapNotNull { clips.getItemAt(it).uri }
                 .firstOrNull { it.scheme == "content" || it.scheme == "file" }
         }
-        val openUri = data ?: clipUri
+        val openUri = if (kind == IntentKind.OPEN && clipUri != null &&
+            matchOpenPreset(kind, resolvedType, clipUri.scheme, clipUri.lastPathSegment ?: clipUri.path) != null &&
+            (data == null || matchOpenPreset(kind, resolvedType, data.scheme, data.lastPathSegment ?: data.path) == null)
+        ) clipUri else data ?: clipUri
         val openPath = openUri?.lastPathSegment ?: openUri?.path
 
         if (privilegedSystem) {
