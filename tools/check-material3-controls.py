@@ -226,14 +226,18 @@ for expected in ("DropdownMenu(", "UiCard(", "EntryCategoryPicker(",
         errors.append(f"WorkspaceCategorySelector.kt: anchored category picker regression: {expected}")
 if "ModalBottomSheet(" in category or "LazyRow(" in category:
     errors.append("WorkspaceCategorySelector.kt: category selection must stay in an anchored popup")
-picker_body = category.split("private fun WorkspaceCategoryPicker(", 1)[1].split(
-    "@Composable\\nprivate fun CategoryChoice", 1
+picker_body = category.split("internal fun WorkspacePickerButton(", 1)[1].split(
+    "/**\n * Anchored Material 3 category menu", 1
 )[0]
 for expected in ("variant = UiCardVariant.CATEGORY", "heightIn(min = 48.dp)",
                  "verticalAlignment = Alignment.CenterVertically",
-                 "lc_category_picker_current", "FontWeight.SemiBold"):
+                 "FontWeight.SemiBold"):
     if expected not in picker_body:
-        errors.append(f"WorkspaceCategorySelector.kt: centered/visible category label missing: {expected}")
+        errors.append(f"WorkspaceCategorySelector.kt: shared trigger geometry missing: {expected}")
+if "WorkspacePickerButton(" not in category.split("private fun WorkspaceCategoryPicker(", 1)[1]:
+    errors.append("WorkspaceCategorySelector.kt: category must use shared picker")
+if "lc_category_picker_current" not in category:
+    errors.append("WorkspaceCategorySelector.kt: category current label missing")
 if "modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)" in picker_body:
     errors.append("WorkspaceCategorySelector.kt: minimum height on Card rather than Row shifts label upward")
 for filename in ("MainControls.kt", "ComponentCategoryFilter.kt"):
@@ -248,7 +252,7 @@ filter_popup = sheet.split("internal fun WorkspaceFilterBar(", 1)[1].split(
 )[0]
 for expected in ("DropdownMenu(", "onDismissRequest = { expanded = false }",
                  "draftAppType", "draftView", "lc_filter_sheet_apply",
-                 "lc_filter_sheet_reset", "Badge {", "extraFilter()",
+                 "lc_filter_sheet_reset", "WorkspacePickerButton(", "extraFilter()",
                  "widthIn(min = 240.dp", "FilterMenuSection.APPS",
                  "FilterMenuSection.VIEW", "if (appsOpen)", "if (viewOpen)",
                  "openSection = null"):
@@ -276,10 +280,10 @@ if "widthIn(min = 350.dp)" not in classic:
     errors.append("ClassicListLayout.kt: segmented row can clip Component/Root label")
 # The pinned filter must have the same density and touch affordance as the
 # adjacent category chips; neither list should paint into the pinned control.
-if "CompactCategoryButton(" not in sheet.split("internal fun WorkspaceFilterBar(", 1)[1].split(
+if "WorkspacePickerButton(" not in sheet.split("internal fun WorkspaceFilterBar(", 1)[1].split(
     "/** Batch operations", 1
 )[0]:
-    errors.append("WorkspaceCommon.kt: pinned filter must use Material 3 category chip")
+    errors.append("WorkspaceCommon.kt: pinned filter must use shared category/filter trigger")
 # Fixed Filter stays beside the full-width category selector.
 for file in ("MainControls.kt", "RootComponentsScreen.kt"):
     code = (root / file).read_text(encoding="utf-8")
