@@ -1,4 +1,5 @@
 name: Build Debug APK
+# Manual rebuild request for test3 (2026-10-24).
 
 on:
   push:
