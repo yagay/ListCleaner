@@ -47,6 +47,9 @@ internal object MaterialUiTokens {
     val cardRadius get() = UiPreferencesRuntime.current.cardRadius.dp
     val groupedInnerRadius get() = (4f * density).dp
     val groupedOuterGap get() = (4f * density).dp
+    val connectedDetailIndent get() = (18f * density).dp
+    val connectedDetailVertical get() = (3f * density).dp
+    val connectedDetailHorizontal get() = (7f * density).dp
     val groupedInnerGap get() = (1f * density).dp
     val cardShape get() = RoundedCornerShape(cardRadius)
     val groupHorizontal get() = pageHorizontal
