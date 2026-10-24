@@ -533,7 +533,7 @@ internal fun WorkspaceDetailRow(
                 AdaptiveIcon(
                     if (checked) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
                     null,
-                    modifier = Modifier.padding(start = 5.dp).size(18.dp),
+                    modifier = Modifier.padding(start = 1.dp).size(18.dp),
                     tint = if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
                 )
             }
