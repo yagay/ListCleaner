@@ -42,10 +42,10 @@ class IntentCatalog(private val context: Context) {
     private val mutableRevision = MutableStateFlow(0L)
     val revision: StateFlow<Long> = mutableRevision.asStateFlow()
     private val specialEntryDiscovery = SpecialEntryDiscovery(context)
-    private val proactiveShortcuts = ProactiveShortcutDiscovery(context)
+    private val proactiveShortcuts = UnifiedShortcutEngine(context)
     private data class ProactiveCache(
         val capturedAt: Long, val kinds: Set<IntentKind>, val packages: Set<String>,
-        val result: ProactiveShortcutDiscovery.Result,
+        val result: UnifiedShortcutEngine.Result,
     )
     private val proactiveByUser = mutableMapOf<Int, ProactiveCache>()
 
