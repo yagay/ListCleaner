@@ -63,7 +63,7 @@ data class ComponentRule(val kind: IntentKind, val packageName: String, val clas
                     IntentKind.valueOf(parts[0]),
                     parts[1],
                     if (IntentKind.valueOf(parts[0]) == IntentKind.SHORTCUT_ITEM) SyntheticEntryKeys.canonicalShortcutClass(parts[2]) else if (parts[2].startsWith('.')) parts[1] + parts[2] else parts[2],
-                ).takeIf { it.isValid() && it.kind.isSelectableEntryKind() }
+                ).takeIf { it.isValid() && (it.kind.isSelectableEntryKind() || it.kind == IntentKind.SHORTCUT_ITEM) }
             }.getOrNull() else null
         }
     }
