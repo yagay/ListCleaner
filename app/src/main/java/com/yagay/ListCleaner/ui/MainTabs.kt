@@ -213,6 +213,14 @@ fun RulesTab(
     val selectionDraft = remember(state.filter, typedOpenPreset, deepLinkHost, vm.selectedSpace.value) {
         PendingSelectionDraft<ComponentRule>()
     }
+    // Preserve staged choices until repository state confirms each applied rule.
+    // Shortcut entries are synthetic rules, so a premature draft reset makes
+    // their checkboxes appear to revert while the state flow is still catching up.
+    LaunchedEffect(activeSelected, selectionDraft.changes) {
+        selectionDraft.acknowledge(selectionDraft.changes.filter { (rule, desired) ->
+            (rule in activeSelected) == desired
+        }.keys)
+    }
     val displayedSelected = activeSelected.toMutableSet().apply {
         selectionDraft.changes.forEach { (rule, selected) ->
             if (selected) add(rule) else remove(rule)
@@ -337,7 +345,8 @@ fun RulesTab(
                     vm.deselectRules(remove, state.filter, openPreset)
                 }
             }
-            selectionDraft.discard()
+            // Do not clear pending changes here: confirmation is asynchronous.
+            // The effect above acknowledges only values observed in saved state.
             true
         }
     RegisterPendingNavigation(
