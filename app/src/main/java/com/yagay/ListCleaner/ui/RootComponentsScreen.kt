@@ -256,6 +256,11 @@ fun RootComponentsScreen(
             }
         }
     }
+    val sortedGroups = remember(groups) {
+        groups.map { (appKey, items) ->
+            appKey to items.sortedWith(compareBy({ it.kind.ordinal }, { it.label.lowercase() }, { it.id }))
+        }
+    }
     val visible = remember(groups) { groups.flatMap { it.second } }
 
     val classicComponentMode = embedded &&
@@ -406,19 +411,19 @@ fun RootComponentsScreen(
             message?.let { WorkspaceStatusMessage(it, isError = true) }
         }
 
-        groups.forEach { (appKey, unsorted) ->
-            val components = unsorted.sortedWith(compareBy({ it.kind.ordinal }, { it.label.lowercase() }, { it.id }))
-            val editableComponents = components.filter { it.blocked == null && it.enabled != null }
-            val disabledCount = editableComponents.count {
-                selectionDraft.selected(it.id, it.enabled == false)
-            }
-            val selectionState = listSelectionState(disabledCount, editableComponents.size)
-            val first = components.first()
+        sortedGroups.forEach { (appKey, components) ->
             val expansionKey = "${kind?.name ?: "ALL"}|$appKey"
             val expanded = expandedAppKey == expansionKey
-            val onExpand = { expandedAppKey = if (expandedAppKey == expansionKey) null else expansionKey }
-
-            item(key = "app|$expansionKey") {
+            item(key = "app|$expansionKey", contentType = "app") {
+                val editableComponents = remember(components) {
+                    components.filter { it.blocked == null && it.enabled != null }
+                }
+                val disabledCount = editableComponents.count {
+                    selectionDraft.selected(it.id, it.enabled == false)
+                }
+                val selectionState = listSelectionState(disabledCount, editableComponents.size)
+                val first = components.first()
+                val onExpand = { expandedAppKey = if (expandedAppKey == expansionKey) null else expansionKey }
                 val kindTitles = CleanupKind.entries.filter { category ->
                     components.any { it.kind == category }
                 }.map { stringResource(it.titleRes()) }
@@ -483,7 +488,7 @@ fun RootComponentsScreen(
                 )
             }
 
-            if (expanded) itemsIndexed(components, key = { _, item -> item.id }) { componentIndex, item ->
+            if (expanded) itemsIndexed(components, key = { _, item -> item.id }, contentType = { _, _ -> "component" }) { componentIndex, item ->
                 val editable = !busy && item.blocked == null && item.enabled != null
                 val lockToggleEnabled = !vm.isComponentAppLockedForItem(kind, item)
                 val itemLocked = vm.isComponentBulkProtected(kind, item)
