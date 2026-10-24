@@ -178,7 +178,6 @@ internal fun WorkspaceFilterBar(
     var draftAppType by remember { mutableStateOf(appTypeFilter) }
     var draftView by remember { mutableStateOf(viewFilter) }
     // Match the category picker: show two group headers, not every filter row.
-    var openSection by remember { mutableStateOf<FilterMenuSection?>(null) }
     val activeCount = (if (appTypeFilter != AppTypeFilter.ALL) 1 else 0) +
         (if (viewFilter != UiFilter.ALL) 1 else 0)
 
@@ -194,7 +193,6 @@ internal fun WorkspaceFilterBar(
             onClick = {
                 draftAppType = appTypeFilter
                 draftView = viewFilter
-                openSection = null
                 expanded = true
             }
         )
@@ -210,55 +208,22 @@ internal fun WorkspaceFilterBar(
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialSelectionPalette.text()
             )
-            // Reuse the category menu's section and choice geometry.
-            val appsOpen = openSection == FilterMenuSection.APPS
-            WorkspaceMenuSection(
-                title = stringResource(
-                    R.string.compact_filter_format,
-                    stringResource(R.string.app_type_filter),
-                    stringResource(draftAppType.titleRes())
-                ),
-                active = draftAppType != AppTypeFilter.ALL,
-                expanded = appsOpen,
-                onClick = { openSection = if (appsOpen) null else FilterMenuSection.APPS }
+            // Direct single-choice groups: no nested menus, draft until Apply.
+            WorkspaceFilterChoiceGroup(
+                title = stringResource(R.string.app_type_filter),
+                options = AppTypeFilter.entries.toList(),
+                selected = draftAppType,
+                titleFor = { stringResource(it.titleRes()) },
+                onSelected = { draftAppType = it }
             )
-            if (appsOpen) {
-                AppTypeFilter.entries.forEach { option ->
-                    WorkspaceMenuChoice(
-                        title = stringResource(option.titleRes()),
-                        selected = draftAppType == option,
-                        indented = true,
-                        onClick = {
-                            draftAppType = option
-                            openSection = null
-                        }
-                    )
-                }
-            }
-            val viewOpen = openSection == FilterMenuSection.VIEW
-            WorkspaceMenuSection(
-                title = stringResource(
-                    R.string.compact_filter_format,
-                    stringResource(R.string.view_filter),
-                    viewTitle(draftView)
-                ),
-                active = draftView != UiFilter.ALL,
-                expanded = viewOpen,
-                onClick = { openSection = if (viewOpen) null else FilterMenuSection.VIEW }
+            AdaptiveHorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
+            WorkspaceFilterChoiceGroup(
+                title = stringResource(R.string.view_filter),
+                options = UiFilter.entries.toList(),
+                selected = draftView,
+                titleFor = { viewTitle(it) },
+                onSelected = { draftView = it }
             )
-            if (viewOpen) {
-                UiFilter.entries.forEach { option ->
-                    WorkspaceMenuChoice(
-                        title = viewTitle(option),
-                        selected = draftView == option,
-                        indented = true,
-                        onClick = {
-                            draftView = option
-                            openSection = null
-                        }
-                    )
-                }
-            }
             if (extraFilter != null) {
                 AdaptiveHorizontalDivider()
                 Row(
