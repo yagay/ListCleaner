@@ -112,6 +112,18 @@ class BehaviorRegressionTest {
         assertEquals(listOf(fresh), retainConfiguredCandidates(listOf(fresh), emptySet()))
     }
 
+    @Test fun activityRenameKeepsSameLauncherShortcutRuleIdentity() {
+        val pkg = "idm.internet.download.manager"
+        val old = ComponentRule(IntentKind.SHORTCUT_ITEM, pkg,
+            "$pkg.MainActivity#shortcut#623ca0e252058603050878c0")
+        val updated = ComponentRule(IntentKind.SHORTCUT_ITEM, pkg,
+            "$pkg.LauncherDefault#shortcut#623ca0e252058603050878c0")
+        assertEquals(old.id, updated.id)
+        assertEquals(ComponentRule.fromId(old.id), ComponentRule.fromId(updated.id))
+        assertEquals("@entry#shortcut#623ca0e252058603050878c0",
+            ComponentRule.fromId(old.id)?.className)
+    }
+
     @Test fun republishedShortcutUnderAnotherActivityDoesNotCreatePhantomRuleRow() {
         val token = "623ca0e252058603050878c0"
         val old = ComponentRule(
