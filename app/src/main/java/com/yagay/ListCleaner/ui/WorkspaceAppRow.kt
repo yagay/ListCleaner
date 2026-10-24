@@ -106,18 +106,20 @@ internal fun MaterialAppRowBody(
     details: @Composable ColumnScope.() -> Unit = {},
     trailing: @Composable RowScope.() -> Unit = {}
 ) {
-    androidx.compose.material3.ListItem(
-        modifier = modifier.fillMaxWidth(),
-        colors = androidx.compose.material3.ListItemDefaults.colors(
-            containerColor = WorkspaceListPalette.surface()
-        ),
-        leadingContent = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                selection()
-                AppIcon(icon, title)
-            }
-        },
-        headlineContent = {
+    Row(
+        modifier = modifier.fillMaxWidth()
+            .heightIn(min = MaterialUiTokens.listRowHeight)
+            .padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        selection()
+        Spacer(Modifier.width(MaterialUiTokens.appLabelInset))
+        AppIcon(icon, title)
+        Spacer(Modifier.width(MaterialUiTokens.appLabelInset))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
             AdaptiveText(
                 title,
                 style = MaterialTheme.typography.bodyLarge,
@@ -125,30 +127,24 @@ internal fun MaterialAppRowBody(
                 maxLines = UiPreferencesRuntime.current.appTitleLines,
                 overflow = TextOverflow.Ellipsis
             )
-        },
-        supportingContent = {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            AdaptiveText(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = UiPreferencesRuntime.current.appSubtitleLines,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (UiPreferencesRuntime.current.showPackageNames && !packageName.isNullOrBlank()) {
                 AdaptiveText(
-                    subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
+                    packageName,
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = UiPreferencesRuntime.current.appSubtitleLines,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (UiPreferencesRuntime.current.showPackageNames && !packageName.isNullOrBlank()) {
-                    AdaptiveText(
-                        packageName,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                details()
             }
-        },
-        trailingContent = {
-            Row(verticalAlignment = Alignment.CenterVertically) { trailing() }
+            details()
         }
-    )
+        Row(verticalAlignment = Alignment.CenterVertically) { trailing() }
+    }
 }

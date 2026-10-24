@@ -313,11 +313,13 @@ internal fun WorkspaceListSummary(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        AdaptiveText(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelMedium)
-        if (secondary != null) AdaptiveText(
-            secondary, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelSmall, maxLines = 1
-        )
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            AdaptiveText(title, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+            if (secondary != null) AdaptiveText(
+                secondary, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall, maxLines = 1
+            )
+        }
         WorkspaceListActions(actions, helpExpanded, onHelpToggle)
     }
 }

@@ -6,6 +6,16 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class UiPreferencesTest {
+    @Test fun listFirstIsTheDefaultWithoutDisablingCategoryNavigation() {
+        assertEquals(UiHomeLayout.CLASSIC_LIST, UiPreferences().homeLayout)
+        assertEquals(UiHomeLayout.CLASSIC_LIST,
+            UiPreferencesStore.upgradedListLayout(UiHomeLayout.CATEGORY_CARDS, false))
+        assertEquals(UiHomeLayout.CATEGORY_CARDS,
+            UiPreferencesStore.upgradedListLayout(UiHomeLayout.CATEGORY_CARDS, true))
+        assertEquals(UiHomeLayout.CLASSIC_LIST,
+            UiPreferencesStore.upgradedListLayout(UiHomeLayout.CLASSIC_LIST, false))
+    }
+
     @Test fun oldGroupedLayoutMigratesToSingleContinuousList() {
         val preferences = UiPreferences(listStyle = UiListStyle.GROUPED).normalized()
         assertEquals(UiListStyle.ORIGINAL, preferences.listStyle)

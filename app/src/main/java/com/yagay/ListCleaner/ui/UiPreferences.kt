@@ -35,7 +35,7 @@ internal data class UiPreferences(
     val accent: UiAccent = UiAccent.DYNAMIC,
     val customAccentHex: String = "#2859AB",
     val colorOverrides: Map<String, String> = emptyMap(),
-    val homeLayout: UiHomeLayout = UiHomeLayout.CATEGORY_CARDS,
+    val homeLayout: UiHomeLayout = UiHomeLayout.CLASSIC_LIST,
     val cardRadius: Int = 20,
     val buttonHeight: Int = 40,
     val appIconSize: Int = 36,
@@ -115,9 +115,25 @@ internal object UiPreferencesStore {
     private fun <T : Enum<T>> stored(name: String?, values: Array<T>, fallback: T): T =
         values.firstOrNull { it.name == name } ?: fallback
 
+    /** Existing card-era category navigation is migrated once to the list-first
+     * editor. After that, a user's explicit selection of Category list is honored.
+     * This key is not exported, because it controls only a local visual migration.
+     */
+    internal fun upgradedListLayout(saved: UiHomeLayout, alreadyUpgraded: Boolean): UiHomeLayout =
+        if (!alreadyUpgraded && saved == UiHomeLayout.CATEGORY_CARDS) UiHomeLayout.CLASSIC_LIST else saved
+
     fun read(context: Context): UiPreferences {
         val p = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
         val defaults = UiPreferences()
+        val migrationKey = "direct_list_default_v3"
+        val migrated = p.getBoolean(migrationKey, false)
+        val savedLayout = stored(p.getString("home_layout", null),
+            UiHomeLayout.entries.toTypedArray(), defaults.homeLayout)
+        val resolvedLayout = upgradedListLayout(savedLayout, migrated)
+        if (!migrated) {
+            p.edit().putString("home_layout", resolvedLayout.name)
+                .putBoolean(migrationKey, true).apply()
+        }
         return UiPreferences(
             density = stored(p.getString("density", null), UiDensity.entries.toTypedArray(), defaults.density),
             listStyle = stored(p.getString("list_style", null), UiListStyle.entries.toTypedArray(), defaults.listStyle),
@@ -127,7 +143,7 @@ internal object UiPreferencesStore {
                 val saved = JSONObject(p.getString("color_overrides", "{}") ?: "{}")
                 saved.keys().asSequence().associateWith { saved.optString(it) }
             }.getOrDefault(emptyMap()),
-            homeLayout = stored(p.getString("home_layout", null), UiHomeLayout.entries.toTypedArray(), defaults.homeLayout),
+            homeLayout = resolvedLayout,
             cardRadius = p.getInt("card_radius", defaults.cardRadius),
             buttonHeight = p.getInt("button_height", defaults.buttonHeight),
             appIconSize = p.getInt("app_icon_size", defaults.appIconSize),

@@ -65,7 +65,8 @@ required = {
                         "Destination.SETTINGS -> SettingsTabContent(",
                         "state.destination != Destination.SETTINGS"],
     "RuntimePanel.kt": ["UiCardVariant.STATUS"],
-    "WorkspaceAppRow.kt": ["MaterialAppRowBody(", "ListItem(", "ListItemDefaults.colors("],
+    "WorkspaceAppRow.kt": ["MaterialAppRowBody(", "heightIn(min = MaterialUiTokens.listRowHeight)",
+                           "AppIcon(icon, title)", "Row("],
     "AppScopePicker.kt": ["MaterialAppRowBody(", "MaterialFullScreenDialog("],
     "ScopeScreen.kt": ["MaterialFullScreenDialog(", "MaterialDialogActions("],
     "MainTabs.kt": ["fun RulesTab(", "fun PriorityTab(", "LazyColumn("],
@@ -141,7 +142,7 @@ flat_visual_checks = {
     "WorkspaceGroupedRows.kt": ("FlatRowSurface(", "ContinuousApplicationSurface(",
                                  "ContinuousDetailSurface(", "MaterialFlatPalette.detailSurface()"),
     "WorkspaceAppRow.kt": ("ContinuousApplicationSurface { appContent() }",
-                            "MaterialAppRowBody(", "ListItem("),
+                            "MaterialAppRowBody(", "heightIn(min = MaterialUiTokens.listRowHeight)"),
     "WorkspaceCommon.kt": ("WorkspaceCategoryRow(", "FlatCategoryRow(",
                             "WorkspaceDetailContainer(position, selected = false)",
                             "WorkspaceDetailContainer(position, checked, contentBlock)",
@@ -179,6 +180,18 @@ if "AdaptiveFilterChip(" not in (root / "SystemProbeDialog.kt").read_text(encodi
     errors.append("SystemProbeDialog.kt: preview filter tabs lack visible selected state")
 if "AdaptiveAlertDialog(" not in (root / "AppearanceSettings.kt").read_text(encoding="utf-8"):
     errors.append("AppearanceSettings.kt: custom color editor bypassed shared dialog")
+
+# List First editor must be the default; one-time migration preserves a later
+# explicit category-list selection.
+prefs_source = (root / "UiPreferences.kt").read_text(encoding="utf-8")
+for token in ("val homeLayout: UiHomeLayout = UiHomeLayout.CLASSIC_LIST",
+              "upgradedListLayout(savedLayout, migrated)",
+              "direct_list_default_v3"):
+    if token not in prefs_source:
+        errors.append(f"UiPreferences.kt: List First default missing: {token}")
+app_row = (root / "WorkspaceAppRow.kt").read_text(encoding="utf-8")
+if "androidx.compose.material3.ListItem(" in app_row:
+    errors.append("WorkspaceAppRow.kt: two-line ListItem padding makes list too tall")
 
 # Prevent duplicate app/detail renderers and verify preview rows.
 for filename in ("WorkspaceAppRow.kt", "WorkspaceCommon.kt", "RootComponentsScreen.kt"):

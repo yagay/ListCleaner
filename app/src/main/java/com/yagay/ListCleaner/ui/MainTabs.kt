@@ -540,21 +540,18 @@ fun RulesTab(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            }
-            if (openPreset == null && state.uiFilter != UiFilter.SHOW_SELECTED && state.candidates.any {
-                    it.rule in state.selected && (it.unavailable || it.restricted)
-                }) {
-                AdaptiveTextButton(
-                    onClick = {
+                // Keep the unmatched-rule action reachable without giving it a
+                // full-height always-visible row above the candidate list.
+                if (openPreset == null && state.uiFilter != UiFilter.SHOW_SELECTED &&
+                    state.candidates.any { it.rule in state.selected && (it.unavailable || it.restricted) }) {
+                    AdaptiveTextButton(onClick = {
                         vm.setFilter(null)
                         vm.setQuery("")
                         vm.setUiFilter(UiFilter.SHOW_SELECTED)
-                    },
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                ) {
-                    AdaptiveText(stringResource(R.string.rules_view_unmatched))
+                    }) { AdaptiveText(stringResource(R.string.rules_view_unmatched)) }
                 }
             }
+
         }
         shownGroups.forEach { group ->
             val key = "${state.filter?.name ?: "ALL"}|${openPreset?.name ?: browserHost ?: "ALL"}|${group.packageName}"
