@@ -59,4 +59,8 @@
     <string name="settings_remember_filters_help">Save list selection and app-type filters across app restarts.</string>
     <string name="settings_help_expanded">Show explanations by default</string>
     <string name="settings_help_expanded_help">Expand rules and ordering help on the first visit.</string>
+    <string name="settings_color_custom">Custom</string>
+    <string name="settings_custom_color_hex">Custom accent (#RRGGBB)</string>
+    <string name="settings_custom_color_apply">Apply color</string>
+    <string name="settings_custom_color_hint">Enter a six-digit hexadecimal color</string>
 </resources>
