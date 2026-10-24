@@ -93,4 +93,53 @@ class OpenPresetTest {
             matchOpenPreset(IntentKind.OPEN, "image/heic", "content", null, definitions))
     }
 
+    private fun scannedOpen(vararg evidence: String, active: Boolean = true) = ComponentCandidate(
+        rule = ComponentRule(IntentKind.OPEN, "com.example.reader", "com.example.reader.OpenActivity"),
+        appLabel = "Reader",
+        activityLabel = "OpenActivity",
+        evidence = evidence.toList(),
+        unavailable = !active,
+    )
+
+    @Test fun openWithTypeSummaryMergesUniqueFormatsAcrossProbes() {
+        val candidate = scannedOpen(
+            "VIEW scheme=content mime=application/pdf sample=report.pdf flags=0x40",
+            "VIEW scheme=file mime=application/pdf sample=report.pdf flags=0x40",
+            "VIEW scheme=content mime=application/msword sample=report.doc flags=0x40",
+            "BROAD VIEW scheme=content mime=image/* flags=0x40",
+            "BROAD VIEW scheme=file mime=*/* flags=0x40",
+        )
+        val summary = summarizeOpenWithTypes(listOf(candidate))
+        assertTrue(summary.universal)
+        assertEquals(listOf(OpenPreset.PDF, OpenPreset.WORD, OpenPreset.IMAGE), summary.presets)
+    }
+
+    @Test fun universalTagRequiresExplicitWildcardResolverMatch() {
+        val narrow = scannedOpen("VIEW scheme=content mime=application/pdf sample=doc.pdf flags=0x40")
+        val fallback = scannedOpen("VIEW scheme=content mime=application/octet-stream sample=item flags=0x40")
+        val historical = scannedOpen("VIEW scheme=content mime=*/*", active = false)
+        val summary = summarizeOpenWithTypes(listOf(narrow, fallback, historical))
+        assertFalse(summary.universal)
+        assertEquals(listOf(OpenPreset.PDF), summary.presets)
+    }
+
+    @Test fun openWithTypeSummaryIncludesConfiguredCustomLabelsButNotOtherKinds() {
+        val definitions = mapOf(
+            OpenPreset.CUSTOM_1 to CustomOpenDefinition(
+                title = "Kindle", mimeTypes = setOf("application/vnd.amazon.ebook"),
+            ).validated()
+        )
+        val open = scannedOpen(
+            "CUSTOM preset=CUSTOM_1 VIEW scheme=content mime=application/vnd.amazon.ebook sample=custom-0.pdf",
+        )
+        val share = ComponentCandidate(
+            rule = ComponentRule(IntentKind.SHARE, "com.example.reader", "com.example.reader.Share"),
+            appLabel = "Reader", activityLabel = "Share",
+            evidence = listOf("BROAD SEND mime=*/*"),
+        )
+        val summary = summarizeOpenWithTypes(listOf(share, open), definitions)
+        assertFalse(summary.universal)
+        assertEquals(listOf(OpenPreset.CUSTOM_1), summary.presets)
+    }
+
 }
