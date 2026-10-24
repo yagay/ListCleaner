@@ -9,7 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -68,7 +68,7 @@ fun BrowserHostFilterMenu(
             ) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     AdaptiveIcon(
-                        Icons.Rounded.Language,
+                        Icons.Rounded.Link,
                         stringResource(R.string.browser_domain_filter) + ": " + selectedTitle,
                         modifier = Modifier.size(20.dp)
                     )
