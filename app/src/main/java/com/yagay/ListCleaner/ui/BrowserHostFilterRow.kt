@@ -9,11 +9,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -32,7 +34,8 @@ fun BrowserHostFilterMenu(
     config: BrowserLinkConfig,
     availableHosts: Set<String> = config.hosts,
     onSelected: (String?) -> Unit,
-    onManage: () -> Unit
+    onManage: () -> Unit,
+    iconOnly: Boolean = false,
 ) {
     var expanded by remember { mutableStateOf(false) }
     var hostQuery by remember { mutableStateOf("") }
@@ -40,7 +43,8 @@ fun BrowserHostFilterMenu(
     val density = LocalDensity.current
     val menuWidth = 296.dp
     val menuHorizontalOffset = with(density) {
-        ((anchorWidthPx.toDp() - menuWidth) / 2)
+        if (iconOnly) anchorWidthPx.toDp() - menuWidth
+        else (anchorWidthPx.toDp() - menuWidth) / 2
     }
     val menuScroll = rememberScrollState()
     val selectedTitle = selected ?: stringResource(R.string.common_all)
@@ -53,23 +57,43 @@ fun BrowserHostFilterMenu(
     }
 
     Box {
-        CompactCategoryButton(
-            selected = true,
-            onClick = { expanded = true },
-            modifier = Modifier.onSizeChanged { anchorWidthPx = it.width }
-        ) {
-            WorkspaceControlLabel(
-                stringResource(
-                    R.string.compact_filter_format,
-                    stringResource(R.string.browser_domain_filter),
-                    selectedTitle
-                ),
-                modifier = Modifier.widthIn(max = 170.dp),
-                color = compactCategoryLabelColor(true)
-            )
-            AdaptiveIcon(Icons.Rounded.ExpandMore, null, modifier = Modifier.size(16.dp),
-                tint = compactCategoryLabelColor(true))
+        if (iconOnly) {
+            Surface(
+                onClick = { expanded = true },
+                modifier = Modifier.size(48.dp).onSizeChanged { anchorWidthPx = it.width },
+                shape = MaterialTheme.shapes.medium,
+                color = if (selected != null) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                contentColor = if (selected != null) MaterialTheme.colorScheme.onPrimaryContainer
+                    else MaterialSelectionPalette.activeText(),
+            ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    AdaptiveIcon(
+                        Icons.Rounded.Language,
+                        stringResource(R.string.browser_domain_filter) + ": " + selectedTitle,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        } else {
+            CompactCategoryButton(
+                selected = true,
+                onClick = { expanded = true },
+                modifier = Modifier.onSizeChanged { anchorWidthPx = it.width }
+            ) {
+                WorkspaceControlLabel(
+                    stringResource(
+                        R.string.compact_filter_format,
+                        stringResource(R.string.browser_domain_filter),
+                        selectedTitle
+                    ),
+                    modifier = Modifier.widthIn(max = 170.dp),
+                    color = compactCategoryLabelColor(true)
+                )
+                AdaptiveIcon(Icons.Rounded.ExpandMore, null, modifier = Modifier.size(16.dp),
+                    tint = compactCategoryLabelColor(true))
+            }
         }
+
         AdaptiveDropdownMenu(
             expanded = expanded,
             onDismissRequest = { hostQuery = ""; expanded = false },
