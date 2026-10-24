@@ -432,14 +432,31 @@ internal fun WorkspaceProgress(progress: Float? = null) {
     }
 }
 
-/** Read-only and selectable details share the same surface geometry. */
+/**
+ * Shared expanded-detail shell. The two list styles differ only in existing
+ * indentation and selection affordance; the row behavior is owned below.
+ */
+@Composable
+private fun WorkspaceDetailContainer(
+    position: ListRowPosition,
+    selected: Boolean,
+    content: @Composable () -> Unit
+) {
+    if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
+        GroupedComponentSurface(position, selected, content)
+    } else {
+        ContinuousDetailSurface(content)
+    }
+}
+
+/** Read-only and selectable details share the same surface contract. */
 @Composable
 internal fun WorkspaceReadOnlyDetailRow(
     position: ListRowPosition = ListRowPosition.SINGLE,
     content: @Composable RowScope.() -> Unit
 ) {
-    if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
-        GroupedComponentSurface(position, selected = false) {
+    WorkspaceDetailContainer(position, selected = false) {
+        if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(
                     start = MaterialUiTokens.groupedDetailStartPadding,
@@ -450,9 +467,7 @@ internal fun WorkspaceReadOnlyDetailRow(
                 verticalAlignment = Alignment.CenterVertically,
                 content = content
             )
-        }
-    } else {
-        AdaptiveGroupSurface(Modifier.fillMaxWidth(), position = position) {
+        } else {
             UiCardDetailRow(content = content)
         }
     }
@@ -525,9 +540,5 @@ internal fun WorkspaceDetailRow(
             onUnlock = onUnlock
         )
     }
-    if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
-        GroupedComponentSurface(position, checked, contentBlock)
-    } else {
-        AdaptiveGroupSurface(Modifier.fillMaxWidth(), position = position) { contentBlock() }
-    }
+    WorkspaceDetailContainer(position, checked, contentBlock)
 }

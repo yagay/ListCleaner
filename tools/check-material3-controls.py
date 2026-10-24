@@ -137,15 +137,17 @@ flat_visual_checks = {
     "UiCard.kt": ("variant == UiCardVariant.LIST_GROUP || variant == UiCardVariant.CATEGORY",
                   "horizontal = horizontalInset", "drawWithContent",
                   "shape = RectangleShape", "Column(content = content)"),
-    "WorkspaceGroupedRows.kt": ("padding(horizontal = MaterialUiTokens.groupHorizontal)",
-                                "padding(top = MaterialUiTokens.groupedOuterGap)",
+    "WorkspaceGroupedRows.kt": ("WorkspaceListRowSurface(",
+                                "ContinuousApplicationSurface(",
+                                "ContinuousDetailSurface(",
+                                "showSeparator = false",
                                 "WorkspaceListPalette.surface()"),
     "WorkspaceAppRow.kt": ("GroupedApplicationSurface(expanded, appContent)",
                            "ContinuousApplicationSurface { appContent() }",
                            "WorkspaceListPalette.surface()"),
-    "WorkspaceGroupedRows.kt": ("ContinuousApplicationSurface(", "drawWithContent",
-                                 "MaterialUiTokens.groupHorizontal",
-                                 "GroupedComponentSurface("),
+    "WorkspaceCommon.kt": ("WorkspaceDetailContainer(position, selected = false)",
+                           "WorkspaceDetailContainer(position, checked, contentBlock)",
+                           "UiCardDetailRow(modifier = clickModifier, content = rowContents)"),
     "WorkspaceCategorySelector.kt": ("filter()", "Box(Modifier.weight(1f)) { category() }",
                                       "MaterialFlatPalette.selectedSurface()"),
 }
@@ -159,7 +161,8 @@ for filename, symbols in flat_visual_checks.items():
 component_rows = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
 for symbol in ("WorkspaceReadOnlyDetailRow(", "WorkspaceDetailRow(",
                "UiCardDetailRow(modifier = clickModifier, content = rowContents)",
-               "GroupedComponentSurface(position, checked, contentBlock)"):
+               "GroupedComponentSurface(position, selected, content)",
+               "ContinuousDetailSurface(content)"):
     if symbol not in component_rows:
         errors.append(f"WorkspaceCommon.kt: expanded details contract missing: {symbol}")
 
