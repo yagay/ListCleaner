@@ -466,6 +466,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun toggle(rule: ComponentRule) { if (canEdit()) app.rules.toggle(rule) }
+    /** Read the authoritative repository immediately after the synchronous Apply call. */
+    fun entryRulesMatch(changes: Map<ComponentRule, Boolean>): Boolean {
+        val saved = app.rules.rules.value
+        return changes.all { (rule, selected) ->
+            (ComponentRule.fromId(rule.id) in saved) == selected
+        }
+    }
+
 
     fun setGroupSelected(group: AppGroup, selected: Boolean, filter: IntentKind?, preset: OpenPreset?) {
         if (!canEdit()) return
