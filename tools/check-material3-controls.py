@@ -258,8 +258,13 @@ if "ModalBottomSheet(" in filter_popup or "LazyRow(" in filter_popup:
     errors.append("WorkspaceCommon.kt: Filter must open near its top button, not as a sheet")
 if "heightIn(max = 480.dp)" in filter_popup or "widthIn(min = 270.dp" in filter_popup:
     errors.append("WorkspaceCommon.kt: Filter must use Category-scale dropdown dimensions")
-if filter_popup.count("AdaptiveDropdownMenuItem(") < 4:
-    errors.append("WorkspaceCommon.kt: Filter group rows and choices must use native M3 menu items")
+# Filter and Category now render through the same shared M3 menu primitives.
+# Inspect both call sites and the shared implementation, not only inline rows.
+menu_shared = (UI_DIR / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
+if filter_popup.count("WorkspaceMenuSection(") < 2 or filter_popup.count("WorkspaceMenuChoice(") < 2:
+    errors.append("WorkspaceCommon.kt: Filter must reuse shared M3 menu sections and choices")
+if menu_shared.count("AdaptiveDropdownMenuItem(") < 2 or "fun WorkspaceMenuChoice(" not in menu_shared or "fun WorkspaceMenuSection(" not in menu_shared:
+    errors.append("WorkspaceCategorySelector.kt: shared choices/sections must use native M3 menu items")
 for expected in ("fun WorkspaceListActions(",
                  "WorkspaceListActions(actions, helpExpanded, onHelpToggle)"):
     if expected not in sheet:
