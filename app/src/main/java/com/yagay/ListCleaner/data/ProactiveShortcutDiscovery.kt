@@ -12,7 +12,7 @@ import com.yagay.ListCleaner.domain.PackageIdentity
 import com.yagay.ListCleaner.domain.SyntheticEntryKeys
 
 /** Read-only, bounded active discovery; never starts a Chooser or sends content. */
-internal class ProactiveShortcutDiscovery(private val context: Context) {
+internal class UnifiedShortcutEngine(private val context: Context) {
     data class Result(
         val candidates: List<ComponentCandidate> = emptyList(),
         val source: String,
