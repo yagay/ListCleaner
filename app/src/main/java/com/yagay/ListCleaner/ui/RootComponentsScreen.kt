@@ -513,24 +513,13 @@ fun RootComponentsScreen(
                     onLock = { vm.setComponentItemLocked(kind, item, true) },
                     onUnlock = { vm.setComponentItemLocked(kind, item, false) },
                     content = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            AdaptiveText(
-                                item.label, modifier = Modifier.weight(1f),
-                                maxLines = 2, overflow = TextOverflow.Ellipsis
-                            )
-                            AdaptiveText(
-                                stringResource(item.kind.titleRes()),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        AdaptiveText(
+                        WorkspaceDetailHeading(
+                            item.label,
+                            stringResource(item.kind.titleRes())
+                        )
+                        WorkspaceDetailCaption(
                             if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED)
-                                item.component.flattenToString() else item.component.flattenToShortString(),
-                            maxLines = if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) Int.MAX_VALUE else 2,
-                            overflow = if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) TextOverflow.Clip else TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                item.component.flattenToString() else item.component.flattenToShortString()
                         )
                         AdaptiveText(
                             item.blocked ?: stringResource(
