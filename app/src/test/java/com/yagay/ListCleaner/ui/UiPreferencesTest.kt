@@ -6,11 +6,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class UiPreferencesTest {
-    @Test fun listFirstIsTheDefaultWithoutDisablingCategoryNavigation() {
+    @Test fun oldNavigationModesBothResolveToListFirst() {
         assertEquals(UiHomeLayout.CLASSIC_LIST, UiPreferences().homeLayout)
         assertEquals(UiHomeLayout.CLASSIC_LIST,
             UiPreferencesStore.upgradedListLayout(UiHomeLayout.CATEGORY_CARDS, false))
-        assertEquals(UiHomeLayout.CATEGORY_CARDS,
+        assertEquals(UiHomeLayout.CLASSIC_LIST,
             UiPreferencesStore.upgradedListLayout(UiHomeLayout.CATEGORY_CARDS, true))
         assertEquals(UiHomeLayout.CLASSIC_LIST,
             UiPreferencesStore.upgradedListLayout(UiHomeLayout.CLASSIC_LIST, false))

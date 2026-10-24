@@ -95,45 +95,6 @@ fun PriorityDialogContent(
         )
     }
 
-    var sortingGroup by rememberSaveable { mutableStateOf<EntryGroup?>(null) }
-    val classicLayout = HomeLayoutPolicy.showCategoryFilterBar(UiPreferencesRuntime.current.homeLayout)
-    val priorityKinds = HomeLayoutPolicy.sortableKinds
-    BackHandler(enabled = !classicLayout && state.filter == null && sortingGroup != null) {
-        navigate { sortingGroup = null }
-    }
-    // Category-card mode retains its existing home; classic mode opens the vertical
-    // sortable app list immediately, matching RulesTab instead of adding fake Root ordering.
-    if (HomeLayoutPolicy.showPriorityCategoryHome(
-            UiPreferencesRuntime.current.homeLayout, state.filter, state.query
-        )) {
-        EntryWorkspaceHome(
-            selectedGroup = sortingGroup,
-            availableGroups = EntryGroup.entries.filter { it != EntryGroup.DESKTOP },
-            availableKinds = priorityKinds,
-            showUtilities = false,
-            showComponentSection = false,
-            onGroup = { sortingGroup = it },
-            onKind = { kind ->
-                navigate {
-                    sortingGroup = kind.entryGroup()
-                    vm.setFilter(kind)
-                }
-            },
-            onPreviewKind = { kind ->
-                systemProbeRequest = SystemProbeRequest(
-                    entryKind = kind,
-                    userId = vm.selectedSpace.value,
-                )
-            },
-            onBack = { navigate { sortingGroup = null } },
-            onAllApps = {},
-            onComponentKind = {},
-            onAllComponents = {},
-            // Module runtime and its recovery controls are centralized in Settings.
-            status = {}
-        )
-        return
-    }
     val kind = HomeLayoutPolicy.priorityKind(state.filter)
     val openPreset by vm.ruleOpenPreset.collectAsStateWithLifecycle()
     val browserHost by vm.ruleBrowserHost.collectAsStateWithLifecycle()
@@ -315,27 +276,6 @@ fun PriorityDialogContent(
             state = listState,
             contentPadding = PaddingValues(bottom = if (orderDraft.hasChanges()) 90.dp else 16.dp)
         ) {
-            if (!classicLayout) {
-                item(key = "workspace-breadcrumb") {
-                    EntryWorkspaceBreadcrumb(
-                        kind = kind,
-                        onHome = {
-                            navigate {
-                                sortingGroup = null
-                                vm.setFilter(null)
-                                vm.setQuery("")
-                            }
-                        },
-                        onGroup = {
-                            navigate {
-                                sortingGroup = kind.entryGroup()
-                                vm.setFilter(null)
-                                vm.setQuery("")
-                            }
-                        }
-                    )
-                }
-            }
             stickyHeader(key = "controls") {
                 PageFilterSection {
                     Column {
@@ -352,7 +292,7 @@ fun PriorityDialogContent(
                                 UiPreferencesStore.rememberAppType(prefsContext, it, "priority")
                             },
                             includeAllKinds = false,
-                            showEntryGroups = classicLayout,
+                            showEntryGroups = true,
                             availableEntryKinds = priorityKinds,
                             viewTitle = {
                                 stringResource(

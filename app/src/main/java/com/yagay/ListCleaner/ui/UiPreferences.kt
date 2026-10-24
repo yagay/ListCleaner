@@ -78,6 +78,7 @@ internal data class UiPreferences(
         // This release has one List First presentation. Keep the legacy enum
         // readable so persisted GROUPED values migrate without touching rules.
         listStyle = UiListStyle.ORIGINAL,
+        homeLayout = UiHomeLayout.CLASSIC_LIST,
         colorOverrides = colorOverrides.filter { (key, hex) -> (key in UiColorRoles.keys || (key.startsWith("dark_") && key.removePrefix("dark_") in UiColorRoles.keys)) && hex.matches(Regex("#[0-9a-fA-F]{6}")) },
         customAccentHex = customAccentHex.takeIf { it.matches(Regex("#[0-9a-fA-F]{6}")) } ?: "#2859AB",
         cardRadius = cardRadius.coerceIn(0, 32),
@@ -115,12 +116,9 @@ internal object UiPreferencesStore {
     private fun <T : Enum<T>> stored(name: String?, values: Array<T>, fallback: T): T =
         values.firstOrNull { it.name == name } ?: fallback
 
-    /** Existing card-era category navigation is migrated once to the list-first
-     * editor. After that, a user's explicit selection of Category list is honored.
-     * This key is not exported, because it controls only a local visual migration.
-     */
+    /** Legacy layout names remain readable in backups but resolve to one list. */
     internal fun upgradedListLayout(saved: UiHomeLayout, alreadyUpgraded: Boolean): UiHomeLayout =
-        if (!alreadyUpgraded && saved == UiHomeLayout.CATEGORY_CARDS) UiHomeLayout.CLASSIC_LIST else saved
+        UiHomeLayout.CLASSIC_LIST
 
     fun read(context: Context): UiPreferences {
         val p = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)

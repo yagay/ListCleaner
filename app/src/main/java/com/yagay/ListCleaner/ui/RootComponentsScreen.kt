@@ -94,23 +94,14 @@ fun RootComponentsScreen(
     var kind by rememberSaveable(initialKind, embedded) {
         mutableStateOf(initialKind)
     }
-    var browseAll by rememberSaveable(initialKind, embedded) {
-        mutableStateOf(
-            initialKind == null && HomeLayoutPolicy.startWithComponentList(
-                UiPreferencesRuntime.current.homeLayout,
-                UiPreferencesRuntime.current.componentStart
-            )
-        )
-    }
     // Draft is scoped to the current user space and component category.
     val selectionDraft = remember(kind, vm.selectedSpace.value) { PendingSelectionDraft<String>() }
-    BackHandler(enabled = backEnabled && (embedded || kind != null || browseAll)) {
+    BackHandler(enabled = backEnabled && (embedded || kind != null)) {
         navigate {
             if (embedded) {
                 onExit()
             } else {
                 kind = null
-                browseAll = false
             }
         }
     }
@@ -197,23 +188,6 @@ fun RootComponentsScreen(
         )
     }
     LaunchedEffect(Unit) { vm.ensureComponentsFresh() }
-    if (!embedded && kind == null && !browseAll && state.query.isBlank()) {
-        RootWorkspaceHome(
-            onChoose = { selected -> kind = selected },
-            onAll = { browseAll = true },
-            onRefresh = vm::refreshComponents,
-            kinds = CleanupKind.entries,
-            apps = scan.items.map { "${it.user}|${it.component.packageName}" }.distinct().size,
-            components = scan.items.size,
-            counts = scan.items.groupingBy { it.kind }.eachCount(),
-            scanned = scan.observedAt > 0L,
-            warning = scan.warning,
-            scanning = busy
-        )
-        return
-    }
-
-
     // Project source snapshots only when their inputs change. Progress updates, expanded
     // rows and navigation recomposition must not regroup the entire PackageManager catalog.
     val kindItems = remember(scan.items, kind) {
@@ -263,37 +237,17 @@ fun RootComponentsScreen(
     }
     val visible = remember(groups) { groups.flatMap { it.second } }
 
-    val classicComponentMode = embedded &&
-        UiPreferencesRuntime.current.homeLayout == UiHomeLayout.CLASSIC_LIST
     Box(Modifier.fillMaxSize()) {
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = if (selectionDraft.count > 0) 90.dp else 16.dp)
     ) {
-        if (classicComponentMode) {
+        if (embedded) {
             stickyHeader(key = "classic-mode-tabs") {
                 ClassicCleanupTabs(
                     active = ClassicCleanupMode.COMPONENTS,
                     onEntries = { navigate(onExit) },
                     onComponents = {}
-                )
-            }
-        } else {
-            item(key = "root-breadcrumb") {
-                WorkspaceBreadcrumb(
-                    homeLabel = stringResource(R.string.workspace_groups),
-                    onHome = {
-                        navigate {
-                            if (embedded) onExit()
-                            else {
-                                kind = null
-                                browseAll = false
-                                vm.setQuery("")
-                            }
-                        }
-                    },
-                    currentLabel = kind?.let { stringResource(it.titleRes()) }
-                        ?: stringResource(R.string.workspace_browse_components)
                 )
             }
         }
@@ -310,7 +264,6 @@ fun RootComponentsScreen(
                             onSelected = { selected ->
                                 if (kind != selected) navigate {
                                     kind = selected
-                                    browseAll = true
                                     expandedAppKey = null
                                 }
                             }

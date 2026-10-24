@@ -62,27 +62,17 @@ fun RulesTab(
     var showBrowserHosts by rememberSaveable { mutableStateOf(false) }
     var appTypeFilter by rememberSaveable { mutableStateOf(UiPreferencesStore.initialAppType(prefsContext, "rules")) }
     var ruleHelpExpanded by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.openHelpByDefault) }
-    // Three-level navigation lives in the UI only. The existing IntentKind
-    // and rule store remain the single source of truth for operations.
-    var selectedGroup by rememberSaveable { mutableStateOf<EntryGroup?>(null) }
-    var browseAll by rememberSaveable { mutableStateOf(false) }
-    var selectedComponentKind by rememberSaveable { mutableStateOf<CleanupKind?>(null) }
+    // One continuous editor; category navigation stays in the pinned selector.
     var browseAllComponents by rememberSaveable { mutableStateOf(false) }
     var savedRuleQuery by rememberSaveable { mutableStateOf("") }
     var savedRuleKind by rememberSaveable { mutableStateOf<IntentKind?>(null) }
     var savedComponentQuery by rememberSaveable { mutableStateOf("") }
-    // Main-branch inspired list-first layout; the other mode keeps category navigation.
-    val classicLayout = UiPreferencesRuntime.current.homeLayout == UiHomeLayout.CLASSIC_LIST
-    LaunchedEffect(classicLayout) {
-        selectedGroup = null
-        browseAll = false
-    }
     val workspaceStateHolder = rememberSaveableStateHolder()
     var systemProbeRequest by remember { mutableStateOf<SystemProbeRequest?>(null) }
     systemProbeRequest?.let { request ->
         SystemProbeDialog(request, onDismiss = { systemProbeRequest = null })
     }
-    val showingComponents = selectedComponentKind != null || browseAllComponents
+    val showingComponents = browseAllComponents
     DisposableEffect(showingComponents) {
         onComponentModeChanged(showingComponents)
         onDispose { if (showingComponents) onComponentModeChanged(false) }
@@ -92,25 +82,20 @@ fun RulesTab(
             RootComponentsScreen(
             state = state,
             vm = vm,
-            initialKind = selectedComponentKind,
+            initialKind = null,
             embedded = true,
             backEnabled = !searchExpanded,
             pendingNavigation = pendingNavigation,
             onExit = {
-                selectedComponentKind = null
                 browseAllComponents = false
                 savedComponentQuery = state.query
                 vm.setQuery(savedRuleQuery)
-                if (classicLayout) vm.setFilter(savedRuleKind)
+                vm.setFilter(savedRuleKind)
             }
             )
         }
         return
     }
-    BackHandler(enabled = !classicLayout && state.filter == null && (selectedGroup != null || browseAll)) {
-        navigate { if (browseAll) browseAll = false else selectedGroup = null }
-    }
-
     editingTitle?.let { item ->
         ComponentTitleDialog(
             item,
@@ -132,54 +117,6 @@ fun RulesTab(
             onSave = vm::setBrowserHosts,
             onDismiss = { showBrowserHosts = false }
         )
-    }
-
-    // The four blocks are the homepage; there is no candidate list until
-    // an entry is selected (or the explicit Browse all action is used).
-    if (HomeLayoutPolicy.showCategoryHome(UiPreferencesRuntime.current.homeLayout, state.filter, state.query, browseAll)) {
-        EntryWorkspaceHome(
-            selectedGroup = selectedGroup,
-            onGroup = { selectedGroup = it },
-            onKind = { kind ->
-                selectedGroup = kind.entryGroup()
-                vm.setFilter(kind)
-            },
-            onPreviewKind = { kind ->
-                systemProbeRequest = SystemProbeRequest(entryKind = kind, userId = vm.selectedSpace.value)
-            },
-            onBack = { selectedGroup = null },
-            onAllApps = { browseAll = true },
-            onComponentKind = { kind ->
-                savedRuleQuery = state.query
-                selectedComponentKind = kind
-                browseAllComponents = false
-                selectedGroup = null
-                browseAll = false
-                vm.setFilter(null)
-                vm.setQuery(savedComponentQuery)
-            },
-            onAllComponents = {
-                savedRuleQuery = state.query
-                selectedComponentKind = null
-                browseAllComponents = true
-                selectedGroup = null
-                browseAll = false
-                vm.setFilter(null)
-                vm.setQuery(savedComponentQuery)
-            },
-            componentScan = componentScan,
-            componentScanning = componentBusy,
-            onRefreshComponents = vm::refreshComponents,
-            status = {
-                if (spaceScanState == com.yagay.ListCleaner.data.SpacePackageScanState.FAILED) {
-                    WorkspaceStatusMessage(
-                        stringResource(R.string.space_package_scan_failed), isError = true
-                    )
-                }
-                CleanupStatusAlert(state, onOpenStatus = onOpenModuleStatus)
-            }
-        )
-        return
     }
 
     val openPreset by vm.ruleOpenPreset.collectAsStateWithLifecycle()
@@ -383,57 +320,23 @@ fun RulesTab(
     LazyColumn(Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = if (selectionDraft.count > 0) 90.dp else 16.dp)
     ) {
-        if (classicLayout) {
-            stickyHeader(key = "classic-mode-tabs") {
-                ClassicCleanupTabs(
-                    active = ClassicCleanupMode.ENTRIES,
-                    onEntries = {},
-                    onComponents = {
-                        navigate {
+        stickyHeader(key = "classic-mode-tabs") {
+            ClassicCleanupTabs(
+                active = ClassicCleanupMode.ENTRIES,
+                onEntries = {},
+                onComponents = {
+                    navigate {
                         savedRuleQuery = state.query
                         savedRuleKind = state.filter
-                        selectedComponentKind = null
                         browseAllComponents = true
-                        selectedGroup = null
-                        browseAll = false
                         vm.setFilter(null)
                         vm.setQuery(savedComponentQuery)
-                        }
                     }
-                )
-            }
+                }
+            )
         }
-        item(key = "workspace-breadcrumb") {
-            if (classicLayout) {
-                ClassicListHeader(
-                    state = state,
-                    onOpenStatus = onOpenModuleStatus
-                )
-            } else {
-                EntryWorkspaceBreadcrumb(
-                    kind = state.filter,
-                    onHome = {
-                        navigate {
-                        vm.setFilter(null)
-                        selectedGroup = null
-                        browseAll = false
-                        vm.setQuery("")
-                        }
-                    },
-                    onGroup = {
-                        navigate {
-                        selectedGroup = state.filter?.entryGroup()
-                        browseAll = false
-                        vm.setFilter(null)
-                        vm.setQuery("")
-                        }
-                    }
-                )
-                if (state.runtime.needsDecision) RuntimePanel(
-                    state, vm, showUpdateTools = false,
-                    horizontalInset = MaterialUiTokens.groupHorizontal
-                )
-            }
+        item(key = "workspace-status") {
+            ClassicListHeader(state = state, onOpenStatus = onOpenModuleStatus)
         }
         stickyHeader(key = "list-controls") {
             PageFilterSection {
@@ -447,7 +350,7 @@ fun RulesTab(
                             appTypeFilter = it
                             UiPreferencesStore.rememberAppType(prefsContext, it, "rules")
                         },
-                        showEntryGroups = classicLayout,
+                        showEntryGroups = true,
                         subtypeTitle = when (state.filter) {
                             IntentKind.OPEN -> openPreset?.let { state.openTypesExplicit.localizedTitle(it) }
                             IntentKind.DEEP_LINK -> browserHost

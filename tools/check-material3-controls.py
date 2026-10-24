@@ -181,17 +181,27 @@ if "AdaptiveFilterChip(" not in (root / "SystemProbeDialog.kt").read_text(encodi
 if "AdaptiveAlertDialog(" not in (root / "AppearanceSettings.kt").read_text(encoding="utf-8"):
     errors.append("AppearanceSettings.kt: custom color editor bypassed shared dialog")
 
-# List First editor must be the default; one-time migration preserves a later
-# explicit category-list selection.
+# One runtime List First mode; legacy settings cannot restore category-home routing.
 prefs_source = (root / "UiPreferences.kt").read_text(encoding="utf-8")
 for token in ("val homeLayout: UiHomeLayout = UiHomeLayout.CLASSIC_LIST",
-              "upgradedListLayout(savedLayout, migrated)",
-              "direct_list_default_v3"):
+              "homeLayout = UiHomeLayout.CLASSIC_LIST",
+              "upgradedListLayout(savedLayout, migrated)"):
     if token not in prefs_source:
         errors.append(f"UiPreferences.kt: List First default missing: {token}")
 app_row = (root / "WorkspaceAppRow.kt").read_text(encoding="utf-8")
 if "androidx.compose.material3.ListItem(" in app_row:
     errors.append("WorkspaceAppRow.kt: two-line ListItem padding makes list too tall")
+
+# The only active workspace routing uses one list, not the old category-home.
+for filename in ("MainTabs.kt", "RootComponentsScreen.kt", "PriorityDialog.kt"):
+    code = (root / filename).read_text(encoding="utf-8")
+    for forbidden in ("EntryWorkspaceHome(", "RootWorkspaceHome(", "EntryWorkspaceBreadcrumb(",
+                      "HomeLayoutPolicy.showCategoryHome(", "classicLayout",
+                      "sortingGroup", "selectedGroup"):
+        if forbidden in code:
+            errors.append(f"{filename}: obsolete alternative route: {forbidden}")
+if "R.string.lc_home_layout_title" in (root / "AppearanceSettings.kt").read_text(encoding="utf-8"):
+    errors.append("AppearanceSettings.kt: remove duplicate layout mode setting")
 
 # Prevent duplicate app/detail renderers and verify preview rows.
 for filename in ("WorkspaceAppRow.kt", "WorkspaceCommon.kt", "RootComponentsScreen.kt"):
