@@ -42,6 +42,7 @@ internal fun UiCard(
 ) {
     val connected = variant == UiCardVariant.LIST_GROUP &&
         UiPreferencesRuntime.current.componentGrouping == UiComponentGrouping.CONNECTED
+    val detailRow = connected && (position == ListRowPosition.MIDDLE || position == ListRowPosition.LAST)
     val shape = when {
         connected && position == ListRowPosition.FIRST ->
             RoundedCornerShape(topStart = MaterialUiTokens.cardRadius, topEnd = MaterialUiTokens.cardRadius)
@@ -60,7 +61,8 @@ internal fun UiCard(
             filterPalette -> MaterialSelectionPalette.categoryBackground()
             connected && position == ListRowPosition.FIRST -> MaterialTheme.colorScheme.secondaryContainer
             variant == UiCardVariant.CATEGORY -> MaterialTheme.colorScheme.surfaceContainer
-            connected -> MaterialTheme.colorScheme.surfaceContainerLowest
+            detailRow -> MaterialTheme.colorScheme.surfaceContainerLow
+            connected -> MaterialTheme.colorScheme.surfaceContainerLow
             else -> MaterialTheme.colorScheme.surfaceContainerLow
         }
     )
@@ -68,8 +70,8 @@ internal fun UiCard(
         else if (filterPalette) BorderStroke(1.dp, MaterialSelectionPalette.outline())
         else null
     val surfaceModifier = modifier.padding(
-        horizontal = horizontalInset,
-        vertical = if (variant == UiCardVariant.LIST_GROUP && (!connected || position == ListRowPosition.SINGLE)) 2.dp else 0.dp
+        horizontal = horizontalInset + if (detailRow) MaterialUiTokens.connectedDetailIndent else 0.dp,
+        vertical = if (variant == UiCardVariant.LIST_GROUP && (!connected || position == ListRowPosition.SINGLE)) MaterialUiTokens.groupedOuterGap else 0.dp
     )
     val rowContent: @Composable ColumnScope.() -> Unit = {
         content()
