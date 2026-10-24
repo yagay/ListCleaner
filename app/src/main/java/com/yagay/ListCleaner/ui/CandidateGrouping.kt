@@ -83,6 +83,16 @@ internal object CandidateVisibilityPolicy {
     }
 }
 
+/**
+ * "Unavailable" means the discovery probe did not observe this saved rule.
+ * It is not proof the entry disappeared: some targets are published on demand,
+ * require a matching Intent, or are hidden from PackageManager queries.
+ */
+internal fun ComponentCandidate.mayBeDynamicEntry(): Boolean = when (rule.kind) {
+    IntentKind.SHORTCUT_ITEM, IntentKind.DIRECT_SHARE -> true
+    else -> false
+}
+
 /** Compatibility facade for diagnostics; all decisions still come from CandidateVisibilityPolicy. */
 internal fun catalogVisible(item: ComponentCandidate, selected: Boolean, uiFilter: UiFilter): Boolean =
     CandidateVisibilityPolicy.visible(item, selected, uiFilter)
