@@ -769,9 +769,12 @@ class RuleRepository(context: Context) {
     }
 
     private fun updateRules(next: Set<ComponentRule>) {
-        require(next.size <= MAX_RULES) { appContext.getString(R.string.repo_too_many_rules) }
-        if (next == mutableRules.value) return
-        mutableRules.value = next
+        // Older launcher shortcuts contained their activity in className. Normalize
+        // both existing and staged rules by stable ID before comparing or storing.
+        val canonical = next.mapNotNull { ComponentRule.fromId(it.id) }.toSet()
+        require(canonical.size <= MAX_RULES) { appContext.getString(R.string.repo_too_many_rules) }
+        if (canonical == mutableRules.value) return
+        mutableRules.value = canonical
         persistLocalSnapshot()
         mutableRevision.value++
     }
