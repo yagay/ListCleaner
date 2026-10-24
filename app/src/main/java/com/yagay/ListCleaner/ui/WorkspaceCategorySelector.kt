@@ -76,19 +76,11 @@ private fun WorkspaceCategoryPicker(
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
-        // Keep the original large Category picker shape; only match the
-        // neutral surface, outline and text palette of the Filter control.
-        androidx.compose.material3.Card(
+        UiCard(
+            variant = UiCardVariant.CATEGORY,
+            filterPalette = true,
             onClick = { expanded = true },
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.large,
-            colors = androidx.compose.material3.CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            ),
-            border = androidx.compose.foundation.BorderStroke(
-                1.dp, MaterialTheme.colorScheme.outline
-            )
-        ) {
+            modifier = Modifier.fillMaxWidth()        ) {
             // Measure the *content row* to at least 48dp, not only the Card.
             // Otherwise the 36dp row stays top-aligned inside a 48dp Card,
             // leaving extra space below and making "All" look too high.
