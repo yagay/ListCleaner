@@ -15,6 +15,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 
 /**
  * Small, shared render-only primitives for Entry (LSPosed) and Component (Root).
@@ -74,14 +76,14 @@ internal fun WorkspaceDetailHeading(
         AdaptiveText(
             title,
             modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
         AdaptiveText(
             kind,
             modifier = Modifier.widthIn(max = MaterialUiTokens.detailKindMaxWidth),
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -98,14 +100,13 @@ internal fun WorkspaceDetailCaption(
 ) {
     AdaptiveText(
         text,
-        style = MaterialTheme.typography.labelSmall,
+        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
         color = when {
             warning -> MaterialTheme.colorScheme.error
             emphasized -> MaterialTheme.colorScheme.primary
             else -> MaterialTheme.colorScheme.onSurfaceVariant
         },
-        maxLines = 2,
-        overflow = TextOverflow.Ellipsis
+        // Component class names must be visible in full even in compact mode.
     )
 }
 
