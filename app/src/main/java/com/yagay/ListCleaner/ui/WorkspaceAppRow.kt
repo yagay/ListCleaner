@@ -88,12 +88,7 @@ internal fun WorkspaceAppRow(
             onUnlock = onUnlock
         )
     }
-    if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
-        GroupedApplicationSurface(expanded, appContent)
-    } else {
-        // Continuous flat application headers; component detail rendering is unchanged.
-        ContinuousApplicationSurface { appContent() }
-    }
+    ContinuousApplicationSurface { appContent() }
 }
 
 /**
@@ -111,39 +106,6 @@ internal fun MaterialAppRowBody(
     details: @Composable ColumnScope.() -> Unit = {},
     trailing: @Composable RowScope.() -> Unit = {}
 ) {
-    if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
-        Row(
-            modifier = modifier.fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = MaterialUiTokens.groupedHeaderPadding),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                selection()
-                AppIcon(icon, title)
-            }
-            Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                AdaptiveText(title,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontSize = 18.sp, fontWeight = FontWeight.SemiBold
-                    ),
-                    maxLines = UiPreferencesRuntime.current.appTitleLines,
-                    overflow = TextOverflow.Ellipsis
-                )
-                AdaptiveText(subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = UiPreferencesRuntime.current.appSubtitleLines,
-                    overflow = TextOverflow.Ellipsis
-                )
-                if (UiPreferencesRuntime.current.showPackageNames && !packageName.isNullOrBlank()) {
-                    AdaptiveText(packageName, style = MaterialTheme.typography.labelSmall)
-                }
-                details()
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) { trailing() }
-        }
-        return
-    }
     androidx.compose.material3.ListItem(
         modifier = modifier.fillMaxWidth(),
         colors = androidx.compose.material3.ListItemDefaults.colors(

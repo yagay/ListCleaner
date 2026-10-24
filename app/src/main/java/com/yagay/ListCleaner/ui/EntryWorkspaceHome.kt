@@ -48,15 +48,15 @@ internal fun EntryWorkspaceHome(
     showUtilities: Boolean = true,
     showComponentSection: Boolean = true,
 ) {
-    MaterialPageColumn {
+    MaterialPageColumn(fullBleed = true) {
         status()
         if (selectedGroup == null) {
-            WorkspaceSectionTitle(
-                stringResource(
+            Box(Modifier.padding(horizontal = MaterialUiTokens.pageHorizontal)) {
+                WorkspaceSectionTitle(stringResource(
                     if (showComponentSection) R.string.workspace_rule_section
                     else R.string.workspace_choose_group
-                )
-            )
+                ))
+            }
             // One continuous, single-column list regardless of legacy grid preferences.
             Column(Modifier.fillMaxWidth()) {
                 availableGroups.forEach { group ->
@@ -85,7 +85,10 @@ internal fun EntryWorkspaceHome(
                 )
             }
         } else {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 AdaptiveBackButton(onClick = onBack)
                 Column(Modifier.weight(1f)) {
                     AdaptiveText(

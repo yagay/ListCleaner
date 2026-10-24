@@ -215,7 +215,7 @@ internal fun SystemProbeDialog(
         text = {
             LazyColumn(
                 Modifier.fillMaxWidth().heightIn(max = 430.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 if (choices.size > 1) {
                     item(key = "test-scenario") {
@@ -524,6 +524,7 @@ internal fun SystemProbeDialog(
                         // requested list behind counts and extra taps.
                         items(displayed, key = { it.component }) { entry ->
                             val selected = request.matches(entry)
+                            FlatRowSurface(dividerInset = 0.dp) {
                             Column(
                                 Modifier.fillMaxWidth().padding(vertical = 6.dp),
                                 verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -543,6 +544,7 @@ internal fun SystemProbeDialog(
                                 AdaptiveText(entry.component,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                             }
                         }
                     }

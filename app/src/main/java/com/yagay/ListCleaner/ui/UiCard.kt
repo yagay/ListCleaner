@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -80,17 +81,14 @@ internal fun UiCardDetailRow(
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit
 ) {
-    androidx.compose.material3.ListItem(
-        modifier = modifier.fillMaxWidth(),
-        colors = androidx.compose.material3.ListItemDefaults.colors(
-            containerColor = MaterialFlatPalette.detailSurface()
-        ),
-        headlineContent = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                content = content
-            )
-        }
+    Row(
+        modifier = modifier.fillMaxWidth()
+            .heightIn(min = MaterialUiTokens.detailHeight)
+            .padding(
+                horizontal = MaterialUiTokens.detailHorizontal,
+                vertical = MaterialUiTokens.detailVertical
+            ),
+        verticalAlignment = Alignment.CenterVertically,
+        content = content
     )
 }

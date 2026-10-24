@@ -165,6 +165,7 @@ internal fun SettingsSlider(
     title: String, value: Int, low: Int, high: Int, suffix: String = "dp", onChange: (Int) -> Unit
 ) {
     val context = LocalContext.current
+    FlatRowSurface(dividerInset = 0.dp) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth().heightIn(min = 36.dp),
@@ -190,5 +191,6 @@ internal fun SettingsSlider(
             },
             valueRange = low.toFloat()..high.toFloat()
         )
+    }
     }
 }

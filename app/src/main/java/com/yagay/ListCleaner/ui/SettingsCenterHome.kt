@@ -49,10 +49,13 @@ internal fun SettingsCenterHome(onSelect: (SettingsSection) -> Unit) {
         R.string.lc_settings_home_functional,
         R.string.lc_settings_home_maintenance
     )
-    MaterialPageColumn {
+    MaterialPageColumn(fullBleed = true) {
         SettingsSection.entries.chunked(2).forEachIndexed { groupIndex, sections ->
             Column(verticalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap)) {
-                FlatSectionHeader(stringResource(headings[groupIndex]))
+                FlatSectionHeader(
+                    stringResource(headings[groupIndex]),
+                    modifier = Modifier.padding(horizontal = MaterialUiTokens.pageHorizontal)
+                )
                 Column(Modifier.fillMaxWidth()) {
                     sections.forEach { section ->
                         FlatCategoryRow(
@@ -68,6 +71,7 @@ internal fun SettingsCenterHome(onSelect: (SettingsSection) -> Unit) {
         AdaptiveText(
             stringResource(R.string.app_version_format,
                 stringResource(R.string.app_name), BuildConfig.VERSION_NAME),
+            modifier = Modifier.padding(horizontal = MaterialUiTokens.pageHorizontal),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

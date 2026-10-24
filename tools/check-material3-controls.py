@@ -57,7 +57,7 @@ required = {
     "UiCard.kt": ["enum class UiCardVariant", "UiCardVariant.SECTION", "UiCardVariant.CATEGORY",
                    "UiCardVariant.LIST_GROUP", "UiCardVariant.STATUS",
                    "Surface(", "RectangleShape", "MaterialFlatPalette.sectionSurface()",
-                   "onClick = onClick", "UiCardDetailRow(", "ListItem("],
+                   "onClick = onClick", "UiCardDetailRow(", "heightIn(min = MaterialUiTokens.detailHeight)"],
     "MaterialDesignSystem.kt": ["MaterialSectionCard(", "FlatRowSurface(", "val cardShape get() ="],
     "WorkspaceLayout.kt": ["enum class ListRowPosition", "FlatSectionHeader(title)"],
     "MainControls.kt": ["UiCardVariant.STATUS", "warning = true"],
@@ -139,21 +139,24 @@ flat_visual_checks = {
     "MaterialDesignSystem.kt": ("FlatRowSurface(", "fun MaterialSettingsRow(",
                                 "fun MaterialSectionCard(", "shadowElevation = 0.dp"),
     "WorkspaceGroupedRows.kt": ("FlatRowSurface(", "ContinuousApplicationSurface(",
-                                 "ContinuousDetailSurface(", "GroupedComponentSurface("),
-    "WorkspaceAppRow.kt": ("GroupedApplicationSurface(expanded, appContent)",
-                            "ContinuousApplicationSurface { appContent() }",
-                            "MaterialAppRowBody("),
+                                 "ContinuousDetailSurface(", "MaterialFlatPalette.detailSurface()"),
+    "WorkspaceAppRow.kt": ("ContinuousApplicationSurface { appContent() }",
+                            "MaterialAppRowBody(", "ListItem("),
     "WorkspaceCommon.kt": ("WorkspaceCategoryRow(", "FlatCategoryRow(",
                             "WorkspaceDetailContainer(position, selected = false)",
                             "WorkspaceDetailContainer(position, checked, contentBlock)",
                             "UiCardDetailRow(modifier = clickModifier, content = rowContents)"),
-    "SettingsWidgets.kt": ("FlatSectionHeader(title)", "MaterialSectionCard { content() }"),
-    "SettingsCenterHome.kt": ("FlatCategoryRow(", "onSelect(section)"),
+    "SettingsWidgets.kt": ("FlatSectionHeader(title)", "MaterialSectionCard { content() }",
+                           "FlatRowSurface(dividerInset = 0.dp)"),
+    "SettingsCenterHome.kt": ("FlatCategoryRow(", "onSelect(section)",
+                               "MaterialPageColumn(fullBleed = true)"),
     "AdaptiveWidgets.kt": ("fun AdaptiveGroupSurface(", "= FlatRowSurface("),
     "AppScopePicker.kt": ("FlatRowSurface(Modifier.fillMaxWidth())",),
     "EntryWorkspaceHome.kt": ("availableGroups.forEach", "EntryGroupTile(",
-                               "selectedGroup.kinds().filter", "FlatRowSurface {"),
-    "RootWorkspaceHome.kt": ("kinds.forEach", "WorkspaceCategoryRow("),
+                               "selectedGroup.kinds().filter", "FlatRowSurface {",
+                               "MaterialPageColumn(fullBleed = true)"),
+    "RootWorkspaceHome.kt": ("kinds.forEach", "WorkspaceCategoryRow(",
+                             "MaterialPageColumn(fullBleed = true)"),
     "WorkspaceCategorySelector.kt": ("filter()", "Box(Modifier.weight(1f)) { category() }",
                                       "MaterialFlatPalette.selectedSurface()"),
 }
@@ -167,10 +170,16 @@ for filename, symbols in flat_visual_checks.items():
 details = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
 for symbol in ("WorkspaceReadOnlyDetailRow(", "WorkspaceDetailRow(",
                "UiCardDetailRow(modifier = clickModifier, content = rowContents)",
-               "GroupedComponentSurface(position, selected, content)",
                "ContinuousDetailSurface(content)", "BulkLockContextMenu("):
     if symbol not in details:
         errors.append(f"WorkspaceCommon.kt: expanded component contract missing: {symbol}")
+
+# Prevent duplicate app/detail renderers and verify preview rows.
+for filename in ("WorkspaceAppRow.kt", "WorkspaceCommon.kt", "RootComponentsScreen.kt"):
+    if "if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED)" in (root / filename).read_text(encoding="utf-8"):
+        errors.append(f"{filename}: legacy Grouped style still changes row rendering")
+if "FlatRowSurface(dividerInset = 0.dp)" not in (root / "SystemProbeDialog.kt").read_text(encoding="utf-8"):
+    errors.append("SystemProbeDialog.kt: runtime candidate rows are not flat list rows")
 
 # Legacy home columns remain persisted for upgrades, but are not used by List First.
 for filename in ("EntryWorkspaceHome.kt", "RootWorkspaceHome.kt"):

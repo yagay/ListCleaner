@@ -518,8 +518,7 @@ fun RootComponentsScreen(
                             stringResource(item.kind.titleRes())
                         )
                         WorkspaceDetailCaption(
-                            if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED)
-                                item.component.flattenToString() else item.component.flattenToShortString()
+                            item.component.flattenToShortString()
                         )
                         AdaptiveText(
                             item.blocked ?: stringResource(

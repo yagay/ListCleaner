@@ -30,7 +30,7 @@ internal fun RootWorkspaceHome(
     warning: String,
     scanning: Boolean
 ) {
-    MaterialPageColumn {
+    MaterialPageColumn(fullBleed = true) {
         RootWorkspaceCategorySection(
             kinds = kinds,
             apps = apps,
@@ -67,7 +67,10 @@ internal fun RootWorkspaceCategorySection(
         Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(MaterialUiTokens.sectionGap)
     ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Column(Modifier.weight(1f)) {
                 WorkspaceSectionTitle(stringResource(R.string.root_screen_title))
                 if (scanning) {

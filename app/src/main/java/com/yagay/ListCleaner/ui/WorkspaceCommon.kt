@@ -383,9 +383,8 @@ internal fun WorkspaceProgress(progress: Float? = null) {
     }
 }
 
-/**
- * Shared expanded-detail shell. The two list styles differ only in existing
- * indentation and selection affordance; the row behavior is owned below.
+/** All expanded components use one visual surface.
+ * Position is retained in the API for future optional presentation modes.
  */
 @Composable
 private fun WorkspaceDetailContainer(
@@ -393,34 +392,17 @@ private fun WorkspaceDetailContainer(
     selected: Boolean,
     content: @Composable () -> Unit
 ) {
-    if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
-        GroupedComponentSurface(position, selected, content)
-    } else {
-        ContinuousDetailSurface(content)
-    }
+    ContinuousDetailSurface(content)
 }
 
-/** Read-only and selectable details share the same surface contract. */
+/** Read-only details use the exact same row body and indentation. */
 @Composable
 internal fun WorkspaceReadOnlyDetailRow(
     position: ListRowPosition = ListRowPosition.SINGLE,
     content: @Composable RowScope.() -> Unit
 ) {
     WorkspaceDetailContainer(position, selected = false) {
-        if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(
-                    start = MaterialUiTokens.groupedDetailStartPadding,
-                    end = MaterialUiTokens.groupedDetailEndPadding,
-                    top = MaterialUiTokens.groupedDetailPadding,
-                    bottom = MaterialUiTokens.groupedDetailPadding
-                ),
-                verticalAlignment = Alignment.CenterVertically,
-                content = content
-            )
-        } else {
-            UiCardDetailRow(content = content)
-        }
+        UiCardDetailRow(content = content)
     }
 }
 
@@ -447,41 +429,18 @@ internal fun WorkspaceDetailRow(
                 onLongClick = { if (lockToggleEnabled) lockMenuExpanded = true }
             )
         val rowContents: @Composable RowScope.() -> Unit = {
-            if (UiPreferencesRuntime.current.listStyle != UiListStyle.GROUPED) {
-                AdaptiveCheckbox(
-                    checked = checked, enabled = enabled, onCheckedChange = null,
-                    modifier = Modifier.padding(horizontal = 8.dp)
-                )
-            }
+            AdaptiveCheckbox(
+                checked = checked, enabled = enabled, onCheckedChange = null,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
             Column(Modifier.weight(1f).padding(vertical = 4.dp)) { content() }
             if (locked) AdaptiveIcon(
                 Icons.Rounded.Lock, stringResource(R.string.bulk_lock_full),
                 modifier = Modifier.padding(horizontal = 8.dp).size(18.dp)
             )
             trailing()
-            if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
-                AdaptiveIcon(
-                    if (checked) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
-                    null,
-                    modifier = Modifier.padding(start = 1.dp).size(18.dp),
-                    tint = if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-                )
-            }
         }
-        if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
-            Row(
-                modifier = clickModifier.fillMaxWidth().padding(
-                    start = MaterialUiTokens.groupedDetailStartPadding,
-                    end = MaterialUiTokens.groupedDetailEndPadding,
-                    top = MaterialUiTokens.groupedDetailPadding,
-                    bottom = MaterialUiTokens.groupedDetailPadding
-                ),
-                verticalAlignment = Alignment.CenterVertically,
-                content = rowContents
-            )
-        } else {
-            UiCardDetailRow(modifier = clickModifier, content = rowContents)
-        }
+        UiCardDetailRow(modifier = clickModifier, content = rowContents)
         BulkLockContextMenu(
             expanded = lockMenuExpanded,
             onDismiss = { lockMenuExpanded = false },

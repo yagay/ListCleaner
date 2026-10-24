@@ -94,11 +94,15 @@ internal object MaterialUiTokens {
 @Composable
 internal fun MaterialPageColumn(
     modifier: Modifier = Modifier,
+    fullBleed: Boolean = false,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Column(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = MaterialUiTokens.pageVertical),
+            .padding(
+                horizontal = if (fullBleed) 0.dp else MaterialUiTokens.pageHorizontal,
+                vertical = MaterialUiTokens.pageVertical
+            ),
         verticalArrangement = Arrangement.spacedBy(MaterialUiTokens.sectionGap),
         content = content
     )
