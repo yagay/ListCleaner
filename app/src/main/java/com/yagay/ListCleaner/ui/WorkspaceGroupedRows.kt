@@ -9,6 +9,33 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
+/**
+ * Flat list treatment shared by Entry, Ordering and Root.
+ *
+ * No item card background, rounded container or outer gap: content fills the
+ * available width and a quiet inset divider separates neighboring rows.
+ * Selection is conveyed by the checkbox, not a full-row purple surface.
+ */
+@Composable
+internal fun FlatWorkspaceRowSurface(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            content()
+        }
+        HorizontalDivider(
+            modifier = Modifier.padding(horizontal = MaterialUiTokens.pageHorizontal),
+            thickness = 0.75.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)
+        )
+    }
+}
+
 /** Visual-only grouped list. App and component remain independent LazyColumn items. */
 @Composable
 internal fun GroupedApplicationSurface(expanded: Boolean, content: @Composable () -> Unit) {
