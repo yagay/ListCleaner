@@ -16,13 +16,28 @@ import androidx.compose.runtime.Composable
  * Never override an indicator, disabled color or selected chip palette here.
  */
 /** Single semantic palette for interactive controls. Change these values for a future theme. */
+internal object UiColorRoles {
+    val keys = setOf("buttonBackground", "buttonText", "buttonOutline",
+        "selectedBackground", "selectedText", "categoryBackground",
+        "filterBackground", "navigationBackground", "navigationText")
+    @Composable
+    fun resolve(key: String, default: Color): Color {
+        val hex = UiPreferencesRuntime.current.colorOverrides[key] ?: return default
+        return androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor(hex))
+    }
+}
+
 internal object MaterialSelectionPalette {
-    @Composable fun background(): Color = MaterialTheme.colorScheme.surface
-    @Composable fun outline(): Color = MaterialTheme.colorScheme.outline
-    @Composable fun text(): Color = MaterialTheme.colorScheme.onSurfaceVariant
-    @Composable fun activeBackground(): Color = MaterialTheme.colorScheme.secondaryContainer
-    @Composable fun activeText(): Color = MaterialTheme.colorScheme.onSecondaryContainer
+    @Composable fun background(): Color = UiColorRoles.resolve("buttonBackground", MaterialTheme.colorScheme.surface)
+    @Composable fun outline(): Color = UiColorRoles.resolve("buttonOutline", MaterialTheme.colorScheme.outline)
+    @Composable fun text(): Color = UiColorRoles.resolve("buttonText", MaterialTheme.colorScheme.onSurfaceVariant)
+    @Composable fun activeBackground(): Color = UiColorRoles.resolve("selectedBackground", MaterialTheme.colorScheme.secondaryContainer)
+    @Composable fun activeText(): Color = UiColorRoles.resolve("selectedText", MaterialTheme.colorScheme.onSecondaryContainer)
     @Composable fun title(): Color = MaterialTheme.colorScheme.onSurface
+    @Composable fun categoryBackground(): Color = UiColorRoles.resolve("categoryBackground", background())
+    @Composable fun filterBackground(): Color = UiColorRoles.resolve("filterBackground", background())
+    @Composable fun navigationBackground(): Color = UiColorRoles.resolve("navigationBackground", activeBackground())
+    @Composable fun navigationText(): Color = UiColorRoles.resolve("navigationText", activeText())
 }
 
 internal object MaterialActionColors {
@@ -43,11 +58,16 @@ internal object MaterialActionColors {
     @Composable fun text() = ButtonDefaults.textButtonColors()
     @Composable fun icon() = IconButtonDefaults.iconButtonColors()
     @Composable fun navigation() = NavigationBarItemDefaults.colors(
-        selectedIconColor = MaterialSelectionPalette.activeText(),
+        selectedIconColor = MaterialSelectionPalette.navigationText(),
         selectedTextColor = MaterialSelectionPalette.title(),
-        indicatorColor = MaterialSelectionPalette.activeBackground(),
+        indicatorColor = MaterialSelectionPalette.navigationBackground(),
         unselectedIconColor = MaterialSelectionPalette.text(),
         unselectedTextColor = MaterialSelectionPalette.text()
     )
-    @Composable fun filter() = FilterChipDefaults.filterChipColors()
+    @Composable fun filter() = FilterChipDefaults.filterChipColors(
+        containerColor = MaterialSelectionPalette.filterBackground(),
+        selectedContainerColor = MaterialSelectionPalette.activeBackground(),
+        labelColor = MaterialSelectionPalette.text(),
+        selectedLabelColor = MaterialSelectionPalette.activeText()
+    )
 }
