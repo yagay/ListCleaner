@@ -525,8 +525,10 @@ fun RootComponentsScreen(
                             )
                         }
                         AdaptiveText(
-                            item.component.flattenToShortString(),
-                            maxLines = 2, overflow = TextOverflow.Ellipsis,
+                            if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED)
+                                item.component.flattenToString() else item.component.flattenToShortString(),
+                            maxLines = if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) Int.MAX_VALUE else 2,
+                            overflow = if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) TextOverflow.Clip else TextOverflow.Ellipsis,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
