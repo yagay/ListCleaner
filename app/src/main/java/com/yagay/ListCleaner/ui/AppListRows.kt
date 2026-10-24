@@ -190,7 +190,7 @@ internal fun AppIcon(bitmap: Bitmap?, appLabel: String) {
                 Icons.Rounded.Apps,
                 stringResource(R.string.app_icon_description, appLabel),
                 modifier = Modifier.size(22.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = MaterialSelectionPalette.text()
             )
         } else {
             Image(
