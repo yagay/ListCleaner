@@ -51,6 +51,12 @@ internal fun ClassicCleanupTabs(
                 selected = active == ClassicCleanupMode.ENTRIES,
                 onClick = { if (active != ClassicCleanupMode.ENTRIES) onEntries() },
                 shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                colors = SegmentedButtonDefaults.colors(
+                    activeContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    activeContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    inactiveContainerColor = MaterialTheme.colorScheme.surface,
+                    inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                ),
                 modifier = Modifier.semantics {
                     contentDescription = entryDescription
                 },
@@ -66,6 +72,12 @@ internal fun ClassicCleanupTabs(
                 selected = active == ClassicCleanupMode.COMPONENTS,
                 onClick = { if (active != ClassicCleanupMode.COMPONENTS) onComponents() },
                 shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                colors = SegmentedButtonDefaults.colors(
+                    activeContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    activeContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    inactiveContainerColor = MaterialTheme.colorScheme.surface,
+                    inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                ),
                 modifier = Modifier.semantics {
                     contentDescription = componentDescription
                 },
