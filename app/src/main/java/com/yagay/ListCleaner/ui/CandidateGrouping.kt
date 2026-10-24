@@ -117,12 +117,14 @@ internal fun filterAppGroups(
     sortMode: UiAppSort = UiAppSort.SELECTED_FIRST,
     preferences: UiPreferences = UiPreferencesRuntime.current,
 ): List<AppGroup> {
+    val needle = query.trim().lowercase()
     val filtered = groups.mapNotNull { group ->
         val matching = group.components.filter { item ->
-            val isSelected = item.rule in selected
-            CandidateVisibilityPolicy.visible(item, isSelected, uiFilter, preferences) &&
-                (filter == null || item.rule.kind == filter) &&
-                item.matchesQuery(query)
+            // The common category/search checks are cheaper than history/authority
+            // visibility inspection, especially for multi-kind catalogs.
+            (filter == null || item.rule.kind == filter) &&
+                item.matchesNormalizedQuery(needle) &&
+                CandidateVisibilityPolicy.visible(item, item.rule in selected, uiFilter, preferences)
         }
         if (matching.isEmpty()) null else group.copy(components = matching)
     }
