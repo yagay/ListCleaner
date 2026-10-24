@@ -140,7 +140,7 @@ internal class CandidateController(
                         val browserDiscovery = browserLinkDiscovery.discoverDetailed(forceCatalog)
                         if (currentGeneration != generation || app.rules.activeUser.value != userId) return@launch
                         mutableBrowserHosts.value = browserDiscovery.hosts
-                        if (browserDiscovery != cachedBrowserDiscovery) {
+                        if (forceCatalog || browserDiscovery != cachedBrowserDiscovery) {
                             val enriched = app.catalog.scan(
                                 app.rules.openTypes.value.customDefinitions,
                                 app.rules.browserLinks.value.hosts + browserDiscovery.hosts,
