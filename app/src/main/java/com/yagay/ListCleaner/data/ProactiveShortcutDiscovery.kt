@@ -70,6 +70,50 @@ internal class UnifiedShortcutEngine(private val context: Context) {
         val queriedPackages: Int = 0,
     )
 
+    /** One cache/diagnostic contract shared by every shortcut consumer. */
+    private data class Cache(
+        val at: Long,
+        val kinds: Set<IntentKind>,
+        val packages: Set<String>,
+        val result: Result
+    )
+    private val cachedCandidates = mutableMapOf<Int, Cache>()
+
+    data class ScanSnapshot(val current: Result, val usable: Result?)
+
+    @Synchronized
+    fun scanCached(
+        userId: Int,
+        sharePackages: Collection<String>,
+        kinds: Set<IntentKind>,
+        cacheMillis: Long,
+        force: Boolean
+    ): ScanSnapshot {
+        val names = sharePackages.toSet()
+        val previous = cachedCandidates[userId]?.takeIf {
+            it.kinds == kinds && it.packages == names
+        }
+        val now = System.currentTimeMillis()
+        if (!force && previous != null && now - previous.at in 0..cacheMillis) {
+            return ScanSnapshot(previous.result, previous.result)
+        }
+        val fresh = scan(userId, sharePackages, kinds)
+        if (fresh.status == "candidates_not_final_chooser") {
+            cachedCandidates[userId] = Cache(now, kinds, names, fresh)
+            return ScanSnapshot(fresh, fresh)
+        }
+        // Failure or host permission denial is not evidence that saved rules vanished.
+        return ScanSnapshot(fresh, previous?.result)
+    }
+
+    companion object {
+        @Volatile private var shared: UnifiedShortcutEngine? = null
+        fun get(context: Context): UnifiedShortcutEngine =
+            shared ?: synchronized(this) {
+                shared ?: UnifiedShortcutEngine(context.applicationContext).also { shared = it }
+            }
+    }
+
     fun scan(
         userId: Int,
         sharePackages: Collection<String>,
