@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /** Local display preferences only. Never included in the remote Hook/Root configuration. */
 internal enum class UiDensity { COMPACT, STANDARD, COMFORTABLE }
+internal enum class UiComponentGrouping { SEPARATE, CONNECTED }
 /** Page arrangement only; both modes share the same rules, Root data, Material3 controls and scanner. */
 internal enum class UiHomeLayout { CATEGORY_CARDS, CLASSIC_LIST }
 internal enum class UiAccent { DYNAMIC, BLUE, GREEN, PURPLE, CUSTOM }
@@ -28,6 +29,7 @@ internal enum class UiComponentRefresh { CHANGED_ONLY, FULL }
 
 internal data class UiPreferences(
     val density: UiDensity = UiDensity.STANDARD,
+    val componentGrouping: UiComponentGrouping = UiComponentGrouping.SEPARATE,
     val accent: UiAccent = UiAccent.DYNAMIC,
     val customAccentHex: String = "#2859AB",
     val colorOverrides: Map<String, String> = emptyMap(),
@@ -113,6 +115,7 @@ internal object UiPreferencesStore {
         val defaults = UiPreferences()
         return UiPreferences(
             density = stored(p.getString("density", null), UiDensity.entries.toTypedArray(), defaults.density),
+            componentGrouping = stored(p.getString("component_grouping", null), UiComponentGrouping.entries.toTypedArray(), defaults.componentGrouping),
             accent = stored(p.getString("accent", null), UiAccent.entries.toTypedArray(), defaults.accent),
             customAccentHex = p.getString("custom_accent_hex", defaults.customAccentHex) ?: defaults.customAccentHex,
             colorOverrides = runCatching {
@@ -164,6 +167,7 @@ internal object UiPreferencesStore {
         val safe = value.normalized()
         context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
             .putString("density", safe.density.name)
+            .putString("component_grouping", safe.componentGrouping.name)
             .putString("accent", safe.accent.name)
             .putString("custom_accent_hex", safe.customAccentHex)
             .putString("color_overrides", JSONObject(safe.colorOverrides).toString())
