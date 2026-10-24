@@ -50,6 +50,8 @@ internal object MaterialUiTokens {
     val groupedInnerGap get() = (1f * density).dp
     val groupedDetailIndent get() = (12f * density).dp
     val groupedDetailPadding get() = (6f * density).dp
+    val groupedDetailStartPadding get() = (16f * density).dp
+    val groupedDetailEndPadding get() = (12f * density).dp
     val groupedHeaderPadding get() = (8f * density).dp
     val cardShape get() = RoundedCornerShape(cardRadius)
     val groupHorizontal get() = pageHorizontal
