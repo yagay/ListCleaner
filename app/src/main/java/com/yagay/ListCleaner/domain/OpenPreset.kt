@@ -157,7 +157,7 @@ private fun matchOpenPresetByExtension(fileNameOrPath: String?): OpenPreset? = w
 }
 
 /**
- * A read-only summary of Open With resolver evidence. A wildcard * / * query
+ * A read-only summary of Open With resolver evidence. A wildcard MIME query
  * is labelled separately; it must not be inferred from individual typed probes.
  * Unknown and retained-only rules do not claim a currently supported file type.
  */
@@ -168,9 +168,9 @@ data class OpenWithTypeSummary(
     val isEmpty: Boolean get() = !universal && presets.isEmpty()
 }
 
-private val openEvidenceMime = Regex("""(?:^|\\s)mime=([^\\s]+)""")
-private val openEvidenceScheme = Regex("""(?:^|\\s)scheme=([^\\s]+)""")
-private val openEvidenceSample = Regex("""(?:^|\\s)sample=([^\\s]+)""")
+private val openEvidenceMime = Regex("""(?:^|\s)mime=([^\s]+)""")
+private val openEvidenceScheme = Regex("""(?:^|\s)scheme=([^\s]+)""")
+private val openEvidenceSample = Regex("""(?:^|\s)sample=([^\s]+)""")
 
 fun summarizeOpenWithTypes(
     candidates: Collection<ComponentCandidate>,
