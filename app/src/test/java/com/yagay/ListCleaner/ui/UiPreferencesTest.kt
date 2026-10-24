@@ -6,6 +6,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class UiPreferencesTest {
+    @Test fun oldGroupedLayoutMigratesToSingleContinuousList() {
+        val preferences = UiPreferences(listStyle = UiListStyle.GROUPED).normalized()
+        assertEquals(UiListStyle.ORIGINAL, preferences.listStyle)
+        assertEquals(UiListStyle.ORIGINAL, UiPreferences().normalized().listStyle)
+    }
+
     @Test fun geometryIsBoundedBeforePersistence() {
         val preferences = UiPreferences(
             cardRadius = -4, buttonHeight = 4, appIconSize = 999,

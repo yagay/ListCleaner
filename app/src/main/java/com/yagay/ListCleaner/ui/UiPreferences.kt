@@ -75,6 +75,9 @@ internal data class UiPreferences(
     val dragHaptics: Boolean = true,
 ) {
     fun normalized(): UiPreferences = copy(
+        // This release has one List First presentation. Keep the legacy enum
+        // readable so persisted GROUPED values migrate without touching rules.
+        listStyle = UiListStyle.ORIGINAL,
         colorOverrides = colorOverrides.filter { (key, hex) -> (key in UiColorRoles.keys || (key.startsWith("dark_") && key.removePrefix("dark_") in UiColorRoles.keys)) && hex.matches(Regex("#[0-9a-fA-F]{6}")) },
         customAccentHex = customAccentHex.takeIf { it.matches(Regex("#[0-9a-fA-F]{6}")) } ?: "#2859AB",
         cardRadius = cardRadius.coerceIn(0, 32),
