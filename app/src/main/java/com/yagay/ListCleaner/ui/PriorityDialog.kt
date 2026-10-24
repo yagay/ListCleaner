@@ -533,12 +533,14 @@ fun PriorityDialogContent(
             groups.forEachIndexed { index, group ->
                 if (index == 0 || (groups[index - 1].rank == null) != (group.rank == null)) {
                     item(key = "priority-section-${if (group.rank == null) "available" else "pinned"}") {
-                        PageSectionTitle(
-                            stringResource(
-                                if (group.rank != null) R.string.priority_selected
-                                else R.string.priority_unselected
+                        Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                            PageSectionTitle(
+                                stringResource(
+                                    if (group.rank != null) R.string.priority_selected
+                                    else R.string.priority_unselected
+                                )
                             )
-                        )
+                        }
                     }
                 }
                 val packageName = group.packageName
