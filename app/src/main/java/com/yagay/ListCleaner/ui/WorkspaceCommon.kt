@@ -261,6 +261,43 @@ internal fun WorkspaceFilterBar(
     }
 }
 
+/** Shared compact direct-choice filter group for Entry, Component and Ordering.
+ * Values are drafts; the parent applies them only on confirmation.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun <T> WorkspaceFilterChoiceGroup(
+    title: String,
+    options: List<T>,
+    selected: T,
+    titleFor: @Composable (T) -> String,
+    onSelected: (T) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        AdaptiveText(
+            title,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            options.forEach { option ->
+                AdaptiveFilterChip(
+                    selected = option == selected,
+                    onClick = { onSelected(option) },
+                    label = { AdaptiveText(titleFor(option), maxLines = 1) }
+                )
+            }
+        }
+    }
+}
+
 /** Batch operations and help belong beside the list summary, not inside filters. */
 @Composable
 internal fun WorkspaceListActions(
