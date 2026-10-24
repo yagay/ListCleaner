@@ -20,6 +20,23 @@ fun Intent.intentKind(resolvedType: String? = null): IntentKind? {
     val normalizedMime = mime?.substringBefore(';')?.trim()?.lowercase().orEmpty()
     if (normalizedMime.isNotEmpty() &&
         normalizedMime !in setOf("*/*", "application/octet-stream", "binary/octet-stream", "application/x-download")) return null
-    val filePath = effective.data?.lastPathSegment ?: effective.data?.path
-    return if (matchOpenPreset(IntentKind.OPEN, mime, scheme, filePath) != null) IntentKind.OPEN else null
+    // A few file providers place the usable file URI in ClipData instead of data.
+    // Evaluate all supplied file URI candidates through the same typed-open policy.
+    val candidates = buildList {
+        effective.data?.let { uri ->
+            add(uri.lastPathSegment ?: uri.path)
+            if (uri.path != uri.lastPathSegment) add(uri.path)
+        }
+        effective.clipData?.let { clips ->
+            for (index in 0 until clips.itemCount) {
+                val uri = clips.getItemAt(index).uri ?: continue
+                if (uri.scheme == "content" || uri.scheme == "file") {
+                    add(uri.lastPathSegment ?: uri.path)
+                }
+            }
+        }
+    }
+    return if (candidates.any { filePath ->
+        matchOpenPreset(IntentKind.OPEN, mime, scheme, filePath) != null
+    }) IntentKind.OPEN else null
 }
