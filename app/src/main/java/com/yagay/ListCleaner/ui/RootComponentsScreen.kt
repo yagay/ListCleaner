@@ -357,17 +357,17 @@ fun RootComponentsScreen(
             WorkspaceListSummary(
                 title = stringResource(R.string.root_summary, groups.size, visible.size),
                 actions = listOf(
-                    WorkspaceMenuAction(stringResource(R.string.root_batch_action_disable), {
+                    WorkspaceMenuAction(stringResource(R.string.select_all), {
                         pendingBatch = PendingRootBatch(kind, visible, false)
                     }, !busy && visible.any {
                         it.blocked == null && it.enabled == true && !vm.isComponentBulkProtected(kind, it)
                     }),
-                    WorkspaceMenuAction(stringResource(R.string.root_batch_action_enable), {
+                    WorkspaceMenuAction(stringResource(R.string.select_none), {
                         pendingBatch = PendingRootBatch(kind, visible, true)
                     }, !busy && visible.any {
                         it.blocked == null && it.enabled == false && !vm.isComponentBulkProtected(kind, it)
                     }),
-                    WorkspaceMenuAction(stringResource(R.string.root_batch_action_invert), {
+                    WorkspaceMenuAction(stringResource(R.string.invert_selection), {
                         pendingBatch = PendingRootBatch(kind, visible, null)
                     }, !busy && visible.any {
                         it.blocked == null && it.enabled != null && !vm.isComponentBulkProtected(kind, it)
