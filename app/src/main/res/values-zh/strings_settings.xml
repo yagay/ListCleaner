@@ -63,4 +63,15 @@
     <string name="settings_custom_color_hex">自定义主题色（#RRGGBB）</string>
     <string name="settings_custom_color_apply">应用颜色</string>
     <string name="settings_custom_color_hint">输入 6 位十六进制颜色代码</string>
+    <string name="settings_color_details">组件颜色设置</string>
+    <string name="settings_color_reset">恢复默认</string>
+    <string name="color_role_buttonBackground">按钮背景</string>
+    <string name="color_role_buttonText">按钮文字与图标</string>
+    <string name="color_role_buttonOutline">按钮边框</string>
+    <string name="color_role_selectedBackground">选中背景</string>
+    <string name="color_role_selectedText">选中文字与图标</string>
+    <string name="color_role_categoryBackground">分类背景</string>
+    <string name="color_role_filterBackground">过滤背景</string>
+    <string name="color_role_navigationBackground">导航选中背景</string>
+    <string name="color_role_navigationText">导航选中图标</string>
 </resources>
