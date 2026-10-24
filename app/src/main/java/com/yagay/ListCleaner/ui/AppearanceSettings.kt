@@ -10,6 +10,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.Slider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -120,12 +121,12 @@ internal fun SettingsAppearanceControls(
     var editingDarkPalette by remember { mutableStateOf(false) }
     SettingsArea(stringResource(R.string.settings_color_details)) {
         androidx.compose.material3.SingleChoiceSegmentedButtonRow {
-            androidx.compose.material3.SegmentedButton(
+            SegmentedButton(
                 selected = !editingDarkPalette,
                 onClick = { editingDarkPalette = false },
                 shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(0, 2)
             ) { AdaptiveText(stringResource(R.string.settings_colors_light)) }
-            androidx.compose.material3.SegmentedButton(
+            SegmentedButton(
                 selected = editingDarkPalette,
                 onClick = { editingDarkPalette = true },
                 shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(1, 2)
@@ -269,7 +270,7 @@ private fun ThemeColorRoleEditor(role: String, dark: Boolean, title: String) {
                     AdaptiveText(colorHex)
                     listOf(
                         Triple(stringResource(R.string.settings_color_red), red, { v: Float -> red = v }),
-                        Triple(stringResource(R.string.settings_color_green), green, { v: Float -> green = v }),
+                        Triple(stringResource(R.string.settings_color_green_channel), green, { v: Float -> green = v }),
                         Triple(stringResource(R.string.settings_color_blue_channel), blue, { v: Float -> blue = v })
                     ).forEach { (label, value, setter) ->
                         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
