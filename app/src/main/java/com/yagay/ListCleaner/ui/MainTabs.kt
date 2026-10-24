@@ -216,16 +216,19 @@ fun RulesTab(
     // Preserve staged choices until repository state confirms each applied rule.
     // Shortcut entries are synthetic rules, so a premature draft reset makes
     // their checkboxes appear to revert while the state flow is still catching up.
-    LaunchedEffect(activeSelected, selectionDraft.changes) {
-        selectionDraft.acknowledge(selectionDraft.changes.filter { (rule, desired) ->
+    val draftChanges = selectionDraft.changes
+    LaunchedEffect(activeSelected, draftChanges) {
+        selectionDraft.acknowledge(draftChanges.filter { (rule, desired) ->
             (rule in activeSelected) == desired
         }.keys)
     }
-    val displayedSelected = activeSelected.toMutableSet().apply {
-        selectionDraft.changes.forEach { (rule, selected) ->
-            if (selected) add(rule) else remove(rule)
-        }
-    }.toSet()
+    val displayedSelected = remember(activeSelected, draftChanges) {
+        if (draftChanges.isEmpty()) activeSelected else activeSelected.toMutableSet().apply {
+            draftChanges.forEach { (rule, selected) ->
+                if (selected) add(rule) else remove(rule)
+            }
+        }.toSet()
+    }
     val canStageRule: (ComponentRule) -> Boolean = { rule ->
         when {
             typedOpenPreset != null -> rule !in state.selected &&
@@ -258,38 +261,55 @@ fun RulesTab(
         lockScopeCandidates.groupBy { it.rule.packageName }
             .mapValues { (_, items) -> items.map { it.rule } }
     }
-    // Keep staged checkbox edits visual-only: sorting and selected/unselected
-    // filters follow committed rules, not the unconfirmed selection draft.
-    val baseShownGroups = remember(
-        typedOpenPreset, deepLinkHost, state.candidates,
-        state.openTypesExplicit.customDefinitions, typedSelected,
-        deepLinkSelected, activeSelected, state.query, state.uiFilter, state.groups, UiPreferencesRuntime.current
+    // Candidate discovery and metadata are stable across checkbox edits, search,
+    // filter changes and unrelated runtime updates. Build the expensive app groups
+    // once per catalog snapshot, then filter/sort only the visible groups.
+    val catalogAppGroups = remember(state.candidates) {
+        baseAppGroups(state.candidates)
+    }
+    val scopedAppGroups = remember(
+        catalogAppGroups, typedOpenPreset, deepLinkHost,
+        state.openTypesExplicit.customDefinitions, deepLinkSelected
     ) {
-        when {
-            typedOpenPreset != null -> groupCandidates(
-                state.candidates.filter { it.matchesOpenPreset(typedOpenPreset, state.openTypesExplicit.customDefinitions) },
-                activeSelected,
-                IntentKind.OPEN,
-                state.query,
-                state.uiFilter,
-                UiPreferencesRuntime.current.appSort
-            )
-            deepLinkHost != null -> groupCandidates(
-                state.candidates.filter {
-                    it.rule.kind == IntentKind.DEEP_LINK &&
-                        (it.matchesBrowserHost(deepLinkHost) || it.rule in deepLinkSelected)
-                },
-                activeSelected,
-                IntentKind.DEEP_LINK,
-                state.query,
-                state.uiFilter,
-                UiPreferencesRuntime.current.appSort
-            )
-            else -> groupCandidates(
-                state.candidates, activeSelected, state.filter, state.query,
-                state.uiFilter, UiPreferencesRuntime.current.appSort
-            )
+        val eligible: (com.yagay.ListCleaner.domain.ComponentCandidate) -> Boolean = when {
+            typedOpenPreset != null -> { item ->
+                item.matchesOpenPreset(typedOpenPreset, state.openTypesExplicit.customDefinitions)
+            }
+            deepLinkHost != null -> { item ->
+                item.rule.kind == IntentKind.DEEP_LINK &&
+                    (item.matchesBrowserHost(deepLinkHost) || item.rule in deepLinkSelected)
+            }
+            else -> { _ -> true }
         }
+        if (typedOpenPreset == null && deepLinkHost == null) catalogAppGroups
+        else catalogAppGroups.mapNotNull { group ->
+            val matching = group.components.filter(eligible)
+            if (matching.isEmpty()) null else {
+                val first = matching.first()
+                group.copy(
+                    appLabel = first.appLabel,
+                    appIcon = first.appIcon,
+                    appType = first.appType,
+                    components = matching
+                )
+            }
+        }
+    }
+    // Staged edits change checkboxes only. Sorting and selected/unselected filters
+    // depend on confirmed selection, and must not rebuild the catalog grouping.
+    val baseShownGroups = remember(
+        scopedAppGroups, activeSelected, state.filter, typedOpenPreset, deepLinkHost,
+        state.query, state.uiFilter, UiPreferencesRuntime.current
+    ) {
+        filterAppGroups(
+            scopedAppGroups, activeSelected,
+            when {
+                typedOpenPreset != null -> IntentKind.OPEN
+                deepLinkHost != null -> IntentKind.DEEP_LINK
+                else -> state.filter
+            },
+            state.query, state.uiFilter, UiPreferencesRuntime.current.appSort
+        )
     }
     val lockFilteredGroups = remember(
         baseShownGroups, state.uiFilter, bulkLockRevision,
