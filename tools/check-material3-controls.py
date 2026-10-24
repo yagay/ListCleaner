@@ -253,22 +253,21 @@ filter_popup = sheet.split("internal fun WorkspaceFilterBar(", 1)[1].split(
 for expected in ("DropdownMenu(", "onDismissRequest = { expanded = false }",
                  "draftAppType", "draftView", "lc_filter_sheet_apply",
                  "lc_filter_sheet_reset", "WorkspacePickerButton(", "extraFilter()",
-                 "widthIn(min = 240.dp", "FilterMenuSection.APPS",
-                 "FilterMenuSection.VIEW", "if (appsOpen)", "if (viewOpen)",
-                 "openSection = null"):
+                 "widthIn(min = 240.dp", "WorkspaceFilterChoiceGroup(",
+                 "AppTypeFilter.entries", "UiFilter.entries"):
     if expected not in filter_popup:
-        errors.append(f"WorkspaceCommon.kt: anchored M3 Filter menu regression: {expected}")
+        errors.append(f"WorkspaceCommon.kt: compact direct-choice Filter regression: {expected}")
 if "ModalBottomSheet(" in filter_popup or "LazyRow(" in filter_popup:
     errors.append("WorkspaceCommon.kt: Filter must open near its top button, not as a sheet")
 if "heightIn(max = 480.dp)" in filter_popup or "widthIn(min = 270.dp" in filter_popup:
     errors.append("WorkspaceCommon.kt: Filter must use Category-scale dropdown dimensions")
-# Filter and Category now render through the same shared M3 menu primitives.
-# Inspect both call sites and the shared implementation, not only inline rows.
+# Category uses nested menu rows, but Filter uses direct M3 choice chips.
+# Both keep a shared top-level picker trigger and the same anchored popup.
 menu_shared = (root / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
-if filter_popup.count("WorkspaceMenuSection(") < 2 or filter_popup.count("WorkspaceMenuChoice(") < 2:
-    errors.append("WorkspaceCommon.kt: Filter must reuse shared M3 menu sections and choices")
-if menu_shared.count("AdaptiveDropdownMenuItem(") < 2 or "fun WorkspaceMenuChoice(" not in menu_shared or "fun WorkspaceMenuSection(" not in menu_shared:
-    errors.append("WorkspaceCategorySelector.kt: shared choices/sections must use native M3 menu items")
+if "fun WorkspacePickerButton(" not in menu_shared:
+    errors.append("WorkspaceCategorySelector.kt: shared category/filter trigger missing")
+if "fun <T> WorkspaceFilterChoiceGroup(" not in sheet or "AdaptiveFilterChip(" not in sheet or "FlowRow(" not in sheet:
+    errors.append("WorkspaceCommon.kt: direct-choice Material3 filter group missing")
 for expected in ("fun WorkspaceListActions(",
                  "WorkspaceListActions(actions, helpExpanded, onHelpToggle)"):
     if expected not in sheet:
