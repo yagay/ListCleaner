@@ -104,22 +104,6 @@ fun RootComponentsScreen(
     }
     // Draft is scoped to the current user space and component category.
     val selectionDraft = remember(kind, vm.selectedSpace.value) { PendingSelectionDraft<String>() }
-    var applyingTargets by remember(kind, vm.selectedSpace.value) {
-        mutableStateOf<Map<String, Boolean>?>(null)
-    }
-    // The Root mutation runs asynchronously. Do not discard checked items until a
-    // completed scan verifies that Android actually changed their component state.
-    LaunchedEffect(busy, scan.items, applyingTargets) {
-        val pending = applyingTargets
-        if (!busy && pending != null) {
-            val observed = scan.items.associateBy { it.id }
-            val verified = pending.filter { (id, disabled) ->
-                observed[id]?.enabled == !disabled
-            }.keys
-            selectionDraft.acknowledge(verified)
-            applyingTargets = null
-        }
-    }
     BackHandler(enabled = backEnabled && (embedded || kind != null || browseAll)) {
         navigate {
             if (embedded) {
@@ -140,8 +124,8 @@ fun RootComponentsScreen(
                     ?.let { it to !disabled }
             }.toMap()
             if (desired.isEmpty()) false else {
-                applyingTargets = desired.entries.associate { (item, enable) -> item.id to !enable }
                 vm.changeComponentsDesired(kind, desired)
+                selectionDraft.discard()
                 true
             }
         }
