@@ -41,8 +41,11 @@ internal fun GroupedComponentSurface(position: ListRowPosition, selected: Boolea
             bottomStart = MaterialUiTokens.cardRadius,
             bottomEnd = MaterialUiTokens.cardRadius
         ) else RoundedCornerShape(0.dp),
-        color = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.18f)
-            else MaterialTheme.colorScheme.surfaceContainerLow
+        // Expanded components share a gently tinted surface so the complete
+        // app group reads separately from the next collapsed application.
+        // Selected rows use a different semantic tint, never selection alpha alone.
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer
+            else MaterialTheme.colorScheme.secondaryContainer
     ) {
         Column {
             content()
