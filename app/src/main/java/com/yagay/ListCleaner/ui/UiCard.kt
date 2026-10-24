@@ -58,7 +58,7 @@ internal fun UiCard(
         containerColor = when {
             warning -> MaterialTheme.colorScheme.errorContainer
             filterPalette -> MaterialSelectionPalette.categoryBackground()
-            connected && (position == ListRowPosition.FIRST || position == ListRowPosition.SINGLE) -> MaterialTheme.colorScheme.secondaryContainer
+            connected && position == ListRowPosition.FIRST -> MaterialTheme.colorScheme.secondaryContainer
             variant == UiCardVariant.CATEGORY -> MaterialTheme.colorScheme.surfaceContainer
             connected -> MaterialTheme.colorScheme.surfaceContainerLowest
             else -> MaterialTheme.colorScheme.surfaceContainerLow
@@ -69,7 +69,7 @@ internal fun UiCard(
         else null
     val surfaceModifier = modifier.padding(
         horizontal = horizontalInset,
-        vertical = if (variant == UiCardVariant.LIST_GROUP && !connected) 2.dp else 0.dp
+        vertical = if (variant == UiCardVariant.LIST_GROUP && (!connected || position == ListRowPosition.SINGLE)) 2.dp else 0.dp
     )
     val rowContent: @Composable ColumnScope.() -> Unit = {
         content()
