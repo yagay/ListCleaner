@@ -49,7 +49,26 @@ class IntentCatalog(private val context: Context) {
         userId: Int = android.os.Process.myUid() / 100000,
     ): List<ComponentCandidate> = withContext(Dispatchers.IO) {
         val known = items.mapTo(hashSetOf()) { it.rule.id }
-        val missing = selected.filter { it.id !in known }
+        // A shortcut identity may be re-published with a different Activity class.
+        // Both records still refer to the same package/kind/Shortcut ID token.
+        // Keep persisted rules untouched; avoid manufacturing a second unavailable
+        // row when the same logical shortcut is present in the current scan.
+        fun shortcutIdentity(rule: ComponentRule): String? {
+            val marker = when (rule.kind) {
+                IntentKind.SHORTCUT_ITEM -> "#shortcut#"
+                IntentKind.DIRECT_SHARE -> "#direct#"
+                else -> return null
+            }
+            val token = rule.className.substringAfter(marker, "")
+            if (token.length != 24 || !token.all { it in '0'..'9' || it in 'a'..'f' }) return null
+            return "${rule.kind.name}|${rule.packageName}|$token"
+        }
+        val observedShortcuts = items.mapNotNullTo(hashSetOf()) {
+            shortcutIdentity(it.rule)
+        }
+        val missing = selected.filter { rule ->
+            rule.id !in known && shortcutIdentity(rule)?.let { it !in observedShortcuts } != false
+        }
         if (missing.isEmpty()) return@withContext items
 
         val appInfoByPackage = missing.asSequence()
