@@ -2,7 +2,7 @@ name: Build Debug APK
 
 on:
   push:
-    branches: [main, test, test3]
+    branches: [main, test, test3, perf/compose-list-switch-20261023]
     paths:
       - 'app/**'
       - 'README.md'
