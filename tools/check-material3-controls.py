@@ -53,7 +53,7 @@ required = {
                            "Checkbox(", "IconButton(", "UiCard("],
     "MaterialActionColors.kt": ["fun filled()", "fun outlined()", "fun outlinedBorder(",
                                  "fun text()", "fun icon()", "fun filter()", "fun navigation()",
-                                 "NavigationBarItemDefaults.colors(", "FilterChipDefaults.filterChipColors()"],
+                                 "NavigationBarItemDefaults.colors(", "FilterChipDefaults.filterChipColors("],
     "UiCard.kt": ["enum class UiCardVariant", "UiCardVariant.SECTION", "UiCardVariant.CATEGORY",
                    "UiCardVariant.LIST_GROUP", "UiCardVariant.STATUS", "MaterialTheme.shapes.medium",
                    "onClick = onClick", "UiCardDetailRow(", "ListItem("],
