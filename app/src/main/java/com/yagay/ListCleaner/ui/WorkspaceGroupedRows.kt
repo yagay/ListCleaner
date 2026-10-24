@@ -44,8 +44,9 @@ internal fun GroupedComponentSurface(position: ListRowPosition, selected: Boolea
         // Expanded components share a gently tinted surface so the complete
         // app group reads separately from the next collapsed application.
         // Selected rows use a different semantic tint, never selection alpha alone.
-        color = if (selected) MaterialTheme.colorScheme.primaryContainer
-            else MaterialTheme.colorScheme.secondaryContainer
+        // Match the expanded application header exactly. Selection is conveyed
+        // by its trailing checked icon, not a different row background.
+        color = MaterialTheme.colorScheme.secondaryContainer
     ) {
         Column {
             content()
