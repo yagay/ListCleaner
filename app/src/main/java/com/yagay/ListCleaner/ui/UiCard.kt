@@ -1,6 +1,7 @@
 package com.yagay.ListCleaner.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -50,8 +51,8 @@ internal fun UiCard(
 ) {
     val shape = when (variant) {
         UiCardVariant.CATEGORY -> MaterialTheme.shapes.large
-        UiCardVariant.SECTION, UiCardVariant.LIST_GROUP, UiCardVariant.STATUS ->
-            MaterialTheme.shapes.medium
+        UiCardVariant.LIST_GROUP -> RoundedCornerShape(MaterialUiTokens.listCardRadius)
+        UiCardVariant.SECTION, UiCardVariant.STATUS -> MaterialTheme.shapes.medium
     }
     val colors = CardDefaults.cardColors(
         containerColor = when {
