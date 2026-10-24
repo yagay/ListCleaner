@@ -91,10 +91,8 @@ internal fun WorkspaceAppRow(
     if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
         GroupedApplicationSurface(expanded, appContent)
     } else {
-        AdaptiveGroupSurface(
-            Modifier.fillMaxWidth(),
-            position = if (expanded) ListRowPosition.FIRST else ListRowPosition.SINGLE
-        ) { appContent() }
+        // Continuous flat application headers; component detail rendering is unchanged.
+        ContinuousApplicationSurface { appContent() }
     }
 }
 

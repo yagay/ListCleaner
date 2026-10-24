@@ -140,8 +140,12 @@ flat_visual_checks = {
     "WorkspaceGroupedRows.kt": ("padding(horizontal = MaterialUiTokens.groupHorizontal)",
                                 "padding(top = MaterialUiTokens.groupedOuterGap)",
                                 "WorkspaceListPalette.surface()"),
-    "WorkspaceAppRow.kt": ("GroupedApplicationSurface(expanded, appContent)", "AdaptiveGroupSurface(",
+    "WorkspaceAppRow.kt": ("GroupedApplicationSurface(expanded, appContent)",
+                           "ContinuousApplicationSurface { appContent() }",
                            "WorkspaceListPalette.surface()"),
+    "WorkspaceGroupedRows.kt": ("ContinuousApplicationSurface(", "drawWithContent",
+                                 "MaterialUiTokens.groupHorizontal",
+                                 "GroupedComponentSurface("),
     "WorkspaceCategorySelector.kt": ("filter()", "Box(Modifier.weight(1f)) { category() }",
                                       "MaterialFlatPalette.selectedSurface()"),
 }
@@ -150,6 +154,14 @@ for filename, symbols in flat_visual_checks.items():
     for symbol in symbols:
         if symbol not in content:
             errors.append(f"{filename}: flat visual contract/unchanged geometry missing: {symbol}")
+
+# Ensure the continuous app-header refactor does not change expanded details.
+component_rows = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
+for symbol in ("WorkspaceReadOnlyDetailRow(", "WorkspaceDetailRow(",
+               "UiCardDetailRow(modifier = clickModifier, content = rowContents)",
+               "GroupedComponentSurface(position, checked, contentBlock)"):
+    if symbol not in component_rows:
+        errors.append(f"WorkspaceCommon.kt: expanded details contract missing: {symbol}")
 
 # Reject Material Card reintroduction in the shared renderer.
 cardless_source = (root / "UiCard.kt").read_text(encoding="utf-8")
