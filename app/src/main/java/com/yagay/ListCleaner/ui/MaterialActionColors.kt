@@ -46,12 +46,9 @@ internal object MaterialStatusPalette {
  * callers retain their shape bounds, padding, position and click behaviour.
  */
 internal object MaterialFlatPalette {
-    // Slightly tinted page-surface, not pure-white cards floating on lavender.
-    // The small tonal difference preserves individual card boundaries without
-    // changing any list spacing, size, or hierarchy.
-    @Composable fun surface(): Color = MaterialTheme.colorScheme.primary.copy(
-        alpha = if (LocalListCleanerDarkTheme.current) 0.045f else 0.018f
-    ).compositeOver(MaterialTheme.colorScheme.surface)
+    // Unselected list and settings rows blend into the page; selected controls
+    // retain the current Material theme highlight.
+    @Composable fun surface(): Color = MaterialTheme.colorScheme.surface
     @Composable fun sectionSurface(): Color = MaterialTheme.colorScheme.surfaceContainerLow
     @Composable fun outline(): Color = MaterialTheme.colorScheme.outlineVariant.copy(
         alpha = if (LocalListCleanerDarkTheme.current) 0.42f else 0.30f
