@@ -130,8 +130,11 @@ internal fun MaterialAppRowBody(
         ) {
             AdaptiveText(
                 title,
-                style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
-                fontWeight = FontWeight.SemiBold,
+                style = if (UiPreferencesRuntime.current.componentGrouping == UiComponentGrouping.CONNECTED)
+                    MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp)
+                    else MaterialTheme.typography.bodyLarge,
+                fontWeight = if (UiPreferencesRuntime.current.componentGrouping == UiComponentGrouping.CONNECTED)
+                    FontWeight.SemiBold else FontWeight.Medium,
                 maxLines = UiPreferencesRuntime.current.appTitleLines,
                 overflow = TextOverflow.Ellipsis
             )
