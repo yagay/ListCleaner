@@ -490,8 +490,28 @@ internal fun WorkspaceProgress(progress: Float? = null) {
 
 /** Read-only and selectable details share the same surface geometry. */
 @Composable
-internal fun WorkspaceReadOnlyDetailRow(content: @Composable RowScope.() -> Unit) {
-    UiCardDetailRow(content = content)
+internal fun WorkspaceReadOnlyDetailRow(
+    position: ListRowPosition = ListRowPosition.SINGLE,
+    content: @Composable RowScope.() -> Unit
+) {
+    if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
+        GroupedComponentSurface(position, selected = false) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(
+                    start = MaterialUiTokens.groupedDetailStartPadding,
+                    end = MaterialUiTokens.groupedDetailEndPadding,
+                    top = MaterialUiTokens.groupedDetailPadding,
+                    bottom = MaterialUiTokens.groupedDetailPadding
+                ),
+                verticalAlignment = Alignment.CenterVertically,
+                content = content
+            )
+        }
+    } else {
+        AdaptiveGroupSurface(Modifier.fillMaxWidth(), position = position) {
+            UiCardDetailRow(content = content)
+        }
+    }
 }
 
 /** Identical detail-row surface, checkbox, lock menu and hit area for both engines. */
