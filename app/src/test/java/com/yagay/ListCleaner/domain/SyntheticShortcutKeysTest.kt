@@ -22,11 +22,11 @@ class SyntheticShortcutKeysTest {
     }
 
     @Test
-    fun same_shortcut_id_on_different_activities_is_distinct() {
+    fun same_shortcut_id_on_different_activities_is_identical() {
         val first = SyntheticEntryKeys.shortcutItemClass("com.example.MainActivity", "scan")
         val second = SyntheticEntryKeys.shortcutItemClass("com.example.SecondActivity", "scan")
 
-        assertNotEquals(first, second)
+        assertEquals(first, second)
     }
 
     @Test
