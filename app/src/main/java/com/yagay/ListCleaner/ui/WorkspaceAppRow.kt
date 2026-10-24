@@ -52,7 +52,6 @@ internal fun WorkspaceAppRow(
             title = title,
             subtitle = subtitle,
             packageName = packageName,
-            emphasizedHeader = expanded,
             modifier = modifier.combinedClickable(
                 onClickLabel = expandLabel,
                 onClick = onExpand,
@@ -106,7 +105,6 @@ internal fun MaterialAppRowBody(
     modifier: Modifier = Modifier,
     selection: @Composable RowScope.() -> Unit,
     packageName: String? = null,
-    emphasizedHeader: Boolean = false,
     details: @Composable ColumnScope.() -> Unit = {},
     trailing: @Composable RowScope.() -> Unit = {}
 ) {
@@ -132,7 +130,7 @@ internal fun MaterialAppRowBody(
         ) {
             AdaptiveText(
                 title,
-                style = if (UiPreferencesRuntime.current.componentGrouping == UiComponentGrouping.CONNECTED && emphasizedHeader)
+                style = if (UiPreferencesRuntime.current.componentGrouping == UiComponentGrouping.CONNECTED  )
                     MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp)
                     else MaterialTheme.typography.bodyLarge,
                 fontWeight = if (UiPreferencesRuntime.current.componentGrouping == UiComponentGrouping.CONNECTED)
