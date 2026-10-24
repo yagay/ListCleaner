@@ -34,6 +34,7 @@ internal fun UiCard(
     position: ListRowPosition = ListRowPosition.SINGLE,
     horizontalInset: Dp = if (variant == UiCardVariant.LIST_GROUP) MaterialUiTokens.groupHorizontal else 0.dp,
     warning: Boolean = false,
+    filterPalette: Boolean = false,
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -45,11 +46,14 @@ internal fun UiCard(
     val colors = CardDefaults.cardColors(
         containerColor = when {
             warning -> MaterialTheme.colorScheme.errorContainer
+            filterPalette -> MaterialTheme.colorScheme.surface
             variant == UiCardVariant.CATEGORY -> MaterialTheme.colorScheme.surfaceContainer
             else -> MaterialTheme.colorScheme.surfaceContainerLow
         }
     )
-    val border = if (warning) CardDefaults.outlinedCardBorder() else null
+    val border = if (warning) CardDefaults.outlinedCardBorder()
+        else if (filterPalette) BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        else null
     val surfaceModifier = modifier.padding(
         horizontal = horizontalInset,
         vertical = if (variant == UiCardVariant.LIST_GROUP) 2.dp else 0.dp
