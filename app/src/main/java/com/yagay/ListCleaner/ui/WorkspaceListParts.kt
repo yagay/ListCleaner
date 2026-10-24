@@ -138,7 +138,11 @@ internal fun WorkspaceDetailIconAction(
     contentDescription: String,
     onClick: () -> Unit
 ) {
-    AdaptiveIconButton(onClick = onClick) {
+    AdaptiveIconButton(
+        onClick = onClick,
+        modifier = if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED)
+            Modifier.size(40.dp) else Modifier
+    ) {
         AdaptiveIcon(
             image,
             contentDescription,
