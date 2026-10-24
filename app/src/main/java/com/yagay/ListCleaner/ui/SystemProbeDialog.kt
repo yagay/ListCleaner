@@ -298,20 +298,18 @@ internal fun SystemProbeDialog(
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             modes.forEach { mode ->
-                                AdaptiveTextButton(onClick = { viewMode = mode }) {
-                                    AdaptiveText(
-                                        stringResource(when (mode) {
+                                AdaptiveFilterChip(
+                                    selected = viewMode == mode,
+                                    onClick = { viewMode = mode },
+                                    label = {
+                                        AdaptiveText(stringResource(when (mode) {
                                             PreviewListMode.CURRENT -> R.string.preview_tab_current
                                             PreviewListMode.CANDIDATES -> R.string.preview_tab_candidates
                                             PreviewListMode.ENABLED -> R.string.preview_tab_enabled
                                             PreviewListMode.HISTORY -> R.string.preview_tab_history
-                                        }),
-                                        fontWeight = if (viewMode == mode) FontWeight.SemiBold
-                                            else FontWeight.Normal,
-                                        color = if (viewMode == mode) MaterialTheme.colorScheme.primary
-                                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
+                                        }))
+                                    }
+                                )
                             }
                         }
                     }

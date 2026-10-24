@@ -77,15 +77,19 @@ internal fun <T> SettingsChoices(
                     Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())
                 ) {
                     options.forEach { (item, label) ->
-                        ListItem(
-                            modifier = Modifier.fillMaxWidth().clickable {
+                        FlatRowSurface(
+                            dividerInset = 0.dp,
+                            onClick = {
                                 choosing = false
                                 if (item != value) onSelected(item)
-                            },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            headlineContent = { AdaptiveText(label) },
-                            leadingContent = { RadioButton(selected = item == value, onClick = null) }
-                        )
+                            }
+                        ) {
+                            ListItem(
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                                headlineContent = { AdaptiveText(label) },
+                                leadingContent = { RadioButton(selected = item == value, onClick = null) }
+                            )
+                        }
                     }
                 }
             },

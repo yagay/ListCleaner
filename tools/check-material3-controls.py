@@ -147,7 +147,7 @@ flat_visual_checks = {
                             "WorkspaceDetailContainer(position, checked, contentBlock)",
                             "UiCardDetailRow(modifier = clickModifier, content = rowContents)"),
     "SettingsWidgets.kt": ("FlatSectionHeader(title)", "MaterialSectionCard { content() }",
-                           "FlatRowSurface(dividerInset = 0.dp)"),
+                           "FlatRowSurface(dividerInset = 0.dp)", "FlatRowSurface("),
     "SettingsCenterHome.kt": ("FlatCategoryRow(", "onSelect(section)",
                                "MaterialPageColumn(fullBleed = true)"),
     "AdaptiveWidgets.kt": ("fun AdaptiveGroupSurface(", "= FlatRowSurface("),
@@ -173,6 +173,12 @@ for symbol in ("WorkspaceReadOnlyDetailRow(", "WorkspaceDetailRow(",
                "ContinuousDetailSurface(content)", "BulkLockContextMenu("):
     if symbol not in details:
         errors.append(f"WorkspaceCommon.kt: expanded component contract missing: {symbol}")
+
+# Preview tabs, result list and choice dialogs share Material3 list affordances.
+if "AdaptiveFilterChip(" not in (root / "SystemProbeDialog.kt").read_text(encoding="utf-8"):
+    errors.append("SystemProbeDialog.kt: preview filter tabs lack visible selected state")
+if "AdaptiveAlertDialog(" not in (root / "AppearanceSettings.kt").read_text(encoding="utf-8"):
+    errors.append("AppearanceSettings.kt: custom color editor bypassed shared dialog")
 
 # Prevent duplicate app/detail renderers and verify preview rows.
 for filename in ("WorkspaceAppRow.kt", "WorkspaceCommon.kt", "RootComponentsScreen.kt"):

@@ -250,7 +250,7 @@ private fun ThemeColorRoleEditor(role: String, dark: Boolean, title: String) {
         ) {}
     }
     if (expanded) {
-        androidx.compose.material3.AlertDialog(
+        AdaptiveAlertDialog(
             onDismissRequest = { expanded = false },
             title = { AdaptiveText(title) },
             text = {
