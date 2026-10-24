@@ -4,6 +4,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -34,35 +36,18 @@ internal fun SettingsAppearanceControls(
     val context = LocalContext.current
     val current = UiPreferencesRuntime.current
     SettingsArea(stringResource(R.string.lc_settings_theme_group)) {
-        // Keep the light/dark choice immediately visible. Generic three-option
-        // SettingsChoices opens a secondary dialog and obscured this feature.
-        AdaptiveText(
-            stringResource(R.string.ui_color_mode_title),
-            fontWeight = FontWeight.Medium
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap)
-        ) {
-            UiColorMode.entries.forEach { mode ->
-                val label = stringResource(when (mode) {
+        SettingsChoices(
+            title = stringResource(R.string.ui_color_mode_title),
+            value = colorMode,
+            options = UiColorMode.entries.map { mode ->
+                mode to stringResource(when (mode) {
                     UiColorMode.SYSTEM -> R.string.ui_color_mode_system
                     UiColorMode.LIGHT -> R.string.ui_color_mode_light
                     UiColorMode.DARK -> R.string.ui_color_mode_dark
                 })
-                AdaptiveFilterChip(
-                    selected = colorMode == mode,
-                    onClick = { onColorModeChange(mode) },
-                    modifier = Modifier.weight(1f),
-                    label = {
-                        AdaptiveText(
-                            label, modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.Center, maxLines = 2
-                        )
-                    }
-                )
-            }
-        }
+            },
+            onSelected = onColorModeChange
+        )
         AdaptiveText(
             stringResource(R.string.ui_color_mode_help),
             style = MaterialTheme.typography.bodySmall,
@@ -115,11 +100,13 @@ internal fun SettingsAppearanceControls(
             listOf(1 to "1", 2 to "2", 3 to "3")) {
             UiPreferencesStore.write(context, current.copy(appSubtitleLines = it))
         }
-        MaterialSettingsRow(title = stringResource(R.string.lc_show_app_icons)) {
-            AdaptiveSwitch(checked = current.showAppIcons, onCheckedChange = {
+        SettingsSwitchRow(
+            title = stringResource(R.string.lc_show_app_icons),
+            checked = current.showAppIcons,
+            onCheckedChange = {
                 UiPreferencesStore.write(context, current.copy(showAppIcons = it))
-            })
-        }
+            }
+        )
         AdaptiveText(stringResource(R.string.settings_appearance_help),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
@@ -132,14 +119,20 @@ internal fun SettingsLanguageControls() {
     SettingsArea(stringResource(R.string.settings_language)) {
         MaterialSettingsRow(
             title = stringResource(R.string.settings_language),
-            supportingText = stringResource(R.string.settings_language_help)
-        ) {
-            AdaptiveOutlinedButton(onClick = {
+            supportingText = stringResource(R.string.settings_language_help),
+            onClick = {
                 val action = if (Build.VERSION.SDK_INT >= 33) Settings.ACTION_APP_LOCALE_SETTINGS
                     else Settings.ACTION_APPLICATION_DETAILS_SETTINGS
                 val intent = Intent(action, Uri.parse("package:${context.packageName}"))
                 runCatching { context.startActivity(intent) }
-            }) { AdaptiveText(stringResource(R.string.settings_open_system)) }
+            }
+        ) {
+            AdaptiveIcon(
+                Icons.Rounded.ChevronRight,
+                stringResource(R.string.settings_open_system),
+                Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }
