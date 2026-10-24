@@ -93,21 +93,21 @@ private fun WorkspaceCategoryPicker(
             ) {
                 AdaptiveIcon(
                     Icons.Rounded.Layers, null, Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = MaterialSelectionPalette.text()
                 )
                 AdaptiveText(
                     stringResource(R.string.lc_category_picker_current, selectedTitle),
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = MaterialSelectionPalette.title(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 AdaptiveIcon(
                     if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                     null, Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = MaterialSelectionPalette.text()
                 )
             }
         }
@@ -120,7 +120,7 @@ private fun WorkspaceCategoryPicker(
                 menuTitle,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialSelectionPalette.text()
             )
             content { expanded = false }
         }
