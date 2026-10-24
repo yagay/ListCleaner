@@ -508,14 +508,13 @@ internal fun WorkspaceDetailRow(
     trailing: @Composable RowScope.() -> Unit = {}
 ) {
     var lockMenuExpanded by remember { mutableStateOf(false) }
-    AdaptiveGroupSurface(Modifier.fillMaxWidth(), position = position) {
-        UiCardDetailRow(
-            modifier = Modifier.combinedClickable(
+    val contentBlock: @Composable () -> Unit = {
+        val clickModifier = Modifier.combinedClickable(
                 role = androidx.compose.ui.semantics.Role.Checkbox,
                 onClick = { if (enabled) onToggle() },
                 onLongClick = { if (lockToggleEnabled) lockMenuExpanded = true }
             )
-        ) {
+        val rowContents: @Composable RowScope.() -> Unit = {
             AdaptiveCheckbox(
                 checked = checked, enabled = enabled, onCheckedChange = null,
                 modifier = Modifier.padding(horizontal = 8.dp)
@@ -527,6 +526,18 @@ internal fun WorkspaceDetailRow(
             )
             trailing()
         }
+        if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
+            Row(
+                modifier = clickModifier.fillMaxWidth().padding(
+                    horizontal = MaterialUiTokens.groupedDetailPadding,
+                    vertical = MaterialUiTokens.groupedDetailPadding
+                ),
+                verticalAlignment = Alignment.CenterVertically,
+                content = rowContents
+            )
+        } else {
+            UiCardDetailRow(modifier = clickModifier, content = rowContents)
+        }
         BulkLockContextMenu(
             expanded = lockMenuExpanded,
             onDismiss = { lockMenuExpanded = false },
@@ -535,5 +546,10 @@ internal fun WorkspaceDetailRow(
             onLock = onLock,
             onUnlock = onUnlock
         )
+    }
+    if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
+        GroupedComponentSurface(position, contentBlock)
+    } else {
+        AdaptiveGroupSurface(Modifier.fillMaxWidth(), position = position) { contentBlock() }
     }
 }
