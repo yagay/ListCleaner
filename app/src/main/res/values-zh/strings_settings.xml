@@ -74,4 +74,10 @@
     <string name="color_role_filterBackground">过滤背景</string>
     <string name="color_role_navigationBackground">导航选中背景</string>
     <string name="color_role_navigationText">导航选中图标</string>
+    <string name="settings_colors_light">浅色模式</string>
+    <string name="settings_colors_dark">深色模式</string>
+    <string name="settings_color_default">系统默认</string>
+    <string name="settings_color_red">红</string>
+    <string name="settings_color_green">绿</string>
+    <string name="settings_color_blue_channel">蓝</string>
 </resources>
