@@ -395,8 +395,8 @@ internal fun WorkspaceListActions(
                     Icons.Rounded.Info,
                     stringResource(R.string.lc_filter_help_short),
                     Modifier.size(20.dp),
-                    tint = if (helpExpanded) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = if (helpExpanded) MaterialSelectionPalette.activeText()
+                    else MaterialSelectionPalette.text()
                 )
             }
         }
