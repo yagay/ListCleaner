@@ -9,6 +9,7 @@ import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.ui.UiPreferences
 import com.yagay.ListCleaner.ui.UiCandidateSource
 import com.yagay.ListCleaner.ui.CandidateVisibilityPolicy
+import com.yagay.ListCleaner.ui.mayBeDynamicEntry
 import com.yagay.ListCleaner.ui.UiFilter
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -131,4 +132,25 @@ class CandidateVisibilityPolicyTest {
         assertFalse(CandidateVisibilityPolicy.visible(item, selected = true, uiFilter = UiFilter.ALL))
         assertTrue(CandidateVisibilityPolicy.visible(item, selected = true, uiFilter = UiFilter.SHOW_SELECTED))
     }
+    @Test fun unobservedShortcutsAndDirectShareArePotentiallyDynamic() {
+        val shortcut = ComponentCandidate(
+            ComponentRule(IntentKind.SHORTCUT_ITEM, "com.example.app", "@entry#shortcut#123456789012345678901234"),
+            "App", "Quick action", unavailable = true
+        )
+        val directShare = ComponentCandidate(
+            ComponentRule(IntentKind.DIRECT_SHARE, "com.example.app", "com.example.app.ShareTarget"),
+            "App", "Recent conversation", unavailable = true
+        )
+        val ordinaryOpen = ComponentCandidate(
+            ComponentRule(IntentKind.OPEN, "com.example.app", "com.example.app.OpenActivity"),
+            "App", "Open PDF", unavailable = true
+        )
+        assertTrue(shortcut.mayBeDynamicEntry())
+        assertTrue(directShare.mayBeDynamicEntry())
+        assertFalse(ordinaryOpen.mayBeDynamicEntry())
+        // Existing cleanup selections are preserved independently of the UI status wording.
+        assertTrue(CandidateVisibilityPolicy.retainAfterRefresh(shortcut, selected = true))
+        assertTrue(CandidateVisibilityPolicy.retainAfterRefresh(ordinaryOpen, selected = true))
+    }
+
 }
