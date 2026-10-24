@@ -31,7 +31,7 @@ internal fun GroupedApplicationSurface(expanded: Boolean, content: @Composable (
 }
 
 @Composable
-internal fun GroupedComponentSurface(position: ListRowPosition, content: @Composable () -> Unit) {
+internal fun GroupedComponentSurface(position: ListRowPosition, selected: Boolean, content: @Composable () -> Unit) {
     val last = position == ListRowPosition.LAST
     Surface(
         modifier = Modifier.fillMaxWidth()
@@ -41,7 +41,8 @@ internal fun GroupedComponentSurface(position: ListRowPosition, content: @Compos
             bottomStart = MaterialUiTokens.cardRadius,
             bottomEnd = MaterialUiTokens.cardRadius
         ) else RoundedCornerShape(0.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.18f)
+            else MaterialTheme.colorScheme.surfaceContainerLow
     ) {
         Column {
             content()
