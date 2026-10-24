@@ -71,9 +71,36 @@ internal fun SettingsAppearanceControls(
                 UiAccent.DYNAMIC to stringResource(R.string.settings_color_dynamic),
                 UiAccent.BLUE to stringResource(R.string.settings_color_blue),
                 UiAccent.GREEN to stringResource(R.string.settings_color_green),
-                UiAccent.PURPLE to stringResource(R.string.settings_color_purple)
+                UiAccent.PURPLE to stringResource(R.string.settings_color_purple),
+                UiAccent.CUSTOM to stringResource(R.string.settings_color_custom)
             )
         ) { UiPreferencesStore.write(context, current.copy(accent = it)) }
+        if (current.accent == UiAccent.CUSTOM) {
+            var customHex by remember(current.customAccentHex) {
+                mutableStateOf(current.customAccentHex)
+            }
+            androidx.compose.material3.OutlinedTextField(
+                value = customHex,
+                onValueChange = { value ->
+                    if (value.length <= 7) customHex = value
+                },
+                label = { AdaptiveText(stringResource(R.string.settings_custom_color_hex)) },
+                supportingText = { AdaptiveText(stringResource(R.string.settings_custom_color_hint)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            AdaptiveButton(
+                onClick = {
+                    UiPreferencesStore.write(
+                        context,
+                        UiPreferencesRuntime.current.copy(customAccentHex = customHex)
+                    )
+                },
+                enabled = customHex.matches(Regex("#[0-9a-fA-F]{6}"))
+            ) {
+                AdaptiveText(stringResource(R.string.settings_custom_color_apply))
+            }
+        }
         SettingsChoices(
             stringResource(R.string.settings_density), current.density,
             listOf(
