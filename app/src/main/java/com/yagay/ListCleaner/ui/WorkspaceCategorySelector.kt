@@ -17,6 +17,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -63,6 +64,52 @@ internal fun WorkspaceCategoryFilterRow(
     }
 }
 
+/** Unified top-row trigger used by category and filter. */
+@Composable
+internal fun WorkspacePickerButton(
+    label: String,
+    icon: ImageVector,
+    selected: Boolean,
+    expanded: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    count: Int = 0
+) {
+    UiCard(
+        variant = UiCardVariant.CATEGORY,
+        filterPalette = selected,
+        onClick = onClick,
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier.heightIn(min = 48.dp)
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            val color = if (selected) MaterialSelectionPalette.title()
+                else MaterialTheme.colorScheme.onSurface
+            AdaptiveIcon(icon, null, Modifier.size(18.dp), tint = color)
+            AdaptiveText(
+                label,
+                modifier = Modifier,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                color = color,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (count > 0) androidx.compose.material3.Badge {
+                AdaptiveText(count.toString())
+            }
+            AdaptiveIcon(
+                if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                null, Modifier.size(18.dp), tint = color
+            )
+        }
+    }
+}
+
 /**
  * Anchored Material 3 category menu for Entry, Root and Ordering.
  *
@@ -79,41 +126,14 @@ private fun WorkspaceCategoryPicker(
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
-        UiCard(
-            variant = UiCardVariant.CATEGORY,
-            filterPalette = true,
+        WorkspacePickerButton(
+            label = stringResource(R.string.lc_category_picker_current, selectedTitle),
+            icon = Icons.Rounded.Layers,
+            selected = true,
+            expanded = expanded,
             onClick = { expanded = true },
-            modifier = Modifier.fillMaxWidth()        ) {
-            // Measure the *content row* to at least 48dp, not only the Card.
-            // Otherwise the 36dp row stays top-aligned inside a 48dp Card,
-            // leaving extra space below and making "All" look too high.
-            Row(
-                modifier = Modifier.fillMaxWidth()
-                    .heightIn(min = 48.dp)
-                    .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                AdaptiveIcon(
-                    Icons.Rounded.Layers, null, Modifier.size(18.dp),
-                    tint = MaterialSelectionPalette.text()
-                )
-                AdaptiveText(
-                    stringResource(R.string.lc_category_picker_current, selectedTitle),
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
-                    color = MaterialSelectionPalette.title(),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                AdaptiveIcon(
-                    if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                    null, Modifier.size(18.dp),
-                    tint = MaterialSelectionPalette.text()
-                )
-            }
-        }
+            modifier = Modifier.fillMaxWidth()
+        )
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
