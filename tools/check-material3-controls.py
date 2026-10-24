@@ -90,7 +90,7 @@ required = {
     "SettingsWidgets.kt": ["fun SettingsArea(", "fun <T> SettingsChoices(",
                            "fun SettingsSlider(", "MaterialSectionCard {",
                            "AdaptiveAlertDialog("],
-    "AppearanceSettings.kt": ["fun SettingsAppearanceControls(", "R.string.ui_color_mode_title", "UiColorMode.entries.forEach", "onColorModeChange(mode)",
+    "AppearanceSettings.kt": ["fun SettingsAppearanceControls(", "R.string.ui_color_mode_title", "UiColorMode.entries.map", "onSelected = onColorModeChange",
                               "fun SettingsLanguageControls()", "settings_icon_size",
                               "lc_layout_spacing"],
     "ListSettings.kt": ["fun SettingsListControls()", "settings_home_columns",
