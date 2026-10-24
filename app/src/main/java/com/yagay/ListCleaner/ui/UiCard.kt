@@ -1,42 +1,34 @@
 package com.yagay.ListCleaner.ui
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.background
+import androidx.compose.foundation.drawWithContent
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.ui.Alignment
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/**
- * The same low-contrast material for app cards and their expanded component
- * rows across Cleanup, Ordering and Root. Only appearance changes: existing
- * card shapes, paddings, row measures and list structure remain untouched.
- */
+/** One page-matched background for Entry, Ordering, Root and their details. */
 internal object WorkspaceListPalette {
     @Composable fun surface() = MaterialFlatPalette.surface()
     @Composable fun outline() = MaterialFlatPalette.outline()
 }
 
-/** Four visual purposes, one Material 3 Card implementation. */
+/** Semantic variants preserve warnings and actions, without card decoration. */
 internal enum class UiCardVariant { SECTION, CATEGORY, LIST_GROUP, STATUS }
 
 /**
- * Central card surface: color, shape, grouping gaps, elevation and warning borders
- * are resolved here. Callers supply content and feature-specific interactions.
- *
- * Inset is only applied by default to uncontained list rows. A list already inside
- * MaterialPageColumn must use horizontalInset = 0.dp to avoid doubled margins.
+ * Cardless list/settings surface. Retains the same content slots and horizontal
+ * alignment. Hairline dividers are painted instead of inserting layout rows.
  */
 @Composable
 internal fun UiCard(
@@ -49,55 +41,36 @@ internal fun UiCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    // A single visual radius; the Card modifier and content geometry stay intact.
-    val shape = RoundedCornerShape(MaterialUiTokens.listCardRadius)
-    val colors = CardDefaults.cardColors(
-        containerColor = when {
-            warning -> MaterialTheme.colorScheme.errorContainer
-            filterPalette -> MaterialSelectionPalette.categoryBackground()
-            variant == UiCardVariant.CATEGORY || variant == UiCardVariant.LIST_GROUP ->
-                WorkspaceListPalette.surface()
-            variant == UiCardVariant.STATUS -> MaterialFlatPalette.sectionSurface()
-            else -> MaterialFlatPalette.sectionSurface()
-        }
-    )
-    val border = when {
-        warning -> CardDefaults.outlinedCardBorder()
-        filterPalette -> BorderStroke(1.dp, MaterialSelectionPalette.outline())
-        else -> BorderStroke(0.5.dp, MaterialFlatPalette.outline())
+    val dividerColor = WorkspaceListPalette.outline()
+    val withDivider = !warning && !filterPalette &&
+        (variant == UiCardVariant.LIST_GROUP || variant == UiCardVariant.CATEGORY)
+    val container = when {
+        warning -> MaterialTheme.colorScheme.errorContainer
+        filterPalette -> MaterialSelectionPalette.categoryBackground()
+        variant == UiCardVariant.STATUS -> MaterialFlatPalette.sectionSurface()
+        else -> WorkspaceListPalette.surface()
     }
-    // Zero tonal/shadow elevation for every card variant (tap ripple retained).
-    val elevation = CardDefaults.cardElevation(
-        defaultElevation = 0.dp,
-        pressedElevation = 0.dp,
-        focusedElevation = 0.dp,
-        hoveredElevation = 0.dp,
-        draggedElevation = 0.dp,
-        disabledElevation = 0.dp
-    )
-    val surfaceModifier = modifier.padding(
-        horizontal = horizontalInset,
-        vertical = if (variant == UiCardVariant.LIST_GROUP) 2.dp else 0.dp
+    val surfaceModifier = modifier.padding(horizontal = horizontalInset).then(
+        if (withDivider) Modifier.drawWithContent {
+            drawContent()
+            val thickness = 0.75.dp.toPx()
+            val y = size.height - thickness / 2f
+            drawLine(dividerColor, Offset(0f, y), Offset(size.width, y), thickness)
+        } else Modifier
     )
     if (onClick != null) {
-        Card(
+        Surface(
             onClick = onClick,
             modifier = surfaceModifier,
-            shape = shape,
-            colors = colors,
-            border = border,
-            elevation = elevation,
-            content = content
-        )
+            shape = RectangleShape,
+            color = container
+        ) { Column(content = content) }
     } else {
-        Card(
+        Surface(
             modifier = surfaceModifier,
-            shape = shape,
-            colors = colors,
-            border = border,
-            elevation = elevation,
-            content = content
-        )
+            shape = RectangleShape,
+            color = container
+        ) { Column(content = content) }
     }
 }
 
