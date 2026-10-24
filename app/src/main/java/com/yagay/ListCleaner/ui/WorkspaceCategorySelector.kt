@@ -117,7 +117,7 @@ private fun WorkspaceCategoryPicker(
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            modifier = Modifier.widthIn(min = 240.dp, max = 328.dp)
+            modifier = Modifier.widthIn(min = 240.dp, max = 328.dp).heightIn(max = 440.dp)
         ) {
             AdaptiveText(
                 menuTitle,
