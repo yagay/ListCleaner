@@ -35,7 +35,7 @@ internal fun GroupedComponentSurface(position: ListRowPosition, selected: Boolea
     val last = position == ListRowPosition.LAST
     Surface(
         modifier = Modifier.fillMaxWidth()
-            .padding(start = MaterialUiTokens.groupHorizontal + MaterialUiTokens.groupedDetailIndent,
+            .padding(start = MaterialUiTokens.groupHorizontal,
                 end = MaterialUiTokens.groupHorizontal),
         shape = if (last) RoundedCornerShape(
             bottomStart = MaterialUiTokens.cardRadius,
