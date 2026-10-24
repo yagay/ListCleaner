@@ -151,13 +151,7 @@ fun retainConfiguredCandidates(
     selected: Set<ComponentRule>,
     unavailableEvidence: String = "Configured but not observed during this scan; this does not mean the app is uninstalled"
 ): List<ComponentCandidate> {
-    val kept = items.filter { item ->
-        CandidateVisibilityPolicy.retainAfterRefresh(item, item.rule in selected)
-    }
-    val ids = kept.map { it.rule.id }.toSet()
-    // A launcher can publish the same shortcut ID under a different Activity.
-    // Preserve the old persisted rule without synthesizing a duplicate missing
-    // row when the current catalog already shows that logical shortcut.
+    // Identity of a published shortcut must not depend on the launcher Activity.
     fun logicalShortcut(rule: ComponentRule): String? {
         val marker = when (rule.kind) {
             IntentKind.SHORTCUT_ITEM -> "#shortcut#"
@@ -168,9 +162,18 @@ fun retainConfiguredCandidates(
         if (token.length != 24 || !token.all { it in '0'..'9' || it in 'a'..'f' }) return null
         return "${rule.kind.name}|${rule.packageName}|$token"
     }
-    val observedShortcutKeys = kept.mapNotNullTo(hashSetOf()) {
-        logicalShortcut(it.rule)
+    // A prior catalog stage may already have appended unavailable placeholders;
+    // filter those as well as placeholders synthesized below.
+    val currentShortcutKeys = items.asSequence()
+        .filter { !it.unavailable }
+        .mapNotNull { logicalShortcut(it.rule) }
+        .toSet()
+    val kept = items.filter { item ->
+        CandidateVisibilityPolicy.retainAfterRefresh(item, item.rule in selected) &&
+            (!item.unavailable || logicalShortcut(item.rule)?.let { it !in currentShortcutKeys } != false)
     }
+    val ids = kept.map { it.rule.id }.toSet()
+    val observedShortcutKeys = currentShortcutKeys
     return kept + selected.filter { rule ->
         rule.id !in ids && logicalShortcut(rule)?.let { it in observedShortcutKeys } != true
     }.map { rule ->
