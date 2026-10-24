@@ -58,6 +58,7 @@ internal fun ListCleanerUiTheme(
                 UiAccent.BLUE -> if (dark) Color(0xFFB0C6FF) else Color(0xFF2859AB)
                 UiAccent.GREEN -> if (dark) Color(0xFFA3DAB8) else Color(0xFF256845)
                 UiAccent.PURPLE -> if (dark) Color(0xFFD4BBFF) else Color(0xFF7144AA)
+                UiAccent.CUSTOM -> Color(android.graphics.Color.parseColor(UiPreferencesRuntime.current.customAccentHex))
                 UiAccent.DYNAMIC -> base.primary
             }
             // Neutral surfaces remain dynamic; all *interactive* color roles
