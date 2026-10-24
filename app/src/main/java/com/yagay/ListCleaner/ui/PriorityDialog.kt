@@ -165,14 +165,19 @@ fun PriorityDialogContent(
     val genericDeepLinkSelected = state.selected.filterTo(linkedSetOf()) { it.kind == IntentKind.DEEP_LINK }
     val deepLinkSelected = genericDeepLinkSelected + explicitDeepLinkSelected
     val deepLinkScoped = deepLinkHost != null
-    val scopedCandidates = when {
-        typedOpenPreset != null ->
-            state.candidates.filter { it.matchesOpenPreset(typedOpenPreset, state.openTypesExplicit.customDefinitions) }
-        deepLinkHost != null -> state.candidates.filter {
-            it.rule.kind == IntentKind.DEEP_LINK &&
-                (it.matchesBrowserHost(deepLinkHost) || it.rule in deepLinkSelected)
+    val scopedCandidates = remember(
+        state.candidates, typedOpenPreset, deepLinkHost,
+        state.openTypesExplicit.customDefinitions, deepLinkSelected
+    ) {
+        when {
+            typedOpenPreset != null ->
+                state.candidates.filter { it.matchesOpenPreset(typedOpenPreset, state.openTypesExplicit.customDefinitions) }
+            deepLinkHost != null -> state.candidates.filter {
+                it.rule.kind == IntentKind.DEEP_LINK &&
+                    (it.matchesBrowserHost(deepLinkHost) || it.rule in deepLinkSelected)
+            }
+            else -> state.candidates
         }
-        else -> state.candidates
     }
     val explicitTypedPriority = typedOpenPreset?.let { state.openTypesExplicit.priorities[it].orEmpty() }.orEmpty()
     val genericOpenPriority = state.priorities.apps[IntentKind.OPEN].orEmpty()
@@ -240,29 +245,30 @@ fun PriorityDialogContent(
         if (orderDraft.hasChanges()) 1 else 0,
         applyOrder, orderDraft::discard
     )
-    val baseGroups = remember(scopedCandidates, state.selected, scopedExtraSelected, state.displayMode, kind, openPreset, browserHost, stagedOrder, state.query, viewFilter, bulkLockRevision) {
+    val priorityListFilter = when (viewFilter) {
+        UiFilter.ALL, UiFilter.LOCKED -> PriorityListFilter.ALL
+        UiFilter.HIDE_SELECTED -> PriorityListFilter.UNSELECTED
+        UiFilter.SHOW_SELECTED -> PriorityListFilter.SELECTED
+    }
+    // Locks are a separate overlay. Changing a lock must not regroup and sort
+    // the full priority catalog; staged priority changes still update its order.
+    val baseGroups = remember(
+        scopedCandidates, state.selected, scopedExtraSelected, state.displayMode,
+        kind, stagedOrder, state.query, priorityListFilter
+    ) {
         priorityAppGroups(
-            scopedCandidates,
-            state.selected,
-            state.displayMode,
-            kind,
-            stagedOrder,
-            state.query,
-            when (viewFilter) {
-                UiFilter.ALL, UiFilter.LOCKED -> PriorityListFilter.ALL
-                UiFilter.HIDE_SELECTED -> PriorityListFilter.UNSELECTED
-                UiFilter.SHOW_SELECTED -> PriorityListFilter.SELECTED
-            },
-            scopedExtraSelected
+            scopedCandidates, state.selected, state.displayMode, kind,
+            stagedOrder, state.query, priorityListFilter, scopedExtraSelected
         )
     }
-    val lockFilteredGroups = if (viewFilter == UiFilter.LOCKED) {
-        bulkLockRevision
-        baseGroups.filter { vm.bulkLockState(lockScope, it.packageName, emptyList()) != BulkLockState.NONE }
-    } else {
-        baseGroups
+    val lockFilteredGroups = remember(baseGroups, viewFilter, bulkLockRevision, lockScope) {
+        if (viewFilter == UiFilter.LOCKED) {
+            baseGroups.filter { vm.bulkLockState(lockScope, it.packageName, emptyList()) != BulkLockState.NONE }
+        } else baseGroups
     }
-    val groups = lockFilteredGroups.filter { appTypeFilter.matches(it.appType) }
+    val groups = remember(lockFilteredGroups, appTypeFilter) {
+        lockFilteredGroups.filter { appTypeFilter.matches(it.appType) }
+    }
     LaunchedEffect(kind, openPreset, browserHost, groups.firstOrNull()?.packageName, UiPreferencesRuntime.current.expandFirstApp) {
         if (UiPreferencesRuntime.current.expandFirstApp && expandedKey == null) {
             groups.firstOrNull()?.let { group ->
@@ -270,7 +276,9 @@ fun PriorityDialogContent(
             }
         }
     }
-    val moveTargets = groups.filter { it.rank != null }.sortedBy { it.rank }.map { it.packageName }
+    val moveTargets = remember(groups) {
+        groups.filter { it.rank != null }.sortedBy { it.rank }.map { it.packageName }
+    }
 
     val listState = rememberLazyListState()
     val dragState = remember(listState) { PriorityDragState(listState) }
