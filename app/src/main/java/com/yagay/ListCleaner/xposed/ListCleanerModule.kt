@@ -1039,6 +1039,13 @@ class ListCleanerModule : XposedModule() {
             return original
         }
         val data = intent.data
+        val clipUri = intent.clipData?.let { clips ->
+            (0 until clips.itemCount).asSequence()
+                .mapNotNull { clips.getItemAt(it).uri }
+                .firstOrNull { it.scheme == "content" || it.scheme == "file" }
+        }
+        val openUri = data ?: clipUri
+        val openPath = openUri?.lastPathSegment ?: openUri?.path
 
         if (privilegedSystem) {
             if (!resolverSystemRequest) {
@@ -1049,8 +1056,8 @@ class ListCleanerModule : XposedModule() {
                 kind = kind,
                 values = extracted.values,
                 mimeType = resolvedType,
-                scheme = data?.scheme,
-                fileNameOrPath = data?.lastPathSegment ?: data?.path,
+                scheme = openUri?.scheme,
+                fileNameOrPath = openPath,
                 browserHost = data?.host,
             ) ?: return original
             return extracted.rebuild(annotated)
@@ -1086,8 +1093,8 @@ class ListCleanerModule : XposedModule() {
             layer,
             callerUid,
             resolvedType,
-            data?.scheme,
-            data?.lastPathSegment ?: data?.path,
+            openUri?.scheme,
+            openPath,
             data?.host,
         ) ?: return original
         return extracted.rebuild(replacement)
