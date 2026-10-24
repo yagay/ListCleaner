@@ -3,6 +3,8 @@ package com.yagay.ListCleaner.data
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.LauncherApps
+import android.os.Process
+import android.util.Log
 import android.content.pm.PackageManager
 import android.os.UserHandle
 import com.yagay.ListCleaner.domain.ComponentCandidate
@@ -12,13 +14,105 @@ import com.yagay.ListCleaner.domain.PackageIdentity
 import com.yagay.ListCleaner.domain.SyntheticEntryKeys
 
 /** Read-only, bounded active discovery; never starts a Chooser or sends content. */
-internal class ProactiveShortcutDiscovery(private val context: Context) {
+internal class UnifiedShortcutEngine(private val context: Context) {
+    /** Published shortcut snapshot; never confuses ShortcutInfo with components. */
+    fun scanPublished(): ShortcutDiscoveryResult {
+        val manager = context.getSystemService(LauncherApps::class.java)
+            ?: return ShortcutDiscoveryResult(ShortcutDiscoveryStatus.SERVICE_UNAVAILABLE)
+        if (!runCatching { manager.hasShortcutHostPermission() }.getOrDefault(false)) {
+            return ShortcutDiscoveryResult(
+                ShortcutDiscoveryStatus.HOST_PERMISSION_REQUIRED,
+                detail = "Shortcut host permission is not granted"
+            )
+        }
+        return try {
+            val query = LauncherApps.ShortcutQuery().setQueryFlags(
+                LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or
+                    LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST or
+                    LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED or
+                    LauncherApps.ShortcutQuery.FLAG_MATCH_CACHED
+            )
+            val userId = Process.myUid() / 100000
+            val records = manager.getShortcuts(query, Process.myUserHandle()).orEmpty()
+                .map { shortcut ->
+                    PublishedShortcut(
+                        userId = userId,
+                        packageName = shortcut.`package`,
+                        shortcutId = shortcut.id,
+                        label = shortcut.shortLabel?.toString().orEmpty(),
+                        enabled = shortcut.isEnabled,
+                        manifest = shortcut.isDeclaredInManifest,
+                        dynamic = shortcut.isDynamic,
+                        pinned = shortcut.isPinned,
+                        cached = shortcut.isCached
+                    )
+                }.distinctBy { Triple(it.userId, it.packageName, it.shortcutId) }
+            ShortcutDiscoveryResult(ShortcutDiscoveryStatus.AVAILABLE, records)
+        } catch (error: SecurityException) {
+            ShortcutDiscoveryResult(
+                ShortcutDiscoveryStatus.HOST_PERMISSION_REQUIRED,
+                detail = error.javaClass.simpleName
+            )
+        } catch (error: Exception) {
+            Log.w("ShortcutDiscovery", "Read-only shortcut query failed", error)
+            ShortcutDiscoveryResult(
+                ShortcutDiscoveryStatus.QUERY_FAILED,
+                detail = error.javaClass.simpleName
+            )
+        }
+    }
+
+
     data class Result(
         val candidates: List<ComponentCandidate> = emptyList(),
         val source: String,
         val status: String,
         val queriedPackages: Int = 0,
     )
+
+    /** One cache/diagnostic contract shared by every shortcut consumer. */
+    private data class Cache(
+        val at: Long,
+        val kinds: Set<IntentKind>,
+        val packages: Set<String>,
+        val result: Result
+    )
+    private val cachedCandidates = mutableMapOf<Int, Cache>()
+
+    data class ScanSnapshot(val current: Result, val usable: Result?)
+
+    @Synchronized
+    fun scanCached(
+        userId: Int,
+        sharePackages: Collection<String>,
+        kinds: Set<IntentKind>,
+        cacheMillis: Long,
+        force: Boolean
+    ): ScanSnapshot {
+        val names = sharePackages.toSet()
+        val previous = cachedCandidates[userId]?.takeIf {
+            it.kinds == kinds && it.packages == names
+        }
+        val now = System.currentTimeMillis()
+        if (!force && previous != null && now - previous.at in 0..cacheMillis) {
+            return ScanSnapshot(previous.result, previous.result)
+        }
+        val fresh = scan(userId, sharePackages, kinds)
+        if (fresh.status == "candidates_not_final_chooser") {
+            cachedCandidates[userId] = Cache(now, kinds, names, fresh)
+            return ScanSnapshot(fresh, fresh)
+        }
+        // Failure or host permission denial is not evidence that saved rules vanished.
+        return ScanSnapshot(fresh, previous?.result)
+    }
+
+    companion object {
+        @Volatile private var shared: UnifiedShortcutEngine? = null
+        fun get(context: Context): UnifiedShortcutEngine =
+            shared ?: synchronized(this) {
+                shared ?: UnifiedShortcutEngine(context.applicationContext).also { shared = it }
+            }
+    }
 
     fun scan(
         userId: Int,

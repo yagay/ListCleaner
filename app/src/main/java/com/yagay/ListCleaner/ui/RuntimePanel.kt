@@ -51,11 +51,18 @@ internal fun RuntimePanel(
             }
         }
         if (state.runtime.needsDecision) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AdaptiveButton(onClick = { vm.resolveRecovery(true) }, enabled = !state.runtime.recoveryCorrupt) {
+            Column(verticalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap)) {
+                SettingsActionButton(
+                    onClick = { vm.resolveRecovery(true) },
+                    enabled = !state.runtime.recoveryCorrupt,
+                    style = SettingsActionStyle.PRIMARY
+                ) {
                     AdaptiveText(stringResource(R.string.runtime_restore_remote))
                 }
-                AdaptiveOutlinedButton(onClick = { confirmReset = true }) {
+                SettingsActionButton(
+                    onClick = { confirmReset = true },
+                    style = SettingsActionStyle.DANGER
+                ) {
                     AdaptiveText(stringResource(R.string.runtime_reset_pause))
                 }
             }
@@ -82,7 +89,7 @@ internal fun RuntimePanel(
         }
 
         if (showUpdateTools) {
-            AdaptiveOutlinedButton(onClick = vm::applyModuleUpdate, enabled = state.module.connected && !updating) {
+            SettingsActionButton(onClick = vm::applyModuleUpdate, enabled = state.module.connected && !updating) {
                 AdaptiveText(stringResource(if (updating) R.string.runtime_checking_update else R.string.runtime_apply_update))
             }
         }

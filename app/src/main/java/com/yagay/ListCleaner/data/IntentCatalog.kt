@@ -42,13 +42,7 @@ class IntentCatalog(private val context: Context) {
     private val mutableRevision = MutableStateFlow(0L)
     val revision: StateFlow<Long> = mutableRevision.asStateFlow()
     private val specialEntryDiscovery = SpecialEntryDiscovery(context)
-    private val proactiveShortcuts = ProactiveShortcutDiscovery(context)
-    private data class ProactiveCache(
-        val capturedAt: Long, val kinds: Set<IntentKind>, val packages: Set<String>,
-        val result: ProactiveShortcutDiscovery.Result,
-    )
-    private val proactiveByUser = mutableMapOf<Int, ProactiveCache>()
-
+    private val proactiveShortcuts = UnifiedShortcutEngine.get(context)
     suspend fun completeConfigured(
         items: List<ComponentCandidate>,
         selected: Set<ComponentRule>,
@@ -245,22 +239,12 @@ class IntentCatalog(private val context: Context) {
             .map { it.rule.packageName }.distinct().toList()
         val activeKinds = proactiveOptions.requestedKinds
         val allowed = proactiveOptions.mayQuery(manualProactive)
-        val shareSet = sharePackages.toSet()
-        val previousActive = proactiveByUser[userId]?.takeIf {
-            it.kinds == activeKinds && it.packages == shareSet
-        }
-        val timestamp = System.currentTimeMillis()
         if (allowed) {
-            val active = if (!manualProactive && previousActive != null &&
-                timestamp - previousActive.capturedAt in 0..proactiveOptions.cacheMillis) {
-                previousActive.result
-            } else {
-                proactiveShortcuts.scan(userId, sharePackages, activeKinds).also {
-                    if (it.status == "candidates_not_final_chooser") {
-                        proactiveByUser[userId] = ProactiveCache(timestamp, activeKinds, shareSet, it)
-                    }
-                }
-            }
+            val snapshot = proactiveShortcuts.scanCached(
+                userId, sharePackages, activeKinds,
+                proactiveOptions.cacheMillis, manualProactive
+            )
+            val active = snapshot.current
             if (active.status in setOf("root_unavailable", "query_failed",
                     "unsupported_or_locked", "invalid_user")) {
                 failures++
@@ -268,10 +252,7 @@ class IntentCatalog(private val context: Context) {
             report.appendLine("proactiveShortcuts source=${active.source} status=${active.status} " +
                 "kinds=${activeKinds.joinToString(",")} count=${active.candidates.size} " +
                 "queriedPackages=${active.queriedPackages}")
-            // Failure is not negative evidence. Keep the last successful scan.
-            val usable = if (active.status == "candidates_not_final_chooser") active
-                else previousActive?.result
-            if (usable != null) found += usable.candidates
+            if (snapshot.usable != null) found += snapshot.usable.candidates
         } else {
             report.appendLine("proactiveShortcuts status=disabled_or_manual " +
                 "mode=${proactiveOptions.trigger} kinds=${activeKinds.joinToString(",")}")

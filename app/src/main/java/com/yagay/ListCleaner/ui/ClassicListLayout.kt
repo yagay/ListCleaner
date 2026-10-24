@@ -33,7 +33,7 @@ internal fun ClassicCleanupTabs(
 ) {
     val entryDescription = stringResource(R.string.workspace_rule_section)
     val componentDescription = stringResource(R.string.root_screen_title)
-    Surface(color = MaterialTheme.colorScheme.surface) {
+    Surface(color = MaterialSelectionPalette.background()) {
         // Keep the controls content-sized instead of stretching each border to half
         // the display. A narrow device can scroll without shrinking the labels.
         Row(
@@ -51,6 +51,7 @@ internal fun ClassicCleanupTabs(
                 selected = active == ClassicCleanupMode.ENTRIES,
                 onClick = { if (active != ClassicCleanupMode.ENTRIES) onEntries() },
                 shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                colors = MaterialActionColors.segmented(),
                 modifier = Modifier.semantics {
                     contentDescription = entryDescription
                 },
@@ -66,6 +67,7 @@ internal fun ClassicCleanupTabs(
                 selected = active == ClassicCleanupMode.COMPONENTS,
                 onClick = { if (active != ClassicCleanupMode.COMPONENTS) onComponents() },
                 shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                colors = MaterialActionColors.segmented(),
                 modifier = Modifier.semantics {
                     contentDescription = componentDescription
                 },

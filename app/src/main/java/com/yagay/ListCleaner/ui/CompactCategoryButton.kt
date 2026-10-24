@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.InputChip
+import androidx.compose.material3.InputChipDefaults
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.MaterialTheme
@@ -28,6 +29,12 @@ internal fun CompactCategoryButton(
         onClick = onClick,
         modifier = modifier,
         enabled = enabled,
+        colors = InputChipDefaults.inputChipColors(
+            containerColor = MaterialSelectionPalette.filterBackground(),
+            selectedContainerColor = MaterialSelectionPalette.activeBackground(),
+            labelColor = MaterialSelectionPalette.text(),
+            selectedLabelColor = MaterialSelectionPalette.activeText()
+        ),
         label = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -40,5 +47,5 @@ internal fun CompactCategoryButton(
 
 @Composable
 internal fun compactCategoryLabelColor(selected: Boolean): Color =
-    if (selected) MaterialTheme.colorScheme.onSecondaryContainer
-    else MaterialTheme.colorScheme.onSurfaceVariant
+    if (selected) MaterialSelectionPalette.activeText()
+    else MaterialSelectionPalette.text()

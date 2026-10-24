@@ -74,14 +74,14 @@ internal fun SettingsListControls() {
                 UiCandidateSource.HISTORY to stringResource(R.string.lc_source_history)
             )
         ) { UiPreferencesStore.write(context, current.copy(candidateSource = it)) }
-        MaterialSettingsRow(
+        SettingsSwitchRow(
             title = stringResource(R.string.lc_history_show),
-            supportingText = stringResource(R.string.lc_history_help)
-        ) {
-            AdaptiveSwitch(checked = current.showShortcutHistory, onCheckedChange = {
+            supportingText = stringResource(R.string.lc_history_help),
+            checked = current.showShortcutHistory,
+            onCheckedChange = {
                 UiPreferencesStore.write(context, current.copy(showShortcutHistory = it))
-            })
-        }
+            }
+        )
         if (current.showShortcutHistory) {
             SettingsChoices(
                 stringResource(R.string.lc_history_age), current.historyVisibilityDays,
@@ -126,42 +126,50 @@ internal fun SettingsListControls() {
                 2 to stringResource(R.string.settings_two_columns)
             )
         ) { UiPreferencesStore.write(context, current.copy(homeColumns = it)) }
-        MaterialSettingsRow(title = stringResource(R.string.lc_show_package_names)) {
-            AdaptiveSwitch(checked = current.showPackageNames, onCheckedChange = {
+        SettingsSwitchRow(
+            title = stringResource(R.string.lc_show_package_names),
+            checked = current.showPackageNames,
+            onCheckedChange = {
                 UiPreferencesStore.write(context, current.copy(showPackageNames = it))
-            })
-        }
-        MaterialSettingsRow(title = stringResource(R.string.lc_expand_first_app)) {
-            AdaptiveSwitch(checked = current.expandFirstApp, onCheckedChange = {
+            }
+        )
+        SettingsSwitchRow(
+            title = stringResource(R.string.lc_expand_first_app),
+            checked = current.expandFirstApp,
+            onCheckedChange = {
                 UiPreferencesStore.write(context, current.copy(expandFirstApp = it))
-            })
-        }
-        MaterialSettingsRow(title = stringResource(R.string.lc_remember_search)) {
-            AdaptiveSwitch(checked = current.rememberPageSearch, onCheckedChange = {
+            }
+        )
+        SettingsSwitchRow(
+            title = stringResource(R.string.lc_remember_search),
+            checked = current.rememberPageSearch,
+            onCheckedChange = {
                 UiPreferencesStore.write(context, current.copy(rememberPageSearch = it))
-            })
-        }
-        MaterialSettingsRow(title = stringResource(R.string.lc_drag_haptics)) {
-            AdaptiveSwitch(checked = current.dragHaptics, onCheckedChange = {
+            }
+        )
+        SettingsSwitchRow(
+            title = stringResource(R.string.lc_drag_haptics),
+            checked = current.dragHaptics,
+            onCheckedChange = {
                 UiPreferencesStore.write(context, current.copy(dragHaptics = it))
-            })
-        }
-        MaterialSettingsRow(
+            }
+        )
+        SettingsSwitchRow(
             title = stringResource(R.string.settings_remember_filters),
-            supportingText = stringResource(R.string.settings_remember_filters_help)
-        ) {
-            AdaptiveSwitch(checked = current.rememberFilters, onCheckedChange = {
+            supportingText = stringResource(R.string.settings_remember_filters_help),
+            checked = current.rememberFilters,
+            onCheckedChange = {
                 UiPreferencesStore.write(context, current.copy(rememberFilters = it))
-            })
-        }
-        MaterialSettingsRow(
+            }
+        )
+        SettingsSwitchRow(
             title = stringResource(R.string.settings_help_expanded),
-            supportingText = stringResource(R.string.settings_help_expanded_help)
-        ) {
-            AdaptiveSwitch(checked = current.openHelpByDefault, onCheckedChange = {
+            supportingText = stringResource(R.string.settings_help_expanded_help),
+            checked = current.openHelpByDefault,
+            onCheckedChange = {
                 UiPreferencesStore.write(context, current.copy(openHelpByDefault = it))
-            })
-        }
+            }
+        )
         AdaptiveText(stringResource(R.string.settings_defaults_help),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }

@@ -141,32 +141,29 @@ internal fun ListControls(
     extraFilter: (@Composable () -> Unit)? = null,
 ) {
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(
-                horizontal = MaterialUiTokens.pageHorizontal,
-                vertical = 4.dp
-            ),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            EntryCategoryPicker(
-                selected = state.filter,
-                onSelected = onFilter,
-                modifier = Modifier.weight(1f),
-                includeAllKinds = includeAllKinds,
-                availableKinds = availableEntryKinds
-            )
-            WorkspaceFilterBar(
-                appTypeFilter = appTypeFilter,
-                onAppTypeFilter = onAppTypeFilter,
-                viewFilter = state.uiFilter,
-                onViewFilter = onUiFilter,
-                viewTitle = viewTitle,
-                extraFilter = if (
-                    state.filter == IntentKind.OPEN || state.filter == IntentKind.DEEP_LINK
-                ) extraFilter else null
-            )
-        }
+        WorkspaceCategoryFilterRow(
+            category = {
+                EntryCategoryPicker(
+                    selected = state.filter,
+                    onSelected = onFilter,
+                    modifier = Modifier.fillMaxWidth(),
+                    includeAllKinds = includeAllKinds,
+                    availableKinds = availableEntryKinds
+                )
+            },
+            filter = {
+                WorkspaceFilterBar(
+                    appTypeFilter = appTypeFilter,
+                    onAppTypeFilter = onAppTypeFilter,
+                    viewFilter = state.uiFilter,
+                    onViewFilter = onUiFilter,
+                    viewTitle = viewTitle,
+                    extraFilter = if (
+                        state.filter == IntentKind.OPEN || state.filter == IntentKind.DEEP_LINK
+                    ) extraFilter else null
+                )
+            }
+        )
         if (state.loading) WorkspaceProgress()
         AdaptiveHorizontalDivider()
     }

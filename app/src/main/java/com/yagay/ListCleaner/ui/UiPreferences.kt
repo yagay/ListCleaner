@@ -11,9 +11,10 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /** Local display preferences only. Never included in the remote Hook/Root configuration. */
 internal enum class UiDensity { COMPACT, STANDARD, COMFORTABLE }
+internal enum class UiListStyle { ORIGINAL, GROUPED }
 /** Page arrangement only; both modes share the same rules, Root data, Material3 controls and scanner. */
 internal enum class UiHomeLayout { CATEGORY_CARDS, CLASSIC_LIST }
-internal enum class UiAccent { DYNAMIC, BLUE, GREEN, PURPLE }
+internal enum class UiAccent { DYNAMIC, BLUE, GREEN, PURPLE, CUSTOM }
 internal enum class UiStartPage { CLEANUP, ORDERING, SETTINGS }
 internal enum class UiAppSort { SELECTED_FIRST, NAME, PACKAGE }
 internal enum class UiScanMode { SMART, MANUAL, EVERY_ENTRY }
@@ -28,7 +29,10 @@ internal enum class UiComponentRefresh { CHANGED_ONLY, FULL }
 
 internal data class UiPreferences(
     val density: UiDensity = UiDensity.STANDARD,
+    val listStyle: UiListStyle = UiListStyle.ORIGINAL,
     val accent: UiAccent = UiAccent.DYNAMIC,
+    val customAccentHex: String = "#2859AB",
+    val colorOverrides: Map<String, String> = emptyMap(),
     val homeLayout: UiHomeLayout = UiHomeLayout.CATEGORY_CARDS,
     val cardRadius: Int = 20,
     val buttonHeight: Int = 40,
@@ -69,6 +73,8 @@ internal data class UiPreferences(
     val dragHaptics: Boolean = true,
 ) {
     fun normalized(): UiPreferences = copy(
+        colorOverrides = colorOverrides.filter { (key, hex) -> (key in UiColorRoles.keys || (key.startsWith("dark_") && key.removePrefix("dark_") in UiColorRoles.keys)) && hex.matches(Regex("#[0-9a-fA-F]{6}")) },
+        customAccentHex = customAccentHex.takeIf { it.matches(Regex("#[0-9a-fA-F]{6}")) } ?: "#2859AB",
         cardRadius = cardRadius.coerceIn(0, 32),
         buttonHeight = buttonHeight.coerceIn(36, 64),
         appIconSize = appIconSize.coerceIn(28, 56),
@@ -109,7 +115,13 @@ internal object UiPreferencesStore {
         val defaults = UiPreferences()
         return UiPreferences(
             density = stored(p.getString("density", null), UiDensity.entries.toTypedArray(), defaults.density),
+            listStyle = stored(p.getString("list_style", null), UiListStyle.entries.toTypedArray(), defaults.listStyle),
             accent = stored(p.getString("accent", null), UiAccent.entries.toTypedArray(), defaults.accent),
+            customAccentHex = p.getString("custom_accent_hex", defaults.customAccentHex) ?: defaults.customAccentHex,
+            colorOverrides = runCatching {
+                val saved = JSONObject(p.getString("color_overrides", "{}") ?: "{}")
+                saved.keys().asSequence().associateWith { saved.optString(it) }
+            }.getOrDefault(emptyMap()),
             homeLayout = stored(p.getString("home_layout", null), UiHomeLayout.entries.toTypedArray(), defaults.homeLayout),
             cardRadius = p.getInt("card_radius", defaults.cardRadius),
             buttonHeight = p.getInt("button_height", defaults.buttonHeight),
@@ -155,7 +167,10 @@ internal object UiPreferencesStore {
         val safe = value.normalized()
         context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
             .putString("density", safe.density.name)
+            .putString("list_style", safe.listStyle.name)
             .putString("accent", safe.accent.name)
+            .putString("custom_accent_hex", safe.customAccentHex)
+            .putString("color_overrides", JSONObject(safe.colorOverrides).toString())
             .putString("home_layout", safe.homeLayout.name)
             .putInt("card_radius", safe.cardRadius)
             .putInt("button_height", safe.buttonHeight)

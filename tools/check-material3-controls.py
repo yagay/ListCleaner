@@ -53,7 +53,7 @@ required = {
                            "Checkbox(", "IconButton(", "UiCard("],
     "MaterialActionColors.kt": ["fun filled()", "fun outlined()", "fun outlinedBorder(",
                                  "fun text()", "fun icon()", "fun filter()", "fun navigation()",
-                                 "NavigationBarItemDefaults.colors()", "FilterChipDefaults.filterChipColors()"],
+                                 "NavigationBarItemDefaults.colors(", "FilterChipDefaults.filterChipColors("],
     "UiCard.kt": ["enum class UiCardVariant", "UiCardVariant.SECTION", "UiCardVariant.CATEGORY",
                    "UiCardVariant.LIST_GROUP", "UiCardVariant.STATUS", "MaterialTheme.shapes.medium",
                    "onClick = onClick", "UiCardDetailRow(", "ListItem("],
@@ -90,7 +90,7 @@ required = {
     "SettingsWidgets.kt": ["fun SettingsArea(", "fun <T> SettingsChoices(",
                            "fun SettingsSlider(", "MaterialSectionCard {",
                            "AdaptiveAlertDialog("],
-    "AppearanceSettings.kt": ["fun SettingsAppearanceControls(", "R.string.ui_color_mode_title", "UiColorMode.entries.forEach", "onColorModeChange(mode)",
+    "AppearanceSettings.kt": ["fun SettingsAppearanceControls(", "R.string.ui_color_mode_title", "UiColorMode.entries.map", "onSelected = onColorModeChange",
                               "fun SettingsLanguageControls()", "settings_icon_size",
                               "lc_layout_spacing"],
     "ListSettings.kt": ["fun SettingsListControls()", "settings_home_columns",
@@ -118,7 +118,7 @@ required = {
                            "WorkspaceControlLabel(", "CompactCategoryButton("],
     "WorkspaceControlLabel.kt": ["fun WorkspaceControlLabel(", "MaterialTheme.typography.labelLarge"],
     "CompactCategoryButton.kt": ["fun CompactCategoryButton(", "InputChip(",
-                                  "MaterialTheme.colorScheme.onSecondaryContainer"],
+                                  "MaterialSelectionPalette.activeText()"],
     "ClassicListLayout.kt": ["fun ClassicCleanupTabs(", "WorkspaceControlLabel(",
                              "active == ClassicCleanupMode.ENTRIES", "active == ClassicCleanupMode.COMPONENTS"],
     "ComponentCategoryFilter.kt": ["fun ClassicComponentCategoryFilter(",
@@ -218,7 +218,7 @@ if "Arrangement.spacedBy(4.dp)" not in compact:
 
 # Categories use an anchored, scrollable Material 3 dropdown, not a distant bottom sheet.
 category = (root / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
-for expected in ("DropdownMenu(", "UiCard(", "EntryCategoryPicker(",
+for expected in ("DropdownMenu(", "Surface(", "EntryCategoryPicker(",
                  "ComponentCategoryPicker(", "expandedGroup", "group.kinds()",
                  "availableKinds", "onSelected(null)", "widthIn(min = 240.dp",
                  "AdaptiveDropdownMenuItem("):
@@ -226,14 +226,18 @@ for expected in ("DropdownMenu(", "UiCard(", "EntryCategoryPicker(",
         errors.append(f"WorkspaceCategorySelector.kt: anchored category picker regression: {expected}")
 if "ModalBottomSheet(" in category or "LazyRow(" in category:
     errors.append("WorkspaceCategorySelector.kt: category selection must stay in an anchored popup")
-picker_body = category.split("private fun WorkspaceCategoryPicker(", 1)[1].split(
-    "@Composable\\nprivate fun CategoryChoice", 1
+picker_body = category.split("internal fun WorkspacePickerButton(", 1)[1].split(
+    "/**\n * Anchored Material 3 category menu", 1
 )[0]
-for expected in ("variant = UiCardVariant.CATEGORY", "heightIn(min = 48.dp)",
+for expected in ("Surface(", "MaterialSelectionPalette.activeBackground()", "heightIn(min = 48.dp)",
                  "verticalAlignment = Alignment.CenterVertically",
-                 "lc_category_picker_current", "FontWeight.SemiBold"):
+                 "FontWeight.SemiBold"):
     if expected not in picker_body:
-        errors.append(f"WorkspaceCategorySelector.kt: centered/visible category label missing: {expected}")
+        errors.append(f"WorkspaceCategorySelector.kt: shared trigger geometry missing: {expected}")
+if "WorkspacePickerButton(" not in category.split("private fun WorkspaceCategoryPicker(", 1)[1]:
+    errors.append("WorkspaceCategorySelector.kt: category must use shared picker")
+if "lc_category_picker_current" not in category:
+    errors.append("WorkspaceCategorySelector.kt: category current label missing")
 if "modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)" in picker_body:
     errors.append("WorkspaceCategorySelector.kt: minimum height on Card rather than Row shifts label upward")
 for filename in ("MainControls.kt", "ComponentCategoryFilter.kt"):
@@ -248,18 +252,22 @@ filter_popup = sheet.split("internal fun WorkspaceFilterBar(", 1)[1].split(
 )[0]
 for expected in ("DropdownMenu(", "onDismissRequest = { expanded = false }",
                  "draftAppType", "draftView", "lc_filter_sheet_apply",
-                 "lc_filter_sheet_reset", "Badge {", "extraFilter()",
-                 "widthIn(min = 240.dp", "FilterMenuSection.APPS",
-                 "FilterMenuSection.VIEW", "if (appsOpen)", "if (viewOpen)",
-                 "openSection = null"):
+                 "lc_filter_sheet_reset", "WorkspacePickerButton(", "extraFilter()",
+                 "widthIn(min = 240.dp", "WorkspaceFilterChoiceGroup(",
+                 "AppTypeFilter.entries", "UiFilter.entries"):
     if expected not in filter_popup:
-        errors.append(f"WorkspaceCommon.kt: anchored M3 Filter menu regression: {expected}")
+        errors.append(f"WorkspaceCommon.kt: compact direct-choice Filter regression: {expected}")
 if "ModalBottomSheet(" in filter_popup or "LazyRow(" in filter_popup:
     errors.append("WorkspaceCommon.kt: Filter must open near its top button, not as a sheet")
 if "heightIn(max = 480.dp)" in filter_popup or "widthIn(min = 270.dp" in filter_popup:
     errors.append("WorkspaceCommon.kt: Filter must use Category-scale dropdown dimensions")
-if filter_popup.count("AdaptiveDropdownMenuItem(") < 4:
-    errors.append("WorkspaceCommon.kt: Filter group rows and choices must use native M3 menu items")
+# Category uses nested menu rows, but Filter uses direct M3 choice chips.
+# Both keep a shared top-level picker trigger and the same anchored popup.
+menu_shared = (root / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
+if "fun WorkspacePickerButton(" not in menu_shared:
+    errors.append("WorkspaceCategorySelector.kt: shared category/filter trigger missing")
+if "fun <T> WorkspaceFilterChoiceGroup(" not in sheet or "AdaptiveFilterChip(" not in sheet or "FlowRow(" not in sheet:
+    errors.append("WorkspaceCommon.kt: direct-choice Material3 filter group missing")
 for expected in ("fun WorkspaceListActions(",
                  "WorkspaceListActions(actions, helpExpanded, onHelpToggle)"):
     if expected not in sheet:
@@ -271,10 +279,10 @@ if "widthIn(min = 350.dp)" not in classic:
     errors.append("ClassicListLayout.kt: segmented row can clip Component/Root label")
 # The pinned filter must have the same density and touch affordance as the
 # adjacent category chips; neither list should paint into the pinned control.
-if "CompactCategoryButton(" not in sheet.split("internal fun WorkspaceFilterBar(", 1)[1].split(
+if "WorkspacePickerButton(" not in sheet.split("internal fun WorkspaceFilterBar(", 1)[1].split(
     "/** Batch operations", 1
 )[0]:
-    errors.append("WorkspaceCommon.kt: pinned filter must use Material 3 category chip")
+    errors.append("WorkspaceCommon.kt: pinned filter must use shared category/filter trigger")
 # Fixed Filter stays beside the full-width category selector.
 for file in ("MainControls.kt", "RootComponentsScreen.kt"):
     code = (root / file).read_text(encoding="utf-8")

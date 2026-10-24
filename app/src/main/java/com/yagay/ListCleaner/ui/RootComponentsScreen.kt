@@ -256,6 +256,11 @@ fun RootComponentsScreen(
             }
         }
     }
+    val sortedGroups = remember(groups) {
+        groups.map { (appKey, items) ->
+            appKey to items.sortedWith(compareBy({ it.kind.ordinal }, { it.label.lowercase() }, { it.id }))
+        }
+    }
     val visible = remember(groups) { groups.flatMap { it.second } }
 
     val classicComponentMode = embedded &&
@@ -297,13 +302,11 @@ fun RootComponentsScreen(
                 Column(Modifier.fillMaxWidth().background(
                     MaterialTheme.colorScheme.surface
                 )) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    WorkspaceCategoryFilterRow(
+                    category = {
                         ClassicComponentCategoryFilter(
                             selected = kind,
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.fillMaxWidth(),
                             onSelected = { selected ->
                                 if (kind != selected) navigate {
                                     kind = selected
@@ -312,6 +315,8 @@ fun RootComponentsScreen(
                                 }
                             }
                         )
+                    },
+                    filter = {
                         WorkspaceFilterBar(
                             appTypeFilter = appTypeFilter,
                             onAppTypeFilter = {
@@ -330,10 +335,10 @@ fun RootComponentsScreen(
                                     UiFilter.HIDE_SELECTED -> R.string.root_filter_enabled
                                     UiFilter.LOCKED -> R.string.filter_locked
                                 })
-                            },
-                            modifier = Modifier.padding(end = MaterialUiTokens.pageHorizontal)
+                            }
                         )
                     }
+                )
                     if (batchProgress != null) {
                         val current = requireNotNull(batchProgress)
                         WorkspaceProgress(current.completed.toFloat() / current.total.coerceAtLeast(1))
@@ -357,17 +362,17 @@ fun RootComponentsScreen(
             WorkspaceListSummary(
                 title = stringResource(R.string.root_summary, groups.size, visible.size),
                 actions = listOf(
-                    WorkspaceMenuAction(stringResource(R.string.root_batch_action_disable), {
+                    WorkspaceMenuAction(stringResource(R.string.select_all), {
                         pendingBatch = PendingRootBatch(kind, visible, false)
                     }, !busy && visible.any {
                         it.blocked == null && it.enabled == true && !vm.isComponentBulkProtected(kind, it)
                     }),
-                    WorkspaceMenuAction(stringResource(R.string.root_batch_action_enable), {
+                    WorkspaceMenuAction(stringResource(R.string.select_none), {
                         pendingBatch = PendingRootBatch(kind, visible, true)
                     }, !busy && visible.any {
                         it.blocked == null && it.enabled == false && !vm.isComponentBulkProtected(kind, it)
                     }),
-                    WorkspaceMenuAction(stringResource(R.string.root_batch_action_invert), {
+                    WorkspaceMenuAction(stringResource(R.string.invert_selection), {
                         pendingBatch = PendingRootBatch(kind, visible, null)
                     }, !busy && visible.any {
                         it.blocked == null && it.enabled != null && !vm.isComponentBulkProtected(kind, it)
@@ -406,19 +411,19 @@ fun RootComponentsScreen(
             message?.let { WorkspaceStatusMessage(it, isError = true) }
         }
 
-        groups.forEach { (appKey, unsorted) ->
-            val components = unsorted.sortedWith(compareBy({ it.kind.ordinal }, { it.label.lowercase() }, { it.id }))
-            val editableComponents = components.filter { it.blocked == null && it.enabled != null }
-            val disabledCount = editableComponents.count {
-                selectionDraft.selected(it.id, it.enabled == false)
-            }
-            val selectionState = listSelectionState(disabledCount, editableComponents.size)
-            val first = components.first()
+        sortedGroups.forEach { (appKey, components) ->
             val expansionKey = "${kind?.name ?: "ALL"}|$appKey"
             val expanded = expandedAppKey == expansionKey
-            val onExpand = { expandedAppKey = if (expandedAppKey == expansionKey) null else expansionKey }
-
-            item(key = "app|$expansionKey") {
+            item(key = "app|$expansionKey", contentType = "app") {
+                val editableComponents = remember(components) {
+                    components.filter { it.blocked == null && it.enabled != null }
+                }
+                val disabledCount = editableComponents.count {
+                    selectionDraft.selected(it.id, it.enabled == false)
+                }
+                val selectionState = listSelectionState(disabledCount, editableComponents.size)
+                val first = components.first()
+                val onExpand = { expandedAppKey = if (expandedAppKey == expansionKey) null else expansionKey }
                 val kindTitles = CleanupKind.entries.filter { category ->
                     components.any { it.kind == category }
                 }.map { stringResource(it.titleRes()) }
@@ -429,11 +434,11 @@ fun RootComponentsScreen(
                     icon = first.icon,
                     title = first.owner,
                     packageName = first.component.packageName,
-                    subtitle = stringResource(
+                    subtitle = WorkspaceAppSummaryText(
                         R.string.root_disabled_summary,
                         components.count { selectionDraft.selected(it.id, it.enabled == false) },
                         components.size,
-                        kindTitles.joinToString(" · ")
+                        kindTitles
                     ),
                     expanded = expanded,
                     lockState = lockState,
@@ -445,7 +450,7 @@ fun RootComponentsScreen(
                         vm.setComponentAppLocked(kind, appKey, lockItemsByApp[appKey].orEmpty(), false)
                     },
                     selection = {
-                        AdaptiveTriStateCheckbox(
+                        WorkspaceAppSelectionCheckbox(
                             state = selectionState,
                             enabled = !busy && editableComponents.isNotEmpty(),
                             onClick = {
@@ -483,7 +488,7 @@ fun RootComponentsScreen(
                 )
             }
 
-            if (expanded) itemsIndexed(components, key = { _, item -> item.id }) { componentIndex, item ->
+            if (expanded) itemsIndexed(components, key = { _, item -> item.id }, contentType = { _, _ -> "component" }) { componentIndex, item ->
                 val editable = !busy && item.blocked == null && item.enabled != null
                 val lockToggleEnabled = !vm.isComponentAppLockedForItem(kind, item)
                 val itemLocked = vm.isComponentBulkProtected(kind, item)
@@ -508,22 +513,13 @@ fun RootComponentsScreen(
                     onLock = { vm.setComponentItemLocked(kind, item, true) },
                     onUnlock = { vm.setComponentItemLocked(kind, item, false) },
                     content = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            AdaptiveText(
-                                item.label, modifier = Modifier.weight(1f),
-                                maxLines = 2, overflow = TextOverflow.Ellipsis
-                            )
-                            AdaptiveText(
-                                stringResource(item.kind.titleRes()),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        AdaptiveText(
-                            item.component.flattenToShortString(),
-                            maxLines = 2, overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        WorkspaceDetailHeading(
+                            item.label,
+                            stringResource(item.kind.titleRes())
+                        )
+                        WorkspaceDetailCaption(
+                            if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED)
+                                item.component.flattenToString() else item.component.flattenToShortString()
                         )
                         AdaptiveText(
                             item.blocked ?: stringResource(

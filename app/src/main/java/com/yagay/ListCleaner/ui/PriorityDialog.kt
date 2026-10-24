@@ -692,12 +692,13 @@ fun PriorityDialogContent(
                         }
                     }
                     itemsIndexed(group.components, key = { _, item -> "component|${item.rule.id}" }, contentType = { _, _ -> "component" }) { componentIndex, item ->
-                        AdaptiveGroupSurface(
-                            Modifier.fillMaxWidth(),
-                            position = if (componentIndex == group.components.lastIndex) ListRowPosition.LAST else ListRowPosition.MIDDLE
-                        ) {
-                            ComponentInfoRow(item, state.priorities.titles[item.rule.id]) { editingTitle = item }
-                        }
+                        ComponentInfoRow(
+                            item = item,
+                            customTitle = state.priorities.titles[item.rule.id],
+                            position = if (componentIndex == group.components.lastIndex)
+                                ListRowPosition.LAST else ListRowPosition.MIDDLE,
+                            onEditTitle = { editingTitle = item }
+                        )
                     }
                 }
             }
@@ -761,31 +762,32 @@ fun PriorityDialogContent(
 }
 
 @Composable
-private fun ComponentInfoRow(item: ComponentCandidate, customTitle: String?, onEditTitle: () -> Unit) {
-    WorkspaceReadOnlyDetailRow {
+private fun ComponentInfoRow(
+    item: ComponentCandidate,
+    customTitle: String?,
+    position: ListRowPosition,
+    onEditTitle: () -> Unit
+) {
+    WorkspaceReadOnlyDetailRow(position = position) {
         Column(Modifier.weight(1f)) {
-            AdaptiveText(item.activityLabel, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            WorkspaceDetailHeading(
+                item.activityLabel,
+                stringResource(item.rule.kind.titleRes())
+            )
             if (!customTitle.isNullOrBlank()) {
-                AdaptiveText(
+                WorkspaceDetailCaption(
                     stringResource(R.string.component_shown_as, customTitle),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    emphasized = true
                 )
             }
-            AdaptiveText(
-                item.rule.className,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            WorkspaceDetailCaption(item.rule.className)
         }
         if (item.rule.kind.supportsTitleEditing()) {
-            AdaptiveIconButton(onClick = onEditTitle) {
-                AdaptiveIcon(Icons.Rounded.Edit, stringResource(R.string.component_edit_display_name))
-            }
+            WorkspaceDetailIconAction(
+                Icons.Rounded.Edit,
+                stringResource(R.string.component_edit_display_name),
+                onEditTitle
+            )
         }
     }
 }

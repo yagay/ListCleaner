@@ -17,6 +17,8 @@ import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
@@ -176,36 +178,24 @@ internal fun WorkspaceFilterBar(
     var draftAppType by remember { mutableStateOf(appTypeFilter) }
     var draftView by remember { mutableStateOf(viewFilter) }
     // Match the category picker: show two group headers, not every filter row.
-    var openSection by remember { mutableStateOf<FilterMenuSection?>(null) }
     val activeCount = (if (appTypeFilter != AppTypeFilter.ALL) 1 else 0) +
         (if (viewFilter != UiFilter.ALL) 1 else 0)
 
     // Put the popup in the trigger's Box so Material 3 anchors its position
     // directly below the top Filter button, just like the Category menu.
     Box(modifier = modifier) {
-        CompactCategoryButton(
+        WorkspacePickerButton(
+            label = stringResource(R.string.lc_filter_sheet_button),
+            icon = Icons.Rounded.FilterList,
             selected = activeCount > 0,
+            expanded = expanded,
+            count = activeCount,
             onClick = {
                 draftAppType = appTypeFilter
                 draftView = viewFilter
-                openSection = null
                 expanded = true
             }
-        ) {
-            AdaptiveIcon(
-                Icons.Rounded.FilterList, null, Modifier.size(18.dp),
-                tint = compactCategoryLabelColor(activeCount > 0)
-            )
-            WorkspaceControlLabel(
-                stringResource(R.string.lc_filter_sheet_button),
-                color = compactCategoryLabelColor(activeCount > 0)
-            )
-            if (activeCount > 0) {
-                androidx.compose.material3.Badge {
-                    AdaptiveText(activeCount.toString())
-                }
-            }
-        }
+        )
         androidx.compose.material3.DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
@@ -216,105 +206,24 @@ internal fun WorkspaceFilterBar(
                 stringResource(R.string.lc_filter_sheet_title),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialSelectionPalette.text()
             )
-            // Only one section is expanded at a time, as in Category.
-            val appsOpen = openSection == FilterMenuSection.APPS
-            AdaptiveDropdownMenuItem(
-                text = {
-                    AdaptiveText(
-                        stringResource(
-                            R.string.compact_filter_format,
-                            stringResource(R.string.app_type_filter),
-                            stringResource(draftAppType.titleRes())
-                        ),
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                },
-                trailingIcon = {
-                    AdaptiveIcon(
-                        if (appsOpen) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                        null, Modifier.size(20.dp)
-                    )
-                },
-                onClick = {
-                    openSection = if (appsOpen) null else FilterMenuSection.APPS
-                }
+            // Direct single-choice groups: no nested menus, draft until Apply.
+            WorkspaceFilterChoiceGroup(
+                title = stringResource(R.string.app_type_filter),
+                options = AppTypeFilter.entries.toList(),
+                selected = draftAppType,
+                titleFor = { stringResource(it.titleRes()) },
+                onSelected = { draftAppType = it }
             )
-            if (appsOpen) {
-                AppTypeFilter.entries.forEach { option ->
-                    AdaptiveDropdownMenuItem(
-                        text = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Spacer(Modifier.width(16.dp))
-                                AdaptiveText(
-                                    stringResource(option.titleRes()),
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                            }
-                        },
-                        trailingIcon = {
-                            if (draftAppType == option) {
-                                AdaptiveIcon(Icons.Rounded.Check, null, Modifier.size(20.dp))
-                            }
-                        },
-                        onClick = {
-                            draftAppType = option
-                            openSection = null
-                        }
-                    )
-                }
-            }
-            val viewOpen = openSection == FilterMenuSection.VIEW
-            AdaptiveDropdownMenuItem(
-                text = {
-                    AdaptiveText(
-                        stringResource(
-                            R.string.compact_filter_format,
-                            stringResource(R.string.view_filter),
-                            viewTitle(draftView)
-                        ),
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                },
-                trailingIcon = {
-                    AdaptiveIcon(
-                        if (viewOpen) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                        null, Modifier.size(20.dp)
-                    )
-                },
-                onClick = {
-                    openSection = if (viewOpen) null else FilterMenuSection.VIEW
-                }
+            AdaptiveHorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
+            WorkspaceFilterChoiceGroup(
+                title = stringResource(R.string.view_filter),
+                options = UiFilter.entries.toList(),
+                selected = draftView,
+                titleFor = { viewTitle(it) },
+                onSelected = { draftView = it }
             )
-            if (viewOpen) {
-                UiFilter.entries.forEach { option ->
-                    AdaptiveDropdownMenuItem(
-                        text = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Spacer(Modifier.width(16.dp))
-                                AdaptiveText(
-                                    viewTitle(option),
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                            }
-                        },
-                        trailingIcon = {
-                            if (draftView == option) {
-                                AdaptiveIcon(Icons.Rounded.Check, null, Modifier.size(20.dp))
-                            }
-                        },
-                        onClick = {
-                            draftView = option
-                            openSection = null
-                        }
-                    )
-                }
-            }
             if (extraFilter != null) {
                 AdaptiveHorizontalDivider()
                 Row(
@@ -352,6 +261,43 @@ internal fun WorkspaceFilterBar(
     }
 }
 
+/** Shared compact direct-choice filter group for Entry, Component and Ordering.
+ * Values are drafts; the parent applies them only on confirmation.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun <T> WorkspaceFilterChoiceGroup(
+    title: String,
+    options: List<T>,
+    selected: T,
+    titleFor: @Composable (T) -> String,
+    onSelected: (T) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        AdaptiveText(
+            title,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            options.forEach { option ->
+                AdaptiveFilterChip(
+                    selected = option == selected,
+                    onClick = { onSelected(option) },
+                    label = { AdaptiveText(titleFor(option), maxLines = 1) }
+                )
+            }
+        }
+    }
+}
+
 /** Batch operations and help belong beside the list summary, not inside filters. */
 @Composable
 internal fun WorkspaceListActions(
@@ -359,39 +305,45 @@ internal fun WorkspaceListActions(
     helpExpanded: Boolean = false,
     onHelpToggle: (() -> Unit)? = null,
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    var selectionMenuExpanded by remember { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically) {
+        // A labeled menu provides all batch actions without a visible tri-state.
+        if (actions.isNotEmpty()) {
+            Box {
+                AdaptiveTextButton(
+                    onClick = { selectionMenuExpanded = true },
+                    enabled = actions.any { it.enabled }
+                ) {
+                    AdaptiveText(stringResource(R.string.selection_actions), maxLines = 1)
+                    AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(18.dp))
+                }
+                AdaptiveDropdownMenu(
+                    expanded = selectionMenuExpanded,
+                    onDismissRequest = { selectionMenuExpanded = false }
+                ) {
+                    actions.forEach { action ->
+                        AdaptiveDropdownMenuItem(
+                            text = { AdaptiveText(action.label) },
+                            enabled = action.enabled,
+                            onClick = {
+                                selectionMenuExpanded = false
+                                action.onClick()
+                            }
+                        )
+                    }
+                }
+            }
+        }
+        // Help is always the final control for Entry, Component and Ordering.
         if (onHelpToggle != null) {
             AdaptiveIconButton(onClick = onHelpToggle) {
                 AdaptiveIcon(
                     Icons.Rounded.Info,
                     stringResource(R.string.lc_filter_help_short),
                     Modifier.size(20.dp),
-                    tint = if (helpExpanded) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = if (helpExpanded) MaterialSelectionPalette.activeText()
+                    else MaterialSelectionPalette.text()
                 )
-            }
-        }
-        if (actions.isNotEmpty()) {
-            Box {
-                AdaptiveIconButton(
-                    onClick = { expanded = true },
-                    enabled = actions.any { it.enabled }
-                ) {
-                    AdaptiveIcon(
-                        Icons.Rounded.MoreVert,
-                        stringResource(R.string.selection_actions)
-                    )
-                }
-                AdaptiveDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                    actions.forEach { action ->
-                        AdaptiveDropdownMenuItem(
-                            text = { AdaptiveText(action.label) },
-                            enabled = action.enabled,
-                            onClick = { expanded = false; action.onClick() }
-                        )
-                    }
-                }
             }
         }
     }
@@ -482,8 +434,28 @@ internal fun WorkspaceProgress(progress: Float? = null) {
 
 /** Read-only and selectable details share the same surface geometry. */
 @Composable
-internal fun WorkspaceReadOnlyDetailRow(content: @Composable RowScope.() -> Unit) {
-    UiCardDetailRow(content = content)
+internal fun WorkspaceReadOnlyDetailRow(
+    position: ListRowPosition = ListRowPosition.SINGLE,
+    content: @Composable RowScope.() -> Unit
+) {
+    if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
+        GroupedComponentSurface(position, selected = false) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(
+                    start = MaterialUiTokens.groupedDetailStartPadding,
+                    end = MaterialUiTokens.groupedDetailEndPadding,
+                    top = MaterialUiTokens.groupedDetailPadding,
+                    bottom = MaterialUiTokens.groupedDetailPadding
+                ),
+                verticalAlignment = Alignment.CenterVertically,
+                content = content
+            )
+        }
+    } else {
+        AdaptiveGroupSurface(Modifier.fillMaxWidth(), position = position) {
+            UiCardDetailRow(content = content)
+        }
+    }
 }
 
 /** Identical detail-row surface, checkbox, lock menu and hit area for both engines. */
@@ -502,24 +474,47 @@ internal fun WorkspaceDetailRow(
     trailing: @Composable RowScope.() -> Unit = {}
 ) {
     var lockMenuExpanded by remember { mutableStateOf(false) }
-    AdaptiveGroupSurface(Modifier.fillMaxWidth(), position = position) {
-        UiCardDetailRow(
-            modifier = Modifier.combinedClickable(
+    val contentBlock: @Composable () -> Unit = {
+        val clickModifier = Modifier.combinedClickable(
                 role = androidx.compose.ui.semantics.Role.Checkbox,
                 onClick = { if (enabled) onToggle() },
                 onLongClick = { if (lockToggleEnabled) lockMenuExpanded = true }
             )
-        ) {
-            AdaptiveCheckbox(
-                checked = checked, enabled = enabled, onCheckedChange = null,
-                modifier = Modifier.padding(horizontal = 8.dp)
-            )
+        val rowContents: @Composable RowScope.() -> Unit = {
+            if (UiPreferencesRuntime.current.listStyle != UiListStyle.GROUPED) {
+                AdaptiveCheckbox(
+                    checked = checked, enabled = enabled, onCheckedChange = null,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+            }
             Column(Modifier.weight(1f).padding(vertical = 4.dp)) { content() }
             if (locked) AdaptiveIcon(
                 Icons.Rounded.Lock, stringResource(R.string.bulk_lock_full),
                 modifier = Modifier.padding(horizontal = 8.dp).size(18.dp)
             )
             trailing()
+            if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
+                AdaptiveIcon(
+                    if (checked) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+                    null,
+                    modifier = Modifier.padding(start = 1.dp).size(18.dp),
+                    tint = if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                )
+            }
+        }
+        if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
+            Row(
+                modifier = clickModifier.fillMaxWidth().padding(
+                    start = MaterialUiTokens.groupedDetailStartPadding,
+                    end = MaterialUiTokens.groupedDetailEndPadding,
+                    top = MaterialUiTokens.groupedDetailPadding,
+                    bottom = MaterialUiTokens.groupedDetailPadding
+                ),
+                verticalAlignment = Alignment.CenterVertically,
+                content = rowContents
+            )
+        } else {
+            UiCardDetailRow(modifier = clickModifier, content = rowContents)
         }
         BulkLockContextMenu(
             expanded = lockMenuExpanded,
@@ -529,5 +524,10 @@ internal fun WorkspaceDetailRow(
             onLock = onLock,
             onUnlock = onUnlock
         )
+    }
+    if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
+        GroupedComponentSurface(position, checked, contentBlock)
+    } else {
+        AdaptiveGroupSurface(Modifier.fillMaxWidth(), position = position) { contentBlock() }
     }
 }
