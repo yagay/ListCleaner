@@ -364,20 +364,33 @@ fun PriorityDialogContent(
                                     }
                                 )
                             },
+                            subtypeTitle = when (kind) {
+                                IntentKind.OPEN -> openPreset?.let { state.openTypesExplicit.localizedTitle(it) }
+                                IntentKind.DEEP_LINK -> browserHost
+                                else -> null
+                            },
+                            subtypeAvailable = when (kind) {
+                                IntentKind.OPEN -> state.openTypesExplicit.configuredPresets().isNotEmpty()
+                                IntentKind.DEEP_LINK -> state.browserAvailableHosts.isNotEmpty() ||
+                                    state.browserLinks.hosts.isNotEmpty() || browserHost != null
+                                else -> false
+                            },
                             extraFilter = {
                                 when (kind) {
                                     IntentKind.OPEN -> OpenPresetFilterMenu(
                                         selected = openPreset,
                                         config = state.openTypesExplicit,
                                         onSelected = { preset -> navigate { vm.setRuleOpenPreset(preset) } },
-                                        onManageCustom = { showCustomTypes = true }
+                                        onManageCustom = { showCustomTypes = true },
+                                        iconOnly = true
                                     )
                                     IntentKind.DEEP_LINK -> BrowserHostFilterMenu(
                                         selected = browserHost,
                                         config = state.browserLinks,
                                         availableHosts = state.browserAvailableHosts,
                                         onSelected = { host -> navigate { vm.setRuleBrowserHost(host) } },
-                                        onManage = { showBrowserHosts = true }
+                                        onManage = { showBrowserHosts = true },
+                                        iconOnly = true
                                     )
                                     else -> Unit
                                 }
