@@ -1,6 +1,6 @@
 package com.yagay.ListCleaner.ui
 
-import androidx.compose.foundation.drawWithContent
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
