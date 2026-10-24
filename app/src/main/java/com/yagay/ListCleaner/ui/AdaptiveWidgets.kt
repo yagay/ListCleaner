@@ -156,17 +156,15 @@ internal fun AdaptiveCheckbox(
     enabled: Boolean = true
 ) = Checkbox(checked = checked, onCheckedChange = onCheckedChange, modifier = modifier, enabled = enabled)
 
-/** Shared Material 3 surface for rules, Root components, sorting and app rows. */
+/** Compatibility entrypoint now delegates to the shared flat row surface. */
 @Composable
 internal fun AdaptiveGroupSurface(
     modifier: Modifier = Modifier,
     position: ListRowPosition = ListRowPosition.SINGLE,
     horizontalInset: Dp = MaterialUiTokens.groupHorizontal,
     content: @Composable () -> Unit
-) = UiCard(
+) = FlatRowSurface(
     modifier = modifier,
-    variant = UiCardVariant.LIST_GROUP,
-    position = position,
     horizontalInset = horizontalInset,
-    content = { content() }
+    content = content
 )

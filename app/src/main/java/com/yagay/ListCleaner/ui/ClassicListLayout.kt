@@ -37,7 +37,7 @@ internal fun ClassicCleanupTabs(
         // Keep the controls content-sized instead of stretching each border to half
         // the display. A narrow device can scroll without shrinking the labels.
         Row(
-            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+            modifier = Modifier.fillMaxWidth()
                 .padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = 2.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
@@ -46,7 +46,7 @@ internal fun ClassicCleanupTabs(
             // buttons. An intrinsic-width row was too narrow for Component · Root.
             // A minimum width preserves full labels; horizontal scroll handles
             // unusually large font scales or narrow screens.
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.widthIn(min = 350.dp)) {
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             SegmentedButton(
                 selected = active == ClassicCleanupMode.ENTRIES,
                 onClick = { if (active != ClassicCleanupMode.ENTRIES) onEntries() },

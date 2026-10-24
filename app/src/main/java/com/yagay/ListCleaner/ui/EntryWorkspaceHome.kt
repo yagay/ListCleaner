@@ -60,17 +60,12 @@ internal fun EntryWorkspaceHome(
             // One continuous, single-column list regardless of legacy grid preferences.
             Column(Modifier.fillMaxWidth()) {
                 availableGroups.forEach { group ->
-                    EntryGroupTile(
-                        group = group,
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = { onGroup(group) }
-                    )
+                    EntryGroupTile(group = group, modifier = Modifier.fillMaxWidth(), onClick = { onGroup(group) })
                 }
+                if (showUtilities) WorkspaceBrowseAllButton(
+                    label = stringResource(R.string.workspace_browse_entries), onClick = onAllApps
+                )
             }
-            if (showUtilities) WorkspaceBrowseAllButton(
-                label = stringResource(R.string.workspace_browse_entries),
-                onClick = onAllApps
-            )
             // Rule and Root component categories share the same landing page.
             // Their editors remain independent to preserve scan/lock semantics.
             if (showComponentSection) {
@@ -105,42 +100,28 @@ internal fun EntryWorkspaceHome(
                     )
                 }
             }
-            val kinds = selectedGroup.kinds().filter { it in availableKinds }
-            kinds.forEachIndexed { index, kind ->
-                val position = when {
-                    kinds.size == 1 -> ListRowPosition.SINGLE
-                    index == 0 -> ListRowPosition.FIRST
-                    index == kinds.lastIndex -> ListRowPosition.LAST
-                    else -> ListRowPosition.MIDDLE
-                }
-                AdaptiveGroupSurface(Modifier.fillMaxWidth(), position, horizontalInset = 0.dp) {
+            selectedGroup.kinds().filter { it in availableKinds }.forEach { kind ->
+                FlatRowSurface {
                     androidx.compose.material3.ListItem(
                         modifier = Modifier.fillMaxWidth().clickable { onKind(kind) },
                         colors = androidx.compose.material3.ListItemDefaults.colors(
                             containerColor = androidx.compose.ui.graphics.Color.Transparent
                         ),
                         headlineContent = {
-                            AdaptiveText(
-                                stringResource(kind.titleRes()),
+                            AdaptiveText(stringResource(kind.titleRes()),
                                 style = MaterialTheme.typography.bodyLarge,
-                                maxLines = 2, overflow = TextOverflow.Ellipsis
-                            )
+                                maxLines = 2, overflow = TextOverflow.Ellipsis)
                         },
                         supportingContent = {
-                            AdaptiveText(
-                                stringResource(kind.descriptionRes()),
+                            AdaptiveText(stringResource(kind.descriptionRes()),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 2, overflow = TextOverflow.Ellipsis
-                            )
+                                maxLines = 2, overflow = TextOverflow.Ellipsis)
                         },
                         trailingContent = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 AdaptiveIconButton(onClick = { onPreviewKind(kind) }) {
-                                    AdaptiveIcon(
-                                        Icons.Rounded.Visibility,
-                                        stringResource(R.string.system_preview_action)
-                                    )
+                                    AdaptiveIcon(Icons.Rounded.Visibility, stringResource(R.string.system_preview_action))
                                 }
                                 AdaptiveIcon(Icons.Rounded.ChevronRight, null)
                             }

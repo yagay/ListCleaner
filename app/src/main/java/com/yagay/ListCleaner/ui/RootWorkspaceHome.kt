@@ -86,7 +86,6 @@ internal fun RootWorkspaceCategorySection(
             }
         }
         if (warning.isNotBlank()) WorkspaceStatusMessage(warning, isError = false)
-        // Root categories share the exact same full-width list renderer as Entry.
         Column(Modifier.fillMaxWidth()) {
             kinds.forEach { kind ->
                 WorkspaceCategoryRow(
@@ -104,13 +103,13 @@ internal fun RootWorkspaceCategorySection(
                     onClick = { onChoose(kind) }
                 )
             }
+            WorkspaceBrowseAllButton(
+                label = stringResource(
+                    if (UiPreferencesRuntime.current.componentStart == UiComponentStart.CATEGORIES)
+                        R.string.lc_open_component_categories else R.string.workspace_browse_components
+                ),
+                onClick = onAll
+            )
         }
-        WorkspaceBrowseAllButton(
-            label = stringResource(
-                if (UiPreferencesRuntime.current.componentStart == UiComponentStart.CATEGORIES)
-                    R.string.lc_open_component_categories else R.string.workspace_browse_components
-            ),
-            onClick = onAll
-        )
     }
 }

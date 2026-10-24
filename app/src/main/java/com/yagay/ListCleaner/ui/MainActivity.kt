@@ -297,6 +297,11 @@ class MainActivity : ComponentActivity() {
                     { restore.launch(arrayOf("application/json", "text/plain")) },
                     { showExportDialog = true },
                     showSearch = state.destination != Destination.SETTINGS,
+                    titleRes = when {
+                        componentModeActive || state.destination == Destination.TILES -> R.string.root_screen_title
+                        state.destination == Destination.PRIORITY -> R.string.nav_priority
+                        else -> R.string.workspace_rule_section
+                    },
                     spaces = spaces,
                     selectedSpace = selectedSpace,
                     onSpaceSelected = { target ->

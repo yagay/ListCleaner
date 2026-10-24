@@ -75,13 +75,14 @@ internal fun MainToolbar(
     spaces: List<UserSpace> = emptyList(),
     selectedSpace: Int = 0,
     onSpaceSelected: (Int) -> Unit = {},
+    titleRes: Int = R.string.app_name,
 ) {
     var menu by remember { mutableStateOf(false) }
     var spaceMenu by remember { mutableStateOf(false) }
     TopAppBar(
         title = {
             if (expanded) CompactSearchField(query, onQuery)
-            else AdaptiveText(stringResource(R.string.app_name), fontWeight = FontWeight.Bold, maxLines = 1)
+            else AdaptiveText(stringResource(titleRes), fontWeight = FontWeight.Bold, maxLines = 1)
         },
         navigationIcon = {
             if (expanded) AdaptiveBackButton(onClick = onClose, contentDescription = stringResource(R.string.close_search))

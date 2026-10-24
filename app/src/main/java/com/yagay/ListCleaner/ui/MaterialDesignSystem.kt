@@ -104,7 +104,7 @@ internal fun MaterialPageColumn(
     )
 }
 
-/** Flat settings section: a semantic grouping, not a second nested card. */
+/** Flat settings rows form a continuous section without card-sized gaps. */
 @Composable
 internal fun MaterialSectionCard(
     modifier: Modifier = Modifier,
@@ -112,7 +112,7 @@ internal fun MaterialSectionCard(
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
         content = content
     )
 }

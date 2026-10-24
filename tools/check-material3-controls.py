@@ -50,7 +50,7 @@ for file in sorted(root.glob("*.kt")):
 
 required = {
     "AdaptiveWidgets.kt": ["FilterChip(", "OutlinedButton(", "TextButton(", "Button(",
-                           "Checkbox(", "IconButton(", "UiCard("],
+                           "Checkbox(", "IconButton(", "FlatRowSurface("],
     "MaterialActionColors.kt": ["fun filled()", "fun outlined()", "fun outlinedBorder(",
                                  "fun text()", "fun icon()", "fun filter()", "fun navigation()",
                                  "NavigationBarItemDefaults.colors(", "FilterChipDefaults.filterChipColors("],
@@ -149,7 +149,10 @@ flat_visual_checks = {
                             "UiCardDetailRow(modifier = clickModifier, content = rowContents)"),
     "SettingsWidgets.kt": ("FlatSectionHeader(title)", "MaterialSectionCard { content() }"),
     "SettingsCenterHome.kt": ("FlatCategoryRow(", "onSelect(section)"),
-    "EntryWorkspaceHome.kt": ("availableGroups.forEach", "EntryGroupTile("),
+    "AdaptiveWidgets.kt": ("fun AdaptiveGroupSurface(", "= FlatRowSurface("),
+    "AppScopePicker.kt": ("FlatRowSurface(Modifier.fillMaxWidth())",),
+    "EntryWorkspaceHome.kt": ("availableGroups.forEach", "EntryGroupTile(",
+                               "selectedGroup.kinds().filter", "FlatRowSurface {"),
     "RootWorkspaceHome.kt": ("kinds.forEach", "WorkspaceCategoryRow("),
     "WorkspaceCategorySelector.kt": ("filter()", "Box(Modifier.weight(1f)) { category() }",
                                       "MaterialFlatPalette.selectedSurface()"),
