@@ -20,6 +20,8 @@ import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,8 +61,8 @@ internal fun WorkspaceCategoryFilterRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(Modifier.weight(1f)) { category() }
         filter()
+        Box(Modifier.weight(1f)) { category() }
     }
 }
 
@@ -75,11 +77,16 @@ internal fun WorkspacePickerButton(
     modifier: Modifier = Modifier,
     count: Int = 0
 ) {
-    UiCard(
-        variant = UiCardVariant.CATEGORY,
-        filterPalette = selected,
+    Surface(
         onClick = onClick,
-        modifier = modifier
+        modifier = modifier,
+        shape = MaterialTheme.shapes.large,
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer
+            else MaterialTheme.colorScheme.surfaceContainer,
+        contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+            else MaterialTheme.colorScheme.onSurface,
+        border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+            else null
     ) {
         Row(
             modifier = Modifier.heightIn(min = 48.dp)
@@ -87,7 +94,7 @@ internal fun WorkspacePickerButton(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            val color = if (selected) MaterialSelectionPalette.title()
+            val color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
                 else MaterialTheme.colorScheme.onSurface
             AdaptiveIcon(icon, null, Modifier.size(18.dp), tint = color)
             AdaptiveText(
