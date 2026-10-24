@@ -41,18 +41,20 @@ internal fun GroupedComponentSurface(position: ListRowPosition, selected: Boolea
             bottomStart = MaterialUiTokens.cardRadius,
             bottomEnd = MaterialUiTokens.cardRadius
         ) else RoundedCornerShape(0.dp),
-        // Expanded components share a gently tinted surface so the complete
-        // app group reads separately from the next collapsed application.
-        // Selected rows use a different semantic tint, never selection alpha alone.
-        // Match the expanded application header exactly. Selection is conveyed
-        // by its trailing checked icon, not a different row background.
+        // Component and expanded app header share one surface color; selection
+        // remains visible through the trailing checked icon.
         color = MaterialTheme.colorScheme.secondaryContainer
     ) {
         Column {
             content()
+            // Visible inset separator between siblings; no divider after the last row.
             if (!last) HorizontalDivider(
-                modifier = Modifier.padding(start = MaterialUiTokens.groupedDetailStartPadding),
-                color = MaterialTheme.colorScheme.outlineVariant
+                modifier = Modifier.padding(
+                    start = MaterialUiTokens.groupedDetailStartPadding,
+                    end = MaterialUiTokens.groupedDetailEndPadding
+                ),
+                thickness = 1.dp,
+                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.24f)
             )
         }
     }
