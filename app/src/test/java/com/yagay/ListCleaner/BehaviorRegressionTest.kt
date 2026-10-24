@@ -112,6 +112,24 @@ class BehaviorRegressionTest {
         assertEquals(listOf(fresh), retainConfiguredCandidates(listOf(fresh), emptySet()))
     }
 
+    @Test fun republishedShortcutUnderAnotherActivityDoesNotCreatePhantomRuleRow() {
+        val token = "623ca0e252058603050878c0"
+        val old = ComponentRule(
+            IntentKind.SHORTCUT_ITEM, "idm.internet.download.manager",
+            "idm.internet.download.manager.MainActivity#shortcut#$token"
+        )
+        val current = ComponentCandidate(
+            ComponentRule(
+                IntentKind.SHORTCUT_ITEM, old.packageName,
+                "idm.internet.download.manager.LauncherDefault#shortcut#$token"
+            ),
+            "1DM+", "New Incognito Tab"
+        )
+        assertEquals(listOf(current), retainConfiguredCandidates(listOf(current), setOf(old)))
+        // A genuinely missing shortcut still keeps its stored rule visible.
+        assertTrue(retainConfiguredCandidates(emptyList(), setOf(old)).single().unavailable)
+    }
+
     @Test fun matchingSelectedRuleDoesNotCreateDuplicatePlaceholder() {
         val fresh = candidate(IntentKind.OPEN)
         assertEquals(listOf(fresh), retainConfiguredCandidates(listOf(fresh), setOf(fresh.rule)))
