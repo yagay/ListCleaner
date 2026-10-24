@@ -70,7 +70,7 @@ class RootComponentCatalog(
     private val componentDiscoveryProtocol: () -> Int = { 0 },
 ) {
     private val pm = context.packageManager
-    private val shortcutDiscovery = UnifiedShortcutEngine(context)
+    private val shortcutDiscovery = UnifiedShortcutEngine.get(context)
     @Volatile internal var lastShortcutDiscovery = ShortcutDiscoveryResult(ShortcutDiscoveryStatus.SERVICE_UNAVAILABLE)
         private set
     private val user = AndroidUid.userId(Process.myUid())
