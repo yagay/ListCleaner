@@ -22,7 +22,8 @@ internal object UiColorRoles {
         "filterBackground", "navigationBackground", "navigationText")
     @Composable
     fun resolve(key: String, default: Color): Color {
-        val hex = UiPreferencesRuntime.current.colorOverrides[key] ?: return default
+        val effectiveKey = if (LocalListCleanerDarkTheme.current) "dark_$key" else key
+        val hex = UiPreferencesRuntime.current.colorOverrides[effectiveKey] ?: return default
         return androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor(hex))
     }
 }
