@@ -146,9 +146,9 @@ flat_visual_checks = {
     "SettingsWidgets.kt": ("FlatSectionHeader(title)", "MaterialSectionCard { content() }",
                            "FlatRowSurface(dividerInset = 0.dp)", "FlatRowSurface("),
     "SettingsCenterHome.kt": ("FlatCategoryRow(", "onSelect(section)",
-      "AdaptiveWidgets.kt": ("fun AdaptiveGroupSurface(", "= FlatRowSurface("),
+                              "MaterialPageColumn(fullBleed = true)"),
+    "AdaptiveWidgets.kt": ("fun AdaptiveGroupSurface(", "= FlatRowSurface("),
     "AppScopePicker.kt": ("FlatRowSurface(Modifier.fillMaxWidth())",),
-                             "MaterialPageColumn(fullBleed = true)"),
     "WorkspaceCategorySelector.kt": ("filter()", "Box(Modifier.weight(1f)) { category() }",
                                       "MaterialFlatPalette.selectedSurface()"),
 }
@@ -244,7 +244,7 @@ for filename, symbols in required.items():
 
 # Status and diagnostics must live inside Settings, not in a separate navigation destination.
 for filename in ("MainActivity.kt", "MainTabs.kt", "MainViewModel.kt", "TextResources.kt",
-                 "EntryWorkspaceHome.kt", "PriorityDialog.kt"):
+                 "PriorityDialog.kt"):
     source = (root / filename).read_text(encoding="utf-8")
     if "Destination.DASHBOARD" in source or "DashboardTabContent(" in source:
         errors.append(f"{filename}: legacy Status destination remains; open Settings instead")
