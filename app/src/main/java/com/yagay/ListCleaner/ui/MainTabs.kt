@@ -601,7 +601,9 @@ fun RulesTab(
                             lockRulesByPackage[group.packageName].orEmpty(),
                             false
                         )
-                    }
+                    },
+                    openWithDefinitions = if (state.filter == IntentKind.OPEN &&
+                        typedOpenPreset == null) state.openTypesExplicit.customDefinitions else null
                 )
             }
             if (expanded) {
