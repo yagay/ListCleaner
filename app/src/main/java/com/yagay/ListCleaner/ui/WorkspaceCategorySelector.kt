@@ -242,40 +242,12 @@ internal fun EntryCategoryPicker(
         }
         availableGroups.forEach { group ->
             val expanded = expandedGroup == group
-            Box(
-                Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                    .background(
-                        if (selected?.entryGroup() == group)
-                            MaterialTheme.colorScheme.secondaryContainer
-                        else MaterialTheme.colorScheme.surface.copy(alpha = 0f),
-                        RoundedCornerShape(12.dp)
-                    )
-            ) {
-                AdaptiveDropdownMenuItem(
-                    text = {
-                        AdaptiveText(
-                            stringResource(group.titleRes()),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = if (selected?.entryGroup() == group)
-                                MaterialTheme.colorScheme.onSecondaryContainer
-                                else MaterialTheme.colorScheme.onSurface,
-                            fontWeight = if (selected?.entryGroup() == group)
-                                FontWeight.SemiBold else FontWeight.Normal,
-                            maxLines = 2
-                        )
-                    },
-                    trailingIcon = {
-                        AdaptiveIcon(
-                            if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                            null, Modifier.size(20.dp),
-                            tint = if (selected?.entryGroup() == group)
-                                MaterialTheme.colorScheme.onSecondaryContainer
-                                else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
-                    onClick = { expandedGroup = if (expanded) null else group }
-                )
-            }
+            WorkspaceMenuSection(
+                title = stringResource(group.titleRes()),
+                active = selected?.entryGroup() == group,
+                expanded = expanded,
+                onClick = { expandedGroup = if (expanded) null else group }
+            )
             if (expanded) {
                 group.kinds()
                     .filter { availableKinds == null || it in availableKinds }
