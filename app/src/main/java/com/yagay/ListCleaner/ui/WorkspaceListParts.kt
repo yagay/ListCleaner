@@ -58,7 +58,7 @@ internal fun WorkspaceAppNote(
         style = MaterialTheme.typography.labelSmall,
         color = when {
             warning -> MaterialTheme.colorScheme.error
-            informational -> MaterialTheme.colorScheme.tertiary
+            informational -> MaterialStatusPalette.informationalText()
             else -> MaterialTheme.colorScheme.onSurfaceVariant
         },
         maxLines = 1,
@@ -131,7 +131,7 @@ internal fun WorkspaceDetailStatus(
         style = MaterialTheme.typography.bodySmall,
         color = when {
             warning -> MaterialTheme.colorScheme.error
-            informational -> MaterialTheme.colorScheme.tertiary
+            informational -> MaterialStatusPalette.informationalText()
             else -> MaterialTheme.colorScheme.onSurfaceVariant
         },
         maxLines = 2,
