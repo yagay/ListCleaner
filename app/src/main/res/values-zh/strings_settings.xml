@@ -59,4 +59,8 @@
     <string name="settings_remember_filters_help">保存列表筛选和用户/系统应用分类，重启应用后仍可使用。</string>
     <string name="settings_help_expanded">默认展开功能说明</string>
     <string name="settings_help_expanded_help">首次进入规则和排序页面时展开帮助说明。</string>
+    <string name="settings_color_custom">自定义</string>
+    <string name="settings_custom_color_hex">自定义主题色（#RRGGBB）</string>
+    <string name="settings_custom_color_apply">应用颜色</string>
+    <string name="settings_custom_color_hint">输入 6 位十六进制颜色代码</string>
 </resources>
