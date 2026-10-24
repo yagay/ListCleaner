@@ -59,7 +59,7 @@ internal object MaterialUiTokens {
     val categoryGap get() = (8f * density).dp
     // Spacing between interactive filter chips, separate from home card spacing.
     val filterChipGap get() = (6f * density).dp
-    val listRowHeight get() = UiPreferencesRuntime.current.listRowHeight.dp
+    val listRowHeight get() = (UiPreferencesRuntime.current.listRowHeight * density).dp
     val listRowHorizontal get() = (8f * density).dp
     val listRowVertical get() = (6f * density).dp
     val appIconSize get() = UiPreferencesRuntime.current.appIconSize.dp
@@ -72,11 +72,14 @@ internal object MaterialUiTokens {
     val detailKindMaxWidth get() = (112f * density).dp
     val buttonHeight get() = UiPreferencesRuntime.current.buttonHeight.dp
     // Settings have one row/button geometry regardless of control type.
-    val settingsRowHeight get() = (56f * density).dp.coerceAtLeast(48.dp)
-    val settingsActionHeight get() = buttonHeight.coerceAtLeast(48.dp)
+    val settingsRowHeight get() = (56f * density).dp.coerceAtLeast(44.dp)
+    val settingsActionHeight get() = (UiPreferencesRuntime.current.buttonHeight * density).dp.coerceAtLeast(40.dp)
     val settingsRowGap get() = contentGap
     // 48dp remains the minimum icon touch target for accessible controls.
-    val iconTouchTarget = 48.dp
+    val iconTouchTarget get() = (48f * density).dp.coerceAtLeast(48.dp)
+    val appRowHorizontal get() = (12f * density).dp
+    val appRowVertical get() = (6f * density).dp
+    val appRowGap get() = (8f * density).dp
     val compactButtonPadding get() = PaddingValues(horizontal = (8f * density).dp, vertical = (4f * density).dp)
     val normalButtonPadding get() = PaddingValues(horizontal = (12f * density).dp, vertical = (6f * density).dp)
 }
