@@ -50,7 +50,8 @@ internal object MaterialUiTokens {
     // padding, row height, bounds, click targets, or any item position.
     val listCardRadius get() = (UiPreferencesRuntime.current.cardRadius * 0.45f).dp
     val groupedInnerRadius get() = (4f * density).dp
-    val groupedOuterGap get() = (4f * density).dp
+    // Reduced group gap for flat rows; does not change touch targets.
+    val groupedOuterGap get() = (2f * density).dp
     val groupedInnerGap get() = (1f * density).dp
     val groupedDetailIndent get() = (12f * density).dp
     val groupedDetailPadding get() = (6f * density).dp
