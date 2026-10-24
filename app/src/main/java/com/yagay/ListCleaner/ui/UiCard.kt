@@ -55,9 +55,9 @@ internal fun UiCard(
         containerColor = when {
             warning -> MaterialTheme.colorScheme.errorContainer
             filterPalette -> MaterialSelectionPalette.categoryBackground()
-            variant == UiCardVariant.STATUS || variant == UiCardVariant.SECTION ->
-                MaterialFlatPalette.sectionSurface()
-            else -> WorkspaceListPalette.surface()
+            variant == UiCardVariant.CATEGORY || variant == UiCardVariant.LIST_GROUP ->
+                WorkspaceListPalette.surface()
+            else -> MaterialFlatPalette.sectionSurface()
         }
     )
     val border = when {

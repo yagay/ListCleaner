@@ -55,7 +55,9 @@ required = {
                                  "fun text()", "fun icon()", "fun filter()", "fun navigation()",
                                  "NavigationBarItemDefaults.colors(", "FilterChipDefaults.filterChipColors("],
     "UiCard.kt": ["enum class UiCardVariant", "UiCardVariant.SECTION", "UiCardVariant.CATEGORY",
-                   "UiCardVariant.LIST_GROUP", "UiCardVariant.STATUS", "MaterialTheme.shapes.medium",
+                   "UiCardVariant.LIST_GROUP", "UiCardVariant.STATUS",
+                   "RoundedCornerShape(MaterialUiTokens.listCardRadius)",
+                   "MaterialFlatPalette.sectionSurface()",
                    "onClick = onClick", "UiCardDetailRow(", "ListItem("],
     "MaterialDesignSystem.kt": ["UiCard(", "UiCardVariant.SECTION", "val cardShape get() ="],
     "WorkspaceLayout.kt": ["enum class ListRowPosition", "MaterialTheme.typography.titleMedium"],
@@ -128,6 +130,29 @@ required = {
     "BrowserHostFilterRow.kt": ["fun BrowserHostFilterMenu(", "WorkspaceControlLabel(",
                                  "CompactCategoryButton("],
 }
+# The flat visual system may change colors/shapes, but must never change
+# the existing list/group geometry or replace selectable Material 3 rows.
+flat_visual_checks = {
+    "MaterialActionColors.kt": ("object MaterialFlatPalette", "fun selectedSurface()",
+                                  "MaterialSelectionPalette.activeBackground()"),
+    "UiCard.kt": ("variant == UiCardVariant.CATEGORY || variant == UiCardVariant.LIST_GROUP",
+                  "horizontal = horizontalInset",
+                  "vertical = if (variant == UiCardVariant.LIST_GROUP) 2.dp else 0.dp",
+                  "CardDefaults.cardElevation(", "defaultElevation = 0.dp"),
+    "WorkspaceGroupedRows.kt": ("padding(horizontal = MaterialUiTokens.groupHorizontal)",
+                                "padding(top = MaterialUiTokens.groupedOuterGap)",
+                                "WorkspaceListPalette.surface()"),
+    "WorkspaceAppRow.kt": ("GroupedApplicationSurface(expanded, appContent)", "AdaptiveGroupSurface(",
+                           "WorkspaceListPalette.surface()"),
+    "WorkspaceCategorySelector.kt": ("filter()", "Box(Modifier.weight(1f)) { category() }",
+                                      "MaterialFlatPalette.selectedSurface()"),
+}
+for filename, symbols in flat_visual_checks.items():
+    content = (root / filename).read_text(encoding="utf-8")
+    for symbol in symbols:
+        if symbol not in content:
+            errors.append(f"{filename}: flat visual contract/unchanged geometry missing: {symbol}")
+
 # Never regress back to bespoke paints for list rows and selection surfaces.
 native_checks = {
     "MainControls.kt": ("OutlinedTextField(",),
@@ -229,7 +254,7 @@ if "ModalBottomSheet(" in category or "LazyRow(" in category:
 picker_body = category.split("internal fun WorkspacePickerButton(", 1)[1].split(
     "/**\n * Anchored Material 3 category menu", 1
 )[0]
-for expected in ("Surface(", "MaterialSelectionPalette.activeBackground()", "heightIn(min = 48.dp)",
+for expected in ("Surface(", "MaterialFlatPalette.selectedSurface()", "heightIn(min = 48.dp)",
                  "verticalAlignment = Alignment.CenterVertically",
                  "FontWeight.SemiBold"):
     if expected not in picker_body:
