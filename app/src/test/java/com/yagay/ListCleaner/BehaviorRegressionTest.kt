@@ -130,6 +130,21 @@ class BehaviorRegressionTest {
         assertTrue(retainConfiguredCandidates(emptyList(), setOf(old)).single().unavailable)
     }
 
+    @Test fun alreadyRetainedOldShortcutPlaceholderDisappearsWhenLiveAliasAppears() {
+        val token = "623ca0e252058603050878c0"
+        val old = ComponentRule(IntentKind.SHORTCUT_ITEM, "idm.internet.download.manager",
+            "idm.internet.download.manager.MainActivity#shortcut#$token")
+        val latest = ComponentCandidate(
+            ComponentRule(IntentKind.SHORTCUT_ITEM, old.packageName,
+                "idm.internet.download.manager.LauncherDefault#shortcut#$token"),
+            "1DM+", "New Incognito Tab")
+        val placeholder = latest.copy(rule = old, unavailable = true)
+        assertEquals(listOf(latest),
+            retainConfiguredCandidates(listOf(latest, placeholder), setOf(old)))
+        assertEquals(listOf(placeholder),
+            retainConfiguredCandidates(listOf(placeholder), setOf(old)))
+    }
+
     @Test fun matchingSelectedRuleDoesNotCreateDuplicatePlaceholder() {
         val fresh = candidate(IntentKind.OPEN)
         assertEquals(listOf(fresh), retainConfiguredCandidates(listOf(fresh), setOf(fresh.rule)))
