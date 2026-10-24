@@ -76,10 +76,18 @@ private fun WorkspaceCategoryPicker(
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
-        CompactCategoryButton(
-            selected = false,
+        // Keep the original large Category picker shape; only match the
+        // neutral surface, outline and text palette of the Filter control.
+        androidx.compose.material3.Card(
             onClick = { expanded = true },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large,
+            colors = androidx.compose.material3.CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp, MaterialTheme.colorScheme.outline
+            )
         ) {
             // Measure the *content row* to at least 48dp, not only the Card.
             // Otherwise the 36dp row stays top-aligned inside a 48dp Card,
@@ -93,7 +101,7 @@ private fun WorkspaceCategoryPicker(
             ) {
                 AdaptiveIcon(
                     Icons.Rounded.Layers, null, Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 AdaptiveText(
                     stringResource(R.string.lc_category_picker_current, selectedTitle),
@@ -107,7 +115,7 @@ private fun WorkspaceCategoryPicker(
                 AdaptiveIcon(
                     if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                     null, Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
