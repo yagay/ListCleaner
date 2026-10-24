@@ -71,7 +71,7 @@ internal data class UiPreferences(
     val dragHaptics: Boolean = true,
 ) {
     fun normalized(): UiPreferences = copy(
-        colorOverrides = colorOverrides.filter { (key, hex) -> key in UiColorRoles.keys && hex.matches(Regex("#[0-9a-fA-F]{6}")) },
+        colorOverrides = colorOverrides.filter { (key, hex) -> (key in UiColorRoles.keys || (key.startsWith("dark_") && key.removePrefix("dark_") in UiColorRoles.keys)) && hex.matches(Regex("#[0-9a-fA-F]{6}")) },
         customAccentHex = customAccentHex.takeIf { it.matches(Regex("#[0-9a-fA-F]{6}")) } ?: "#2859AB",
         cardRadius = cardRadius.coerceIn(0, 32),
         buttonHeight = buttonHeight.coerceIn(36, 64),
