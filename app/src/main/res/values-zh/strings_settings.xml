@@ -78,6 +78,6 @@
     <string name="settings_colors_dark">深色模式</string>
     <string name="settings_color_default">系统默认</string>
     <string name="settings_color_red">红</string>
-    <string name="settings_color_green">绿</string>
+    <string name="settings_color_green_channel">绿</string>
     <string name="settings_color_blue_channel">蓝</string>
 </resources>
