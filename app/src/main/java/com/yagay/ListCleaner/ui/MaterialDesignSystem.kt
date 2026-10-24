@@ -48,6 +48,9 @@ internal object MaterialUiTokens {
     val groupedInnerRadius get() = (4f * density).dp
     val groupedOuterGap get() = (4f * density).dp
     val groupedInnerGap get() = (1f * density).dp
+    val groupedDetailIndent get() = (12f * density).dp
+    val groupedDetailPadding get() = (6f * density).dp
+    val groupedHeaderPadding get() = (8f * density).dp
     val cardShape get() = RoundedCornerShape(cardRadius)
     val groupHorizontal get() = pageHorizontal
     // Compact category cards: typography and icon size stay unchanged.
