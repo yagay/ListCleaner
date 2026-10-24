@@ -34,7 +34,10 @@ data class ModuleConfig(
         val validatedSpaces = userSpaces.mapValues { (_, space) -> space.validated() }
         val cleanRules = rules.asSequence()
             .filter { it.kind.isSelectableEntryKind() || it.kind == IntentKind.SHORTCUT_ITEM }
-            .map(SyntheticEntryKeys::normalizePackageScopedRule)
+            .map { rule ->
+                val normalized = SyntheticEntryKeys.normalizePackageScopedRule(rule)
+                ComponentRule.fromId(normalized.id) ?: normalized
+            }
             .toCollection(linkedSetOf())
         val cleanPriorities = priorities.validated()
         require(managerAppId == -1 || ManagerIdentity.valid(managerAppId))
