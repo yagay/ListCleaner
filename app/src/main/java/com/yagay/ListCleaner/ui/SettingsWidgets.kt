@@ -184,7 +184,7 @@ internal fun SettingsSlider(
             AdaptiveText(
                 "$value $suffix",
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialSelectionPalette.activeText()
             )
         }
         Slider(
