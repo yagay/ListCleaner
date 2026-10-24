@@ -139,6 +139,8 @@ internal fun ListControls(
     availableEntryKinds: Set<IntentKind>? = null,
     viewTitle: @Composable (UiFilter) -> String = { stringResource(it.titleRes()) },
     extraFilter: (@Composable () -> Unit)? = null,
+    subtypeTitle: String? = null,
+    subtypeAvailable: Boolean = true,
 ) {
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
         WorkspaceCategoryFilterRow(
@@ -148,7 +150,12 @@ internal fun ListControls(
                     onSelected = onFilter,
                     modifier = Modifier.fillMaxWidth(),
                     includeAllKinds = includeAllKinds,
-                    availableKinds = availableEntryKinds
+                    availableKinds = availableEntryKinds,
+                    subtypeTitle = subtypeTitle,
+                    subtypeSelector = if (
+                        subtypeAvailable &&
+                        (state.filter == IntentKind.OPEN || state.filter == IntentKind.DEEP_LINK)
+                    ) extraFilter else null
                 )
             },
             filter = {
@@ -157,10 +164,7 @@ internal fun ListControls(
                     onAppTypeFilter = onAppTypeFilter,
                     viewFilter = state.uiFilter,
                     onViewFilter = onUiFilter,
-                    viewTitle = viewTitle,
-                    extraFilter = if (
-                        state.filter == IntentKind.OPEN || state.filter == IntentKind.DEEP_LINK
-                    ) extraFilter else null
+                    viewTitle = viewTitle
                 )
             }
         )
