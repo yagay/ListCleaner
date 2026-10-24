@@ -59,7 +59,7 @@ required = {
                    "Surface(", "RectangleShape", "MaterialFlatPalette.sectionSurface()",
                    "onClick = onClick", "UiCardDetailRow(", "ListItem("],
     "MaterialDesignSystem.kt": ["MaterialSectionCard(", "FlatRowSurface(", "val cardShape get() ="],
-    "WorkspaceLayout.kt": ["enum class ListRowPosition", "MaterialTheme.typography.titleMedium"],
+    "WorkspaceLayout.kt": ["enum class ListRowPosition", "FlatSectionHeader(title)"],
     "MainControls.kt": ["UiCardVariant.STATUS", "warning = true"],
     "MainActivity.kt": ["NavigationBarItem(", "colors = MaterialActionColors.navigation()",
                         "Destination.SETTINGS -> SettingsTabContent(",
