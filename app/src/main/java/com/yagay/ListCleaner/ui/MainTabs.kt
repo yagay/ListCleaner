@@ -258,15 +258,17 @@ fun RulesTab(
         lockScopeCandidates.groupBy { it.rule.packageName }
             .mapValues { (_, items) -> items.map { it.rule } }
     }
+    // Keep staged checkbox edits visual-only: sorting and selected/unselected
+    // filters follow committed rules, not the unconfirmed selection draft.
     val baseShownGroups = remember(
         typedOpenPreset, deepLinkHost, state.candidates,
         state.openTypesExplicit.customDefinitions, typedSelected,
-        deepLinkSelected, displayedSelected, state.query, state.uiFilter, state.groups, UiPreferencesRuntime.current
+        deepLinkSelected, activeSelected, state.query, state.uiFilter, state.groups, UiPreferencesRuntime.current
     ) {
         when {
             typedOpenPreset != null -> groupCandidates(
                 state.candidates.filter { it.matchesOpenPreset(typedOpenPreset, state.openTypesExplicit.customDefinitions) },
-                displayedSelected,
+                activeSelected,
                 IntentKind.OPEN,
                 state.query,
                 state.uiFilter,
@@ -277,14 +279,14 @@ fun RulesTab(
                     it.rule.kind == IntentKind.DEEP_LINK &&
                         (it.matchesBrowserHost(deepLinkHost) || it.rule in deepLinkSelected)
                 },
-                displayedSelected,
+                activeSelected,
                 IntentKind.DEEP_LINK,
                 state.query,
                 state.uiFilter,
                 UiPreferencesRuntime.current.appSort
             )
             else -> groupCandidates(
-                state.candidates, displayedSelected, state.filter, state.query,
+                state.candidates, activeSelected, state.filter, state.query,
                 state.uiFilter, UiPreferencesRuntime.current.appSort
             )
         }
