@@ -40,5 +40,5 @@ internal fun CompactCategoryButton(
 
 @Composable
 internal fun compactCategoryLabelColor(selected: Boolean): Color =
-    if (selected) MaterialTheme.colorScheme.onSecondaryContainer
-    else MaterialTheme.colorScheme.onSurfaceVariant
+    if (selected) MaterialSelectionPalette.activeText()
+    else MaterialSelectionPalette.text()
