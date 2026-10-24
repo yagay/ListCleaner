@@ -17,6 +17,8 @@ import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
@@ -515,16 +517,26 @@ internal fun WorkspaceDetailRow(
                 onLongClick = { if (lockToggleEnabled) lockMenuExpanded = true }
             )
         val rowContents: @Composable RowScope.() -> Unit = {
-            AdaptiveCheckbox(
-                checked = checked, enabled = enabled, onCheckedChange = null,
-                modifier = Modifier.padding(horizontal = 8.dp)
-            )
+            if (UiPreferencesRuntime.current.listStyle != UiListStyle.GROUPED) {
+                AdaptiveCheckbox(
+                    checked = checked, enabled = enabled, onCheckedChange = null,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+            }
             Column(Modifier.weight(1f).padding(vertical = 4.dp)) { content() }
             if (locked) AdaptiveIcon(
                 Icons.Rounded.Lock, stringResource(R.string.bulk_lock_full),
                 modifier = Modifier.padding(horizontal = 8.dp).size(18.dp)
             )
             trailing()
+            if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
+                AdaptiveIcon(
+                    if (checked) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+                    null,
+                    modifier = Modifier.padding(start = 5.dp).size(18.dp),
+                    tint = if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                )
+            }
         }
         if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
             Row(
@@ -548,7 +560,7 @@ internal fun WorkspaceDetailRow(
         )
     }
     if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
-        GroupedComponentSurface(position, contentBlock)
+        GroupedComponentSurface(position, checked, contentBlock)
     } else {
         AdaptiveGroupSurface(Modifier.fillMaxWidth(), position = position) { contentBlock() }
     }
