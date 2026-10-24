@@ -541,8 +541,10 @@ internal fun WorkspaceDetailRow(
         if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) {
             Row(
                 modifier = clickModifier.fillMaxWidth().padding(
-                    horizontal = MaterialUiTokens.groupedDetailPadding,
-                    vertical = MaterialUiTokens.groupedDetailPadding
+                    start = MaterialUiTokens.groupedDetailStartPadding,
+                    end = MaterialUiTokens.groupedDetailEndPadding,
+                    top = MaterialUiTokens.groupedDetailPadding,
+                    bottom = MaterialUiTokens.groupedDetailPadding
                 ),
                 verticalAlignment = Alignment.CenterVertically,
                 content = rowContents
