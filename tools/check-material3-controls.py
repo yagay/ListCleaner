@@ -172,18 +172,6 @@ toolbar_source = (root / "MainActivity.kt").read_text(encoding="utf-8")
 if "else -> R.string.app_name" not in toolbar_source:
     errors.append("MainActivity.kt: Cleanup top toolbar must retain the List Cleaner app name")
 
-# The pinned Entry/Root controls must stay flat: no filled category box,
-# pill borders or status badges after layout refactors.
-if "border = BorderStroke(" in picker_body or "shape = RoundedCornerShape(" in picker_body:
-    errors.append("WorkspaceCategorySelector.kt: category/filter triggers must remain flat")
-if "androidx.compose.material3.Badge {" in picker_body:
-    errors.append("WorkspaceCategorySelector.kt: pill badge returned to the flat toolbar")
-category_ui = category.split("private fun WorkspaceCategoryPicker(", 1)[1].split(
-    "/** Single selected-category treatment", 1
-)[0]
-if "shape = RectangleShape" not in category_ui:
-    errors.append("WorkspaceCategorySelector.kt: subtype picker must share flat styling")
-
 # Expansion controls and Root/LSPosed actions must not be dropped.
 details = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
 if "WorkspaceDetailSelectionIndicator(" not in details or "shape = androidx.compose.foundation.shape.CircleShape" not in details:
@@ -344,6 +332,19 @@ if "lc_category_picker_current" not in category:
     errors.append("WorkspaceCategorySelector.kt: category current label missing")
 if "modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)" in picker_body:
     errors.append("WorkspaceCategorySelector.kt: minimum height on Card rather than Row shifts label upward")
+
+# The pinned Entry/Root controls must stay flat: no filled category box,
+# pill borders or status badges after layout refactors.
+if "border = BorderStroke(" in picker_body or "shape = RoundedCornerShape(" in picker_body:
+    errors.append("WorkspaceCategorySelector.kt: category/filter triggers must remain flat")
+if "androidx.compose.material3.Badge {" in picker_body:
+    errors.append("WorkspaceCategorySelector.kt: pill badge returned to the flat toolbar")
+category_ui = category.split("private fun WorkspaceCategoryPicker(", 1)[1].split(
+    "/** Single selected-category treatment", 1
+)[0]
+if "shape = RectangleShape" not in category_ui:
+    errors.append("WorkspaceCategorySelector.kt: subtype picker must share flat styling")
+
 for filename in ("MainControls.kt", "ComponentCategoryFilter.kt"):
     code = (root / filename).read_text(encoding="utf-8")
     if "LazyRow(" in code:
