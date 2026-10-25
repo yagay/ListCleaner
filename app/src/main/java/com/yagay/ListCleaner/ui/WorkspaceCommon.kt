@@ -247,14 +247,16 @@ internal fun <T> WorkspaceFilterChoiceGroup(
     AdaptiveText(
         title,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        style = MaterialTheme.typography.labelMedium,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
     options.forEach { option ->
         WorkspaceFlatMenuRow(
             title = titleFor(option),
             selected = option == selected,
-            onClick = { onSelected(option) }
+            onClick = { onSelected(option) },
+            compactOption = true
         )
     }
 }

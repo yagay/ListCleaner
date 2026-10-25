@@ -265,6 +265,7 @@ internal fun WorkspaceFlatMenuRow(
     onClick: () -> Unit,
     indented: Boolean = false,
     section: Boolean = false,
+    compactOption: Boolean = false,
     expanded: Boolean = false,
     trailingIcon: ImageVector? = null,
     enabled: Boolean = true
@@ -305,11 +306,11 @@ internal fun WorkspaceFlatMenuRow(
                     }
                     AdaptiveText(
                         title,
-                        // Category titles (16sp) outrank their indented options (14sp).
-                        // Other flat menu choices keep their existing typography.
+                        // Category/Filter section titles: 16sp; their options: 14sp.
+                        // Other popup actions keep the existing 16sp text.
                         style = when {
                             section -> MaterialTheme.typography.titleMedium
-                            indented -> MaterialTheme.typography.bodyMedium
+                            indented || compactOption -> MaterialTheme.typography.bodyMedium
                             else -> MaterialTheme.typography.bodyLarge
                         },
                         fontWeight = if (section || selected) FontWeight.SemiBold
@@ -348,7 +349,13 @@ internal fun WorkspaceMenuChoice(
     onClick: () -> Unit,
     indented: Boolean = false,
 ) {
-    WorkspaceFlatMenuRow(title, selected, onClick, indented = indented)
+    WorkspaceFlatMenuRow(
+        title = title,
+        selected = selected,
+        onClick = onClick,
+        indented = indented,
+        compactOption = true
+    )
 }
 
 @Composable
