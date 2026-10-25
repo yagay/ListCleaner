@@ -289,8 +289,8 @@ if "fun FlatSliderField(" not in settings_controls or "AdaptiveSlider(" not in s
     errors.append("SettingsWidgets.kt: flat slider label/value field not centralized")
 if "FlatSliderField(" not in appearance_controls:
     errors.append("AppearanceSettings.kt: RGB channels must share Settings slider renderer")
-if re.search(r"(?<![A-Za-z0-9_])Slider\\s*\\(", appearance_controls) or re.search(
-    r"(?<![A-Za-z0-9_])Slider\\s*\\(", settings_controls
+if re.search(r"(?<![A-Za-z0-9_])Slider\s*\(", appearance_controls) or re.search(
+    r"(?<![A-Za-z0-9_])Slider\s*\(", settings_controls
 ):
     errors.append("Settings: direct native Slider bypasses flat shared renderer")
 if "onCheckedChange = null" not in settings_controls.split("internal fun SettingsSwitchRow(", 1)[-1].split(
