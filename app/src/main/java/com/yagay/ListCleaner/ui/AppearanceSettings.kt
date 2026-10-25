@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.material3.Slider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -214,10 +213,10 @@ private fun ThemeColorRoleEditor(role: String, dark: Boolean, title: String) {
     val saved = UiPreferencesRuntime.current.colorOverrides[key]
     var expanded by remember { mutableStateOf(false) }
     val defaultHex = saved ?: "#808080"
-    var red by remember(key, saved) { mutableStateOf(android.graphics.Color.red(android.graphics.Color.parseColor(defaultHex)).toFloat()) }
-    var green by remember(key, saved) { mutableStateOf(android.graphics.Color.green(android.graphics.Color.parseColor(defaultHex)).toFloat()) }
-    var blue by remember(key, saved) { mutableStateOf(android.graphics.Color.blue(android.graphics.Color.parseColor(defaultHex)).toFloat()) }
-    val colorHex = "#%02X%02X%02X".format(red.toInt(), green.toInt(), blue.toInt())
+    var red by remember(key, saved) { mutableStateOf(android.graphics.Color.red(android.graphics.Color.parseColor(defaultHex))) }
+    var green by remember(key, saved) { mutableStateOf(android.graphics.Color.green(android.graphics.Color.parseColor(defaultHex))) }
+    var blue by remember(key, saved) { mutableStateOf(android.graphics.Color.blue(android.graphics.Color.parseColor(defaultHex))) }
+    val colorHex = "#%02X%02X%02X".format(red, green, blue)
     MaterialSettingsRow(
         title = title,
         supportingText = saved ?: stringResource(R.string.settings_color_default),
@@ -241,15 +240,21 @@ private fun ThemeColorRoleEditor(role: String, dark: Boolean, title: String) {
                         modifier = Modifier.fillMaxWidth().height(56.dp)
                     ) {}
                     AdaptiveText(colorHex)
+                    // RGB values stay local to this dialog until Apply is pressed.
+                    // Each channel now shares the Settings title/value/flat track.
                     listOf(
-                        Triple(stringResource(R.string.settings_color_red), red, { v: Float -> red = v }),
-                        Triple(stringResource(R.string.settings_color_green_channel), green, { v: Float -> green = v }),
-                        Triple(stringResource(R.string.settings_color_blue_channel), blue, { v: Float -> blue = v })
+                        Triple(stringResource(R.string.settings_color_red), red, { v: Int -> red = v }),
+                        Triple(stringResource(R.string.settings_color_green_channel), green, { v: Int -> green = v }),
+                        Triple(stringResource(R.string.settings_color_blue_channel), blue, { v: Int -> blue = v })
                     ).forEach { (label, value, setter) ->
-                        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                            AdaptiveText(label, modifier = Modifier.width(52.dp))
-                            Slider(value = value, onValueChange = setter, valueRange = 0f..255f, modifier = Modifier.weight(1f))
-                        }
+                        FlatSliderField(
+                            title = label,
+                            value = value,
+                            low = 0,
+                            high = 255,
+                            modifier = Modifier.fillMaxWidth(),
+                            onChange = setter
+                        )
                     }
                 }
             },

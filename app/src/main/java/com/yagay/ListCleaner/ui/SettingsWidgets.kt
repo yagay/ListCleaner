@@ -26,7 +26,6 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Slider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -257,17 +256,24 @@ internal fun SettingsHint(message: String, warning: Boolean = false) {
     )
 }
 
-/** Slider header aligns to the same card inset; gesture persists on release. */
+/**
+ * Common label/value/track layout. The same composable powers persistent
+ * Settings sliders and temporary RGB values in the color editor.
+ */
 @Composable
-internal fun SettingsSlider(
-    title: String, value: Int, low: Int, high: Int, suffix: String = "dp", onChange: (Int) -> Unit
+internal fun FlatSliderField(
+    title: String,
+    value: Int,
+    low: Int,
+    high: Int,
+    modifier: Modifier = Modifier,
+    suffix: String = "",
+    enabled: Boolean = true,
+    onChange: (Int) -> Unit,
+    onValueChangeFinished: (() -> Unit)? = null
 ) {
-    val context = LocalContext.current
-    FlatRowSurface(dividerInset = 0.dp) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(
-            horizontal = MaterialUiTokens.pageHorizontal, vertical = 4.dp
-        ),
+        modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         Row(
@@ -281,19 +287,43 @@ internal fun SettingsSlider(
                 style = MaterialTheme.typography.bodyLarge
             )
             AdaptiveText(
-                "$value $suffix",
+                if (suffix.isBlank()) value.toString() else "$value $suffix",
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialSelectionPalette.activeText()
+                color = MaterialTheme.colorScheme.primary
             )
         }
-        Slider(
+        AdaptiveSlider(
             value = value.toFloat(),
-            onValueChange = { onChange(it.roundToInt()) },
-            onValueChangeFinished = {
-                UiPreferencesStore.write(context, UiPreferencesRuntime.current)
-            },
-            valueRange = low.toFloat()..high.toFloat()
+            onValueChange = { onChange(it.roundToInt().coerceIn(low, high)) },
+            modifier = Modifier.fillMaxWidth(),
+            valueRange = low.toFloat()..high.toFloat(),
+            enabled = enabled,
+            onValueChangeFinished = onValueChangeFinished
         )
     }
+}
+
+/** Settings add one flat row; value persistence happens after a gesture ends. */
+@Composable
+internal fun SettingsSlider(
+    title: String, value: Int, low: Int, high: Int, suffix: String = "dp", onChange: (Int) -> Unit
+) {
+    val context = LocalContext.current
+    FlatRowSurface(dividerInset = 0.dp) {
+        FlatSliderField(
+            title = title,
+            value = value,
+            low = low,
+            high = high,
+            suffix = suffix,
+            modifier = Modifier.fillMaxWidth().padding(
+                horizontal = MaterialUiTokens.pageHorizontal,
+                vertical = 4.dp
+            ),
+            onChange = onChange,
+            onValueChangeFinished = {
+                UiPreferencesStore.write(context, UiPreferencesRuntime.current)
+            }
+        )
     }
 }

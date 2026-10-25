@@ -6,6 +6,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.runtime.Composable
@@ -93,6 +95,20 @@ internal object MaterialActionColors {
     @Composable fun outlinedBorder(enabled: Boolean) = ButtonDefaults.outlinedButtonBorder(enabled)
     @Composable fun text() = ButtonDefaults.textButtonColors()
     @Composable fun icon() = IconButtonDefaults.iconButtonColors()
+    /** Theme-driven, low-contrast inactive controls on continuous flat rows. */
+    @Composable fun switch() = SwitchDefaults.colors(
+        checkedTrackColor = MaterialTheme.colorScheme.primary,
+        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+        checkedBorderColor = MaterialTheme.colorScheme.primary,
+        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+        uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        uncheckedBorderColor = MaterialTheme.colorScheme.outline
+    )
+    @Composable fun slider() = SliderDefaults.colors(
+        thumbColor = MaterialTheme.colorScheme.primary,
+        activeTrackColor = MaterialTheme.colorScheme.primary,
+        inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+    )
     @Composable fun navigation() = NavigationBarItemDefaults.colors(
         selectedIconColor = MaterialSelectionPalette.navigationText(),
         selectedTextColor = MaterialSelectionPalette.navigationText(),

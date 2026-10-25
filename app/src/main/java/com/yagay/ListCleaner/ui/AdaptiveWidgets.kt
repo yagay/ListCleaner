@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import com.yagay.ListCleaner.R
@@ -28,6 +29,9 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TriStateCheckbox
 import androidx.compose.runtime.Composable
@@ -202,7 +206,62 @@ internal fun AdaptiveSwitch(
     onCheckedChange: ((Boolean) -> Unit)?,
     modifier: Modifier = Modifier,
     enabled: Boolean = true
-) = Switch(checked = checked, onCheckedChange = onCheckedChange, modifier = modifier, enabled = enabled)
+) = Switch(
+    checked = checked,
+    onCheckedChange = onCheckedChange,
+    modifier = modifier,
+    enabled = enabled,
+    colors = MaterialActionColors.switch()
+)
+
+/**
+ * The only Slider renderer used by Settings and the color-channel editor.
+ * Slider keeps native drag/keyboard/accessibility semantics; just the visuals
+ * are flattened (4dp straight track and a 10dp rectangular thumb).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun AdaptiveSlider(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+    valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
+    enabled: Boolean = true,
+    onValueChangeFinished: (() -> Unit)? = null
+) {
+    val colors = MaterialActionColors.slider()
+    Slider(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier,
+        valueRange = valueRange,
+        enabled = enabled,
+        onValueChangeFinished = onValueChangeFinished,
+        colors = colors,
+        thumb = {
+            Box(
+                Modifier.width(10.dp).height(24.dp)
+                    .background(
+                        if (enabled) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                        RectangleShape
+                    )
+            )
+        },
+        track = { sliderState ->
+            SliderDefaults.Track(
+                sliderState = sliderState,
+                enabled = enabled,
+                colors = colors,
+                modifier = Modifier.height(4.dp),
+                thumbTrackGapSize = 0.dp,
+                trackInsideCornerSize = 0.dp,
+                trackCornerSize = 0.dp,
+                drawStopIndicator = null
+            )
+        }
+    )
+}
 
 @Composable
 internal fun AdaptiveCheckbox(

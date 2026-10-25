@@ -269,6 +269,31 @@ action_body = (root / "SettingsWidgets.kt").read_text(encoding="utf-8").split(
 if "vertical = 8.dp" in action_body:
     errors.append("SettingsWidgets.kt: extra vertical spacing returned to settings actions")
 
+# Single renderer and semantic color contract for all sliders and switches.
+control_widgets = (root / "AdaptiveWidgets.kt").read_text(encoding="utf-8")
+control_palette = (root / "MaterialActionColors.kt").read_text(encoding="utf-8")
+settings_controls = (root / "SettingsWidgets.kt").read_text(encoding="utf-8")
+appearance_controls = (root / "AppearanceSettings.kt").read_text(encoding="utf-8")
+for token in ("fun AdaptiveSlider(", "SliderDefaults.Track(", "trackCornerSize = 0.dp",
+              "thumbTrackGapSize = 0.dp", "Modifier.width(10.dp).height(24.dp)",
+              "onValueChangeFinished = onValueChangeFinished", "colors = MaterialActionColors.slider()"):
+    if token not in control_widgets:
+        errors.append(f"AdaptiveWidgets.kt: shared flat Slider contract missing {token}")
+for token in ("colors = MaterialActionColors.switch()", "onCheckedChange = onCheckedChange"):
+    if token not in control_widgets:
+        errors.append(f"AdaptiveWidgets.kt: native Switch handling missing {token}")
+for token in ("fun slider() = SliderDefaults.colors(", "fun switch() = SwitchDefaults.colors("):
+    if token not in control_palette:
+        errors.append(f"MaterialActionColors.kt: common slider/switch palette missing {token}")
+if "fun FlatSliderField(" not in settings_controls or "AdaptiveSlider(" not in settings_controls:
+    errors.append("SettingsWidgets.kt: flat slider label/value field not centralized")
+if "FlatSliderField(" not in appearance_controls:
+    errors.append("AppearanceSettings.kt: RGB channels must share Settings slider renderer")
+if "Slider(" in appearance_controls or "Slider(" in settings_controls.replace("AdaptiveSlider(", ""):
+    errors.append("Settings: direct native Slider bypasses flat shared renderer")
+if "onCheckedChange = null" not in settings_controls.split("internal fun SettingsSwitchRow(", 1)[-1].split(
+        "internal enum class SettingsActionStyle", 1)[0]:
+    errors.append("SettingsWidgets.kt: switch and parent row cannot both handle toggle")
 # Unified List First renderer across Cleanup, Ordering, Settings and details.
 flat_visual_checks = {
     "FlatListDesign.kt": ("fun FlatRowSurface(", "fun FlatCategoryRow(",
