@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
@@ -58,34 +56,36 @@ internal fun WorkspaceAppRow(
             details = details,
             trailing = {
                 trailing()
-                AdaptiveIconButton(onClick = { menuExpanded = true }) {
-                    AdaptiveIcon(
-                        if (lockState == BulkLockState.NONE) Icons.Rounded.MoreVert else Icons.Rounded.Lock,
-                        stringResource(
-                            when (lockState) {
-                                BulkLockState.NONE -> R.string.common_more
-                                BulkLockState.PARTIAL -> R.string.bulk_lock_partial
-                                BulkLockState.FULL -> R.string.bulk_lock_full
-                            }
+                WorkspaceFlatOverflowMenu(
+                    actions = listOf(
+                        WorkspaceMenuAction(
+                            label = stringResource(R.string.bulk_lock_action_lock),
+                            onClick = onLock,
+                            enabled = lockState != BulkLockState.FULL
                         ),
-                        modifier = Modifier.size(19.dp),
-                        tint = if (lockState == BulkLockState.PARTIAL)
-                            MaterialTheme.colorScheme.tertiary else LocalContentColor.current
-                    )
-                }
+                        WorkspaceMenuAction(
+                            label = stringResource(R.string.bulk_lock_action_unlock),
+                            onClick = onUnlock,
+                            enabled = lockState != BulkLockState.NONE
+                        )
+                    ),
+                    expanded = menuExpanded,
+                    onExpandedChange = { menuExpanded = it },
+                    contentDescription = stringResource(
+                        when (lockState) {
+                            BulkLockState.NONE -> R.string.common_more
+                            BulkLockState.PARTIAL -> R.string.bulk_lock_partial
+                            BulkLockState.FULL -> R.string.bulk_lock_full
+                        }
+                    ),
+                    iconTint = if (lockState == BulkLockState.PARTIAL)
+                        MaterialTheme.colorScheme.tertiary else LocalContentColor.current
+                )
                 AdaptiveIcon(
                     if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                    expandLabel, modifier = Modifier.size(18.dp)
+                    expandLabel, modifier = Modifier.size(MaterialUiTokens.appExpandIndicatorWidth)
                 )
             }
-        )
-        BulkLockContextMenu(
-            expanded = menuExpanded,
-            onDismiss = { menuExpanded = false },
-            canLock = lockState != BulkLockState.FULL,
-            canUnlock = lockState != BulkLockState.NONE,
-            onLock = onLock,
-            onUnlock = onUnlock
         )
     }
     ContinuousApplicationSurface { appContent() }

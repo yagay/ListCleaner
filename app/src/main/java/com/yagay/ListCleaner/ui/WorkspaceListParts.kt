@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MoreVert
@@ -17,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.state.ToggleableState
@@ -169,6 +171,52 @@ internal fun WorkspaceDetailIconAction(
 
 
 /**
+ * One anchored, square overflow menu for application rows and component details.
+ * All actions use the same flat list choices, including disabled lock actions.
+ * The caller retains its expanded state to preserve long-press behaviour.
+ */
+@Composable
+internal fun WorkspaceFlatOverflowMenu(
+    actions: List<WorkspaceMenuAction>,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    contentDescription: String,
+    iconTint: Color = LocalContentColor.current
+) {
+    if (actions.isEmpty()) return
+    Box {
+        AdaptiveIconButton(
+            onClick = { onExpandedChange(true) },
+            enabled = actions.any { it.enabled }
+        ) {
+            AdaptiveIcon(
+                Icons.Rounded.MoreVert,
+                contentDescription,
+                modifier = Modifier.size(18.dp),
+                tint = iconTint
+            )
+        }
+        FlatWorkspaceDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { onExpandedChange(false) },
+            modifier = Modifier.widthIn(min = 200.dp, max = 280.dp)
+        ) {
+            actions.forEach { action ->
+                WorkspaceFlatMenuRow(
+                    title = action.label,
+                    selected = false,
+                    enabled = action.enabled,
+                    onClick = {
+                        onExpandedChange(false)
+                        if (action.enabled) action.onClick()
+                    }
+                )
+            }
+        }
+    }
+}
+
+/**
  * All expanded Entry/Root item actions live behind one overflow affordance.
  * Preview remains item-scoped; clicking the row still controls selection.
  * The existing long-press lock menu is preserved as an alternative.
@@ -206,30 +254,10 @@ internal fun WorkspaceDetailActionsMenu(
             ))
         }
     }
-    if (actions.isEmpty()) return
-    Box {
-        AdaptiveIconButton(onClick = { expanded = true }) {
-            AdaptiveIcon(
-                Icons.Rounded.MoreVert,
-                stringResource(R.string.common_more),
-                modifier = Modifier.size(18.dp)
-            )
-        }
-        FlatWorkspaceDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            modifier = Modifier.widthIn(min = 200.dp, max = 280.dp)
-        ) {
-            actions.forEach { action ->
-                WorkspaceFlatMenuRow(
-                    title = action.label,
-                    selected = false,
-                    onClick = {
-                        expanded = false
-                        action.onClick()
-                    }
-                )
-            }
-        }
-    }
+    WorkspaceFlatOverflowMenu(
+        actions = actions,
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        contentDescription = stringResource(R.string.common_more)
+    )
 }

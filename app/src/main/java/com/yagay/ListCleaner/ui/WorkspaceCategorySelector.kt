@@ -266,11 +266,13 @@ internal fun WorkspaceFlatMenuRow(
     onClick: () -> Unit,
     indented: Boolean = false,
     section: Boolean = false,
-    trailingIcon: ImageVector? = null
+    trailingIcon: ImageVector? = null,
+    enabled: Boolean = true
 ) {
     androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth()) {
         AdaptiveDropdownMenuItem(
             modifier = Modifier.fillMaxWidth(),
+            enabled = enabled,
             text = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
@@ -285,7 +287,8 @@ internal fun WorkspaceFlatMenuRow(
                         style = if (section) MaterialTheme.typography.titleSmall
                             else MaterialTheme.typography.bodyLarge,
                         fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (selected) MaterialTheme.colorScheme.primary
+                        color = if (!enabled) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                            else if (selected) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurface,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis

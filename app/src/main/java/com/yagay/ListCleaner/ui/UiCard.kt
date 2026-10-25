@@ -85,8 +85,10 @@ internal fun UiCardDetailRow(
         modifier = modifier.fillMaxWidth()
             .heightIn(min = MaterialUiTokens.detailHeight)
             .padding(
-                horizontal = MaterialUiTokens.pageHorizontal + MaterialUiTokens.groupedDetailIndent,
-                vertical = MaterialUiTokens.detailVertical
+                start = MaterialUiTokens.pageHorizontal + MaterialUiTokens.groupedDetailIndent,
+                end = MaterialUiTokens.pageHorizontal + MaterialUiTokens.appExpandIndicatorWidth,
+                top = MaterialUiTokens.detailVertical,
+                bottom = MaterialUiTokens.detailVertical
             ),
         verticalAlignment = Alignment.CenterVertically,
         content = content

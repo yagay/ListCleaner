@@ -230,6 +230,36 @@ nav_activity = (root / "MainActivity.kt").read_text(encoding="utf-8")
 if "Modifier.drawWithContent" not in nav_activity or "tonalElevation = 0.dp" not in nav_activity:
     errors.append("MainActivity.kt: flat bottom navigation missing")
 
+# App and expanded-detail overflow menus must share the same anchored flat renderer.
+app_actions = (root / "WorkspaceAppRow.kt").read_text(encoding="utf-8")
+detail_actions = (root / "WorkspaceListParts.kt").read_text(encoding="utf-8")
+menu_choices = (root / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
+detail_body = (root / "UiCard.kt").read_text(encoding="utf-8")
+visual_tokens = (root / "MaterialDesignSystem.kt").read_text(encoding="utf-8")
+if "WorkspaceFlatOverflowMenu(" not in app_actions or "WorkspaceFlatOverflowMenu(" not in detail_actions:
+    errors.append("Workspace: app and detail must reuse the same anchored overflow menu")
+if "BulkLockContextMenu(" in app_actions:
+    errors.append("WorkspaceAppRow.kt: app dropdown must not be separate from the overflow icon")
+if "Icons.Rounded.MoreVert" not in detail_actions.split("internal fun WorkspaceFlatOverflowMenu(", 1)[-1].split(
+        "/**", 1)[0]:
+    errors.append("WorkspaceListParts.kt: shared three-dot glyph is missing")
+for expected in ("FlatWorkspaceDropdownMenu(", "WorkspaceFlatMenuRow(",
+                 "enabled = action.enabled", "onExpandedChange(false)"):
+    if expected not in detail_actions.split("internal fun WorkspaceFlatOverflowMenu(", 1)[-1].split(
+            "/**", 1)[0]:
+        errors.append(f"WorkspaceListParts.kt: unified flat menu missing {expected}")
+if "enabled: Boolean = true" not in menu_choices.split("internal fun WorkspaceFlatMenuRow(", 1)[-1].split(
+        "internal fun WorkspaceMenuChoice(", 1)[0]:
+    errors.append("WorkspaceCategorySelector.kt: disabled app lock options must remain supported")
+if "onLongClick = { menuExpanded = true }" not in app_actions:
+    errors.append("WorkspaceAppRow.kt: long-press app menu must remain")
+if "size(MaterialUiTokens.appExpandIndicatorWidth)" not in app_actions:
+    errors.append("WorkspaceAppRow.kt: app expand arrow must use shared alignment token")
+if "end = MaterialUiTokens.pageHorizontal + MaterialUiTokens.appExpandIndicatorWidth" not in detail_body:
+    errors.append("UiCard.kt: detail overflow column not aligned with app overflow")
+if "val appExpandIndicatorWidth = 18.dp" not in visual_tokens:
+    errors.append("MaterialDesignSystem.kt: missing shared overflow alignment width")
+
 # Entry and Root expanded details share one flat selected rail and tinted background.
 # The original circular/radio-style indicator must not return.
 details = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")

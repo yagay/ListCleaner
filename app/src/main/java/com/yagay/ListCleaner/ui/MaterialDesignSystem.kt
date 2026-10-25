@@ -75,6 +75,9 @@ internal object MaterialUiTokens {
     val appIconSize get() = UiPreferencesRuntime.current.appIconSize.dp
     val appIconShape get() = RoundedCornerShape((UiPreferencesRuntime.current.appIconSize * 0.25f).dp)
     val appLabelInset get() = (8f * density).dp
+    // App row overflow comes immediately before the expand arrow; detail rows
+    // reserve the exact same trailing width to align both overflow centers.
+    val appExpandIndicatorWidth = 18.dp
     val detailHeight get() = (48f * density).dp
     val detailHorizontal get() = (14f * density).dp
     val detailVertical get() = (4f * density).dp
