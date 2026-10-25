@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
+import com.yagay.ListCleaner.R
 
 /**
  * Small, shared render-only primitives for Entry (LSPosed) and Component (Root).
