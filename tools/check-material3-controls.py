@@ -400,6 +400,34 @@ nav_activity = (root / "MainActivity.kt").read_text(encoding="utf-8")
 if "Modifier.drawWithContent" not in nav_activity or "tonalElevation = 0.dp" not in nav_activity:
     errors.append("MainActivity.kt: flat bottom navigation missing")
 
+# Edge-to-edge immersive system bars must respect app-enforced day/night modes,
+# keep navigation contrast clear even with three-button navigation, and consume
+# safe drawing insets exactly once (including the nested Settings toolbar).
+bars = (root / "MainActivity.kt").read_text(encoding="utf-8")
+for symbol in ("SystemBarStyle.dark(transparent)", "SystemBarStyle.light(transparent, transparent)",
+               "enableEdgeToEdge(statusBarStyle = barStyle, navigationBarStyle = barStyle)",
+               "SideEffect { syncSystemBars(dark) }",
+               "window.isNavigationBarContrastEnforced = false",
+               "window.isStatusBarContrastEnforced = false",
+               "window.statusBarColor = android.graphics.Color.TRANSPARENT",
+               "window.navigationBarColor = android.graphics.Color.TRANSPARENT",
+               "isAppearanceLightStatusBars = !dark",
+               "isAppearanceLightNavigationBars = !dark",
+               "color = MaterialTheme.colorScheme.surface",
+               "contentWindowInsets = WindowInsets.safeDrawing",
+               "consumeWindowInsets(padding)"):
+    if symbol not in bars:
+        errors.append(f"MainActivity.kt: day/night immersive system bars missing {symbol}")
+theme_file = root.parents[4] / "res/values/themes.xml"
+# root is app/src/main/java/.../ui, hence use app/src/main/res directly.
+theme_file = Path(__file__).resolve().parents[1] / "app/src/main/res/values/themes.xml"
+theme_text = theme_file.read_text(encoding="utf-8")
+for symbol in ("android:windowLightNavigationBar", "android:statusBarColor",
+               "android:navigationBarColor", "android:enforceStatusBarContrast",
+               "android:enforceNavigationBarContrast"):
+    if symbol not in theme_text:
+        errors.append(f"themes.xml: immersive system bar theme flag missing {symbol}")
+
 # App and expanded-detail overflow menus must share the same anchored flat renderer.
 app_actions = (root / "WorkspaceAppRow.kt").read_text(encoding="utf-8")
 detail_actions = (root / "WorkspaceListParts.kt").read_text(encoding="utf-8")

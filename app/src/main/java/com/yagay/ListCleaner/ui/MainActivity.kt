@@ -1,10 +1,12 @@
 package com.yagay.ListCleaner.ui
 
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -13,6 +15,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
@@ -50,29 +55,54 @@ import java.time.format.DateTimeFormatter
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        val savedMode = UiAppearanceStore.readColorMode(this)
+        val systemDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+            Configuration.UI_MODE_NIGHT_YES
+        val initialDark = savedMode.usesDarkTheme(systemDark)
+        val transparent = android.graphics.Color.TRANSPARENT
+        val barStyle = if (initialDark) SystemBarStyle.dark(transparent)
+            else SystemBarStyle.light(transparent, transparent)
+        // Draw behind both bars on every supported Android version, including 3-button nav.
+        enableEdgeToEdge(statusBarStyle = barStyle, navigationBarStyle = barStyle)
         UiPreferencesRuntime.apply(UiPreferencesStore.read(this))
         setContent {
-            var colorMode by remember { mutableStateOf(UiAppearanceStore.readColorMode(this@MainActivity)) }
+            var colorMode by remember { mutableStateOf(savedMode) }
             val dark = colorMode.usesDarkTheme(isSystemInDarkTheme())
-            SideEffect {
-                // Edge-to-edge system bar icons must match the app's forced theme, not just the OS.
-                WindowCompat.getInsetsController(window, window.decorView).apply {
-                    isAppearanceLightStatusBars = !dark
-                    isAppearanceLightNavigationBars = !dark
+            SideEffect { syncSystemBars(dark) }
+            ListCleanerUiTheme(colorMode) {
+                // The same dynamic surface is visible through both transparent system bars.
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 0.dp
+                ) {
+                    ListCleanerScreen(
+                        colorMode = colorMode,
+                        onColorModeChange = { selected ->
+                            if (colorMode != selected) {
+                                UiAppearanceStore.writeColorMode(this@MainActivity, selected)
+                                colorMode = selected
+                            }
+                        }
+                    )
                 }
             }
-            ListCleanerUiTheme(colorMode) {
-                ListCleanerScreen(
-                    colorMode = colorMode,
-                    onColorModeChange = { selected ->
-                        if (colorMode != selected) {
-                            UiAppearanceStore.writeColorMode(this@MainActivity, selected)
-                            colorMode = selected
-                        }
-                    }
-                )
-            }
+        }
+    }
+
+    /** Update system bar contrast whenever the user switches day/night/system mode. */
+    @Suppress("DEPRECATION")
+    private fun syncSystemBars(dark: Boolean) {
+        // Disable Android's grey 3-button navigation scrim: the app draws its own
+        // opaque Material surface behind the transparent system navigation area.
+        window.isNavigationBarContrastEnforced = false
+        window.isStatusBarContrastEnforced = false
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarDividerColor = android.graphics.Color.TRANSPARENT
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = !dark
+            isAppearanceLightNavigationBars = !dark
         }
     }
 
@@ -255,7 +285,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         val pageContent: @Composable (androidx.compose.foundation.layout.PaddingValues) -> Unit = { padding ->
-            Box(Modifier.padding(padding).fillMaxSize()) {
+            Box(Modifier.padding(padding).consumeWindowInsets(padding).fillMaxSize()) {
                 when (state.destination) {
                     Destination.RULES -> RulesTab(
                         state, vm,
@@ -289,6 +319,9 @@ class MainActivity : ComponentActivity() {
             }        }
         
         Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentWindowInsets = WindowInsets.safeDrawing,
             snackbarHost = { AdaptiveSnackbarHost(backupSnackbar) },
             topBar = {
                 if (state.destination != Destination.SETTINGS) MainToolbar(
