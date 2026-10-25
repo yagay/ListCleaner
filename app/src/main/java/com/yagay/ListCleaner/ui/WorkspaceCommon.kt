@@ -154,8 +154,8 @@ internal fun WorkspaceFilterBar(
         FlatWorkspaceDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            modifier = Modifier.widthIn(min = 240.dp, max = 328.dp)
-                .heightIn(max = optionsMaxHeight + 100.dp),
+            modifier = Modifier.heightIn(max = optionsMaxHeight + 100.dp),
+            menuWidth = 264.dp,
             header = { FlatPopupHeader(stringResource(R.string.lc_filter_sheet_title)) },
             footer = {
                 // The common footer owns the divider and 48dp row height.

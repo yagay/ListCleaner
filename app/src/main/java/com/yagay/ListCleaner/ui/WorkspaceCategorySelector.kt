@@ -154,8 +154,8 @@ private fun WorkspaceCategoryPreviewIcon(actions: List<WorkspaceMenuAction>) {
             FlatWorkspaceDropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
-                modifier = Modifier.widthIn(min = 240.dp, max = 328.dp)
-                    .heightIn(max = 440.dp)
+                modifier = Modifier.heightIn(max = 440.dp),
+                menuWidth = 280.dp
             ) {
                 actions.forEach { action ->
                     WorkspaceFlatMenuRow(
@@ -245,7 +245,8 @@ private fun WorkspaceCategoryPicker(
         FlatWorkspaceDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            modifier = Modifier.widthIn(min = 240.dp, max = 328.dp).heightIn(max = 440.dp),
+            modifier = Modifier.heightIn(max = 440.dp),
+            menuWidth = 280.dp,
             header = { FlatPopupHeader(menuTitle) }
         ) {
             content { expanded = false }

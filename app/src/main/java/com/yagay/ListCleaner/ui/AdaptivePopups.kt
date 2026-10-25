@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -79,6 +80,7 @@ internal fun FlatPopupMenu(
     modifier: Modifier = Modifier,
     offset: DpOffset = DpOffset.Zero,
     scrollState: ScrollState = rememberScrollState(),
+    menuWidth: Dp = 224.dp,
     header: (@Composable () -> Unit)? = null,
     footer: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
@@ -88,8 +90,11 @@ internal fun FlatPopupMenu(
     val offsetX = with(density) { offset.x.roundToPx() }
     val offsetY = with(density) { offset.y.roundToPx() }
     val edgeInset = with(density) { 8.dp.roundToPx() }
-    val popupMaxHeight = (LocalConfiguration.current.screenHeightDp - 24)
+    val configuration = LocalConfiguration.current
+    val popupMaxHeight = (configuration.screenHeightDp - 24)
         .coerceAtLeast(96).dp
+    // A fixed profile avoids fillMaxWidth rows expanding menus to the window.
+    val actualMenuWidth = minOf(menuWidth, (configuration.screenWidthDp - 16).coerceAtLeast(120).dp)
     val positionProvider = remember(offsetX, offsetY, edgeInset) {
         object : PopupPositionProvider {
             override fun calculatePosition(
@@ -124,8 +129,8 @@ internal fun FlatPopupMenu(
         )
     ) {
         Surface(
-            modifier = modifier
-                .widthIn(min = 196.dp)
+            modifier = Modifier.width(actualMenuWidth)
+                .then(modifier)
                 .heightIn(max = popupMaxHeight),
             shape = RectangleShape,
             color = MaterialTheme.colorScheme.surface,
@@ -188,6 +193,7 @@ internal fun AdaptiveDropdownMenu(
     modifier: Modifier = Modifier,
     offset: DpOffset = DpOffset.Zero,
     scrollState: ScrollState = rememberScrollState(),
+    menuWidth: Dp = 224.dp,
     content: @Composable ColumnScope.() -> Unit
 ) {
     FlatPopupMenu(
@@ -196,6 +202,7 @@ internal fun AdaptiveDropdownMenu(
         modifier = modifier,
         offset = offset,
         scrollState = scrollState,
+        menuWidth = menuWidth,
         content = content
     )
 }
@@ -223,6 +230,7 @@ internal fun FlatWorkspaceDropdownMenu(
     modifier: Modifier = Modifier,
     offset: DpOffset = DpOffset.Zero,
     scrollState: ScrollState = rememberScrollState(),
+    menuWidth: Dp = 224.dp,
     header: (@Composable () -> Unit)? = null,
     footer: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
@@ -233,6 +241,7 @@ internal fun FlatWorkspaceDropdownMenu(
         modifier = modifier,
         offset = offset,
         scrollState = scrollState,
+        menuWidth = menuWidth,
         header = header,
         footer = footer,
         content = content

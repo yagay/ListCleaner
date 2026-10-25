@@ -199,7 +199,7 @@ internal fun WorkspaceFlatOverflowMenu(
         FlatWorkspaceDropdownMenu(
             expanded = expanded,
             onDismissRequest = { onExpandedChange(false) },
-            modifier = Modifier.widthIn(min = 200.dp, max = 280.dp)
+            menuWidth = 224.dp
         ) {
             actions.forEach { action ->
                 WorkspaceFlatMenuRow(

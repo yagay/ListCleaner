@@ -97,9 +97,8 @@ fun BrowserHostFilterMenu(
         FlatWorkspaceDropdownMenu(
             expanded = expanded,
             onDismissRequest = { hostQuery = ""; expanded = false },
-            modifier = Modifier
-                .width(menuWidth)
-                .heightIn(max = 420.dp),
+            modifier = Modifier.heightIn(max = 420.dp),
+            menuWidth = menuWidth,
             offset = DpOffset(menuHorizontalOffset, 0.dp),
             scrollState = menuScroll
         ) {
@@ -118,7 +117,7 @@ fun BrowserHostFilterMenu(
                 value = hostQuery,
                 onValueChange = { hostQuery = it },
                 modifier = Modifier
-                    .width(280.dp)
+                    .fillMaxWidth()
                     .padding(horizontal = 8.dp, vertical = 2.dp),
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyLarge,

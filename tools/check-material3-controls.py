@@ -202,6 +202,23 @@ for expected in ("detectDragGesturesAfterLongPress(", "moveVisiblePriorityTo(",
     if expected not in priority:
         errors.append(f"PriorityDialog.kt: ordering-only workflow lost {expected}")
 
+# Bounded popup widths: ordinary menus cannot expand to the whole screen.
+popup_width = (root / "AdaptivePopups.kt").read_text(encoding="utf-8")
+for term in ("menuWidth: Dp = 224.dp", "Modifier.width(actualMenuWidth)",
+             "configuration.screenWidthDp - 16", "menuWidth = menuWidth"):
+    if term not in popup_width:
+        errors.append(f"AdaptivePopups.kt: explicit width contract missing {term}")
+if ".widthIn(min = 196.dp)" in popup_width:
+    errors.append("AdaptivePopups.kt: minimum-only popup width returned")
+for filename, token in {
+    "WorkspaceCommon.kt": "menuWidth = 264.dp",
+    "WorkspaceCategorySelector.kt": "menuWidth = 280.dp",
+    "WorkspaceListParts.kt": "menuWidth = 224.dp",
+    "OpenPresetFilterRow.kt": "menuWidth = 264.dp",
+    "BrowserHostFilterRow.kt": "menuWidth = menuWidth",
+}.items():
+    if token not in (root / filename).read_text(encoding="utf-8"):
+        errors.append(f"{filename}: explicit popup width profile missing {token}")
 # Unified List First renderer across Cleanup, Ordering, Settings and details.
 flat_visual_checks = {
     "FlatListDesign.kt": ("fun FlatRowSurface(", "fun FlatCategoryRow(",
@@ -535,7 +552,7 @@ if "Arrangement.spacedBy(4.dp)" not in compact:
 category = (root / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
 for expected in ("FlatWorkspaceDropdownMenu(", "Surface(", "EntryCategoryPicker(",
                  "ComponentCategoryPicker(", "expandedGroup", "group.kinds()",
-                 "availableKinds", "onSelected(null)", "widthIn(min = 240.dp",
+                 "availableKinds", "onSelected(null)", "menuWidth = 280.dp",
                  "AdaptiveDropdownMenuItem("):
     if expected not in category:
         errors.append(f"WorkspaceCategorySelector.kt: anchored category picker regression: {expected}")
@@ -581,7 +598,7 @@ filter_popup = sheet.split("internal fun WorkspaceFilterBar(", 1)[1].split(
 for expected in ("FlatWorkspaceDropdownMenu(", "onDismissRequest = { expanded = false }",
                  "draftAppType", "draftView", "lc_filter_sheet_apply",
                  "lc_filter_sheet_reset", "WorkspacePickerButton(", "extraFilter()",
-                 "widthIn(min = 240.dp", "WorkspaceFilterChoiceGroup(",
+                 "menuWidth = 264.dp", "WorkspaceFilterChoiceGroup(",
                  "AppTypeFilter.entries", "UiFilter.entries",
                  "header = { FlatPopupHeader(", "footer = {", "FlatPopupFooter {"):
     if expected not in filter_popup:

@@ -88,6 +88,7 @@ fun OpenPresetFilterMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
             modifier = Modifier.heightIn(max = 420.dp),
+            menuWidth = 264.dp,
             scrollState = menuScroll
         ) {
             WorkspaceFlatMenuRow(
