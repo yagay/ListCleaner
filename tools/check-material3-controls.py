@@ -430,6 +430,24 @@ if "end = MaterialUiTokens.pageHorizontal + MaterialUiTokens.appExpandIndicatorW
 if "val appExpandIndicatorWidth = 18.dp" not in visual_tokens:
     errors.append("MaterialDesignSystem.kt: missing shared overflow alignment width")
 
+# Application headers use a single borderless three-state mark, never the
+# Material square checkbox. Native 48dp hit area and tri-state semantics survive.
+app_select = (root / "WorkspaceListParts.kt").read_text(encoding="utf-8").split(
+    "internal fun WorkspaceAppSelectionCheckbox(", 1
+)[-1].split("internal fun WorkspaceAppSummaryText(", 1)[0]
+for token in ("triStateToggleable(", "state = state", "enabled = enabled",
+              "role = Role.Checkbox", "onClick = onClick",
+              "MaterialUiTokens.iconTouchTarget",
+              "ToggleableState.Off -> Icons.Rounded.Add",
+              "ToggleableState.Indeterminate -> Icons.Rounded.Remove",
+              "ToggleableState.On -> Icons.Rounded.Check",
+              "MaterialTheme.colorScheme.primary",
+              "MaterialTheme.colorScheme.onSurfaceVariant"):
+    if token not in app_select:
+        errors.append(f"WorkspaceListParts.kt: borderless three-state app selection missing {token}")
+if "AdaptiveTriStateCheckbox(" in app_select or "TriStateCheckbox(" in app_select:
+    errors.append("WorkspaceListParts.kt: old square app checkbox returned")
+
 # Entry and Root expanded details share one trailing check and tinted surface.
 # There is no blue leading rail and no circular/radio selection glyph.
 details = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")

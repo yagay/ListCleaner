@@ -1,6 +1,7 @@
 package com.yagay.ListCleaner.ui
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.selection.triStateToggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -10,7 +11,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -18,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.state.ToggleableState
@@ -33,13 +38,45 @@ import com.yagay.ListCleaner.R
  * Keeping type, title, status and action geometry here prevents the two
  * workspaces from drifting while preserving their different semantics.
  */
+/**
+ * Shared borderless three-state application selection control.
+ *
+ * Off = muted plus, Indeterminate = primary minus, On = primary check.
+ * Keep the native 48dp touch target and Checkbox semantics; callers retain
+ * the existing bulk-selection, lock and system-confirmation behaviour.
+ */
 @Composable
 internal fun WorkspaceAppSelectionCheckbox(
     state: ToggleableState,
     enabled: Boolean = true,
     onClick: () -> Unit
 ) {
-    AdaptiveTriStateCheckbox(state = state, enabled = enabled, onClick = onClick)
+    val icon = when (state) {
+        ToggleableState.Off -> Icons.Rounded.Add
+        ToggleableState.Indeterminate -> Icons.Rounded.Remove
+        ToggleableState.On -> Icons.Rounded.Check
+    }
+    val baseTint = if (state == ToggleableState.Off) {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    } else {
+        MaterialTheme.colorScheme.primary
+    }
+    Box(
+        modifier = Modifier.size(MaterialUiTokens.iconTouchTarget).triStateToggleable(
+            state = state,
+            enabled = enabled,
+            role = Role.Checkbox,
+            onClick = onClick
+        ),
+        contentAlignment = Alignment.Center
+    ) {
+        AdaptiveIcon(
+            icon,
+            null,
+            modifier = Modifier.size(18.dp),
+            tint = if (enabled) baseTint else baseTint.copy(alpha = 0.38f)
+        )
+    }
 }
 
 @Composable
