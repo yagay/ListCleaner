@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.selection.triStateToggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
@@ -73,7 +74,8 @@ internal fun WorkspaceAppSelectionCheckbox(
         AdaptiveIcon(
             icon,
             null,
-            modifier = Modifier.size(18.dp),
+            // Move only the glyph within its 48dp touch area; do not move the hitbox.
+            modifier = Modifier.size(18.dp).offset(x = MaterialUiTokens.appLabelInset),
             tint = if (enabled) baseTint else baseTint.copy(alpha = 0.38f)
         )
     }

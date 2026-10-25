@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yagay.ListCleaner.R
@@ -53,6 +54,8 @@ internal fun WorkspaceAppRow(
                 onLongClick = { menuExpanded = true }
             ),
             selection = { selection() },
+            // The 48dp selection target already separates its glyph from the app icon.
+            selectionToIconGap = 0.dp,
             details = details,
             trailing = {
                 trailing()
@@ -102,6 +105,8 @@ internal fun MaterialAppRowBody(
     subtitle: String,
     modifier: Modifier = Modifier,
     selection: @Composable RowScope.() -> Unit,
+    // Keep the old gap as default for non-workspace callers (e.g. Scope picker).
+    selectionToIconGap: Dp = MaterialUiTokens.appLabelInset,
     packageName: String? = null,
     details: @Composable ColumnScope.() -> Unit = {},
     trailing: @Composable RowScope.() -> Unit = {}
@@ -113,7 +118,7 @@ internal fun MaterialAppRowBody(
         verticalAlignment = Alignment.CenterVertically
     ) {
         selection()
-        Spacer(Modifier.width(MaterialUiTokens.appLabelInset))
+        Spacer(Modifier.width(selectionToIconGap))
         AppIcon(icon, title)
         Spacer(Modifier.width(MaterialUiTokens.appLabelInset))
         Column(
