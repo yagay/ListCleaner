@@ -143,7 +143,7 @@ flat_visual_checks = {
                             "WorkspaceDetailContainer(position, selected = false)",
                             "WorkspaceDetailContainer(position, checked, contentBlock)",
                             "UiCardDetailRow(modifier = clickModifier, content = rowContents)"),
-    "SettingsWidgets.kt": ("FlatSectionHeader(title)", "MaterialSectionCard { content() }",
+    "SettingsWidgets.kt": ("FlatSectionHeader(", "MaterialSectionCard { content() }",
                            "FlatRowSurface(dividerInset = 0.dp)", "FlatRowSurface("),
     "SettingsCenterHome.kt": ("FlatCategoryRow(", "onSelect(section)",
                               "MaterialPageColumn(fullBleed = true)"),
