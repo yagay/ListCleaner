@@ -394,8 +394,18 @@ nav_palette = nav_source.split("fun navigation()", 1)[-1].split("}", 1)[0]
 if "indicatorColor = Color.Transparent" not in nav_palette:
     errors.append("MaterialActionColors.kt: old pill indicator still active")
 nav_activity = (root / "MainActivity.kt").read_text(encoding="utf-8")
-if "Modifier.drawWithContent" not in nav_activity or "tonalElevation = 0.dp" not in nav_activity:
-    errors.append("MainActivity.kt: flat bottom navigation missing")
+# Compact flat navigation: selected text/icon use the theme accent, not an
+# underline or capsule. System navigation padding remains outside the 64dp bar.
+for symbol in ("NavigationBarItem(", "colors = MaterialActionColors.navigation()",
+               "modifier = Modifier.height(64.dp)", "windowInsets = WindowInsets(0, 0, 0, 0)",
+               ".navigationBarsPadding()", "tonalElevation = 0.dp"):
+    if symbol not in nav_activity:
+        errors.append(f"MainActivity.kt: compact bottom navigation missing {symbol}")
+if "Modifier.drawWithContent" in nav_activity or "val underlineColor =" in nav_activity:
+    errors.append("MainActivity.kt: bottom navigation must use selected color, not underline")
+if 'UiColorRoles.resolve("navigationText", MaterialTheme.colorScheme.primary)' not in nav_source:
+    errors.append("MaterialActionColors.kt: selected navigation color must follow theme accent")
+
 
 # Edge-to-edge immersive system bars must respect app-enforced day/night modes,
 # keep navigation contrast clear even with three-button navigation, and consume

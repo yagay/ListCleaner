@@ -13,14 +13,15 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.Column
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -351,30 +352,26 @@ class MainActivity : ComponentActivity() {
                 )
             },
             bottomBar = {
-                Column {
+                // The Material 3 NavigationBar defaults to 80dp plus system insets.
+                // Keep a compact 64dp navigation row; consume system navigation
+                // insets exactly once outside the row in gesture and 3-button mode.
+                Column(
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.surface)
+                        .navigationBarsPadding()
+                ) {
                     AdaptiveHorizontalDivider(thickness = 0.5.dp)
                     NavigationBar(
+                        modifier = Modifier.height(64.dp),
                         containerColor = MaterialTheme.colorScheme.surface,
-                        tonalElevation = 0.dp
+                        tonalElevation = 0.dp,
+                        windowInsets = WindowInsets(0, 0, 0, 0)
                     ) {
-                        val underlineColor = MaterialSelectionPalette.navigationText()
                         Destination.entries.filter { it != Destination.TILES }.forEach { dest ->
                             val selected = state.destination == dest ||
                                 (dest == Destination.RULES && state.destination == Destination.TILES)
                             NavigationBarItem(
                                 selected = selected,
-                                modifier = Modifier.drawWithContent {
-                                    drawContent()
-                                    if (selected) {
-                                        val y = size.height - 2.dp.toPx()
-                                        drawLine(
-                                            color = underlineColor,
-                                            start = Offset(size.width * 0.22f, y),
-                                            end = Offset(size.width * 0.78f, y),
-                                            strokeWidth = 2.dp.toPx()
-                                        )
-                                    }
-                                },
                                 onClick = {
                                     if (!componentBusy || state.destination != Destination.TILES && !componentModeActive) {
                                         pendingNavigation.request { vm.setDestination(dest) }

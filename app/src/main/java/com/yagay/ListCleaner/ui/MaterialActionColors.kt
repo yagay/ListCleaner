@@ -81,7 +81,7 @@ internal object MaterialSelectionPalette {
     @Composable fun categoryBackground(): Color = UiColorRoles.resolve("categoryBackground", background())
     @Composable fun filterBackground(): Color = UiColorRoles.resolve("filterBackground", background())
     @Composable fun navigationBackground(): Color = UiColorRoles.resolve("navigationBackground", activeBackground())
-    @Composable fun navigationText(): Color = UiColorRoles.resolve("navigationText", activeText())
+    @Composable fun navigationText(): Color = UiColorRoles.resolve("navigationText", MaterialTheme.colorScheme.primary)
 }
 
 internal object MaterialActionColors {
