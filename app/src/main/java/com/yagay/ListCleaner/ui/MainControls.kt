@@ -100,12 +100,12 @@ internal fun MainToolbar(
                             Spacer(Modifier.width(4.dp))
                             AdaptiveText(spaces.firstOrNull { it.userId == selectedSpace }?.title ?: stringResource(R.string.space_user_title, selectedSpace), maxLines = 1)
                         }
-                        AdaptiveDropdownMenu(expanded = spaceMenu, onDismissRequest = { spaceMenu = false }) {
+                        FlatWorkspaceDropdownMenu(expanded = spaceMenu, onDismissRequest = { spaceMenu = false }) {
                             spaces.forEach { user ->
-                                AdaptiveDropdownMenuItem(
-                                    text = { AdaptiveText(stringResource(R.string.space_menu_item, user.title, user.userId)) },
-                                    leadingIcon = { if (user.userId == selectedSpace) AdaptiveIcon(Icons.Rounded.Check, null) },
-                                    onClick = { spaceMenu = false; onSpaceSelected(user.userId) },
+                                WorkspaceFlatMenuRow(
+                                    title = stringResource(R.string.space_menu_item, user.title, user.userId),
+                                    selected = user.userId == selectedSpace,
+                                    onClick = { spaceMenu = false; onSpaceSelected(user.userId) }
                                 )
                             }
                         }
@@ -117,9 +117,15 @@ internal fun MainToolbar(
                 AdaptiveIconButton(onClick = onRefresh) { AdaptiveIcon(Icons.Rounded.Refresh, stringResource(R.string.common_refresh)) }
                 Box {
                     AdaptiveIconButton(onClick = { menu = true }) { AdaptiveIcon(Icons.Rounded.MoreVert, stringResource(R.string.common_more)) }
-                    AdaptiveDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        AdaptiveDropdownMenuItem(text = { AdaptiveText(stringResource(R.string.restore_backup)) }, onClick = { menu = false; onRestore() })
-                        AdaptiveDropdownMenuItem(text = { AdaptiveText(stringResource(R.string.export_backup)) }, onClick = { menu = false; onBackup() })
+                    FlatWorkspaceDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        WorkspaceFlatMenuRow(
+                            title = stringResource(R.string.restore_backup), selected = false,
+                            onClick = { menu = false; onRestore() }
+                        )
+                        WorkspaceFlatMenuRow(
+                            title = stringResource(R.string.export_backup), selected = false,
+                            onClick = { menu = false; onBackup() }
+                        )
                     }
                 }
             }

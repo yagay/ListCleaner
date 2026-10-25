@@ -691,8 +691,8 @@ fun PriorityDialogContent(
                 val first = group.components.first()
                 AdaptiveSurface(
                     Modifier.fillMaxWidth().offset { IntOffset(0, moving.top.roundToInt()) }.zIndex(1f),
-                    tonalElevation = 6.dp,
-                    shadowElevation = 8.dp
+                    tonalElevation = 0.dp,
+                    shadowElevation = 2.dp
                 ) {
                     Row(
                         Modifier.heightIn(min = MaterialUiTokens.listRowHeight).padding(

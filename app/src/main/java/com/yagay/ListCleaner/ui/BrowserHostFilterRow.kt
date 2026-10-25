@@ -61,10 +61,10 @@ fun BrowserHostFilterMenu(
             Surface(
                 onClick = { expanded = true },
                 modifier = Modifier.size(48.dp).onSizeChanged { anchorWidthPx = it.width },
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(MaterialUiTokens.listCardRadius),
-                color = if (selected != null) MaterialFlatPalette.selectedSurface() else Color.Transparent,
-                contentColor = if (selected != null) MaterialSelectionPalette.activeText()
-                    else MaterialSelectionPalette.activeText(),
+                shape = androidx.compose.ui.graphics.RectangleShape,
+                color = MaterialTheme.colorScheme.surface,
+                contentColor = if (selected != null) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
             ) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     AdaptiveIcon(
@@ -94,7 +94,7 @@ fun BrowserHostFilterMenu(
             }
         }
 
-        AdaptiveDropdownMenu(
+        FlatWorkspaceDropdownMenu(
             expanded = expanded,
             onDismissRequest = { hostQuery = ""; expanded = false },
             modifier = Modifier
@@ -103,24 +103,15 @@ fun BrowserHostFilterMenu(
             offset = DpOffset(menuHorizontalOffset, 0.dp),
             scrollState = menuScroll
         ) {
-            AdaptiveDropdownMenuItem(
-                text = { AdaptiveText(stringResource(R.string.common_all)) },
-                leadingIcon = {
-                    if (selected == null) AdaptiveIcon(Icons.Rounded.Check, null)
-                },
-                onClick = {
-                    hostQuery = ""
-                    expanded = false
-                    onSelected(null)
-                }
+            WorkspaceFlatMenuRow(
+                title = stringResource(R.string.common_all),
+                selected = selected == null,
+                onClick = { hostQuery = ""; expanded = false; onSelected(null) }
             )
-            AdaptiveDropdownMenuItem(
-                text = { AdaptiveText(stringResource(R.string.browser_hosts_manage)) },
-                onClick = {
-                    hostQuery = ""
-                    expanded = false
-                    onManage()
-                }
+            WorkspaceFlatMenuRow(
+                title = stringResource(R.string.browser_hosts_manage),
+                selected = false,
+                onClick = { hostQuery = ""; expanded = false; onManage() }
             )
             AdaptiveHorizontalDivider()
             AdaptiveOutlinedTextField(
@@ -148,18 +139,10 @@ fun BrowserHostFilterMenu(
                 )
             } else {
                 visibleHosts.forEach { host ->
-                    AdaptiveDropdownMenuItem(
-                        text = {
-                            AdaptiveText(host, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        },
-                        leadingIcon = {
-                            if (selected == host) AdaptiveIcon(Icons.Rounded.Check, null)
-                        },
-                        onClick = {
-                            hostQuery = ""
-                            expanded = false
-                            onSelected(host)
-                        }
+                    WorkspaceFlatMenuRow(
+                        title = host,
+                        selected = selected == host,
+                        onClick = { hostQuery = ""; expanded = false; onSelected(host) }
                     )
                 }
             }
@@ -202,10 +185,10 @@ fun BrowserHostDialog(
                         isError = input.isNotBlank() && normalized == null
                     )
                     Spacer(Modifier.width(8.dp))
-                    AdaptiveButton(
+                    AdaptiveTextButton(
                         enabled = canAdd,
                         onClick = {
-                            val host = normalized ?: return@AdaptiveButton
+                            val host = normalized ?: return@AdaptiveTextButton
                             hosts = (hosts + host).distinct().sorted()
                             input = ""
                         }

@@ -109,12 +109,13 @@ internal fun ImportSpaceBackupDialog(
                                         it.userId == mapping[source.sourceUserId]
                                     }?.let { stringResource(R.string.backup_spaces_target_label, it.title, it.userId) } ?: stringResource(R.string.backup_spaces_choose_target))
                                 }
-                                AdaptiveDropdownMenu(
+                                FlatWorkspaceDropdownMenu(
                                     expanded = expanded,
                                     onDismissRequest = { expanded = false },
                                 ) {
-                                    AdaptiveDropdownMenuItem(
-                                        text = { AdaptiveText(stringResource(R.string.backup_spaces_skip)) },
+                                    WorkspaceFlatMenuRow(
+                                        title = stringResource(R.string.backup_spaces_skip),
+                                        selected = source.sourceUserId !in mapping,
                                         onClick = {
                                             mapping = mapping - source.sourceUserId
                                             expanded = false
@@ -124,8 +125,9 @@ internal fun ImportSpaceBackupDialog(
                                         target.userId == mapping[source.sourceUserId] ||
                                             target.userId !in mapping.values
                                     }.forEach { target ->
-                                        AdaptiveDropdownMenuItem(
-                                            text = { AdaptiveText(stringResource(R.string.backup_spaces_space_label, target.title, target.userId)) },
+                                        WorkspaceFlatMenuRow(
+                                            title = stringResource(R.string.backup_spaces_space_label, target.title, target.userId),
+                                            selected = mapping[source.sourceUserId] == target.userId,
                                             onClick = {
                                                 mapping = mapping + (source.sourceUserId to target.userId)
                                                 expanded = false

@@ -83,12 +83,16 @@ internal fun FlatWorkspaceDropdownMenu(
     expanded: Boolean,
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
+    offset: DpOffset = DpOffset.Zero,
+    scrollState: ScrollState = rememberScrollState(),
     content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit
 ) {
     AdaptiveDropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest,
         modifier = modifier,
+        offset = offset,
+        scrollState = scrollState,
         content = content
     )
 }

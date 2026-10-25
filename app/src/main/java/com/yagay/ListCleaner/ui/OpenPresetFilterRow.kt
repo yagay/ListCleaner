@@ -52,10 +52,10 @@ fun OpenPresetFilterMenu(
             Surface(
                 onClick = { expanded = true },
                 modifier = Modifier.size(48.dp),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(MaterialUiTokens.listCardRadius),
-                color = if (selected != null) MaterialFlatPalette.selectedSurface() else Color.Transparent,
-                contentColor = if (selected != null) MaterialSelectionPalette.activeText()
-                    else MaterialSelectionPalette.activeText(),
+                shape = androidx.compose.ui.graphics.RectangleShape,
+                color = MaterialTheme.colorScheme.surface,
+                contentColor = if (selected != null) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
             ) {
                 Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                     AdaptiveIcon(
@@ -84,42 +84,28 @@ fun OpenPresetFilterMenu(
             }
         }
 
-        AdaptiveDropdownMenu(
+        FlatWorkspaceDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
             modifier = Modifier.heightIn(max = 420.dp),
             scrollState = menuScroll
         ) {
-            AdaptiveDropdownMenuItem(
-                text = { AdaptiveText(stringResource(R.string.common_all)) },
-                leadingIcon = { if (selected == null) AdaptiveIcon(Icons.Rounded.Check, null) },
-                onClick = {
-                    expanded = false
-                    onSelected(null)
-                }
+            WorkspaceFlatMenuRow(
+                title = stringResource(R.string.common_all),
+                selected = selected == null,
+                onClick = { expanded = false; onSelected(null) }
             )
-            AdaptiveDropdownMenuItem(
-                text = { AdaptiveText(stringResource(R.string.open_manage_custom)) },
-                onClick = {
-                    expanded = false
-                    onManageCustom()
-                }
+            WorkspaceFlatMenuRow(
+                title = stringResource(R.string.open_manage_custom),
+                selected = false,
+                onClick = { expanded = false; onManageCustom() }
             )
             AdaptiveHorizontalDivider()
             config.configuredPresets().forEach { preset ->
-                AdaptiveDropdownMenuItem(
-                    text = {
-                        AdaptiveText(
-                            config.localizedTitle(preset),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    },
-                    leadingIcon = { if (selected == preset) AdaptiveIcon(Icons.Rounded.Check, null) },
-                    onClick = {
-                        expanded = false
-                        onSelected(preset)
-                    }
+                WorkspaceFlatMenuRow(
+                    title = config.localizedTitle(preset),
+                    selected = selected == preset,
+                    onClick = { expanded = false; onSelected(preset) }
                 )
             }
         }

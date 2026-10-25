@@ -224,13 +224,14 @@ internal fun SystemProbeDialog(
                                 AdaptiveText(stringResource(R.string.system_probe_scenario_label,
                                     stringResource(scenario.titleRes)))
                             }
-                            AdaptiveDropdownMenu(
+                            FlatWorkspaceDropdownMenu(
                                 expanded = scenarioMenu,
                                 onDismissRequest = { scenarioMenu = false },
                             ) {
                                 choices.forEach { choice ->
-                                    AdaptiveDropdownMenuItem(
-                                        text = { AdaptiveText(stringResource(choice.titleRes)) },
+                                    WorkspaceFlatMenuRow(
+                                        title = stringResource(choice.titleRes),
+                                        selected = choice == scenario,
                                         onClick = {
                                             scenarioMenu = false
                                             scenario = choice
