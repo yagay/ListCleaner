@@ -113,7 +113,7 @@ jobs:
           mkdir -p artifacts
           APK="$(find app/build/outputs/apk -type f -name '*.apk' -path '*/debug/*' | head -n 1)"
           test -n "$APK"
-          ABIS="$(unzip -l "$APK" | awk '{print $4}' | sed -n 's#^lib/\\([^/]*\\)/.*#\\1#p' | sort -u)"
+          ABIS="$(unzip -l "$APK" | awk '{print $4}' | sed -n 's#^lib/\([^/]*\)/.*#\1#p' | sort -u)"
           if [[ -n "$ABIS" && "$ABIS" != "arm64-v8a" ]]; then
             echo "Unexpected ABIs in APK: $ABIS"
             exit 1
