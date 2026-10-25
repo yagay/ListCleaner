@@ -224,7 +224,7 @@ for filename in ("WorkspaceCommon.kt", "WorkspaceCategorySelector.kt",
 # Unified widgets are validated by geometry and semantics, not old names.
 button_src = (root / "AdaptiveWidgets.kt").read_text(encoding="utf-8")
 for name in ("AdaptiveTextButton", "AdaptiveOutlinedButton", "AdaptiveButton"):
-    body = button_src.split(f"internal fun {name}(", 1)[-1].split("@Composable", 1)[0]
+    body = button_src.split(f"internal fun {name}(", 1)[-1].split("\n@Composable", 1)[0]
     if "shape = RectangleShape" not in body:
         errors.append(f"AdaptiveWidgets.kt: {name} still has a rounded default")
 modal_src = (root / "AdaptivePopups.kt").read_text(encoding="utf-8")
