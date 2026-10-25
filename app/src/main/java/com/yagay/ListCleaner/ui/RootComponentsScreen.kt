@@ -462,7 +462,6 @@ fun RootComponentsScreen(
                     checked = selectionDraft.selected(item.id, item.enabled == false),
                     enabled = editable && !itemLocked,
                     locked = itemLocked,
-                    lockToggleEnabled = lockToggleEnabled,
                     onToggle = {
                         if (!busy && vm.selectedSpace.value == item.user) {
                             val currentDisabled = selectionDraft.selected(item.id, item.enabled == false)
@@ -474,8 +473,6 @@ fun RootComponentsScreen(
                             }
                         }
                     },
-                    onLock = { vm.setComponentItemLocked(kind, item, true) },
-                    onUnlock = { vm.setComponentItemLocked(kind, item, false) },
                     content = {
                         WorkspaceDetailHeading(
                             item.label,
@@ -499,8 +496,10 @@ fun RootComponentsScreen(
                                 MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
-                    trailing = {
+                    trailing = { menuExpanded, onMenuExpandedChange ->
                         WorkspaceDetailActionsMenu(
+                            expanded = menuExpanded,
+                            onExpandedChange = onMenuExpandedChange,
                             onPreview = {
                                 systemProbeRequest = SystemProbeRequest(
                                     componentKind = item.kind,

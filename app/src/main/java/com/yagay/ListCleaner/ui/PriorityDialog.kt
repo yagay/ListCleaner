@@ -752,6 +752,7 @@ private fun ComponentInfoRow(
     onEditTitle: () -> Unit,
     onPreview: () -> Unit
 ) {
+    var menuExpanded by remember { mutableStateOf(false) }
     WorkspaceReadOnlyDetailRow(position = position) {
         Column(Modifier.weight(1f)) {
             WorkspaceDetailHeading(
@@ -767,6 +768,8 @@ private fun ComponentInfoRow(
             WorkspaceDetailCaption(item.rule.className)
         }
         WorkspaceDetailActionsMenu(
+            expanded = menuExpanded,
+            onExpandedChange = { menuExpanded = it },
             onPreview = onPreview,
             locked = false,
             lockToggleEnabled = false,

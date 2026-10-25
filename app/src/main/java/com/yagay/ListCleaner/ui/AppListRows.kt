@@ -154,10 +154,7 @@ internal fun ComponentRow(
         checked = checked,
         enabled = !locked,
         locked = locked,
-        lockToggleEnabled = lockToggleEnabled,
         onToggle = onToggle,
-        onLock = onLock,
-        onUnlock = onUnlock,
         content = {
             WorkspaceDetailHeading(
                 item.activityLabel,
@@ -183,8 +180,10 @@ internal fun ComponentRow(
                 informational = true
             )
         },
-        trailing = {
+        trailing = { menuExpanded, onMenuExpandedChange ->
             WorkspaceDetailActionsMenu(
+                expanded = menuExpanded,
+                onExpandedChange = onMenuExpandedChange,
                 onPreview = onPreview,
                 onEdit = onEditTitle,
                 locked = locked,
@@ -194,31 +193,6 @@ internal fun ComponentRow(
             )
         }
     )
-}
-
-@Composable
-internal fun BulkLockContextMenu(
-    expanded: Boolean,
-    onDismiss: () -> Unit,
-    canLock: Boolean,
-    canUnlock: Boolean,
-    onLock: () -> Unit,
-    onUnlock: () -> Unit,
-) {
-    FlatWorkspaceDropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
-        WorkspaceFlatMenuRow(
-            title = stringResource(R.string.bulk_lock_action_lock),
-            selected = false,
-            enabled = canLock,
-            onClick = { onDismiss(); onLock() }
-        )
-        WorkspaceFlatMenuRow(
-            title = stringResource(R.string.bulk_lock_action_unlock),
-            selected = false,
-            enabled = canUnlock,
-            onClick = { onDismiss(); onUnlock() }
-        )
-    }
 }
 
 @Composable

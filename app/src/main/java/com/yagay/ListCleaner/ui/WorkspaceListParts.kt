@@ -231,7 +231,7 @@ internal fun WorkspaceFlatOverflowMenu(
 /**
  * All expanded Entry/Root item actions live behind one overflow affordance.
  * Preview remains item-scoped; clicking the row still controls selection.
- * The existing long-press lock menu is preserved as an alternative.
+ * Long-press and the three-dot button open the same anchored action menu.
  */
 @Composable
 internal fun WorkspaceDetailActionsMenu(
@@ -240,9 +240,10 @@ internal fun WorkspaceDetailActionsMenu(
     lockToggleEnabled: Boolean,
     onLock: () -> Unit,
     onUnlock: () -> Unit,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
     onEdit: (() -> Unit)? = null
 ) {
-    var expanded by remember { mutableStateOf(false) }
     val actions = buildList {
         if (onPreview != null) {
             add(WorkspaceMenuAction(
@@ -269,7 +270,7 @@ internal fun WorkspaceDetailActionsMenu(
     WorkspaceFlatOverflowMenu(
         actions = actions,
         expanded = expanded,
-        onExpandedChange = { expanded = it },
+        onExpandedChange = onExpandedChange,
         contentDescription = stringResource(R.string.common_more)
     )
 }

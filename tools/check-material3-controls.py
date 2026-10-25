@@ -173,11 +173,8 @@ for file in ("MainControls.kt", "SpaceBackupDialogs.kt", "SystemProbeDialog.kt")
     code = (root / file).read_text(encoding="utf-8")
     if "AdaptiveDropdownMenu(" in code or "AdaptiveDropdownMenuItem(" in code:
         errors.append(f"{file}: old dropdown content still active")
-bulk = (root / "AppListRows.kt").read_text(encoding="utf-8").split(
-    "internal fun BulkLockContextMenu(", 1
-)[-1].split("@Composable", 1)[0]
-if "FlatWorkspaceDropdownMenu(" not in bulk or "WorkspaceFlatMenuRow(" not in bulk:
-    errors.append("AppListRows.kt: long-press lock menu must match overflow")
+if "BulkLockContextMenu(" in (root / "AppListRows.kt").read_text(encoding="utf-8"):
+    errors.append("AppListRows.kt: obsolete separate long-press lock popup returned")
 if "FlatRowSurface(dividerInset = 0.dp)" not in (root / "CustomOpenTypeDialog.kt").read_text(encoding="utf-8"):
     errors.append("CustomOpenTypeDialog.kt: custom OPEN rows not flat")
 if "FlatRowSurface(dividerInset = 0.dp)" not in (root / "BrowserHostFilterRow.kt").read_text(encoding="utf-8"):
@@ -450,7 +447,29 @@ if "enabled: Boolean = true" not in menu_choices.split("internal fun WorkspaceFl
         "internal fun WorkspaceMenuChoice(", 1)[0]:
     errors.append("WorkspaceCategorySelector.kt: disabled app lock options must remain supported")
 if "onLongClick = { menuExpanded = true }" not in app_actions:
-    errors.append("WorkspaceAppRow.kt: long-press app menu must remain")
+    errors.append("WorkspaceAppRow.kt: long-press app menu must open its three-dot menu")
+detail_row_long_press = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8").split(
+    "internal fun WorkspaceDetailRow(", 1
+)[-1]
+detail_overflow = detail_actions.split("internal fun WorkspaceDetailActionsMenu(", 1)[-1]
+if "onLongClick = { menuExpanded = true }" not in detail_row_long_press:
+    errors.append("WorkspaceCommon.kt: component long-press must open shared overflow")
+if "trailing(menuExpanded) { menuExpanded = it }" not in detail_row_long_press:
+    errors.append("WorkspaceCommon.kt: component long-press and overflow must share state")
+if "BulkLockContextMenu(" in detail_row_long_press:
+    errors.append("WorkspaceCommon.kt: old separate long-press menu remains")
+for symbol in ("expanded: Boolean", "onExpandedChange: (Boolean) -> Unit",
+               "expanded = expanded,", "onExpandedChange = onExpandedChange,"):
+    if symbol not in detail_overflow:
+        errors.append(f"WorkspaceListParts.kt: controlled component overflow missing {symbol}")
+for filename in ("AppListRows.kt", "RootComponentsScreen.kt"):
+    row = (root / filename).read_text(encoding="utf-8")
+    if "trailing = { menuExpanded, onMenuExpandedChange ->" not in row or "expanded = menuExpanded" not in row:
+        errors.append(f"{filename}: component detail menu not bound to long-press state")
+order = (root / "PriorityDialog.kt").read_text(encoding="utf-8")
+if "onExpandedChange = { menuExpanded = it }" not in order:
+    errors.append("PriorityDialog.kt: read-only overflow lacks local state")
+
 if "size(MaterialUiTokens.appExpandIndicatorWidth)" not in app_actions:
     errors.append("WorkspaceAppRow.kt: app expand arrow must use shared alignment token")
 if "end = MaterialUiTokens.pageHorizontal + MaterialUiTokens.appExpandIndicatorWidth" not in detail_body:
@@ -505,7 +524,7 @@ detail_row = details.split("internal fun WorkspaceDetailRow(", 1)[-1]
 for expected in ("WorkspaceDetailSelectionCheck(selected = checked, enabled = enabled)",
                  "toggleableState = if (checked)",
                  "trailingAccessoryWidth = 20.dp",
-                 "BulkLockContextMenu("):
+                 "trailing(menuExpanded) { menuExpanded = it }"):
     if expected not in detail_row:
         errors.append(f"WorkspaceCommon.kt: expanded detail contract missing {expected}")
 if detail_row.index("Column(Modifier.weight(1f)") > detail_row.index("WorkspaceDetailSelectionCheck("):

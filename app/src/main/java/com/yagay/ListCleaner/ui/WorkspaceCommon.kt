@@ -456,19 +456,17 @@ internal fun WorkspaceDetailRow(
     checked: Boolean,
     enabled: Boolean = true,
     locked: Boolean,
-    lockToggleEnabled: Boolean,
     onToggle: () -> Unit,
-    onLock: () -> Unit,
-    onUnlock: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
-    trailing: @Composable RowScope.() -> Unit = {}
+    trailing: @Composable RowScope.(Boolean, (Boolean) -> Unit) -> Unit = { _, _ -> }
 ) {
-    var lockMenuExpanded by remember { mutableStateOf(false) }
+    // The long press and the three-dot button both control this same anchored menu.
+    var menuExpanded by remember { mutableStateOf(false) }
     val contentBlock: @Composable () -> Unit = {
         val clickModifier = Modifier.combinedClickable(
                 role = androidx.compose.ui.semantics.Role.Checkbox,
                 onClick = { if (enabled) onToggle() },
-                onLongClick = { if (lockToggleEnabled) lockMenuExpanded = true }
+                onLongClick = { menuExpanded = true }
             ).semantics {
                 toggleableState = if (checked) androidx.compose.ui.state.ToggleableState.On
                     else androidx.compose.ui.state.ToggleableState.Off
@@ -489,7 +487,7 @@ internal fun WorkspaceDetailRow(
                 }
             }
             Column(Modifier.weight(1f).padding(vertical = 4.dp)) { content() }
-            trailing()
+            trailing(menuExpanded) { menuExpanded = it }
             // After the three-dot menu, in the existing trailing allowance.
             WorkspaceDetailSelectionCheck(selected = checked, enabled = enabled)
         }
@@ -498,14 +496,6 @@ internal fun WorkspaceDetailRow(
             leadingInset = 0.dp,
             trailingAccessoryWidth = 20.dp,
             content = rowContents
-        )
-        BulkLockContextMenu(
-            expanded = lockMenuExpanded,
-            onDismiss = { lockMenuExpanded = false },
-            canLock = lockToggleEnabled && !locked,
-            canUnlock = lockToggleEnabled && locked,
-            onLock = onLock,
-            onUnlock = onUnlock
         )
     }
     WorkspaceDetailContainer(position, checked, contentBlock)
