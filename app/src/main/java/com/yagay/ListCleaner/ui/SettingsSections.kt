@@ -23,9 +23,8 @@ internal fun CompatibilitySettings(
 ) {
     val currentMode = state.displayMode
     SettingsArea(stringResource(R.string.lc_settings_runtime_group)) {
-        AdaptiveText(stringResource(R.string.dashboard_sync_status),
-            style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium)
-        AdaptiveText(state.syncStatus, style = MaterialTheme.typography.bodySmall)
+        SettingsHint(stringResource(R.string.dashboard_sync_status))
+        SettingsHint(state.syncStatus)
         SettingsActionButton(onClick = vm::refreshModuleStatus, modifier = Modifier.fillMaxWidth()) {
             AdaptiveText(stringResource(R.string.dashboard_refresh_runtime))
         }
@@ -37,19 +36,14 @@ internal fun CompatibilitySettings(
             currentMode,
             DisplayMode.entries.map { it to stringResource(it.titleRes()) }
         ) { vm.setDisplayMode(it) }
-        AdaptiveText(stringResource(R.string.dashboard_global_mode_help),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SettingsHint(stringResource(R.string.dashboard_global_mode_help))
     }
     SettingsArea(stringResource(R.string.dashboard_app_visibility)) {
-        AdaptiveText(stringResource(R.string.dashboard_app_visibility_help),
-            style = MaterialTheme.typography.bodySmall)
+        SettingsHint(stringResource(R.string.dashboard_app_visibility_help))
         SettingsActionButton(onClick = onAppPicker, modifier = Modifier.fillMaxWidth()) {
             AdaptiveText(stringResource(R.string.dashboard_manage_app_visibility_plain))
         }
-        AdaptiveText(stringResource(R.string.dashboard_app_visibility_warning),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SettingsHint(stringResource(R.string.dashboard_app_visibility_warning), warning = true)
     }
     SettingsArea(stringResource(R.string.dashboard_module_status)) {
         ModuleStatusRow(state, onClick = { onScope() })
@@ -63,9 +57,7 @@ internal fun BackupSettings(
     onColorModeChange: (UiColorMode) -> Unit,
 ) {
     SettingsArea(stringResource(R.string.dashboard_data_backup)) {
-        AdaptiveText(stringResource(R.string.settings_backup_note),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SettingsHint(stringResource(R.string.settings_backup_note))
         SettingsActionButton(onClick = onExport, modifier = Modifier.fillMaxWidth()) {
             AdaptiveText(stringResource(R.string.dashboard_export_json))
         }
@@ -74,9 +66,7 @@ internal fun BackupSettings(
         }
     }
     SettingsArea(stringResource(R.string.lc_settings_reset_group)) {
-        AdaptiveText(stringResource(R.string.settings_reset_description),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SettingsHint(stringResource(R.string.settings_reset_description))
         SettingsResetControls(onColorModeChange)
     }
 }
@@ -106,9 +96,7 @@ internal fun DiagnosticsSettings(
                     ))
                 }
         )
-        AdaptiveText(stringResource(R.string.lc_diagnostics_summary_help),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SettingsHint(stringResource(R.string.lc_diagnostics_summary_help))
         SettingsActionButton(style = SettingsActionStyle.PRIMARY, 
             onClick = onCollectDiagnostics,
             enabled = !collectingDiagnostics,
@@ -130,13 +118,11 @@ internal fun DiagnosticsSettings(
             onCheckedChange = vm::setDiagnosticMode
         )
         if (state.diagnosticMode) {
-            AdaptiveText(stringResource(R.string.diagnostic_enabled_help),
-                style = MaterialTheme.typography.bodySmall)
+            SettingsHint(stringResource(R.string.diagnostic_enabled_help))
         }
     }
     SettingsArea(stringResource(R.string.dashboard_diagnostics)) {
-        AdaptiveText(stringResource(R.string.dashboard_scan_disclaimer),
-            style = MaterialTheme.typography.bodySmall)
+        SettingsHint(stringResource(R.string.dashboard_scan_disclaimer))
         SettingsActionButton(
             onClick = onInspectFile,
             enabled = !checkingFile,
@@ -145,7 +131,7 @@ internal fun DiagnosticsSettings(
             AdaptiveText(stringResource(if (checkingFile)
                 R.string.dashboard_inspecting_file else R.string.dashboard_inspect_file))
         }
-        fileCheckStatus?.let { AdaptiveText(it, style = MaterialTheme.typography.bodySmall) }
+        fileCheckStatus?.let { SettingsHint(it) }
     }
     SettingsArea(stringResource(R.string.lc_settings_technical_group)) {
         SettingsActionButton(onClick = { showTechnical = !showTechnical },
@@ -154,18 +140,12 @@ internal fun DiagnosticsSettings(
                 R.string.lc_settings_hide_technical else R.string.lc_settings_show_technical))
         }
         if (showTechnical) {
-            AdaptiveText(stringResource(if (state.runtime.ready)
-                R.string.dashboard_ack_confirmed else R.string.dashboard_ack_missing),
-                fontWeight = FontWeight.Medium)
-            AdaptiveText(stringResource(R.string.dashboard_query_hits, state.runtime.queryHits),
-                style = MaterialTheme.typography.bodySmall)
-            AdaptiveText(stringResource(R.string.dashboard_visibility_hits, state.runtime.visibilityHits),
-                style = MaterialTheme.typography.bodySmall)
-            AdaptiveText(stringResource(R.string.dashboard_ordering_hits, state.runtime.orderingHits),
-                style = MaterialTheme.typography.bodySmall)
-            AdaptiveText(stringResource(R.string.dashboard_hits_help),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            SettingsHint(stringResource(if (state.runtime.ready)
+                R.string.dashboard_ack_confirmed else R.string.dashboard_ack_missing))
+            SettingsHint(stringResource(R.string.dashboard_query_hits, state.runtime.queryHits))
+            SettingsHint(stringResource(R.string.dashboard_visibility_hits, state.runtime.visibilityHits))
+            SettingsHint(stringResource(R.string.dashboard_ordering_hits, state.runtime.orderingHits))
+            SettingsHint(stringResource(R.string.dashboard_hits_help))
             SettingsActionButton(onClick = vm::refreshModuleStatus,
                 modifier = Modifier.fillMaxWidth()) {
                 AdaptiveText(stringResource(R.string.dashboard_refresh_runtime))

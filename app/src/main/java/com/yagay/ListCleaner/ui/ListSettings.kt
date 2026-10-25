@@ -165,8 +165,7 @@ internal fun SettingsListControls() {
                 UiPreferencesStore.write(context, current.copy(openHelpByDefault = it))
             }
         )
-        AdaptiveText(stringResource(R.string.settings_defaults_help),
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SettingsHint(stringResource(R.string.settings_defaults_help))
     }
 }
 

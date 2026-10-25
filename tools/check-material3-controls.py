@@ -64,7 +64,7 @@ required = {
     "MainActivity.kt": ["NavigationBarItem(", "colors = MaterialActionColors.navigation()",
                         "Destination.SETTINGS -> SettingsTabContent(",
                         "state.destination != Destination.SETTINGS"],
-    "RuntimePanel.kt": ["UiCardVariant.STATUS"],
+    "RuntimePanel.kt": ["FlatRowSurface(", "SettingsFlatDialog("],
     "WorkspaceAppRow.kt": ["MaterialAppRowBody(", "heightIn(min = MaterialUiTokens.listRowHeight)",
                            "AppIcon(icon, title)", "Row("],
     "AppScopePicker.kt": ["MaterialAppRowBody(", "MaterialFullScreenDialog("],
@@ -91,7 +91,7 @@ required = {
                          "fun rememberFilter(", "fun rememberAppType(", "homeColumns", "openHelpByDefault"],
     "SettingsWidgets.kt": ["fun SettingsArea(", "fun <T> SettingsChoices(",
                            "fun SettingsSlider(", "MaterialSectionCard {",
-                           "AdaptiveAlertDialog("],
+                           "SettingsFlatDialog(", "SettingsFlatPaletteTabs("],
     "AppearanceSettings.kt": ["fun SettingsAppearanceControls(", "R.string.ui_color_mode_title", "UiColorMode.entries.map", "onSelected = onColorModeChange",
                               "fun SettingsLanguageControls()", "settings_icon_size",
                               "lc_layout_spacing"],
@@ -218,8 +218,8 @@ for symbol in ("WorkspaceReadOnlyDetailRow(", "WorkspaceDetailRow(",
 # Preview tabs, result list and choice dialogs share Material3 list affordances.
 if "AdaptiveFilterChip(" not in (root / "SystemProbeDialog.kt").read_text(encoding="utf-8"):
     errors.append("SystemProbeDialog.kt: preview filter tabs lack visible selected state")
-if "AdaptiveAlertDialog(" not in (root / "AppearanceSettings.kt").read_text(encoding="utf-8"):
-    errors.append("AppearanceSettings.kt: custom color editor bypassed shared dialog")
+if "SettingsFlatDialog(" not in (root / "AppearanceSettings.kt").read_text(encoding="utf-8"):
+    errors.append("AppearanceSettings.kt: custom color editor bypassed shared flat dialog")
 
 # One runtime List First mode; legacy settings cannot restore category-home routing.
 prefs_source = (root / "UiPreferences.kt").read_text(encoding="utf-8")
@@ -302,6 +302,33 @@ for filename, symbols in required.items():
     for symbol in symbols:
         if symbol not in content:
             errors.append(f"{filename}: missing shared Material 3 component: {symbol}")
+
+# All Settings pages use one flat visual contract.
+settings_sources = {
+    name: (root / name).read_text(encoding="utf-8")
+    for name in ("SettingsWidgets.kt", "SettingsNavigation.kt", "AppearanceSettings.kt",
+                 "ListSettings.kt", "ScanSettings.kt", "SettingsSections.kt",
+                 "SettingsReset.kt", "RuntimePanel.kt")
+}
+for token in ("shape = RectangleShape", "fun SettingsFlatDialog(",
+              "fun SettingsFlatPaletteTabs(", "FlatRowSurface(",
+              "fun SettingsFlatChoiceRow("):
+    if token not in settings_sources["SettingsWidgets.kt"]:
+        errors.append(f"SettingsWidgets.kt: flat control contract missing: {token}")
+for forbidden in ("AdaptiveOutlinedButton(", "AdaptiveButton(",
+                  "SingleChoiceSegmentedButtonRow", "SegmentedButton("):
+    for name in ("SettingsWidgets.kt", "AppearanceSettings.kt"):
+        if forbidden in settings_sources[name]:
+            errors.append(f"{name}: raised/capsule settings control: {forbidden}")
+for name in ("AppearanceSettings.kt", "SettingsReset.kt", "RuntimePanel.kt"):
+    if "AdaptiveAlertDialog(" in settings_sources[name]:
+        errors.append(f"{name}: rounded settings dialog still active")
+if "shape = MaterialTheme.shapes." in settings_sources["AppearanceSettings.kt"]:
+    errors.append("AppearanceSettings.kt: palette swatch still rounded")
+if "PaddingValues(vertical = MaterialUiTokens.pageVertical)" not in settings_sources["SettingsNavigation.kt"]:
+    errors.append("SettingsNavigation.kt: settings pages must use full-width rows")
+if "FlatRowSurface(" not in (root / "MainControls.kt").read_text(encoding="utf-8"):
+    errors.append("MainControls.kt: module status must be flat")
 
 # Status and diagnostics must live inside Settings, not in a separate navigation destination.
 for filename in ("MainActivity.kt", "MainTabs.kt", "MainViewModel.kt", "TextResources.kt",

@@ -55,9 +55,7 @@ internal fun SettingsScanControls(vm: MainViewModel) {
                 UiComponentRefresh.FULL to stringResource(R.string.lc_root_full_refresh)
             )
         ) { UiPreferencesStore.write(context, current.copy(componentRefresh = it)) }
-        AdaptiveText(stringResource(R.string.lc_root_scan_note),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SettingsHint(stringResource(R.string.lc_root_scan_note))
         SettingsActionButton(
             modifier = Modifier.fillMaxWidth(), enabled = !busy,
             onClick = vm::refreshComponents
@@ -111,11 +109,7 @@ internal fun SettingsScanControls(vm: MainViewModel) {
                 onClick = { vm.refresh(forceCatalog = true, manualProactive = true) }
             ) { AdaptiveText(stringResource(R.string.lc_proactive_scan_now)) }
         }
-        AdaptiveText(
-            stringResource(R.string.lc_proactive_scan_help),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        SettingsHint(stringResource(R.string.lc_proactive_scan_help))
     }
     SettingsArea(stringResource(R.string.lc_settings_other_scan_group)) {
         SettingsSwitchRow(
@@ -126,8 +120,7 @@ internal fun SettingsScanControls(vm: MainViewModel) {
                 UiPreferencesStore.write(context, current.copy(appLinkEnrichment = it))
             }
         )
-        AdaptiveText(stringResource(R.string.settings_scan_help),
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SettingsHint(stringResource(R.string.settings_scan_help))
         SettingsActionButton(
             modifier = Modifier.fillMaxWidth(), enabled = !busy,
             onClick = vm::refreshAllCategories
@@ -137,11 +130,7 @@ internal fun SettingsScanControls(vm: MainViewModel) {
             onClick = { showScanDetails = !showScanDetails }
         ) { AdaptiveText(stringResource(R.string.lc_scan_details)) }
         if (showScanDetails) {
-            AdaptiveText(
-                vm.lastScanDetails(),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            SettingsHint(vm.lastScanDetails())
         }
     }
 }
