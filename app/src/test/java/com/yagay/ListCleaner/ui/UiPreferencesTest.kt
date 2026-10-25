@@ -104,7 +104,7 @@ class UiPreferencesTest {
         ))
     }
 
-    @Test fun customFreshnessAndEveryEntryRespectRetryCooldown() {
+    @Test fun customFreshnessAndEveryEntryOnlyCooldownFailures() {
         assertFalse(ComponentScanRefreshPolicy.shouldRefresh(
             nowElapsedMs = 200_000L, lastFullScanElapsedMs = 170_000L,
             lastAttemptElapsedMs = 170_000L, busy = false,
@@ -115,8 +115,13 @@ class UiPreferencesTest {
             lastAttemptElapsedMs = 170_000L, busy = false,
             scanMode = UiScanMode.EVERY_ENTRY
         ))
-        assertFalse(ComponentScanRefreshPolicy.shouldRefresh(
+        assertTrue(ComponentScanRefreshPolicy.shouldRefresh(
             nowElapsedMs = 190_000L, lastFullScanElapsedMs = 170_000L,
+            lastAttemptElapsedMs = 170_000L, busy = false,
+            scanMode = UiScanMode.EVERY_ENTRY
+        ))
+        assertFalse(ComponentScanRefreshPolicy.shouldRefresh(
+            nowElapsedMs = 190_000L, lastFullScanElapsedMs = -1L,
             lastAttemptElapsedMs = 170_000L, busy = false,
             scanMode = UiScanMode.EVERY_ENTRY
         ))
