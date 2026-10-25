@@ -91,14 +91,40 @@ jobs:
                   f'- {subject} ([`{sha[:7]}`](https://github.com/{repo}/commit/{sha}))'
               )
 
+          # GitHub Release bodies are length-bounded. Large gaps between
+          # releases belong in a tracked full-history document; show a
+          # concise recent-commit preview and links in the release body.
+          compare_url = f'https://github.com/{repo}/compare/{previous_tag}...{current_tag}'
+          full_history_path = Path(f'docs/releases/{current_tag}-commits.md')
           section = [
               marker,
               '',
               f'范围 / Range: `{previous_tag}...{current_tag}`',
               '',
-              *(entries or ['- No commits found in the release range.']),
+              f'提交 / Commits: {len(entries)}',
+              '',
+              f'[GitHub compare / 全部提交对比]({compare_url})',
           ]
-          completed = body + '\n\n' + '\n'.join(section) + '\n'
+          if full_history_path.is_file():
+              section += [
+                  '',
+                  f'[完整逐条日志 / Complete commit history](https://github.com/{repo}/blob/{current_tag}/{full_history_path.as_posix()})',
+              ]
+
+          full = body + '\n\n' + '\n'.join(section + ['', *entries]) + '\n'
+          if len(full) <= 120_000:
+              completed = full
+          else:
+              section += [
+                  '',
+                  '### 最近提交 / Recent commits (last 80)',
+                  '',
+                  *(entries[-80:] or ['- No commits found in the release range.']),
+              ]
+              completed = body + '\n\n' + '\n'.join(section) + '\n'
+              if len(completed) > 120_000:
+                  raise SystemExit('Consolidated changelog is unexpectedly too long')
+              print(f'Full commit log ({len(entries)} entries) linked instead of embedded.')
 
           with tempfile.NamedTemporaryFile('w', encoding='utf-8', delete=False) as fh:
               fh.write(completed)
