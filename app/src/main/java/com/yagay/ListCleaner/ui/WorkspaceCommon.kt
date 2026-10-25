@@ -26,6 +26,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -408,6 +410,45 @@ internal fun WorkspaceReadOnlyDetailRow(
     }
 }
 
+/**
+ * Circular detail-only selection mark. The parent detail row owns the click and
+ * checkbox semantics, keeping this shape decorative and avoiding nested targets.
+ * Both LSPosed entries and Root components use this one shared indicator.
+ */
+@Composable
+private fun WorkspaceDetailSelectionIndicator(
+    checked: Boolean,
+    enabled: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val colors = MaterialTheme.colorScheme
+    val disabledColor = colors.onSurface.copy(alpha = 0.38f)
+    Box(
+        modifier = modifier.size(MaterialUiTokens.iconTouchTarget),
+        contentAlignment = Alignment.Center
+    ) {
+        androidx.compose.material3.Surface(
+            modifier = Modifier.size(22.dp),
+            shape = androidx.compose.foundation.shape.CircleShape,
+            color = if (checked) {
+                if (enabled) colors.primary else colors.onSurface.copy(alpha = 0.12f)
+            } else androidx.compose.ui.graphics.Color.Transparent,
+            border = if (checked) null else androidx.compose.foundation.BorderStroke(
+                1.5.dp, if (enabled) colors.outline else disabledColor
+            )
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                if (checked) AdaptiveIcon(
+                    Icons.Rounded.Check,
+                    null,
+                    modifier = Modifier.size(16.dp),
+                    tint = if (enabled) colors.onPrimary else disabledColor
+                )
+            }
+        }
+    }
+}
+
 /** Identical detail-row surface, checkbox, lock menu and hit area for both engines. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -429,10 +470,14 @@ internal fun WorkspaceDetailRow(
                 role = androidx.compose.ui.semantics.Role.Checkbox,
                 onClick = { if (enabled) onToggle() },
                 onLongClick = { if (lockToggleEnabled) lockMenuExpanded = true }
-            )
+            ).semantics {
+                toggleableState = if (checked) androidx.compose.ui.state.ToggleableState.On
+                    else androidx.compose.ui.state.ToggleableState.Off
+            }
         val rowContents: @Composable RowScope.() -> Unit = {
-            AdaptiveCheckbox(
-                checked = checked, enabled = enabled, onCheckedChange = null,
+            WorkspaceDetailSelectionIndicator(
+                checked = checked,
+                enabled = enabled,
                 modifier = Modifier.padding(horizontal = 8.dp)
             )
             Column(Modifier.weight(1f).padding(vertical = 4.dp)) { content() }

@@ -300,7 +300,7 @@ class MainActivity : ComponentActivity() {
                     titleRes = when {
                         state.destination == Destination.TILES -> R.string.root_screen_title
                         state.destination == Destination.PRIORITY -> R.string.nav_priority
-                        else -> R.string.nav_rules
+                        else -> R.string.app_name
                     },
                     spaces = spaces,
                     selectedSpace = selectedSpace,

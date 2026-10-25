@@ -169,11 +169,18 @@ filter_position = picker_row.find("        filter()")
 if category_position < 0 or filter_position < 0 or category_position >= filter_position:
     errors.append("WorkspaceCategorySelector.kt: Category must precede Filter in the top toolbar")
 toolbar_source = (root / "MainActivity.kt").read_text(encoding="utf-8")
-if "else -> R.string.nav_rules" not in toolbar_source:
-    errors.append("MainActivity.kt: combined Cleanup editor must use the unified Cleanup title")
+if "else -> R.string.app_name" not in toolbar_source:
+    errors.append("MainActivity.kt: Cleanup top toolbar must retain the List Cleaner app name")
 
 # Expansion controls and Root/LSPosed actions must not be dropped.
 details = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
+if "WorkspaceDetailSelectionIndicator(" not in details or "shape = androidx.compose.foundation.shape.CircleShape" not in details:
+    errors.append("WorkspaceCommon.kt: expanded Entry/Root rows must use a circular detail indicator")
+detail_row = details.split("internal fun WorkspaceDetailRow(", 1)[-1]
+if "AdaptiveCheckbox(" in detail_row or "WorkspaceDetailSelectionIndicator(" not in detail_row:
+    errors.append("WorkspaceCommon.kt: detail rows must not fall back to a square checkbox")
+if "toggleableState = if (checked)" not in detail_row:
+    errors.append("WorkspaceCommon.kt: detail checkbox selection semantics missing")
 for symbol in ("WorkspaceReadOnlyDetailRow(", "WorkspaceDetailRow(",
                "UiCardDetailRow(modifier = clickModifier, content = rowContents)",
                "ContinuousDetailSurface(content)", "BulkLockContextMenu("):
