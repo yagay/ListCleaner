@@ -423,7 +423,7 @@ internal fun WorkspaceReadOnlyDetailRow(
 }
 
 /**
- * Selected expanded components show a theme-colored check next to their actions,
+ * Selected expanded components show a theme-colored check AFTER their action menu,
  * not a leading rail. Reserve the mark's width while unchecked so detail text
  * and the existing three-dot overflow never jump when toggled.
  *
@@ -477,14 +477,19 @@ internal fun WorkspaceDetailRow(
             // Preserve the existing leading indentation without the blue rail.
             Spacer(Modifier.width(15.dp))
             Column(Modifier.weight(1f).padding(vertical = 4.dp)) { content() }
-            WorkspaceDetailSelectionCheck(selected = checked, enabled = enabled)
             if (locked) AdaptiveIcon(
                 Icons.Rounded.Lock, stringResource(R.string.bulk_lock_full),
                 modifier = Modifier.padding(horizontal = 8.dp).size(18.dp)
             )
             trailing()
+            // After the three-dot menu, in the row's existing trailing allowance.
+            WorkspaceDetailSelectionCheck(selected = checked, enabled = enabled)
         }
-        UiCardDetailRow(modifier = clickModifier, content = rowContents)
+        UiCardDetailRow(
+            modifier = clickModifier,
+            trailingAccessoryWidth = 20.dp,
+            content = rowContents
+        )
         BulkLockContextMenu(
             expanded = lockMenuExpanded,
             onDismiss = { lockMenuExpanded = false },

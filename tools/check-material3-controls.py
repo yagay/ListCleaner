@@ -313,7 +313,7 @@ flat_visual_checks = {
     "WorkspaceCommon.kt": ("WorkspaceCategoryRow(", "FlatCategoryRow(",
                             "WorkspaceDetailContainer(position, selected = false)",
                             "WorkspaceDetailContainer(position, checked, contentBlock)",
-                            "UiCardDetailRow(modifier = clickModifier, content = rowContents)",
+                            "trailingAccessoryWidth = 20.dp",
                             "WorkspaceDetailSelectionCheck(selected = checked, enabled = enabled)"),
     "SettingsWidgets.kt": ("FlatSectionHeader(", "MaterialSectionCard { content() }",
                            "FlatRowSurface(dividerInset = 0.dp)", "FlatRowSurface("),
@@ -446,14 +446,17 @@ detail_row = details.split("internal fun WorkspaceDetailRow(", 1)[-1]
 for expected in ("WorkspaceDetailSelectionCheck(selected = checked, enabled = enabled)",
                  "Spacer(Modifier.width(15.dp))",
                  "toggleableState = if (checked)",
-                 "UiCardDetailRow(modifier = clickModifier, content = rowContents)",
+                 "trailingAccessoryWidth = 20.dp",
                  "BulkLockContextMenu("):
     if expected not in detail_row:
         errors.append(f"WorkspaceCommon.kt: expanded detail contract missing {expected}")
 if detail_row.index("Column(Modifier.weight(1f)") > detail_row.index("WorkspaceDetailSelectionCheck("):
     errors.append("WorkspaceCommon.kt: check must follow component text")
-if detail_row.index("WorkspaceDetailSelectionCheck(") > detail_row.index("trailing()"):
-    errors.append("WorkspaceCommon.kt: check must precede overflow actions")
+if detail_row.index("WorkspaceDetailSelectionCheck(") < detail_row.index("trailing()"):
+    errors.append("WorkspaceCommon.kt: check must follow overflow actions")
+detail_layout = (root / "UiCard.kt").read_text(encoding="utf-8")
+if "end = MaterialUiTokens.pageHorizontal + MaterialUiTokens.appExpandIndicatorWidth -" not in detail_layout:
+    errors.append("UiCard.kt: expanded detail check must share the overflow alignment allowance")
 if "AdaptiveCheckbox(" in detail_row:
     errors.append("WorkspaceCommon.kt: expanded details must not use square checkboxes")
 if "ContinuousDetailSurface(selected = selected, content = content)" not in details:

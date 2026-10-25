@@ -79,6 +79,9 @@ internal fun UiCard(
 @Composable
 internal fun UiCardDetailRow(
     modifier: Modifier = Modifier,
+    // Reuse the existing right-hand overflow allowance for an optional suffix.
+    // This keeps the three-dot button aligned with the parent application row.
+    trailingAccessoryWidth: Dp = 0.dp,
     content: @Composable RowScope.() -> Unit
 ) {
     Row(
@@ -86,7 +89,8 @@ internal fun UiCardDetailRow(
             .heightIn(min = MaterialUiTokens.detailHeight)
             .padding(
                 start = MaterialUiTokens.pageHorizontal + MaterialUiTokens.groupedDetailIndent,
-                end = MaterialUiTokens.pageHorizontal + MaterialUiTokens.appExpandIndicatorWidth,
+                end = MaterialUiTokens.pageHorizontal + MaterialUiTokens.appExpandIndicatorWidth -
+                    trailingAccessoryWidth,
                 top = MaterialUiTokens.detailVertical,
                 bottom = MaterialUiTokens.detailVertical
             ),
