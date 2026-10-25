@@ -75,10 +75,13 @@ internal fun UiCard(
     }
 }
 
-/** Shared flat detail row, with balanced content insets on both edges. */
+/** Shared flat detail row; selectable details can align with the parent app's icon. */
 @Composable
 internal fun UiCardDetailRow(
     modifier: Modifier = Modifier,
+    // Read-only details retain page inset. Selectable details use 0dp so their
+    // 48dp leading lock slot aligns exactly with the parent's selection slot.
+    leadingInset: Dp = MaterialUiTokens.pageHorizontal,
     // Reuse the existing right-hand overflow allowance for an optional suffix.
     // This keeps the three-dot button aligned with the parent application row.
     trailingAccessoryWidth: Dp = 0.dp,
@@ -88,7 +91,7 @@ internal fun UiCardDetailRow(
         modifier = modifier.fillMaxWidth()
             .heightIn(min = MaterialUiTokens.detailHeight)
             .padding(
-                start = MaterialUiTokens.pageHorizontal,
+                start = leadingInset,
                 end = MaterialUiTokens.pageHorizontal + MaterialUiTokens.appExpandIndicatorWidth -
                     trailingAccessoryWidth,
                 top = MaterialUiTokens.detailVertical,

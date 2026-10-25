@@ -519,8 +519,18 @@ if "AdaptiveCheckbox(" in detail_row:
     errors.append("WorkspaceCommon.kt: expanded details must not use square checkboxes")
 if "Spacer(Modifier.width(15.dp))" in detail_row:
     errors.append("WorkspaceCommon.kt: obsolete leading rail space remains")
-if "start = MaterialUiTokens.pageHorizontal," not in detail_layout:
-    errors.append("UiCard.kt: expanded component leading edge must match page inset")
+if "leadingInset: Dp = MaterialUiTokens.pageHorizontal" not in detail_layout or "start = leadingInset," not in detail_layout:
+    errors.append("UiCard.kt: read-only inset and selectable lock-slot alignment missing")
+if "leadingInset = 0.dp" not in detail_row:
+    errors.append("WorkspaceCommon.kt: component lock-slot must start at app-row left edge")
+if "Modifier.width(MaterialUiTokens.iconTouchTarget)" not in detail_row:
+    errors.append("WorkspaceCommon.kt: component leading lock-slot must match 48dp app selector")
+if detail_row.count("Icons.Rounded.Lock") != 1:
+    errors.append("WorkspaceCommon.kt: duplicate/trailing component lock icon")
+if detail_row.index("Icons.Rounded.Lock") > detail_row.index("Column(Modifier.weight(1f)"):
+    errors.append("WorkspaceCommon.kt: lock belongs before component title, not after")
+if detail_row.index("if (locked)") > detail_row.index("Column(Modifier.weight(1f)"):
+    errors.append("WorkspaceCommon.kt: lock must be in the leading reserved slot")
 if "ContinuousDetailSurface(selected = selected, content = content)" not in details:
     errors.append("WorkspaceCommon.kt: selected detail background not forwarded to shared surface")
 grouped = (root / "WorkspaceGroupedRows.kt").read_text(encoding="utf-8")

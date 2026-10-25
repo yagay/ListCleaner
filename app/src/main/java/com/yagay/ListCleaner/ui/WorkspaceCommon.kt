@@ -448,7 +448,7 @@ private fun WorkspaceDetailSelectionCheck(
     }
 }
 
-/** Identical detail-row surface, checkbox, lock menu and hit area for both engines. */
+/** Shared component detail with an aligned leading lock slot and trailing selection mark. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 internal fun WorkspaceDetailRow(
@@ -474,19 +474,28 @@ internal fun WorkspaceDetailRow(
                     else androidx.compose.ui.state.ToggleableState.Off
             }
         val rowContents: @Composable RowScope.() -> Unit = {
-            // The blue selection rail has been removed; detail text begins at
-            // the same outer inset as the right-hand trailing check.
+            // Match the parent application's 48dp leading selection slot.
+            // The component text now starts at the parent's application icon.
+            Box(
+                modifier = Modifier.width(MaterialUiTokens.iconTouchTarget),
+                contentAlignment = Alignment.Center
+            ) {
+                if (locked) {
+                    AdaptiveIcon(
+                        Icons.Rounded.Lock,
+                        stringResource(R.string.bulk_lock_full),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
             Column(Modifier.weight(1f).padding(vertical = 4.dp)) { content() }
-            if (locked) AdaptiveIcon(
-                Icons.Rounded.Lock, stringResource(R.string.bulk_lock_full),
-                modifier = Modifier.padding(horizontal = 8.dp).size(18.dp)
-            )
             trailing()
-            // After the three-dot menu, in the row's existing trailing allowance.
+            // After the three-dot menu, in the existing trailing allowance.
             WorkspaceDetailSelectionCheck(selected = checked, enabled = enabled)
         }
         UiCardDetailRow(
             modifier = clickModifier,
+            leadingInset = 0.dp,
             trailingAccessoryWidth = 20.dp,
             content = rowContents
         )
