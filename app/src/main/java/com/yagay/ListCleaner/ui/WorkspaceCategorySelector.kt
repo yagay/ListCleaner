@@ -290,18 +290,9 @@ internal fun WorkspaceFlatMenuRow(
             text = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (indented) {
-                        // Keep the original 3dp rail + 28dp indentation width.
-                        // Subitems get a quiet hierarchy guide, never a blue dot.
-                        Spacer(Modifier.width(3.dp))
-                        Box(
-                            modifier = Modifier.width(28.dp).height(22.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Box(
-                                Modifier.width(1.dp).height(22.dp)
-                                    .background(MaterialTheme.colorScheme.outlineVariant)
-                            )
-                        }
+                        // Reserve the same indentation without decorating every subitem.
+                        // Its theme-colored text and checkmark already identify selection.
+                        Spacer(Modifier.width(31.dp))
                     } else {
                         if (section) {
                             // Header rail follows expansion, never a child selection.
