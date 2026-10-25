@@ -19,7 +19,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.style.TextOverflow
@@ -143,26 +142,6 @@ internal fun WorkspaceDetailStatus(
         overflow = TextOverflow.Ellipsis
     )
 }
-
-/** Common 48dp Material 3 touch target and 18dp icon for details actions. */
-@Composable
-internal fun WorkspaceDetailIconAction(
-    image: ImageVector,
-    contentDescription: String,
-    onClick: () -> Unit
-) {
-    AdaptiveIconButton(
-        onClick = onClick,
-        modifier = Modifier
-    ) {
-        AdaptiveIcon(
-            image,
-            contentDescription,
-            modifier = Modifier.size(18.dp)
-        )
-    }
-}
-
 
 /**
  * One anchored, square overflow menu for application rows and component details.

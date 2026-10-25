@@ -50,7 +50,7 @@ for file in sorted(root.glob("*.kt")):
 
 required = {
     "AdaptiveWidgets.kt": ["fun AdaptiveFilterChip(", "OutlinedButton(", "TextButton(", "Button(",
-                           "Checkbox(", "IconButton(", "FlatRowSurface("],
+                           "Checkbox(", "IconButton(", "FlatUnderlineTab("],
     "MaterialActionColors.kt": ["fun filled()", "fun outlined()", "fun outlinedBorder(",
                                  "fun text()", "fun icon()", "fun navigation()",
                                  "NavigationBarItemDefaults.colors("],
@@ -252,7 +252,7 @@ rail = (root / "FlatListDesign.kt").read_text(encoding="utf-8")
 if "fun FlatSelectionRail(" not in rail or "Modifier.width(3.dp).height(height)" not in rail:
     errors.append("FlatListDesign.kt: shared accent rail missing")
 details = (root / "WorkspaceListParts.kt").read_text(encoding="utf-8")
-if "UiListStyle.GROUPED" in details or "UiPreferencesRuntime.current.listStyle" in details:
+if "UiListStyle.GROUPED" in details or "UiPreferencesRuntime.current.listStyle" in details or "WorkspaceDetailIconAction(" in details:
     errors.append("WorkspaceListParts.kt: dormant Grouped rendering branch still active")
 geometry = (root / "MaterialDesignSystem.kt").read_text(encoding="utf-8")
 for obsolete in ("val cardShape get()", "val listCardRadius get()",
@@ -292,7 +292,7 @@ flat_visual_checks = {
                            "FlatRowSurface(dividerInset = 0.dp)", "FlatRowSurface("),
     "SettingsCenterHome.kt": ("FlatCategoryRow(", "onSelect(section)",
                               "MaterialPageColumn(fullBleed = true)"),
-    "AdaptiveWidgets.kt": ("fun AdaptiveGroupSurface(", "= FlatRowSurface("),
+    "AdaptiveWidgets.kt": ("fun FlatUnderlineTab(", "fun AdaptiveFilterChip("),
     "AppScopePicker.kt": ("FlatRowSurface(Modifier.fillMaxWidth())",),
     "WorkspaceCategorySelector.kt": ("filter()", "Box(Modifier.weight(1f)) { category() }",
                                       "WorkspaceFlatMenuRow(", "shape = RectangleShape"),
