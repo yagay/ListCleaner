@@ -231,6 +231,18 @@ for token in ("val homeLayout: UiHomeLayout = UiHomeLayout.CLASSIC_LIST",
 app_row = (root / "WorkspaceAppRow.kt").read_text(encoding="utf-8")
 if "androidx.compose.material3.ListItem(" in app_row:
     errors.append("WorkspaceAppRow.kt: two-line ListItem padding makes list too tall")
+# OPEN formats such as PDF/Word/Excel are metadata, never a separate chip/card.
+open_indicator = (root / "AppListRows.kt").read_text(encoding="utf-8").split(
+    "private fun OpenWithTypeIndicator(", 1
+)[-1].split("@OptIn(ExperimentalFoundationApi::class)", 1)[0]
+for forbidden in ("Surface(", "BorderStroke(", "RoundedCornerShape(", "MaterialFlatPalette.sectionSurface()"):
+    if forbidden in open_indicator:
+        errors.append(f"AppListRows.kt: OPEN type label must be flat, found {forbidden}")
+for expected in ("AdaptiveText(", "MaterialTheme.typography.labelSmall",
+                 "MaterialTheme.colorScheme.onSurfaceVariant",
+                 "maxLines = if (expanded) Int.MAX_VALUE else 1"):
+    if expected not in open_indicator:
+        errors.append(f"AppListRows.kt: OPEN format metadata contract missing: {expected}")
 
 # The only active workspace routing uses one list, not the old category-home.
 for filename in ("MainTabs.kt", "RootComponentsScreen.kt", "PriorityDialog.kt"):

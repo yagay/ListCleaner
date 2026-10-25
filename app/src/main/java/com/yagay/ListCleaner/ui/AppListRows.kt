@@ -123,20 +123,16 @@ private fun OpenWithTypeIndicator(
     val label = if (!expanded && labels.size > compactCount) {
         labels.take(compactCount).joinToString(" · ") + " · +${labels.size - compactCount}"
     } else labels.joinToString(" · ")
-    Surface(
-        color = MaterialFlatPalette.sectionSurface(),
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        shape = RoundedCornerShape(MaterialUiTokens.groupedInnerRadius),
-        border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialFlatPalette.outline()),
-    ) {
-        AdaptiveText(
-            label,
-            modifier = Modifier.padding(horizontal = MaterialUiTokens.contentGap, vertical = 2.dp),
-            style = MaterialTheme.typography.labelSmall,
-            maxLines = if (expanded) Int.MAX_VALUE else 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
+    // Formats are secondary metadata inside the existing application row.
+    // Avoid introducing an extra chip/card surface into the flat list.
+    AdaptiveText(
+        label,
+        modifier = Modifier.fillMaxWidth(),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = if (expanded) Int.MAX_VALUE else 1,
+        overflow = TextOverflow.Ellipsis,
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)
