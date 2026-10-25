@@ -52,13 +52,13 @@ required = {
     "AdaptiveWidgets.kt": ["fun AdaptiveFilterChip(", "OutlinedButton(", "TextButton(", "Button(",
                            "Checkbox(", "IconButton(", "FlatRowSurface("],
     "MaterialActionColors.kt": ["fun filled()", "fun outlined()", "fun outlinedBorder(",
-                                 "fun text()", "fun icon()", "fun filter()", "fun navigation()",
-                                 "NavigationBarItemDefaults.colors(", "FilterChipDefaults.filterChipColors("],
+                                 "fun text()", "fun icon()", "fun navigation()",
+                                 "NavigationBarItemDefaults.colors("],
     "UiCard.kt": ["enum class UiCardVariant", "UiCardVariant.SECTION", "UiCardVariant.CATEGORY",
                    "UiCardVariant.LIST_GROUP", "UiCardVariant.STATUS",
                    "Surface(", "RectangleShape", "MaterialFlatPalette.sectionSurface()",
                    "onClick = onClick", "UiCardDetailRow(", "heightIn(min = MaterialUiTokens.detailHeight)"],
-    "MaterialDesignSystem.kt": ["MaterialSectionCard(", "FlatRowSurface(", "val cardShape get() ="],
+    "MaterialDesignSystem.kt": ["MaterialSectionCard(", "FlatRowSurface(", "val groupedDetailIndent get() ="],
     "WorkspaceLayout.kt": ["enum class ListRowPosition", "FlatSectionHeader(title)"],
     "MainControls.kt": ["UiCardVariant.STATUS", "warning = true"],
     "MainActivity.kt": ["NavigationBarItem(", "colors = MaterialActionColors.navigation()",
@@ -210,15 +210,60 @@ for term in ("menuWidth: Dp = 224.dp", "Modifier.width(actualMenuWidth)",
         errors.append(f"AdaptivePopups.kt: explicit width contract missing {term}")
 if ".widthIn(min = 196.dp)" in popup_width:
     errors.append("AdaptivePopups.kt: minimum-only popup width returned")
-for filename, token in {
-    "WorkspaceCommon.kt": "menuWidth = 264.dp",
-    "WorkspaceCategorySelector.kt": "menuWidth = 280.dp",
-    "WorkspaceListParts.kt": "menuWidth = 224.dp",
-    "OpenPresetFilterRow.kt": "menuWidth = 264.dp",
-    "BrowserHostFilterRow.kt": "menuWidth = menuWidth",
-}.items():
-    if token not in (root / filename).read_text(encoding="utf-8"):
-        errors.append(f"{filename}: explicit popup width profile missing {token}")
+# Test shared width bounding and call routing; never freeze design widths.
+for filename in ("WorkspaceCommon.kt", "WorkspaceCategorySelector.kt",
+                 "WorkspaceListParts.kt", "OpenPresetFilterRow.kt",
+                 "BrowserHostFilterRow.kt"):
+    if "FlatWorkspaceDropdownMenu(" not in (root / filename).read_text(encoding="utf-8"):
+        errors.append(f"{filename}: common popup entry point absent")
+# Unified widgets are validated by geometry and semantics, not old names.
+button_src = (root / "AdaptiveWidgets.kt").read_text(encoding="utf-8")
+for name in ("AdaptiveTextButton", "AdaptiveOutlinedButton", "AdaptiveButton"):
+    body = button_src.split(f"internal fun {name}(", 1)[-1].split("@Composable", 1)[0]
+    if "shape = RectangleShape" not in body:
+        errors.append(f"AdaptiveWidgets.kt: {name} still has a rounded default")
+modal_src = (root / "AdaptivePopups.kt").read_text(encoding="utf-8")
+dialog = modal_src.split("internal fun AdaptiveAlertDialog(", 1)[-1].split(
+    "Common anchored Popup engine.", 1
+)[0]
+for term in ("Dialog(onDismissRequest", "shape = RectangleShape",
+             "FlatPopupFooter {", "shadowElevation = 0.dp"):
+    if term not in dialog:
+        errors.append(f"AdaptivePopups.kt: flat dialog contract missing {term}")
+menu_row = modal_src.split("internal fun AdaptiveDropdownMenuItem(", 1)[-1].split(
+    "One menu entry point", 1
+)[0]
+for term in ("Surface(", "heightIn(min = 48.dp)",
+             "Alignment.CenterVertically", "enabled = enabled"):
+    if term not in menu_row:
+        errors.append(f"AdaptivePopups.kt: flat menu item contract missing {term}")
+for obsolete in ("    DropdownMenuItem(", "    AlertDialog("):
+    if obsolete in modal_src:
+        errors.append(f"AdaptivePopups.kt: old material component {obsolete}")
+for filename in ("WorkspaceCategorySelector.kt", "SettingsWidgets.kt"):
+    if "FlatSelectionRail(selected)" not in (root / filename).read_text(encoding="utf-8"):
+        errors.append(f"{filename}: not using shared selected rail")
+rail = (root / "FlatListDesign.kt").read_text(encoding="utf-8")
+if "fun FlatSelectionRail(" not in rail or "Modifier.width(3.dp).height(height)" not in rail:
+    errors.append("FlatListDesign.kt: shared accent rail missing")
+details = (root / "WorkspaceListParts.kt").read_text(encoding="utf-8")
+if "UiListStyle.GROUPED" in details or "UiPreferencesRuntime.current.listStyle" in details:
+    errors.append("WorkspaceListParts.kt: dormant Grouped rendering branch still active")
+geometry = (root / "MaterialDesignSystem.kt").read_text(encoding="utf-8")
+for obsolete in ("val cardShape get()", "val listCardRadius get()",
+                 "val groupedInnerRadius get()", "val categoryHeight get()"):
+    if obsolete in geometry:
+        errors.append(f"MaterialDesignSystem.kt: old unused geometry {obsolete}")
+colors = (root / "MaterialActionColors.kt").read_text(encoding="utf-8")
+for obsolete in ("fun segmented()", "fun filter()", "FilterChipDefaults", "SegmentedButtonDefaults"):
+    if obsolete in colors:
+        errors.append(f"MaterialActionColors.kt: legacy palette {obsolete}")
+action_body = (root / "SettingsWidgets.kt").read_text(encoding="utf-8").split(
+    "internal fun SettingsActionButton(", 1
+)[-1].split("internal fun SettingsFlatDialog(", 1)[0]
+if "vertical = 8.dp" in action_body:
+    errors.append("SettingsWidgets.kt: extra vertical spacing returned to settings actions")
+
 # Unified List First renderer across Cleanup, Ordering, Settings and details.
 flat_visual_checks = {
     "FlatListDesign.kt": ("fun FlatRowSurface(", "fun FlatCategoryRow(",
@@ -316,7 +361,7 @@ if "MaterialFlatPalette.selectedSurface()" in menu_choice_source.split(
         "internal fun EntryCategoryPicker(", 1)[0]:
     errors.append("WorkspaceCategorySelector.kt: rounded selection cards returned to menu")
 nav_source = (root / "MaterialActionColors.kt").read_text(encoding="utf-8")
-nav_palette = nav_source.split("fun navigation()", 1)[-1].split("fun filter()", 1)[0]
+nav_palette = nav_source.split("fun navigation()", 1)[-1].split("}", 1)[0]
 if "indicatorColor = Color.Transparent" not in nav_palette:
     errors.append("MaterialActionColors.kt: old pill indicator still active")
 nav_activity = (root / "MainActivity.kt").read_text(encoding="utf-8")
@@ -429,7 +474,7 @@ if "R.string.lc_home_layout_title" in (root / "AppearanceSettings.kt").read_text
     errors.append("AppearanceSettings.kt: remove duplicate layout mode setting")
 
 # Prevent duplicate app/detail renderers and verify preview rows.
-for filename in ("WorkspaceAppRow.kt", "WorkspaceCommon.kt", "RootComponentsScreen.kt"):
+for filename in ("WorkspaceAppRow.kt", "WorkspaceCommon.kt", "RootComponentsScreen.kt", "WorkspaceListParts.kt"):
     if "if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED)" in (root / filename).read_text(encoding="utf-8"):
         errors.append(f"{filename}: legacy Grouped style still changes row rendering")
 if "FlatRowSurface(dividerInset = 0.dp)" not in (root / "SystemProbeDialog.kt").read_text(encoding="utf-8"):
