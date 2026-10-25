@@ -421,6 +421,18 @@ fun RulesTab(
                         }
                     }, visibleRules.isNotEmpty())
                 ),
+                previewActions = (if (state.filter == null) IntentKind.entries.toList()
+                    else listOf(requireNotNull(state.filter))).map { previewKind ->
+                    WorkspaceMenuAction(
+                        label = stringResource(previewKind.titleRes()),
+                        onClick = {
+                            systemProbeRequest = SystemProbeRequest(
+                                entryKind = previewKind,
+                                userId = vm.selectedSpace.value
+                            )
+                        }
+                    )
+                },
                 helpExpanded = ruleHelpExpanded,
                 onHelpToggle = { ruleHelpExpanded = !ruleHelpExpanded }
             )
@@ -626,6 +638,7 @@ private fun SummaryRow(
     state: MainState,
     displayedApps: Int,
     actions: List<WorkspaceMenuAction>,
+    previewActions: List<WorkspaceMenuAction>,
     helpExpanded: Boolean,
     onHelpToggle: () -> Unit
 ) {
@@ -633,6 +646,7 @@ private fun SummaryRow(
         title = stringResource(R.string.app_list_count, displayedApps),
         secondary = stringResource(state.displayMode.titleRes()),
         actions = actions,
+        previewActions = previewActions,
         helpExpanded = helpExpanded,
         onHelpToggle = onHelpToggle
     )

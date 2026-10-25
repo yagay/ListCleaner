@@ -172,6 +172,25 @@ toolbar_source = (root / "MainActivity.kt").read_text(encoding="utf-8")
 if "else -> R.string.app_name" not in toolbar_source:
     errors.append("MainActivity.kt: Cleanup top toolbar must retain the List Cleaner app name")
 
+# Header preview is immediately before Help, with a real category scoped request.
+# Per-component actions remain available via the existing overflow menu.
+toolbar_actions = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8").split(
+    "internal fun WorkspaceListActions(", 1
+)[-1].split("internal fun WorkspaceListSummary(", 1)[0]
+preview_at = toolbar_actions.find("if (previewActions.isNotEmpty())")
+help_at = toolbar_actions.find("if (onHelpToggle != null)")
+if preview_at < 0 or help_at < preview_at:
+    errors.append("WorkspaceCommon.kt: system preview icon must precede Help")
+if "Icons.Rounded.Visibility" not in toolbar_actions or "previewActions.first().onClick()" not in toolbar_actions:
+    errors.append("WorkspaceCommon.kt: contextual system preview action is missing")
+for filename, target in (("MainTabs.kt", "entryKind = previewKind"),
+                         ("RootComponentsScreen.kt", "componentKind = previewKind")):
+    code = (root / filename).read_text(encoding="utf-8")
+    if "previewActions =" not in code or target not in code:
+        errors.append(f"{filename}: category-aware header preview not connected")
+if "onPreview = onPreview" not in (root / "AppListRows.kt").read_text(encoding="utf-8"):
+    errors.append("AppListRows.kt: per-component precision preview in overflow must remain")
+
 # Dropdown menus and bottom navigation must stay visually flat.
 popup_source = (root / "AdaptivePopups.kt").read_text(encoding="utf-8")
 for token in ("fun FlatWorkspaceDropdownMenu(", "shape = RectangleShape",

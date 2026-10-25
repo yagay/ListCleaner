@@ -14,6 +14,7 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -255,8 +256,10 @@ internal fun WorkspaceListActions(
     actions: List<WorkspaceMenuAction> = emptyList(),
     helpExpanded: Boolean = false,
     onHelpToggle: (() -> Unit)? = null,
+    previewActions: List<WorkspaceMenuAction> = emptyList(),
 ) {
     var selectionMenuExpanded by remember { mutableStateOf(false) }
+    var previewMenuExpanded by remember { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically) {
         // A labeled menu provides all batch actions without a visible tri-state.
         if (actions.isNotEmpty()) {
@@ -285,7 +288,48 @@ internal fun WorkspaceListActions(
                 }
             }
         }
-        // Help is always the final control for Entry, Component and Ordering.
+        // The preview icon belongs immediately before Help, not to individual rows.
+        // A specific category previews directly; All opens a flat category chooser.
+        if (previewActions.isNotEmpty()) {
+            Box {
+                AdaptiveIconButton(
+                    onClick = {
+                        if (previewActions.size == 1) {
+                            previewActions.first().onClick()
+                        } else {
+                            previewMenuExpanded = true
+                        }
+                    },
+                    enabled = previewActions.any { it.enabled }
+                ) {
+                    AdaptiveIcon(
+                        Icons.Rounded.Visibility,
+                        stringResource(R.string.system_preview_action),
+                        Modifier.size(20.dp)
+                    )
+                }
+                if (previewActions.size > 1) {
+                    FlatWorkspaceDropdownMenu(
+                        expanded = previewMenuExpanded,
+                        onDismissRequest = { previewMenuExpanded = false },
+                        modifier = Modifier.widthIn(min = 240.dp, max = 328.dp)
+                            .heightIn(max = 440.dp)
+                    ) {
+                        previewActions.forEach { action ->
+                            WorkspaceFlatMenuRow(
+                                title = action.label,
+                                selected = false,
+                                onClick = {
+                                    previewMenuExpanded = false
+                                    action.onClick()
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        // Help remains the final control for Entry, Component and Ordering.
         if (onHelpToggle != null) {
             AdaptiveIconButton(onClick = onHelpToggle) {
                 AdaptiveIcon(
@@ -307,6 +351,7 @@ internal fun WorkspaceListSummary(
     actions: List<WorkspaceMenuAction> = emptyList(),
     helpExpanded: Boolean = false,
     onHelpToggle: (() -> Unit)? = null,
+    previewActions: List<WorkspaceMenuAction> = emptyList(),
 ) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = 2.dp),
@@ -320,7 +365,7 @@ internal fun WorkspaceListSummary(
                 style = MaterialTheme.typography.labelSmall, maxLines = 1
             )
         }
-        WorkspaceListActions(actions, helpExpanded, onHelpToggle)
+        WorkspaceListActions(actions, helpExpanded, onHelpToggle, previewActions)
     }
 }
 
