@@ -51,13 +51,33 @@ class ComponentScanRefreshPolicyTest {
         ))
     }
 
-    @Test fun packageChangeStillHonorsShortFailureRetryDelay() {
-        assertFalse(ComponentScanRefreshPolicy.shouldRefresh(
+    @Test fun packageChangeAfterSuccessRefreshesImmediately() {
+        assertTrue(ComponentScanRefreshPolicy.shouldRefresh(
             nowElapsedMs = 240_500L,
             lastFullScanElapsedMs = 240_000L,
             lastAttemptElapsedMs = 240_000L,
             busy = false,
             packageRevisionChanged = true
+        ))
+    }
+
+    @Test fun failedAttemptStillHonorsRetryDelayWithPackageChanges() {
+        assertFalse(ComponentScanRefreshPolicy.shouldRefresh(
+            nowElapsedMs = 240_500L,
+            lastFullScanElapsedMs = -1L,
+            lastAttemptElapsedMs = 240_000L,
+            busy = false,
+            packageRevisionChanged = true
+        ))
+    }
+
+    @Test fun everyEntryModeIsNotThrottledBySuccessfulScan() {
+        assertTrue(ComponentScanRefreshPolicy.shouldRefresh(
+            nowElapsedMs = 240_500L,
+            lastFullScanElapsedMs = 240_000L,
+            lastAttemptElapsedMs = 240_000L,
+            busy = false,
+            scanMode = UiScanMode.EVERY_ENTRY
         ))
     }
 

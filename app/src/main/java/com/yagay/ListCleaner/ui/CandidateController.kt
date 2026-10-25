@@ -45,6 +45,15 @@ internal class CandidateController(
     private var generation = 0L
     private var renderedUserId: Int? = null
 
+    private fun isCurrent(requestGeneration: Long, requestUserId: Int): Boolean =
+        CandidateScanPublicationPolicy.isCurrent(
+            requestGeneration = requestGeneration,
+            activeGeneration = generation,
+            requestUserId = requestUserId,
+            activeUserId = app.rules.activeUser.value,
+            displayedUserId = renderedUserId,
+        )
+
     init {
         scope.launch {
             var firstRevision = true
@@ -70,6 +79,8 @@ internal class CandidateController(
         mutableCandidates.value = emptyList()
         mutableBrowserHosts.value = emptySet()
         renderedUserId = null
+        mutableLoading.value = true
+        mutableError.value = null
     }
 
     fun refresh(forceCatalog: Boolean = false, manualProactive: Boolean = false) {
@@ -96,16 +107,17 @@ internal class CandidateController(
                 if (observedEntryCache.revisionToken() != observedBefore) {
                     app.catalog.invalidate()
                 }
-                if (currentGeneration != generation || app.rules.activeUser.value != userId) return@launch
+                if (!isCurrent(currentGeneration, userId)) return@launch
 
                 val configured = configuredRules()
-                mutableCandidates.value = completeLogical(mutableCandidates.value, configured)
+                val previouslyConfigured = completeLogical(mutableCandidates.value, configured, userId)
+                if (!isCurrent(currentGeneration, userId)) return@launch
+                mutableCandidates.value = previouslyConfigured
 
                 val cachedBrowserDiscovery = if (userId == app.spaces.currentUserId) browserLinkDiscovery.snapshot()
                     else com.yagay.ListCleaner.data.BrowserLinkDiscoveryResult()
-                if (currentGeneration == generation) {
-                    mutableBrowserHosts.value = cachedBrowserDiscovery.hosts
-                }
+                if (!isCurrent(currentGeneration, userId)) return@launch
+                mutableBrowserHosts.value = cachedBrowserDiscovery.hosts
                 val proactive = UiPreferencesRuntime.current.let { prefs ->
                     ProactiveScanOptions(
                         trigger = when (prefs.proactiveScanMode) {
@@ -127,8 +139,10 @@ internal class CandidateController(
                     proactiveOptions = proactive,
                     manualProactive = manualProactive,
                 )
-                if (currentGeneration != generation || app.rules.activeUser.value != userId) return@launch
-                mutableCandidates.value = completeLogical(baseResult, configuredRules())
+                if (!isCurrent(currentGeneration, userId)) return@launch
+                val resolvedBase = completeLogical(baseResult, configuredRules(), userId)
+                if (!isCurrent(currentGeneration, userId)) return@launch
+                mutableCandidates.value = resolvedBase
                 mutableError.value = app.catalog.scanWarning
                 mutableLoading.value = false
 
@@ -138,7 +152,7 @@ internal class CandidateController(
                 browserRefreshJob = scope.launch {
                     try {
                         val browserDiscovery = browserLinkDiscovery.discoverDetailed(forceCatalog)
-                        if (currentGeneration != generation || app.rules.activeUser.value != userId) return@launch
+                        if (!isCurrent(currentGeneration, userId)) return@launch
                         mutableBrowserHosts.value = browserDiscovery.hosts
                         if (forceCatalog || browserDiscovery != cachedBrowserDiscovery) {
                             val enriched = app.catalog.scan(
@@ -150,10 +164,11 @@ internal class CandidateController(
                                 proactiveOptions = proactive,
                                 manualProactive = false,
                             )
-                            if (currentGeneration == generation) {
-                                mutableCandidates.value = completeLogical(enriched, configuredRules())
-                                mutableError.value = app.catalog.scanWarning
-                            }
+                            if (!isCurrent(currentGeneration, userId)) return@launch
+                            val resolvedEnriched = completeLogical(enriched, configuredRules(), userId)
+                            if (!isCurrent(currentGeneration, userId)) return@launch
+                            mutableCandidates.value = resolvedEnriched
+                            mutableError.value = app.catalog.scanWarning
                         }
                     } catch (cancelled: CancellationException) {
                         throw cancelled
@@ -165,9 +180,9 @@ internal class CandidateController(
                 throw cancelled
             } catch (failure: Exception) {
                 Log.e(TAG, "Candidate scan failed", failure)
-                if (currentGeneration == generation) mutableError.value = app.getString(R.string.scan_failed)
+                if (isCurrent(currentGeneration, userId)) mutableError.value = app.getString(R.string.scan_failed)
             } finally {
-                if (currentGeneration == generation) mutableLoading.value = false
+                if (isCurrent(currentGeneration, userId)) mutableLoading.value = false
             }
         }
     }
@@ -175,10 +190,11 @@ internal class CandidateController(
     private suspend fun completeLogical(
         items: List<ComponentCandidate>,
         configured: Set<ComponentRule>,
+        userId: Int,
     ): List<ComponentCandidate> = app.catalog.completeConfigured(
         normalizeLogicalCandidates(AuthorityCandidatePolicy.normalize(items)),
         configured,
-        userId = app.rules.activeUser.value,
+        userId = userId,
     )
 
     private fun configuredRules(): Set<ComponentRule> = buildSet {

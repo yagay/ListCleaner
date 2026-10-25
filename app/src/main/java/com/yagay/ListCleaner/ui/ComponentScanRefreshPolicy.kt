@@ -34,8 +34,11 @@ internal object ComponentScanRefreshPolicy {
             nowElapsedMs >= lastFullScanElapsedMs &&
             nowElapsedMs - lastFullScanElapsedMs < freshFor
         ) return false
-        // After an unsuccessful scan, avoid hammering the PackageManager.
-        if (lastAttemptElapsedMs >= 0 &&
+        // Only failed/incomplete scans need a retry cooldown. A successful scan must
+        // not block EVERY_ENTRY or an immediate rescan after package changes.
+        val lastAttemptFailed = lastFullScanElapsedMs < 0 ||
+            lastAttemptElapsedMs > lastFullScanElapsedMs
+        if (lastAttemptFailed && lastAttemptElapsedMs >= 0 &&
             nowElapsedMs >= lastAttemptElapsedMs &&
             nowElapsedMs - lastAttemptElapsedMs < retryAfterFailureMs.coerceAtLeast(0L)
         ) return false

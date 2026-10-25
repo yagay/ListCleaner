@@ -43,7 +43,9 @@ internal class RootComponentsController(
         check(!mutableBusy.value) { "Cannot switch spaces while Root components are busy" }
         targetUserId = userId
         lastFullScanElapsed = -1L
+        lastAutoScanAttemptElapsed = -1L
         lastScannedPackageRevision = -1L
+        refreshPending = false
         mutableMessage.value = null
         mutableScan.value = RootComponentScan(warning = app.getString(R.string.root_not_scanned))
     }
@@ -177,6 +179,8 @@ internal class RootComponentsController(
                 throw cancelled
             } catch (failure: Exception) {
                 Log.e(TAG, "Root component scan failed", failure)
+                // A failed explicit scan cannot leave a previous success marked fresh.
+                lastFullScanElapsed = -1L
                 mutableMessage.value = app.getString(R.string.root_scan_failed)
             } finally {
                 mutableBusy.value = false

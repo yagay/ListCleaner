@@ -802,10 +802,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         require(content.length <= MAX_BACKUP_CHARS)
         val (appearance, locks) = backupExtras(content)
         app.rules.previewImportJson(content)
-        app.rules.importJson(content)
-        if (appearance != null) UiPreferencesStore.importSnapshot(app, appearance)
-        if (locks != null) bulkLocks.restoreSnapshot(locks)
-        else bulkLocks.reloadFromDisk()
+        // The legacy backup spans three stores. Keep a full checkpoint so a failure
+        // in a later store does not leave rules, appearance and locks half-imported.
+        val rulesBefore = app.rules.createSpaceCheckpoint()
+        val appearanceBefore = UiPreferencesStore.exportSnapshot(app)
+        val locksBefore = bulkLocks.exportSnapshot()
+        try {
+            app.rules.importJson(content)
+            if (appearance != null) UiPreferencesStore.importSnapshot(app, appearance)
+            if (locks != null) bulkLocks.restoreSnapshot(locks)
+            else bulkLocks.reloadFromDisk()
+        } catch (failure: Exception) {
+            // Attempt every rollback even when an earlier rollback fails, and expose
+            // the original failure with any rollback errors attached.
+            listOf<() -> Unit>(
+                { app.rules.restoreSpaceCheckpoint(rulesBefore) },
+                { UiPreferencesStore.importSnapshot(app, appearanceBefore) },
+                { bulkLocks.restoreSnapshot(locksBefore) },
+            ).forEach { rollback ->
+                try {
+                    rollback()
+                } catch (rollbackFailure: Exception) {
+                    failure.addSuppressed(rollbackFailure)
+                }
+            }
+            throw failure
+        }
     }
     fun setComponentTitle(ruleId: String, title: String?) {
         if (canEdit()) app.rules.setComponentTitle(ruleId, title)
