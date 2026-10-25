@@ -13,6 +13,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
@@ -314,20 +318,40 @@ class MainActivity : ComponentActivity() {
                 )
             },
             bottomBar = {
-                NavigationBar {
-                    Destination.entries.filter { it != Destination.TILES }.forEach { dest ->
-                        NavigationBarItem(
-                            selected = state.destination == dest ||
-                                (dest == Destination.RULES && state.destination == Destination.TILES),
-                            onClick = {
-                                if (!componentBusy || state.destination != Destination.TILES && !componentModeActive) {
-                                    pendingNavigation.request { vm.setDestination(dest) }
-                                }
-                            },
-                            colors = MaterialActionColors.navigation(),
-                            icon = { AdaptiveIcon(dest.icon, null) },
-                            label = { AdaptiveText(stringResource(dest.labelRes())) }
-                        )
+                Column {
+                    AdaptiveHorizontalDivider(thickness = 0.5.dp)
+                    NavigationBar(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 0.dp
+                    ) {
+                        val underlineColor = MaterialSelectionPalette.navigationText()
+                        Destination.entries.filter { it != Destination.TILES }.forEach { dest ->
+                            val selected = state.destination == dest ||
+                                (dest == Destination.RULES && state.destination == Destination.TILES)
+                            NavigationBarItem(
+                                selected = selected,
+                                modifier = Modifier.drawWithContent {
+                                    drawContent()
+                                    if (selected) {
+                                        val y = size.height - 2.dp.toPx()
+                                        drawLine(
+                                            color = underlineColor,
+                                            start = Offset(size.width * 0.22f, y),
+                                            end = Offset(size.width * 0.78f, y),
+                                            strokeWidth = 2.dp.toPx()
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    if (!componentBusy || state.destination != Destination.TILES && !componentModeActive) {
+                                        pendingNavigation.request { vm.setDestination(dest) }
+                                    }
+                                },
+                                colors = MaterialActionColors.navigation(),
+                                icon = { AdaptiveIcon(dest.icon, null) },
+                                label = { AdaptiveText(stringResource(dest.labelRes())) }
+                            )
+                        }
                     }
                 }
             }

@@ -150,7 +150,7 @@ flat_visual_checks = {
     "AdaptiveWidgets.kt": ("fun AdaptiveGroupSurface(", "= FlatRowSurface("),
     "AppScopePicker.kt": ("FlatRowSurface(Modifier.fillMaxWidth())",),
     "WorkspaceCategorySelector.kt": ("filter()", "Box(Modifier.weight(1f)) { category() }",
-                                      "MaterialFlatPalette.selectedSurface()"),
+                                      "WorkspaceFlatMenuRow(", "shape = RectangleShape"),
 }
 for filename, symbols in flat_visual_checks.items():
     content = (root / filename).read_text(encoding="utf-8")
@@ -171,6 +171,25 @@ if category_position < 0 or filter_position < 0 or category_position >= filter_p
 toolbar_source = (root / "MainActivity.kt").read_text(encoding="utf-8")
 if "else -> R.string.app_name" not in toolbar_source:
     errors.append("MainActivity.kt: Cleanup top toolbar must retain the List Cleaner app name")
+
+# Dropdown menus and bottom navigation must stay visually flat.
+popup_source = (root / "AdaptivePopups.kt").read_text(encoding="utf-8")
+for token in ("fun FlatWorkspaceDropdownMenu(", "shape = RectangleShape",
+              "shadowElevation = 0.dp", "tonalElevation = 0.dp"):
+    if token not in popup_source:
+        errors.append(f"AdaptivePopups.kt: flat popup contract missing: {token}")
+menu_choice_source = (root / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
+if "MaterialFlatPalette.selectedSurface()" in menu_choice_source.split(
+        "internal fun WorkspaceFlatMenuRow(", 1)[-1].split(
+        "internal fun EntryCategoryPicker(", 1)[0]:
+    errors.append("WorkspaceCategorySelector.kt: rounded selection cards returned to menu")
+nav_source = (root / "MaterialActionColors.kt").read_text(encoding="utf-8")
+nav_palette = nav_source.split("fun navigation()", 1)[-1].split("fun filter()", 1)[0]
+if "indicatorColor = Color.Transparent" not in nav_palette:
+    errors.append("MaterialActionColors.kt: old pill indicator still active")
+nav_activity = (root / "MainActivity.kt").read_text(encoding="utf-8")
+if "Modifier.drawWithContent" not in nav_activity or "tonalElevation = 0.dp" not in nav_activity:
+    errors.append("MainActivity.kt: flat bottom navigation missing")
 
 # Expansion controls and Root/LSPosed actions must not be dropped.
 details = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
@@ -310,7 +329,7 @@ if "Arrangement.spacedBy(4.dp)" not in compact:
 
 # Categories use an anchored, scrollable Material 3 dropdown, not a distant bottom sheet.
 category = (root / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
-for expected in ("DropdownMenu(", "Surface(", "EntryCategoryPicker(",
+for expected in ("FlatWorkspaceDropdownMenu(", "Surface(", "EntryCategoryPicker(",
                  "ComponentCategoryPicker(", "expandedGroup", "group.kinds()",
                  "availableKinds", "onSelected(null)", "widthIn(min = 240.dp",
                  "AdaptiveDropdownMenuItem("):
@@ -355,7 +374,7 @@ sheet = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
 filter_popup = sheet.split("internal fun WorkspaceFilterBar(", 1)[1].split(
     "/** Batch operations", 1
 )[0]
-for expected in ("DropdownMenu(", "onDismissRequest = { expanded = false }",
+for expected in ("FlatWorkspaceDropdownMenu(", "onDismissRequest = { expanded = false }",
                  "draftAppType", "draftView", "lc_filter_sheet_apply",
                  "lc_filter_sheet_reset", "WorkspacePickerButton(", "extraFilter()",
                  "widthIn(min = 240.dp", "WorkspaceFilterChoiceGroup(",
@@ -366,13 +385,12 @@ if "ModalBottomSheet(" in filter_popup or "LazyRow(" in filter_popup:
     errors.append("WorkspaceCommon.kt: Filter must open near its top button, not as a sheet")
 if "heightIn(max = 480.dp)" in filter_popup or "widthIn(min = 270.dp" in filter_popup:
     errors.append("WorkspaceCommon.kt: Filter must use Category-scale dropdown dimensions")
-# Category uses nested menu rows, but Filter uses direct M3 choice chips.
-# Both keep a shared top-level picker trigger and the same anchored popup.
+# Category and Filter use one flat row style inside anchored menus.
 menu_shared = (root / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
 if "fun WorkspacePickerButton(" not in menu_shared:
     errors.append("WorkspaceCategorySelector.kt: shared category/filter trigger missing")
-if "fun <T> WorkspaceFilterChoiceGroup(" not in sheet or "AdaptiveFilterChip(" not in sheet or "FlowRow(" not in sheet:
-    errors.append("WorkspaceCommon.kt: direct-choice Material3 filter group missing")
+if "fun <T> WorkspaceFilterChoiceGroup(" not in sheet or "WorkspaceFlatMenuRow(" not in sheet:
+    errors.append("WorkspaceCommon.kt: shared flat filter rows missing")
 for expected in ("fun WorkspaceListActions(",
                  "WorkspaceListActions(actions, helpExpanded, onHelpToggle)"):
     if expected not in sheet:

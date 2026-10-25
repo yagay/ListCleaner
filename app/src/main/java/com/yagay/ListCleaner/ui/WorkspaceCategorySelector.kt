@@ -184,7 +184,7 @@ private fun WorkspaceCategoryPicker(
                 }
             }
         }
-        DropdownMenu(
+        FlatWorkspaceDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
             modifier = Modifier.widthIn(min = 240.dp, max = 328.dp).heightIn(max = 440.dp)
@@ -200,7 +200,57 @@ private fun WorkspaceCategoryPicker(
     }
 }
 
-/** Single selected-category treatment for Entry, Component and Ordering. */
+/** Shared, cardless menu item for categories and filter choices. */
+@Composable
+internal fun WorkspaceFlatMenuRow(
+    title: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    indented: Boolean = false,
+    section: Boolean = false,
+    trailingIcon: ImageVector? = null
+) {
+    androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth()) {
+        AdaptiveDropdownMenuItem(
+            modifier = Modifier.fillMaxWidth(),
+            text = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier.width(3.dp).height(22.dp).background(
+                            if (selected) MaterialTheme.colorScheme.primary
+                            else androidx.compose.ui.graphics.Color.Transparent
+                        )
+                    )
+                    Spacer(Modifier.width(if (indented) 28.dp else 12.dp))
+                    AdaptiveText(
+                        title,
+                        style = if (section) MaterialTheme.typography.titleSmall
+                            else MaterialTheme.typography.bodyLarge,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (selected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            },
+            trailingIcon = {
+                val icon = trailingIcon ?: if (selected) Icons.Rounded.Check else null
+                if (icon != null) AdaptiveIcon(
+                    icon, null, Modifier.size(20.dp),
+                    tint = if (selected) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            onClick = onClick
+        )
+        AdaptiveHorizontalDivider(
+            modifier = Modifier.padding(horizontal = 12.dp),
+            thickness = 0.5.dp
+        )
+    }
+}
+
 @Composable
 internal fun WorkspaceMenuChoice(
     title: String,
@@ -208,40 +258,9 @@ internal fun WorkspaceMenuChoice(
     onClick: () -> Unit,
     indented: Boolean = false,
 ) {
-    Box(
-        Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-            .background(
-                if (selected) MaterialFlatPalette.selectedSurface()
-                else MaterialTheme.colorScheme.surface.copy(alpha = 0f),
-                RoundedCornerShape(MaterialUiTokens.listCardRadius)
-            )
-    ) {
-        AdaptiveDropdownMenuItem(
-            text = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (indented) Spacer(Modifier.width(16.dp))
-                    AdaptiveText(
-                        title,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
-                            else MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2
-                    )
-                }
-            },
-            trailingIcon = {
-                if (selected) AdaptiveIcon(
-                    Icons.Rounded.Check, null, Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-            },
-            onClick = onClick
-        )
-    }
+    WorkspaceFlatMenuRow(title, selected, onClick, indented = indented)
 }
 
-/** Same inset, selected background, typography and arrow geometry as choice rows. */
 @Composable
 internal fun WorkspaceMenuSection(
     title: String,
@@ -249,37 +268,13 @@ internal fun WorkspaceMenuSection(
     expanded: Boolean,
     onClick: () -> Unit
 ) {
-    Box(
-        Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-            .background(
-                if (active) MaterialFlatPalette.selectedSurface()
-                else MaterialTheme.colorScheme.surface.copy(alpha = 0f),
-                RoundedCornerShape(MaterialUiTokens.listCardRadius)
-            )
-    ) {
-        AdaptiveDropdownMenuItem(
-            text = {
-                AdaptiveText(
-                    title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (active) MaterialTheme.colorScheme.onSecondaryContainer
-                        else MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            },
-            trailingIcon = {
-                AdaptiveIcon(
-                    if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                    null, Modifier.size(20.dp),
-                    tint = if (active) MaterialTheme.colorScheme.onSecondaryContainer
-                        else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            onClick = onClick
-        )
-    }
+    WorkspaceFlatMenuRow(
+        title = title,
+        selected = active,
+        onClick = onClick,
+        section = true,
+        trailingIcon = if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore
+    )
 }
 
 @Composable

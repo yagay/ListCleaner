@@ -1,6 +1,8 @@
 package com.yagay.ListCleaner.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ScrollState
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -67,5 +69,26 @@ internal fun AdaptiveDropdownMenuItem(
     DropdownMenuItem(
         text = text, onClick = onClick, modifier = modifier,
         leadingIcon = leadingIcon, trailingIcon = trailingIcon, enabled = enabled
+    )
+}
+
+/** Square, non-elevated dropdown for the flat Cleanup workspace. */
+@Composable
+internal fun FlatWorkspaceDropdownMenu(
+    expanded: Boolean,
+    onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit
+) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismissRequest,
+        modifier = modifier,
+        shape = RectangleShape,
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp,
+        border = BorderStroke(0.5.dp, MaterialFlatPalette.outline()),
+        content = content
     )
 }

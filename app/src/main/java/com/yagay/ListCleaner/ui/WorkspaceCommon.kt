@@ -149,7 +149,7 @@ internal fun WorkspaceFilterBar(
                 expanded = true
             }
         )
-        androidx.compose.material3.DropdownMenu(
+        FlatWorkspaceDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
             modifier = Modifier.widthIn(min = 240.dp, max = 328.dp)
@@ -202,7 +202,7 @@ internal fun WorkspaceFilterBar(
                 }) {
                     AdaptiveText(stringResource(R.string.lc_filter_sheet_reset))
                 }
-                AdaptiveButton(onClick = {
+                AdaptiveTextButton(onClick = {
                     if (draftAppType != appTypeFilter) onAppTypeFilter(draftAppType)
                     if (draftView != viewFilter) onViewFilter(draftView)
                     expanded = false
@@ -214,10 +214,7 @@ internal fun WorkspaceFilterBar(
     }
 }
 
-/** Shared compact direct-choice filter group for Entry, Component and Ordering.
- * Values are drafts; the parent applies them only on confirmation.
- */
-@OptIn(ExperimentalLayoutApi::class)
+/** Filter selections are single-column flat rows; only Apply commits changes. */
 @Composable
 internal fun <T> WorkspaceFilterChoiceGroup(
     title: String,
@@ -226,28 +223,18 @@ internal fun <T> WorkspaceFilterChoiceGroup(
     titleFor: @Composable (T) -> String,
     onSelected: (T) -> Unit,
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        AdaptiveText(
-            title,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+    AdaptiveText(
+        title,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    options.forEach { option ->
+        WorkspaceFlatMenuRow(
+            title = titleFor(option),
+            selected = option == selected,
+            onClick = { onSelected(option) }
         )
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            options.forEach { option ->
-                AdaptiveFilterChip(
-                    selected = option == selected,
-                    onClick = { onSelected(option) },
-                    label = { AdaptiveText(titleFor(option), maxLines = 1) }
-                )
-            }
-        }
     }
 }
 
@@ -270,7 +257,7 @@ internal fun WorkspaceListActions(
                     AdaptiveText(stringResource(R.string.selection_actions), maxLines = 1)
                     AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(18.dp))
                 }
-                AdaptiveDropdownMenu(
+                FlatWorkspaceDropdownMenu(
                     expanded = selectionMenuExpanded,
                     onDismissRequest = { selectionMenuExpanded = false }
                 ) {

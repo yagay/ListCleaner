@@ -98,8 +98,8 @@ internal object MaterialActionColors {
     @Composable fun icon() = IconButtonDefaults.iconButtonColors()
     @Composable fun navigation() = NavigationBarItemDefaults.colors(
         selectedIconColor = MaterialSelectionPalette.navigationText(),
-        selectedTextColor = MaterialSelectionPalette.title(),
-        indicatorColor = MaterialFlatPalette.selectedSurface(),
+        selectedTextColor = MaterialSelectionPalette.navigationText(),
+        indicatorColor = Color.Transparent,
         unselectedIconColor = MaterialSelectionPalette.text(),
         unselectedTextColor = MaterialSelectionPalette.text()
     )
