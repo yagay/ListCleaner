@@ -182,10 +182,20 @@ for needle in ("fun WorkspaceCategoryPreviewIcon(", "Icons.Rounded.Visibility",
 picker_source = selector_source.split("private fun WorkspaceCategoryPicker(", 1)[-1].split(
     "/** Shared, cardless menu item", 1
 )[0]
-if picker_source.count("WorkspaceCategoryPreviewIcon(previewActions)") != 2:
-    errors.append("WorkspaceCategorySelector.kt: category eye must work with or without subtype")
-if "showLeadingIcon = previewActions.isEmpty()" not in picker_source:
-    errors.append("WorkspaceCategorySelector.kt: category icon must be replaced, not duplicated")
+if picker_source.count("WorkspaceCategoryPreviewIcon(previewActions)") != 1:
+    errors.append("WorkspaceCategorySelector.kt: subtype picker must swap the existing category icon")
+picker_button = selector_source.split("internal fun WorkspacePickerButton(", 1)[-1].split(
+    "private fun WorkspaceCategoryPreviewIcon(", 1
+)[0]
+if "WorkspaceCategoryPreviewIcon(previewActions)" not in picker_button:
+    errors.append("WorkspaceCategorySelector.kt: standard picker must replace the existing icon")
+if "showLeadingIcon" in selector_source:
+    errors.append("WorkspaceCategorySelector.kt: obsolete separate-eye geometry remains")
+eye_source = selector_source.split("private fun WorkspaceCategoryPreviewIcon(", 1)[-1].split(
+    "/**", 1
+)[0]
+if "Modifier.size(18.dp).clickable(" not in eye_source or "AdaptiveIconButton(" in eye_source:
+    errors.append("WorkspaceCategorySelector.kt: eye must fit original icon slot; no added button")
 summary_source = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8").split(
     "internal fun WorkspaceListActions(", 1
 )[-1].split("internal fun WorkspaceListSummary(", 1)[0]

@@ -1,6 +1,7 @@
 package com.yagay.ListCleaner.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.RectangleShape
@@ -81,7 +82,7 @@ internal fun WorkspacePickerButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     count: Int = 0,
-    showLeadingIcon: Boolean = true
+    previewActions: List<WorkspaceMenuAction> = emptyList()
 ) {
     Surface(
         onClick = onClick,
@@ -99,7 +100,9 @@ internal fun WorkspacePickerButton(
         ) {
             val color = if (selected) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.onSurfaceVariant
-            if (showLeadingIcon) {
+            if (previewActions.isNotEmpty()) {
+                WorkspaceCategoryPreviewIcon(previewActions)
+            } else {
                 AdaptiveIcon(icon, null, Modifier.size(18.dp), tint = color)
             }
             AdaptiveText(
@@ -131,21 +134,22 @@ internal fun WorkspacePickerButton(
 @Composable
 private fun WorkspaceCategoryPreviewIcon(actions: List<WorkspaceMenuAction>) {
     var expanded by remember { mutableStateOf(false) }
-    Box {
-        AdaptiveIconButton(
+    Box(
+        Modifier.size(18.dp).clickable(
+            enabled = actions.any { it.enabled },
+            role = Role.Button,
             onClick = {
                 if (actions.size == 1) actions.single().onClick()
                 else expanded = true
-            },
-            enabled = actions.any { it.enabled }
-        ) {
-            AdaptiveIcon(
-                Icons.Rounded.Visibility,
-                stringResource(R.string.system_preview_action),
-                Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
+            }
+        )
+    ) {
+        AdaptiveIcon(
+            Icons.Rounded.Visibility,
+            stringResource(R.string.system_preview_action),
+            Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
         if (actions.size > 1) {
             FlatWorkspaceDropdownMenu(
                 expanded = expanded,
@@ -187,20 +191,15 @@ private fun WorkspaceCategoryPicker(
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
         if (trailingSelector == null) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (previewActions.isNotEmpty()) {
-                    WorkspaceCategoryPreviewIcon(previewActions)
-                }
-                WorkspacePickerButton(
-                    label = stringResource(R.string.lc_category_picker_current, selectedTitle),
-                    icon = Icons.Rounded.Layers,
-                    selected = true,
-                    expanded = expanded,
-                    onClick = { expanded = true },
-                    modifier = Modifier.weight(1f),
-                    showLeadingIcon = previewActions.isEmpty()
-                )
-            }
+            WorkspacePickerButton(
+                label = stringResource(R.string.lc_category_picker_current, selectedTitle),
+                icon = Icons.Rounded.Layers,
+                selected = true,
+                expanded = expanded,
+                onClick = { expanded = true },
+                modifier = Modifier.fillMaxWidth(),
+                previewActions = previewActions
+            )
         } else {
             // Two independent 48dp targets on the same flat page surface.
             // No isolated rounded card or filled selection background.
@@ -211,21 +210,17 @@ private fun WorkspaceCategoryPicker(
                 contentColor = MaterialTheme.colorScheme.primary,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (previewActions.isNotEmpty()) {
-                        WorkspaceCategoryPreviewIcon(previewActions)
-                    }
                     Row(
                         modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                             .clickable { expanded = true }
-                            .padding(
-                                start = if (previewActions.isEmpty()) 12.dp else 0.dp,
-                                end = 8.dp
-                            ),
+                            .padding(start = 12.dp, end = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         val color = MaterialTheme.colorScheme.primary
-                        if (previewActions.isEmpty()) {
+                        if (previewActions.isNotEmpty()) {
+                            WorkspaceCategoryPreviewIcon(previewActions)
+                        } else {
                             AdaptiveIcon(Icons.Rounded.Layers, null, Modifier.size(18.dp), tint = color)
                         }
                         AdaptiveText(
