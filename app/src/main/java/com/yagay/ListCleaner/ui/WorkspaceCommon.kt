@@ -5,8 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.ChevronRight
@@ -157,57 +155,11 @@ internal fun WorkspaceFilterBar(
             expanded = expanded,
             onDismissRequest = { expanded = false },
             modifier = Modifier.widthIn(min = 240.dp, max = 328.dp)
-        ) {
-            Column(Modifier.fillMaxWidth()) {
-                AdaptiveText(
-                    stringResource(R.string.lc_filter_sheet_title),
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialSelectionPalette.text()
-                )
-                // Only choices scroll: Reset and Apply are outside this viewport.
-                Column(
-                    Modifier.fillMaxWidth()
-                        .heightIn(max = optionsMaxHeight)
-                        .verticalScroll(rememberScrollState())
-                ) {
-                WorkspaceFilterChoiceGroup(
-                    title = stringResource(R.string.app_type_filter),
-                    options = AppTypeFilter.entries.toList(),
-                    selected = draftAppType,
-                    titleFor = { stringResource(it.titleRes()) },
-                    onSelected = { draftAppType = it }
-                )
-                AdaptiveHorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
-                WorkspaceFilterChoiceGroup(
-                    title = stringResource(R.string.view_filter),
-                    options = UiFilter.entries.toList(),
-                    selected = draftView,
-                    titleFor = { viewTitle(it) },
-                    onSelected = { draftView = it }
-                )
-                if (extraFilter != null) {
-                    AdaptiveHorizontalDivider()
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(
-                            horizontal = 8.dp, vertical = 4.dp
-                        ),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        extraFilter()
-                    }
-                }
-                } // End scrollable filter choices
-                AdaptiveHorizontalDivider()
-                // Fixed footer: one 48dp row, without nested TextButton minimum sizes
-                // or extra top/bottom padding. Options alone continue to scroll.
-                Row(
-                    modifier = Modifier.fillMaxWidth()
-                        .heightIn(min = 48.dp)
-                        .padding(horizontal = 8.dp),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                .heightIn(max = optionsMaxHeight + 100.dp),
+            header = { FlatPopupHeader(stringResource(R.string.lc_filter_sheet_title)) },
+            footer = {
+                // The common footer owns the divider and 48dp row height.
+                FlatPopupFooter {
                     WorkspaceFilterFooterAction(
                         label = stringResource(R.string.lc_filter_sheet_reset),
                         onClick = {
@@ -225,12 +177,41 @@ internal fun WorkspaceFilterBar(
                         }
                     )
                 }
-            } // End fixed-footer container
+            }
+        ) {
+            // Options alone scroll inside FlatPopupMenu. No nested scrolling
+            // Column or Material DropdownMenu padding can displace the footer.
+            WorkspaceFilterChoiceGroup(
+                title = stringResource(R.string.app_type_filter),
+                options = AppTypeFilter.entries.toList(),
+                selected = draftAppType,
+                titleFor = { stringResource(it.titleRes()) },
+                onSelected = { draftAppType = it }
+            )
+            AdaptiveHorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
+            WorkspaceFilterChoiceGroup(
+                title = stringResource(R.string.view_filter),
+                options = UiFilter.entries.toList(),
+                selected = draftView,
+                titleFor = { viewTitle(it) },
+                onSelected = { draftView = it }
+            )
+            if (extraFilter != null) {
+                AdaptiveHorizontalDivider()
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(
+                        horizontal = 8.dp, vertical = 4.dp
+                    ),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    extraFilter()
+                }
+            }
         }
     }
 }
 
-/** Text-only 48dp footer targets avoid stacking Material TextButton and menu padding. */
+/** One accessible text action inside the shared footer's centered 48dp row. */
 @Composable
 private fun WorkspaceFilterFooterAction(
     label: String,

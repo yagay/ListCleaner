@@ -245,14 +245,9 @@ private fun WorkspaceCategoryPicker(
         FlatWorkspaceDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            modifier = Modifier.widthIn(min = 240.dp, max = 328.dp).heightIn(max = 440.dp)
+            modifier = Modifier.widthIn(min = 240.dp, max = 328.dp).heightIn(max = 440.dp),
+            header = { FlatPopupHeader(menuTitle) }
         ) {
-            AdaptiveText(
-                menuTitle,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialSelectionPalette.text()
-            )
             content { expanded = false }
         }
     }
