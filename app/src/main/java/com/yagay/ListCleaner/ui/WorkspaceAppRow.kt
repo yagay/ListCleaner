@@ -94,7 +94,7 @@ internal fun WorkspaceAppRow(
             }
         )
     }
-    ContinuousApplicationSurface { appContent() }
+    ContinuousApplicationSurface(expanded = expanded) { appContent() }
 }
 
 /**

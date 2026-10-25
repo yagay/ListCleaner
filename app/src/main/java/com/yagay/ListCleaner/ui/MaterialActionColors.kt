@@ -50,12 +50,15 @@ internal object MaterialFlatPalette {
     // retain the current Material theme highlight.
     @Composable fun surface(): Color = MaterialTheme.colorScheme.surface
     @Composable fun sectionSurface(): Color = MaterialTheme.colorScheme.surfaceContainerLow
-    @Composable fun detailSurface(): Color = MaterialTheme.colorScheme.surfaceContainerLow
+    // Same subtle, theme-aware highlight as expanded category menu sections.
+    // Both selectable components and expanded app headers use this one color.
     @Composable
-    fun selectedDetailSurface(): Color =
-        MaterialSelectionPalette.activeBackground()
-            .copy(alpha = if (LocalListCleanerDarkTheme.current) 0.24f else 0.16f)
-            .compositeOver(detailSurface())
+    fun selectionHighlightSurface(): Color =
+        MaterialTheme.colorScheme.primary.copy(
+            alpha = if (LocalListCleanerDarkTheme.current) 0.12f else 0.08f
+        ).compositeOver(surface())
+    @Composable fun detailSurface(): Color = surface()
+    @Composable fun selectedDetailSurface(): Color = selectionHighlightSurface()
     @Composable fun outline(): Color = MaterialTheme.colorScheme.outlineVariant.copy(
         alpha = if (LocalListCleanerDarkTheme.current) 0.42f else 0.30f
     )

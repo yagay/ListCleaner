@@ -303,15 +303,14 @@ flat_visual_checks = {
     "MaterialDesignSystem.kt": ("FlatRowSurface(", "fun MaterialSettingsRow(",
                                 "fun MaterialSectionCard(", "shadowElevation = 0.dp"),
     "WorkspaceGroupedRows.kt": ("FlatRowSurface(", "ContinuousApplicationSurface(",
-                                 "ContinuousDetailSurface(", "MaterialFlatPalette.detailSurface()",
-                                 "MaterialFlatPalette.selectedDetailSurface()"),
-    "WorkspaceAppRow.kt": ("ContinuousApplicationSurface { appContent() }",
+                                 "ContinuousDetailSurface(", "MaterialFlatPalette.surface()",
+                                 "MaterialFlatPalette.selectionHighlightSurface()"),
+    "WorkspaceAppRow.kt": ("ContinuousApplicationSurface(expanded = expanded) { appContent() }",
                             "MaterialAppRowBody(", "heightIn(min = MaterialUiTokens.listRowHeight)"),
     "WorkspaceCommon.kt": ("WorkspaceCategoryRow(", "FlatCategoryRow(",
                             "WorkspaceDetailContainer(position, selected = false)",
                             "WorkspaceDetailContainer(position, checked, contentBlock)",
-                            "trailingAccessoryWidth = 20.dp",
-                            "WorkspaceDetailSelectionCheck(selected = checked, enabled = enabled)"),
+                            "trailing(menuExpanded) { menuExpanded = it }"),
     "SettingsWidgets.kt": ("FlatSectionHeader(", "MaterialSectionCard { content() }",
                            "FlatRowSurface(dividerInset = 0.dp)", "FlatRowSurface("),
     "SettingsCenterHome.kt": ("FlatCategoryRow(", "onSelect(section)",
@@ -518,34 +517,20 @@ if "contentStartInset = 0.dp" not in app_row_geometry or "contentStartInset: Dp 
 if "start = contentStartInset" not in app_row_geometry or "end = MaterialUiTokens.pageHorizontal" not in app_row_geometry:
     errors.append("WorkspaceAppRow.kt: app content asymmetric layout contract missing")
 
-# Entry and Root expanded details share one trailing check and tinted surface.
-# There is no blue leading rail and no circular/radio selection glyph.
+# App expansion and component selection must reuse the category-menu highlight.
 details = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
-mark = details.split("private fun WorkspaceDetailSelectionCheck(", 1)[-1].split(
-    "/** Shared component detail", 1
-)[0]
-for expected in ("Box(Modifier.size(20.dp)", "if (selected)", "Icons.Rounded.Check",
-                 "MaterialTheme.colorScheme.primary.copy(", "if (enabled) 1f else 0.45f"):
-    if expected not in mark:
-        errors.append(f"WorkspaceCommon.kt: trailing selection check missing {expected}")
-if "WorkspaceDetailSelectionRail(" in details or "CircleShape" in mark:
-    errors.append("WorkspaceCommon.kt: obsolete leading rail or circular selection returned")
 detail_row = details.split("internal fun WorkspaceDetailRow(", 1)[-1]
-for expected in ("WorkspaceDetailSelectionCheck(selected = checked, enabled = enabled)",
-                 "toggleableState = if (checked)",
-                 "trailingAccessoryWidth = 20.dp",
-                 "trailing(menuExpanded) { menuExpanded = it }"):
+for expected in ("toggleableState = if (checked)", "trailing(menuExpanded) { menuExpanded = it }",
+                 "leadingInset = 0.dp", "WorkspaceDetailContainer(position, checked, contentBlock)"):
     if expected not in detail_row:
-        errors.append(f"WorkspaceCommon.kt: expanded detail contract missing {expected}")
-if detail_row.index("Column(Modifier.weight(1f)") > detail_row.index("WorkspaceDetailSelectionCheck("):
-    errors.append("WorkspaceCommon.kt: check must follow component text")
-if detail_row.index("WorkspaceDetailSelectionCheck(") < detail_row.index("trailing(menuExpanded)"):
-    errors.append("WorkspaceCommon.kt: check must follow overflow actions")
+        errors.append(f"WorkspaceCommon.kt: component highlight/selection contract missing {expected}")
+if "WorkspaceDetailSelectionCheck(" in details or "trailingAccessoryWidth = 20.dp" in detail_row:
+    errors.append("WorkspaceCommon.kt: obsolete selected check or its trailing gap returned")
+if "AdaptiveCheckbox(" in detail_row:
+    errors.append("WorkspaceCommon.kt: square component checkbox returned")
 detail_layout = (root / "UiCard.kt").read_text(encoding="utf-8")
 if "end = MaterialUiTokens.pageHorizontal + MaterialUiTokens.appExpandIndicatorWidth -" not in detail_layout:
     errors.append("UiCard.kt: expanded detail check must share the overflow alignment allowance")
-if "AdaptiveCheckbox(" in detail_row:
-    errors.append("WorkspaceCommon.kt: expanded details must not use square checkboxes")
 if "Spacer(Modifier.width(15.dp))" in detail_row:
     errors.append("WorkspaceCommon.kt: obsolete leading rail space remains")
 if "leadingInset: Dp = MaterialUiTokens.pageHorizontal" not in detail_layout or "start = leadingInset," not in detail_layout:
@@ -563,13 +548,20 @@ if detail_row.index("if (locked)") > detail_row.index("Column(Modifier.weight(1f
 if "ContinuousDetailSurface(selected = selected, content = content)" not in details:
     errors.append("WorkspaceCommon.kt: selected detail background not forwarded to shared surface")
 grouped = (root / "WorkspaceGroupedRows.kt").read_text(encoding="utf-8")
-if "if (selected) MaterialFlatPalette.selectedDetailSurface()" not in grouped:
+if "if (selected) MaterialFlatPalette.selectionHighlightSurface()" not in grouped:
     errors.append("WorkspaceGroupedRows.kt: selected detail background missing")
+if "else MaterialFlatPalette.surface()" not in grouped:
+    errors.append("WorkspaceGroupedRows.kt: unselected component/app rows must use plain surface")
+if "if (expanded) MaterialFlatPalette.selectionHighlightSurface()" not in grouped:
+    errors.append("WorkspaceGroupedRows.kt: expanded app background missing")
 if "dividerInset = MaterialUiTokens.pageHorizontal," not in grouped.split("internal fun ContinuousDetailSurface(", 1)[-1]:
     errors.append("WorkspaceGroupedRows.kt: component dividers must align with application rows")
 palette = (root / "MaterialActionColors.kt").read_text(encoding="utf-8")
-if "fun selectedDetailSurface()" not in palette or "MaterialSelectionPalette.activeBackground()" not in palette:
-    errors.append("MaterialActionColors.kt: highlighted detail color not derived from theme")
+if "fun selectionHighlightSurface()" not in palette or "MaterialTheme.colorScheme.primary.copy(" not in palette:
+    errors.append("MaterialActionColors.kt: shared category/row theme highlight missing")
+menu_color = (root / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
+if "if (sectionExpanded || selected)" not in menu_color or "MaterialFlatPalette.selectionHighlightSurface()" not in menu_color:
+    errors.append("WorkspaceCategorySelector.kt: category selected highlight must share the list color")
 for symbol in ("WorkspaceReadOnlyDetailRow(", "WorkspaceDetailRow(",
                "ContinuousDetailSurface(selected = selected, content = content)"):
     if symbol not in details:

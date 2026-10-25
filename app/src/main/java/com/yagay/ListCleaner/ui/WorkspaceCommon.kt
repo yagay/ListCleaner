@@ -422,33 +422,7 @@ internal fun WorkspaceReadOnlyDetailRow(
     }
 }
 
-/**
- * Selected expanded components show a theme-colored check AFTER their action menu,
- * not a leading rail. Reserve the mark's width while unchecked so detail text
- * and the existing three-dot overflow never jump when toggled.
- *
- * The check is decorative; row toggleableState remains the accessibility source.
- */
-@Composable
-private fun WorkspaceDetailSelectionCheck(
-    selected: Boolean,
-    enabled: Boolean,
-) {
-    Box(Modifier.size(20.dp), contentAlignment = Alignment.Center) {
-        if (selected) {
-            AdaptiveIcon(
-                Icons.Rounded.Check,
-                null,
-                modifier = Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.primary.copy(
-                    alpha = if (enabled) 1f else 0.45f
-                )
-            )
-        }
-    }
-}
-
-/** Shared component detail with an aligned leading lock slot and trailing selection mark. */
+/** Shared component detail: leading lock slot, selection-only background, aligned overflow. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 internal fun WorkspaceDetailRow(
@@ -487,14 +461,14 @@ internal fun WorkspaceDetailRow(
                 }
             }
             Column(Modifier.weight(1f).padding(vertical = 4.dp)) { content() }
+            // Selection is communicated by the same background as menu choices.
+            // Keep the overflow at its former position using the default
+            // trailing inset (previously 20dp was occupied by the blue check).
             trailing(menuExpanded) { menuExpanded = it }
-            // After the three-dot menu, in the existing trailing allowance.
-            WorkspaceDetailSelectionCheck(selected = checked, enabled = enabled)
         }
         UiCardDetailRow(
             modifier = clickModifier,
             leadingInset = 0.dp,
-            trailingAccessoryWidth = 20.dp,
             content = rowContents
         )
     }

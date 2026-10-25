@@ -273,11 +273,9 @@ internal fun WorkspaceFlatMenuRow(
     // Expansion is a visual state of the header, not a selected cleanup rule.
     // Keep the same 48dp menu row geometry and flat, square surface.
     val sectionExpanded = section && expanded
-    val targetColor = if (sectionExpanded) {
-        MaterialTheme.colorScheme.primary.copy(
-            alpha = if (LocalListCleanerDarkTheme.current) 0.12f else 0.08f
-        ).compositeOver(MaterialTheme.colorScheme.surface)
-    } else MaterialTheme.colorScheme.surface
+    val targetColor = if (sectionExpanded || selected) {
+        MaterialFlatPalette.selectionHighlightSurface()
+    } else MaterialFlatPalette.surface()
     val rowColor by animateColorAsState(
         targetValue = targetColor,
         animationSpec = tween(durationMillis = 180),
