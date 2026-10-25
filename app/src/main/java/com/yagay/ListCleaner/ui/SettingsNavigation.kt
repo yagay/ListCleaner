@@ -101,6 +101,7 @@ internal fun SettingsTabContent(
                                     state, vm, collectingDiagnostics,
                                     onCollectDiagnostics, onInspectFile
                                 )
+                                SettingsSection.ABOUT -> AboutSettings()
                             }
                         }
                     }

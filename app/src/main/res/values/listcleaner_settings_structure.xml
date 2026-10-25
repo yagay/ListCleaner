@@ -16,4 +16,14 @@
     <string name="lc_settings_technical_group">Technical details</string>
     <string name="lc_settings_show_technical">Show technical details</string>
     <string name="lc_settings_hide_technical">Hide technical details</string>
+    <string name="lc_settings_home_about">App information</string>
+    <string name="lc_settings_about_section">About</string>
+    <string name="lc_settings_about_subtitle">Version, project links and support</string>
+    <string name="lc_about_app_info">Application</string>
+    <string name="lc_about_version">Version</string>
+    <string name="lc_about_developer">Developer</string>
+    <string name="lc_about_links">Project &amp; support</string>
+    <string name="lc_about_source">GitHub project</string>
+    <string name="lc_about_releases">Releases &amp; updates</string>
+    <string name="lc_about_issues">Report an issue</string>
 </resources>

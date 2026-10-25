@@ -16,4 +16,14 @@
     <string name="lc_settings_technical_group">详细运行信息</string>
     <string name="lc_settings_show_technical">显示技术详情</string>
     <string name="lc_settings_hide_technical">收起技术详情</string>
+    <string name="lc_settings_home_about">应用信息</string>
+    <string name="lc_settings_about_section">关于</string>
+    <string name="lc_settings_about_subtitle">版本、项目链接与反馈</string>
+    <string name="lc_about_app_info">应用信息</string>
+    <string name="lc_about_version">版本</string>
+    <string name="lc_about_developer">开发者</string>
+    <string name="lc_about_links">项目与支持</string>
+    <string name="lc_about_source">GitHub 项目主页</string>
+    <string name="lc_about_releases">版本发布与更新</string>
+    <string name="lc_about_issues">问题反馈</string>
 </resources>

@@ -13,6 +13,7 @@ import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.FormatListBulleted
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Security
@@ -25,10 +26,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.yagay.ListCleaner.BuildConfig
 import com.yagay.ListCleaner.R
 
-/** Exactly six nested settings areas. The bottom navigation still has only three destinations. */
+/** Six settings groups plus an About page; bottom navigation stays unchanged. */
 internal enum class SettingsSection(
     @StringRes val titleRes: Int,
     @StringRes val descriptionRes: Int,
@@ -39,7 +39,8 @@ internal enum class SettingsSection(
     SCANNING(R.string.settings_scan_section, R.string.settings_scan_subtitle, Icons.Rounded.Refresh),
     COMPATIBILITY(R.string.settings_compat_section, R.string.settings_compat_subtitle, Icons.Rounded.Security),
     BACKUP(R.string.dashboard_data_backup, R.string.settings_backup_subtitle, Icons.Rounded.Backup),
-    ADVANCED(R.string.settings_advanced_section, R.string.settings_advanced_subtitle, Icons.Rounded.BugReport)
+    ADVANCED(R.string.settings_advanced_section, R.string.settings_advanced_subtitle, Icons.Rounded.BugReport),
+    ABOUT(R.string.lc_settings_about_section, R.string.lc_settings_about_subtitle, Icons.Rounded.Info)
 }
 
 @Composable
@@ -50,7 +51,8 @@ internal fun SettingsCenterHome(onSelect: (SettingsSection) -> Unit) {
         R.string.lc_settings_home_maintenance
     )
     MaterialPageColumn(fullBleed = true) {
-        SettingsSection.entries.chunked(2).forEachIndexed { groupIndex, sections ->
+        SettingsSection.entries.filter { it != SettingsSection.ABOUT }
+            .chunked(2).forEachIndexed { groupIndex, sections ->
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 FlatSectionHeader(
                     stringResource(headings[groupIndex]),
@@ -68,12 +70,17 @@ internal fun SettingsCenterHome(onSelect: (SettingsSection) -> Unit) {
                 }
             }
         }
-        AdaptiveText(
-            stringResource(R.string.app_version_format,
-                stringResource(R.string.app_name), BuildConfig.VERSION_NAME),
-            modifier = Modifier.padding(horizontal = MaterialUiTokens.pageHorizontal),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            FlatSectionHeader(
+                stringResource(R.string.lc_settings_home_about),
+                modifier = Modifier.padding(horizontal = MaterialUiTokens.pageHorizontal)
+            )
+            FlatCategoryRow(
+                icon = SettingsSection.ABOUT.icon,
+                title = stringResource(SettingsSection.ABOUT.titleRes),
+                description = stringResource(SettingsSection.ABOUT.descriptionRes),
+                onClick = { onSelect(SettingsSection.ABOUT) }
+            )
+        }
     }
 }
