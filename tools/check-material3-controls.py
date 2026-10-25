@@ -471,7 +471,7 @@ if "fun WorkspacePickerButton(" not in menu_shared:
 if "fun <T> WorkspaceFilterChoiceGroup(" not in sheet or "WorkspaceFlatMenuRow(" not in sheet:
     errors.append("WorkspaceCommon.kt: shared flat filter rows missing")
 for expected in ("fun WorkspaceListActions(",
-                 "WorkspaceListActions(actions, helpExpanded, onHelpToggle)"):
+                 "WorkspaceListActions(actions, helpExpanded, onHelpToggle, previewActions)"):
     if expected not in sheet:
         errors.append(f"WorkspaceCommon.kt: list actions regression: {expected}")
 if "AdaptiveDropdownMenu(expanded = appMenu" in sheet:
