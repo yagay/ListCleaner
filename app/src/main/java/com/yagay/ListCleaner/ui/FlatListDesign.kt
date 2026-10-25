@@ -1,5 +1,9 @@
 package com.yagay.ListCleaner.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
@@ -57,6 +61,14 @@ internal fun FlatRowSurface(
             modifier = rowModifier, shape = RectangleShape, color = color
         ) { content() }
     }
+}
+
+/** One shared selected rail for settings choices and popup options. */
+@Composable
+internal fun FlatSelectionRail(selected: Boolean, height: Dp = 22.dp) {
+    Box(Modifier.width(3.dp).height(height).background(
+        if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
+    ))
 }
 
 /** Single-column, cardless category row, shared by Entry, Root and Settings. */

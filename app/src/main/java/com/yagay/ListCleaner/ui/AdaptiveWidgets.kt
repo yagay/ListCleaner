@@ -50,6 +50,8 @@ internal fun AdaptiveTextButton(
     onClick = onClick,
     modifier = modifier,
     enabled = enabled,
+    shape = RectangleShape,
+    colors = MaterialActionColors.text(),
     contentPadding = contentPadding, content = content
 )
 
@@ -63,6 +65,7 @@ internal fun AdaptiveOutlinedButton(
 ) = OutlinedButton(
     onClick = onClick, modifier = modifier,
     enabled = enabled,
+    shape = RectangleShape,
     colors = if (danger) MaterialActionColors.dangerOutlined() else MaterialActionColors.outlined(),
     border = if (danger) MaterialActionColors.dangerOutlinedBorder() else MaterialActionColors.outlinedBorder(enabled),
     content = content
@@ -167,7 +170,10 @@ internal fun AdaptiveButton(
     content: @Composable RowScope.() -> Unit
 ) = Button(
     onClick = onClick, modifier = modifier,
-    enabled = enabled, content = content
+    enabled = enabled,
+    shape = RectangleShape,
+    colors = MaterialActionColors.filled(),
+    content = content
 )
 
 @Composable

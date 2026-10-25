@@ -14,8 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Surface
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -35,12 +34,14 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import com.yagay.ListCleaner.R
 
 /** One flat modal treatment for app-owned dialogs; native system dialogs are unaffected. */
+/** Unified app-owned flat dialog, preserving platform focus and dismiss handling. */
 @Composable
 internal fun AdaptiveAlertDialog(
     onDismissRequest: () -> Unit,
@@ -52,19 +53,45 @@ internal fun AdaptiveAlertDialog(
     text: @Composable (() -> Unit)? = null,
     properties: DialogProperties = DialogProperties()
 ) {
-    AlertDialog(
-        onDismissRequest = onDismissRequest,
-        confirmButton = confirmButton,
-        modifier = modifier,
-        dismissButton = dismissButton,
-        icon = icon,
-        title = title,
-        text = text,
-        shape = RectangleShape,
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp,
-        properties = properties
-    )
+    val maxDialogHeight = (LocalConfiguration.current.screenHeightDp - 48).coerceAtLeast(200).dp
+    Dialog(onDismissRequest = onDismissRequest, properties = properties) {
+        Surface(
+            modifier = modifier.fillMaxWidth().heightIn(max = maxDialogHeight),
+            shape = RectangleShape,
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 0.dp,
+            shadowElevation = 0.dp,
+            border = BorderStroke(0.5.dp, MaterialFlatPalette.outline())
+        ) {
+            Column {
+                Column(
+                    modifier = Modifier.weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    if (icon != null) {
+                        Box(
+                            Modifier.fillMaxWidth().padding(top = 16.dp),
+                            contentAlignment = Alignment.Center
+                        ) { icon() }
+                    }
+                    if (title != null) {
+                        Box(Modifier.fillMaxWidth().padding(
+                            start = 20.dp, end = 20.dp, top = 20.dp, bottom = 8.dp
+                        )) { title() }
+                    }
+                    if (text != null) {
+                        Box(Modifier.fillMaxWidth().padding(
+                            start = 20.dp, end = 20.dp, top = 8.dp, bottom = 16.dp
+                        )) { text() }
+                    }
+                }
+                FlatPopupFooter {
+                    dismissButton?.invoke()
+                    confirmButton()
+                }
+            }
+        }
+    }
 }
 
 /**
@@ -207,6 +234,7 @@ internal fun AdaptiveDropdownMenu(
     )
 }
 
+/** Flat menu row: the popup owns scroll, and options own a single 48dp target. */
 @Composable
 internal fun AdaptiveDropdownMenuItem(
     text: @Composable () -> Unit,
@@ -216,10 +244,26 @@ internal fun AdaptiveDropdownMenuItem(
     trailingIcon: @Composable (() -> Unit)? = null,
     enabled: Boolean = true
 ) {
-    DropdownMenuItem(
-        text = text, onClick = onClick, modifier = modifier,
-        leadingIcon = leadingIcon, trailingIcon = trailingIcon, enabled = enabled
-    )
+    Surface(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        enabled = enabled,
+        shape = RectangleShape,
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = if (enabled) MaterialTheme.colorScheme.onSurface
+            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (leadingIcon != null) Box { leadingIcon() }
+            Box(Modifier.weight(1f)) { text() }
+            if (trailingIcon != null) Box { trailingIcon() }
+        }
+    }
 }
 
 /** One menu entry point for categories, filter, app actions and settings. */
