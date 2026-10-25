@@ -211,16 +211,17 @@ fun BrowserHostDialog(
                 } else {
                     LazyColumn(Modifier.fillMaxWidth().heightIn(max = 320.dp)) {
                         items(hosts, key = { it }) { host ->
-                            Row(
-                                Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                AdaptiveText(host, Modifier.weight(1f))
-                                AdaptiveIconButton(onClick = { hosts = hosts - host }) {
-                                    AdaptiveIcon(Icons.Rounded.Delete, stringResource(R.string.common_delete))
+                            FlatRowSurface(dividerInset = 0.dp) {
+                                Row(
+                                    Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    AdaptiveText(host, Modifier.weight(1f))
+                                    AdaptiveIconButton(onClick = { hosts = hosts - host }) {
+                                        AdaptiveIcon(Icons.Rounded.Delete, stringResource(R.string.common_delete))
+                                    }
                                 }
                             }
-                            AdaptiveHorizontalDivider()
                         }
                     }
                 }

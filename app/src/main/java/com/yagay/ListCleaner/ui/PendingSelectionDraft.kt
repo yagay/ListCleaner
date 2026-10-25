@@ -83,8 +83,8 @@ internal fun PendingChangesBar(
         tonalElevation = 0.dp, shadowElevation = 0.dp
     ) {
         Column {
-        AdaptiveHorizontalDivider(thickness = 0.5.dp)
-        Row(
+            AdaptiveHorizontalDivider(thickness = 0.5.dp)
+            Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -100,7 +100,7 @@ internal fun PendingChangesBar(
             AdaptiveTextButton(onClick = { confirmApply = true }) {
                 AdaptiveText(stringResource(R.string.lc_apply_changes))
             }
+            }
         }
-          }
     }
 }

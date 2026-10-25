@@ -49,7 +49,7 @@ for file in sorted(root.glob("*.kt")):
             errors.append(f"{file.name}: obsolete layout tokens; use MaterialUiTokens")
 
 required = {
-    "AdaptiveWidgets.kt": ["FilterChip(", "OutlinedButton(", "TextButton(", "Button(",
+    "AdaptiveWidgets.kt": ["fun AdaptiveFilterChip(", "OutlinedButton(", "TextButton(", "Button(",
                            "Checkbox(", "IconButton(", "FlatRowSurface("],
     "MaterialActionColors.kt": ["fun filled()", "fun outlined()", "fun outlinedBorder(",
                                  "fun text()", "fun icon()", "fun filter()", "fun navigation()",
@@ -115,8 +115,8 @@ required = {
     "WorkspaceCommon.kt": ["MaterialInlineStatus(", "MaterialUiTokens.",
                            "WorkspaceControlLabel(", "CompactCategoryButton("],
     "WorkspaceControlLabel.kt": ["fun WorkspaceControlLabel(", "MaterialTheme.typography.labelLarge"],
-    "CompactCategoryButton.kt": ["fun CompactCategoryButton(", "InputChip(",
-                                  "MaterialSelectionPalette.activeText()"],
+    "CompactCategoryButton.kt": ["fun CompactCategoryButton(", "AdaptiveFilterChip(",
+                                  "Arrangement.spacedBy(4.dp)"],
     "ClassicListLayout.kt": ["fun ClassicCleanupTabs(", "WorkspaceControlLabel(",
                              "active == ClassicCleanupMode.ENTRIES", "active == ClassicCleanupMode.COMPONENTS"],
     "ComponentCategoryFilter.kt": ["fun ClassicComponentCategoryFilter(",
@@ -126,6 +126,54 @@ required = {
     "BrowserHostFilterRow.kt": ["fun BrowserHostFilterMenu(", "WorkspaceControlLabel(",
                                  "CompactCategoryButton("],
 }
+# All app-owned modals and selectors share the same flat rendering path.
+popups = (root / "AdaptivePopups.kt").read_text(encoding="utf-8")
+widgets = (root / "AdaptiveWidgets.kt").read_text(encoding="utf-8")
+compact = (root / "CompactCategoryButton.kt").read_text(encoding="utf-8")
+pending = (root / "PendingSelectionDraft.kt").read_text(encoding="utf-8")
+for expected in ("shape = RectangleShape", "shadowElevation = 0.dp",
+                 "tonalElevation = 0.dp", "border = BorderStroke(",
+                 "AdaptiveDropdownMenu("):
+    if expected not in popups:
+        errors.append(f"AdaptivePopups.kt: shared modal geometry missing {expected}")
+if "RoundedCornerShape" in popups:
+    errors.append("AdaptivePopups.kt: rounded global dialog still active")
+if "AdaptiveDropdownMenu(" not in popups.split("internal fun FlatWorkspaceDropdownMenu(", 1)[-1]:
+    errors.append("AdaptivePopups.kt: divergent menu renderer returned")
+chip = widgets.split("internal fun AdaptiveFilterChip(", 1)[-1].split(
+    "internal fun AdaptiveTriStateCheckbox(", 1
+)[0]
+if "FilterChip(" in chip or "shape = RectangleShape" not in chip or "height(2.dp)" not in chip:
+    errors.append("AdaptiveWidgets.kt: shared flat tab must replace capsule FilterChip")
+if "InputChip(" in compact or "AdaptiveFilterChip(" not in compact:
+    errors.append("CompactCategoryButton.kt: old pill or duplicated compact selector returned")
+if "shadowElevation = 0.dp" not in pending or "tonalElevation = 0.dp" not in pending:
+    errors.append("PendingSelectionDraft.kt: pending actions must have no elevation")
+if "AdaptiveButton(onClick = { confirmApply = true })" in pending:
+    errors.append("PendingSelectionDraft.kt: pending Apply button must be flat")
+for file in ("OpenPresetFilterRow.kt", "BrowserHostFilterRow.kt"):
+    code = (root / file).read_text(encoding="utf-8")
+    for wrong in ("RoundedCornerShape(", "AdaptiveDropdownMenu(", "AdaptiveDropdownMenuItem("):
+        if wrong in code:
+            errors.append(f"{file}: obsolete secondary-filter control {wrong}")
+    if "FlatWorkspaceDropdownMenu(" not in code or "WorkspaceFlatMenuRow(" not in code:
+        errors.append(f"{file}: secondary options must be common flat rows")
+for file in ("MainControls.kt", "SpaceBackupDialogs.kt", "SystemProbeDialog.kt"):
+    code = (root / file).read_text(encoding="utf-8")
+    if "AdaptiveDropdownMenu(" in code or "AdaptiveDropdownMenuItem(" in code:
+        errors.append(f"{file}: old dropdown content still active")
+bulk = (root / "AppListRows.kt").read_text(encoding="utf-8").split(
+    "internal fun BulkLockContextMenu(", 1
+)[-1].split("@Composable", 1)[0]
+if "FlatWorkspaceDropdownMenu(" not in bulk or "WorkspaceFlatMenuRow(" not in bulk:
+    errors.append("AppListRows.kt: long-press lock menu must match overflow")
+if "FlatRowSurface(dividerInset = 0.dp)" not in (root / "CustomOpenTypeDialog.kt").read_text(encoding="utf-8"):
+    errors.append("CustomOpenTypeDialog.kt: custom OPEN rows not flat")
+if "FlatRowSurface(dividerInset = 0.dp)" not in (root / "BrowserHostFilterRow.kt").read_text(encoding="utf-8"):
+    errors.append("BrowserHostFilterRow.kt: managed Browser rows not flat")
+if "shadowElevation = 2.dp" not in (root / "PriorityDialog.kt").read_text(encoding="utf-8"):
+    errors.append("PriorityDialog.kt: reduced drag feedback must remain distinct")
+
 # Unified List First renderer across Cleanup, Ordering, Settings and details.
 flat_visual_checks = {
     "FlatListDesign.kt": ("fun FlatRowSurface(", "fun FlatCategoryRow(",

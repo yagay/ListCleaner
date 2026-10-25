@@ -58,6 +58,7 @@ internal fun CustomOpenTypeDialog(
                 LazyColumn(Modifier.heightIn(max = 420.dp)) {
                     items(OpenPreset.CUSTOM_SLOTS, key = { it.name }) { slot ->
                         val definition = config.customDefinitions[slot]
+                        FlatRowSurface(dividerInset = 0.dp) {
                         AdaptiveListItem(
                             headlineContent = {
                                 AdaptiveText(
@@ -93,7 +94,7 @@ internal fun CustomOpenTypeDialog(
                                 }
                             }
                         )
-                        AdaptiveHorizontalDivider()
+                        }
                     }
                 }
             }
