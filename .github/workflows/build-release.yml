@@ -45,7 +45,7 @@ jobs:
           set -euo pipefail
           sdkmanager "cmdline-tools;23.0" > sdk-tools.log 2>&1
           "${ANDROID_HOME}/cmdline-tools/23.0/bin/sdkmanager" --channel=3 "platforms;android-37.0" "build-tools;36.0.0" > sdk-install.log 2>&1
-          bash ./gradlew --no-daemon --console=plain --stacktrace -PallowUnsignedRelease=true :app:assembleRelease 2>&1 | tee release-build.log
+          bash ./gradlew --no-daemon --console=plain --stacktrace -PciArm64Only=false -PallowUnsignedRelease=true :app:assembleRelease 2>&1 | tee release-build.log
       - name: Upload compilation diagnostics
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -105,7 +105,26 @@ jobs:
       - name: Compile optimized Release APK
         run: |
           set -euo pipefail
-          bash ./gradlew --no-daemon --console=plain --stacktrace -PallowUnsignedRelease=true :app:assembleRelease 2>&1 | tee release-build.log
+          bash ./gradlew --no-daemon --console=plain --stacktrace -PciArm64Only=false -PallowUnsignedRelease=true :app:assembleRelease 2>&1 | tee release-build.log
+
+      - name: Audit universal Release APK
+        run: |
+          set -euo pipefail
+          apk="app/build/outputs/apk/release/app-release.apk"
+          test -s "$apk"
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          apk = Path("app/build/outputs/apk/release/app-release.apk")
+          with ZipFile(apk) as archive:
+              native_abis = sorted({
+                  entry.split("/")[1] for entry in archive.namelist()
+                  if entry.startswith("lib/") and entry.endswith(".so") and len(entry.split("/")) >= 3
+              })
+          print("Release APK:", apk.name)
+          print("Packaged native ABIs:", ", ".join(native_abis) if native_abis else "none (no native shared libraries)")
+          print("Release variant does not apply ciArm64Only or an NDK ABI restriction.")
+          PY
 
       - name: Upload compiled Release APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

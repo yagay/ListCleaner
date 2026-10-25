@@ -6,7 +6,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
-// Keep main's arm64-only Debug build option; Release remains unaffected.
+// CI can restrict native ABIs in Debug only. Release always packages every available ABI.
 val ciArm64Only = providers.gradleProperty("ciArm64Only").orNull == "true"
 
 val releaseKeyProperties = Properties().apply {
@@ -43,12 +43,6 @@ android {
         versionCode = 71
         versionName = "1.6.46"
         buildConfigField("long", "HOOK_COMPAT_VERSION_CODE", "${hookCompatVersionCode}L")
-        if (ciArm64Only) {
-            ndk {
-                abiFilters.clear()
-                abiFilters += "arm64-v8a"
-            }
-        }
     }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
@@ -75,6 +69,15 @@ android {
     }
 
     buildTypes {
+        getByName("debug") {
+            if (ciArm64Only) {
+                ndk {
+                    abiFilters.clear()
+                    abiFilters += "arm64-v8a"
+                }
+            }
+        }
+        // No Release ABI filters: package every ABI supplied by dependencies.
         release {
             if (hasReleaseSigning) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
