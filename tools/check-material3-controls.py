@@ -593,6 +593,20 @@ if scroll_end < 0 or footer_start < scroll_end:
     errors.append("WorkspaceCommon.kt: filter actions must follow, not scroll with, choices")
 if "lc_filter_sheet_reset" not in filter_popup[footer_start:] or "lc_filter_sheet_apply" not in filter_popup[footer_start:]:
     errors.append("WorkspaceCommon.kt: Reset and Apply must both remain in the fixed footer")
+# The footer is one accessible flat row, not TextButtons nested inside padded containers.
+footer_body = filter_popup[footer_start:]
+if ".heightIn(min = 48.dp)" not in footer_body or "WorkspaceFilterFooterAction(" not in footer_body:
+    errors.append("WorkspaceCommon.kt: Filter footer must use compact 48dp shared text actions")
+if "vertical = 4.dp" in footer_body.split("} // End fixed-footer container", 1)[0]:
+    errors.append("WorkspaceCommon.kt: Filter footer has obsolete vertical padding")
+if "AdaptiveTextButton(" in footer_body.split("} // End fixed-footer container", 1)[0]:
+    errors.append("WorkspaceCommon.kt: Filter footer reintroduced tall Material TextButtons")
+footer_action = sheet.split("private fun WorkspaceFilterFooterAction(", 1)[-1].split(
+    "/** Filter selections are single-column", 1
+)[0]
+for expected in ("heightIn(min = 48.dp)", "clickable(role = Role.Button", "MaterialTheme.typography.labelLarge"):
+    if expected not in footer_action:
+        errors.append(f"WorkspaceCommon.kt: compact footer action missing {expected}")
 if "heightIn(max = 480.dp)" in filter_popup or "widthIn(min = 270.dp" in filter_popup:
     errors.append("WorkspaceCommon.kt: Filter must use Category-scale dropdown dimensions")
 # Category and Filter use one flat row style inside anchored menus.

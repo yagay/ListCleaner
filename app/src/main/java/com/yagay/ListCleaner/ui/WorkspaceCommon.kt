@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.toggleableState
@@ -198,30 +199,58 @@ internal fun WorkspaceFilterBar(
                 }
                 } // End scrollable filter choices
                 AdaptiveHorizontalDivider()
-                // Fixed footer: Reset and Apply remain visible while choices scroll.
+                // Fixed footer: one 48dp row, without nested TextButton minimum sizes
+                // or extra top/bottom padding. Options alone continue to scroll.
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(
-                        horizontal = 8.dp, vertical = 4.dp
-                    ),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                    modifier = Modifier.fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    AdaptiveTextButton(onClick = {
-                        draftAppType = AppTypeFilter.ALL
-                        draftView = UiFilter.ALL
-                    }) {
-                        AdaptiveText(stringResource(R.string.lc_filter_sheet_reset))
-                    }
-                    AdaptiveTextButton(onClick = {
-                        if (draftAppType != appTypeFilter) onAppTypeFilter(draftAppType)
-                        if (draftView != viewFilter) onViewFilter(draftView)
-                        expanded = false
-                    }) {
-                        AdaptiveText(stringResource(R.string.lc_filter_sheet_apply))
-                    }
+                    WorkspaceFilterFooterAction(
+                        label = stringResource(R.string.lc_filter_sheet_reset),
+                        onClick = {
+                            draftAppType = AppTypeFilter.ALL
+                            draftView = UiFilter.ALL
+                        }
+                    )
+                    WorkspaceFilterFooterAction(
+                        label = stringResource(R.string.lc_filter_sheet_apply),
+                        primary = true,
+                        onClick = {
+                            if (draftAppType != appTypeFilter) onAppTypeFilter(draftAppType)
+                            if (draftView != viewFilter) onViewFilter(draftView)
+                            expanded = false
+                        }
+                    )
                 }
             } // End fixed-footer container
         }
+    }
+}
+
+/** Text-only 48dp footer targets avoid stacking Material TextButton and menu padding. */
+@Composable
+private fun WorkspaceFilterFooterAction(
+    label: String,
+    primary: Boolean = false,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .heightIn(min = 48.dp)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        AdaptiveText(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            color = if (primary) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1
+        )
     }
 }
 
