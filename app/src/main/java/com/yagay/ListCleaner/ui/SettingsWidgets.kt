@@ -158,7 +158,7 @@ internal fun SettingsActionButton(
         Row(
             modifier = Modifier.fillMaxWidth()
                 .heightIn(min = MaterialUiTokens.settingsActionHeight)
-                .padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = 8.dp),
+                .padding(horizontal = MaterialUiTokens.pageHorizontal),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.settingsRowGap)
         ) {
@@ -196,9 +196,7 @@ private fun SettingsFlatChoiceRow(label: String, selected: Boolean, onClick: () 
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Box(Modifier.width(3.dp).height(20.dp).background(
-                if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
-            ))
+            FlatSelectionRail(selected)
             AdaptiveText(
                 label, modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.bodyLarge,

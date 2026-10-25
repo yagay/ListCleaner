@@ -4,10 +4,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.unit.dp
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.runtime.Composable
@@ -85,12 +83,6 @@ internal object MaterialSelectionPalette {
 }
 
 internal object MaterialActionColors {
-    @Composable fun segmented() = SegmentedButtonDefaults.colors(
-        activeContainerColor = MaterialFlatPalette.selectedSurface(),
-        activeContentColor = MaterialSelectionPalette.activeText(),
-        inactiveContainerColor = MaterialSelectionPalette.background(),
-        inactiveContentColor = MaterialSelectionPalette.text()
-    )
     @Composable fun filled() = ButtonDefaults.buttonColors()
     @Composable fun outlined() = ButtonDefaults.outlinedButtonColors()
     // Destructive actions use the semantic error palette, never an unrelated accent.
@@ -108,10 +100,5 @@ internal object MaterialActionColors {
         unselectedIconColor = MaterialSelectionPalette.text(),
         unselectedTextColor = MaterialSelectionPalette.text()
     )
-    @Composable fun filter() = FilterChipDefaults.filterChipColors(
-        containerColor = MaterialSelectionPalette.filterBackground(),
-        selectedContainerColor = MaterialFlatPalette.selectedSurface(),
-        labelColor = MaterialSelectionPalette.text(),
-        selectedLabelColor = MaterialSelectionPalette.activeText()
-    )
+
 }

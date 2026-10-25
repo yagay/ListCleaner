@@ -44,31 +44,10 @@ internal object MaterialUiTokens {
     val sectionGap get() = (14f * density).dp
     val contentGap get() = (8f * density).dp
     val cardPadding get() = (16f * density).dp
-    val cardRadius get() = UiPreferencesRuntime.current.cardRadius.dp
-    // Visual-only list rounding: use half the configured radius for lighter
-    // cards. The same token drives original and grouped lists, without changing
-    // padding, row height, bounds, click targets, or any item position.
-    val listCardRadius get() = (UiPreferencesRuntime.current.cardRadius * 0.45f).dp
-    val groupedInnerRadius get() = (4f * density).dp
-    // Reduced group gap for flat rows; does not change touch targets.
-    val groupedOuterGap get() = (2f * density).dp
-    val groupedInnerGap get() = (1f * density).dp
+    // The current presentation has one flat list; only the detail indent
+    // remains active from the former grouped geometry family.
     val groupedDetailIndent get() = (12f * density).dp
-    val groupedDetailPadding get() = (6f * density).dp
-    val groupedDetailStartPadding get() = (16f * density).dp
-    val groupedDetailEndPadding get() = (12f * density).dp
-    val groupedHeaderPadding get() = (8f * density).dp
-    val cardShape get() = RoundedCornerShape(cardRadius)
     val groupHorizontal get() = pageHorizontal
-    // Compact category cards: typography and icon size stay unchanged.
-    // Minimum only: content can grow for large fonts and longer translations.
-    // A single-line title must not reserve the space of a second line.
-    val categoryHeight get() = (88f * density).dp
-    val categoryPadding get() = (8f * density).dp
-    val categoryContentGap get() = (3f * density).dp
-    val categoryGap get() = (8f * density).dp
-    // Spacing between interactive filter chips, separate from home card spacing.
-    val filterChipGap get() = (6f * density).dp
     val listRowHeight get() = UiPreferencesRuntime.current.listRowHeight.dp
     val listRowHorizontal get() = (8f * density).dp
     val listRowVertical get() = (6f * density).dp

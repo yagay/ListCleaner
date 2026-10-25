@@ -24,7 +24,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import com.yagay.ListCleaner.R
 
@@ -90,18 +89,14 @@ internal fun WorkspaceDetailHeading(
         AdaptiveText(
             title,
             modifier = Modifier.weight(1f),
-            style = if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED)
-                MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                else MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyLarge,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
         AdaptiveText(
             kind,
             modifier = Modifier.widthIn(max = MaterialUiTokens.detailKindMaxWidth),
-            style = if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED)
-                MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp)
-                else MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -124,8 +119,8 @@ internal fun WorkspaceDetailCaption(
             emphasized -> MaterialTheme.colorScheme.primary
             else -> MaterialTheme.colorScheme.onSurfaceVariant
         },
-        maxLines = if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) Int.MAX_VALUE else 2,
-        overflow = if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED) TextOverflow.Clip else TextOverflow.Ellipsis
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis
     )
 }
 
@@ -158,8 +153,7 @@ internal fun WorkspaceDetailIconAction(
 ) {
     AdaptiveIconButton(
         onClick = onClick,
-        modifier = if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED)
-            Modifier.size(40.dp) else Modifier
+        modifier = Modifier
     ) {
         AdaptiveIcon(
             image,

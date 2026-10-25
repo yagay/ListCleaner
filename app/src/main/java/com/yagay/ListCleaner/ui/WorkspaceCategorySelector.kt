@@ -271,12 +271,7 @@ internal fun WorkspaceFlatMenuRow(
             enabled = enabled,
             text = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        Modifier.width(3.dp).height(22.dp).background(
-                            if (selected) MaterialTheme.colorScheme.primary
-                            else androidx.compose.ui.graphics.Color.Transparent
-                        )
-                    )
+                    FlatSelectionRail(selected)
                     Spacer(Modifier.width(if (indented) 28.dp else 12.dp))
                     AdaptiveText(
                         title,
