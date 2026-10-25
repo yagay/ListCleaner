@@ -185,18 +185,19 @@ internal fun ModuleStatusRow(state: MainState, compact: Boolean = false, onClick
         status.resolverLoaded -> R.string.module_loaded
         else -> R.string.module_lsposed_connected
     }
-    UiCard(
-        modifier = Modifier.fillMaxWidth(),
-        variant = UiCardVariant.STATUS,
-        warning = !status.connected || status.outdated || status.error != null
-    ) {
+    FlatRowSurface(Modifier.fillMaxWidth()) {
         Row(
             Modifier.fillMaxWidth().heightIn(min = MaterialUiTokens.detailHeight)
                 .padding(horizontal = MaterialUiTokens.cardPadding, vertical = MaterialUiTokens.contentGap),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
-            AdaptiveText(stringResource(titleRes), style = MaterialTheme.typography.labelLarge)
+            AdaptiveText(
+                stringResource(titleRes),
+                style = MaterialTheme.typography.labelLarge,
+                color = if (!status.connected || status.outdated || status.error != null)
+                    MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+            )
             AdaptiveText(
                 if (!compact) state.syncStatus
                 else if (state.runtime.ready) stringResource(R.string.module_system_confirmed)

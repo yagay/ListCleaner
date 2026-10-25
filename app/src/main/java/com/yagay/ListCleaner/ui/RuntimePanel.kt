@@ -20,7 +20,7 @@ internal fun RuntimePanel(
     val result by vm.updateMessage.collectAsStateWithLifecycle()
     var confirmReset by remember { mutableStateOf(false) }
     if (confirmReset) {
-        AdaptiveAlertDialog(
+        SettingsFlatDialog(
             onDismissRequest = { confirmReset = false },
             title = { AdaptiveText(stringResource(R.string.runtime_reset_title)) },
             text = { AdaptiveText(stringResource(R.string.runtime_reset_help)) },
@@ -34,14 +34,15 @@ internal fun RuntimePanel(
             }
         )
     }
-    UiCard(
+    FlatRowSurface(
         modifier = Modifier.fillMaxWidth(),
-        variant = UiCardVariant.STATUS,
-        warning = !state.runtime.ready,
         horizontalInset = horizontalInset
     ) {
         Column(
-            Modifier.fillMaxWidth().padding(MaterialUiTokens.cardPadding),
+            Modifier.fillMaxWidth().padding(
+                horizontal = MaterialUiTokens.pageHorizontal,
+                vertical = MaterialUiTokens.contentGap
+            ),
             verticalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap)
         ) {
         if (!state.runtime.ready) {

@@ -30,7 +30,7 @@ internal fun SettingsResetControls(onColorModeChange: (UiColorMode) -> Unit) {
     val context = LocalContext.current
     var confirm by remember { mutableStateOf(false) }
     if (confirm) {
-        AdaptiveAlertDialog(
+        SettingsFlatDialog(
             onDismissRequest = { confirm = false },
             title = { AdaptiveText(stringResource(R.string.settings_reset_title)) },
             text = { AdaptiveText(stringResource(R.string.settings_reset_description)) },

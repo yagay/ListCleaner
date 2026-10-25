@@ -10,7 +10,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material3.Slider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -49,11 +49,7 @@ internal fun SettingsAppearanceControls(
             },
             onSelected = onColorModeChange
         )
-        AdaptiveText(
-            stringResource(R.string.ui_color_mode_help),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        SettingsHint(stringResource(R.string.ui_color_mode_help))
         SettingsChoices(
             stringResource(R.string.settings_theme_color), current.accent,
             listOf(
@@ -77,8 +73,10 @@ internal fun SettingsAppearanceControls(
                 supportingText = { AdaptiveText(stringResource(R.string.settings_custom_color_hint)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
+                    .padding(horizontal = MaterialUiTokens.pageHorizontal),
+                shape = RectangleShape
             )
-            AdaptiveButton(
+            SettingsActionButton(
                 onClick = {
                     UiPreferencesStore.write(
                         context,
@@ -101,18 +99,13 @@ internal fun SettingsAppearanceControls(
     }
     var editingDarkPalette by remember { mutableStateOf(false) }
     SettingsArea(stringResource(R.string.settings_color_details)) {
-        androidx.compose.material3.SingleChoiceSegmentedButtonRow {
-            SegmentedButton(
-                selected = !editingDarkPalette,
-                onClick = { editingDarkPalette = false },
-                shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(0, 2)
-            ) { AdaptiveText(stringResource(R.string.settings_colors_light)) }
-            SegmentedButton(
-                selected = editingDarkPalette,
-                onClick = { editingDarkPalette = true },
-                shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(1, 2)
-            ) { AdaptiveText(stringResource(R.string.settings_colors_dark)) }
-        }
+        SettingsFlatPaletteTabs(
+            firstLabel = stringResource(R.string.settings_colors_light),
+            secondLabel = stringResource(R.string.settings_colors_dark),
+            secondSelected = editingDarkPalette,
+            onFirst = { editingDarkPalette = false },
+            onSecond = { editingDarkPalette = true }
+        )
             ThemeColorRoleEditor(
                 role = "buttonBackground",
                 dark = editingDarkPalette,
@@ -183,8 +176,7 @@ internal fun SettingsAppearanceControls(
                 UiPreferencesStore.write(context, current.copy(showAppIcons = it))
             }
         )
-        AdaptiveText(stringResource(R.string.settings_appearance_help),
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SettingsHint(stringResource(R.string.settings_appearance_help))
     }
 }
 
@@ -233,19 +225,19 @@ private fun ThemeColorRoleEditor(role: String, dark: Boolean, title: String) {
     ) {
         androidx.compose.material3.Surface(
             color = androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor(defaultHex)),
-            shape = MaterialTheme.shapes.small,
+            shape = RectangleShape,
             modifier = Modifier.size(36.dp)
         ) {}
     }
     if (expanded) {
-        AdaptiveAlertDialog(
+        SettingsFlatDialog(
             onDismissRequest = { expanded = false },
             title = { AdaptiveText(title) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     androidx.compose.material3.Surface(
                         color = androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor(colorHex)),
-                        shape = MaterialTheme.shapes.medium,
+                        shape = RectangleShape,
                         modifier = Modifier.fillMaxWidth().height(56.dp)
                     ) {}
                     AdaptiveText(colorHex)
