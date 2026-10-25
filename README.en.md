@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | **English**
 
-Trim Android share, open-with, browser, and text-processing menus so frequently used apps appear first. With Root access, List Cleaner can also manage app-provided Quick Settings tiles, shortcut creation entries, and home-screen widgets.
+Trim Android share, open-with, deep-link, file-picker, and other system entry lists so frequently used apps appear first. With Root access, List Cleaner can also manage app-provided launcher icons, Quick Settings tiles, shortcut-creation entries, and home-screen widgets.
 
 [Download](https://github.com/yagay/ListCleaner/releases/latest) · [Issues](https://github.com/yagay/ListCleaner/issues) · [Telegram](https://t.me/LISTCLEANER)
 
@@ -22,9 +22,13 @@ Package name: `com.yagay.ListCleaner`. Chinese environments display “列表清
 
 ## Features
 
-### Rules: control which apps appear in menus
+### Rules: control which apps appear on system entry surfaces
 
-Manage candidates separately for Share, multi-file Share, Open with, Browser, and Text processing. Browser can also add hosts such as github.com directly below the Browser category; each host inherits Browser · All and can add extra App Link filtering for that domain. Search apps, expand their components, and filter by all, selected, unselected, or locked entries.
+The Rules page manages Share, multi-file Share, Send to, Open with, Browser, Deep links, Dial, Choose content, Take photo, Record video, Record audio, Text processing, plus two system_server-backed surfaces: **Long-press shortcuts** and **Storage locations**. Browser can also add hosts such as github.com directly below the Browser category; each host inherits Browser · All and can add extra App Link filtering for that domain. Search apps, expand their components, and filter by all, selected, unselected, or locked entries.
+
+On Android 11+, Direct Share contact/conversation suggestions follow normal Share cleanup: when an app is hidden from Share candidates, its Direct Share targets are filtered as well. List Cleaner does not read or store contact names or conversation content.
+
+Long-press shortcuts are managed by the Launcher Activity that publishes them and cover static, dynamic, and pinned shortcuts returned by Android. Storage locations are managed by `DocumentsProvider` and cover cloud drives, file managers, NAS providers, and similar entries shown by the Storage Access Framework. Both features only filter system query results; they **do not disable components or modify an app's own Shortcut/Provider data**.
 
 | Display mode | Effect |
 | --- | --- |
@@ -38,11 +42,13 @@ Each page can independently apply a **bulk-operation lock**. **Swipe right to lo
 
 Rules, Ordering, and Components all use the same compact **Apps: All / User apps / System apps** dropdown, which can be combined with the existing View filter. App type only controls what is currently shown and what bulk actions target; it **never participates in ordering or changes selection, lock, or Root state**. Updated preinstalled system apps remain classified as system apps.
 
-Rules alter returned candidate lists. They do not uninstall applications or change component enabled state. The scan catalog is a configuration aid and does not imply that every file exposes the same candidates.
+Ordinary Resolver rules alter returned candidate lists; they do not uninstall apps or change component enabled state. Long-press shortcuts and storage locations use dedicated system_server query filtering. Unknown or OEM-specific result shapes fail open so unrecognized data is preserved instead of being accidentally removed.
+
+Package-visibility compatibility applies only to ordinary Resolver categories. Long-press shortcuts and storage providers are explicitly excluded, so selecting either surface never makes the owning app disappear wholesale from another caller's package view.
 
 ### Ordering: put frequently used apps first
 
-Each of the five categories stores its own app priority order. Browser domains can also keep dedicated priority order and inherit Browser · All when no dedicated order exists.
+Each rule category keeps its own app priority order. Browser domains can also keep a dedicated priority order and inherit Browser · All when no dedicated order exists. Long-press shortcuts and storage locations support the same app-level promotion without changing underlying system data.
 
 - Select an app to add it to the priority list and place it at the configured position; deselect it to return it to the default alphabetical group.
 - Prioritized apps follow the saved order; other apps are sorted by name. The list can be filtered to all, prioritized, non-prioritized, or locked apps, then narrowed to user or system apps. Neither app-type filtering nor locks move apps or rewrite the saved priority order.
@@ -51,14 +57,15 @@ Each of the five categories stores its own app priority order. Browser domains c
 
 The module applies priority ordering at supported system query and chooser ordering stages. Vendor-customized choosers, application-specific reordering, and custom menus can behave differently.
 
-### Components: manage tiles, shortcuts, and widgets
+### Components: manage launcher icons, tiles, shortcut-creation entries, and widgets
 
 The Components page reads actual system state and supports search, disabled-state filtering, and separate user/system app views for bulk management.
 
 | Category | Supported scope |
 | --- | --- |
+| Launcher icons | Exported `ACTION_MAIN + CATEGORY_LAUNCHER` Activity / Activity Alias entries |
 | Tiles | Standard app-provided `TileService` components; system built-in tiles such as Wi-Fi or Bluetooth without an independent service are excluded |
-| Shortcuts | Shortcut configuration activities from Android `LauncherApps` plus legacy `ACTION_CREATE_SHORTCUT` entries; dynamic/pinned shortcut instances requiring launcher-host access and private entries are not included |
+| Shortcuts | Shortcut configuration activities from Android `LauncherApps` plus legacy `ACTION_CREATE_SHORTCUT` entries; actual static/dynamic/pinned shortcuts are handled non-destructively under Rules → Long-press shortcuts |
 | Widgets | Providers from the Android `AppWidgetManager` registry, merged with manifest widget receivers as a compatibility fallback |
 
 Component discovery follows a **public-API first, compatibility fallback, fail-open** model. A component can carry multiple discovery sources and duplicates are merged automatically. Diagnostics record sources such as `PACKAGE_MANAGER`, `APP_WIDGET_MANAGER`, and `LAUNCHER_APPS` so missing entries can be traced to the discovery layer. Installing, updating, or removing packages invalidates candidate caches automatically.
@@ -67,19 +74,19 @@ A runtime capability handshake protects upgrades. If the APK is newer while syst
 
 **Selected means disabled; unselected means explicitly enabled.** It does not restore a previous default state. Root is checked before an operation and system state is read back afterwards. Missing Root permission or authorization timeout produces an error instead of a false successful state.
 
-The Components page also supports bulk-operation locks and a Locked filter. **Swipe right to lock and left to unlock**; unlocked rows show no lock icon, while locked rows show a status icon. A full lock protects the whole app and a partial lock protects only selected child entries. Locked under All aggregates locks from Tile, Shortcut, and Widget categories. Locks only protect Select All/Invert-style operations: they are **not Root disabled state, do not participate in ordering, and do not change selected/partial/unselected state**. Locked entries remain manually editable.
+The Components page also supports bulk-operation locks and a Locked filter. **Swipe right to lock and left to unlock**; unlocked rows show no lock icon, while locked rows show a status icon. A full lock protects the whole app and a partial lock protects only selected child entries. Locked under All aggregates locks from the component categories. Locks only protect Select All/Invert-style operations: they are **not Root disabled state, do not participate in ordering, and do not change selected/partial/unselected state**. Locked entries remain manually editable.
 
-Real Root disable remains the primary component-management mechanism. List Cleaner also persists the desired disabled policy and adds a second LSPosed/system_server discovery filter. If Android or vendor services temporarily restore a component during startup, protected tiles, shortcut entries, and widget providers are still removed from discovery results. Queries made by List Cleaner itself bypass this filtering so those components remain manageable.
+Real Root disable remains the primary component-management mechanism. List Cleaner also persists the desired disabled policy and adds a second LSPosed/system_server discovery filter. If Android or vendor services temporarily restore a component during startup, protected launcher icons, tiles, shortcut-creation entries, and widget providers are still removed from discovery results. Queries made by List Cleaner itself bypass this filtering so those components remain manageable.
 
 After boot, List Cleaner automatically reconciles persistent disabled state. Delayed checks run after `BOOT_COMPLETED` and user unlock, followed by another settled-startup pass; app install/update events also trigger reconciliation. Only components that should be disabled but are no longer actually `DISABLED` are repaired, so already-correct entries do not receive redundant Root commands.
 
 Component operations apply only to the Android user running List Cleaner. Core system components, SystemUI, List Cleaner itself, and components belonging to an application that is disabled as a whole are displayed but cannot be changed.
 
-Disabling a component can affect places where it is already used, including existing tiles and widgets. Re-enabling does not guarantee restoration to its former position. Clearing List Cleaner data or uninstalling the module **does not revert component disabled states**; re-enable components as needed before uninstalling.
+Disabling a component can affect places where it is already used, including launcher entries, existing tiles, and widgets. Re-enabling does not guarantee restoration to its former position. Clearing List Cleaner data or uninstalling the module **does not revert component disabled states**; re-enable components as needed before uninstalling.
 
 ### Backup and diagnostics
 
-- Import and export JSON rule backups containing rules, display modes, and priority ordering, compatible with backup formats v1–v10.
+- Import and export JSON rule backups containing rules, display modes, and priority ordering, compatible with backup formats v1–v11. New entry surfaces continue to use the same `ComponentRule` format.
 - Rule backups **do not save or restore actual Root component enabled states**. Legacy tile configuration remains readable for compatibility but is not automatically converted into component-disable operations.
 - The Status page shows module connection, scope, and configuration synchronization state. A diagnostic ZIP can be exported to troubleshoot filtering, ordering, and Root operations. Diagnostics can contain application lists and logs; review them before sharing.
 
@@ -89,7 +96,7 @@ Disabling a component can affect places where it is already used, including exis
 2. Enable List Cleaner in a module manager supporting API 102, configure the recommended system/chooser scope, and restart as instructed by the framework.
 3. Open List Cleaner, confirm module and configuration synchronization on the Status page, then configure a category and display mode on the Rules page.
 4. To change app ordering, select and drag frequently used apps on the Ordering page.
-5. To manage tiles, shortcuts, or widgets, open Components and grant Root in your Root manager. Return to List Cleaner and retry after authorization.
+5. To actually disable launcher icons, tiles, shortcut-creation entries, or widgets, open Components and grant Root in your Root manager. Long-press shortcut and storage-location cleanup does not Root-disable components; it is handled by Rules filtering.
 
 Component management is independent of rule display modes. Root performs the real component disable, while the LSPosed system_server layer provides restore protection and discovery filtering; third-party apps do not need to be added to the module scope. System/vendor caches can still require closing and reopening a menu.
 
@@ -99,7 +106,10 @@ Component management is independent of rule display modes. Root performs the rea
 Check that your Root manager allows this app to use `su`, then retry as prompted. LSPosed authorization and Root authorization are separate. Component state is based on system read-back.
 
 **Why is an app or entry missing from the list?**
-Different Intents, package visibility, and vendor implementations affect scan results. Custom share panels, private shortcuts, and non-standard components might not be supported. Explicitly targeted calls are also different from system candidate menus.
+Different Intents, package visibility, Launcher permissions, DocumentsUI caches, and vendor implementations affect scan results. Custom share panels, app-private shortcuts, and non-standard components might not be supported. Explicitly targeted calls are also different from system candidate menus.
+
+**Why do the new entry surfaces not work immediately after installing a test build?**
+Long-press shortcuts and storage locations add a new system_server hook. An already-running old hook cannot gain that module dynamically, so restart as requested by the module manager after installing the test APK so the new hook generation can load.
 
 **Why does an update report a signature conflict?**
 Release builds should update over releases signed with the same publishing key. Debug builds use a debug signature and may not update over a release or a Debug build produced on another machine. Before uninstalling, export rules and check whether disabled components should be re-enabled.
@@ -118,4 +128,4 @@ Localization architecture and bilingual maintenance rules are documented in [Loc
 
 Signing configuration and automated publishing are documented in [Release build documentation](docs/RELEASE.md). Never commit private keys, signing passwords, or `local.properties`.
 
-Source/build changes on `main` automatically build Debug and run unit tests. Formal releases use the Release workflow; existing versions are not republished, and a new release requires both version name and version code updates.
+Relevant source/build changes on `main` and `test` automatically build Debug and run unit tests. Formal releases use only the Release workflow; the `test` branch does not publish releases.

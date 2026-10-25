@@ -1,5 +1,6 @@
 package com.yagay.ListCleaner.ui;
 
+import com.yagay.ListCleaner.diagnostics.DiagnosticBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -14,6 +15,7 @@ import java.util.regex.Pattern;
 public final class DiagnosticEvidence {
     private static final Pattern ID = Pattern.compile("pid=(\\d+) process=(\\S+)");
     private static final Pattern KIND = Pattern.compile("kind=(\\w+)");
+    private static final Pattern ARROW_FILTER = Pattern.compile("\\b\\d+\\s*->\\s*\\d+\\b");
     private final DiagnosticBuffer buffer = new DiagnosticBuffer(512 * 1024);
     private final Set<String> seen = new HashSet<>();
     private final Map<String, Integer> counts = new LinkedHashMap<>();
@@ -27,18 +29,18 @@ public final class DiagnosticEvidence {
     }
 
     public void accept(String source, String line) {
-        if (!line.contains("com.yagay.ListCleaner,ListCleaner.Diagnostic,")) return;
+        // libxposed file logs contain "com.yagay.ListCleaner,ListCleaner.<tag>,..." while Android
+        // logcat contains the tag directly. Keep every ListCleaner module tag so newly split hook
+        // modules do not silently disappear from diagnostics.
+        if (!line.contains("ListCleaner")) return;
         String hash = java.util.Base64.getEncoder().encodeToString(digest.digest(line.getBytes(StandardCharsets.UTF_8)));
         if (seen.contains(hash)) { duplicates++; return; }
         if (seen.size() >= 8192) { omitted++; return; }
         seen.add(hash);
         Matcher id = ID.matcher(line);
         if (id.find()) {
-            String stage = line.contains(" MODULE_LOADED ") ? "loaded" :
-                line.contains(" HOOK_INSTALLED ") ? "hookInstalled" :
-                line.contains(" QUERY ") ? "queryObserved" :
-                line.contains(" ORDER_APPLIED ") ? "orderObserved" :
-                line.contains(" TILE_HOOK_INSTALLED ") ? "tileHookInstalled" :
+            // Specific subsystems must be classified before generic FILTER/HOOK tokens.
+            String stage = line.contains(" TILE_HOOK_INSTALLED ") ? "tileHookInstalled" :
                 line.contains(" TILE_CONFIG ") ? "tileConfigRead" :
                 line.contains(" TILE_EDITOR_SEEN ") ? "tileEditorSeen" :
                 line.contains(" TILE_FILTERED ") ? "tileFilterObserved" :
@@ -48,12 +50,21 @@ public final class DiagnosticEvidence {
                 line.contains(" ORDER_DELIVERED ") ? "orderDeliveredNotUiVerified" :
                 line.contains(" ORDER_HOOK_INSTALLED ") ? "orderHookInstalled" :
                 line.contains(" ORDER_CAPABILITY ") ? "orderCapabilityObserved" :
+                line.contains(" ORDER_APPLIED ") ? "orderObserved" :
                 line.contains(" ORDER_SKIP ") ? "orderSkipped" :
                 line.contains(" ORDER_FAILED ") || line.contains(" ORDER_HOOK_FAILED ") ? "orderFailed" :
+                line.contains(" MODULE_LOADED ") ? "loaded" :
+                line.contains(" HOOK_INSTALLED ") || line.contains(" HOOKS_READY ") || line.contains(" PROFILE_READY ") ? "hookInstalled" :
+                line.contains(" RESULT kind=") || line.contains(" SHORTCUT_FILTER ") ||
+                    line.contains(" FILTER ") || line.contains("DIRECT_FILTER") || line.contains("FILTERED") ||
+                    ARROW_FILTER.matcher(line).find() ? "filterObserved" :
+                line.contains(" QUERY ") ? "queryObserved" :
+                line.contains(" RESTORE_ALL") ? "restoreObserved" :
+                line.contains(" HIT ") || line.contains("_HIT ") ? "hitObserved" :
+                line.contains(" HOOK_FAILED ") || line.contains(" HOT_RELOAD_FAILED ") ? "hookFailed" :
                 line.contains(" MANAGER_QUERY_BYPASS ") ? "managerBypass" :
                 line.contains(" CONFIG_ACK ") ? "configAcknowledged" :
                 line.contains(" HOT_RELOAD_READY ") ? "hotReloadReady" :
-                line.contains(" HOT_RELOAD_FAILED ") ? "hotReloadFailed" :
                 line.contains(" RULES_READ_FAILED ") ? "rulesReadFailed" :
                 line.contains("FILTER_PAUSED") ? "identityUnknown" : null;
             if (stage != null) {

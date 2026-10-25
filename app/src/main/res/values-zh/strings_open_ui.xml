@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="open_type_universal">通用</string>
     <string name="open_type_filter">类型</string>
     <string name="open_manage_custom">管理类型</string>
     <string name="custom_open_title">自定义打开方式类型</string>

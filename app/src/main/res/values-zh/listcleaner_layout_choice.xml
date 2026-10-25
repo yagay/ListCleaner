@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lc_home_layout_title">清理与排序页面布局</string>
+    <string name="lc_home_layout_cards">分类列表</string>
+    <string name="lc_home_layout_classic">直接进入应用列表</string>
+    <string name="lc_home_layout_description">分类列表通过扁平行展示 Entry 与 Root 分类；直接列表打开应用管理页，上方保留分类筛选。两种方式共用规则及扫描引擎，卡片展示模式以后可单独加入。</string>
+</resources>

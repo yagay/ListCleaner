@@ -7,6 +7,7 @@ import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.AppTypeFilter
+import com.yagay.ListCleaner.domain.EntryGroup
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.OpenTypeConfig
@@ -17,7 +18,7 @@ internal fun Destination.labelRes(): Int = when (this) {
     Destination.RULES -> R.string.nav_rules
     Destination.PRIORITY -> R.string.nav_priority
     Destination.TILES -> R.string.nav_components
-    Destination.DASHBOARD -> R.string.nav_status
+    Destination.SETTINGS -> R.string.nav_settings
 }
 
 @StringRes
@@ -43,19 +44,88 @@ internal fun DisplayMode.titleRes(): Int = when (this) {
 }
 
 @StringRes
+internal fun EntryGroup.titleRes(): Int = when (this) {
+    EntryGroup.SHARE -> R.string.entry_group_share
+    EntryGroup.OPEN -> R.string.entry_group_open
+    EntryGroup.FILES -> R.string.entry_group_files
+    EntryGroup.DESKTOP -> R.string.entry_group_desktop
+    EntryGroup.INPUT -> R.string.entry_group_input
+    EntryGroup.SYSTEM -> R.string.entry_group_system
+    EntryGroup.PERSONALIZATION -> R.string.entry_group_personalization
+}
+
+@StringRes
 internal fun IntentKind.titleRes(): Int = when (this) {
     IntentKind.SHARE -> R.string.intent_share
     IntentKind.SHARE_MULTIPLE -> R.string.intent_share_multiple
+    IntentKind.DIRECT_SHARE -> R.string.intent_direct_share
     IntentKind.SEND_TO -> R.string.intent_send_to
     IntentKind.OPEN -> R.string.intent_open
     IntentKind.BROWSER -> R.string.intent_browser
     IntentKind.DEEP_LINK -> R.string.intent_deep_link
     IntentKind.DIAL -> R.string.intent_dial
     IntentKind.GET_CONTENT -> R.string.intent_get_content
+    IntentKind.OPEN_DOCUMENT -> R.string.intent_open_document
+    IntentKind.CREATE_DOCUMENT -> R.string.intent_create_document
     IntentKind.CAPTURE_IMAGE -> R.string.intent_capture_image
     IntentKind.CAPTURE_VIDEO -> R.string.intent_capture_video
     IntentKind.RECORD_AUDIO -> R.string.intent_record_audio
     IntentKind.PROCESS_TEXT -> R.string.intent_process_text
+    IntentKind.HOME -> R.string.intent_home
+    IntentKind.ASSISTANT -> R.string.intent_assistant
+    IntentKind.LAUNCHER_SHORTCUT -> R.string.intent_launcher_shortcut
+    IntentKind.SHORTCUT_ITEM -> R.string.intent_shortcut_item
+    IntentKind.DOCUMENT_PROVIDER -> R.string.intent_document_provider
+    IntentKind.DOCUMENT_ROOT -> R.string.intent_document_root
+    IntentKind.PHOTO_SOURCE -> R.string.intent_photo_source
+    IntentKind.INPUT_METHOD -> R.string.intent_input_method
+    IntentKind.AUTOFILL -> R.string.intent_autofill
+    IntentKind.CREDENTIAL_PROVIDER -> R.string.intent_credential_provider
+    IntentKind.NOTIFICATION_LISTENER -> R.string.intent_notification_listener
+    IntentKind.ACCESSIBILITY -> R.string.intent_accessibility
+    IntentKind.VPN -> R.string.intent_vpn
+    IntentKind.PRINT -> R.string.intent_print
+    IntentKind.WALLPAPER -> R.string.intent_wallpaper
+    IntentKind.DREAM -> R.string.intent_dream
+    IntentKind.NFC_HCE -> R.string.intent_nfc_hce
+    IntentKind.CALL_SCREENING -> R.string.intent_call_screening
+}
+
+@StringRes
+internal fun IntentKind.descriptionRes(): Int = when (this) {
+    IntentKind.SHARE -> R.string.intent_desc_share
+    IntentKind.SHARE_MULTIPLE -> R.string.intent_desc_share_multiple
+    IntentKind.DIRECT_SHARE -> R.string.intent_desc_direct_share
+    IntentKind.SEND_TO -> R.string.intent_desc_send_to
+    IntentKind.OPEN -> R.string.intent_desc_open
+    IntentKind.BROWSER -> R.string.intent_desc_browser
+    IntentKind.DEEP_LINK -> R.string.intent_desc_deep_link
+    IntentKind.DIAL -> R.string.intent_desc_dial
+    IntentKind.GET_CONTENT -> R.string.intent_desc_get_content
+    IntentKind.OPEN_DOCUMENT -> R.string.intent_desc_open_document
+    IntentKind.CREATE_DOCUMENT -> R.string.intent_desc_create_document
+    IntentKind.CAPTURE_IMAGE -> R.string.intent_desc_capture_image
+    IntentKind.CAPTURE_VIDEO -> R.string.intent_desc_capture_video
+    IntentKind.RECORD_AUDIO -> R.string.intent_desc_record_audio
+    IntentKind.PROCESS_TEXT -> R.string.intent_desc_process_text
+    IntentKind.HOME -> R.string.intent_desc_home
+    IntentKind.ASSISTANT -> R.string.intent_desc_assistant
+    IntentKind.LAUNCHER_SHORTCUT -> R.string.intent_desc_launcher_shortcut
+    IntentKind.SHORTCUT_ITEM -> R.string.intent_desc_shortcut_item
+    IntentKind.DOCUMENT_PROVIDER -> R.string.intent_desc_document_provider
+    IntentKind.DOCUMENT_ROOT -> R.string.intent_desc_document_root
+    IntentKind.PHOTO_SOURCE -> R.string.intent_desc_photo_source
+    IntentKind.INPUT_METHOD -> R.string.intent_desc_input_method
+    IntentKind.AUTOFILL -> R.string.intent_desc_autofill
+    IntentKind.CREDENTIAL_PROVIDER -> R.string.intent_desc_credential_provider
+    IntentKind.NOTIFICATION_LISTENER -> R.string.intent_desc_notification_listener
+    IntentKind.ACCESSIBILITY -> R.string.intent_desc_accessibility
+    IntentKind.VPN -> R.string.intent_desc_vpn
+    IntentKind.PRINT -> R.string.intent_desc_print
+    IntentKind.WALLPAPER -> R.string.intent_desc_wallpaper
+    IntentKind.DREAM -> R.string.intent_desc_dream
+    IntentKind.NFC_HCE -> R.string.intent_desc_nfc_hce
+    IntentKind.CALL_SCREENING -> R.string.intent_desc_call_screening
 }
 
 @StringRes

@@ -32,45 +32,45 @@ internal fun ComponentTitleDialog(
     val trimmed = text.trim()
     val normalizedCurrent = currentTitle.orEmpty()
     val changed = trimmed != normalizedCurrent
-    AlertDialog(
+    AdaptiveAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.component_title_dialog_title)) },
+        title = { AdaptiveText(stringResource(R.string.component_title_dialog_title)) },
         text = {
             Column {
-                Text(
+                AdaptiveText(
                     stringResource(R.string.component_title_original, item.activityLabel),
                     style = MaterialTheme.typography.bodyMedium
                 )
-                Text(
+                AdaptiveText(
                     stringResource(R.string.component_title_help, stringResource(item.rule.kind.titleRes())),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Text(
+                AdaptiveText(
                     item.rule.className,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(12.dp))
-                OutlinedTextField(
+                AdaptiveOutlinedTextField(
                     value = text,
                     onValueChange = { if (it.length <= 64 && it.none(Char::isISOControl)) text = it },
-                    label = { Text(stringResource(R.string.component_title_field)) },
-                    supportingText = { Text(stringResource(R.string.component_title_support, text.length)) },
+                    label = { AdaptiveText(stringResource(R.string.component_title_field)) },
+                    supportingText = { AdaptiveText(stringResource(R.string.component_title_support, text.length)) },
                     singleLine = true
                 )
             }
         },
         confirmButton = {
-            TextButton(
+            AdaptiveTextButton(
                 onClick = { onSave(trimmed.ifEmpty { null }); onDismiss() },
                 enabled = changed
             ) {
-                Text(stringResource(R.string.common_save))
+                AdaptiveText(stringResource(R.string.common_save))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+            AdaptiveTextButton(onClick = onDismiss) { AdaptiveText(stringResource(R.string.common_cancel)) }
         }
     )
 }

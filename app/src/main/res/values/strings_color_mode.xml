@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_color_mode_title">Colour mode</string>
+    <string name="ui_color_mode_system">System</string>
+    <string name="ui_color_mode_light">Light</string>
+    <string name="ui_color_mode_dark">Dark</string>
+    <string name="ui_color_mode_help">Follow the system or choose light or dark mode. This only changes the app appearance, not its rules or hooks.</string>
+</resources>

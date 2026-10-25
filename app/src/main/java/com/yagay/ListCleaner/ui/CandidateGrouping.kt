@@ -15,6 +15,88 @@ data class AppGroup(
     val components: List<ComponentCandidate>
 )
 
+/**
+ * Single source of truth for candidate retention and UI visibility.
+ *
+ * Discovery state (available/unavailable/restricted), selection state and the current UI filter
+ * are deliberately evaluated here so refreshes cannot accidentally change list membership through
+ * a second, slightly different visibility rule elsewhere.
+ */
+internal object CandidateVisibilityPolicy {
+    private fun isObservedShortcutHistory(item: ComponentCandidate): Boolean =
+        item.rule.kind in setOf(IntentKind.DIRECT_SHARE, IntentKind.SHORTCUT_ITEM) &&
+            item.evidence.any { it.startsWith("AUTHORITY_OBSERVED ") &&
+                "source=cache_history" in it }
+
+    fun retainAfterRefresh(item: ComponentCandidate, selected: Boolean): Boolean =
+        !item.unavailable || selected || isObservedShortcutHistory(item)
+
+    fun visible(item: ComponentCandidate, selected: Boolean, uiFilter: UiFilter,
+                preferences: UiPreferences = UiPreferencesRuntime.current,
+                nowMillis: Long = System.currentTimeMillis()): Boolean {
+        if (!matchesSelectionFilter(selected, uiFilter)) return false
+        val historical = isObservedShortcutHistory(item)
+        if (historical && !selected) {
+            if (!preferences.showShortcutHistory) return false
+            val days = preferences.historyVisibilityDays
+            if (days > 0) {
+                val seen = item.evidence.firstOrNull { it.startsWith("observedAt=") }
+                    ?.substringAfter('=')?.toLongOrNull() ?: return false
+                if (seen <= 0L || seen > nowMillis || nowMillis - seen > days * 86_400_000L) return false
+            }
+        }
+        if (preferences.candidateSource != UiCandidateSource.ALL) {
+            val matchesSource = when (preferences.candidateSource) {
+                UiCandidateSource.ALL -> true
+                UiCandidateSource.OBSERVED ->
+                    item.evidence.any { it.startsWith("AUTHORITY_OBSERVED ") &&
+                        ("source=recent_runtime" in it || "source=live" in it) }
+                UiCandidateSource.PROACTIVE ->
+                    item.evidence.any { it.startsWith("ACTIVE_SHORTCUT_CANDIDATE ") }
+                UiCandidateSource.HISTORY -> historical
+            }
+            if (!matchesSource) return false
+        }
+
+        return when {
+            item.isCatalogCandidate -> true
+            // Restricted discoveries stay isolated from ALL/Unselected even if configured.
+            item.restricted -> selected &&
+                (uiFilter == UiFilter.SHOW_SELECTED || uiFilter == UiFilter.LOCKED)
+            // A configured rule may temporarily disappear from runtime discovery after refresh.
+            // Keep it manageable in ALL/Selected/Locked, but never in Unselected.
+            // Historical Direct Share rows remain searchable, but retain unavailable=true
+            // and never claim a current system Chooser result.
+            item.unavailable && isObservedShortcutHistory(item) ->
+                uiFilter == UiFilter.ALL || uiFilter == UiFilter.HIDE_SELECTED ||
+                    (selected && uiFilter == UiFilter.SHOW_SELECTED)
+            item.unavailable -> selected && uiFilter != UiFilter.HIDE_SELECTED
+            else -> false
+        }
+    }
+
+    private fun matchesSelectionFilter(selected: Boolean, uiFilter: UiFilter): Boolean = when (uiFilter) {
+        UiFilter.ALL -> true
+        UiFilter.HIDE_SELECTED -> !selected
+        UiFilter.SHOW_SELECTED -> selected
+        UiFilter.LOCKED -> true
+    }
+}
+
+/**
+ * "Unavailable" means the discovery probe did not observe this saved rule.
+ * It is not proof the entry disappeared: some targets are published on demand,
+ * require a matching Intent, or are hidden from PackageManager queries.
+ */
+internal fun ComponentCandidate.mayBeDynamicEntry(): Boolean = when (rule.kind) {
+    IntentKind.SHORTCUT_ITEM, IntentKind.DIRECT_SHARE -> true
+    else -> false
+}
+
+/** Compatibility facade for diagnostics; all decisions still come from CandidateVisibilityPolicy. */
+internal fun catalogVisible(item: ComponentCandidate, selected: Boolean, uiFilter: UiFilter): Boolean =
+    CandidateVisibilityPolicy.visible(item, selected, uiFilter)
+
 private fun appSelectionRank(group: AppGroup, selected: Set<ComponentRule>): Int {
     val selectedCount = group.components.count { it.rule in selected }
     return when {
@@ -41,42 +123,81 @@ internal fun filterAppGroups(
     selected: Set<ComponentRule>,
     filter: IntentKind?,
     query: String,
-    uiFilter: UiFilter
-): List<AppGroup> = groups.mapNotNull { group ->
-    val matching = group.components.filter {
-        val isSelected = it.rule in selected
-        val matchesUiFilter = when (uiFilter) {
-            UiFilter.ALL -> true
-            UiFilter.HIDE_SELECTED -> !isSelected
-            UiFilter.SHOW_SELECTED -> isSelected
-            UiFilter.LOCKED -> true
+    uiFilter: UiFilter,
+    sortMode: UiAppSort = UiAppSort.SELECTED_FIRST,
+    preferences: UiPreferences = UiPreferencesRuntime.current,
+): List<AppGroup> {
+    val needle = query.trim().lowercase()
+    val filtered = groups.mapNotNull { group ->
+        val matching = group.components.filter { item ->
+            // The common category/search checks are cheaper than history/authority
+            // visibility inspection, especially for multi-kind catalogs.
+            (filter == null || item.rule.kind == filter) &&
+                item.matchesNormalizedQuery(needle) &&
+                CandidateVisibilityPolicy.visible(item, item.rule in selected, uiFilter, preferences)
         }
-        catalogVisible(it, isSelected, uiFilter) && matchesUiFilter &&
-            (filter == null || it.rule.kind == filter) && it.matchesQuery(query)
+        if (matching.isEmpty()) null else group.copy(components = matching)
     }
-    if (matching.isEmpty()) null else group.copy(components = matching)
-}.sortedWith(
-    compareBy<AppGroup> { appSelectionRank(it, selected) }
-        .thenBy { it.components.firstOrNull()?.normalizedAppLabel ?: it.appLabel.lowercase() }
-        .thenBy { it.packageName }
-)
+    // Comparator callbacks run O(apps * log(apps)) times. Computing selection
+    // rank inside the comparator rescanned every component many times on a large
+    // Entry catalog. Calculate the rank once for each visible app instead.
+    val selectionRanks = if (sortMode == UiAppSort.SELECTED_FIRST) {
+        filtered.associate { it.packageName to appSelectionRank(it, selected) }
+    } else emptyMap()
+    return filtered.sortedWith(
+        when (sortMode) {
+            UiAppSort.SELECTED_FIRST -> compareBy<AppGroup> { selectionRanks.getValue(it.packageName) }
+                .thenBy { it.components.firstOrNull()?.normalizedAppLabel ?: it.appLabel.lowercase() }
+                .thenBy { it.packageName }
+            UiAppSort.NAME -> compareBy<AppGroup> {
+                it.components.firstOrNull()?.normalizedAppLabel ?: it.appLabel.lowercase()
+            }.thenBy { it.packageName }
+            UiAppSort.PACKAGE -> compareBy<AppGroup> { it.packageName.lowercase() }
+        }
+    )
+}
 
-fun groupCandidates(
+internal fun groupCandidates(
     candidates: List<ComponentCandidate>,
     selected: Set<ComponentRule>,
     filter: IntentKind?,
     query: String,
-    uiFilter: UiFilter
-): List<AppGroup> = filterAppGroups(baseAppGroups(candidates), selected, filter, query, uiFilter)
+    uiFilter: UiFilter,
+    sortMode: UiAppSort = UiAppSort.SELECTED_FIRST,
+    preferences: UiPreferences = UiPreferencesRuntime.current,
+): List<AppGroup> = filterAppGroups(baseAppGroups(candidates), selected, filter, query, uiFilter, sortMode, preferences)
 
 fun retainConfiguredCandidates(
     items: List<ComponentCandidate>,
     selected: Set<ComponentRule>,
     unavailableEvidence: String = "Configured but not observed during this scan; this does not mean the app is uninstalled"
 ): List<ComponentCandidate> {
-    val kept = items.filter { !it.unavailable || it.rule in selected }
+    // Identity of a published shortcut must not depend on the launcher Activity.
+    fun logicalShortcut(rule: ComponentRule): String? {
+        val marker = when (rule.kind) {
+            IntentKind.SHORTCUT_ITEM -> "#shortcut#"
+            IntentKind.DIRECT_SHARE -> "#direct#"
+            else -> return null
+        }
+        val token = rule.className.substringAfter(marker, "")
+        if (token.length != 24 || !token.all { it in '0'..'9' || it in 'a'..'f' }) return null
+        return "${rule.kind.name}|${rule.packageName}|$token"
+    }
+    // A prior catalog stage may already have appended unavailable placeholders;
+    // filter those as well as placeholders synthesized below.
+    val currentShortcutKeys = items.asSequence()
+        .filter { !it.unavailable }
+        .mapNotNull { logicalShortcut(it.rule) }
+        .toSet()
+    val kept = items.filter { item ->
+        CandidateVisibilityPolicy.retainAfterRefresh(item, item.rule in selected) &&
+            (!item.unavailable || logicalShortcut(item.rule)?.let { it !in currentShortcutKeys } != false)
+    }
     val ids = kept.map { it.rule.id }.toSet()
-    return kept + selected.filter { it.id !in ids }.map { rule ->
+    val observedShortcutKeys = currentShortcutKeys
+    return kept + selected.filter { rule ->
+        rule.id !in ids && logicalShortcut(rule)?.let { it in observedShortcutKeys } != true
+    }.map { rule ->
         ComponentCandidate(
             rule,
             rule.packageName,
@@ -101,6 +222,3 @@ internal fun availableDeepLinkHosts(
         .toSet()
     return configuredHosts.mapNotNull(::normalizeBrowserHost).toSet() + matched
 }
-
-internal fun catalogVisible(item: ComponentCandidate, selected: Boolean, uiFilter: UiFilter): Boolean =
-    item.isCatalogCandidate || (selected && (uiFilter == UiFilter.SHOW_SELECTED || uiFilter == UiFilter.LOCKED))

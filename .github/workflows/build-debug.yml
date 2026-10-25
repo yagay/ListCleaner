@@ -2,7 +2,7 @@ name: Build Debug APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, test3]
     paths:
       - 'app/**'
       - 'README.md'
@@ -11,6 +11,7 @@ on:
       - 'tools/check-source-localization.py'
       - 'tools/check-translation-resources.py'
       - 'tools/check-bilingual-parity.py'
+      - 'tools/check-material3-controls.py'
       - 'gradle/**'
       - '*.gradle.kts'
       - 'gradle.properties'
@@ -30,6 +31,7 @@ on:
       - 'tools/check-source-localization.py'
       - 'tools/check-translation-resources.py'
       - 'tools/check-bilingual-parity.py'
+      - 'tools/check-material3-controls.py'
       - '.github/workflows/build-debug.yml'
 
 permissions:
@@ -37,7 +39,9 @@ permissions:
 
 concurrency:
   group: debug-${{ github.ref }}
-  cancel-in-progress: true
+  # Keep test3 runs from cancelling each other during rapid debugging pushes.
+  # Production branch still discards obsolete builds.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/test3' }}
 
 jobs:
   build:
@@ -61,12 +65,20 @@ jobs:
       - name: Check bilingual parity
         run: python3 tools/check-bilingual-parity.py
 
+      - name: Check unified Material 3 controls
+        run: python3 tools/check-material3-controls.py
+
       - name: Set up Java 17
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
+
+      - name: Set up Gradle build cache
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
@@ -77,30 +89,41 @@ jobs:
       - name: Install project SDK
         run: |
           set -o pipefail
-          sdkmanager "cmdline-tools;23.0" 2>&1 | tee sdk-tools.log
+          if [[ ! -x "${ANDROID_HOME}/cmdline-tools/23.0/bin/sdkmanager" ]]; then
+            sdkmanager "cmdline-tools;23.0" 2>&1 | tee sdk-tools.log
+          fi
           sdk_manager="${ANDROID_HOME}/cmdline-tools/23.0/bin/sdkmanager"
-          "$sdk_manager" --list --channel=3 > sdk-packages.log 2>&1
-          "$sdk_manager" --channel=3 "platforms;android-37.0" "build-tools;36.0.0" "platform-tools" 2>&1 | tee sdk-install.log
+          if [[ ! -s "${ANDROID_HOME}/platforms/android-37.0/android.jar" ||
+                ! -x "${ANDROID_HOME}/build-tools/36.0.0/aapt2" ]]; then
+            "$sdk_manager" --channel=3 "platforms;android-37.0" "build-tools;36.0.0" 2>&1 | tee sdk-install.log
+          else
+            echo "Android SDK platform and build-tools already installed; skipping download"
+          fi
           test -s "${ANDROID_HOME}/platforms/android-37.0/android.jar"
           test -x "${ANDROID_HOME}/build-tools/36.0.0/aapt2"
 
       - name: Build arm64-v8a Debug APK
         run: |
           set -o pipefail
-          bash ./gradlew --no-daemon --console=plain --stacktrace -PciArm64Only=true :app:assembleDebug 2>&1 | tee debug-build.log
+          bash ./gradlew --no-daemon --build-cache --console=plain --stacktrace -PciArm64Only=true :app:assembleDebug 2>&1 | tee debug-build.log
 
-      - name: Prepare fixed APK name
+      - name: Prepare fixed arm64 Debug APK name
         run: |
           set -euo pipefail
           mkdir -p artifacts
           APK="$(find app/build/outputs/apk -type f -name '*.apk' -path '*/debug/*' | head -n 1)"
           test -n "$APK"
-          ABIS="$(unzip -l "$APK" | awk '{print $4}' | sed -n 's#^lib/\([^/]*\)/.*#\1#p' | sort -u)"
-          if [ -n "$ABIS" ] && [ "$ABIS" != "arm64-v8a" ]; then
+          ABIS="$(unzip -l "$APK" | awk '{print $4}' | sed -n 's#^lib/\\([^/]*\\)/.*#\\1#p' | sort -u)"
+          if [[ -n "$ABIS" && "$ABIS" != "arm64-v8a" ]]; then
             echo "Unexpected ABIs in APK: $ABIS"
             exit 1
           fi
           cp "$APK" artifacts/ListCleaner-debug-arm64-v8a.apk
+
+      - name: Run unit regression tests
+        run: |
+          set -o pipefail
+          bash ./gradlew --no-daemon --build-cache --console=plain :app:testDebugUnitTest 2>&1 | tee assistant-regression.log
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -108,25 +131,23 @@ jobs:
           name: ListCleaner-debug-arm64-v8a
           path: artifacts/ListCleaner-debug-arm64-v8a.apk
           if-no-files-found: error
+          compression-level: 9
           retention-days: 14
 
-      - name: Run unit tests
-        run: |
-          set -o pipefail
-          bash ./gradlew --no-daemon --console=plain --stacktrace :app:testDebugUnitTest 2>&1 | tee unit-test.log
-
+      # Keep diagnostics only for failed builds. Successful runs publish one artifact.
       - name: Upload build diagnostics
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: ListCleaner-debug-build-log
+          name: debug-build-log-${{ github.run_number }}-${{ github.run_attempt }}
           path: |
             sdk-tools.log
             sdk-packages.log
             sdk-install.log
             debug-build.log
-            unit-test.log
+            assistant-regression.log
             app/build/reports/
             build/reports/
           if-no-files-found: ignore
           retention-days: 7
+

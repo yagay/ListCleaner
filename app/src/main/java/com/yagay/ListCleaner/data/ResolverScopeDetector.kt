@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.util.Log
 import com.yagay.ListCleaner.R
+import com.yagay.ListCleaner.domain.EmbeddedDirectShareProfiles
 import com.yagay.ListCleaner.domain.IntentKind
 
 data class ResolverHost(
@@ -15,11 +16,14 @@ data class ResolverHost(
     val processName: String,
     val scenarios: Set<String>
 ) {
-    val requiresManualScope: Boolean get() = when (packageName) {
-        "system" -> false
-        "com.android.intentresolver" -> false
-        "com.android.systemui" -> false
-        "android" -> processName !in ResolverScopeDetector.FRAMEWORK_UI_PROCESSES
+    val requiresManualScope: Boolean get() = when {
+        packageName == "system" -> false
+        packageName == "com.android.intentresolver" -> false
+        packageName == "com.android.systemui" -> false
+        packageName in ResolverScopeDetector.AUTHORITY_PACKAGES -> false
+        className == ResolverScopeDetector.ROLE_CONTROLLER_SERVICE_INTERFACE -> false
+        EmbeddedDirectShareProfiles.isKnownHost(packageName) -> false
+        packageName == "android" -> processName !in ResolverScopeDetector.FRAMEWORK_UI_PROCESSES
         else -> true
     }
 }
@@ -38,18 +42,19 @@ class ResolverScopeDetector(private val context: Context) {
     fun detect(): ScopeDetection {
         val pm = context.packageManager
         val warnings = mutableListOf<String>()
-        val installed = KNOWN_PACKAGES.filter { packageName ->
+        val installedInfo = KNOWN_PACKAGES.mapNotNull { packageName ->
             try {
-                pm.getApplicationInfo(packageName, 0)
-                true
+                packageName to pm.getApplicationInfo(packageName, 0)
             } catch (_: PackageManager.NameNotFoundException) {
-                false
+                null
             } catch (failure: Exception) {
                 Log.e(TAG, "Installed-host detection failed for $packageName", failure)
                 warnings += context.getString(R.string.scope_detection_failed, packageName)
-                false
+                null
             }
-        }.toSet()
+        }.toMap()
+        val installed = installedInfo.keys
+
         val probes = listOf(
             context.getString(R.string.scope_scenario_system_share_sheet) to
                 Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain"), null),
@@ -91,17 +96,85 @@ class ResolverScopeDetector(private val context: Context) {
         }.groupBy { it.packageName to it.className }.values.map { entries ->
             entries.first().copy(scenarios = entries.flatMap { it.scenarios }.toSet())
         }
+
+        val embeddedShareHosts = EmbeddedDirectShareProfiles.all.flatMap { profile ->
+            profile.packages.filter { it in installed }.map { packageName ->
+                ResolverHost(
+                    packageName = packageName,
+                    className = profile.shareActivityClasses.firstOrNull()
+                        ?: profile.adapterClasses.firstOrNull()
+                        ?: profile.id,
+                    processName = installedInfo[packageName]?.processName ?: packageName,
+                    scenarios = setOf(context.getString(R.string.scope_scenario_share)),
+                )
+            }
+        }
+
+        val roleControllerHosts = runCatching {
+            pm.queryIntentServices(
+                Intent(ROLE_CONTROLLER_SERVICE_INTERFACE),
+                PackageManager.MATCH_SYSTEM_ONLY,
+            ).mapNotNull { resolveInfo ->
+                val info = resolveInfo.serviceInfo ?: return@mapNotNull null
+                ResolverHost(
+                    packageName = info.packageName,
+                    className = ROLE_CONTROLLER_SERVICE_INTERFACE,
+                    processName = info.processName ?: info.applicationInfo?.processName ?: info.packageName,
+                    scenarios = emptySet(),
+                )
+            }
+        }.onFailure { failure ->
+            Log.e(TAG, "Role-controller detection failed", failure)
+            warnings += context.getString(R.string.scope_detection_failed, ROLE_CONTROLLER_SERVICE_INTERFACE)
+        }.getOrDefault(emptyList())
+
+        val knownRoleControllerHosts = ROLE_CONTROLLER_PACKAGES
+            .filter { it in installed }
+            .map { packageName ->
+                ResolverHost(
+                    packageName = packageName,
+                    className = ROLE_CONTROLLER_SERVICE_INTERFACE,
+                    processName = installedInfo[packageName]?.processName ?: packageName,
+                    scenarios = emptySet(),
+                )
+            }
+
+        val roleHosts = (roleControllerHosts + knownRoleControllerHosts).distinctBy { it.packageName }
+        val authorityHosts = AUTHORITY_PACKAGES.filter { it in installed }.map { packageName ->
+            ResolverHost(
+                packageName = packageName,
+                className = when (packageName) {
+                    "com.android.nfc" -> "CardEmulationManager"
+                    else -> "CombinedProviderInfo"
+                },
+                processName = installedInfo[packageName]?.processName ?: packageName,
+                scenarios = emptySet(),
+            )
+        }
+
         val systemHost = ResolverHost(
             "system",
             "PackageManagerService",
             "system",
             setOf(context.getString(R.string.scope_scenario_global_intent))
         )
-        return ScopeDetection(listOf(systemHost) + resolverHosts, installed + "system", warnings)
+        return ScopeDetection(
+            hosts = listOf(systemHost) + resolverHosts + embeddedShareHosts + roleHosts + authorityHosts,
+            installedCandidates = installed + roleHosts.map { it.packageName } + authorityHosts.map { it.packageName } + "system",
+            warnings = warnings,
+        )
     }
 
     companion object {
-        val KNOWN_PACKAGES = setOf("android", "com.android.intentresolver", "com.android.systemui")
+        const val ROLE_CONTROLLER_SERVICE_INTERFACE = "android.app.role.RoleControllerService"
+        private val ROLE_CONTROLLER_PACKAGES = setOf(
+            "com.google.android.permissioncontroller",
+            "com.android.permissioncontroller",
+        )
+        val AUTHORITY_PACKAGES = setOf("com.android.settings", "com.android.nfc")
+        private val STANDARD_PACKAGES = setOf("android", "com.android.intentresolver", "com.android.systemui")
+        val KNOWN_PACKAGES: Set<String> =
+            STANDARD_PACKAGES + EmbeddedDirectShareProfiles.knownPackages + ROLE_CONTROLLER_PACKAGES + AUTHORITY_PACKAGES
         val FRAMEWORK_UI_PROCESSES = setOf("android:ui", "system:ui")
         private const val TAG = "ListCleaner.Scope"
     }

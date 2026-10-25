@@ -7,6 +7,8 @@ import android.content.pm.ResolveInfo
 import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
 import com.yagay.ListCleaner.BuildConfig
+import com.yagay.ListCleaner.domain.AndroidUid
+import com.yagay.ListCleaner.domain.RuntimeAckCodec
 import com.yagay.ListCleaner.domain.RuntimeProtocol
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.HotReloadedParam
@@ -27,7 +29,6 @@ import com.yagay.ListCleaner.domain.BrowserLinkConfig
 import com.yagay.ListCleaner.domain.normalizeBrowserHost
 import com.yagay.ListCleaner.domain.VisibilityCompatConfig
 import com.yagay.ListCleaner.domain.matchOpenPreset
-import com.yagay.ListCleaner.domain.prioritizeApps
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
@@ -36,13 +37,11 @@ import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
 import com.yagay.ListCleaner.domain.ModuleConfig
 import com.yagay.ListCleaner.domain.FilterPolicy
 import com.yagay.ListCleaner.domain.intentKind
-import com.yagay.ListCleaner.domain.webTargetKind
 import com.yagay.ListCleaner.domain.ManagerIdentity
 import com.yagay.ListCleaner.domain.VisibilityLayout
 import com.yagay.ListCleaner.domain.VisibilitySignature
 import com.yagay.ListCleaner.domain.VisibilityScope
 import kotlinx.serialization.json.Json
-import java.lang.reflect.Constructor
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
@@ -54,40 +53,52 @@ import java.util.concurrent.atomic.AtomicLong
  * Third-party apps do not need LSPosed scope. Real package/component state is never changed.
  */
 class ListCleanerModule : XposedModule() {
-    private data class ListResult(val values: List<*>, val rebuild: (List<*>) -> Any?)
     private data class MethodAccessor(val method: Method?)
     private data class PackageNameAccessor(val getter: Method?, val field: Field?)
-    private data class ParceledListAccessor(val getList: Method, val constructor: Constructor<*>)
-    private data class RuntimeTransfer(
-        val callerUid: Int,
-        val managerAppId: Int,
-        val id: String,
-        val digest: String,
-        val revision: Long,
-        val totalChunks: Int,
-        val totalChars: Int,
-        val startedAt: Long,
-        val chunks: Array<String?>,
-    )
     private data class ResolverPolicy(
         val include: Boolean,
         val rank: Int,
         val title: String?,
     )
 
-    @Volatile
-    private var snapshot = RuntimeRuleSnapshot(
-        configured = emptySet(),
-        displayMode = DisplayMode.HIDE_SELECTED,
-        priorities = PriorityConfig(),
-        openTypes = OpenTypeConfig(),
-        browserLinks = BrowserLinkConfig(),
-        diagnostic = false,
+    private data class UserPolicyGeneration(
+        val primary: RuntimeRuleSnapshot,
+        val otherUsers: Map<Int, RuntimeRuleSnapshot>,
     )
+
+    @Volatile private var policies = UserPolicyGeneration(
+        primary = RuntimeRuleSnapshot(
+            configured = emptySet(),
+            displayMode = DisplayMode.HIDE_SELECTED,
+            priorities = PriorityConfig(),
+            openTypes = OpenTypeConfig(),
+            browserLinks = BrowserLinkConfig(),
+            diagnostic = false,
+        ),
+        otherUsers = emptyMap(),
+    )
+    private val activeQuerySnapshot = ThreadLocal<RuntimeRuleSnapshot?>()
+    private val snapshot: RuntimeRuleSnapshot get() = activeQuerySnapshot.get() ?: policies.primary
+
+    private fun snapshotForUser(userId: Int): RuntimeRuleSnapshot {
+        // Do not use the thread-local snapshot as a base: nested cross-user queries
+        // must resolve from the correct, atomically published generation.
+        val generation = policies
+        if (userId == 0) return generation.primary
+        return generation.otherUsers[userId] ?: generation.primary.copy(
+            configured = emptySet(),
+            displayMode = DisplayMode.SHOW_ALL,
+            priorities = PriorityConfig(),
+            openTypes = OpenTypeConfig(),
+            browserLinks = BrowserLinkConfig(),
+            hiddenFromApps = emptySet(),
+            visibilityCompat = VisibilityCompatConfig(),
+        )
+    }
+
     private var lastEncodedConfig: String? = null
     @Volatile private var runtimeTransportActive = false
     @Volatile private var appliedRuntimeRevision = -1L
-    private var incomingTransfer: RuntimeTransfer? = null
     @Volatile private var listenerRegistered = false
     private var processName = ""
     private var systemServer = false
@@ -106,7 +117,10 @@ class ListCleanerModule : XposedModule() {
     private val packagesForUidCache = ConcurrentHashMap<Class<*>, MethodAccessor>()
     private val packageNameAccessorCache = ConcurrentHashMap<Class<*>, PackageNameAccessor>()
     private val callerPackageFieldsCache = ConcurrentHashMap<Class<*>, List<Field>>()
-    private val parceledListAccessorCache = ConcurrentHashMap<Class<*>, ParceledListAccessor>()
+    private val listResults = SafeListResultExtractor(::record)
+    private val runtimeTransfers = RuntimeConfigTransferStore(::record)
+    private val orderingEngine = ResolverOrderingEngine(::diagnostic)
+    private val configJson = Json { ignoreUnknownKeys = true }
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
@@ -175,11 +189,11 @@ class ListCleanerModule : XposedModule() {
                             handle.unhook()
                         }
                     }
-                    method != null && handle.id == "ic-final-order" -> {
+                    method != null && handle.id == FINAL_ORDER_HOOK_ID -> {
                         handle.replaceHook(orderHooker())
                         installedMethods.add("ORDER#${method.toGenericString()}")
                     }
-                    method != null && handle.id == "ic-alpha-order" -> {
+                    method != null && handle.id == ALPHA_ORDER_HOOK_ID -> {
                         handle.replaceHook(alphabeticalOrderHooker())
                         installedMethods.add("ALPHA#${method.toGenericString()}")
                     }
@@ -219,8 +233,6 @@ class ListCleanerModule : XposedModule() {
     }
 
     @Synchronized private fun pollPreferences() {
-        // Probe v2 owns the live snapshot once a verified runtime config has been applied.
-        // Avoid SharedPreferences reads and config hashing on PackageManager/Resolver hot paths.
         if (runtimeTransportActive) return
         val now = SystemClock.elapsedRealtime()
         if (now < nextPreferencePoll) return
@@ -320,15 +332,15 @@ class ListCleanerModule : XposedModule() {
 
     private fun systemVisibilityHooker(adapter: VisibilityLayout) = XposedInterface.Hooker { chain ->
         pollPreferences()
-        val current = snapshot
+        val args = chain.args
+        val callingUid = args.getOrNull(adapter.uidIndex) as? Int ?: return@Hooker chain.proceed()
+        val current = snapshotForUser(com.yagay.ListCleaner.domain.AndroidUid.userId(callingUid))
         if (current.displayMode != DisplayMode.HIDE_SELECTED ||
             current.hiddenFromApps.isEmpty() || current.allSelectedPackages.isEmpty()) {
             return@Hooker chain.proceed()
         }
 
-        val args = chain.args
-        val callingUid = args.getOrNull(adapter.uidIndex) as? Int ?: return@Hooker chain.proceed()
-        if (callingUid < 10_000) return@Hooker chain.proceed()
+        if (!FilterPolicy.ordinaryAppCaller(callingUid)) return@Hooker chain.proceed()
 
         val computer = args.firstOrNull { value -> value != null && hasGetPackagesForUid(value.javaClass) }
         val callers = if (computer != null) packagesForUid(computer, callingUid)
@@ -421,160 +433,12 @@ class ListCleanerModule : XposedModule() {
             record("CONFIG_PROBE_IDENTITY uid=$callerUid verified=false")
             return null
         }
-        val appId = callerUid % PER_USER_RANGE
+        val appId = AndroidUid.appId(callerUid)
         return appId.takeIf(ManagerIdentity::valid)?.also {
             if (tracedActions.add("config_identity:$callerUid")) {
                 record("CONFIG_PROBE_IDENTITY uid=$callerUid appId=$it verified=true")
             }
         }
-    }
-
-    @Synchronized
-    private fun beginRuntimeTransfer(
-        intent: Intent,
-        callerUid: Int,
-        managerAppId: Int,
-    ): Boolean {
-        val transferId = intent.getStringExtra(RuntimeProtocol.EXTRA_TRANSFER_ID)
-        val digest = intent.getStringExtra(RuntimeProtocol.EXTRA_EXPECTED_DIGEST)
-        val revision = intent.getLongExtra(RuntimeProtocol.EXTRA_REVISION, -1L)
-        val totalChunks = intent.getIntExtra(RuntimeProtocol.EXTRA_TOTAL_CHUNKS, -1)
-        val totalChars = intent.getIntExtra(RuntimeProtocol.EXTRA_TOTAL_CHARS, -1)
-        if (
-            !RuntimeProtocol.validTransferId(transferId) ||
-            !RuntimeProtocol.validDigest(digest) ||
-            revision < 0L ||
-            totalChunks !in 1..RuntimeProtocol.MAX_CONFIG_CHUNKS ||
-            totalChars !in 1..RuleRepository.MAX_BACKUP_CHARS
-        ) {
-            record(
-                "CONFIG_PUSH_REJECT stage=begin uid=$callerUid transfer=${transferId ?: "none"} " +
-                    "chunks=$totalChunks chars=$totalChars revision=$revision"
-            )
-            return false
-        }
-
-        incomingTransfer = RuntimeTransfer(
-            callerUid = callerUid,
-            managerAppId = managerAppId,
-            id = requireNotNull(transferId),
-            digest = requireNotNull(digest),
-            revision = revision,
-            totalChunks = totalChunks,
-            totalChars = totalChars,
-            startedAt = SystemClock.elapsedRealtime(),
-            chunks = arrayOfNulls(totalChunks),
-        )
-        record(
-            "CONFIG_PUSH_BEGIN uid=$callerUid transfer=$transferId chunks=$totalChunks " +
-                "chars=$totalChars revision=$revision digest=$digest"
-        )
-        return true
-    }
-
-    @Synchronized
-    private fun appendRuntimeChunk(
-        intent: Intent,
-        callerUid: Int,
-    ): Boolean {
-        val transfer = incomingTransfer ?: return false
-        if (
-            transfer.callerUid != callerUid ||
-            SystemClock.elapsedRealtime() - transfer.startedAt > CONFIG_TRANSFER_TIMEOUT_MS
-        ) {
-            incomingTransfer = null
-            record("CONFIG_PUSH_REJECT stage=chunk uid=$callerUid reason=owner_or_timeout")
-            return false
-        }
-        val transferId = intent.getStringExtra(RuntimeProtocol.EXTRA_TRANSFER_ID)
-        val index = intent.getIntExtra(RuntimeProtocol.EXTRA_CHUNK_INDEX, -1)
-        val chunk = intent.getStringExtra(RuntimeProtocol.EXTRA_CONFIG_CHUNK)
-        if (
-            transferId != transfer.id ||
-            index !in transfer.chunks.indices ||
-            chunk == null ||
-            chunk.length > RuntimeProtocol.CONFIG_CHUNK_CHARS
-        ) {
-            record(
-                "CONFIG_PUSH_REJECT stage=chunk uid=$callerUid transfer=${transferId ?: "none"} index=$index"
-            )
-            return false
-        }
-        transfer.chunks[index] = chunk
-        return true
-    }
-
-    @Synchronized
-    private fun commitRuntimeTransfer(
-        intent: Intent,
-        callerUid: Int,
-        managerAppId: Int,
-    ): Boolean {
-        val transfer = incomingTransfer ?: return false
-        incomingTransfer = null
-
-        val transferId = intent.getStringExtra(RuntimeProtocol.EXTRA_TRANSFER_ID)
-        val expectedDigest = intent.getStringExtra(RuntimeProtocol.EXTRA_EXPECTED_DIGEST)
-        val revision = intent.getLongExtra(RuntimeProtocol.EXTRA_REVISION, -1L)
-        if (
-            transfer.callerUid != callerUid ||
-            transfer.managerAppId != managerAppId ||
-            transferId != transfer.id ||
-            expectedDigest != transfer.digest ||
-            revision != transfer.revision ||
-            SystemClock.elapsedRealtime() - transfer.startedAt > CONFIG_TRANSFER_TIMEOUT_MS ||
-            transfer.chunks.any { it == null }
-        ) {
-            record(
-                "CONFIG_PUSH_REJECT stage=commit uid=$callerUid transfer=${transferId ?: "none"} " +
-                    "revision=$revision reason=metadata_or_chunks"
-            )
-            return false
-        }
-
-        val encoded = buildString(transfer.totalChars) {
-            transfer.chunks.forEach { append(requireNotNull(it)) }
-        }
-        if (encoded.length != transfer.totalChars) {
-            record(
-                "CONFIG_PUSH_REJECT stage=commit uid=$callerUid transfer=${transfer.id} " +
-                    "reason=length expected=${transfer.totalChars} actual=${encoded.length}"
-            )
-            return false
-        }
-        val actualDigest = RuntimeProtocol.digest(encoded)
-        if (actualDigest != transfer.digest) {
-            record(
-                "CONFIG_PUSH_REJECT stage=commit uid=$callerUid transfer=${transfer.id} " +
-                    "reason=digest expected=${transfer.digest} actual=$actualDigest"
-            )
-            return false
-        }
-
-        val applied = runCatching {
-            applyAtomicConfig(
-                encoded = encoded,
-                reason = "runtime push",
-                source = "probe-v2",
-                expectedDigest = actualDigest,
-                expectedManagerAppId = managerAppId,
-            )
-        }.onFailure {
-            record(
-                "CONFIG_PUSH_REJECT stage=commit uid=$callerUid transfer=${transfer.id} " +
-                    "reason=${it.javaClass.name}"
-            )
-        }.getOrDefault(false)
-
-        if (applied) {
-            runtimeTransportActive = true
-            appliedRuntimeRevision = transfer.revision
-            record(
-                "CONFIG_PUSH_APPLIED uid=$callerUid transfer=${transfer.id} revision=${transfer.revision} " +
-                    "digest=$actualDigest rules=${snapshot.configured.size}"
-            )
-        }
-        return applied
     }
 
     private fun packageNameAccessor(clazz: Class<*>): PackageNameAccessor = packageNameAccessorCache.computeIfAbsent(clazz) {
@@ -638,7 +502,7 @@ class ListCleanerModule : XposedModule() {
                     val key = "ORDER#${method.toGenericString()}"
                     if (installedMethods.add(key)) {
                         try {
-                            hook(method).setId("ic-final-order").intercept(orderHooker())
+                            hook(method).setId(FINAL_ORDER_HOOK_ID).intercept(orderHooker())
                             record("ORDER_HOOK_INSTALLED method=${method.toGenericString()}")
                         } catch (failure: Throwable) {
                             installedMethods.remove(key)
@@ -654,7 +518,7 @@ class ListCleanerModule : XposedModule() {
             val key = "ALPHA#${method.toGenericString()}"
             if (installedMethods.add(key)) {
                 try {
-                    hook(method).setId("ic-alpha-order").intercept(alphabeticalOrderHooker())
+                    hook(method).setId(ALPHA_ORDER_HOOK_ID).intercept(alphabeticalOrderHooker())
                     record("ORDER_HOOK_INSTALLED stage=alpha method=${method.toGenericString()}")
                 } catch (failure: Throwable) {
                     installedMethods.remove(key)
@@ -687,155 +551,11 @@ class ListCleanerModule : XposedModule() {
         return matchOpenPreset(kind, mime, data?.scheme, data?.lastPathSegment ?: data?.path)
     }
 
-    private fun effectivePriorities(
-        kind: IntentKind,
-        preset: OpenPreset?,
-        browserHost: String?,
-        current: RuntimeRuleSnapshot
-    ): List<String> {
-        val typed = if (kind == IntentKind.OPEN && preset != null) current.openTypes.priorities[preset].orEmpty() else emptyList()
-        if (typed.isNotEmpty()) return typed
-        val hostPriority = if (kind == IntentKind.DEEP_LINK && browserHost != null) {
-            current.browserLinks.priority(browserHost)
-        } else emptyList()
-        return if (hostPriority.isNotEmpty()) hostPriority else current.priorities.apps[kind].orEmpty()
-    }
-
-    private fun candidateKind(baseKind: IntentKind, info: ResolveInfo): IntentKind =
-        if (baseKind == IntentKind.BROWSER) info.webTargetKind() else baseKind
-
-    private fun hasEffectivePriorities(
-        kind: IntentKind,
-        preset: OpenPreset?,
-        browserHost: String?,
-        current: RuntimeRuleSnapshot
-    ): Boolean {
-        if (kind != IntentKind.BROWSER) return effectivePriorities(kind, preset, browserHost, current).isNotEmpty()
-        return current.priorities.apps[IntentKind.BROWSER].orEmpty().isNotEmpty() ||
-            effectivePriorities(IntentKind.DEEP_LINK, null, browserHost, current).isNotEmpty()
-    }
-
     private fun adapterBrowserHost(receiver: Any, kind: IntentKind): String? {
         if (kind != IntentKind.BROWSER) return null
         val intent = OrderingAccess.targetIntent(receiver) as? Intent ?: return null
         val effective = intent.selector ?: intent
         return normalizeBrowserHost(effective.data?.host)
-    }
-
-    private fun resolveInfoForOrder(item: Any?, stage: String): ResolveInfo {
-        requireNotNull(item)
-        return if (item is ResolveInfo) item else if (stage == "alpha") {
-            OrderingAccess.call(item, "getResolveInfo") as ResolveInfo
-        } else {
-            item.javaClass.getMethod("getResolveInfoAt", Int::class.javaPrimitiveType)
-                .invoke(item, 0) as ResolveInfo
-        }
-    }
-
-    private fun resolverMetadataDigest(info: ResolveInfo): String? =
-        info.activityInfo?.metaData
-            ?.getString(RuntimeProtocol.META_POLICY_DIGEST)
-            ?.takeIf(RuntimeProtocol::validDigest)
-
-    private fun hasResolverPolicyMetadata(items: List<*>, stage: String): Boolean =
-        items.asSequence().mapNotNull { item ->
-            runCatching { resolveInfoForOrder(item, stage) }.getOrNull()
-        }.any { resolverMetadataDigest(it) != null }
-
-    private fun orderItemsFromMetadata(
-        items: List<*>,
-        kind: IntentKind,
-        stage: String,
-        fixedPackages: Set<String> = emptySet(),
-    ): List<*> {
-        if (items.size < 2) return items
-        val infos = items.map { resolveInfoForOrder(it, stage) }
-        val positions = items.indices.toMutableList()
-
-        fun reorderSubset(targetKind: IntentKind) {
-            val movable = items.indices.filter { index ->
-                candidateKind(kind, infos[index]) == targetKind &&
-                    infos[index].activityInfo.packageName !in fixedPackages
-            }
-            if (movable.size < 2) return
-            movable.groupBy { index ->
-                requireNotNull(infos[index].activityInfo.applicationInfo).uid / PER_USER_RANGE
-            }.values.forEach { profilePositions ->
-                val sorted = profilePositions.sortedBy { index ->
-                    val meta = infos[index].activityInfo.metaData
-                    if (meta?.containsKey(RuntimeProtocol.META_PRIORITY_RANK) == true) {
-                        meta.getInt(RuntimeProtocol.META_PRIORITY_RANK, Int.MAX_VALUE)
-                    } else {
-                        Int.MAX_VALUE
-                    }
-                }
-                profilePositions.forEachIndexed { orderIndex, position ->
-                    positions[position] = sorted[orderIndex]
-                }
-            }
-        }
-
-        if (kind == IntentKind.BROWSER) {
-            reorderSubset(IntentKind.BROWSER)
-            reorderSubset(IntentKind.DEEP_LINK)
-        } else {
-            reorderSubset(kind)
-        }
-
-        val changed = positions != items.indices.toList()
-        val digest = infos.asSequence().mapNotNull(::resolverMetadataDigest).firstOrNull()
-        diagnostic(
-            "ORDER_RESULT stage=$stage kind=$kind count=${items.size} changed=$changed " +
-                "source=system_metadata digest=${digest ?: "none"}"
-        )
-        return if (changed) positions.map { items[it] } else items
-    }
-
-    private fun orderItems(
-        items: List<*>,
-        kind: IntentKind,
-        current: RuntimeRuleSnapshot,
-        stage: String,
-        fixedPackages: Set<String> = emptySet(),
-        preset: OpenPreset? = null,
-        browserHost: String? = null
-    ): List<*> {
-        if (items.size < 2) return items
-        val infos = items.map { resolveInfoForOrder(it, stage) }
-        val positions = items.indices.toMutableList()
-
-        fun reorderSubset(targetKind: IntentKind, priorities: List<String>) {
-            if (priorities.isEmpty()) return
-            val movable = items.indices.filter { index ->
-                candidateKind(kind, infos[index]) == targetKind &&
-                    infos[index].activityInfo.packageName !in fixedPackages
-            }
-            if (movable.size < 2) return
-            val sorted = prioritizeApps(
-                movable,
-                priorities,
-                { index -> requireNotNull(infos[index].activityInfo).packageName },
-                { index -> requireNotNull(infos[index].activityInfo.applicationInfo).uid / PER_USER_RANGE }
-            )
-            movable.forEachIndexed { orderIndex, position -> positions[position] = sorted[orderIndex] }
-        }
-
-        if (kind == IntentKind.BROWSER) {
-            reorderSubset(IntentKind.BROWSER, current.priorities.apps[IntentKind.BROWSER].orEmpty())
-            reorderSubset(
-                IntentKind.DEEP_LINK,
-                effectivePriorities(IntentKind.DEEP_LINK, null, browserHost, current)
-            )
-        } else {
-            reorderSubset(kind, effectivePriorities(kind, preset, browserHost, current))
-        }
-
-        val changed = positions != items.indices.toList()
-        diagnostic(
-            "ORDER_RESULT stage=" + stage + " kind=" + kind + " count=" + items.size +
-                " changed=" + changed + " digest=" + current.digest
-        )
-        return if (changed) positions.map { items[it] } else items
     }
 
     private fun orderHooker() = XposedInterface.Hooker { chain ->
@@ -847,22 +567,22 @@ class ListCleanerModule : XposedModule() {
             }
             val items = chain.args[0] as? List<*> ?: return@runCatching null
 
-            val ordered = if (hasResolverPolicyMetadata(items, "ranked")) {
-                orderItemsFromMetadata(items, kind, "ranked")
+            val ordered = if (orderingEngine.hasResolverPolicyMetadata(items, "ranked")) {
+                orderingEngine.orderItemsFromMetadata(items, kind, "ranked")
             } else {
                 pollPreferences()
-                val current = snapshot
+                val current = snapshotForUser(com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid()))
                 if (current.displayMode == DisplayMode.SHOW_ALL) {
                     diagnostic("ORDER_SKIP reason=show_all")
                     return@runCatching null
                 }
                 val preset = adapterOpenPreset(receiver, kind)
                 val browserHost = adapterBrowserHost(receiver, kind)
-                if (!hasEffectivePriorities(kind, preset, browserHost, current)) {
+                if (!orderingEngine.hasEffectivePriorities(kind, preset, browserHost, current)) {
                     diagnostic("ORDER_SKIP kind=$kind reason=no_priorities")
                     return@runCatching null
                 }
-                orderItems(
+                orderingEngine.orderItems(
                     items,
                     kind,
                     current,
@@ -905,17 +625,18 @@ class ListCleanerModule : XposedModule() {
                 info.activityInfo.packageName
             }.toSet()
 
-            val ordered = if (hasResolverPolicyMetadata(list, "alpha")) {
-                orderItemsFromMetadata(list, kind, "alpha", fixed)
+            val ordered = if (orderingEngine.hasResolverPolicyMetadata(list, "alpha")) {
+                orderingEngine.orderItemsFromMetadata(list, kind, "alpha", fixed)
             } else {
                 pollPreferences()
-                if (snapshot.displayMode == DisplayMode.SHOW_ALL) {
+                val localSnapshot = snapshotForUser(com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid()))
+                if (localSnapshot.displayMode == DisplayMode.SHOW_ALL) {
                     diagnostic("ORDER_SKIP stage=alpha reason=show_all")
                     return@runCatching
                 }
                 val preset = adapterOpenPreset(receiver, kind)
                 val browserHost = adapterBrowserHost(receiver, kind)
-                orderItems(list, kind, snapshot, "alpha", fixed, preset, browserHost)
+                orderingEngine.orderItems(list, kind, localSnapshot, "alpha", fixed, preset, browserHost)
             }
             if (ordered !== list) {
                 ordered.forEachIndexed { index, item -> list[index] = item }
@@ -962,6 +683,24 @@ class ListCleanerModule : XposedModule() {
             } else {
                 chain.proceed()
             }
+            // Binder identity can belong to a different user than the one queried.
+            // Unknown system_server signatures fail open instead of borrowing another
+            // Android profile's selection or ordering policy.
+            val targetUserId = if (layer == Layer.SYSTEM) {
+                val method = chain.executable as? Method
+                method?.let {
+                    HookCallIdentity.packageManagerTargetUserId(
+                        it.name, it.parameterTypes.map { parameter -> parameter.name }, chain.args,
+                    )
+                }
+            } else {
+                com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid())
+            }
+            if (targetUserId == null) {
+                diagnostic("FILTER_SKIP layer=$layer reason=unknown_query_user")
+                return@Hooker original
+            }
+            activeQuerySnapshot.set(snapshotForUser(targetUserId))
             try {
                 processQuery(chain, original, layer, callerUid)
             } catch (failure: Throwable) {
@@ -969,6 +708,7 @@ class ListCleanerModule : XposedModule() {
                 original
             }
         } finally {
+            activeQuerySnapshot.remove()
             queryInProgress.remove()
         }
     }
@@ -1010,25 +750,44 @@ class ListCleanerModule : XposedModule() {
                 record("CONFIG_PUSH_REJECT stage=chunk uid=$callerUid reason=protocol protocol=$protocol")
                 return original
             }
-            appendRuntimeChunk(intent, callerUid)
+            runtimeTransfers.append(intent, callerUid)
             return original
         }
 
         when (operation) {
             RuntimeProtocol.OP_BEGIN -> {
                 if (protocol == RuntimeProtocol.VERSION) {
-                    beginRuntimeTransfer(intent, callerUid, verifiedManagerAppId)
+                    runtimeTransfers.begin(intent, callerUid, verifiedManagerAppId)
                 } else {
                     record("CONFIG_PUSH_REJECT stage=begin uid=$callerUid reason=protocol protocol=$protocol")
                 }
                 return original
             }
             RuntimeProtocol.OP_COMMIT -> {
-                if (protocol != RuntimeProtocol.VERSION ||
-                    !commitRuntimeTransfer(intent, callerUid, verifiedManagerAppId)
-                ) {
-                    return original
-                }
+                if (protocol != RuntimeProtocol.VERSION) return original
+                val completed = runtimeTransfers.commit(intent, callerUid, verifiedManagerAppId)
+                    ?: return original
+                val applied = runCatching {
+                    applyAtomicConfig(
+                        encoded = completed.encoded,
+                        reason = "runtime push",
+                        source = "probe-v2",
+                        expectedDigest = completed.digest,
+                        expectedManagerAppId = verifiedManagerAppId,
+                    )
+                }.onFailure {
+                    record(
+                        "CONFIG_PUSH_REJECT stage=commit uid=$callerUid transfer=${completed.id} " +
+                            "reason=${it.javaClass.name}"
+                    )
+                }.getOrDefault(false)
+                if (!applied) return original
+                runtimeTransportActive = true
+                appliedRuntimeRevision = completed.revision
+                record(
+                    "CONFIG_PUSH_APPLIED uid=$callerUid transfer=${completed.id} revision=${completed.revision} " +
+                        "digest=${completed.digest} rules=${snapshot.configured.size}"
+                )
             }
             null -> Unit
             else -> {
@@ -1054,10 +813,18 @@ class ListCleanerModule : XposedModule() {
                         uid = callerUid
                     }
                 }
-                nonLocalizedLabel =
-                    "${BuildConfig.HOOK_COMPAT_VERSION_CODE}:${applied.digest}:" +
-                        "${queryHits.get()}:${visibilityHits.get()}:${orderingHits.get()}:" +
-                        "$COMPONENT_DISCOVERY_PROTOCOL:${RuntimeProtocol.VERSION}:$appliedRuntimeRevision"
+                nonLocalizedLabel = RuntimeAckCodec.encode(
+                    hookCompatVersion = BuildConfig.HOOK_COMPAT_VERSION_CODE.toLong(),
+                    ack = RuntimeAckCodec.Ack(
+                        digest = applied.digest,
+                        queryHits = queryHits.get(),
+                        visibilityHits = visibilityHits.get(),
+                        orderingHits = orderingHits.get(),
+                        componentDiscoveryProtocol = COMPONENT_DISCOVERY_PROTOCOL,
+                        runtimeProtocol = RuntimeProtocol.VERSION,
+                        revision = appliedRuntimeRevision,
+                    ),
+                )
             }
             record(
                 "CONFIG_ACK moduleVersion=${BuildConfig.VERSION_CODE} " +
@@ -1113,7 +880,7 @@ class ListCleanerModule : XposedModule() {
                 return@map ResolverPolicy(true, Int.MAX_VALUE, null)
             }
 
-            val effectiveKind = candidateKind(kind, info)
+            val effectiveKind = orderingEngine.candidateKind(kind, info)
             val scopedTypedIds = if (effectiveKind == IntentKind.OPEN) typedIds else emptySet()
             val scopedDeepIds = if (effectiveKind == IntentKind.DEEP_LINK) deepLinkIds else emptySet()
             val hasSelection = current.hasSelection(effectiveKind) ||
@@ -1130,7 +897,7 @@ class ListCleanerModule : XposedModule() {
                 candidateId in scopedDeepIds
             val include = current.displayMode.includes(selected, hasSelection)
 
-            val priorities = effectivePriorities(
+            val priorities = orderingEngine.effectivePriorities(
                 effectiveKind,
                 if (effectiveKind == IntentKind.OPEN) preset else null,
                 if (effectiveKind == IntentKind.DEEP_LINK) normalizedHost else null,
@@ -1203,12 +970,19 @@ class ListCleanerModule : XposedModule() {
             diagnostic("FILTER_PAUSED reason=manager_identity_unknown open_module_app_to_sync")
             return original
         }
-        if (ManagerIdentity.matches(callerUid, moduleAppId)) {
+        // The manager normally stays exempt to keep rule discovery and editing safe.
+        // Only its explicit, UID-authenticated, read-only API preview can pass through
+        // the same resolver filter path that other app callers take.
+        val managerCaller = ManagerIdentity.matches(callerUid, moduleAppId)
+        val managerPreview = layer == Layer.SYSTEM && managerCaller &&
+            outerIntent?.getBooleanExtra(RuntimeProtocol.EXTRA_MANAGER_PREVIEW_QUERY, false) == true
+        if (managerCaller && !managerPreview) {
             if (tracedActions.add("manager_bypass")) {
                 record("MANAGER_QUERY_BYPASS uid=$callerUid")
             }
             return original
         }
+        if (managerPreview) diagnostic("MANAGER_PREVIEW_QUERY uid=$callerUid requested=true")
 
         val intentIndex = chain.args.indexOfFirst { it is Intent }
         val systemResolvedType =
@@ -1219,18 +993,16 @@ class ListCleanerModule : XposedModule() {
         val kind = intent?.intentKind(resolvedType)
         val explicit = intent?.component != null || intent?.`package` != null ||
             outerIntent?.component != null || outerIntent?.`package` != null
-        val privilegedSystem =
-            layer == Layer.SYSTEM && !FilterPolicy.ordinaryAppCaller(callerUid)
-        val resolverSystemRequest =
-            privilegedSystem &&
-                outerIntent?.getBooleanExtra(RuntimeProtocol.EXTRA_RESOLVER_REQUEST, false) == true
+        val privilegedSystem = layer == Layer.SYSTEM && !FilterPolicy.ordinaryAppCaller(callerUid)
+        val resolverSystemRequest = privilegedSystem &&
+            outerIntent?.getBooleanExtra(RuntimeProtocol.EXTRA_RESOLVER_REQUEST, false) == true
 
         if (intent != null && kind != null) {
             if (!privilegedSystem) queryHits.incrementAndGet()
             val traceKey = "$layer|$kind|$callerUid"
             if (
                 !explicit &&
-                (callerUid >= 10_000 || layer == Layer.RESOLVER) &&
+                (FilterPolicy.ordinaryAppCaller(callerUid) || layer == Layer.RESOLVER) &&
                 snapshot.diagnostic &&
                 tracedActions.size < 128 &&
                 tracedActions.add(traceKey)
@@ -1267,6 +1039,16 @@ class ListCleanerModule : XposedModule() {
             return original
         }
         val data = intent.data
+        val clipUri = intent.clipData?.let { clips ->
+            (0 until clips.itemCount).asSequence()
+                .mapNotNull { clips.getItemAt(it).uri }
+                .firstOrNull { it.scheme == "content" || it.scheme == "file" }
+        }
+        val openUri = if (kind == IntentKind.OPEN && clipUri != null &&
+            matchOpenPreset(kind, resolvedType, clipUri.scheme, clipUri.lastPathSegment ?: clipUri.path) != null &&
+            (data == null || matchOpenPreset(kind, resolvedType, data.scheme, data.lastPathSegment ?: data.path) == null)
+        ) clipUri else data ?: clipUri
+        val openPath = openUri?.lastPathSegment ?: openUri?.path
 
         if (privilegedSystem) {
             if (!resolverSystemRequest) {
@@ -1277,17 +1059,14 @@ class ListCleanerModule : XposedModule() {
                 kind = kind,
                 values = extracted.values,
                 mimeType = resolvedType,
-                scheme = data?.scheme,
-                fileNameOrPath = data?.lastPathSegment ?: data?.path,
+                scheme = openUri?.scheme,
+                fileNameOrPath = openPath,
                 browserHost = data?.host,
             ) ?: return original
-            return runCatching { extracted.rebuild(annotated) }.getOrElse {
-                diagnostic("RESOLVER_POLICY_REBUILD_FAILED error=${it.javaClass.name}")
-                original
-            }
+            return extracted.rebuild(annotated)
         }
 
-        if (layer == Layer.RESOLVER && hasResolverPolicyMetadata(extracted.values, "query")) {
+        if (layer == Layer.RESOLVER && orderingEngine.hasResolverPolicyMetadata(extracted.values, "query")) {
             val filtered = extracted.values.filter { value ->
                 val info = value as? ResolveInfo ?: return@filter true
                 val meta = info.activityInfo?.metaData ?: return@filter true
@@ -1297,7 +1076,7 @@ class ListCleanerModule : XposedModule() {
                 meta.getBoolean(RuntimeProtocol.META_INCLUDE, true)
             }
             val ordered = if (kind == IntentKind.PROCESS_TEXT) {
-                orderItemsFromMetadata(filtered, kind, "query")
+                orderingEngine.orderItemsFromMetadata(filtered, kind, "query")
             } else {
                 filtered
             }
@@ -1306,10 +1085,7 @@ class ListCleanerModule : XposedModule() {
                     "RESOLVER_POLICY_APPLIED kind=$kind before=${extracted.values.size} " +
                         "after=${ordered.size}"
                 )
-                return runCatching { extracted.rebuild(ordered) }.getOrElse {
-                    diagnostic("RESOLVER_POLICY_REBUILD_FAILED error=${it.javaClass.name}")
-                    original
-                }
+                return extracted.rebuild(ordered)
             }
             return original
         }
@@ -1320,28 +1096,17 @@ class ListCleanerModule : XposedModule() {
             layer,
             callerUid,
             resolvedType,
-            data?.scheme,
-            data?.lastPathSegment ?: data?.path,
+            openUri?.scheme,
+            openPath,
             data?.host,
         ) ?: return original
-        return runCatching { extracted.rebuild(replacement) }.getOrElse {
-            Log.e(TAG, "Failed to rebuild ${original?.javaClass?.name}; keeping original", it)
-            original
-        }
+        return extracted.rebuild(replacement)
     }
 
     private fun safeExtension(fileNameOrPath: String?): String? {
         val clean = fileNameOrPath?.substringBefore('?')?.substringBefore('#')?.substringAfterLast('/') ?: return null
         val extension = clean.substringAfterLast('.', "").lowercase()
         return extension.takeIf { it.length in 1..16 && it.all { ch -> ch.isLetterOrDigit() } }
-    }
-
-    private fun isSelectedCandidate(kind: IntentKind, activity: ActivityInfo, current: RuntimeRuleSnapshot, layer: Layer): Boolean {
-        val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
-            activity.packageName, activity.name, activity.targetActivity
-        )
-        if ("${kind.name}|${activity.packageName}|$canonicalClass" in current.configured) return true
-        return false
     }
 
     private fun transform(
@@ -1376,7 +1141,7 @@ class ListCleanerModule : XposedModule() {
         val filtered = values.filter { value ->
             val info = value as? ResolveInfo ?: return@filter true
             val activity = info.activityInfo ?: return@filter true
-            val effectiveKind = candidateKind(kind, info)
+            val effectiveKind = orderingEngine.candidateKind(kind, info)
             if (FilterPolicy.sameCaller(callerUid, activity.applicationInfo?.uid ?: -1)) {
                 diagnostic(
                     "KEEP_SAME_APP $layer $effectiveKind ${activity.packageName}/${activity.name} callerUid=$callerUid",
@@ -1416,7 +1181,7 @@ class ListCleanerModule : XposedModule() {
         }
 
         val ordered = if (kind == IntentKind.PROCESS_TEXT) runCatching {
-            orderItems(filtered, kind, current, "text_query", preset = preset, browserHost = normalizedHost)
+            orderingEngine.orderItems(filtered, kind, current, "text_query", preset = preset, browserHost = normalizedHost)
         }.getOrElse {
             diagnostic("ORDER_FAILED stage=text_query error=${it.javaClass.name}")
             filtered
@@ -1448,7 +1213,7 @@ class ListCleanerModule : XposedModule() {
         val result = values.map { value ->
             val info = value as? ResolveInfo ?: return@map value
             val activity = info.activityInfo ?: return@map value
-            val effectiveKind = candidateKind(kind, info)
+            val effectiveKind = orderingEngine.candidateKind(kind, info)
             val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
                 activity.packageName, activity.name, activity.targetActivity
             )
@@ -1461,22 +1226,7 @@ class ListCleanerModule : XposedModule() {
         return if (replaced > 0) result to replaced else values to 0
     }
 
-    private fun extractListResult(original: Any?): ListResult? = when {
-        original is List<*> -> ListResult(original) { it }
-        original == null -> null
-        original.javaClass.name.endsWith("ParceledListSlice") -> extractParceledListSlice(original)
-        else -> null
-    }
-
-    private fun extractParceledListSlice(original: Any): ListResult? {
-        val accessor = parceledListAccessorCache.computeIfAbsent(original.javaClass) { clazz ->
-            val getList = clazz.getMethod("getList").apply { isAccessible = true }
-            val constructor = clazz.getDeclaredConstructor(List::class.java).apply { isAccessible = true }
-            ParceledListAccessor(getList, constructor)
-        }
-        val values = runCatching { accessor.getList.invoke(original) as? List<*> }.getOrNull() ?: return null
-        return ListResult(values) { accessor.constructor.newInstance(it) }
-    }
+    private fun extractListResult(original: Any?): SafeListResult? = listResults.extract(original)
 
     @Synchronized private fun initializePreferences() {
         if (listenerRegistered) return
@@ -1494,9 +1244,7 @@ class ListCleanerModule : XposedModule() {
         expectedDigest: String?,
         expectedManagerAppId: Int? = null,
     ): Boolean {
-        require(encoded.length <= RuleRepository.MAX_BACKUP_CHARS) {
-            "Config too large"
-        }
+        require(encoded.length <= RuleRepository.MAX_BACKUP_CHARS) { "Config too large" }
         val digest = RuntimeProtocol.digest(encoded)
         if (!expectedDigest.isNullOrBlank() && digest != expectedDigest) {
             record(
@@ -1506,10 +1254,7 @@ class ListCleanerModule : XposedModule() {
             return false
         }
         if (lastEncodedConfig == encoded && snapshot.digest == digest) {
-            if (
-                expectedManagerAppId != null &&
-                snapshot.managerAppId != expectedManagerAppId
-            ) {
+            if (expectedManagerAppId != null && snapshot.managerAppId != expectedManagerAppId) {
                 record(
                     "CONFIG_IDENTITY_REJECT source=$source expectedAppId=$expectedManagerAppId " +
                         "actualAppId=${snapshot.managerAppId}"
@@ -1519,17 +1264,10 @@ class ListCleanerModule : XposedModule() {
             return true
         }
 
-        val config = Json {
-            ignoreUnknownKeys = true
-        }.decodeFromString(
-            ModuleConfig.serializer(),
-            encoded,
-        ).validated()
+        val config = configJson.decodeFromString(ModuleConfig.serializer(), encoded)
+            .validated()
 
-        if (
-            expectedManagerAppId != null &&
-            config.managerAppId != expectedManagerAppId
-        ) {
+        if (expectedManagerAppId != null && config.managerAppId != expectedManagerAppId) {
             record(
                 "CONFIG_IDENTITY_REJECT source=$source expectedAppId=$expectedManagerAppId " +
                     "actualAppId=${config.managerAppId}"
@@ -1537,7 +1275,7 @@ class ListCleanerModule : XposedModule() {
             return false
         }
 
-        snapshot = RuntimeRuleSnapshot(
+        val nextSnapshot = RuntimeRuleSnapshot(
             configured = config.rules.map { it.id }.toSet(),
             displayMode = config.mode,
             priorities = config.priorities,
@@ -1549,14 +1287,46 @@ class ListCleanerModule : XposedModule() {
             hiddenFromApps = config.hiddenFromApps,
             visibilityCompat = config.visibilityCompat,
         )
-        lastEncodedConfig = encoded
-        RuntimeComponentPolicy.publish(
+        val scopeSnapshots = config.userSpaces.mapValues { (_, space) ->
+            RuntimeRuleSnapshot(
+                configured = space.rules.map { it.id }.toSet(),
+                displayMode = space.mode,
+                priorities = space.priorities,
+                openTypes = space.openTypes,
+                browserLinks = space.browserLinks,
+                diagnostic = space.diagnostic,
+                managerAppId = config.managerAppId,
+                digest = digest,
+                hiddenFromApps = space.hiddenFromApps,
+                visibilityCompat = space.visibilityCompat,
+            )
+        }
+        val protected = config.rootDisabledComponents ?: PersistentComponentState.sanitize(
+            preferences.getStringSet(PersistentComponentState.REMOTE_KEY, emptySet()).orEmpty()
+        )
+        val compiledPolicy = RuntimePolicyCompiler.compile(
             managerAppId = config.managerAppId,
-            protectedComponents = config.rootDisabledComponents ?: PersistentComponentState.sanitize(
-                preferences.getStringSet(PersistentComponentState.REMOTE_KEY, emptySet()).orEmpty()
-            ),
+            protectedComponents = protected,
+            displayMode = config.mode,
+            entryRules = nextSnapshot.configured,
+            entryPriorities = config.priorities.apps,
             digest = digest,
         )
+        policies = UserPolicyGeneration(nextSnapshot, scopeSnapshots)
+        RuntimeComponentPolicy.publishForUsers(
+            compiledPolicy,
+            config.userSpaces.mapValues { (_, space) ->
+                RuntimePolicyCompiler.compile(
+                    managerAppId = config.managerAppId,
+                    protectedComponents = protected,
+                    displayMode = space.mode,
+                    entryRules = space.rules.map { it.id },
+                    entryPriorities = space.priorities.apps,
+                    digest = digest,
+                )
+            }
+        )
+        lastEncodedConfig = encoded
 
         record("MANAGER_IDENTITY appId=${config.managerAppId} source=$source")
         record(
@@ -1567,7 +1337,7 @@ class ListCleanerModule : XposedModule() {
                 "typedPriorities=${config.openTypes.priorities.mapValues { it.value.size }} " +
                 "browserHosts=${config.browserLinks.hosts.size} " +
                 "browserRules=${config.browserLinks.rules.mapValues { it.value.size }} " +
-                "rootProtected=${config.rootDisabledComponents?.size ?: -1} " +
+                "rootProtected=${protected.size} " +
                 "titles=${config.priorities.titles.size} hiddenFromApps=${config.hiddenFromApps.size} " +
                 "visibilityScopes=${config.visibilityCompat.scopes.map { it.name }.sorted()} " +
                 "visibilityTargets=${snapshot.allSelectedPackages.size} digest=$digest"
@@ -1580,96 +1350,71 @@ class ListCleanerModule : XposedModule() {
         reason: String,
         source: String,
     ): Boolean {
-        val hasMirror =
-            sourcePreferences.contains(
-                RuleRepository.KEY_DISPLAY_MODE
-            ) ||
-                sourcePreferences.contains(
-                    RuleRepository.KEY_RULES
-                ) ||
-                sourcePreferences.contains(
-                    RuleRepository.KEY_PRIORITIES
-                )
+        val hasMirror = sourcePreferences.contains(RuleRepository.KEY_DISPLAY_MODE) ||
+            sourcePreferences.contains(RuleRepository.KEY_RULES) ||
+            sourcePreferences.contains(RuleRepository.KEY_PRIORITIES)
         if (!hasMirror) return false
 
-        val rules =
-            sourcePreferences.getStringSet(
-                RuleRepository.KEY_RULES,
-                emptySet()
-            ).orEmpty().toSet()
+        val rules = sourcePreferences.getStringSet(RuleRepository.KEY_RULES, emptySet()).orEmpty().toSet()
         val mode = DisplayMode.fromStored(
-            sourcePreferences.getString(
-                RuleRepository.KEY_DISPLAY_MODE,
-                null
-            ),
-            sourcePreferences.getBoolean(
-                RuleRepository.KEY_BLACKLIST,
-                true
-            )
+            sourcePreferences.getString(RuleRepository.KEY_DISPLAY_MODE, null),
+            sourcePreferences.getBoolean(RuleRepository.KEY_BLACKLIST, true),
         )
-        val json = Json {
-            ignoreUnknownKeys = true
-        }
         val priorities = runCatching {
-            json.decodeFromString(
+            configJson.decodeFromString(
                 PriorityConfig.serializer(),
-                sourcePreferences.getString(
-                    RuleRepository.KEY_PRIORITIES,
-                    null
-                ) ?: "{}"
+                sourcePreferences.getString(RuleRepository.KEY_PRIORITIES, null) ?: "{}"
             ).validated()
         }.getOrDefault(PriorityConfig())
         val openTypes = runCatching {
-            json.decodeFromString(
+            configJson.decodeFromString(
                 OpenTypeConfig.serializer(),
-                sourcePreferences.getString(
-                    RuleRepository.KEY_OPEN_TYPES,
-                    null
-                ) ?: "{}"
+                sourcePreferences.getString(RuleRepository.KEY_OPEN_TYPES, null) ?: "{}"
             ).validated()
         }.getOrDefault(OpenTypeConfig())
         val browserLinks = runCatching {
-            json.decodeFromString(
+            configJson.decodeFromString(
                 BrowserLinkConfig.serializer(),
-                sourcePreferences.getString(
-                    RuleRepository.KEY_BROWSER_LINKS,
-                    null
-                ) ?: "{}"
+                sourcePreferences.getString(RuleRepository.KEY_BROWSER_LINKS, null) ?: "{}"
             ).validated()
         }.getOrDefault(BrowserLinkConfig())
-        val hiddenFromApps =
-            sourcePreferences.getStringSet(
-                RuleRepository.KEY_HIDDEN_FROM_APPS,
-                emptySet()
-            ).orEmpty().toSet()
-        val visibilityScopes =
-            sourcePreferences.getStringSet(
-                RuleRepository.KEY_VISIBILITY_SCOPES,
-                emptySet()
-            ).orEmpty().mapNotNull { name ->
-                runCatching {
-                    VisibilityScope.valueOf(name)
-                }.getOrNull()
-            }.toSet()
+        val hiddenFromApps = sourcePreferences.getStringSet(
+            RuleRepository.KEY_HIDDEN_FROM_APPS,
+            emptySet()
+        ).orEmpty().toSet()
+        val visibilityScopes = sourcePreferences.getStringSet(
+            RuleRepository.KEY_VISIBILITY_SCOPES,
+            emptySet()
+        ).orEmpty().mapNotNull { name ->
+            runCatching { VisibilityScope.valueOf(name) }.getOrNull()
+        }.toSet()
 
-        snapshot = RuntimeRuleSnapshot(
+        val nextSnapshot = RuntimeRuleSnapshot(
             configured = rules,
             displayMode = mode,
             priorities = priorities,
             openTypes = openTypes,
             browserLinks = browserLinks,
-            diagnostic =
-                sourcePreferences.getBoolean(
-                    RuleRepository.KEY_DIAGNOSTIC,
-                    false
-                ),
+            diagnostic = sourcePreferences.getBoolean(RuleRepository.KEY_DIAGNOSTIC, false),
             managerAppId = -1,
             digest = "",
             hiddenFromApps = hiddenFromApps,
-            visibilityCompat =
-                VisibilityCompatConfig(
-                    scopes = visibilityScopes
-                ).validated(),
+            visibilityCompat = VisibilityCompatConfig(scopes = visibilityScopes).validated(),
+        )
+        val protected = PersistentComponentState.sanitize(
+            sourcePreferences.getStringSet(PersistentComponentState.REMOTE_KEY, emptySet()).orEmpty()
+        )
+        policies = UserPolicyGeneration(nextSnapshot, emptyMap())
+        RuntimeComponentPolicy.publish(
+            RuntimePolicyCompiler.compile(
+                managerAppId = -1,
+                protectedComponents = protected,
+                displayMode = mode,
+                entryRules = rules,
+                entryPriorities = priorities.apps,
+                digest = "",
+                authoritative = false,
+            )
         )
         lastEncodedConfig = null
         record(
@@ -1689,12 +1434,7 @@ class ListCleanerModule : XposedModule() {
             val cachedEncoded = cached.getString(RuleRepository.KEY_CONFIG, null)
             val cachedDigest = cachedEncoded?.let(RuntimeProtocol::digest)
 
-            // Once Probe v2 has applied a verified config, RemotePreferences is only persistent
-            // storage. A stale framework cache must never roll the running snapshot backwards.
-            if (
-                runtimeTransportActive &&
-                cachedDigest != snapshot.digest
-            ) {
+            if (runtimeTransportActive && cachedDigest != snapshot.digest) {
                 record(
                     "REMOTE_CONFIG_IGNORED reason=$reason runtimeAuthoritative=true " +
                         "current=${snapshot.digest.ifEmpty { "none" }} " +
@@ -1703,9 +1443,7 @@ class ListCleanerModule : XposedModule() {
                 return@runCatching
             }
 
-            if (
-                cachedEncoded != null &&
-                applyAtomicConfig(
+            if (cachedEncoded != null && applyAtomicConfig(
                     encoded = cachedEncoded,
                     reason = reason,
                     source = "remote-preferences",
@@ -1727,11 +1465,7 @@ class ListCleanerModule : XposedModule() {
                 "RULES_READ_FAILED reason=$reason error=${it.javaClass.name} " +
                     "message=${it.message?.take(160) ?: "none"}"
             )
-            Log.e(
-                TAG,
-                "Rules refresh failed; keeping previous snapshot",
-                it,
-            )
+            Log.e(TAG, "Rules refresh failed; keeping previous snapshot", it)
         }
     }
 
@@ -1771,13 +1505,13 @@ class ListCleanerModule : XposedModule() {
         const val TAG = "ListCleaner"
         const val DIAGNOSTIC_TAG = "ListCleaner.Diagnostic"
         const val HOOK_ID = "ic-query-filter"
+        const val FINAL_ORDER_HOOK_ID = "ic-final-order"
+        const val ALPHA_ORDER_HOOK_ID = "ic-alpha-order"
         const val FRAMEWORK_PACKAGE = "android"
         const val INTENT_RESOLVER_PACKAGE = "com.android.intentresolver"
         const val SYSTEM_SCOPE_PACKAGE = "system"
         const val SYSTEM_UI_PACKAGE = "com.android.systemui"
-        const val PER_USER_RANGE = 100_000
         const val COMPONENT_DISCOVERY_PROTOCOL = 2
-        const val CONFIG_TRANSFER_TIMEOUT_MS = 10_000L
         const val VISIBILITY_HOOK_ID = "ic-system-package-visibility"
         const val MANAGER_PACKAGE = "com.yagay.ListCleaner"
         val SYSTEM_VISIBILITY_CLASSES = listOf(

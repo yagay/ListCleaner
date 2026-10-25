@@ -3,25 +3,20 @@ package com.yagay.ListCleaner.ui
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.util.LruCache
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.ListCleanerApp
@@ -91,7 +86,6 @@ internal fun AppScopePickerDialog(
     val context = LocalContext.current
     val app = context.applicationContext as ListCleanerApp
     val visibilityScopes by app.rules.visibilityScopes.collectAsStateWithLifecycle()
-    val fullPackages by app.rules.visibilityFullPackages.collectAsStateWithLifecycle()
     var query by remember { mutableStateOf("") }
     var showSystem by remember { mutableStateOf(true) }
     var apps by remember { mutableStateOf<List<ScopeAppEntry>>(emptyList()) }
@@ -113,123 +107,95 @@ internal fun AppScopePickerDialog(
                 .thenBy { it.packageName }
         )
     }
-    val activeTargets = remember(visibilityScopes, fullPackages) {
-        com.yagay.ListCleaner.domain.VisibilityCompatConfig(visibilityScopes, fullPackages).activePackages()
-    }
 
-    Dialog(
+    MaterialFullScreenDialog(
         onDismissRequest = dismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
-    ) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            topBar = {
-                TopAppBar(
-                    title = { Text(stringResource(R.string.visibility_title)) },
-                    navigationIcon = {
-                        IconButton(onClick = dismiss) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.common_back))
-                        }
-                    },
-                )
-            },
-        ) { padding ->
-            Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp)) {
-                Text(
+        title = { AdaptiveText(stringResource(R.string.visibility_title)) }
+    ) { padding ->
+            Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = MaterialUiTokens.pageHorizontal)) {
+                AdaptiveText(
                     stringResource(R.string.visibility_help),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(8.dp))
-                Text(stringResource(R.string.visibility_match_categories), style = MaterialTheme.typography.labelLarge)
+                AdaptiveText(stringResource(R.string.visibility_match_categories), style = MaterialTheme.typography.labelLarge)
                 LazyRow(
-                    contentPadding = PaddingValues(vertical = 4.dp),
+                    contentPadding = PaddingValues(vertical = MaterialUiTokens.detailVertical),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     items(VisibilityScope.entries, key = { it.name }) { scope ->
                         val checked = scope in visibilityScopes
-                        FilterChip(
+                        AdaptiveFilterChip(
                             selected = checked,
                             onClick = {
                                 app.rules.setVisibilityScopes(
                                     if (checked) visibilityScopes - scope else visibilityScopes + scope
                                 )
                             },
-                            label = { Text(stringResource(scope.titleRes())) },
+                            label = { AdaptiveText(stringResource(scope.titleRes())) },
                         )
                     }
                 }
-                Text(
+                AdaptiveText(
                     if (visibilityScopes.isEmpty()) {
                         stringResource(R.string.visibility_no_categories)
                     } else {
-                        stringResource(R.string.visibility_active_targets, activeTargets.size)
+                        stringResource(R.string.visibility_active_targets_plain)
                     },
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
+                AdaptiveOutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    label = { Text(stringResource(R.string.visibility_search_sources)) },
+                    label = { AdaptiveText(stringResource(R.string.visibility_search_sources)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.visibility_show_system), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                    Switch(checked = showSystem, onCheckedChange = { showSystem = it })
+                    AdaptiveText(stringResource(R.string.visibility_show_system), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                    AdaptiveSwitch(checked = showSystem, onCheckedChange = { showSystem = it })
                 }
-                Text(
-                    stringResource(R.string.visibility_summary, visible.size, apps.size, selected.size),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
                 Spacer(Modifier.height(6.dp))
                 if (loading) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { AdaptiveCircularProgressIndicator() }
                 } else {
                     LazyColumn(Modifier.fillMaxSize()) {
                         items(visible, key = { it.packageName }) { entry ->
                             val checked = entry.packageName in selected
                             val bitmap = scopeAppIcon(entry.packageName)
-                            Row(
-                                Modifier.fillMaxWidth().clickable {
-                                    onSelectedChange(if (checked) selected - entry.packageName else selected + entry.packageName)
-                                }.padding(vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                bitmap?.let {
-                                    Image(
-                                        bitmap = it.asImageBitmap(),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(40.dp),
-                                    )
-                                    Spacer(Modifier.width(10.dp))
-                                }
-                                Checkbox(
-                                    checked = checked,
-                                    onCheckedChange = { value ->
-                                        onSelectedChange(if (value) selected + entry.packageName else selected - entry.packageName)
+                            FlatRowSurface(Modifier.fillMaxWidth()) {
+                                MaterialAppRowBody(
+                                    icon = bitmap,
+                                    title = entry.label,
+                                    subtitle = entry.packageName,
+                                    modifier = Modifier.toggleable(
+                                        value = checked,
+                                        role = Role.Checkbox,
+                                        onValueChange = { isChecked ->
+                                            onSelectedChange(
+                                                if (isChecked) selected + entry.packageName
+                                                else selected - entry.packageName
+                                            )
+                                        }
+                                    ),
+                                    selection = {
+                                        AdaptiveCheckbox(checked = checked, onCheckedChange = null)
                                     },
+                                    trailing = {
+                                        if (checked) AdaptiveText(
+                                            stringResource(R.string.visibility_added),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                 )
-                                Column(Modifier.weight(1f)) {
-                                    Text(entry.label, fontWeight = FontWeight.Medium)
-                                    Text(entry.packageName, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                if (checked) {
-                                    Text(
-                                        stringResource(R.string.visibility_added),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
                             }
-                            HorizontalDivider()
                         }
                     }
                 }
             }
-        }
     }
 }

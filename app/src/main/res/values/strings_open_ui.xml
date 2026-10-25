@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="open_type_universal">Universal</string>
     <string name="open_type_filter">Type</string>
     <string name="open_manage_custom">Manage types</string>
     <string name="custom_open_title">Custom open types</string>

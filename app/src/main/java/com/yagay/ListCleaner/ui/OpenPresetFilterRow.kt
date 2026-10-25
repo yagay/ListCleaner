@@ -1,13 +1,18 @@
 package com.yagay.ListCleaner.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -19,6 +24,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -33,66 +40,73 @@ fun OpenPresetFilterMenu(
     selected: OpenPreset?,
     config: OpenTypeConfig,
     onSelected: (OpenPreset?) -> Unit,
-    onManageCustom: () -> Unit
+    onManageCustom: () -> Unit,
+    iconOnly: Boolean = false,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val menuScroll = rememberScrollState()
     val selectedTitle = if (selected == null) stringResource(R.string.common_all) else config.localizedTitle(selected)
 
     Box {
-        TextButton(
-            onClick = { expanded = true },
-            contentPadding = PaddingValues(horizontal = 6.dp)
-        ) {
-            Text(
-                stringResource(
-                    R.string.compact_filter_format,
-                    stringResource(R.string.open_type_filter),
-                    selectedTitle
-                ),
-                modifier = Modifier.widthIn(max = 150.dp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Icon(Icons.Rounded.ExpandMore, null)
+        if (iconOnly) {
+            Surface(
+                onClick = { expanded = true },
+                modifier = Modifier.size(48.dp),
+                shape = androidx.compose.ui.graphics.RectangleShape,
+                color = MaterialTheme.colorScheme.surface,
+                contentColor = if (selected != null) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+            ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                    AdaptiveIcon(
+                        Icons.Rounded.Description,
+                        stringResource(R.string.open_type_filter) + ": " + selectedTitle,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        } else {
+            CompactCategoryButton(
+                selected = true,
+                onClick = { expanded = true }
+            ) {
+                WorkspaceControlLabel(
+                    stringResource(
+                        R.string.compact_filter_format,
+                        stringResource(R.string.open_type_filter),
+                        selectedTitle
+                    ),
+                    modifier = Modifier.widthIn(max = 150.dp),
+                    color = compactCategoryLabelColor(true)
+                )
+                AdaptiveIcon(Icons.Rounded.ExpandMore, null, modifier = Modifier.size(16.dp),
+                    tint = compactCategoryLabelColor(true))
+            }
         }
 
-        DropdownMenu(
+        FlatWorkspaceDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
             modifier = Modifier.heightIn(max = 420.dp),
+            menuWidth = 264.dp,
             scrollState = menuScroll
         ) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.common_all)) },
-                leadingIcon = { if (selected == null) Icon(Icons.Rounded.Check, null) },
-                onClick = {
-                    expanded = false
-                    onSelected(null)
-                }
+            WorkspaceFlatMenuRow(
+                title = stringResource(R.string.common_all),
+                selected = selected == null,
+                onClick = { expanded = false; onSelected(null) }
             )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.open_manage_custom)) },
-                onClick = {
-                    expanded = false
-                    onManageCustom()
-                }
+            WorkspaceFlatMenuRow(
+                title = stringResource(R.string.open_manage_custom),
+                selected = false,
+                onClick = { expanded = false; onManageCustom() }
             )
-            HorizontalDivider()
+            AdaptiveHorizontalDivider()
             config.configuredPresets().forEach { preset ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            config.localizedTitle(preset),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    },
-                    leadingIcon = { if (selected == preset) Icon(Icons.Rounded.Check, null) },
-                    onClick = {
-                        expanded = false
-                        onSelected(preset)
-                    }
+                WorkspaceFlatMenuRow(
+                    title = config.localizedTitle(preset),
+                    selected = selected == preset,
+                    onClick = { expanded = false; onSelected(preset) }
                 )
             }
         }

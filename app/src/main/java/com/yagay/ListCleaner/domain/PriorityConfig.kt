@@ -8,16 +8,21 @@ data class PriorityConfig(
     val titles: Map<String, String> = emptyMap()
 ) {
     fun validated(): PriorityConfig {
-        require(apps.values.all { packages ->
+        val cleanApps = apps.filterKeys { it.isSelectableEntryKind() }
+        val cleanTitles = titles.filterKeys { !it.startsWith("${IntentKind.LAUNCHER_SHORTCUT.name}|") }
+        require(cleanApps.values.all { packages ->
             packages.size <= 200 && packages.distinct().size == packages.size &&
                 packages.all { it.isNotBlank() && it.length <= 255 && '|' !in it }
         }) { "invalid_priority_config" }
-        require(titles.size <= 2_000 && titles.all { (key, value) ->
+        require(cleanTitles.size <= 2_000 && cleanTitles.all { (key, value) ->
             val parsed = ComponentRule.fromId(key)
             parsed != null && parsed.id == key && value.isNotBlank() && value.length <= 64 &&
                 value.none { it.isISOControl() }
         }) { "invalid_component_title_config" }
-        return this
+        return if (cleanApps == apps && cleanTitles == titles) this else copy(
+            apps = cleanApps,
+            titles = cleanTitles,
+        )
     }
 }
 

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="lc_selection_confirm_title">确认修改</string>
+  <string name="lc_selection_confirm_body">确定要执行以下操作吗？\n%1$s\n\n点击「确定」后才会保存修改。</string>
+  <string name="lc_selection_group">应用：%1$s — %2$s</string>
+  <string name="lc_selection_item">项目：%1$s — %2$s</string>
+  <string name="lc_selection_enable">启用</string>
+  <string name="lc_selection_disable">禁用</string>
+  <string name="lc_selection_select">选中</string>
+  <string name="lc_selection_deselect">取消选中</string>
+</resources>

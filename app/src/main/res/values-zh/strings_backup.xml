@@ -7,4 +7,9 @@
     <string name="backup_create_failed">无法创建备份文件</string>
     <string name="backup_read_failed">无法读取备份</string>
     <string name="backup_too_large">备份文件过大（最多 200 万字符）</string>
+    <string name="backup_import_confirm_title">确认导入备份？</string>
+    <string name="backup_import_confirm_summary">备份版本 %1$d，共 %2$d 条规则。与当前规则相比：新增 %3$d 条，移除 %4$d 条。导入会替换当前规则、排序、显示模式及其他已保存设置；不包含 Root 组件的真实启用/禁用状态。</string>
+    <string name="backup_import_apply">导入并覆盖</string>
+    <string name="backup_undo">撤销</string>
+    <string name="backup_undo_done">已恢复导入前的备份</string>
 </resources>

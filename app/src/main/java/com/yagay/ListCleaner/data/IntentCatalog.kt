@@ -34,15 +34,41 @@ import java.time.Instant
 
 /** Evidence-based discovery, not a claim to enumerate every installed intent filter. */
 class IntentCatalog(private val context: Context) {
+    data class Snapshot(val userId: Int, val items: List<ComponentCandidate>)
+    private val mutableSnapshot = MutableStateFlow(Snapshot(android.os.Process.myUid() / 100000, emptyList()))
+    val snapshot: StateFlow<Snapshot> = mutableSnapshot.asStateFlow()
     private val mutableCandidates = MutableStateFlow<List<ComponentCandidate>>(emptyList())
     val candidates: StateFlow<List<ComponentCandidate>> = mutableCandidates.asStateFlow()
-
+    private val mutableRevision = MutableStateFlow(0L)
+    val revision: StateFlow<Long> = mutableRevision.asStateFlow()
+    private val specialEntryDiscovery = SpecialEntryDiscovery(context)
+    private val proactiveShortcuts = UnifiedShortcutEngine.get(context)
     suspend fun completeConfigured(
         items: List<ComponentCandidate>,
-        selected: Set<ComponentRule>
+        selected: Set<ComponentRule>,
+        userId: Int = android.os.Process.myUid() / 100000,
     ): List<ComponentCandidate> = withContext(Dispatchers.IO) {
         val known = items.mapTo(hashSetOf()) { it.rule.id }
-        val missing = selected.filter { it.id !in known }
+        // A shortcut identity may be re-published with a different Activity class.
+        // Both records still refer to the same package/kind/Shortcut ID token.
+        // Keep persisted rules untouched; avoid manufacturing a second unavailable
+        // row when the same logical shortcut is present in the current scan.
+        fun shortcutIdentity(rule: ComponentRule): String? {
+            val marker = when (rule.kind) {
+                IntentKind.SHORTCUT_ITEM -> "#shortcut#"
+                IntentKind.DIRECT_SHARE -> "#direct#"
+                else -> return null
+            }
+            val token = rule.className.substringAfter(marker, "")
+            if (token.length != 24 || !token.all { it in '0'..'9' || it in 'a'..'f' }) return null
+            return "${rule.kind.name}|${rule.packageName}|$token"
+        }
+        val observedShortcuts = items.mapNotNullTo(hashSetOf()) {
+            shortcutIdentity(it.rule)
+        }
+        val missing = selected.filter { rule ->
+            rule.id !in known && shortcutIdentity(rule)?.let { it !in observedShortcuts } != false
+        }
         if (missing.isEmpty()) return@withContext items
 
         val appInfoByPackage = missing.asSequence()
@@ -51,7 +77,8 @@ class IntentCatalog(private val context: Context) {
             .associateWith { packageName ->
                 runCatching {
                     @Suppress("DEPRECATION")
-                    context.packageManager.getApplicationInfo(packageName, 0)
+                    if (userId == android.os.Process.myUid() / 100000) context.packageManager.getApplicationInfo(packageName, 0)
+                    else ProfilePackageQuery(context, userId).packageInfo(packageName)?.applicationInfo
                 }.getOrNull()
             }
 
@@ -74,6 +101,7 @@ class IntentCatalog(private val context: Context) {
 
     private val appIconCache = LruCache<String, Bitmap>(192)
     private val appLabelCache = LruCache<String, String>(256)
+    @Volatile private var cachedInputFingerprint: String? = null
     @Volatile private var cachedDefinitionFingerprint: String? = null
     @Volatile private var invalidated = true
     @Volatile private var cacheHitsSinceLastScan = 0L
@@ -90,6 +118,7 @@ class IntentCatalog(private val context: Context) {
     /** Mark candidate discovery stale while keeping reusable app icons in memory. */
     fun invalidate(packageName: String? = null) {
         invalidated = true
+        mutableRevision.value = mutableRevision.value + 1L
         packageName?.let {
             appIconCache.remove(it)
             appLabelCache.remove(it)
@@ -100,8 +129,12 @@ class IntentCatalog(private val context: Context) {
         customDefinitions: Map<OpenPreset, CustomOpenDefinition> = emptyMap(),
         browserHosts: Set<String> = emptySet(),
         browserDiscovery: BrowserLinkDiscoveryResult = BrowserLinkDiscoveryResult(),
-        force: Boolean = false
+        force: Boolean = false,
+        userId: Int = android.os.Process.myUid() / 100000,
+        proactiveOptions: ProactiveScanOptions = ProactiveScanOptions(),
+        manualProactive: Boolean = false,
     ): List<ComponentCandidate> = withContext(Dispatchers.IO) {
+        val profile = if (userId == android.os.Process.myUid() / 100000) null else ProfilePackageQuery(context, userId)
         val normalizedBrowserHosts = browserHosts.mapNotNull(::normalizeBrowserHost).toSortedSet()
         val discoveryFingerprint = browserDiscovery.declaredHandlersByHost.entries
             .sortedBy { it.key }
@@ -115,17 +148,46 @@ class IntentCatalog(private val context: Context) {
             .joinToString(";") { (host, packages) ->
                 host + "=" + packages.sorted().joinToString(",")
             }
-        val fingerprint = customDefinitions.entries
+        val inputFingerprint = customDefinitions.entries
             .sortedBy { it.key.ordinal }
             .joinToString("|") { (preset, definition) -> "$preset=$definition" } +
-            "|browserHosts=" + normalizedBrowserHosts.joinToString(",") +
+            "|userId=$userId|proactive=$proactiveOptions|manual=$manualProactive|browserHosts=" + normalizedBrowserHosts.joinToString(",") +
             "|declaredHandlers=" + discoveryFingerprint +
             "|declaredPackages=" + packageFingerprint
         val cached = mutableCandidates.value
-        if (!force && !invalidated && cached.isNotEmpty() && fingerprint == cachedDefinitionFingerprint) {
+        // Normal state/UI refreshes are frequent. If inputs have not changed and no package/runtime
+        // invalidation was observed, return before expensive manager/AppOps discovery. Explicit user
+        // refresh passes force=true and still performs a complete authority scan immediately.
+        if (!force && !invalidated && inputFingerprint == cachedInputFingerprint) {
             cacheHitsSinceLastScan++
             return@withContext cached
         }
+
+        val specialFailures = mutableListOf<String>()
+        val specialCandidates: List<ComponentCandidate> = if (profile == null) {
+            runCatching { specialEntryDiscovery.scan() }.onSuccess {
+                specialFailures += specialEntryDiscovery.scanFailures
+            }.getOrElse { failure ->
+                specialFailures += "current_user:${failure.javaClass.simpleName}"
+                emptyList()
+            }
+        } else {
+            runCatching { ProfileEntryDiscovery(context, profile).scan() }.fold(
+                onSuccess = { result ->
+                    specialFailures += result.failedSources
+                    result.candidates
+                },
+                onFailure = { failure ->
+                    specialFailures += "profile:${failure.javaClass.simpleName}"
+                    emptyList()
+                },
+            )
+        }
+        val specialFingerprint = specialCandidates.asSequence()
+            .map { it.rule.id }
+            .sorted()
+            .joinToString(",")
+        val fingerprint = inputFingerprint + "|specialEntries=" + specialFingerprint
 
         val previousCacheHits = cacheHitsSinceLastScan
         cacheHitsSinceLastScan = 0L
@@ -139,7 +201,17 @@ class IntentCatalog(private val context: Context) {
                 "cacheHitsSincePreviousScan=$previousCacheHits\n"
         )
 
-        val declaredCandidates = declaredDeepLinkCandidates(browserDiscovery.declaredHandlersByHost)
+        if (specialCandidates.isNotEmpty()) {
+            found += specialCandidates
+            specialCandidates.forEach { known += it.rule.id }
+            report.appendLine(
+                "specialEntries candidates=${specialCandidates.size} " +
+                    "launcherShortcuts=${specialCandidates.count { it.rule.kind == IntentKind.LAUNCHER_SHORTCUT }} " +
+                    "documentProviders=${specialCandidates.count { it.rule.kind == IntentKind.DOCUMENT_PROVIDER }}"
+            )
+        }
+
+        val declaredCandidates = if (profile == null) declaredDeepLinkCandidates(browserDiscovery.declaredHandlersByHost) else emptyList()
         if (declaredCandidates.isNotEmpty()) {
             found += declaredCandidates
             declaredCandidates.forEach { known += it.rule.id }
@@ -148,7 +220,7 @@ class IntentCatalog(private val context: Context) {
                     "uniqueRules=${declaredCandidates.map { it.rule.id }.distinct().size}"
             )
         }
-        for (scheme in listOf("http", "https")) {
+        if (profile == null) for (scheme in listOf("http", "https")) {
             val web = Intent(Intent.ACTION_VIEW, Uri.parse("$scheme://example.com")).addCategory(Intent.CATEGORY_BROWSABLE)
             runCatching {
                 @Suppress("DEPRECATION")
@@ -158,14 +230,17 @@ class IntentCatalog(private val context: Context) {
                 report.appendLine("browserBaseline scheme=$scheme flags=0x${PackageManager.MATCH_DEFAULT_ONLY.toString(16)} count=${menu.size} resolved=${resolved?.packageName}/${resolved?.name}")
             }.onFailure { report.appendLine("browserBaseline scheme=$scheme error=${it.javaClass.simpleName}") }
         }
-        var failures = 0
+        var failures = specialFailures.size
+        if (specialFailures.isNotEmpty()) {
+            report.appendLine("specialScanFailures=${specialFailures.joinToString(",")}")
+        }
         scanWarning = null
         val allProbes = probes(customDefinitions, normalizedBrowserHosts) +
             appLinkFallbackProbes(browserDiscovery)
         for (probe in allProbes) {
             currentCoroutineContext().ensureActive()
             try {
-                val result = query(probe)
+                val result = query(probe, profile = profile)
                 val added = result.candidates.count { known.add(it.rule.id) }
                 found += result.candidates
                 report.appendLine("${probe.label} broad=${probe.broad} flags=0x${result.flags.toString(16)} raw=${result.raw} kept=${result.candidates.size} new=$added")
@@ -177,13 +252,42 @@ class IntentCatalog(private val context: Context) {
             }
         }
         currentCoroutineContext().ensureActive()
+        val sharePackages = found.asSequence()
+            .filter { it.rule.kind in setOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE,
+                IntentKind.SEND_TO, IntentKind.DIRECT_SHARE) }
+            .map { it.rule.packageName }.distinct().toList()
+        val activeKinds = proactiveOptions.requestedKinds
+        val allowed = proactiveOptions.mayQuery(manualProactive)
+        if (allowed) {
+            val snapshot = proactiveShortcuts.scanCached(
+                userId, sharePackages, activeKinds,
+                proactiveOptions.cacheMillis, manualProactive
+            )
+            val active = snapshot.current
+            if (active.status in setOf("root_unavailable", "query_failed",
+                    "unsupported_or_locked", "invalid_user")) {
+                failures++
+            }
+            report.appendLine("proactiveShortcuts source=${active.source} status=${active.status} " +
+                "kinds=${activeKinds.joinToString(",")} count=${active.candidates.size} " +
+                "queriedPackages=${active.queriedPackages}")
+            if (snapshot.usable != null) found += snapshot.usable.candidates
+        } else {
+            report.appendLine("proactiveShortcuts status=disabled_or_manual " +
+                "mode=${proactiveOptions.trigger} kinds=${activeKinds.joinToString(",")}")
+        }
+        currentCoroutineContext().ensureActive()
         val result = merge(found)
         report.appendLine("finishedAt=${Instant.now()} unique=${result.size} failures=$failures")
         lastReport = report.toString()
         if (failures > 0) scanWarning = context.getString(R.string.catalog_partial_scan_failed, failures)
         mutableCandidates.value = result
+        mutableSnapshot.value = Snapshot(userId, result)
+        cachedInputFingerprint = inputFingerprint
         cachedDefinitionFingerprint = fingerprint
-        invalidated = false
+        // An incomplete scan must be retried; caching a partial scan as complete
+        // can turn a transient Shell/PackageManager failure into a persistent zero.
+        invalidated = failures > 0
         result
     }
 
@@ -210,19 +314,25 @@ class IntentCatalog(private val context: Context) {
     }
 
     @Suppress("DEPRECATION")
-    private fun query(probe: Probe, discovery: Boolean = true): QueryResult {
+    private fun query(probe: Probe, discovery: Boolean = true, profile: ProfilePackageQuery? = null): QueryResult {
         val intentKind = probe.intent.intentKind() ?: return QueryResult(emptyList(), 0)
         val flags = queryFlags(intentKind, discovery)
         check(flags and (PackageManager.MATCH_DISABLED_COMPONENTS or PackageManager.MATCH_DISABLED_UNTIL_USED_COMPONENTS) == 0)
-        val raw = context.packageManager.queryIntentActivities(probe.intent, flags)
+        val raw = profile?.query(probe.intent, flags)
+            ?: context.packageManager.queryIntentActivities(probe.intent, flags)
         val candidates = raw.mapNotNull { info ->
             val activity = info.activityInfo ?: return@mapNotNull null
-            val kind = if (intentKind == IntentKind.BROWSER) info.webTargetKind() else intentKind
+            // Shell reconstructs ResolveInfo without resolved IntentFilter metadata.
+            // webTargetKind() would incorrectly label every cross-user browser as DEEP_LINK.
+            // Keep those web handlers as provisional BROWSER candidates until a role
+            // observation or explicit IntentFilter evidence can classify them.
+            val kind = if (intentKind == IntentKind.BROWSER && profile == null)
+                info.webTargetKind() else intentKind
             val canonicalClass = ComponentIdentity.canonicalClassName(activity.packageName, activity.name, activity.targetActivity)
             val rule = ComponentRule(kind, activity.packageName, canonicalClass)
             if (!rule.isValid()) return@mapNotNull null
             val managerUid = android.os.Process.myUid()
-            val targetUid = activity.applicationInfo?.uid ?: -1
+            val targetUid = if (profile == null) activity.applicationInfo?.uid ?: -1 else -1
             val restricted = FilterPolicy.catalogRestricted(activity.exported, targetUid, managerUid)
             val facts = buildList {
                 add("SYSTEM_STATE activityEnabled=${activity.enabled} appEnabled=${activity.applicationInfo?.enabled}")
@@ -231,6 +341,8 @@ class IntentCatalog(private val context: Context) {
                     add("activityAlias=${activity.name} targetActivity=${activity.targetActivity} canonical=$canonicalClass")
                 }
                 if (restricted) add("RESTRICTED non-exported foreign component; excluded from ordinary catalog")
+                if (profile != null && intentKind == IntentKind.BROWSER)
+                    add("PROFILE_WEB_HANDLER roleEligibility=unverified filterUnavailable=true")
                 activity.permission?.takeIf { it.isNotBlank() }?.let { permission ->
                     val granted = runCatching {
                         context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
@@ -434,11 +546,6 @@ class IntentCatalog(private val context: Context) {
         val webHosts = linkedSetOf("example.com").apply { addAll(browserHosts) }
         for (host in webHosts) {
             for (scheme in listOf("http", "https")) {
-                // Use a real root path instead of an empty path. Many App Link handlers
-                // (GitHub is a common example) constrain VIEW filters with pathPattern="/.*"
-                // or an equivalent path matcher, so "$scheme://$host" does not enumerate them.
-                // Runtime filtering still uses the actual incoming URL; this only improves
-                // discovery of handlers available for the configured host.
                 add(Probe(
                     Intent(Intent.ACTION_VIEW, Uri.parse("$scheme://$host/"))
                         .addCategory(Intent.CATEGORY_BROWSABLE),
@@ -520,3 +627,4 @@ class IntentCatalog(private val context: Context) {
         )
     }
 }
+

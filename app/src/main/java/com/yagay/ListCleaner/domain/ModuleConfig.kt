@@ -24,25 +24,55 @@ data class ModuleConfig(
      * system_server guard/discovery hooks do not depend on RemotePreferences cache freshness.
      * RuleRepository deliberately does not restore this field into rule backups.
      */
-    val rootDisabledComponents: Set<String>? = null
+    val rootDisabledComponents: Set<String>? = null,
+    /** Additional Android user profiles. User 0 remains the legacy top-level configuration. */
+    val userSpaces: Map<Int, UserSpaceRules> = emptyMap()
 ) {
     fun validated(): ModuleConfig {
         require(rules.size <= 20_000 && rules.all(ComponentRule::isValid))
+        require(userSpaces.size <= 16 && userSpaces.keys.all { it in 1..99999 })
+        val validatedSpaces = userSpaces.mapValues { (_, space) -> space.validated() }
+        val cleanRules = rules.asSequence()
+            .filter { it.kind.isSelectableEntryKind() || it.kind == IntentKind.SHORTCUT_ITEM }
+            .map { rule ->
+                val normalized = SyntheticEntryKeys.normalizePackageScopedRule(rule)
+                ComponentRule.fromId(normalized.id) ?: normalized
+            }
+            .toCollection(linkedSetOf())
         val cleanPriorities = priorities.validated()
         require(managerAppId == -1 || ManagerIdentity.valid(managerAppId))
         require(hiddenFromApps.size <= 2_000 && hiddenFromApps.all(PackageIdentity::valid))
         require(rootDisabledComponents == null ||
             (rootDisabledComponents.size <= 20_000 && rootDisabledComponents.all(::validRootComponentKey)))
 
+        // Android role pickers expose package identities. Collapse historical component rules for
+        // every package-scoped surface to one stable synthetic key so manager discovery, resolver
+        // filtering and RoleController cannot disagree about what one checkbox means.
+        val packageScopedIds = rules.asSequence()
+            .filter { it.kind.isPackageScopedEntry() }
+            .map { rule -> rule.id to SyntheticEntryKeys.packageScopedRule(rule.kind, rule.packageName).id }
+            .filter { (oldId, newId) -> oldId != newId }
+            .toMap()
+
+        // Old per-host Browser rules represented Deep Links before DEEP_LINK became its own kind.
+        // Copy their titles to the migrated Deep Link component before the generic Browser role
+        // migration removes the obsolete component-scoped Browser title.
         val legacyDomainIds = browserLinks.rules.values.flatten().mapNotNull { id ->
             val parsed = ComponentRule.fromId(id) ?: return@mapNotNull null
             if (parsed.kind == IntentKind.BROWSER) parsed.id to parsed.copy(kind = IntentKind.DEEP_LINK).id
             else null
         }.toMap()
+
         val migratedTitles = cleanPriorities.titles.toMutableMap()
         legacyDomainIds.forEach { (oldId, newId) ->
             migratedTitles[oldId]?.let { title ->
                 if (newId !in migratedTitles) migratedTitles[newId] = title
+            }
+        }
+        packageScopedIds.forEach { (oldId, newId) ->
+            migratedTitles[oldId]?.let { title ->
+                if (newId !in migratedTitles) migratedTitles[newId] = title
+                migratedTitles.remove(oldId)
             }
         }
         val migratedPriorities = if (migratedTitles == cleanPriorities.titles) cleanPriorities
@@ -52,15 +82,19 @@ data class ModuleConfig(
         val cleanBrowserLinks = browserLinks.validated()
         val cleanVisibilityCompat = visibilityCompat.validated()
         return if (
+            cleanRules == rules &&
             migratedPriorities == priorities &&
             cleanOpenTypes == openTypes &&
             cleanBrowserLinks == browserLinks &&
-            cleanVisibilityCompat == visibilityCompat
+            cleanVisibilityCompat == visibilityCompat &&
+            validatedSpaces == userSpaces
         ) this else copy(
+            rules = cleanRules,
             priorities = migratedPriorities,
             openTypes = cleanOpenTypes,
             browserLinks = cleanBrowserLinks,
-            visibilityCompat = cleanVisibilityCompat
+            visibilityCompat = cleanVisibilityCompat,
+            userSpaces = validatedSpaces
         )
     }
 }

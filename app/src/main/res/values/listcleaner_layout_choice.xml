@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lc_home_layout_title">Cleanup and ordering layout</string>
+    <string name="lc_home_layout_cards">Category list</string>
+    <string name="lc_home_layout_classic">Direct app list</string>
+    <string name="lc_home_layout_description">Category list shows Entry and Root categories as flat navigation rows. Direct app list opens the editors immediately, with category filters above the rows. Both use the same scanners and rules. A separate card presentation may be added later.</string>
+</resources>

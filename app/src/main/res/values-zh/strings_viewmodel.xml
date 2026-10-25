@@ -28,6 +28,7 @@
 
     <string name="update_detecting_targets">正在检测运行目标…</string>
     <string name="update_lsposed_disconnected">未连接 LSPosed</string>
+    <string name="update_target_restart_required">%1$s：当前运行 Hook v%2$d 低于要求的 Hook 代际 v%3$d，请完整重启手机；如果只是管理端更新且 Hook 代际未变化，则不需要重启。</string>
     <string name="update_target_reloading">%1$s：框架正在重载，请稍后重新检测</string>
     <string name="update_target_too_old">%1$s：旧版本 %2$d 不支持本模块热重载，请完整重启手机</string>
     <string name="update_succeeded">框架报告更新成功，正在重新核实</string>
@@ -39,8 +40,8 @@
     <string name="update_timeout">等待超时，不代表已取消；请重新检测，勿重复请求</string>
     <string name="update_target_result">%1$s：%2$s</string>
     <string name="update_request_failed">%1$s：更新请求失败（%2$s）；继续检查其他目标</string>
-    <string name="update_nothing_pending">没有需要热更新的运行目标；正在核实配置</string>
-    <string name="update_check_failed">更新检查失败：%1$s；未重启任何系统进程</string>
+    <string name="update_nothing_pending">所有运行目标的 Hook 代际均兼容，不需要重启；配置会继续正常核实。</string>
+    <string name="update_check_failed">Hook 代际检查失败：%1$s；未修改任何系统进程</string>
 
     <string name="module_target_detection_unsupported">当前框架不支持运行目标检测</string>
     <string name="module_status_read_failed">无法读取 LSPosed 模块状态</string>

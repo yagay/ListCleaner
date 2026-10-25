@@ -1,0 +1,327 @@
+package com.yagay.ListCleaner.xposed
+
+import android.content.Intent
+import android.content.pm.ComponentInfo
+import android.content.pm.ResolveInfo
+import android.content.pm.ServiceInfo
+import android.os.Binder
+import android.os.Process
+import android.provider.DocumentsContract
+import android.util.Log
+import com.yagay.ListCleaner.data.RuleRepository
+import com.yagay.ListCleaner.domain.AndroidUid
+import com.yagay.ListCleaner.domain.ComponentRule
+import com.yagay.ListCleaner.domain.DisplayMode
+import com.yagay.ListCleaner.domain.EntryAuthority
+import com.yagay.ListCleaner.domain.FilterPolicy
+import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.ManagerIdentity
+import com.yagay.ListCleaner.domain.SYSTEM_SERVICE_ENTRY_DEFINITIONS
+import com.yagay.ListCleaner.domain.entryAuthority
+import com.yagay.ListCleaner.domain.isPackageScopedEntry
+import com.yagay.ListCleaner.domain.isSystemServiceEntry
+import com.yagay.ListCleaner.domain.prioritizeApps
+import com.yagay.ListCleaner.domain.systemServiceEntryKind
+import com.yagay.ListCleaner.domain.webTargetKind
+import io.github.libxposed.api.XposedInterface
+import io.github.libxposed.api.XposedModule
+import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
+import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
+import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
+import java.io.File
+import java.lang.reflect.Method
+import java.util.concurrent.ConcurrentHashMap
+
+/** Shared non-destructive PackageManager entry filter for role/activity/provider/service surfaces. */
+class PackageManagerEntryFilterModule : XposedModule() {
+    private data class QuerySpec(
+        val kind: IntentKind,
+        val component: (ResolveInfo) -> ComponentInfo?,
+        val matchByPackage: Boolean = false,
+        val eligible: (ResolveInfo, ComponentInfo) -> Boolean = { _, _ -> true },
+    )
+
+    @Volatile private var processName = ""
+    private val installedMethods = ConcurrentHashMap.newKeySet<String>()
+    private val listResults = SafeListResultExtractor(::record)
+    private val runtimeCapture by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        RuntimeInterfaceCaptureWriter(preferences, ::record)
+    }
+    private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        getRemotePreferences(RuleRepository.REMOTE_PREFS)
+    }
+    private val policyProvider by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        EntryPolicyProvider(
+            preferences = preferences,
+            kinds = PM_ENTRY_KINDS,
+            includePriorities = true,
+            record = ::record,
+        )
+    }
+
+    override fun onModuleLoaded(param: ModuleLoadedParam) {
+        processName = param.processName
+        record("MODULE_LOADED")
+    }
+
+    override fun onHotReloading(param: HotReloadingParam): Boolean = false
+
+    override fun onSystemServerStarting(param: SystemServerStartingParam) {
+        processName = "system"
+        policyProvider.start()
+        installHooks(param.classLoader)
+    }
+
+    private fun installHooks(classLoader: ClassLoader) {
+        PMS_CLASSES.forEach { className ->
+            val clazz = runCatching { Class.forName(className, false, classLoader) }.getOrNull()
+                ?: return@forEach
+            ReflectionAccess.hierarchyMethods(clazz)
+                .filter(::isSupportedQuery)
+                .distinctBy(Method::toGenericString)
+                .forEach { method ->
+                    val key = method.toGenericString()
+                    if (!installedMethods.add(key)) return@forEach
+                    runCatching {
+                        method.isAccessible = true
+                        hook(method).setId(HOOK_ID).intercept(entryHooker(method))
+                        record("HOOK_INSTALLED method=$key")
+                    }.onFailure {
+                        installedMethods.remove(key)
+                        record("HOOK_FAILED method=$key error=${it.javaClass.name}")
+                    }
+                }
+        }
+        record("HOOKS_READY total=${installedMethods.size}")
+    }
+
+    private fun isSupportedQuery(method: Method): Boolean {
+        if (method.parameterTypes.none { Intent::class.java.isAssignableFrom(it) }) return false
+        val supportedResult = List::class.java.isAssignableFrom(method.returnType) ||
+            method.returnType.name.endsWith("ParceledListSlice")
+        return supportedResult && method.name in QUERY_METHODS
+    }
+
+    private fun querySpec(method: Method, intent: Intent): QuerySpec? {
+        val effective = intent.selector ?: intent
+        val action = effective.action ?: return null
+        val activityQuery = "Activit" in method.name
+
+        if (activityQuery && action == Intent.ACTION_ASSIST) {
+            return QuerySpec(IntentKind.ASSISTANT, { it.activityInfo }, matchByPackage = true)
+        }
+        if (activityQuery && action == Intent.ACTION_MAIN &&
+            effective.categories?.contains(Intent.CATEGORY_HOME) == true
+        ) {
+            return QuerySpec(IntentKind.HOME, { it.activityInfo }, matchByPackage = true)
+        }
+        if (activityQuery && action == Intent.ACTION_MAIN &&
+            effective.categories?.contains(Intent.CATEGORY_ACCESSIBILITY_SHORTCUT_TARGET) == true
+        ) {
+            return QuerySpec(IntentKind.ACCESSIBILITY, { it.activityInfo })
+        }
+        if (activityQuery && action == Intent.ACTION_VIEW &&
+            effective.data?.scheme?.lowercase() in WEB_SCHEMES &&
+            effective.categories?.contains(Intent.CATEGORY_BROWSABLE) == true
+        ) {
+            return QuerySpec(
+                kind = IntentKind.BROWSER,
+                component = { it.activityInfo },
+                matchByPackage = true,
+                eligible = { resolved, _ -> resolved.webTargetKind() == IntentKind.BROWSER },
+            )
+        }
+        if (action == DocumentsContract.PROVIDER_INTERFACE && "ContentProvider" in method.name) {
+            return QuerySpec(IntentKind.DOCUMENT_PROVIDER, { it.providerInfo })
+        }
+        if (action == CLOUD_MEDIA_PROVIDER_INTERFACE && "ContentProvider" in method.name) {
+            return QuerySpec(
+                IntentKind.PHOTO_SOURCE, { it.providerInfo },
+                eligible = { _, info -> info is android.content.pm.ProviderInfo && info.readPermission == CLOUD_MEDIA_PERMISSION },
+            )
+        }
+        if ("Service" !in method.name) return null
+        if (action == VOICE_INTERACTION_SERVICE_INTERFACE) {
+            return QuerySpec(
+                kind = IntentKind.ASSISTANT,
+                component = { it.serviceInfo },
+                matchByPackage = true,
+                eligible = { _, component ->
+                    component is ServiceInfo && component.permission == BIND_VOICE_INTERACTION_PERMISSION
+                },
+            )
+        }
+        val kind = systemServiceEntryKind(action) ?: return null
+        val definition = SYSTEM_SERVICE_ENTRY_DEFINITIONS.firstOrNull { it.action == action } ?: return null
+        return QuerySpec(
+            kind = kind,
+            component = { it.serviceInfo },
+            matchByPackage = kind.isPackageScopedEntry(),
+            eligible = { _, component ->
+                component is ServiceInfo && definition.acceptsPermission(component.permission)
+            },
+        )
+    }
+
+    private fun entryHooker(method: Method) = XposedInterface.Hooker { chain ->
+        val intent = chain.args.firstOrNull { it is Intent } as? Intent ?: return@Hooker chain.proceed()
+        val spec = querySpec(method, intent) ?: return@Hooker chain.proceed()
+        val binderUid = Binder.getCallingUid()
+        val binderPid = Binder.getCallingPid()
+        val callerUid = HookCallIdentity.packageManagerCallerUid(
+            methodName = method.name,
+            parameterTypeNames = method.parameterTypes.map { it.name },
+            args = chain.args,
+            binderUid = binderUid,
+        )
+
+        val targetUserId = HookCallIdentity.packageManagerTargetUserId(
+            method.name, method.parameterTypes.map { parameter -> parameter.name }, chain.args,
+        ) ?: run {
+            // Do not apply user 0 filters to a cross-profile query with unknown user.
+            record("QUERY_SKIP kind=${spec.kind} reason=unknown_target_user callerUid=$callerUid")
+            return@Hooker chain.proceed()
+        }
+        val policy = policyProvider.snapshot(targetUserId)
+        // A manager API preview can request the real filtered PackageManager service/provider
+        // path. Authenticate caller UID; an Intent extra from another app never grants a bypass.
+        val managerCaller = ManagerIdentity.matches(callerUid, policy.managerAppId)
+        val managerPreview = managerCaller &&
+            intent.getBooleanExtra(
+                com.yagay.ListCleaner.domain.RuntimeProtocol.EXTRA_MANAGER_PREVIEW_QUERY, false
+            )
+        if (managerCaller && !managerPreview) return@Hooker chain.proceed()
+        val selected = policy.selected(spec.kind)
+        val priorities = policy.priorities(spec.kind)
+        if (selected.isEmpty() && priorities.isEmpty()) return@Hooker chain.proceed()
+
+        val callerProcess = callerProcessName(binderPid)
+        val ordinaryCaller = FilterPolicy.ordinaryAppCaller(callerUid)
+        val privilegedConfigurationUi = !ordinaryCaller && isExternalConfigurationUiCaller(binderPid, callerProcess)
+        val packageManagerIsAuthority = spec.kind.entryAuthority() == EntryAuthority.PACKAGE_MANAGER
+        val mayFilterPrivilegedUi = privilegedConfigurationUi && packageManagerIsAuthority
+        if (!ordinaryCaller && !mayFilterPrivilegedUi) {
+            record(
+                "SYSTEM_CALLER_BYPASS kind=${spec.kind} authority=${spec.kind.entryAuthority()} " +
+                    "action=${(intent.selector ?: intent).action} callerUid=$callerUid binderUid=$binderUid " +
+                    "callerPid=$binderPid callerProcess=${callerProcess ?: "unknown"}"
+            )
+            return@Hooker chain.proceed()
+        }
+
+        val selectedPackages = if (spec.matchByPackage) policy.selectedPackages(spec.kind) else emptySet()
+        record(
+            "QUERY kind=${spec.kind} action=${(intent.selector ?: intent).action} callerUid=$callerUid " +
+                "callerPid=$binderPid callerProcess=${callerProcess ?: "unknown"} " +
+                "match=${if (spec.matchByPackage) "package" else "component"} selected=${selected.size}"
+        )
+
+        val original = chain.proceed()
+        val result = listResults.extract(original) ?: return@Hooker original
+        var removed = 0
+        val filtered = if (policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) {
+            result.values
+        } else {
+            result.values.filter { value ->
+                val resolve = value as? ResolveInfo ?: return@filter true
+                val component = spec.component(resolve) ?: return@filter true
+                if (!spec.eligible(resolve, component)) return@filter true
+                val rule = ComponentRule(spec.kind, component.packageName, component.name)
+                if (!rule.isValid()) return@filter true
+                val selectedMatch = if (spec.matchByPackage) {
+                    component.packageName in selectedPackages
+                } else {
+                    rule.id in selected
+                }
+                val include = policy.displayMode.includes(selectedMatch, selected.isNotEmpty())
+                if (!include) removed++
+                include
+            }
+        }
+
+        val ordered = if (priorities.isEmpty() || filtered.size < 2) filtered else prioritizeApps(
+            filtered,
+            priorities,
+            { value -> (value as? ResolveInfo)?.let(spec.component)?.packageName ?: "" },
+            { value ->
+                val uid = (value as? ResolveInfo)?.let(spec.component)?.applicationInfo?.uid ?: 0
+                AndroidUid.userId(uid)
+            },
+        )
+        runtimeCapture.publish(
+            kind = spec.kind,
+            source = "PACKAGE_MANAGER_FILTERED_RETURN",
+            userId = targetUserId,
+            packages = ordered.mapNotNull { value ->
+                (value as? ResolveInfo)?.let(spec.component)?.packageName
+            },
+            components = ordered.mapNotNull { value ->
+                (value as? ResolveInfo)?.let(spec.component)?.let { it.packageName + "/" + it.name }
+            },
+            callerPackage = callerProcess.orEmpty(),
+            callerUid = callerUid,
+            requestAction = (intent.selector ?: intent).action.orEmpty(),
+        )
+        if (removed == 0 && ordered == result.values) return@Hooker original
+        record(
+            "RESULT kind=${spec.kind} callerUid=$callerUid before=${result.values.size} " +
+                "after=${ordered.size} removed=$removed priorities=${priorities.size} " +
+                "emptyAllowed=${ordered.isEmpty()}"
+        )
+        result.rebuild(ordered)
+    }
+
+    private fun isExternalConfigurationUiCaller(pid: Int, process: String?): Boolean {
+        if (pid <= 0 || pid == Process.myPid()) return false
+        val value = process?.lowercase() ?: return false
+        return "settings" in value || "permissioncontroller" in value ||
+            "rolecontroller" in value || "role.controller" in value
+    }
+
+    private fun callerProcessName(pid: Int): String? {
+        if (pid <= 0) return null
+        return runCatching {
+            File("/proc/$pid/cmdline").inputStream().use { input ->
+                val buffer = ByteArray(256)
+                val count = input.read(buffer)
+                if (count <= 0) null else String(buffer, 0, count).substringBefore('\u0000').trim().ifBlank { null }
+            }
+        }.getOrNull()
+    }
+
+    private val diagnosticLimiter = HookDiagnosticRateLimiter()
+
+    private fun record(message: String) {
+        if (!diagnosticLimiter.allow(message)) return
+        val line = "pid=${Process.myPid()} process=$processName $message"
+        runCatching { Log.i(TAG, line) }
+        runCatching { log(Log.INFO, TAG, line) }
+    }
+
+    private companion object {
+        const val TAG = "ListCleaner.PmEntries"
+        const val CLOUD_MEDIA_PROVIDER_INTERFACE = "android.content.action.CLOUD_MEDIA_PROVIDER"
+        const val CLOUD_MEDIA_PERMISSION =
+            "com.android.providers.media.permission.MANAGE_CLOUD_MEDIA_PROVIDERS"
+        const val HOOK_ID = "lc-pm-entry-filter"
+        const val VOICE_INTERACTION_SERVICE_INTERFACE = "android.service.voice.VoiceInteractionService"
+        const val BIND_VOICE_INTERACTION_PERMISSION = "android.permission.BIND_VOICE_INTERACTION"
+        val WEB_SCHEMES = setOf("http", "https")
+        val PM_ENTRY_KINDS = IntentKind.entries.filterTo(linkedSetOf()) { kind ->
+            kind.isPackageScopedEntry() || kind == IntentKind.DOCUMENT_PROVIDER ||
+                kind == IntentKind.PHOTO_SOURCE || kind.isSystemServiceEntry()
+        }
+        val QUERY_METHODS = setOf(
+            "queryIntentActivities", "queryIntentActivitiesAsUser", "queryIntentActivitiesInternal",
+            "queryIntentServices", "queryIntentServicesAsUser", "queryIntentServicesInternal",
+            "queryIntentContentProviders", "queryIntentContentProvidersAsUser", "queryIntentContentProvidersInternal",
+        )
+        val PMS_CLASSES = listOf(
+            "com.android.server.pm.PackageManagerService\$IPackageManagerImpl",
+            "com.android.server.pm.IPackageManagerImpl",
+            "com.android.server.pm.PackageManagerService",
+            "com.android.server.pm.ComputerEngine",
+            "com.android.server.pm.ComputerLocked",
+        )
+    }
+}

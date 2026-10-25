@@ -8,6 +8,7 @@ import com.yagay.ListCleaner.domain.PriorityConfig
 import com.yagay.ListCleaner.domain.VisibilityCompatConfig
 import com.yagay.ListCleaner.domain.selectedKinds
 
+/** Resolver-facing immutable snapshot. Construction is side-effect free. */
 internal data class RuntimeRuleSnapshot(
     val configured: Set<String>,
     val displayMode: DisplayMode,

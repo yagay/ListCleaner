@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="lc_selection_confirm_title">Confirm change</string>
+  <string name="lc_selection_confirm_body">Apply this change?\n%1$s\n\nNothing is saved until you confirm.</string>
+  <string name="lc_selection_group">App: %1$s — %2$s</string>
+  <string name="lc_selection_item">Item: %1$s — %2$s</string>
+  <string name="lc_selection_enable">Enable</string>
+  <string name="lc_selection_disable">Disable</string>
+  <string name="lc_selection_select">Select</string>
+  <string name="lc_selection_deselect">Deselect</string>
+</resources>

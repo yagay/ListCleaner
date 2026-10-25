@@ -156,6 +156,46 @@ private fun matchOpenPresetByExtension(fileNameOrPath: String?): OpenPreset? = w
     else -> null
 }
 
+/**
+ * A read-only summary of Open With resolver evidence. A wildcard MIME query
+ * is labelled separately; it must not be inferred from individual typed probes.
+ * Unknown and retained-only rules do not claim a currently supported file type.
+ */
+data class OpenWithTypeSummary(
+    val universal: Boolean = false,
+    val presets: List<OpenPreset> = emptyList()
+) {
+    val isEmpty: Boolean get() = !universal && presets.isEmpty()
+}
+
+private val openEvidenceMime = Regex("""(?:^|\s)mime=([^\s]+)""")
+private val openEvidenceScheme = Regex("""(?:^|\s)scheme=([^\s]+)""")
+private val openEvidenceSample = Regex("""(?:^|\s)sample=([^\s]+)""")
+
+fun summarizeOpenWithTypes(
+    candidates: Collection<ComponentCandidate>,
+    customDefinitions: Map<OpenPreset, CustomOpenDefinition> = emptyMap()
+): OpenWithTypeSummary {
+    var universal = false
+    val detected = linkedSetOf<OpenPreset>()
+    for (candidate in candidates) {
+        if (candidate.rule.kind != IntentKind.OPEN || !candidate.isCatalogCandidate) continue
+        for (line in candidate.evidence) {
+            // Resolver probes are the only evidence with known MIME/URI semantics.
+            // Other evidence may mention a MIME but does not prove this Activity matches it.
+            if (!line.startsWith("VIEW ") && !line.startsWith("BROAD VIEW ") &&
+                !line.startsWith("CUSTOM ") && !line.startsWith("REAL_FILE ")) continue
+            val mime = openEvidenceMime.find(line)?.groupValues?.getOrNull(1)
+            val scheme = openEvidenceScheme.find(line)?.groupValues?.getOrNull(1)
+            val sample = openEvidenceSample.find(line)?.groupValues?.getOrNull(1)
+            if (mime?.substringBefore(';')?.trim() == "*/*") universal = true
+            matchOpenPreset(IntentKind.OPEN, mime, scheme, sample, customDefinitions)
+                ?.let(detected::add)
+        }
+    }
+    return OpenWithTypeSummary(universal, detected.sortedBy(OpenPreset::ordinal))
+}
+
 fun ComponentCandidate.matchesOpenPreset(
     preset: OpenPreset,
     customDefinitions: Map<OpenPreset, CustomOpenDefinition> = CustomOpenRegistry.snapshot()

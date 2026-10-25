@@ -9,11 +9,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -32,7 +34,8 @@ fun BrowserHostFilterMenu(
     config: BrowserLinkConfig,
     availableHosts: Set<String> = config.hosts,
     onSelected: (String?) -> Unit,
-    onManage: () -> Unit
+    onManage: () -> Unit,
+    iconOnly: Boolean = false,
 ) {
     var expanded by remember { mutableStateOf(false) }
     var hostQuery by remember { mutableStateOf("") }
@@ -40,7 +43,8 @@ fun BrowserHostFilterMenu(
     val density = LocalDensity.current
     val menuWidth = 296.dp
     val menuHorizontalOffset = with(density) {
-        ((anchorWidthPx.toDp() - menuWidth) / 2)
+        if (iconOnly) anchorWidthPx.toDp() - menuWidth
+        else (anchorWidthPx.toDp() - menuWidth) / 2
     }
     val menuScroll = rememberScrollState()
     val selectedTitle = selected ?: stringResource(R.string.common_all)
@@ -53,92 +57,80 @@ fun BrowserHostFilterMenu(
     }
 
     Box {
-        TextButton(
-            onClick = { expanded = true },
-            modifier = Modifier.onSizeChanged { anchorWidthPx = it.width },
-            contentPadding = PaddingValues(horizontal = 6.dp)
-        ) {
-            Text(
-                stringResource(
-                    R.string.compact_filter_format,
-                    stringResource(R.string.browser_domain_filter),
-                    selectedTitle
-                ),
-                modifier = Modifier.widthIn(max = 170.dp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Icon(Icons.Rounded.ExpandMore, null)
+        if (iconOnly) {
+            Surface(
+                onClick = { expanded = true },
+                modifier = Modifier.size(48.dp).onSizeChanged { anchorWidthPx = it.width },
+                shape = androidx.compose.ui.graphics.RectangleShape,
+                color = MaterialTheme.colorScheme.surface,
+                contentColor = if (selected != null) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+            ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    AdaptiveIcon(
+                        Icons.Rounded.Link,
+                        stringResource(R.string.browser_domain_filter) + ": " + selectedTitle,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        } else {
+            CompactCategoryButton(
+                selected = true,
+                onClick = { expanded = true },
+                modifier = Modifier.onSizeChanged { anchorWidthPx = it.width }
+            ) {
+                WorkspaceControlLabel(
+                    stringResource(
+                        R.string.compact_filter_format,
+                        stringResource(R.string.browser_domain_filter),
+                        selectedTitle
+                    ),
+                    modifier = Modifier.widthIn(max = 170.dp),
+                    color = compactCategoryLabelColor(true)
+                )
+                AdaptiveIcon(Icons.Rounded.ExpandMore, null, modifier = Modifier.size(16.dp),
+                    tint = compactCategoryLabelColor(true))
+            }
         }
-        DropdownMenu(
+
+        FlatWorkspaceDropdownMenu(
             expanded = expanded,
             onDismissRequest = { hostQuery = ""; expanded = false },
-            modifier = Modifier
-                .width(menuWidth)
-                .heightIn(max = 420.dp),
+            modifier = Modifier.heightIn(max = 420.dp),
+            menuWidth = menuWidth,
             offset = DpOffset(menuHorizontalOffset, 0.dp),
             scrollState = menuScroll
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(28.dp)
-                    .clickable {
-                        hostQuery = ""
-                        expanded = false
-                        onSelected(null)
-                    }
-                    .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier.width(24.dp),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    if (selected == null) {
-                        Icon(
-                            Icons.Rounded.Check,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-                Text(stringResource(R.string.common_all))
-            }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(28.dp)
-                    .clickable {
-                        hostQuery = ""
-                        expanded = false
-                        onManage()
-                    }
-                    .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Spacer(Modifier.width(24.dp))
-                Text(stringResource(R.string.browser_hosts_manage))
-            }
-            HorizontalDivider()
-            OutlinedTextField(
+            WorkspaceFlatMenuRow(
+                title = stringResource(R.string.common_all),
+                selected = selected == null,
+                onClick = { hostQuery = ""; expanded = false; onSelected(null) }
+            )
+            WorkspaceFlatMenuRow(
+                title = stringResource(R.string.browser_hosts_manage),
+                selected = false,
+                onClick = { hostQuery = ""; expanded = false; onManage() }
+            )
+            AdaptiveHorizontalDivider()
+            AdaptiveOutlinedTextField(
                 value = hostQuery,
                 onValueChange = { hostQuery = it },
                 modifier = Modifier
-                    .width(280.dp)
+                    .fillMaxWidth()
                     .padding(horizontal = 8.dp, vertical = 2.dp),
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyLarge,
-                leadingIcon = { Icon(Icons.Rounded.Search, null, Modifier.size(24.dp)) },
+                leadingIcon = { AdaptiveIcon(Icons.Rounded.Search, null, Modifier.size(24.dp)) },
                 placeholder = {
-                    Text(
+                    AdaptiveText(
                         stringResource(R.string.browser_domain_search),
                         style = MaterialTheme.typography.bodyLarge
                     )
                 }
             )
             if (visibleHosts.isEmpty()) {
-                Text(
+                AdaptiveText(
                     stringResource(R.string.browser_domain_search_empty),
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 3.dp),
                     style = MaterialTheme.typography.labelSmall,
@@ -146,36 +138,11 @@ fun BrowserHostFilterMenu(
                 )
             } else {
                 visibleHosts.forEach { host ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(28.dp)
-                            .clickable {
-                                hostQuery = ""
-                                expanded = false
-                                onSelected(host)
-                            }
-                            .padding(horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier.width(24.dp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            if (selected == host) {
-                                Icon(
-                                    Icons.Rounded.Check,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
-                        Text(
-                            host,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    WorkspaceFlatMenuRow(
+                        title = host,
+                        selected = selected == host,
+                        onClick = { hostQuery = ""; expanded = false; onSelected(host) }
+                    )
                 }
             }
         }
@@ -193,41 +160,41 @@ fun BrowserHostDialog(
     val normalized = normalizeBrowserHost(input)
     val canAdd = normalized != null && normalized !in hosts && hosts.size < BrowserLinkConfig.MAX_HOSTS
 
-    AlertDialog(
+    AdaptiveAlertDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
         modifier = Modifier.fillMaxWidth().padding(20.dp),
-        title = { Text(stringResource(R.string.browser_hosts_title)) },
+        title = { AdaptiveText(stringResource(R.string.browser_hosts_title)) },
         text = {
             Column(Modifier.fillMaxWidth()) {
-                Text(
+                AdaptiveText(
                     stringResource(R.string.browser_hosts_help),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
+                    AdaptiveOutlinedTextField(
                         value = input,
                         onValueChange = { input = it },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
-                        label = { Text(stringResource(R.string.browser_host_input)) },
-                        placeholder = { Text(stringResource(R.string.browser_host_example)) },
+                        label = { AdaptiveText(stringResource(R.string.browser_host_input)) },
+                        placeholder = { AdaptiveText(stringResource(R.string.browser_host_example)) },
                         isError = input.isNotBlank() && normalized == null
                     )
                     Spacer(Modifier.width(8.dp))
-                    Button(
+                    AdaptiveTextButton(
                         enabled = canAdd,
                         onClick = {
-                            val host = normalized ?: return@Button
+                            val host = normalized ?: return@AdaptiveTextButton
                             hosts = (hosts + host).distinct().sorted()
                             input = ""
                         }
-                    ) { Text(stringResource(R.string.common_add)) }
+                    ) { AdaptiveText(stringResource(R.string.common_add)) }
                 }
                 if (input.isNotBlank() && normalized == null) {
-                    Text(
+                    AdaptiveText(
                         stringResource(R.string.browser_host_invalid),
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.labelSmall
@@ -235,7 +202,7 @@ fun BrowserHostDialog(
                 }
                 Spacer(Modifier.height(8.dp))
                 if (hosts.isEmpty()) {
-                    Text(
+                    AdaptiveText(
                         stringResource(R.string.browser_hosts_empty),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -243,28 +210,29 @@ fun BrowserHostDialog(
                 } else {
                     LazyColumn(Modifier.fillMaxWidth().heightIn(max = 320.dp)) {
                         items(hosts, key = { it }) { host ->
-                            Row(
-                                Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(host, Modifier.weight(1f))
-                                IconButton(onClick = { hosts = hosts - host }) {
-                                    Icon(Icons.Rounded.Delete, stringResource(R.string.common_delete))
+                            FlatRowSurface(dividerInset = 0.dp) {
+                                Row(
+                                    Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    AdaptiveText(host, Modifier.weight(1f))
+                                    AdaptiveIconButton(onClick = { hosts = hosts - host }) {
+                                        AdaptiveIcon(Icons.Rounded.Delete, stringResource(R.string.common_delete))
+                                    }
                                 }
                             }
-                            HorizontalDivider()
                         }
                     }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSave(hosts.toSet()); onDismiss() }) {
-                Text(stringResource(R.string.common_save))
+            AdaptiveTextButton(onClick = { onSave(hosts.toSet()); onDismiss() }) {
+                AdaptiveText(stringResource(R.string.common_save))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+            AdaptiveTextButton(onClick = onDismiss) { AdaptiveText(stringResource(R.string.common_cancel)) }
         }
     )
 }

@@ -1,5 +1,6 @@
 package com.yagay.ListCleaner.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -8,10 +9,12 @@ import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
@@ -26,29 +29,47 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
+import com.yagay.ListCleaner.domain.supportsTitleEditing
 import com.yagay.ListCleaner.domain.ComponentCandidate
+import com.yagay.ListCleaner.domain.EntryGroup
+import com.yagay.ListCleaner.domain.entryGroup
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.AppType
 import com.yagay.ListCleaner.domain.AppTypeFilter
 import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.PriorityListFilter
 import com.yagay.ListCleaner.domain.matchesOpenPreset
 import com.yagay.ListCleaner.domain.matchesBrowserHost
 import com.yagay.ListCleaner.domain.priorityAppGroups
-import com.yagay.ListCleaner.domain.priorityCandidates
-import kotlin.math.roundToInt
+import com.yagay.ListCleaner.domain.moveVisiblePriority
+import com.yagay.ListCleaner.domain.moveVisiblePriorityTo
+ import kotlin.math.roundToInt
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
+fun PriorityDialogContent(
+    state: MainState, vm: MainViewModel,
+    pendingNavigation: PendingNavigationGuard? = null
+) {
+    val navigate: (() -> Unit) -> Unit = { action ->
+        if (pendingNavigation != null) pendingNavigation.request(action) else action()
+    }
+    var systemProbeRequest by remember { mutableStateOf<SystemProbeRequest?>(null) }
+    systemProbeRequest?.let { request ->
+        SystemProbeDialog(request, onDismiss = { systemProbeRequest = null })
+    }
     var editingTitle by remember { mutableStateOf<ComponentCandidate?>(null) }
     var showCustomTypes by rememberSaveable { mutableStateOf(false) }
     var showBrowserHosts by rememberSaveable { mutableStateOf(false) }
@@ -75,22 +96,28 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
         )
     }
 
-    var kind by rememberSaveable { mutableStateOf(state.filter ?: IntentKind.SHARE) }
-    var openPreset by rememberSaveable { mutableStateOf<OpenPreset?>(null) }
-    var browserHost by rememberSaveable { mutableStateOf<String?>(null) }
-    var viewFilter by rememberSaveable { mutableStateOf(UiFilter.ALL) }
-    var appTypeFilter by rememberSaveable { mutableStateOf(AppTypeFilter.ALL) }
-    val bulkLockRevision by vm.bulkLockRevision.collectAsState()
+    val priorityKinds = HomeLayoutPolicy.sortableKinds
+    val kind = HomeLayoutPolicy.priorityKind(state.filter)
+    val openPreset by vm.ruleOpenPreset.collectAsStateWithLifecycle()
+    val browserHost by vm.ruleBrowserHost.collectAsStateWithLifecycle()
+    var confirmPriorityReset by remember { mutableStateOf(false) }
+    val prefsContext = LocalContext.current
+    val confirmation = rememberSelectionConfirmationController()
+    SelectionConfirmationDialog(confirmation)
+    var sortHelpExpanded by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.openHelpByDefault) }
+    var viewFilter by rememberSaveable { mutableStateOf(UiPreferencesStore.initialFilter(prefsContext, "priority")) }
+    var appTypeFilter by rememberSaveable { mutableStateOf(UiPreferencesStore.initialAppType(prefsContext, "priority")) }
+    val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
     var expandedKey by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(kind) {
-        if (kind != IntentKind.OPEN) openPreset = null
-        if (kind != IntentKind.DEEP_LINK) browserHost = null
+        if (kind != IntentKind.OPEN) vm.setRuleOpenPreset(null)
+        if (kind != IntentKind.DEEP_LINK) vm.setRuleBrowserHost(null)
     }
     LaunchedEffect(state.openTypesExplicit.customDefinitions, openPreset) {
-        if (openPreset?.isCustom == true && openPreset !in state.openTypesExplicit.customDefinitions) openPreset = null
+        if (openPreset?.isCustom == true && openPreset !in state.openTypesExplicit.customDefinitions) vm.setRuleOpenPreset(null)
     }
     LaunchedEffect(state.browserAvailableHosts, browserHost) {
-        if (browserHost != null && browserHost !in state.browserAvailableHosts) browserHost = null
+        if (browserHost != null && browserHost !in state.browserAvailableHosts) vm.setRuleBrowserHost(null)
     }
 
     val typedOpenPreset = openPreset.takeIf { kind == IntentKind.OPEN }
@@ -101,14 +128,19 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
     val genericDeepLinkSelected = state.selected.filterTo(linkedSetOf()) { it.kind == IntentKind.DEEP_LINK }
     val deepLinkSelected = genericDeepLinkSelected + explicitDeepLinkSelected
     val deepLinkScoped = deepLinkHost != null
-    val scopedCandidates = when {
-        typedOpenPreset != null ->
-            state.candidates.filter { it.matchesOpenPreset(typedOpenPreset, state.openTypesExplicit.customDefinitions) }
-        deepLinkHost != null -> state.candidates.filter {
-            it.rule.kind == IntentKind.DEEP_LINK &&
-                (it.matchesBrowserHost(deepLinkHost) || it.rule in deepLinkSelected)
+    val scopedCandidates = remember(
+        state.candidates, typedOpenPreset, deepLinkHost,
+        state.openTypesExplicit.customDefinitions, deepLinkSelected
+    ) {
+        when {
+            typedOpenPreset != null ->
+                state.candidates.filter { it.matchesOpenPreset(typedOpenPreset, state.openTypesExplicit.customDefinitions) }
+            deepLinkHost != null -> state.candidates.filter {
+                it.rule.kind == IntentKind.DEEP_LINK &&
+                    (it.matchesBrowserHost(deepLinkHost) || it.rule in deepLinkSelected)
+            }
+            else -> state.candidates
         }
-        else -> state.candidates
     }
     val explicitTypedPriority = typedOpenPreset?.let { state.openTypesExplicit.priorities[it].orEmpty() }.orEmpty()
     val genericOpenPriority = state.priorities.apps[IntentKind.OPEN].orEmpty()
@@ -125,45 +157,104 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
         else -> state.priorities.apps[kind].orEmpty()
     }
     val lockScope = deepLinkHost?.let(::browserPriorityBulkLockScope) ?: priorityBulkLockScope(kind, openPreset)
-    val scopedExtraSelected = if (deepLinkScoped) explicitDeepLinkSelected else typedSelected
-    val baseGroups = remember(scopedCandidates, state.selected, scopedExtraSelected, state.displayMode, kind, openPreset, browserHost, rankedRaw, state.query, viewFilter, bulkLockRevision) {
-        priorityAppGroups(
-            scopedCandidates,
-            state.selected,
-            state.displayMode,
-            kind,
-            rankedRaw,
-            state.query,
-            when (viewFilter) {
-                UiFilter.ALL, UiFilter.LOCKED -> PriorityListFilter.ALL
-                UiFilter.HIDE_SELECTED -> PriorityListFilter.UNSELECTED
-                UiFilter.SHOW_SELECTED -> PriorityListFilter.SELECTED
+    val orderDraft = remember(kind, typedOpenPreset, deepLinkHost, vm.selectedSpace.value) {
+        PendingPriorityOrder()
+    }
+    val stagedOrder = orderDraft.effective(rankedRaw)
+    var priorityApplyConflict by remember { mutableStateOf(false) }
+    val applyOrder: () -> Boolean = {
+        val ok = when {
+            typedOpenPreset != null -> vm.applyOpenTypePriorityDraft(typedOpenPreset, rankedRaw, stagedOrder, lockScope)
+            deepLinkHost != null -> vm.applyBrowserHostPriorityDraft(deepLinkHost, rankedRaw, stagedOrder, lockScope)
+            else -> vm.applyPriorityDraft(kind, rankedRaw, stagedOrder, lockScope)
+        }
+        if (ok) orderDraft.discard() else priorityApplyConflict = true
+        ok
+    }
+    if (confirmPriorityReset) {
+        AdaptiveAlertDialog(
+            onDismissRequest = { confirmPriorityReset = false },
+            title = { AdaptiveText(stringResource(R.string.priority_reset_confirm_title)) },
+            text = { AdaptiveText(stringResource(R.string.priority_reset_confirm_body)) },
+            confirmButton = {
+                AdaptiveTextButton(onClick = {
+                    confirmPriorityReset = false
+                    orderDraft.stage(rankedRaw, emptyList())
+                }) { AdaptiveText(stringResource(R.string.common_ok)) }
             },
-            scopedExtraSelected
+            dismissButton = {
+                AdaptiveTextButton(onClick = { confirmPriorityReset = false }) {
+                    AdaptiveText(stringResource(R.string.common_cancel))
+                }
+            }
         )
     }
-    val lockFilteredGroups = if (viewFilter == UiFilter.LOCKED) {
-        bulkLockRevision
-        baseGroups.filter { vm.bulkLockState(lockScope, it.packageName, emptyList()) != BulkLockState.NONE }
-    } else {
-        baseGroups
+
+    if (priorityApplyConflict) {
+        AdaptiveAlertDialog(
+            onDismissRequest = { priorityApplyConflict = false },
+            title = { AdaptiveText(stringResource(R.string.lc_apply_conflict_title)) },
+            text = { AdaptiveText(stringResource(R.string.lc_apply_conflict_body)) },
+            confirmButton = {
+                AdaptiveTextButton(onClick = { priorityApplyConflict = false }) {
+                    AdaptiveText(stringResource(R.string.common_ok))
+                }
+            }
+        )
     }
-    val groups = lockFilteredGroups.filter { appTypeFilter.matches(it.appType) }
-    val moveTargets = groups.filter { it.rank != null }.sortedBy { it.rank }.map { it.packageName }
-    val visibleSaved = priorityCandidates(scopedCandidates, state.selected, state.displayMode, kind, scopedExtraSelected)
-        .map { it.rule.packageName }.toSet()
-    val hiddenSavedCount = rankedRaw.count { it !in visibleSaved }
+    val scopedExtraSelected = if (deepLinkScoped) explicitDeepLinkSelected else typedSelected
+    RegisterPendingNavigation(
+        pendingNavigation, orderDraft,
+        if (orderDraft.hasChanges()) 1 else 0,
+        applyOrder, orderDraft::discard
+    )
+    val priorityListFilter = when (viewFilter) {
+        UiFilter.ALL, UiFilter.LOCKED -> PriorityListFilter.ALL
+        UiFilter.HIDE_SELECTED -> PriorityListFilter.UNSELECTED
+        UiFilter.SHOW_SELECTED -> PriorityListFilter.SELECTED
+    }
+    // Locks are a separate overlay. Changing a lock must not regroup and sort
+    // the full priority catalog; staged priority changes still update its order.
+    val baseGroups = remember(
+        scopedCandidates, state.selected, scopedExtraSelected, state.displayMode,
+        kind, stagedOrder, state.query, priorityListFilter
+    ) {
+        priorityAppGroups(
+            scopedCandidates, state.selected, state.displayMode, kind,
+            stagedOrder, state.query, priorityListFilter, scopedExtraSelected
+        )
+    }
+    val lockFilteredGroups = remember(baseGroups, viewFilter, bulkLockRevision, lockScope) {
+        if (viewFilter == UiFilter.LOCKED) {
+            baseGroups.filter { vm.bulkLockState(lockScope, it.packageName, emptyList()) != BulkLockState.NONE }
+        } else baseGroups
+    }
+    val groups = remember(lockFilteredGroups, appTypeFilter) {
+        lockFilteredGroups.filter { appTypeFilter.matches(it.appType) }
+    }
+    LaunchedEffect(kind, openPreset, browserHost, groups.firstOrNull()?.packageName, UiPreferencesRuntime.current.expandFirstApp) {
+        if (UiPreferencesRuntime.current.expandFirstApp && expandedKey == null) {
+            groups.firstOrNull()?.let { group ->
+                expandedKey = "${kind.name}|${openPreset?.name ?: browserHost ?: "ALL"}|${group.packageName}"
+            }
+        }
+    }
+    val moveTargets = remember(groups) {
+        groups.filter { it.rank != null }.sortedBy { it.rank }.map { it.packageName }
+    }
 
     val listState = rememberLazyListState()
     val dragState = remember(listState) { PriorityDragState(listState) }
     val drag = dragState.session
-    val currentSaved by rememberUpdatedState(rankedRaw)
+    val currentSaved by rememberUpdatedState(stagedOrder)
     val currentVisible by rememberUpdatedState(moveTargets)
     val haptics = LocalHapticFeedback.current
     val density = LocalDensity.current
     val edge = with(density) { 56.dp.toPx() }
     val speed = with(density) { 640.dp.toPx() }
-    LaunchedEffect(kind, openPreset, browserHost, viewFilter, appTypeFilter, state.query, rankedRaw, moveTargets) { dragState.cancel() }
+    LaunchedEffect(kind, openPreset, browserHost, viewFilter, appTypeFilter, state.query, stagedOrder, moveTargets) {
+        dragState.cancel()
+    }
     DisposableEffect(dragState) { onDispose { dragState.cancel() } }
     LaunchedEffect(drag?.packageName) {
         if (dragState.session != null) {
@@ -183,50 +274,39 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
-            Modifier.fillMaxSize().pointerInput(kind, openPreset, browserHost, viewFilter, appTypeFilter, state.query) {
-                detectDragGesturesAfterLongPress(
-                    onDragStart = { position ->
-                        if (dragState.start(position.y, kind.name, currentVisible, currentSaved)) {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        }
-                    },
-                    onDrag = { change, amount ->
-                        if (dragState.session != null) {
-                            change.consume()
-                            dragState.move(amount.y)
-                        }
-                    },
-                    onDragCancel = { dragState.cancel() },
-                    onDragEnd = {
-                        dragState.finish()?.let { finished ->
-                            when {
-                                typedOpenPreset != null ->
-                                    vm.moveOpenTypePriorityTo(typedOpenPreset, finished.packageName, finished.target, finished.visible, finished.saved)
-                                deepLinkHost != null ->
-                                    vm.moveBrowserHostPriorityTo(deepLinkHost, finished.packageName, finished.target, finished.visible, finished.saved)
-                                else -> vm.movePriorityTo(kind, finished.packageName, finished.target, finished.visible, finished.saved)
-                            }
-                        }
-                    }
-                )
-            },
+            Modifier.fillMaxSize(),
             state = listState,
-            contentPadding = PaddingValues(bottom = 16.dp)
+            contentPadding = PaddingValues(bottom = if (orderDraft.hasChanges()) 90.dp else 16.dp)
         ) {
-            item(key = "status") {
-                ModuleStatusRow(state, compact = true) { vm.setDestination(Destination.DASHBOARD) }
-                if (state.runtime.needsDecision) RuntimePanel(state, vm, showUpdateTools = false)
-            }
             stickyHeader(key = "controls") {
-                Surface(tonalElevation = 2.dp) {
+                PageFilterSection {
                     Column {
                         ListControls(
                             state.copy(filter = kind, uiFilter = viewFilter),
-                            onFilter = { entry -> if (entry != null) { kind = entry; expandedKey = null } },
-                            onUiFilter = { viewFilter = it },
+                            onFilter = { entry -> if (entry != null) navigate { vm.setFilter(entry); expandedKey = null } },
+                            onUiFilter = {
+                                viewFilter = it
+                                UiPreferencesStore.rememberFilter(prefsContext, it, "priority")
+                            },
                             appTypeFilter = appTypeFilter,
-                            onAppTypeFilter = { appTypeFilter = it },
+                            onAppTypeFilter = {
+                                appTypeFilter = it
+                                UiPreferencesStore.rememberAppType(prefsContext, it, "priority")
+                            },
                             includeAllKinds = false,
+                            showEntryGroups = true,
+                            availableEntryKinds = priorityKinds,
+                            previewActions = listOf(
+                                WorkspaceMenuAction(
+                                    label = stringResource(kind.titleRes()),
+                                    onClick = {
+                                        systemProbeRequest = SystemProbeRequest(
+                                            entryKind = kind,
+                                            userId = vm.selectedSpace.value
+                                        )
+                                    }
+                                )
+                            ),
                             viewTitle = {
                                 stringResource(
                                     when (it) {
@@ -237,49 +317,35 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     }
                                 )
                             },
+                            subtypeTitle = when (kind) {
+                                IntentKind.OPEN -> openPreset?.let { state.openTypesExplicit.localizedTitle(it) }
+                                IntentKind.DEEP_LINK -> browserHost
+                                else -> null
+                            },
+                            subtypeAvailable = when (kind) {
+                                IntentKind.OPEN -> state.openTypesExplicit.configuredPresets().isNotEmpty()
+                                IntentKind.DEEP_LINK -> state.browserAvailableHosts.isNotEmpty() ||
+                                    state.browserLinks.hosts.isNotEmpty() || browserHost != null
+                                else -> false
+                            },
                             extraFilter = {
                                 when (kind) {
                                     IntentKind.OPEN -> OpenPresetFilterMenu(
                                         selected = openPreset,
                                         config = state.openTypesExplicit,
-                                        onSelected = { openPreset = it },
-                                        onManageCustom = { showCustomTypes = true }
+                                        onSelected = { preset -> navigate { vm.setRuleOpenPreset(preset) } },
+                                        onManageCustom = { showCustomTypes = true },
+                                        iconOnly = true
                                     )
                                     IntentKind.DEEP_LINK -> BrowserHostFilterMenu(
                                         selected = browserHost,
                                         config = state.browserLinks,
                                         availableHosts = state.browserAvailableHosts,
-                                        onSelected = { browserHost = it },
-                                        onManage = { showBrowserHosts = true }
+                                        onSelected = { host -> navigate { vm.setRuleBrowserHost(host) } },
+                                        onManage = { showBrowserHosts = true },
+                                        iconOnly = true
                                     )
                                     else -> Unit
-                                }
-                            },
-                            onSelectAll = {
-                                when {
-                                    typedOpenPreset != null ->
-                                        vm.selectOpenTypePriorityApps(typedOpenPreset, groups.map { it.packageName }, lockScope)
-                                    deepLinkHost != null ->
-                                        vm.selectBrowserHostPriorityApps(deepLinkHost, groups.map { it.packageName }, lockScope)
-                                    else -> vm.selectPriorityApps(kind, groups.map { it.packageName }, lockScope)
-                                }
-                            },
-                            onSelectNone = {
-                                when {
-                                    typedOpenPreset != null ->
-                                        vm.deselectOpenTypePriorityApps(typedOpenPreset, groups.map { it.packageName }, lockScope)
-                                    deepLinkHost != null ->
-                                        vm.deselectBrowserHostPriorityApps(deepLinkHost, groups.map { it.packageName }, lockScope)
-                                    else -> vm.deselectPriorityApps(kind, groups.map { it.packageName }, lockScope)
-                                }
-                            },
-                            onInvert = {
-                                when {
-                                    typedOpenPreset != null ->
-                                        vm.invertOpenTypePriorityApps(typedOpenPreset, groups.map { it.packageName }, lockScope)
-                                    deepLinkHost != null ->
-                                        vm.invertBrowserHostPriorityApps(deepLinkHost, groups.map { it.packageName }, lockScope)
-                                    else -> vm.invertPriorityApps(kind, groups.map { it.packageName }, lockScope)
                                 }
                             }
                         )
@@ -287,30 +353,73 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                 }
             }
             item(key = "summary") {
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Column(Modifier.padding(vertical = 6.dp)) {
                     val presetTitle = when {
                         typedOpenPreset != null -> state.openTypes.localizedTitle(typedOpenPreset)
                         deepLinkHost != null -> deepLinkHost
                         else -> null
                     }
-                    Text(
-                        if (presetTitle == null) stringResource(R.string.app_list_count, groups.size)
-                        else stringResource(R.string.app_list_count_type, groups.size, presetTitle),
-                        style = MaterialTheme.typography.labelLarge
+                    if (state.loading) {
+                        AdaptiveText(stringResource(R.string.priority_count_scanning), style = MaterialTheme.typography.labelLarge)
+                    }
+                    WorkspaceListSummary(
+                        title = stringResource(R.string.app_list_count, groups.size),
+                        secondary = stringResource(R.string.priority_drag_help),
+                        secondaryMaxLines = 2,
+                            actions = listOf(
+                                WorkspaceMenuAction(stringResource(R.string.select_all), {
+                                    val current = orderDraft.effective(rankedRaw)
+                                    val eligible = groups.map { it.packageName }
+                                        .filterNot { vm.isBulkAppLocked(lockScope, it) }
+                                    val next = (current + eligible.filterNot { it in current }).take(200)
+                                    val systemPackages = groups.filter { it.appType == AppType.SYSTEM }
+                                        .map { it.packageName }.toSet()
+                                    val warnCount = next.count { it !in current && it in systemPackages }
+                                    confirmation.request(
+                                        prefsContext.getString(R.string.select_all),
+                                        systemAppCount = warnCount,
+                                        risk = SystemSelectionRisk.PRIORITY
+                                    ) { orderDraft.stage(rankedRaw, next) }
+                                }, groups.isNotEmpty()),
+                                WorkspaceMenuAction(stringResource(R.string.select_none), {
+                                    confirmation.request(prefsContext.getString(R.string.select_none)) {
+                                        val current = orderDraft.effective(rankedRaw)
+                                        val eligible = groups.map { it.packageName }
+                                            .filterNot { vm.isBulkAppLocked(lockScope, it) }
+                                        orderDraft.stage(rankedRaw, current.filterNot { it in eligible })
+                                    }
+                                }, groups.isNotEmpty()),
+                                WorkspaceMenuAction(stringResource(R.string.invert_selection), {
+                                    val current = orderDraft.effective(rankedRaw)
+                                    val eligible = groups.map { it.packageName }
+                                        .filterNot { vm.isBulkAppLocked(lockScope, it) }
+                                    val next = (current.filterNot { it in eligible } +
+                                        eligible.filterNot { it in current }).take(200)
+                                    val systemPackages = groups.filter { it.appType == AppType.SYSTEM }
+                                        .map { it.packageName }.toSet()
+                                    val warnCount = next.count { it !in current && it in systemPackages }
+                                    confirmation.request(
+                                        prefsContext.getString(R.string.invert_selection),
+                                        systemAppCount = warnCount,
+                                        risk = SystemSelectionRisk.PRIORITY
+                                    ) { orderDraft.stage(rankedRaw, next) }
+                                }, groups.isNotEmpty())
+                            ),
+                        helpExpanded = sortHelpExpanded,
+                        onHelpToggle = { sortHelpExpanded = !sortHelpExpanded }
                     )
-                    Text(
-                        stringResource(R.string.priority_intro),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        stringResource(R.string.priority_drag_help),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    WorkspaceHelpSection {
+
+                    if (sortHelpExpanded) {
+                        AdaptiveText(
+                            stringResource(R.string.priority_intro),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     if (typedOpenPreset != null) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(
+                            AdaptiveText(
                                 when {
                                     inheritsOpenPriority -> stringResource(R.string.priority_source_inherited)
                                     hasExplicitOpenPriority -> stringResource(R.string.priority_source_dedicated, presetTitle.orEmpty())
@@ -321,19 +430,19 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 color = if (inheritsOpenPriority) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             if (hasExplicitOpenPriority) {
-                                TextButton(onClick = { vm.resetOpenTypePriority(typedOpenPreset) }) {
-                                    Text(stringResource(R.string.priority_restore_inheritance))
+                                AdaptiveTextButton(onClick = { confirmPriorityReset = true }) {
+                                    AdaptiveText(stringResource(R.string.priority_restore_inheritance))
                                 }
                             }
                         }
-                        Text(
+                        if (sortHelpExpanded) AdaptiveText(
                             stringResource(R.string.priority_inheritance_help),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     } else if (deepLinkHost != null) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(
+                            AdaptiveText(
                                 when {
                                     inheritsDeepLinkPriority -> stringResource(R.string.priority_browser_source_inherited)
                                     hasExplicitDeepLinkPriority -> stringResource(R.string.priority_source_dedicated, deepLinkHost)
@@ -344,18 +453,18 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                 color = if (inheritsDeepLinkPriority) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             if (hasExplicitDeepLinkPriority) {
-                                TextButton(onClick = { vm.resetBrowserHostPriority(deepLinkHost) }) {
-                                    Text(stringResource(R.string.priority_restore_inheritance))
+                                AdaptiveTextButton(onClick = { confirmPriorityReset = true }) {
+                                    AdaptiveText(stringResource(R.string.priority_restore_inheritance))
                                 }
                             }
                         }
-                        Text(
+                        if (sortHelpExpanded) AdaptiveText(
                             stringResource(R.string.priority_browser_inheritance_help),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     } else {
-                        Text(
+                        if (sortHelpExpanded) AdaptiveText(
                             stringResource(R.string.priority_general_help),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -371,30 +480,40 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                         } -> stringResource(R.string.priority_compat_vendor_path)
                         else -> stringResource(R.string.priority_compat_aosp)
                     }
-                    Text(
+                    if (sortHelpExpanded || !state.runtime.ready) AdaptiveText(
                         if (!state.runtime.ready) state.runtime.message
                         else if (kind == IntentKind.PROCESS_TEXT) stringResource(R.string.priority_process_text_note)
                         else compatibility,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (hiddenSavedCount > 0) {
-                        Text(stringResource(R.string.priority_hidden_saved, hiddenSavedCount), style = MaterialTheme.typography.bodySmall)
-                    }
-                    if (rankedRaw.size >= 200) {
-                        Text(
+                    if (stagedOrder.size >= 200) {
+                        AdaptiveText(
                             stringResource(R.string.priority_limit_reached),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error
                         )
                     }
                     if (state.error != null) {
-                        Text(stringResource(R.string.rules_refresh_incomplete), color = MaterialTheme.colorScheme.error)
+                        AdaptiveText(stringResource(R.string.rules_refresh_incomplete), color = MaterialTheme.colorScheme.error)
+                    }
                     }
                 }
             }
 
-            groups.forEach { group ->
+            groups.forEachIndexed { index, group ->
+                if (index == 0 || (groups[index - 1].rank == null) != (group.rank == null)) {
+                    item(key = "priority-section-${if (group.rank == null) "available" else "pinned"}") {
+                        Box(Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.groupHorizontal)) {
+                            PageSectionTitle(
+                                stringResource(
+                                    if (group.rank != null) R.string.priority_selected
+                                    else R.string.priority_unselected
+                                )
+                            )
+                        }
+                    }
+                }
                 val packageName = group.packageName
                 val key = "${kind.name}|${openPreset?.name ?: browserHost ?: "ALL"}|$packageName"
                 val expanded = expandedKey == key
@@ -402,13 +521,31 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                 val first = group.components.first()
                 item(key = "app|$key", contentType = "app") {
                     val marker = MaterialTheme.colorScheme.primary
-                    val expandLabel = stringResource(if (expanded) R.string.common_collapse else R.string.common_expand)
-                    Row(
-                        Modifier.fillMaxWidth()
-                            .bulkLockSwipe(
-                                onLock = { vm.setBulkAppLocked(lockScope, packageName, emptyList(), true) },
-                                onUnlock = { vm.setBulkAppLocked(lockScope, packageName, emptyList(), false) }
-                            )
+                    val lockState = vm.bulkLockState(lockScope, packageName, emptyList())
+                    val rankText = group.rank?.let {
+                        stringResource(
+                            if (inheritsOpenPriority || inheritsDeepLinkPriority)
+                                R.string.priority_rank_inherited else R.string.priority_rank,
+                            it
+                        )
+                    } ?: stringResource(R.string.priority_not_prioritized)
+                    WorkspaceAppRow(
+                        icon = first.appIcon,
+                        title = first.appLabel,
+                        packageName = packageName,
+                        subtitle = stringResource(
+                            R.string.priority_app_summary, rankText, group.components.size
+                        ),
+                        expanded = expanded,
+                        lockState = lockState,
+                        onExpand = onExpand,
+                        onLock = {
+                            vm.setBulkAppLocked(lockScope, packageName, emptyList(), true)
+                        },
+                        onUnlock = {
+                            vm.setBulkAppLocked(lockScope, packageName, emptyList(), false)
+                        },
+                        modifier = Modifier
                             .alpha(if (drag?.packageName == packageName) 0.3f else 1f)
                             .drawWithContent {
                                 drawContent()
@@ -416,113 +553,135 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                                     val y = if (drag.movingDown) size.height - 2.dp.toPx() else 2.dp.toPx()
                                     drawLine(marker, Offset(0f, y), Offset(size.width, y), 3.dp.toPx())
                                 }
-                            }
-                            .clickable(onClickLabel = expandLabel, onClick = onExpand)
-                            .heightIn(min = 64.dp)
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = group.rank != null,
-                            enabled = group.rank != null || rankedRaw.size < 200,
-                            onCheckedChange = { checked ->
-                                when {
-                                    typedOpenPreset != null -> {
-                                        if (checked) vm.pinOpenTypeApp(typedOpenPreset, packageName)
-                                        else vm.removeOpenTypePriority(typedOpenPreset, packageName)
+                            },
+                        selection = {
+                            WorkspaceAppSelectionCheckbox(
+                                state = if (packageName in stagedOrder) ToggleableState.On
+                                    else ToggleableState.Off,
+                                enabled = packageName in stagedOrder || stagedOrder.size < 200,
+                                onClick = {
+                                    val checked = packageName !in stagedOrder
+                                    if (!vm.isBulkAppLocked(lockScope, packageName)) {
+                                        val current = orderDraft.effective(rankedRaw)
+                                        val next = if (checked) (current + packageName).distinct().take(200)
+                                            else current - packageName
+                                        val warnCount = if (checked && packageName !in current &&
+                                            packageName in next && group.appType == AppType.SYSTEM) 1 else 0
+                                        confirmation.requestForSystemSelection(
+                                            first.appLabel, warnCount, SystemSelectionRisk.PRIORITY
+                                        ) {
+                                            orderDraft.stage(rankedRaw, next)
+                                        }
                                     }
-                                    deepLinkHost != null -> {
-                                        if (checked) vm.pinBrowserHostApp(deepLinkHost, packageName)
-                                        else vm.removeBrowserHostPriority(deepLinkHost, packageName)
-                                    }
-                                    checked -> vm.pinApp(kind, packageName)
-                                    else -> vm.removePriority(kind, packageName)
+                                }
+                            )
+                        },
+                        trailing = {
+                            if (packageName in stagedOrder) {
+                                Box(
+                                    modifier = Modifier.size(40.dp)
+                                        .pointerInput(packageName, moveTargets, rankedRaw, kind, openPreset, browserHost) {
+                                            detectDragGesturesAfterLongPress(
+                                                onDragStart = { touch ->
+                                                    val rowKey = "app|$key"
+                                                    val row = listState.layoutInfo.visibleItemsInfo
+                                                        .firstOrNull { it.key == rowKey }
+                                                    val rowY = row?.let {
+                                                        it.offset + (it.size - 40.dp.toPx()) / 2f + touch.y
+                                                    }
+                                                    if (rowY != null && dragState.start(
+                                                            rowY, kind.name, currentVisible, currentSaved
+                                                        )) {
+                                                        if (UiPreferencesRuntime.current.dragHaptics) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                    }
+                                                },
+                                                onDrag = { change, delta ->
+                                                    if (dragState.session != null) {
+                                                        change.consume()
+                                                        dragState.move(delta.y)
+                                                    }
+                                                },
+                                                onDragCancel = { dragState.cancel() },
+                                                onDragEnd = {
+                                                    dragState.finish()?.let { finished ->
+                                                        val next = moveVisiblePriorityTo(
+                                                            orderDraft.effective(rankedRaw),
+                                                            finished.visible, finished.packageName, finished.target
+                                                        )
+                                                        orderDraft.stage(rankedRaw, next)
+                                                    }
+                                                }
+                                            )
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    AdaptiveIcon(
+                                        Icons.Rounded.DragHandle,
+                                        stringResource(R.string.priority_drag_help),
+                                        modifier = Modifier.size(22.dp)
+                                    )
                                 }
                             }
-                        )
-                        AppIcon(first.appIcon, first.appLabel)
-                        Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                            Text(first.appLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
-                            val rankText = group.rank?.let {
-                                stringResource(
-                                    if (inheritsOpenPriority || inheritsDeepLinkPriority) R.string.priority_rank_inherited else R.string.priority_rank,
-                                    it
-                                )
-                            } ?: stringResource(R.string.priority_not_prioritized)
-                            Text(
-                                stringResource(R.string.priority_app_summary, rankText, group.components.size),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
                         }
-                        val lockState = vm.bulkLockState(lockScope, packageName, emptyList())
-                        if (lockState != BulkLockState.NONE) {
-                            Icon(
-                                Icons.Rounded.Lock,
-                                contentDescription = stringResource(R.string.bulk_lock_full),
-                                modifier = Modifier.padding(horizontal = 8.dp).size(20.dp)
-                            )
-                        }
-                        IconButton(onClick = onExpand) {
-                            Icon(
-                                if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                                expandLabel
-                            )
-                        }
-                    }
-                    HorizontalDivider()
+                    )
                 }
                 if (expanded) {
-                    if (group.rank != null) {
+                    if (packageName in stagedOrder) {
                         item(key = "order|$key") {
                             val index = moveTargets.indexOf(packageName)
                             Row(
                                 Modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
+                                AdaptiveText(
                                     stringResource(
                                         if (inheritsOpenPriority) R.string.priority_rank_inherited_short else R.string.priority_rank,
-                                        group.rank
+                                        group.rank ?: (stagedOrder.indexOf(packageName) + 1)
                                     ),
                                     Modifier.weight(1f),
                                     style = MaterialTheme.typography.labelMedium
                                 )
-                                TextButton(
+                                AdaptiveTextButton(
                                     onClick = {
-                                        when {
-                                            typedOpenPreset != null ->
-                                                vm.moveOpenTypePriority(typedOpenPreset, packageName, -1, moveTargets)
-                                            deepLinkHost != null ->
-                                                vm.moveBrowserHostPriority(deepLinkHost, packageName, -1, moveTargets)
-                                            else -> vm.movePriority(kind, packageName, -1, moveTargets)
-                                        }
+                                        orderDraft.stage(
+                                            rankedRaw, moveVisiblePriority(stagedOrder, moveTargets, packageName, -1)
+                                        )
                                     },
                                     enabled = index > 0
                                 ) {
-                                    Icon(Icons.Rounded.ArrowUpward, null, Modifier.size(18.dp))
-                                    Text(stringResource(R.string.priority_move_up))
+                                    AdaptiveIcon(Icons.Rounded.ArrowUpward, null, Modifier.size(18.dp))
+                                    AdaptiveText(stringResource(R.string.priority_move_up))
                                 }
-                                TextButton(
+                                AdaptiveTextButton(
                                     onClick = {
-                                        when {
-                                            typedOpenPreset != null ->
-                                                vm.moveOpenTypePriority(typedOpenPreset, packageName, 1, moveTargets)
-                                            deepLinkHost != null ->
-                                                vm.moveBrowserHostPriority(deepLinkHost, packageName, 1, moveTargets)
-                                            else -> vm.movePriority(kind, packageName, 1, moveTargets)
-                                        }
+                                        orderDraft.stage(
+                                            rankedRaw, moveVisiblePriority(stagedOrder, moveTargets, packageName, 1)
+                                        )
                                     },
                                     enabled = index >= 0 && index < moveTargets.lastIndex
                                 ) {
-                                    Icon(Icons.Rounded.ArrowDownward, null, Modifier.size(18.dp))
-                                    Text(stringResource(R.string.priority_move_down))
+                                    AdaptiveIcon(Icons.Rounded.ArrowDownward, null, Modifier.size(18.dp))
+                                    AdaptiveText(stringResource(R.string.priority_move_down))
                                 }
                             }
                         }
                     }
-                    items(group.components, key = { "component|${it.rule.id}" }, contentType = { "component" }) { item ->
-                        ComponentInfoRow(item, state.priorities.titles[item.rule.id]) { editingTitle = item }
+                    itemsIndexed(group.components, key = { _, item -> "component|${item.rule.id}" }, contentType = { _, _ -> "component" }) { componentIndex, item ->
+                        ComponentInfoRow(
+                            item = item,
+                            customTitle = state.priorities.titles[item.rule.id],
+                            position = if (componentIndex == group.components.lastIndex)
+                                ListRowPosition.LAST else ListRowPosition.MIDDLE,
+                            onEditTitle = { editingTitle = item },
+                            onPreview = {
+                                systemProbeRequest = SystemProbeRequest(
+                                    entryKind = item.rule.kind,
+                                    userId = vm.selectedSpace.value,
+                                    focusPackage = item.rule.packageName,
+                                    focusClass = item.rule.className
+                                )
+                            }
+                        )
                     }
                 }
             }
@@ -530,7 +689,7 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
             if (!state.loading && groups.isEmpty()) {
                 item(key = "empty") {
                     Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                        Text(
+                        AdaptiveText(
                             stringResource(
                                 when {
                                     state.query.isNotBlank() -> R.string.priority_empty_search
@@ -549,19 +708,22 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
         drag?.let { moving ->
             groups.firstOrNull { it.packageName == moving.packageName }?.let { group ->
                 val first = group.components.first()
-                Surface(
+                AdaptiveSurface(
                     Modifier.fillMaxWidth().offset { IntOffset(0, moving.top.roundToInt()) }.zIndex(1f),
-                    tonalElevation = 6.dp,
-                    shadowElevation = 8.dp
+                    tonalElevation = 0.dp,
+                    shadowElevation = 2.dp
                 ) {
                     Row(
-                        Modifier.heightIn(min = 64.dp).padding(horizontal = 16.dp, vertical = 8.dp),
+                        Modifier.heightIn(min = MaterialUiTokens.listRowHeight).padding(
+                            horizontal = MaterialUiTokens.pageHorizontal,
+                            vertical = MaterialUiTokens.contentGap
+                        ),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         AppIcon(first.appIcon, first.appLabel)
-                        Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                            Text(first.appLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
-                            Text(
+                        Column(Modifier.weight(1f).padding(start = MaterialUiTokens.appLabelInset)) {
+                            AdaptiveText(first.appLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
+                            AdaptiveText(
                                 stringResource(
                                     R.string.priority_drag_target,
                                     groups.firstOrNull { it.packageName == moving.target }?.rank?.toString() ?: "?"
@@ -573,37 +735,47 @@ fun PriorityDialogContent(state: MainState, vm: MainViewModel) {
                 }
             }
         }
+        PendingChangesBar(
+            count = if (orderDraft.hasChanges()) 1 else 0,
+            onDiscard = orderDraft::discard,
+            onApply = { applyOrder() },
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }
 
 @Composable
-private fun ComponentInfoRow(item: ComponentCandidate, customTitle: String?, onEditTitle: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
-            .heightIn(min = 48.dp).padding(start = 24.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+private fun ComponentInfoRow(
+    item: ComponentCandidate,
+    customTitle: String?,
+    position: ListRowPosition,
+    onEditTitle: () -> Unit,
+    onPreview: () -> Unit
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    WorkspaceReadOnlyDetailRow(position = position) {
         Column(Modifier.weight(1f)) {
-            Text(item.activityLabel, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            WorkspaceDetailHeading(
+                item.activityLabel,
+                stringResource(item.rule.kind.titleRes())
+            )
             if (!customTitle.isNullOrBlank()) {
-                Text(
+                WorkspaceDetailCaption(
                     stringResource(R.string.component_shown_as, customTitle),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    emphasized = true
                 )
             }
-            Text(
-                item.rule.className,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            WorkspaceDetailCaption(item.rule.className)
         }
-        IconButton(onClick = onEditTitle) {
-            Icon(Icons.Rounded.Edit, stringResource(R.string.component_edit_display_name))
-        }
+        WorkspaceDetailActionsMenu(
+            expanded = menuExpanded,
+            onExpandedChange = { menuExpanded = it },
+            onPreview = onPreview,
+            locked = false,
+            lockToggleEnabled = false,
+            onLock = {},
+            onUnlock = {},
+            onEdit = onEditTitle.takeIf { item.rule.kind.supportsTitleEditing() }
+        )
     }
 }

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="system_preview_action">View actual system API list</string>
+    <string name="system_preview_chooser_title">List Cleaner · System preview</string>
+    <string name="system_preview_example_text">List Cleaner test content. Nothing is sent automatically.</string>
+    <string name="system_preview_file_name">ListCleaner-preview.txt</string>
+    <string name="system_preview_unavailable">Android has no public interface for directly opening this list. No simulated result will be shown.</string>
+    <string name="system_preview_root_unavailable">The system tile/widget editor belongs to the launcher or System UI. No public picker can be opened reliably.</string>
+    <string name="system_preview_other_space">Android does not permit starting this interface as the selected other user without privileged permission. Switch to that space to test.</string>
+    <string name="system_preview_settings_notice">This opens the real system settings page, not the final filtered list.</string>
+    <string name="system_preview_no_handler">No accessible system interface or handler is available on this device.</string>
+    <string name="system_preview_failed">The system interface could not be opened.</string>
+    <string name="system_preview_explanation">The preview button reads the actual Android API list inside List Cleaner. The system chooser remains available for comparison. Results may differ for other callers, MIME types and user spaces.</string>
+</resources>

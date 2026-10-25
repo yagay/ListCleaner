@@ -27,6 +27,9 @@ class BrowserLinkDiscovery {
 
     suspend fun discover(force: Boolean = false): Set<String> = discoverDetailed(force).hosts
 
+    /** Last successful enrichment snapshot. Reading this never starts root/dumpsys work. */
+    fun snapshot(): BrowserLinkDiscoveryResult = cached
+
     suspend fun discoverDetailed(force: Boolean = false): BrowserLinkDiscoveryResult =
         withContext(Dispatchers.IO) {
             val now = System.currentTimeMillis()
@@ -101,7 +104,7 @@ class BrowserLinkDiscovery {
             safePackages.forEach { append(' ').append(it) }
             append("; do printf '\\n")
             append(PACKAGE_MARKER)
-            append("%s\\n' \"\$p\"; dumpsys package \"\$p\" 2>/dev/null | sed '/^$/q'; done")
+            append("%s\\n' \"\$p\"; dumpsys package \"\$p\" 2>/dev/null; done")
         }
         return runReadOnlyCommand(script, RESOLVER_OUTPUT_BYTES, RESOLVER_TIMEOUT_SECONDS)
     }

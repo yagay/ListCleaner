@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_color_mode_title">明暗模式</string>
+    <string name="ui_color_mode_system">跟随系统</string>
+    <string name="ui_color_mode_light">浅色</string>
+    <string name="ui_color_mode_dark">深色</string>
+    <string name="ui_color_mode_help">可跟随系统或手动选择明暗模式，仅更改应用外观，不影响清理规则和 Hook。</string>
+</resources>

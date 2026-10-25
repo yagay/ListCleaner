@@ -1,0 +1,91 @@
+package com.yagay.ListCleaner.data
+
+import android.content.Context
+import android.content.Intent
+import android.content.pm.ComponentInfo
+import android.content.pm.PackageManager
+import com.yagay.ListCleaner.domain.*
+
+internal data class ProfileEntryScan(
+    val candidates: List<ComponentCandidate>,
+    val failedSources: List<String>,
+)
+
+/** Cross-profile registration scans remain independent: a failed authority is not an empty authority. */
+internal class ProfileEntryDiscovery(private val context: Context, private val query: ProfilePackageQuery) {
+    fun scan(): ProfileEntryScan {
+        val failures = mutableListOf<String>()
+        val items = buildList {
+            SYSTEM_SERVICE_ENTRY_DEFINITIONS.forEach { definition ->
+                val matches = runCatching {
+                    query.query(Intent(definition.action), PackageManager.GET_META_DATA, "query-services")
+                }.onFailure { failure ->
+                    failures += "service:${definition.kind.name}:${failure.javaClass.simpleName}"
+                }.getOrDefault(emptyList())
+                matches.forEach { resolved ->
+                    val service = resolved.serviceInfo
+                    if (service != null && definition.acceptsPermission(service.permission)) {
+                        add(candidate(definition.kind, service))
+                    }
+                }
+            }
+            listOf(
+                IntentKind.HOME to Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
+                IntentKind.ASSISTANT to Intent(Intent.ACTION_ASSIST),
+                IntentKind.BROWSER to Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://example.com"))
+                    .addCategory(Intent.CATEGORY_BROWSABLE),
+            ).forEach { (kind, intent) ->
+                val matches = runCatching { query.query(intent, PackageManager.MATCH_DEFAULT_ONLY) }
+                    .onFailure { failure ->
+                        failures += "role:${kind.name}:${failure.javaClass.simpleName}"
+                    }.getOrDefault(emptyList())
+                matches.forEach { resolved ->
+                    resolved.activityInfo?.let { add(candidate(kind, it)) }
+                }
+            }
+            listOf(
+                IntentKind.DOCUMENT_PROVIDER to "android.content.action.DOCUMENTS_PROVIDER",
+                IntentKind.PHOTO_SOURCE to "android.content.action.CLOUD_MEDIA_PROVIDER",
+            ).forEach { (kind, action) ->
+                val matches = runCatching {
+                    query.query(Intent(action), PackageManager.GET_META_DATA, "query-content-providers")
+                }.onFailure { failure ->
+                    failures += "provider:${kind.name}:${failure.javaClass.simpleName}"
+                    android.util.Log.w("ListCleaner.Profile", "Provider scan failed user=${query.userId}", failure)
+                }.getOrDefault(emptyList())
+                matches.forEach { resolved ->
+                    resolved.providerInfo?.let { add(candidate(kind, it)) }
+                }
+            }
+            ObservedEntryCache(context).snapshot().filter { it.userId == query.userId }.forEach { observed ->
+                val kind = runCatching { IntentKind.valueOf(observed.kind) }.getOrNull()
+                if (kind != null && query.packageInfo(observed.packageName) != null) {
+                    add(ComponentCandidate(
+                        rule = ComponentRule(kind, observed.packageName, observed.syntheticClass),
+                        appLabel = observed.packageName, activityLabel = observed.label,
+                        appIcon = null,
+                        evidence = listOf("AUTHORITY_OBSERVED source=cache_history userId=${query.userId}",
+                            "observedAt=${observed.observedAt}"),
+                        unavailable = true,
+                    ))
+                }
+            }
+        }
+        return ProfileEntryScan(items, failures.distinct())
+    }
+
+    private fun candidate(kind: IntentKind, info: ComponentInfo): ComponentCandidate {
+        val rule = if (kind.isPackageScopedEntry()) SyntheticEntryKeys.packageScopedRule(kind, info.packageName)
+            else ComponentRule(kind, info.packageName, info.name)
+        return ComponentCandidate(
+            rule = rule,
+            appLabel = runCatching { info.applicationInfo.loadLabel(context.packageManager).toString() }
+                .getOrDefault(info.packageName),
+            activityLabel = runCatching { info.loadLabel(context.packageManager).toString() }.getOrDefault(info.name),
+            appIcon = null,
+            appType = info.applicationInfo.listCleanerAppType(),
+            restricted = !info.exported,
+            evidence = listOf("PROFILE_REGISTRATION userId=${query.userId} finalEligibility=unverified"),
+        )
+    }
+}

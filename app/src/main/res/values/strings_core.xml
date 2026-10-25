@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Navigation -->
-    <string name="nav_rules">Rules</string>
+    <string name="nav_rules">Cleanup</string>
     <string name="nav_priority">Ordering</string>
     <string name="nav_components">Components</string>
     <string name="nav_status">Status</string>
+    <string name="nav_settings">Settings</string>
 
     <!-- Common -->
     <string name="common_all">All</string>
@@ -38,20 +39,52 @@
     <string name="bulk_lock_none">Not protected from bulk actions</string>
     <string name="bulk_lock_partial">Partially protected from bulk actions</string>
     <string name="bulk_lock_full">Protected from bulk actions</string>
+    <string name="bulk_lock_action_lock">Lock</string>
+    <string name="bulk_lock_action_unlock">Unlock</string>
+
+    <!-- Entry groups -->
+    <string name="entry_group_share">Sharing &amp; sending</string>
+    <string name="entry_group_open">Open &amp; links</string>
+    <string name="entry_group_files">Files &amp; media</string>
+    <string name="entry_group_desktop">Home &amp; defaults</string>
+    <string name="entry_group_input">Input &amp; identity</string>
+    <string name="entry_group_system">System services</string>
+    <string name="entry_group_personalization">Personalisation</string>
 
     <!-- Intent kinds -->
     <string name="intent_share">Share</string>
-    <string name="intent_share_multiple">Share multiple</string>
+    <string name="intent_share_multiple">Multi-share</string>
+    <string name="intent_direct_share">Direct Share</string>
     <string name="intent_send_to">Send to</string>
-    <string name="intent_open">Open</string>
+    <string name="intent_open">Open with</string>
     <string name="intent_browser">Browser</string>
-    <string name="intent_deep_link">Deep links</string>
+    <string name="intent_deep_link">App links</string>
     <string name="intent_dial">Dial</string>
     <string name="intent_get_content">Choose content</string>
+    <string name="intent_open_document">Open document</string>
+    <string name="intent_create_document">Save document</string>
     <string name="intent_capture_image">Take photo</string>
     <string name="intent_capture_video">Record video</string>
     <string name="intent_record_audio">Record audio</string>
-    <string name="intent_process_text">Text processing</string>
+    <string name="intent_process_text">Text actions</string>
+    <string name="intent_home">Home chooser</string>
+    <string name="intent_assistant">Assistant entry</string>
+    <string name="intent_launcher_shortcut">Legacy shortcut</string>
+    <string name="intent_shortcut_item">Long-press shortcuts</string>
+    <string name="intent_document_provider">Storage providers</string>
+    <string name="intent_document_root">File sidebar</string>
+    <string name="intent_photo_source">Cloud photo sources</string>
+    <string name="intent_input_method">Keyboards</string>
+    <string name="intent_autofill">Autofill</string>
+    <string name="intent_credential_provider">Credential services</string>
+    <string name="intent_notification_listener">Notification listeners</string>
+    <string name="intent_accessibility">Accessibility</string>
+    <string name="intent_vpn">VPN</string>
+    <string name="intent_print">Print</string>
+    <string name="intent_wallpaper">Live wallpaper</string>
+    <string name="intent_dream">Screensaver</string>
+    <string name="intent_nfc_hce">NFC emulation</string>
+    <string name="intent_call_screening">Call screening</string>
 
     <!-- Display modes -->
     <string name="display_hide_selected">Hide selected</string>
@@ -59,9 +92,9 @@
     <string name="display_show_all">Show all</string>
 
     <!-- Root component kinds -->
-    <string name="cleanup_launcher">Launcher icons</string>
+    <string name="cleanup_launcher">Launcher entries</string>
     <string name="cleanup_tile">Tiles</string>
-    <string name="cleanup_shortcut">Shortcuts</string>
+    <string name="cleanup_shortcut">Create shortcut</string>
     <string name="cleanup_widget">Widgets</string>
 
     <!-- Open presets -->
@@ -122,4 +155,14 @@
     <string name="open_desc_mailto">mailto:</string>
     <string name="open_desc_tel">tel:</string>
     <string name="open_desc_sms">sms: / smsto:</string>
+    <string name="workspace_choose_group">Choose a cleanup category</string>
+    <string name="workspace_choose_entry">Choose a cleanup entry</string>
+    <string name="workspace_browse_all">Browse all applications</string>
+    <string name="workspace_entry_count">%1$d entry types</string>
+    <string name="workspace_groups">Categories</string>
+    <string name="workspace_filter_options">Filters and actions</string>
+    <string name="workspace_components_link">Root component cleanup</string>
+    <string name="workspace_rule_section">Entry cleanup (LSPosed)</string>
+    <string name="workspace_browse_entries">Browse all entries</string>
+    <string name="workspace_browse_components">Browse all components</string>
 </resources>

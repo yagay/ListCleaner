@@ -1,8 +1,10 @@
 package com.yagay.ListCleaner.ui
 
 import android.content.Context
+import com.yagay.ListCleaner.ListCleanerApp
 import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.data.RootComponent
+import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.OpenPreset
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +26,15 @@ internal enum class BulkLockState {
  */
 internal class BulkLockStore(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private val selectedSpace = (context.applicationContext as? ListCleanerApp)?.spaces?.selected
+    fun notifySpaceChanged() { mutableRevision.value++ }
+
+    private fun scoped(scope: String): String {
+        val user = selectedSpace?.value ?: 0
+        if (user == 0) return scope // Existing user 0 lock keys are unchanged.
+        val parts = scope.split(':', limit = 2)
+        return if (parts.size == 2) "${parts[0]}:SPACE_$user:${parts[1]}" else scope
+    }
     private val mutableRevision = MutableStateFlow(0L)
     val revision: StateFlow<Long> = mutableRevision.asStateFlow()
 
@@ -45,7 +56,7 @@ internal class BulkLockStore(context: Context) {
                 val index = entry.indexOf(marker)
                 val prefix = entry.substring(0, index + marker.length)
                 val id = entry.substring(index + marker.length)
-                val parsed = com.yagay.ListCleaner.domain.ComponentRule.fromId(id)
+                val parsed = ComponentRule.fromId(id)
                 if (parsed?.kind == IntentKind.BROWSER) {
                     changed = true
                     prefix + parsed.copy(kind = IntentKind.DEEP_LINK).id
@@ -56,8 +67,56 @@ internal class BulkLockStore(context: Context) {
     }
 
     private fun entries(): Set<String> = cachedEntries
-    private fun appKey(scope: String, appId: String) = listOf(scope, "app", appId).joinToString(SEPARATOR)
-    private fun itemKey(scope: String, itemId: String) = listOf(scope, "item", itemId).joinToString(SEPARATOR)
+
+    @Synchronized fun reloadFromDisk() {
+        cachedEntries = migrateLegacyDeepLinkLocks(prefs.getStringSet(KEY_ENTRIES, emptySet()).orEmpty().toSet())
+        mutableRevision.value++
+    }
+
+    fun exportSnapshot(): Set<String> = entries().toSet()
+
+    /** Validate backup keys before updating the live cache or affecting any bulk operation. */
+    fun validateSnapshot(values: Collection<String>) {
+        require(values.size <= 20_000)
+        require(values.all { key ->
+            key.length in 3..1024 &&
+                key.split(SEPARATOR).let { parts ->
+                    parts.size == 3 &&
+                        (parts[0].startsWith("rules:") || parts[0].startsWith("priority:") ||
+                            parts[0].startsWith("components:")) &&
+                        parts[1] in setOf("app", "item") &&
+                        parts[2].isNotBlank()
+                }
+        })
+    }
+
+    fun restoreSnapshot(values: Collection<String>) {
+        validateSnapshot(values)
+        persist(values.toSet())
+    }
+    private fun appKey(scope: String, appId: String) = listOf(scoped(scope), "app", appId).joinToString(SEPARATOR)
+    private fun itemKey(scope: String, itemId: String) = listOf(scoped(scope), "item", itemId).joinToString(SEPARATOR)
+
+    private fun itemBelongsToApp(appId: String, itemId: String): Boolean {
+        if (itemId == appId) return true
+        ComponentRule.fromId(itemId)?.let { return it.packageName == appId }
+
+        // Root component app IDs are "user|package" and item IDs are
+        // "user|KIND|package/class". Parse only enough to identify the owner package.
+        val appParts = appId.split('|', limit = 2)
+        val itemParts = itemId.split('|', limit = 3)
+        if (appParts.size == 2 && itemParts.size == 3 && appParts[0] == itemParts[0]) {
+            return itemParts[2].substringBefore('/') == appParts[1]
+        }
+        return false
+    }
+
+    private fun removeChildLocksForApp(current: MutableSet<String>, scope: String, appId: String) {
+        val prefix = listOf(scoped(scope), "item").joinToString(SEPARATOR) + SEPARATOR
+        current.removeAll { entry ->
+            entry.startsWith(prefix) && itemBelongsToApp(appId, entry.removePrefix(prefix))
+        }
+    }
 
     fun isAppLocked(scope: String, appId: String): Boolean = appKey(scope, appId) in entries()
 
@@ -89,6 +148,8 @@ internal class BulkLockStore(context: Context) {
             current.add(app)
         } else {
             current.remove(app)
+            // Clear hidden/stale child locks too, not only rows visible in the current scan.
+            removeChildLocksForApp(current, scope, appId)
             ids.forEach { current.remove(itemKey(scope, it)) }
         }
         persist(current)
@@ -142,7 +203,6 @@ internal fun componentBulkLockScope(kind: CleanupKind?): String =
 
 internal fun componentBulkLockAppId(item: RootComponent): String =
     "${item.user}|${item.component.packageName}"
-
 
 internal fun browserRuleBulkLockScope(host: String): String =
     "rules:BROWSER:HOST:" + (com.yagay.ListCleaner.domain.normalizeBrowserHost(host) ?: host)

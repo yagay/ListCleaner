@@ -34,7 +34,7 @@ class ComponentReconcileJobService : JobService() {
             } catch (cancelled: CancellationException) {
                 Log.i(TAG, "RECONCILE_JOB_CANCELLED reason=$reason")
                 throw cancelled
-            } catch (failure: Throwable) {
+            } catch (failure: Exception) {
                 Log.e(TAG, "RECONCILE_JOB_FAILED reason=$reason", failure)
             } finally {
                 val currentJob = coroutineContext[Job]

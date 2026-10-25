@@ -6,9 +6,9 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+// Keep main's arm64-only Debug build option; Release remains unaffected.
 val ciArm64Only = providers.gradleProperty("ciArm64Only").orNull == "true"
 
-// Private local configuration or CI environment; no private key is tracked.
 val releaseKeyProperties = Properties().apply {
     val propertiesFile = rootProject.file("keystore.properties")
     if (propertiesFile.isFile) propertiesFile.inputStream().use { load(it) }
@@ -23,14 +23,12 @@ val releaseKeyAlias = signingValue("RELEASE_KEY_ALIAS", "keyAlias")
 val releaseKeyPassword = signingValue("RELEASE_KEY_PASSWORD", "keyPassword")
 val signingValues = listOf(releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword)
 val hasReleaseSigning = signingValues.all { it != null }
-check(signingValues.all { it == null } || hasReleaseSigning) {
+check(signingValues.all { it == null || hasReleaseSigning }) {
     "Incomplete Release signing configuration. See docs/RELEASE.md."
 }
 
-// Hook compatibility is intentionally independent from the APK release version.
-// Keep this value unchanged for UI/resources/manager-only releases. Bump it to the
-// current versionCode only when xposed/** or a contract used by hooked processes changes.
-val hookCompatVersionCode = 43
+// Authority filtering now hooks final Settings/Role/NFC paths and changes system runtime behavior.
+val hookCompatVersionCode = 70
 
 android {
     namespace = "com.yagay.ListCleaner"
@@ -42,10 +40,9 @@ android {
         applicationId = "com.yagay.ListCleaner"
         minSdk = 31
         targetSdk = 37
-        versionCode = 43
-        versionName = "1.6.18"
+        versionCode = 71
+        versionName = "1.6.46"
         buildConfigField("long", "HOOK_COMPAT_VERSION_CODE", "${hookCompatVersionCode}L")
-
         if (ciArm64Only) {
             ndk {
                 abiFilters.clear()
@@ -56,7 +53,7 @@ android {
     buildFeatures { compose = true; buildConfig = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     packaging.resources.merges += "META-INF/xposed/*"
-    
+
     sourceSets {
         getByName("main") {
             resources.srcDirs("src/main/resources")
@@ -87,29 +84,33 @@ android {
     }
 }
 
-// An unsigned build is allowed only when explicitly requested for CI validation.
 val validateReleaseKey = tasks.register("validateReleaseKey") {
     val unsignedValidation = providers.gradleProperty("allowUnsignedRelease").orNull == "true"
     doLast {
-        check(hasReleaseSigning || unsignedValidation) {
-            "Release signing is required. Configure keystore.properties or RELEASE_* variables."
+        if (unsignedValidation) return@doLast
+        check(hasReleaseSigning) {
+            "Release signing is required. Configure keystore.properties or RELEASE_STORE_FILE/RELEASE_STORE_PASSWORD/RELEASE_KEY_ALIAS/RELEASE_KEY_PASSWORD."
         }
     }
 }
-tasks.matching { it.name == "preReleaseBuild" }.configureEach {
-    dependsOn(validateReleaseKey)
+
+tasks.configureEach {
+    if (name == "assembleRelease" || name == "bundleRelease" || name == "packageRelease") {
+        dependsOn(validateReleaseKey)
+    }
 }
 
 dependencies {
-    compileOnly("io.github.libxposed:api:102.0.0")
+    implementation("androidx.core:core-ktx:1.17.0")
+    implementation("androidx.activity:activity-compose:1.12.4")
+    implementation(platform("androidx.compose:compose-bom:2026.08.00"))
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     implementation("io.github.libxposed:service:102.0.0")
-    implementation("androidx.activity:activity-compose:1.10.1")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.0")
-    implementation("androidx.compose.material3:material3:1.3.2")
-    implementation("androidx.compose.material:material-icons-extended:1.7.8")
-    implementation("androidx.core:core-ktx:1.16.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
+    compileOnly("io.github.libxposed:api:102.0.0")
     testImplementation("junit:junit:4.13.2")
 }
+

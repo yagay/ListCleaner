@@ -6,6 +6,6 @@
     <string name="runtime_validation_failed_help">验证失败时不更新扫描结果；已选规则仍可管理。</string>
     <string name="runtime_restore_remote">恢复远程配置</string>
     <string name="runtime_reset_pause">重置并暂停过滤</string>
-    <string name="runtime_checking_update">正在检查更新…</string>
-    <string name="runtime_apply_update">检测并应用模块更新</string>
+    <string name="runtime_checking_update">正在检查 Hook 代际…</string>
+    <string name="runtime_apply_update">检查当前 Hook 版本</string>
 </resources>

@@ -1,35 +1,39 @@
-# 列表清理 / List Cleaner 1.6.18
+# 列表清理 / List Cleaner 1.6.46
 
-版本码 / Version code: 43
+版本码 / Version code: 71
+Xposed Hook compatibility: 70
+上一正式版 / Previous stable release: v1.6.18
 
 ## 中文
 
-- Root 磁贴、快捷方式和小组件的持久保护状态现在与主规则一起进入 Runtime Probe 原子配置；`ComponentStateGuardModule` 与 `ComponentDiscoveryFilterModule` 优先使用同一份 system_server 进程内权威快照，不再依赖 RemotePreferences 是否及时刷新。
-- Runtime Probe 的 BEGIN、CHUNK、COMMIT 全部先验证管理器 UID；非管理器调用不能中断正在进行的配置分块传输。
-- Probe v2 成功后停止在 PackageManager / Resolver 查询热路径轮询 RemotePreferences，减少查询时的配置读取和 SHA-256 计算。
-- Root 组件批量操作完成后只进行一次运行时同步，同时 digest 会包含 Root 保护集合，因此即使普通规则 revision 未变化也能正确更新 Hook。
-- App Link 自动发现现在会缓存“成功但为空”的扫描结果，并对失败增加短时间退避，避免每次刷新重复启动 root shell 和 `dumpsys package`。
-- 修正 `ComponentReconcileJobService` 的取消与替换 Job 生命周期，避免旧 Job 在被停止后错误结束新的 Job。
-- 收紧组件重协调广播接收器为非导出。
-- 修正 GitHub Actions：Release PR 校验现在真正有 `pull_request` 触发器；Debug PR 也会在 Gradle/wrapper 配置变化时编译。
-- 重构高风险大文件：候选分组与历史候选逻辑移出 `MainViewModel`，优先级编辑移入独立 `PriorityEditorController`，Xposed 运行时快照与组件策略也拆成独立模型。
-- 规则页和优先级页不再使用 `openPreset!!` / `browserHost!!`，改为基于当前分类捕获稳定作用域值，降低状态切换时的空指针风险。
-- 删除已无运行时用途的 `TileConfig` / `TilePolicy` 和 forced-default transient 配置外壳；旧备份/配置中的这些字段仍会作为未知字段安全忽略。
-- 本次修改涉及 Xposed 运行时合同，Hook compatibility 提升到 43。
+- **系统入口扩展**：新增并完善长按快捷方式、Storage Access Framework 存储位置、Direct Share、发送到、打开方式、浏览器/深度链接及多种系统管理入口的候选发现、规则过滤和排序；无法验证的厂商入口优先安全放行。
+- **更准确的系统真实列表**：系统预览使用实际 API、RoleController、PackageManager、Settings 与相关服务的最终权威结果；区分真实已生效候选、诊断候选和历史记录，修复虚假条目与过期快照。
+- **组件清理和保护**：完善桌面入口、磁贴、快捷方式创建入口和小组件的 Root 组件管理、状态回读、重协调保护及扫描缓存刷新，尽量避免显示已经失效的组件。
+- **Android 多空间**：规则、优先排序、组件状态及批量锁按用户空间隔离；空间切换入口更清晰，支持多空间备份与导入时逐项映射目标空间。
+- **分享与快捷方式**：改进 Direct Share 和 Launcher Shortcut 的发现、回传及过滤；提供主动刷新和候选探测能力，同时避免记录联系人、会话内容。
+- **运行时与兼容性**：强化 libxposed API 102 的授权、作用域、Hook 生命周期与分用户路由；统一 Runtime Probe 配置、系统真实结果验证和失败时安全降级，改善稳定性与性能。
+- **全面扁平化 Material 3**：统一规则、组件、排序、设置与弹出菜单的列表结构、图标、触摸区域、分隔线和交互；统一应用与组件长按的三点菜单。
+- **高亮和导航**：应用展开、组件选中和分类选择统一使用主题高亮；精简底部导航栏，去掉选中横线；支持浅色/深色沉浸式系统栏。
+- **外观及设置**：新增主题模式、颜色和尺寸等集中配置，统一设置控件；新增“关于”页、GitHub/Telegram 项目入口及多空间展开箭头。
+- **备份、诊断与体验**：完善多空间备份、系统预览、扫描记录、自动刷新和健康提示；修复异步候选发布、切换、菜单和页面状态的多个问题。
+- **构建与测试**：整合 Debug arm64 单包构建与 Material 3、翻译、双语一致性及回归测试；Release 继续使用固定证书签名和人工触发发布。
+
+本版本汇总自 v1.6.18 以来的提交。部分系统入口仍受 Android/OEM 权限及具体版本限制，实际预览和过滤结果以设备运行时验证为准。
 
 ---
 
 ## English
 
-- Root tile, shortcut, and widget protection is now carried in the same atomic Runtime Probe configuration as resolver rules. `ComponentStateGuardModule` and `ComponentDiscoveryFilterModule` prefer the shared authoritative in-process system_server snapshot instead of depending on RemotePreferences cache freshness.
-- Runtime Probe now verifies the manager UID before BEGIN, CHUNK, and COMMIT operations, preventing non-manager callers from disrupting an in-flight chunk transfer.
-- After Probe v2 becomes authoritative, PackageManager/Resolver hot paths stop polling RemotePreferences, reducing configuration reads and SHA-256 work during resolver queries.
-- Root component batches perform one runtime synchronization after mutation, and the runtime digest includes the protected component set so hook state updates even when the normal rule revision is unchanged.
-- App Link discovery now caches successful empty scans and backs off briefly after failures, avoiding repeated root shell and `dumpsys package` work on every refresh.
-- Fixed `ComponentReconcileJobService` cancellation/replacement lifecycle so a stopped stale job cannot finish or remove its replacement.
-- Restricted the reconcile broadcast receiver from external export.
-- Fixed GitHub Actions so release validation actually runs for pull requests and debug PR builds also cover Gradle/wrapper changes.
-- Split high-risk large files: candidate grouping/history logic moved out of `MainViewModel`, priority editing moved into `PriorityEditorController`, and Xposed runtime snapshots/component policy now live in dedicated models.
-- Removed `openPreset!!` / `browserHost!!` assertions from the rules and priority Compose screens by capturing stable scope values for the current category.
-- Removed obsolete `TileConfig` / `TilePolicy` and forced-default transient compatibility shells; legacy JSON fields remain safely ignored as unknown fields.
-- This release changes Xposed runtime behavior, so hook compatibility is bumped to 43.
+- **More Android entry points:** Expanded discovery, filtering and ordering for long-press shortcuts, Storage Access Framework locations, Direct Share, Send To, Open With, browser/deep links and system-managed entry surfaces; unknown OEM results remain fail-open where necessary.
+- **Authoritative system previews:** Prefer verified post-filter results from actual Android APIs, RoleController, PackageManager, Settings and system services; separate active candidates from diagnostics and history, and reconcile stale snapshots.
+- **Root component controls:** Improved launcher entries, Quick Settings tiles, shortcut-creation activities and widget discovery; added stronger read-back, reconciliation and cache refresh behavior.
+- **Android multi-user spaces:** Isolate rules, priority ordering, component state and bulk-operation locks per user; support multi-space export and explicit import destination mapping.
+- **Share and shortcut reliability:** Better Direct Share and Launcher Shortcut observation, proactive discovery, refresh and verification without collecting contact or conversation contents.
+- **Runtime compatibility:** Strengthened libxposed API 102 scopes, authorization, lifecycle, per-user routing, atomic Runtime Probe publication, validation and safe fallback.
+- **Unified flat Material 3 UI:** Consistent Cleanup, Components, Ordering, Settings and popups, with shared rows, spacing, icons, touch targets, menus and app/component long-press actions.
+- **Selection and navigation:** Theme-aware highlighting for expanded apps, selected components and category choices; compact bottom navigation without underline and immersive light/dark system bars.
+- **Appearance and About:** Consolidated theme, color and sizing controls, an About screen with GitHub/Telegram links, and a clearer multi-space selector.
+- **Backup, diagnostics and stability:** Multi-space backup, more reliable real-system previews, scan records, refresh policy, improved concurrency and state handling.
+- **Release quality:** Preserve arm64-only Debug CI and localization, Material 3 and regression checks; stable Releases remain manually published with the pinned signing certificate.
+
+This release consolidates changes since v1.6.18. Availability and behavior of system-managed entries can vary by Android/OEM version and permission; verify the effective results on-device.

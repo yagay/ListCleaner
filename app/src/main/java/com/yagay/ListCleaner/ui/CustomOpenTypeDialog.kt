@@ -44,12 +44,12 @@ internal fun CustomOpenTypeDialog(
         return
     }
 
-    AlertDialog(
+    AdaptiveAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.custom_open_title)) },
+        title = { AdaptiveText(stringResource(R.string.custom_open_title)) },
         text = {
             Column(Modifier.fillMaxWidth()) {
-                Text(
+                AdaptiveText(
                     stringResource(R.string.custom_open_help),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -58,15 +58,16 @@ internal fun CustomOpenTypeDialog(
                 LazyColumn(Modifier.heightIn(max = 420.dp)) {
                     items(OpenPreset.CUSTOM_SLOTS, key = { it.name }) { slot ->
                         val definition = config.customDefinitions[slot]
-                        ListItem(
+                        FlatRowSurface(dividerInset = 0.dp) {
+                        AdaptiveListItem(
                             headlineContent = {
-                                Text(
+                                AdaptiveText(
                                     definition?.title ?: stringResource(slot.titleRes()),
                                     fontWeight = if (definition != null) FontWeight.Medium else FontWeight.Normal
                                 )
                             },
                             supportingContent = {
-                                Text(
+                                AdaptiveText(
                                     if (definition == null) {
                                         stringResource(R.string.custom_open_not_configured)
                                     } else {
@@ -88,17 +89,17 @@ internal fun CustomOpenTypeDialog(
                                 )
                             },
                             trailingContent = {
-                                TextButton(onClick = { editing = slot }) {
-                                    Text(stringResource(if (definition == null) R.string.common_add else R.string.common_edit))
+                                AdaptiveTextButton(onClick = { editing = slot }) {
+                                    AdaptiveText(stringResource(if (definition == null) R.string.common_add else R.string.common_edit))
                                 }
                             }
                         )
-                        HorizontalDivider()
+                        }
                     }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_done)) } }
+        confirmButton = { AdaptiveTextButton(onClick = onDismiss) { AdaptiveText(stringResource(R.string.common_done)) } }
     )
 }
 
@@ -122,60 +123,60 @@ private fun CustomOpenTypeEditor(
         .toSet()
 
     val presetTitle = stringResource(preset.titleRes())
-    AlertDialog(
+    AdaptiveAlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text(
+            AdaptiveText(
                 if (initial == null) stringResource(R.string.custom_open_add_title, presetTitle)
                 else stringResource(R.string.custom_open_edit_title, initial.title)
             )
         },
         text = {
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
+                AdaptiveOutlinedTextField(
                     title,
                     { title = it; errorRes = null },
-                    label = { Text(stringResource(R.string.custom_open_name)) },
+                    label = { AdaptiveText(stringResource(R.string.custom_open_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
+                AdaptiveOutlinedTextField(
                     mimeText,
                     { mimeText = it; errorRes = null },
-                    label = { Text(stringResource(R.string.custom_open_mime_label)) },
-                    supportingText = { Text(stringResource(R.string.custom_open_mime_example)) },
+                    label = { AdaptiveText(stringResource(R.string.custom_open_mime_label)) },
+                    supportingText = { AdaptiveText(stringResource(R.string.custom_open_mime_example)) },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp)
                 )
-                OutlinedTextField(
+                AdaptiveOutlinedTextField(
                     extensionText,
                     { extensionText = it; errorRes = null },
-                    label = { Text(stringResource(R.string.custom_open_extension_label)) },
-                    supportingText = { Text(stringResource(R.string.custom_open_extension_example)) },
+                    label = { AdaptiveText(stringResource(R.string.custom_open_extension_label)) },
+                    supportingText = { AdaptiveText(stringResource(R.string.custom_open_extension_example)) },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp)
                 )
                 errorRes?.let {
-                    Text(stringResource(it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    AdaptiveText(stringResource(it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
             }
         },
         confirmButton = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 onDelete?.let { delete ->
-                    TextButton(onClick = delete) {
-                        Text(stringResource(R.string.common_delete), color = MaterialTheme.colorScheme.error)
+                    AdaptiveTextButton(onClick = delete) {
+                        AdaptiveText(stringResource(R.string.common_delete), color = MaterialTheme.colorScheme.error)
                     }
                 }
-                TextButton(
+                AdaptiveTextButton(
                     onClick = {
                         runCatching {
                             CustomOpenDefinition(title, parseSet(mimeText), parseSet(extensionText)).validated()
                         }.onSuccess(onSave).onFailure { errorRes = customOpenErrorRes(it.message) }
                     }
                 ) {
-                    Text(stringResource(R.string.common_save))
+                    AdaptiveText(stringResource(R.string.common_save))
                 }
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } }
+        dismissButton = { AdaptiveTextButton(onClick = onDismiss) { AdaptiveText(stringResource(R.string.common_cancel)) } }
     )
 }

@@ -11,6 +11,9 @@ public final class IntentClassification {
         if ("android.intent.action.SENDTO".equals(action)) return "SEND_TO";
         if ("android.intent.action.DIAL".equals(action)) return "DIAL";
         if ("android.intent.action.GET_CONTENT".equals(action)) return "GET_CONTENT";
+        if ("android.intent.action.OPEN_DOCUMENT".equals(action)) return "OPEN_DOCUMENT";
+        if ("android.intent.action.CREATE_DOCUMENT".equals(action)) return "CREATE_DOCUMENT";
+        if ("android.intent.action.ASSIST".equals(action)) return "ASSISTANT";
         if ("android.media.action.IMAGE_CAPTURE".equals(action)) return "CAPTURE_IMAGE";
         if ("android.media.action.VIDEO_CAPTURE".equals(action)) return "CAPTURE_VIDEO";
         if ("android.provider.MediaStore.RECORD_SOUND".equals(action)) return "RECORD_AUDIO";

@@ -1,37 +1,34 @@
 package com.yagay.ListCleaner.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Layers
+import com.yagay.ListCleaner.data.UserSpace
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
@@ -40,47 +37,26 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.R
-import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.AppTypeFilter
+import com.yagay.ListCleaner.domain.EntryGroup
+import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.entryGroup
+import com.yagay.ListCleaner.domain.kinds
 
 @Composable
 internal fun CompactSearchField(query: String, onQueryChange: (String) -> Unit) {
-    val colors = MaterialTheme.colorScheme
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
-    BasicTextField(
+    OutlinedTextField(
         value = query,
         onValueChange = onQueryChange,
         singleLine = true,
+        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+        placeholder = { AdaptiveText(stringResource(R.string.search_apps_components_packages)) },
+        leadingIcon = { AdaptiveIcon(Icons.Rounded.Search, contentDescription = null) },
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
-        textStyle = MaterialTheme.typography.bodyMedium.copy(color = colors.onSurface),
-        cursorBrush = SolidColor(colors.primary),
-        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester)
-            .heightIn(min = 48.dp)
-            .border(1.dp, colors.outlineVariant, RoundedCornerShape(12.dp)),
-        decorationBox = { innerTextField ->
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(20.dp), tint = colors.onSurfaceVariant)
-                Box(Modifier.weight(1f)) {
-                    if (query.isEmpty()) {
-                        Text(
-                            stringResource(R.string.search_apps_components_packages),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = colors.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    innerTextField()
-                }
-            }
-        }
+        keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() })
     )
 }
 
@@ -94,36 +70,71 @@ internal fun MainToolbar(
     onClose: () -> Unit,
     onRefresh: () -> Unit,
     onRestore: () -> Unit,
-    onBackup: () -> Unit
+    onBackup: () -> Unit,
+    showSearch: Boolean = true,
+    spaces: List<UserSpace> = emptyList(),
+    selectedSpace: Int = 0,
+    onSpaceSelected: (Int) -> Unit = {},
+    titleRes: Int = R.string.app_name,
 ) {
     var menu by remember { mutableStateOf(false) }
+    var spaceMenu by remember { mutableStateOf(false) }
     TopAppBar(
         title = {
             if (expanded) CompactSearchField(query, onQuery)
-            else Text(stringResource(R.string.app_name), fontWeight = FontWeight.Bold, maxLines = 1)
+            else AdaptiveText(stringResource(titleRes), fontWeight = FontWeight.Bold, maxLines = 1)
         },
         navigationIcon = {
-            if (expanded) IconButton(onClick = onClose) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.close_search))
-            }
+            if (expanded) AdaptiveBackButton(onClick = onClose, contentDescription = stringResource(R.string.close_search))
         },
         actions = {
             if (expanded) {
-                if (query.isNotEmpty()) IconButton(onClick = { onQuery("") }) {
-                    Icon(Icons.Rounded.Close, stringResource(R.string.clear_search))
+                if (query.isNotEmpty()) AdaptiveIconButton(onClick = { onQuery("") }) {
+                    AdaptiveIcon(Icons.Rounded.Close, stringResource(R.string.clear_search))
                 }
             } else {
-                IconButton(onClick = onSearch) { Icon(Icons.Rounded.Search, stringResource(R.string.common_search)) }
-                IconButton(onClick = onRefresh) { Icon(Icons.Rounded.Refresh, stringResource(R.string.common_refresh)) }
+                if (spaces.size > 1) {
+                    Box {
+                        AdaptiveTextButton(onClick = { spaceMenu = true }) {
+                            AdaptiveIcon(Icons.Rounded.Layers, stringResource(R.string.space_switch), Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            AdaptiveText(
+                                spaces.firstOrNull { it.userId == selectedSpace }?.title
+                                    ?: stringResource(R.string.space_user_title, selectedSpace),
+                                maxLines = 1
+                            )
+                            // Explicit disclosure cue for the multi-space picker.
+                            Spacer(Modifier.width(2.dp))
+                            AdaptiveIcon(
+                                if (spaceMenu) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                                stringResource(R.string.space_switch),
+                                Modifier.size(18.dp)
+                            )
+                        }
+                        FlatWorkspaceDropdownMenu(expanded = spaceMenu, onDismissRequest = { spaceMenu = false }) {
+                            spaces.forEach { user ->
+                                WorkspaceFlatMenuRow(
+                                    title = stringResource(R.string.space_menu_item, user.title, user.userId),
+                                    selected = user.userId == selectedSpace,
+                                    onClick = { spaceMenu = false; onSpaceSelected(user.userId) }
+                                )
+                            }
+                        }
+                    }
+                }
+                if (showSearch) AdaptiveIconButton(onClick = onSearch) {
+                    AdaptiveIcon(Icons.Rounded.Search, stringResource(R.string.common_search))
+                }
+                AdaptiveIconButton(onClick = onRefresh) { AdaptiveIcon(Icons.Rounded.Refresh, stringResource(R.string.common_refresh)) }
                 Box {
-                    IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.common_more)) }
-                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.restore_backup)) },
+                    AdaptiveIconButton(onClick = { menu = true }) { AdaptiveIcon(Icons.Rounded.MoreVert, stringResource(R.string.common_more)) }
+                    FlatWorkspaceDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        WorkspaceFlatMenuRow(
+                            title = stringResource(R.string.restore_backup), selected = false,
                             onClick = { menu = false; onRestore() }
                         )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.export_backup)) },
+                        WorkspaceFlatMenuRow(
+                            title = stringResource(R.string.export_backup), selected = false,
                             onClick = { menu = false; onBackup() }
                         )
                     }
@@ -133,6 +144,7 @@ internal fun MainToolbar(
     )
 }
 
+/** The category choice is now a single full-width Material 3 picker. */
 @Composable
 internal fun ListControls(
     state: MainState,
@@ -141,133 +153,43 @@ internal fun ListControls(
     appTypeFilter: AppTypeFilter = AppTypeFilter.ALL,
     onAppTypeFilter: (AppTypeFilter) -> Unit = {},
     includeAllKinds: Boolean = true,
+    showEntryGroups: Boolean = true,
+    availableEntryKinds: Set<IntentKind>? = null,
     viewTitle: @Composable (UiFilter) -> String = { stringResource(it.titleRes()) },
     extraFilter: (@Composable () -> Unit)? = null,
-    onSelectAll: (() -> Unit)? = null,
-    onSelectNone: (() -> Unit)? = null,
-    onInvert: (() -> Unit)? = null
+    subtypeTitle: String? = null,
+    subtypeAvailable: Boolean = true,
+    previewActions: List<WorkspaceMenuAction> = emptyList(),
 ) {
-    var menu by remember { mutableStateOf(false) }
-    var appTypeMenu by remember { mutableStateOf(false) }
-    var selectionMenu by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
-        LazyRow(contentPadding = PaddingValues(horizontal = 12.dp)) {
-            items((if (includeAllKinds) listOf<IntentKind?>(null) else emptyList()) + IntentKind.entries) { kind ->
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    TextButton(onClick = { onFilter(kind) }) {
-                        Text(
-                            kind?.let { stringResource(it.titleRes()) } ?: stringResource(R.string.common_all),
-                            fontWeight = if (state.filter == kind) FontWeight.Bold else FontWeight.Normal,
-                            color = if (state.filter == kind) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Box(
-                        Modifier.height(2.dp).width(24.dp).background(
-                            if (state.filter == kind) MaterialTheme.colorScheme.primary else Color.Transparent
-                        )
-                    )
-                }
+        WorkspaceCategoryFilterRow(
+            category = {
+                EntryCategoryPicker(
+                    selected = state.filter,
+                    onSelected = onFilter,
+                    modifier = Modifier.fillMaxWidth(),
+                    includeAllKinds = includeAllKinds,
+                    availableKinds = availableEntryKinds,
+                    subtypeTitle = subtypeTitle,
+                    previewActions = previewActions,
+                    subtypeSelector = if (
+                        subtypeAvailable &&
+                        (state.filter == IntentKind.OPEN || state.filter == IntentKind.DEEP_LINK)
+                    ) extraFilter else null
+                )
+            },
+            filter = {
+                WorkspaceFilterBar(
+                    appTypeFilter = appTypeFilter,
+                    onAppTypeFilter = onAppTypeFilter,
+                    viewFilter = state.uiFilter,
+                    onViewFilter = onUiFilter,
+                    viewTitle = viewTitle
+                )
             }
-        }
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box {
-                TextButton(
-                    onClick = { appTypeMenu = true },
-                    contentPadding = PaddingValues(horizontal = 6.dp)
-                ) {
-                    Text(
-                        stringResource(
-                            R.string.compact_filter_format,
-                            stringResource(R.string.app_type_filter),
-                            stringResource(appTypeFilter.titleRes())
-                        )
-                    )
-                    Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
-                }
-                DropdownMenu(expanded = appTypeMenu, onDismissRequest = { appTypeMenu = false }) {
-                    AppTypeFilter.entries.forEach { mode ->
-                        DropdownMenuItem(
-                            text = { Text(stringResource(mode.titleRes())) },
-                            leadingIcon = { if (mode == appTypeFilter) Icon(Icons.Rounded.Check, null) },
-                            onClick = { appTypeMenu = false; onAppTypeFilter(mode) }
-                        )
-                    }
-                }
-            }
-            Box {
-                TextButton(
-                    onClick = { menu = true },
-                    contentPadding = PaddingValues(horizontal = 6.dp)
-                ) {
-                    Text(
-                        stringResource(
-                            R.string.compact_filter_format,
-                            stringResource(R.string.view_filter),
-                            viewTitle(state.uiFilter)
-                        )
-                    )
-                    Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
-                }
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    UiFilter.entries.forEach { mode ->
-                        DropdownMenuItem(
-                            text = { Text(viewTitle(mode)) },
-                            leadingIcon = { if (mode == state.uiFilter) Icon(Icons.Rounded.Check, null) },
-                            onClick = { menu = false; onUiFilter(mode) }
-                        )
-                    }
-                }
-            }
-            extraFilter?.invoke()
-            if (onSelectAll != null || onSelectNone != null || onInvert != null) {
-                Box {
-                    TextButton(
-                        onClick = { selectionMenu = true },
-                        contentPadding = PaddingValues(horizontal = 6.dp)
-                    ) {
-                        Text(stringResource(R.string.selection_actions))
-                        Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
-                    }
-                    DropdownMenu(
-                        expanded = selectionMenu,
-                        onDismissRequest = { selectionMenu = false }
-                    ) {
-                        onSelectAll?.let { action ->
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.select_all)) },
-                                onClick = {
-                                    selectionMenu = false
-                                    action()
-                                }
-                            )
-                        }
-                        onSelectNone?.let { action ->
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.select_none)) },
-                                onClick = {
-                                    selectionMenu = false
-                                    action()
-                                }
-                            )
-                        }
-                        onInvert?.let { action ->
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.invert_selection)) },
-                                onClick = {
-                                    selectionMenu = false
-                                    action()
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-        if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
-        HorizontalDivider()
+        )
+        if (state.loading) WorkspaceProgress()
+        AdaptiveHorizontalDivider()
     }
 }
 
@@ -277,17 +199,25 @@ internal fun ModuleStatusRow(state: MainState, compact: Boolean = false, onClick
     val titleRes = when {
         !status.connected -> R.string.module_lsposed_disconnected
         status.outdated -> R.string.module_old_running
-        status.error != null || (status.scopeKnown && status.missingScope.isNotEmpty()) -> R.string.module_needs_attention
+        status.error != null -> R.string.module_needs_attention
+        status.scopeKnown && status.missingScope.isNotEmpty() -> R.string.module_scope_partial
         status.resolverLoaded -> R.string.module_loaded
         else -> R.string.module_lsposed_connected
     }
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(stringResource(titleRes), style = MaterialTheme.typography.labelLarge)
-            Text(
+    FlatRowSurface(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = MaterialUiTokens.detailHeight)
+                .padding(horizontal = MaterialUiTokens.cardPadding, vertical = MaterialUiTokens.contentGap),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+            AdaptiveText(
+                stringResource(titleRes),
+                style = MaterialTheme.typography.labelLarge,
+                color = if (!status.connected || status.outdated || status.error != null)
+                    MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+            )
+            AdaptiveText(
                 if (!compact) state.syncStatus
                 else if (state.runtime.ready) stringResource(R.string.module_system_confirmed)
                 else stringResource(R.string.module_check_status),
@@ -295,6 +225,60 @@ internal fun ModuleStatusRow(state: MainState, compact: Boolean = false, onClick
                 color = if (status.outdated || !state.runtime.ready) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Icon(Icons.Rounded.ExpandMore, stringResource(R.string.module_view_status))
+            AdaptiveTextButton(onClick = onClick) {
+                AdaptiveIcon(Icons.Rounded.ExpandMore, stringResource(R.string.module_view_status))
+            }
+        }
+    }
+}
+
+/**
+ * Compact cleanup-home alert. Healthy modules show no status card at all.
+ * Only verified LSPosed problems or a recovery decision surface here.
+ * Full diagnostics and recovery actions remain in the Status tab.
+ */
+@Composable
+internal fun CleanupStatusAlert(state: MainState, onOpenStatus: () -> Unit) {
+    val module = state.module
+    if (!module.checked) return
+    val issueRes = when {
+        !module.connected -> R.string.module_lsposed_disconnected
+        module.outdated -> R.string.module_old_running
+        module.error != null -> R.string.module_needs_attention
+        state.runtime.needsDecision -> R.string.cleanup_runtime_needs_attention
+        else -> null
+    } ?: return
+
+    UiCard(
+        modifier = Modifier.fillMaxWidth(),
+        variant = UiCardVariant.STATUS,
+        warning = true,
+        onClick = onOpenStatus
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth()
+                .heightIn(min = MaterialUiTokens.detailHeight)
+                .padding(horizontal = MaterialUiTokens.cardPadding, vertical = MaterialUiTokens.contentGap),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            AdaptiveIcon(
+                Icons.Rounded.WarningAmber,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.error
+            )
+            AdaptiveText(
+                stringResource(issueRes),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 2
+            )
+            AdaptiveIcon(
+                Icons.Rounded.ChevronRight,
+                stringResource(R.string.module_view_status),
+                modifier = Modifier.size(18.dp)
+            )
+        }
     }
 }

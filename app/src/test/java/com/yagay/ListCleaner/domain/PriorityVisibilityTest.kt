@@ -21,6 +21,37 @@ class PriorityVisibilityTest {
         assertEquals(listOf(b), priorityCandidates(listOf(a, b), setOf(a.rule), DisplayMode.HIDE_SELECTED, IntentKind.OPEN))
     }
 
+    @Test fun scopedRuleVisibilityIsThePrioritySourceOfTruth() {
+        val generic = item(IntentKind.OPEN, pkg = "generic", cls = "A")
+        val dedicated = item(IntentKind.OPEN, pkg = "dedicated", cls = "B")
+        val unrelated = item(IntentKind.SHARE, pkg = "share", cls = "C")
+        val candidates = listOf(generic, dedicated, unrelated)
+
+        assertEquals(
+            listOf(dedicated),
+            priorityCandidates(candidates, setOf(generic.rule), DisplayMode.HIDE_SELECTED, IntentKind.OPEN)
+        )
+        assertTrue(
+            priorityCandidates(
+                candidates,
+                setOf(generic.rule),
+                DisplayMode.HIDE_SELECTED,
+                IntentKind.OPEN,
+                extraSelected = setOf(dedicated.rule)
+            ).isEmpty()
+        )
+        assertEquals(
+            listOf(generic, dedicated),
+            priorityCandidates(
+                candidates,
+                setOf(generic.rule),
+                DisplayMode.SHOW_SELECTED,
+                IntentKind.OPEN,
+                extraSelected = setOf(dedicated.rule)
+            )
+        )
+    }
+
     @Test fun whitelistPauseAndOtherCategoriesAreNotTreatedAsBlacklist() {
         val a = item(IntentKind.SHARE)
         val b = item(IntentKind.SHARE, "other")

@@ -52,4 +52,20 @@ class PriorityListTest {
             item("c", kind = IntentKind.OPEN))
         assertTrue(groups(items, listOf("a", "b", "c")).isEmpty())
     }
+    @Test fun visibleAppRowsCountEachPackageOnceAfterAllPriorityFilters() {
+        val first = item("a", cls = "A")
+        val second = item("a", cls = "B")
+        val another = item("b", cls = "C")
+        val hidden = item("c", cls = "D")
+        val candidates = listOf(first, second, another, hidden)
+        val selected = setOf(hidden.rule)
+
+        val displayed = groups(candidates, listOf("a", "c"), selected = selected)
+        assertEquals(2, displayed.size)
+        assertEquals(setOf("a", "b"), displayed.map { it.packageName }.toSet())
+        assertEquals(1, groups(candidates, listOf("a", "c"), query = "A", selected = selected).size)
+        assertEquals(1, groups(candidates, listOf("a", "c"), PriorityListFilter.SELECTED, selected = selected).size)
+        assertEquals(1, groups(candidates, listOf("a", "c"), PriorityListFilter.UNSELECTED, selected = selected).size)
+    }
 }
+

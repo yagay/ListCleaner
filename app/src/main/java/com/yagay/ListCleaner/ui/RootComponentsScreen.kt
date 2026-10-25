@@ -1,15 +1,16 @@
 package com.yagay.ListCleaner.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandLess
@@ -19,7 +20,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -27,10 +30,14 @@ import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.data.RootComponent
+import com.yagay.ListCleaner.domain.AppType
 import com.yagay.ListCleaner.domain.AppTypeFilter
+
+private data class PendingRootBatch(val kind: CleanupKind?, val targets: List<RootComponent>, val enable: Boolean?)
 
 private fun componentAppSelectionRank(items: List<RootComponent>): Int {
     val editable = items.filter { it.blocked == null && it.enabled != null }
@@ -44,342 +51,499 @@ private fun componentAppSelectionRank(items: List<RootComponent>): Int {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun RootComponentsScreen(state: MainState, vm: MainViewModel) {
-    val scan by vm.componentScan.collectAsState()
-    val busy by vm.componentBusy.collectAsState()
-    val message by vm.componentMessage.collectAsState()
-    val rootNotice by vm.componentRootNotice.collectAsState()
+fun RootComponentsScreen(
+    state: MainState,
+    vm: MainViewModel,
+    initialKind: CleanupKind? = null,
+    embedded: Boolean = false,
+    backEnabled: Boolean = true,
+    pendingNavigation: PendingNavigationGuard? = null,
+    onExit: () -> Unit = {}
+) {
+    val scan by vm.componentScan.collectAsStateWithLifecycle()
+    val busy by vm.componentBusy.collectAsStateWithLifecycle()
+    val prefsContext = LocalContext.current
+    val navigate: (() -> Unit) -> Unit = { action ->
+        if (!busy) {
+            if (pendingNavigation != null) pendingNavigation.request(action) else action()
+        }
+    }
+    val confirmation = rememberSelectionConfirmationController()
+    SelectionConfirmationDialog(confirmation)
+    val message by vm.componentMessage.collectAsStateWithLifecycle()
+    val batchProgress by vm.componentBatchProgress.collectAsStateWithLifecycle()
+    val rootNotice by vm.componentRootNotice.collectAsStateWithLifecycle()
+    var systemProbeRequest by remember { mutableStateOf<SystemProbeRequest?>(null) }
+    systemProbeRequest?.let { request ->
+        SystemProbeDialog(request, onDismiss = { systemProbeRequest = null })
+    }
     rootNotice?.let { notice ->
-        AlertDialog(
+        AdaptiveAlertDialog(
             onDismissRequest = vm::dismissComponentRootNotice,
-            title = { Text(stringResource(R.string.root_permission_required)) },
-            text = { Text(notice) },
+            title = { AdaptiveText(stringResource(R.string.root_permission_required)) },
+            text = { AdaptiveText(notice) },
             confirmButton = {
-                TextButton(onClick = vm::dismissComponentRootNotice) {
-                    Text(stringResource(R.string.root_permission_ack))
+                AdaptiveTextButton(onClick = vm::dismissComponentRootNotice) {
+                    AdaptiveText(stringResource(R.string.root_permission_ack))
                 }
             }
         )
     }
 
-    var kind by remember { mutableStateOf<CleanupKind?>(null) }
-    val bulkLockRevision by vm.bulkLockRevision.collectAsState()
-    var viewFilter by rememberSaveable { mutableStateOf(UiFilter.ALL) }
-    var appTypeFilter by rememberSaveable { mutableStateOf(AppTypeFilter.ALL) }
-    var filterMenu by remember { mutableStateOf(false) }
-    var appTypeMenu by remember { mutableStateOf(false) }
-    var expandedAppKey by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) { vm.refreshComponents() }
+    var kind by rememberSaveable(initialKind, embedded) {
+        mutableStateOf(initialKind)
+    }
+    // Draft is scoped to the current user space and component category.
+    val selectionDraft = remember(kind, vm.selectedSpace.value) { PendingSelectionDraft<String>() }
+    BackHandler(enabled = backEnabled && (embedded || kind != null)) {
+        navigate {
+            if (embedded) {
+                onExit()
+            } else {
+                kind = null
+            }
+        }
+    }
+    val applyChanges: () -> Boolean = {
+        if (busy) false else {
+            val currentItems = scan.items.associateBy { it.id }
+            val desired = selectionDraft.changes.mapNotNull { (id, disabled) ->
+                currentItems[id]
+                    ?.takeIf { it.blocked == null && it.enabled != null &&
+                        !vm.isComponentBulkProtected(kind, it) && it.enabled != !disabled }
+                    ?.let { it to !disabled }
+            }.toMap()
+            if (desired.isEmpty()) false else {
+                vm.changeComponentsDesired(kind, desired)
+                selectionDraft.discard()
+                true
+            }
+        }
+    }
+    RegisterPendingNavigation(
+        pendingNavigation, selectionDraft, selectionDraft.count,
+        applyChanges, selectionDraft::discard, rootEditor = true
+    )
 
-    val kindItems = scan.items.filter { kind == null || it.kind == kind }
-    val lockItemsByApp = remember(kindItems, bulkLockRevision) {
+    val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
+    var viewFilter by rememberSaveable { mutableStateOf(UiPreferencesStore.initialFilter(prefsContext, "components")) }
+    var appTypeFilter by rememberSaveable { mutableStateOf(UiPreferencesStore.initialAppType(prefsContext, "components")) }
+    var expandedAppKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var detailsExpanded by rememberSaveable { mutableStateOf(false) }
+    var pendingBatch by remember { mutableStateOf<PendingRootBatch?>(null) }
+    pendingBatch?.let { batch ->
+        val eligible = batch.targets.filter { item ->
+            item.blocked == null && item.enabled != null &&
+                !vm.isComponentBulkProtected(batch.kind, item) &&
+                (batch.enable == null || selectionDraft.selected(item.id, item.enabled == false) == batch.enable)
+        }.distinctBy { "${it.user}|${it.component.flattenToString()}" }
+        val action = stringResource(when (batch.enable) {
+            true -> R.string.root_batch_action_enable
+            false -> R.string.root_batch_action_disable
+            null -> R.string.root_batch_action_invert
+        })
+        val systemAppCount = eligible.asSequence()
+            .filter { item ->
+                item.appType == AppType.SYSTEM &&
+                    (batch.enable == false || (batch.enable == null &&
+                        !selectionDraft.selected(item.id, item.enabled == false)))
+            }
+            .map { it.component.packageName }.distinct().count()
+        AdaptiveAlertDialog(
+            onDismissRequest = { pendingBatch = null },
+            title = {
+                AdaptiveText(stringResource(
+                    if (systemAppCount > 0) R.string.lc_system_app_warning_title
+                    else R.string.root_batch_confirm_title
+                ))
+            },
+            text = {
+                val base = stringResource(R.string.root_batch_confirmation_text, action)
+                val warning = if (systemAppCount > 0) {
+                    "\n\n" + stringResource(R.string.lc_system_app_warning_count, systemAppCount) +
+                        "\n" + stringResource(R.string.lc_system_app_warning_root)
+                } else ""
+                AdaptiveText(base + warning)
+            },
+            confirmButton = {
+                AdaptiveTextButton(enabled = eligible.isNotEmpty() && !busy, onClick = {
+                    pendingBatch = null
+                    eligible.forEach { item ->
+                        val currentDisabled = selectionDraft.selected(item.id, item.enabled == false)
+                        val desiredDisabled = when (batch.enable) {
+                            true -> false
+                            false -> true
+                            null -> !currentDisabled
+                        }
+                        selectionDraft.set(item.id, item.enabled == false, desiredDisabled)
+                    }
+                }) { AdaptiveText(stringResource(R.string.common_ok)) }
+            },
+            dismissButton = {
+                AdaptiveTextButton(onClick = { pendingBatch = null }) {
+                    AdaptiveText(stringResource(R.string.common_cancel))
+                }
+            }
+        )
+    }
+    LaunchedEffect(Unit) { vm.ensureComponentsFresh() }
+    // Project source snapshots only when their inputs change. Progress updates, expanded
+    // rows and navigation recomposition must not regroup the entire PackageManager catalog.
+    val kindItems = remember(scan.items, kind) {
+        scan.items.filter { ComponentCategoryFilterPolicy.matches(kind, it.kind) }
+    }
+    val lockItemsByApp = remember(kindItems) {
         kindItems.groupBy(::componentBulkLockAppId)
     }
-    val scopeItems = kindItems.filter { appTypeFilter.matches(it.appType) }
-    val baseVisible = scopeItems.filter {
-        (when (viewFilter) {
-                UiFilter.ALL, UiFilter.LOCKED -> true
-                UiFilter.SHOW_SELECTED -> it.enabled == false
-                UiFilter.HIDE_SELECTED -> it.enabled == true
-            }) &&
-            (state.query.isBlank() || listOf(it.label, it.owner, it.component.flattenToString()).any { text -> text.contains(state.query, true) })
+    val appSort = UiPreferencesRuntime.current.appSort
+    val groups = remember(kindItems, appTypeFilter, viewFilter, state.query, bulkLockRevision, appSort) {
+        kindItems.asSequence()
+            .filter { appTypeFilter.matches(it.appType) }
+            .filter { item ->
+                (when (viewFilter) {
+                    UiFilter.ALL, UiFilter.LOCKED -> true
+                    UiFilter.SHOW_SELECTED -> item.enabled == false
+                    UiFilter.HIDE_SELECTED -> item.enabled == true
+                }) &&
+                    (state.query.isBlank() || sequenceOf(
+                        item.label, item.owner, item.component.flattenToString()
+                    ).any { it.contains(state.query, ignoreCase = true) })
+            }
+            .filter { viewFilter != UiFilter.LOCKED || vm.isComponentBulkProtected(kind, it) }
+            .groupBy { "${it.user}|${it.component.packageName}" }
+            .entries
+            .sortedWith(when (appSort) {
+                UiAppSort.SELECTED_FIRST -> compareBy<Map.Entry<String, List<RootComponent>>> { componentAppSelectionRank(it.value) }
+                    .thenBy { it.value.first().owner.lowercase() }.thenBy { it.key }
+                UiAppSort.NAME -> compareBy<Map.Entry<String, List<RootComponent>>> { it.value.first().owner.lowercase() }
+                    .thenBy { it.key }
+                UiAppSort.PACKAGE -> compareBy<Map.Entry<String, List<RootComponent>>> { it.value.first().component.packageName.lowercase() }
+                    .thenBy { it.key }
+            })
+            .map { it.key to it.value }
     }
-    val baseGroups = baseVisible.groupBy { "${it.user}|${it.component.packageName}" }.entries
-        .sortedWith(
-            compareBy<Map.Entry<String, List<RootComponent>>> { componentAppSelectionRank(it.value) }
-                .thenBy { it.value.first().owner.lowercase() }
-                .thenBy { it.key }
-        )
-    val groups = if (viewFilter == UiFilter.LOCKED) {
-        bulkLockRevision
-        baseGroups.filter { (appKey, _) ->
-            vm.componentBulkLockState(kind, appKey, lockItemsByApp[appKey].orEmpty()) != BulkLockState.NONE
+    LaunchedEffect(kind, groups.firstOrNull()?.first, UiPreferencesRuntime.current.expandFirstApp) {
+        if (UiPreferencesRuntime.current.expandFirstApp && expandedAppKey == null) {
+            groups.firstOrNull()?.let { (appKey, _) ->
+                expandedAppKey = "${kind?.name ?: "ALL"}|$appKey"
+            }
         }
-    } else {
-        baseGroups
     }
-    val visible = groups.flatMap { it.value }
+    val sortedGroups = remember(groups) {
+        groups.map { (appKey, items) ->
+            appKey to items.sortedWith(compareBy({ it.kind.ordinal }, { it.label.lowercase() }, { it.id }))
+        }
+    }
+    val visible = remember(groups) { groups.flatMap { it.second } }
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-        item(key = "title") {
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Text(stringResource(R.string.root_screen_title), style = MaterialTheme.typography.titleLarge)
+    Box(Modifier.fillMaxSize()) {
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = if (selectionDraft.count > 0) 90.dp else 16.dp)
+    ) {
+        if (embedded) {
+            stickyHeader(key = "classic-mode-tabs") {
+                ClassicCleanupTabs(
+                    active = ClassicCleanupMode.COMPONENTS,
+                    onEntries = { navigate(onExit) },
+                    onComponents = {}
+                )
             }
         }
         stickyHeader(key = "controls") {
-            Surface(tonalElevation = 2.dp) {
-                Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
-                    LazyRow(contentPadding = PaddingValues(horizontal = 12.dp)) {
-                        items(listOf<CleanupKind?>(null) + CleanupKind.entries) { entry ->
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                TextButton(onClick = { kind = entry }) {
-                                    Text(
-                                        entry?.let { stringResource(it.titleRes()) } ?: stringResource(R.string.common_all),
-                                        fontWeight = if (kind == entry) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (kind == entry) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Box(
-                                    Modifier.height(2.dp).width(24.dp).background(
-                                        if (kind == entry) MaterialTheme.colorScheme.primary else Color.Transparent
-                                    )
+            PageFilterSection {
+                Column(Modifier.fillMaxWidth().background(
+                    MaterialTheme.colorScheme.surface
+                )) {
+                    WorkspaceCategoryFilterRow(
+                    category = {
+                        ClassicComponentCategoryFilter(
+                            selected = kind,
+                            modifier = Modifier.fillMaxWidth(),
+                            previewActions = (if (kind == null) CleanupKind.entries.toList()
+                                else listOf(requireNotNull(kind))).map { previewKind ->
+                                WorkspaceMenuAction(
+                                    label = stringResource(previewKind.titleRes()),
+                                    onClick = {
+                                        systemProbeRequest = SystemProbeRequest(
+                                            componentKind = previewKind,
+                                            userId = vm.selectedSpace.value
+                                        )
+                                    }
                                 )
+                            },
+                            onSelected = { selected ->
+                                if (kind != selected) navigate {
+                                    kind = selected
+                                    expandedAppKey = null
+                                }
                             }
-                        }
+                        )
+                    },
+                    filter = {
+                        WorkspaceFilterBar(
+                            appTypeFilter = appTypeFilter,
+                            onAppTypeFilter = {
+                                appTypeFilter = it
+                                UiPreferencesStore.rememberAppType(prefsContext, it, "components")
+                            },
+                            viewFilter = viewFilter,
+                            onViewFilter = {
+                                viewFilter = it
+                                UiPreferencesStore.rememberFilter(prefsContext, it, "components")
+                            },
+                            viewTitle = { filter ->
+                                stringResource(when (filter) {
+                                    UiFilter.ALL -> R.string.common_all
+                                    UiFilter.SHOW_SELECTED -> R.string.root_filter_disabled
+                                    UiFilter.HIDE_SELECTED -> R.string.root_filter_enabled
+                                    UiFilter.LOCKED -> R.string.filter_locked
+                                })
+                            }
+                        )
                     }
-                    Row(
-                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box {
-                            TextButton(
-                                onClick = { appTypeMenu = true },
-                                contentPadding = PaddingValues(horizontal = 6.dp)
-                            ) {
-                                Text(
-                                    stringResource(
-                                        R.string.compact_filter_format,
-                                        stringResource(R.string.app_type_filter),
-                                        stringResource(appTypeFilter.titleRes())
-                                    )
-                                )
-                                Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
-                            }
-                            DropdownMenu(expanded = appTypeMenu, onDismissRequest = { appTypeMenu = false }) {
-                                AppTypeFilter.entries.forEach { filter ->
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(filter.titleRes())) },
-                                        leadingIcon = { if (appTypeFilter == filter) Icon(Icons.Rounded.Check, null) },
-                                        onClick = { appTypeFilter = filter; appTypeMenu = false }
-                                    )
-                                }
+                )
+                    if (batchProgress != null) {
+                        val current = requireNotNull(batchProgress)
+                        WorkspaceProgress(current.completed.toFloat() / current.total.coerceAtLeast(1))
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            AdaptiveText(stringResource(R.string.root_batch_processing),
+                                style = MaterialTheme.typography.labelSmall)
+                            AdaptiveTextButton(onClick = vm::cancelComponentBatch) {
+                                AdaptiveText(stringResource(R.string.root_batch_stop_remaining))
                             }
                         }
-                        Box {
-                            TextButton(
-                                onClick = { filterMenu = true },
-                                contentPadding = PaddingValues(horizontal = 6.dp)
-                            ) {
-                                Text(
-                                    stringResource(
-                                        R.string.compact_filter_format,
-                                        stringResource(R.string.view_filter),
-                                        stringResource(viewFilter.titleRes())
-                                    )
-                                )
-                                Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp))
-                            }
-                            DropdownMenu(expanded = filterMenu, onDismissRequest = { filterMenu = false }) {
-                                UiFilter.entries.forEach { filter ->
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(filter.titleRes())) },
-                                        leadingIcon = { if (viewFilter == filter) Icon(Icons.Rounded.Check, null) },
-                                        onClick = { viewFilter = filter; filterMenu = false }
-                                    )
-                                }
-                            }
-                        }
-                        TextButton(
-                            onClick = { vm.changeComponentsBulk(kind, visible, enable = false) },
-                            enabled = !busy && visible.any { it.blocked == null && it.enabled == true },
-                            contentPadding = PaddingValues(horizontal = 6.dp)
-                        ) { Text(stringResource(R.string.select_all)) }
-                        TextButton(
-                            onClick = { vm.invertComponentsBulk(kind, visible) },
-                            enabled = !busy && visible.any { it.blocked == null && it.enabled != null },
-                            contentPadding = PaddingValues(horizontal = 6.dp)
-                        ) { Text(stringResource(R.string.invert_selection)) }
-                    }
-                    if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                    HorizontalDivider()
+                    } else if (busy) WorkspaceProgress()
+                    AdaptiveHorizontalDivider()
                 }
             }
         }
         item(key = "summary") {
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Text(stringResource(R.string.root_summary, groups.size, visible.size), style = MaterialTheme.typography.labelLarge)
-                Text(
+            WorkspaceListSummary(
+                title = stringResource(R.string.root_summary, groups.size, visible.size),
+                actions = listOf(
+                    WorkspaceMenuAction(stringResource(R.string.select_all), {
+                        pendingBatch = PendingRootBatch(kind, visible, false)
+                    }, !busy && visible.any {
+                        it.blocked == null && it.enabled == true && !vm.isComponentBulkProtected(kind, it)
+                    }),
+                    WorkspaceMenuAction(stringResource(R.string.select_none), {
+                        pendingBatch = PendingRootBatch(kind, visible, true)
+                    }, !busy && visible.any {
+                        it.blocked == null && it.enabled == false && !vm.isComponentBulkProtected(kind, it)
+                    }),
+                    WorkspaceMenuAction(stringResource(R.string.invert_selection), {
+                        pendingBatch = PendingRootBatch(kind, visible, null)
+                    }, !busy && visible.any {
+                        it.blocked == null && it.enabled != null && !vm.isComponentBulkProtected(kind, it)
+                    })
+                ),
+                helpExpanded = detailsExpanded,
+                onHelpToggle = { detailsExpanded = !detailsExpanded }
+            )
+            if (detailsExpanded) WorkspaceHelpSection {
+                AdaptiveText(
                     stringResource(R.string.root_filter_help),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Text(stringResource(R.string.root_selection_semantics), style = MaterialTheme.typography.bodySmall)
-                Text(
+                AdaptiveText(
+                    stringResource(R.string.root_selection_semantics),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                AdaptiveText(
                     stringResource(R.string.root_change_semantics),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                AdaptiveText(
+                    stringResource(when (kind) {
+                        null -> R.string.root_kind_all_help
+                        CleanupKind.LAUNCHER -> R.string.root_kind_launcher_help
+                        CleanupKind.TILE -> R.string.root_kind_tile_help
+                        CleanupKind.SHORTCUT -> R.string.root_kind_shortcut_help
+                        CleanupKind.WIDGET -> R.string.root_kind_widget_help
+                    }),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Text(
-                    stringResource(
-                        when (kind) {
-                            null -> R.string.root_kind_all_help
-                            CleanupKind.LAUNCHER -> R.string.root_kind_launcher_help
-                            CleanupKind.TILE -> R.string.root_kind_tile_help
-                            CleanupKind.SHORTCUT -> R.string.root_kind_shortcut_help
-                            CleanupKind.WIDGET -> R.string.root_kind_widget_help
-                        }
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                if (scan.warning.isNotBlank()) Text(scan.warning, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             }
+            WorkspaceStatusMessage(scan.warning)
+            message?.let { WorkspaceStatusMessage(it, isError = true) }
         }
 
-        groups.forEach { (appKey, unsorted) ->
-            val components = unsorted.sortedWith(compareBy({ it.kind.ordinal }, { it.label.lowercase() }, { it.id }))
-            val editableComponents = components.filter { it.blocked == null && it.enabled != null }
-            val disabledCount = editableComponents.count { it.enabled == false }
-            val selectionState = when {
-                disabledCount == 0 -> ToggleableState.Off
-                disabledCount == editableComponents.size -> ToggleableState.On
-                else -> ToggleableState.Indeterminate
-            }
-            val first = components.first()
+        sortedGroups.forEach { (appKey, components) ->
             val expansionKey = "${kind?.name ?: "ALL"}|$appKey"
             val expanded = expandedAppKey == expansionKey
-            val onExpand = { expandedAppKey = if (expandedAppKey == expansionKey) null else expansionKey }
-
-            item(key = "app|$expansionKey") {
-                val expandLabel = stringResource(if (expanded) R.string.common_collapse else R.string.common_expand)
-                val kindTitles = CleanupKind.entries.filter { entry -> components.any { it.kind == entry } }
-                    .map { stringResource(it.titleRes()) }
-                Row(
-                    Modifier.fillMaxWidth()
-                        .bulkLockSwipe(
-                            onLock = {
-                                vm.setComponentAppLocked(
-                                    kind,
-                                    appKey,
-                                    lockItemsByApp[appKey].orEmpty(),
-                                    true
-                                )
-                            },
-                            onUnlock = {
-                                vm.setComponentAppLocked(
-                                    kind,
-                                    appKey,
-                                    lockItemsByApp[appKey].orEmpty(),
-                                    false
-                                )
+            item(key = "app|$expansionKey", contentType = "app") {
+                val editableComponents = remember(components) {
+                    components.filter { it.blocked == null && it.enabled != null }
+                }
+                val disabledCount = editableComponents.count {
+                    selectionDraft.selected(it.id, it.enabled == false)
+                }
+                val selectionState = listSelectionState(disabledCount, editableComponents.size)
+                val first = components.first()
+                val onExpand = { expandedAppKey = if (expandedAppKey == expansionKey) null else expansionKey }
+                val kindTitles = CleanupKind.entries.filter { category ->
+                    components.any { it.kind == category }
+                }.map { stringResource(it.titleRes()) }
+                val lockState = vm.componentBulkLockState(
+                    kind, appKey, lockItemsByApp[appKey].orEmpty()
+                )
+                WorkspaceAppRow(
+                    icon = first.icon,
+                    title = first.owner,
+                    packageName = first.component.packageName,
+                    subtitle = WorkspaceAppSummaryText(
+                        R.string.root_disabled_summary,
+                        components.count { selectionDraft.selected(it.id, it.enabled == false) },
+                        components.size,
+                        kindTitles
+                    ),
+                    expanded = expanded,
+                    lockState = lockState,
+                    onExpand = onExpand,
+                    onLock = {
+                        vm.setComponentAppLocked(kind, appKey, lockItemsByApp[appKey].orEmpty(), true)
+                    },
+                    onUnlock = {
+                        vm.setComponentAppLocked(kind, appKey, lockItemsByApp[appKey].orEmpty(), false)
+                    },
+                    selection = {
+                        WorkspaceAppSelectionCheckbox(
+                            state = selectionState,
+                            enabled = !busy && editableComponents.isNotEmpty(),
+                            onClick = {
+                                val disable = selectionState != ToggleableState.On
+                                val editableTargets = editableComponents.filterNot {
+                                    vm.isComponentBulkProtected(kind, it)
+                                }
+                                val warnCount = if (disable && first.appType == AppType.SYSTEM &&
+                                    editableTargets.any {
+                                        !selectionDraft.selected(it.id, it.enabled == false)
+                                    }) 1 else 0
+                                confirmation.requestForSystemSelection(
+                                    first.owner, warnCount, SystemSelectionRisk.ROOT
+                                ) {
+                                    editableTargets.forEach { item ->
+                                        selectionDraft.set(item.id, item.enabled == false, disable)
+                                    }
+                                }
                             }
                         )
-                        .clickable(onClickLabel = expandLabel, onClick = onExpand)
-                        .heightIn(min = 64.dp).padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TriStateCheckbox(
-                        state = selectionState,
-                        enabled = !busy && editableComponents.isNotEmpty(),
-                        onClick = { vm.changeComponents(editableComponents, selectionState == ToggleableState.On) }
-                    )
-                    AppIcon(first.icon, first.owner)
-                    Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                        Text(first.owner, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
-                        Text(
-                            stringResource(
-                                R.string.root_disabled_summary,
-                                components.count { it.enabled == false },
-                                components.size,
-                                kindTitles.joinToString(" · ")
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    },
+                    details = {
                         if (editableComponents.size < components.size) {
-                            Text(
-                                stringResource(R.string.root_display_only_count, components.size - editableComponents.size),
+                            AdaptiveText(
+                                stringResource(
+                                    R.string.root_display_only_count,
+                                    components.size - editableComponents.size
+                                ),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1
                             )
                         }
                     }
-                    val lockState = vm.componentBulkLockState(
-                        kind,
-                        appKey,
-                        lockItemsByApp[appKey].orEmpty()
-                    )
-                    if (lockState != BulkLockState.NONE) {
-                        Icon(
-                            Icons.Rounded.Lock,
-                            contentDescription = stringResource(
-                                if (lockState == BulkLockState.PARTIAL) R.string.bulk_lock_partial
-                                else R.string.bulk_lock_full
-                            ),
-                            modifier = Modifier.padding(horizontal = 8.dp).size(20.dp),
-                            tint = if (lockState == BulkLockState.PARTIAL) MaterialTheme.colorScheme.tertiary
-                            else LocalContentColor.current
-                        )
-                    }
-                    IconButton(onClick = onExpand) {
-                        Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, expandLabel)
-                    }
-                }
-                HorizontalDivider()
+                )
             }
 
-            if (expanded) items(components, key = { it.id }) { item ->
+            if (expanded) itemsIndexed(components, key = { _, item -> item.id }, contentType = { _, _ -> "component" }) { componentIndex, item ->
                 val editable = !busy && item.blocked == null && item.enabled != null
-                Row(
-                    Modifier.fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
-                        .bulkLockSwipe(
-                            enabled = !vm.isComponentAppLockedForItem(kind, item),
-                            onLock = { vm.setComponentItemLocked(kind, item, true) },
-                            onUnlock = { vm.setComponentItemLocked(kind, item, false) }
-                        )
-                        .toggleable(
-                            value = item.enabled == false,
-                            enabled = editable,
-                            role = Role.Checkbox,
-                            onValueChange = { checked -> vm.changeComponent(item, !checked) }
-                        )
-                        .heightIn(min = 48.dp).padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Checkbox(
-                        checked = item.enabled == false,
-                        enabled = editable,
-                        onCheckedChange = null,
-                        modifier = Modifier.padding(12.dp)
-                    )
-                    Column(Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(item.label, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            Text(stringResource(item.kind.titleRes()), style = MaterialTheme.typography.labelMedium)
+                val lockToggleEnabled = !vm.isComponentAppLockedForItem(kind, item)
+                val itemLocked = vm.isComponentBulkProtected(kind, item)
+                WorkspaceDetailRow(
+                    position = if (componentIndex == components.lastIndex)
+                        ListRowPosition.LAST else ListRowPosition.MIDDLE,
+                    checked = selectionDraft.selected(item.id, item.enabled == false),
+                    enabled = editable && !itemLocked,
+                    locked = itemLocked,
+                    onToggle = {
+                        if (!busy && vm.selectedSpace.value == item.user) {
+                            val currentDisabled = selectionDraft.selected(item.id, item.enabled == false)
+                            val warnCount = if (!currentDisabled && item.appType == AppType.SYSTEM) 1 else 0
+                            confirmation.requestForSystemSelection(
+                                item.label, warnCount, SystemSelectionRisk.ROOT
+                            ) {
+                                selectionDraft.set(item.id, item.enabled == false, !currentDisabled)
+                            }
                         }
-                        Text(
-                            item.component.flattenToShortString(),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.labelSmall
+                    },
+                    content = {
+                        WorkspaceDetailHeading(
+                            item.label,
+                            stringResource(item.kind.titleRes())
                         )
-                        Text(
+                        WorkspaceDetailCaption(
+                            item.component.flattenToShortString()
+                        )
+                        AdaptiveText(
                             item.blocked ?: stringResource(
                                 when (item.overrideState) {
-                                    0 -> if (item.enabled == true) R.string.root_default_enabled else R.string.root_default_disabled
+                                    0 -> if (item.enabled == true)
+                                        R.string.root_default_enabled else R.string.root_default_disabled
                                     1 -> R.string.root_explicit_enabled
                                     2, 3, 4 -> R.string.root_disabled_unknown_source
                                     else -> R.string.root_unknown_state
                                 }
                             ),
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (item.blocked != null)
+                                MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailing = { menuExpanded, onMenuExpandedChange ->
+                        WorkspaceDetailActionsMenu(
+                            expanded = menuExpanded,
+                            onExpandedChange = onMenuExpandedChange,
+                            onPreview = {
+                                systemProbeRequest = SystemProbeRequest(
+                                    componentKind = item.kind,
+                                    userId = item.user,
+                                    focusPackage = item.component.packageName,
+                                    focusClass = item.component.className,
+                                )
+                            },
+                            locked = itemLocked,
+                            lockToggleEnabled = lockToggleEnabled,
+                            onLock = { vm.setComponentItemLocked(kind, item, true) },
+                            onUnlock = { vm.setComponentItemLocked(kind, item, false) }
                         )
                     }
-                    val itemLocked = vm.isComponentBulkProtected(kind, item)
-                    if (itemLocked) {
-                        Icon(
-                            Icons.Rounded.Lock,
-                            contentDescription = stringResource(R.string.bulk_lock_full),
-                            modifier = Modifier.padding(horizontal = 8.dp).size(18.dp)
-                        )
-                    }
-                }
+                )
             }
         }
         if (visible.isEmpty() && !busy) {
-            item { Text(stringResource(R.string.root_no_components), Modifier.padding(vertical = 16.dp)) }
+            item {
+                WorkspaceEmptyState(
+                    message = stringResource(
+                        if (kindItems.isNotEmpty()) R.string.root_empty_filtered else R.string.root_no_components
+                    ),
+                    clearLabel = if (viewFilter != UiFilter.ALL ||
+                        appTypeFilter != AppTypeFilter.ALL || state.query.isNotBlank()
+                    ) stringResource(R.string.root_clear_filters) else null,
+                    onClear = if (viewFilter != UiFilter.ALL ||
+                        appTypeFilter != AppTypeFilter.ALL || state.query.isNotBlank()
+                    ) {
+                        {
+                            viewFilter = UiFilter.ALL
+                            appTypeFilter = AppTypeFilter.ALL
+                            vm.setQuery("")
+                        }
+                    } else null
+                )
+            }
         }
     }
+    PendingChangesBar(
+        count = selectionDraft.count,
+        onDiscard = selectionDraft::discard,
+        onApply = { applyChanges() },
+        modifier = Modifier.align(Alignment.BottomCenter)
+    )
+}
 }

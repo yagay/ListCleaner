@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="nav_rules">规则</string>
+    <string name="nav_rules">清理</string>
     <string name="nav_priority">排序</string>
     <string name="nav_components">组件</string>
     <string name="nav_status">状态</string>
+    <string name="nav_settings">设置</string>
 
     <string name="common_all">全部</string>
     <string name="common_none">暂无</string>
@@ -35,27 +36,58 @@
     <string name="bulk_lock_none">未锁定（会受批量操作影响）</string>
     <string name="bulk_lock_partial">部分锁定（部分项目不受批量操作影响）</string>
     <string name="bulk_lock_full">已锁定（不受批量操作影响）</string>
+    <string name="bulk_lock_action_lock">锁定</string>
+    <string name="bulk_lock_action_unlock">解除锁定</string>
+
+    <string name="entry_group_share">分享与发送</string>
+    <string name="entry_group_open">打开与链接</string>
+    <string name="entry_group_files">文件与媒体</string>
+    <string name="entry_group_desktop">桌面与默认应用</string>
+    <string name="entry_group_input">输入与身份服务</string>
+    <string name="entry_group_system">系统服务</string>
+    <string name="entry_group_personalization">外观与屏保</string>
 
     <string name="intent_share">分享</string>
-    <string name="intent_share_multiple">多文件分享</string>
+    <string name="intent_share_multiple">多项分享</string>
+    <string name="intent_direct_share">直接分享</string>
     <string name="intent_send_to">发送到</string>
     <string name="intent_open">打开方式</string>
     <string name="intent_browser">浏览器</string>
-    <string name="intent_deep_link">深度链接</string>
+    <string name="intent_deep_link">应用链接</string>
     <string name="intent_dial">拨号</string>
     <string name="intent_get_content">选择内容</string>
+    <string name="intent_open_document">打开文档</string>
+    <string name="intent_create_document">保存文档</string>
     <string name="intent_capture_image">拍照</string>
     <string name="intent_capture_video">录像</string>
     <string name="intent_record_audio">录音</string>
     <string name="intent_process_text">文本处理</string>
+    <string name="intent_home">桌面候选</string>
+    <string name="intent_assistant">助手入口</string>
+    <string name="intent_launcher_shortcut">旧快捷方式</string>
+    <string name="intent_shortcut_item">长按快捷方式</string>
+    <string name="intent_document_provider">存储提供器</string>
+    <string name="intent_document_root">文件侧栏</string>
+    <string name="intent_photo_source">云端照片来源</string>
+    <string name="intent_input_method">输入法</string>
+    <string name="intent_autofill">自动填充</string>
+    <string name="intent_credential_provider">凭据服务</string>
+    <string name="intent_notification_listener">通知监听</string>
+    <string name="intent_accessibility">无障碍</string>
+    <string name="intent_vpn">VPN</string>
+    <string name="intent_print">打印</string>
+    <string name="intent_wallpaper">动态壁纸</string>
+    <string name="intent_dream">屏保</string>
+    <string name="intent_nfc_hce">NFC 卡模拟</string>
+    <string name="intent_call_screening">来电筛选</string>
 
     <string name="display_hide_selected">隐藏选中</string>
     <string name="display_show_selected">只显示选中</string>
     <string name="display_show_all">全部显示</string>
 
-    <string name="cleanup_launcher">桌面图标</string>
+    <string name="cleanup_launcher">桌面入口</string>
     <string name="cleanup_tile">磁贴</string>
-    <string name="cleanup_shortcut">快捷方式</string>
+    <string name="cleanup_shortcut">创建快捷方式</string>
     <string name="cleanup_widget">小部件</string>
 
     <string name="open_browser">网页链接</string>
@@ -115,4 +147,14 @@
     <string name="open_desc_mailto">mailto:</string>
     <string name="open_desc_tel">tel:</string>
     <string name="open_desc_sms">sms: / smsto:</string>
+    <string name="workspace_choose_group">选择清理分类</string>
+    <string name="workspace_choose_entry">选择需要清理的入口</string>
+    <string name="workspace_browse_all">浏览全部应用</string>
+    <string name="workspace_entry_count">%1$d 种入口</string>
+    <string name="workspace_groups">分类</string>
+    <string name="workspace_filter_options">筛选与批量操作</string>
+    <string name="workspace_components_link">Root 组件清理</string>
+    <string name="workspace_rule_section">入口清理（LSPosed）</string>
+    <string name="workspace_browse_entries">浏览全部入口</string>
+    <string name="workspace_browse_components">浏览全部组件</string>
 </resources>

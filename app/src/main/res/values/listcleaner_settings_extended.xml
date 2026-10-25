@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lc_font_scale">Text size</string>
+    <string name="lc_layout_spacing">Global layout spacing</string>
+    <string name="lc_title_lines">App name lines</string>
+    <string name="lc_subtitle_lines">Subtitle lines</string>
+    <string name="lc_show_app_icons">Show app icons</string>
+    <string name="lc_show_package_names">Show package names</string>
+    <string name="lc_expand_first_app">Expand first app by default</string>
+    <string name="lc_remember_search">Remember search per page</string>
+    <string name="lc_drag_haptics">Vibrate when starting drag</string>
+    <string name="lc_retry_seconds">Scan retry delay</string>
+    <string name="lc_app_link_enrichment">Scan App Links in background</string>
+    <string name="lc_app_link_enrichment_help">Turning this off skips background domain discovery. Manual refresh still runs it.</string>
+    <string name="lc_proactive_scan_title">Proactive shortcut discovery</string>
+    <string name="lc_proactive_scan_mode">Background scanning</string>
+    <string name="lc_proactive_mode_on_scan">When scanning</string>
+    <string name="lc_proactive_mode_manual">Manual only</string>
+    <string name="lc_proactive_mode_off">Off</string>
+    <string name="lc_proactive_direct_share">Direct Share candidates</string>
+    <string name="lc_proactive_direct_share_help">Discover categorized shortcuts without launching the share sheet.</string>
+    <string name="lc_proactive_shortcuts">Shortcut item candidates</string>
+    <string name="lc_proactive_shortcuts_help">Also list categorized shortcuts from matching share apps.</string>
+    <string name="lc_proactive_cache_minutes">Reuse successful scans for</string>
+    <string name="lc_minutes_suffix">min</string>
+    <string name="lc_proactive_scan_now">Scan shortcut candidates now</string>
+    <string name="lc_proactive_scan_help">Read-only ShortcutService discovery. Results are candidates, not proof of current share-sheet visibility. Passive system Hooks remain active; no hidden activities or messages are sent.</string>
+</resources>
