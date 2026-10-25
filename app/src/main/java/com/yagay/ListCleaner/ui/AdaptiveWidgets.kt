@@ -256,7 +256,6 @@ internal fun AdaptiveSlider(
                 modifier = Modifier.height(4.dp),
                 thumbTrackGapSize = 0.dp,
                 trackInsideCornerSize = 0.dp,
-                trackCornerSize = 0.dp,
                 drawStopIndicator = null
             )
         }

@@ -274,7 +274,7 @@ control_widgets = (root / "AdaptiveWidgets.kt").read_text(encoding="utf-8")
 control_palette = (root / "MaterialActionColors.kt").read_text(encoding="utf-8")
 settings_controls = (root / "SettingsWidgets.kt").read_text(encoding="utf-8")
 appearance_controls = (root / "AppearanceSettings.kt").read_text(encoding="utf-8")
-for token in ("fun AdaptiveSlider(", "SliderDefaults.Track(", "trackCornerSize = 0.dp",
+for token in ("fun AdaptiveSlider(", "SliderDefaults.Track(", "trackInsideCornerSize = 0.dp",
               "thumbTrackGapSize = 0.dp", "Modifier.width(10.dp).height(24.dp)",
               "onValueChangeFinished = onValueChangeFinished", "colors = MaterialActionColors.slider()"):
     if token not in control_widgets:
