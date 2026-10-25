@@ -39,10 +39,13 @@
     <string name="bulk_lock_action_lock">锁定</string>
     <string name="bulk_lock_action_unlock">解除锁定</string>
 
-    <string name="entry_group_share">分享</string>
-    <string name="entry_group_open">操作</string>
-    <string name="entry_group_desktop">桌面</string>
-    <string name="entry_group_advanced">扩展清理</string>
+    <string name="entry_group_share">分享与发送</string>
+    <string name="entry_group_open">打开与链接</string>
+    <string name="entry_group_files">文件与媒体</string>
+    <string name="entry_group_desktop">桌面与默认应用</string>
+    <string name="entry_group_input">输入与身份服务</string>
+    <string name="entry_group_system">系统服务</string>
+    <string name="entry_group_personalization">外观与屏保</string>
 
     <string name="intent_share">分享</string>
     <string name="intent_share_multiple">多项分享</string>

@@ -23,11 +23,18 @@ class EntryCategorySelectionPolicyTest {
             EntryCategorySelectionPolicy.selectedKind(EntryGroup.OPEN, IntentKind.OPEN)
         )
         assertNull(EntryCategorySelectionPolicy.selectedKind(EntryGroup.SHARE, IntentKind.OPEN))
-        assertNull(EntryCategorySelectionPolicy.selectedKind(EntryGroup.ADVANCED, IntentKind.OPEN))
+        assertNull(EntryCategorySelectionPolicy.selectedKind(EntryGroup.FILES, IntentKind.OPEN))
         assertEquals(
             IntentKind.DIRECT_SHARE,
             EntryCategorySelectionPolicy.selectedKind(EntryGroup.SHARE, IntentKind.DIRECT_SHARE)
         )
+        assertEquals(IntentKind.HOME,
+            EntryCategorySelectionPolicy.selectedKind(EntryGroup.DESKTOP, IntentKind.HOME))
+        assertNull(EntryCategorySelectionPolicy.selectedKind(EntryGroup.SYSTEM, IntentKind.HOME))
+        assertEquals(IntentKind.DOCUMENT_PROVIDER,
+            EntryCategorySelectionPolicy.selectedKind(EntryGroup.FILES, IntentKind.DOCUMENT_PROVIDER))
+        assertEquals(IntentKind.NFC_HCE,
+            EntryCategorySelectionPolicy.selectedKind(EntryGroup.SYSTEM, IntentKind.NFC_HCE))
     }
 
     @Test fun menuOnlyHighlightsAvailableSubcategories() {

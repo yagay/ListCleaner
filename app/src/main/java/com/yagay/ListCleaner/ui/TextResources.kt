@@ -47,8 +47,11 @@ internal fun DisplayMode.titleRes(): Int = when (this) {
 internal fun EntryGroup.titleRes(): Int = when (this) {
     EntryGroup.SHARE -> R.string.entry_group_share
     EntryGroup.OPEN -> R.string.entry_group_open
+    EntryGroup.FILES -> R.string.entry_group_files
     EntryGroup.DESKTOP -> R.string.entry_group_desktop
-    EntryGroup.ADVANCED -> R.string.entry_group_advanced
+    EntryGroup.INPUT -> R.string.entry_group_input
+    EntryGroup.SYSTEM -> R.string.entry_group_system
+    EntryGroup.PERSONALIZATION -> R.string.entry_group_personalization
 }
 
 @StringRes

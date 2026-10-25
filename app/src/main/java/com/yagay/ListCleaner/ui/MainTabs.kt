@@ -27,8 +27,7 @@ import com.yagay.ListCleaner.BuildConfig
 import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.DisplayMode
-import com.yagay.ListCleaner.domain.EntryGroup
-import com.yagay.ListCleaner.domain.entryGroup
+import com.yagay.ListCleaner.domain.requiresSystemEntrySafetyNote
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.AppType
 import com.yagay.ListCleaner.domain.AppTypeFilter
@@ -448,9 +447,9 @@ fun RulesTab(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                if (state.filter?.entryGroup() == EntryGroup.ADVANCED) {
+                if (state.filter?.requiresSystemEntrySafetyNote() == true) {
                     AdaptiveText(
-                        stringResource(R.string.entry_advanced_safety_note),
+                        stringResource(R.string.entry_system_safety_note),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

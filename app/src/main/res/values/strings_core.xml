@@ -43,10 +43,13 @@
     <string name="bulk_lock_action_unlock">Unlock</string>
 
     <!-- Entry groups -->
-    <string name="entry_group_share">Share</string>
-    <string name="entry_group_open">Actions</string>
-    <string name="entry_group_desktop">Desktop</string>
-    <string name="entry_group_advanced">Extension cleanup</string>
+    <string name="entry_group_share">Sharing &amp; sending</string>
+    <string name="entry_group_open">Open &amp; links</string>
+    <string name="entry_group_files">Files &amp; media</string>
+    <string name="entry_group_desktop">Home &amp; defaults</string>
+    <string name="entry_group_input">Input &amp; identity</string>
+    <string name="entry_group_system">System services</string>
+    <string name="entry_group_personalization">Personalisation</string>
 
     <!-- Intent kinds -->
     <string name="intent_share">Share</string>
