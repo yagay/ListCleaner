@@ -26,4 +26,5 @@
     <string name="lc_about_source">GitHub 项目主页</string>
     <string name="lc_about_releases">版本发布与更新</string>
     <string name="lc_about_issues">问题反馈</string>
+    <string name="lc_about_telegram">Telegram 频道</string>
 </resources>

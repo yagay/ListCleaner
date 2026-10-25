@@ -98,7 +98,18 @@ internal fun MainToolbar(
                         AdaptiveTextButton(onClick = { spaceMenu = true }) {
                             AdaptiveIcon(Icons.Rounded.Layers, stringResource(R.string.space_switch), Modifier.size(18.dp))
                             Spacer(Modifier.width(4.dp))
-                            AdaptiveText(spaces.firstOrNull { it.userId == selectedSpace }?.title ?: stringResource(R.string.space_user_title, selectedSpace), maxLines = 1)
+                            AdaptiveText(
+                                spaces.firstOrNull { it.userId == selectedSpace }?.title
+                                    ?: stringResource(R.string.space_user_title, selectedSpace),
+                                maxLines = 1
+                            )
+                            // Explicit disclosure cue for the multi-space picker.
+                            Spacer(Modifier.width(2.dp))
+                            AdaptiveIcon(
+                                if (spaceMenu) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                                stringResource(R.string.space_switch),
+                                Modifier.size(18.dp)
+                            )
                         }
                         FlatWorkspaceDropdownMenu(expanded = spaceMenu, onDismissRequest = { spaceMenu = false }) {
                             spaces.forEach { user ->

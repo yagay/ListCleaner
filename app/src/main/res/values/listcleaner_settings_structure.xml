@@ -26,4 +26,5 @@
     <string name="lc_about_source">GitHub project</string>
     <string name="lc_about_releases">Releases &amp; updates</string>
     <string name="lc_about_issues">Report an issue</string>
+    <string name="lc_about_telegram">Telegram channel</string>
 </resources>

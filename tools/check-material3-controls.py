@@ -439,6 +439,16 @@ for symbol in ("android:windowLightNavigationBar", "android:statusBarColor",
     if symbol not in theme_text:
         errors.append(f"themes.xml: immersive system bar theme flag missing {symbol}")
 
+# The toolbar's multi-space picker must advertise its expand/collapse state.
+space_toolbar = (root / "MainControls.kt").read_text(encoding="utf-8")
+for symbol in ("if (spaces.size > 1)", "if (spaceMenu) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore",
+               "stringResource(R.string.space_switch)", "FlatWorkspaceDropdownMenu(expanded = spaceMenu"):
+    if symbol not in space_toolbar:
+        errors.append(f"MainControls.kt: multi-space expand indicator missing {symbol}")
+about_content = (root / "SettingsAbout.kt").read_text(encoding="utf-8")
+if 'stringResource(R.string.lc_about_telegram)' not in about_content or 'https://t.me/LISTCLEANER' not in about_content:
+    errors.append("SettingsAbout.kt: Telegram project channel missing")
+
 # App and expanded-detail overflow menus must share the same anchored flat renderer.
 app_actions = (root / "WorkspaceAppRow.kt").read_text(encoding="utf-8")
 detail_actions = (root / "WorkspaceListParts.kt").read_text(encoding="utf-8")

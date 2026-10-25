@@ -42,6 +42,11 @@ internal fun AboutSettings() {
             url = "https://github.com/yagay/ListCleaner/issues",
             onOpen = uriHandler::openUri
         )
+        AboutLinkRow(
+            title = stringResource(R.string.lc_about_telegram),
+            url = "https://t.me/LISTCLEANER",
+            onOpen = uriHandler::openUri
+        )
     }
 }
 
