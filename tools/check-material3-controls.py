@@ -195,6 +195,15 @@ if "Modifier.drawWithContent" not in nav_activity or "tonalElevation = 0.dp" not
 details = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
 if "WorkspaceDetailSelectionIndicator(" not in details or "shape = androidx.compose.foundation.shape.CircleShape" not in details:
     errors.append("WorkspaceCommon.kt: expanded Entry/Root rows must use a circular detail indicator")
+indicator = details.split("private fun WorkspaceDetailSelectionIndicator(", 1)[-1].split(
+    "/** Identical detail-row surface", 1
+)[0]
+for expected in ("border = androidx.compose.foundation.BorderStroke(2.dp, ringColor)",
+                 "Modifier.size(10.dp).background(", "if (checked)"):
+    if expected not in indicator:
+        errors.append(f"WorkspaceCommon.kt: hollow ring / selected dot indicator missing: {expected}")
+if "Icons.Rounded.Check" in indicator or "AdaptiveCheckbox(" in indicator:
+    errors.append("WorkspaceCommon.kt: expanded selection indicator must not render a tick or square")
 detail_row = details.split("internal fun WorkspaceDetailRow(", 1)[-1]
 if "AdaptiveCheckbox(" in detail_row or "WorkspaceDetailSelectionIndicator(" not in detail_row:
     errors.append("WorkspaceCommon.kt: detail rows must not fall back to a square checkbox")

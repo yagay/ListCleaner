@@ -9,7 +9,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.ExpandLess
@@ -422,27 +421,29 @@ private fun WorkspaceDetailSelectionIndicator(
 ) {
     val colors = MaterialTheme.colorScheme
     val disabledColor = colors.onSurface.copy(alpha = 0.38f)
+    val ringColor = if (!enabled) disabledColor
+        else if (checked) colors.primary else colors.outline
     Box(
         modifier = modifier.size(MaterialUiTokens.iconTouchTarget),
         contentAlignment = Alignment.Center
     ) {
+        // Visual radio-style indicator, but each detail remains an independent
+        // multi-selection checkbox through its parent row's semantics.
         androidx.compose.material3.Surface(
             modifier = Modifier.size(22.dp),
             shape = androidx.compose.foundation.shape.CircleShape,
-            color = if (checked) {
-                if (enabled) colors.primary else colors.onSurface.copy(alpha = 0.12f)
-            } else androidx.compose.ui.graphics.Color.Transparent,
-            border = if (checked) null else androidx.compose.foundation.BorderStroke(
-                1.5.dp, if (enabled) colors.outline else disabledColor
-            )
+            color = androidx.compose.ui.graphics.Color.Transparent,
+            border = androidx.compose.foundation.BorderStroke(2.dp, ringColor)
         ) {
             Box(contentAlignment = Alignment.Center) {
-                if (checked) AdaptiveIcon(
-                    Icons.Rounded.Check,
-                    null,
-                    modifier = Modifier.size(16.dp),
-                    tint = if (enabled) colors.onPrimary else disabledColor
-                )
+                if (checked) {
+                    Box(
+                        Modifier.size(10.dp).background(
+                            if (enabled) colors.primary else disabledColor,
+                            androidx.compose.foundation.shape.CircleShape
+                        )
+                    )
+                }
             }
         }
     }
