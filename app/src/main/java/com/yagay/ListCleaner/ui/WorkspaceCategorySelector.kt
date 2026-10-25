@@ -303,7 +303,13 @@ internal fun WorkspaceFlatMenuRow(
                             )
                         }
                     } else {
-                        FlatSelectionRail(if (section) expanded else selected)
+                        if (section) {
+                            // Header rail follows expansion, never a child selection.
+                            FlatSelectionRail(expanded)
+                        } else {
+                            // Ordinary choices retain the shared selected rail contract.
+                            FlatSelectionRail(selected)
+                        }
                         Spacer(Modifier.width(12.dp))
                     }
                     AdaptiveText(
