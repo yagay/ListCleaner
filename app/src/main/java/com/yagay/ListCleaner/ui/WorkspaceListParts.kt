@@ -74,8 +74,10 @@ internal fun WorkspaceAppSelectionCheckbox(
         AdaptiveIcon(
             icon,
             null,
-            // Move only the glyph within its 48dp touch area; do not move the hitbox.
-            modifier = Modifier.size(18.dp).offset(x = MaterialUiTokens.appLabelInset),
+            // Balance visible space on both sides of the mark:
+            // the leading 16dp page inset is twice the 8dp label inset.
+            // The 48dp checkbox hit area remains unchanged.
+            modifier = Modifier.size(18.dp).offset(x = -MaterialUiTokens.appLabelInset),
             tint = if (enabled) baseTint else baseTint.copy(alpha = 0.38f)
         )
     }
