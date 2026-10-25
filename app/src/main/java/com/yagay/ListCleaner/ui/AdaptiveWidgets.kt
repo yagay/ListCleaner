@@ -94,7 +94,7 @@ internal fun AdaptiveBackButton(
 }
 
 @Composable
-internal fun AdaptiveFilterChip(
+internal fun FlatUnderlineTab(
     selected: Boolean,
     onClick: () -> Unit,
     label: @Composable () -> Unit,
@@ -126,6 +126,26 @@ internal fun AdaptiveFilterChip(
             )
         }
     }
+}
+
+/** Filter/scoped choices delegate to the same flat tab as palette settings. */
+@Composable
+internal fun AdaptiveFilterChip(
+    selected: Boolean,
+    onClick: () -> Unit,
+    label: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    leadingIcon: @Composable (() -> Unit)? = null
+) {
+    FlatUnderlineTab(
+        selected = selected,
+        onClick = onClick,
+        label = label,
+        modifier = modifier,
+        enabled = enabled,
+        leadingIcon = leadingIcon
+    )
 }
 
 @Composable

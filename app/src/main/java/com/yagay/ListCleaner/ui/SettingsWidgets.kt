@@ -230,21 +230,17 @@ internal fun SettingsFlatPaletteTabs(
 private fun SettingsFlatPaletteTab(
     label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier
 ) {
-    Surface(onClick = onClick, modifier = modifier, shape = RectangleShape) {
-        Column {
-            Box(Modifier.fillMaxWidth().heightIn(min = 48.dp), contentAlignment = Alignment.Center) {
-                AdaptiveText(
-                    label, style = MaterialTheme.typography.labelLarge,
-                    color = if (selected) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Box(Modifier.fillMaxWidth().height(2.dp).background(
-                if (selected) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.surface
-            ))
+    FlatUnderlineTab(
+        selected = selected, onClick = onClick,
+        modifier = modifier,
+        label = {
+            AdaptiveText(
+                label, style = MaterialTheme.typography.labelLarge,
+                color = if (selected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
-    }
+    )
 }
 
 /** Supporting text is always the same weight and semantic color. */

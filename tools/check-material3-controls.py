@@ -146,11 +146,16 @@ if "FlatPopupMenu(" not in popups.split("internal fun AdaptiveDropdownMenu(", 1)
     errors.append("AdaptivePopups.kt: legacy dropdown still bypasses common popup engine")
 if "import androidx.compose.material3.DropdownMenu\n" in popups:
     errors.append("AdaptivePopups.kt: old Material DropdownMenu used")
+tab = widgets.split("internal fun FlatUnderlineTab(", 1)[-1].split(
+    "internal fun AdaptiveFilterChip(", 1
+)[0]
 chip = widgets.split("internal fun AdaptiveFilterChip(", 1)[-1].split(
     "internal fun AdaptiveTriStateCheckbox(", 1
 )[0]
-if "FilterChip(" in chip or "shape = RectangleShape" not in chip or "height(2.dp)" not in chip:
-    errors.append("AdaptiveWidgets.kt: shared flat tab must replace capsule FilterChip")
+if "shape = RectangleShape" not in tab or "height(2.dp)" not in tab:
+    errors.append("AdaptiveWidgets.kt: shared flat tab geometry is missing")
+if "FlatUnderlineTab(" not in chip:
+    errors.append("AdaptiveWidgets.kt: filter tab must reuse shared flat renderer")
 if "InputChip(" in compact or "AdaptiveFilterChip(" not in compact:
     errors.append("CompactCategoryButton.kt: old pill or duplicated compact selector returned")
 if "shadowElevation = 0.dp" not in pending or "tonalElevation = 0.dp" not in pending:
@@ -528,7 +533,7 @@ settings_sources = {
                  "ListSettings.kt", "ScanSettings.kt", "SettingsSections.kt",
                  "SettingsReset.kt", "RuntimePanel.kt")
 }
-for token in ("shape = RectangleShape", "fun SettingsFlatDialog(",
+for token in ("FlatUnderlineTab(", "fun SettingsFlatDialog(",
               "fun SettingsFlatPaletteTabs(", "FlatRowSurface(",
               "fun SettingsFlatChoiceRow("):
     if token not in settings_sources["SettingsWidgets.kt"]:
@@ -587,11 +592,11 @@ for forbidden in ("SingleChoiceSegmentedButtonRow(", "SegmentedButton(",
     if forbidden in classic:
         errors.append(f"ClassicListLayout.kt: capsule-like tabs returned: {forbidden}")
 source = (root / "MaterialDesignSystem.kt").read_text(encoding="utf-8")
-if "val filterChipGap get() = (6f * density).dp" not in source:
-    errors.append("MaterialDesignSystem.kt: compact filter spacing token missing")
+if "Arrangement.spacedBy(4.dp)" not in (root / "AdaptiveWidgets.kt").read_text(encoding="utf-8"):
+    errors.append("AdaptiveWidgets.kt: shared flat tab spacing missing")
 compact = (root / "CompactCategoryButton.kt").read_text(encoding="utf-8")
-if "Arrangement.spacedBy(4.dp)" not in compact:
-    errors.append("CompactCategoryButton.kt: 4dp label/icon spacing must be consistent")
+if "AdaptiveFilterChip(" not in compact:
+    errors.append("CompactCategoryButton.kt: compact picker must use shared tab")
 
 # Categories use an anchored, scrollable Material 3 dropdown, not a distant bottom sheet.
 category = (root / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
