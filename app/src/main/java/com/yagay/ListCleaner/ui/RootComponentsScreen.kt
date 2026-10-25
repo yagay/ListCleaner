@@ -260,6 +260,18 @@ fun RootComponentsScreen(
                         ClassicComponentCategoryFilter(
                             selected = kind,
                             modifier = Modifier.fillMaxWidth(),
+                            previewActions = (if (kind == null) CleanupKind.entries.toList()
+                                else listOf(requireNotNull(kind))).map { previewKind ->
+                                WorkspaceMenuAction(
+                                    label = stringResource(previewKind.titleRes()),
+                                    onClick = {
+                                        systemProbeRequest = SystemProbeRequest(
+                                            componentKind = previewKind,
+                                            userId = vm.selectedSpace.value
+                                        )
+                                    }
+                                )
+                            },
                             onSelected = { selected ->
                                 if (kind != selected) navigate {
                                     kind = selected
@@ -330,18 +342,6 @@ fun RootComponentsScreen(
                         it.blocked == null && it.enabled != null && !vm.isComponentBulkProtected(kind, it)
                     })
                 ),
-                previewActions = (if (kind == null) CleanupKind.entries.toList()
-                    else listOf(requireNotNull(kind))).map { previewKind ->
-                    WorkspaceMenuAction(
-                        label = stringResource(previewKind.titleRes()),
-                        onClick = {
-                            systemProbeRequest = SystemProbeRequest(
-                                componentKind = previewKind,
-                                userId = vm.selectedSpace.value
-                            )
-                        }
-                    )
-                },
                 helpExpanded = detailsExpanded,
                 onHelpToggle = { detailsExpanded = !detailsExpanded }
             )

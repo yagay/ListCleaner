@@ -20,6 +20,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.MaterialTheme
@@ -79,7 +80,8 @@ internal fun WorkspacePickerButton(
     expanded: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    count: Int = 0
+    count: Int = 0,
+    showLeadingIcon: Boolean = true
 ) {
     Surface(
         onClick = onClick,
@@ -97,7 +99,9 @@ internal fun WorkspacePickerButton(
         ) {
             val color = if (selected) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.onSurfaceVariant
-            AdaptiveIcon(icon, null, Modifier.size(18.dp), tint = color)
+            if (showLeadingIcon) {
+                AdaptiveIcon(icon, null, Modifier.size(18.dp), tint = color)
+            }
             AdaptiveText(
                 label,
                 modifier = Modifier,
@@ -121,6 +125,50 @@ internal fun WorkspacePickerButton(
 }
 
 /**
+ * Category preview is independent from category selection. On All categories
+ * the eye opens a flat list of previewable kinds; on one kind it opens directly.
+ */
+@Composable
+private fun WorkspaceCategoryPreviewIcon(actions: List<WorkspaceMenuAction>) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        AdaptiveIconButton(
+            onClick = {
+                if (actions.size == 1) actions.single().onClick()
+                else expanded = true
+            },
+            enabled = actions.any { it.enabled }
+        ) {
+            AdaptiveIcon(
+                Icons.Rounded.Visibility,
+                stringResource(R.string.system_preview_action),
+                Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+        if (actions.size > 1) {
+            FlatWorkspaceDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier.widthIn(min = 240.dp, max = 328.dp)
+                    .heightIn(max = 440.dp)
+            ) {
+                actions.forEach { action ->
+                    WorkspaceFlatMenuRow(
+                        title = action.label,
+                        selected = false,
+                        onClick = {
+                            expanded = false
+                            if (action.enabled) action.onClick()
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
  * Anchored Material 3 category menu for Entry, Root and Ordering.
  *
  * Unlike a bottom sheet, the popup opens next to its toolbar trigger.
@@ -133,19 +181,26 @@ private fun WorkspaceCategoryPicker(
     menuTitle: String,
     modifier: Modifier = Modifier,
     trailingSelector: (@Composable () -> Unit)? = null,
+    previewActions: List<WorkspaceMenuAction> = emptyList(),
     content: @Composable (dismiss: () -> Unit) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
         if (trailingSelector == null) {
-            WorkspacePickerButton(
-                label = stringResource(R.string.lc_category_picker_current, selectedTitle),
-                icon = Icons.Rounded.Layers,
-                selected = true,
-                expanded = expanded,
-                onClick = { expanded = true },
-                modifier = Modifier.fillMaxWidth()
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (previewActions.isNotEmpty()) {
+                    WorkspaceCategoryPreviewIcon(previewActions)
+                }
+                WorkspacePickerButton(
+                    label = stringResource(R.string.lc_category_picker_current, selectedTitle),
+                    icon = Icons.Rounded.Layers,
+                    selected = true,
+                    expanded = expanded,
+                    onClick = { expanded = true },
+                    modifier = Modifier.weight(1f),
+                    showLeadingIcon = previewActions.isEmpty()
+                )
+            }
         } else {
             // Two independent 48dp targets on the same flat page surface.
             // No isolated rounded card or filled selection background.
@@ -156,15 +211,23 @@ private fun WorkspaceCategoryPicker(
                 contentColor = MaterialTheme.colorScheme.primary,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (previewActions.isNotEmpty()) {
+                        WorkspaceCategoryPreviewIcon(previewActions)
+                    }
                     Row(
                         modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                             .clickable { expanded = true }
-                            .padding(start = 12.dp, end = 8.dp),
+                            .padding(
+                                start = if (previewActions.isEmpty()) 12.dp else 0.dp,
+                                end = 8.dp
+                            ),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         val color = MaterialTheme.colorScheme.primary
-                        AdaptiveIcon(Icons.Rounded.Layers, null, Modifier.size(18.dp), tint = color)
+                        if (previewActions.isEmpty()) {
+                            AdaptiveIcon(Icons.Rounded.Layers, null, Modifier.size(18.dp), tint = color)
+                        }
                         AdaptiveText(
                             stringResource(R.string.lc_category_picker_current, selectedTitle),
                             modifier = Modifier.weight(1f),
@@ -286,6 +349,7 @@ internal fun EntryCategoryPicker(
     availableKinds: Set<IntentKind>? = null,
     subtypeTitle: String? = null,
     subtypeSelector: (@Composable () -> Unit)? = null,
+    previewActions: List<WorkspaceMenuAction> = emptyList(),
 ) {
     val availableGroups = EntryGroup.entries
         .filter { includeAllKinds || it != EntryGroup.DESKTOP }
@@ -300,6 +364,7 @@ internal fun EntryCategoryPicker(
         menuTitle = stringResource(R.string.lc_category_picker_entry_title),
         modifier = modifier,
         trailingSelector = subtypeSelector,
+        previewActions = previewActions,
     ) { dismiss ->
         if (includeAllKinds) {
             WorkspaceMenuChoice(
@@ -336,13 +401,15 @@ internal fun EntryCategoryPicker(
 internal fun ComponentCategoryPicker(
     selected: CleanupKind?,
     onSelected: (CleanupKind?) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    previewActions: List<WorkspaceMenuAction> = emptyList()
 ) {
     WorkspaceCategoryPicker(
         selectedTitle = if (selected == null) stringResource(R.string.common_all)
             else stringResource(selected.titleRes()),
         menuTitle = stringResource(R.string.lc_category_picker_component_title),
-        modifier = modifier
+        modifier = modifier,
+        previewActions = previewActions
     ) { dismiss ->
         ComponentCategoryFilterPolicy.choices.forEach { kind ->
             WorkspaceMenuChoice(

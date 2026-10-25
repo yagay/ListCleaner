@@ -18,7 +18,8 @@ internal object ComponentCategoryFilterPolicy {
 internal fun ClassicComponentCategoryFilter(
     selected: CleanupKind?,
     onSelected: (CleanupKind?) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    previewActions: List<WorkspaceMenuAction> = emptyList()
 ) {
-    ComponentCategoryPicker(selected, onSelected, modifier)
+    ComponentCategoryPicker(selected, onSelected, modifier, previewActions)
 }

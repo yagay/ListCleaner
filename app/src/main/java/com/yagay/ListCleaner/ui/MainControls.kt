@@ -142,6 +142,7 @@ internal fun ListControls(
     extraFilter: (@Composable () -> Unit)? = null,
     subtypeTitle: String? = null,
     subtypeAvailable: Boolean = true,
+    previewActions: List<WorkspaceMenuAction> = emptyList(),
 ) {
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
         WorkspaceCategoryFilterRow(
@@ -153,6 +154,7 @@ internal fun ListControls(
                     includeAllKinds = includeAllKinds,
                     availableKinds = availableEntryKinds,
                     subtypeTitle = subtypeTitle,
+                    previewActions = previewActions,
                     subtypeSelector = if (
                         subtypeAvailable &&
                         (state.filter == IntentKind.OPEN || state.filter == IntentKind.DEEP_LINK)
