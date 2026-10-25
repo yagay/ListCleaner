@@ -116,7 +116,7 @@ internal fun MaterialSectionCard(
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
         content = content
     )
 }
@@ -135,12 +135,15 @@ internal fun MaterialSettingsRow(
 ) {
     FlatRowSurface(
         onClick = onClick,
-        dividerInset = 0.dp
+        dividerInset = MaterialUiTokens.pageHorizontal
     ) {
     Row(
         modifier = Modifier.fillMaxWidth()
             .heightIn(min = MaterialUiTokens.settingsRowHeight)
-            .padding(vertical = MaterialUiTokens.detailVertical),
+            .padding(
+                horizontal = MaterialUiTokens.pageHorizontal,
+                vertical = MaterialUiTokens.detailVertical
+            ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.settingsRowGap)
     ) {

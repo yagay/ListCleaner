@@ -51,7 +51,7 @@ internal fun SettingsCenterHome(onSelect: (SettingsSection) -> Unit) {
     )
     MaterialPageColumn(fullBleed = true) {
         SettingsSection.entries.chunked(2).forEachIndexed { groupIndex, sections ->
-            Column(verticalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap)) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 FlatSectionHeader(
                     stringResource(headings[groupIndex]),
                     modifier = Modifier.padding(horizontal = MaterialUiTokens.pageHorizontal)

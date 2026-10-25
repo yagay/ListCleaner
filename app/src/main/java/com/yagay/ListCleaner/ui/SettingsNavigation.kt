@@ -74,15 +74,12 @@ internal fun SettingsTabContent(
             savedScrollStates.SaveableStateProvider(page.name) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(
-                        horizontal = MaterialUiTokens.pageHorizontal,
-                        vertical = MaterialUiTokens.pageVertical
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(MaterialUiTokens.sectionGap)
+                    contentPadding = PaddingValues(vertical = MaterialUiTokens.pageVertical),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     item(key = page.name) {
                         Column(
-                            verticalArrangement = Arrangement.spacedBy(MaterialUiTokens.sectionGap)
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             when (page) {
                                 SettingsSection.APPEARANCE -> {
