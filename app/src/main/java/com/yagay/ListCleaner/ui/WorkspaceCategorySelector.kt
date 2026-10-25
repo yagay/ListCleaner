@@ -305,9 +305,14 @@ internal fun WorkspaceFlatMenuRow(
                     }
                     AdaptiveText(
                         title,
-                        style = if (section) MaterialTheme.typography.titleSmall
-                            else MaterialTheme.typography.bodyLarge,
-                        fontWeight = if (selected || sectionExpanded) FontWeight.SemiBold
+                        // Category titles (16sp) outrank their indented options (14sp).
+                        // Other flat menu choices keep their existing typography.
+                        style = when {
+                            section -> MaterialTheme.typography.titleMedium
+                            indented -> MaterialTheme.typography.bodyMedium
+                            else -> MaterialTheme.typography.bodyLarge
+                        },
+                        fontWeight = if (section || selected) FontWeight.SemiBold
                             else FontWeight.Normal,
                         color = when {
                             !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
