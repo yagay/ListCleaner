@@ -4,7 +4,6 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.selection.triStateToggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
@@ -74,10 +73,9 @@ internal fun WorkspaceAppSelectionCheckbox(
         AdaptiveIcon(
             icon,
             null,
-            // Balance visible space on both sides of the mark:
-            // the leading 16dp page inset is twice the 8dp label inset.
-            // The 48dp checkbox hit area remains unchanged.
-            modifier = Modifier.size(18.dp).offset(x = -MaterialUiTokens.appLabelInset),
+            // Keep the glyph centered inside its full 48dp touch target.
+            // Position the entire workspace row instead of offsetting this icon.
+            modifier = Modifier.size(18.dp),
             tint = if (enabled) baseTint else baseTint.copy(alpha = 0.38f)
         )
     }

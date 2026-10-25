@@ -447,15 +447,19 @@ for token in ("triStateToggleable(", "state = state", "enabled = enabled",
         errors.append(f"WorkspaceListParts.kt: borderless three-state app selection missing {token}")
 if "AdaptiveTriStateCheckbox(" in app_select or "TriStateCheckbox(" in app_select:
     errors.append("WorkspaceListParts.kt: old square app checkbox returned")
-# Keep the glyph visually centered between the page edge and application icon,
-# without changing the 48dp touch target or adding a spacer after the selection.
-if "Modifier.size(18.dp).offset(x = -MaterialUiTokens.appLabelInset)" not in app_select:
-    errors.append("WorkspaceListParts.kt: balanced tri-state glyph offset missing")
+# Application-row content owns the global left inset; the glyph itself is
+# centered in the full-size touch target with no artificial visual offset.
+if "modifier = Modifier.size(18.dp)," not in app_select or ".offset(x =" in app_select:
+    errors.append("WorkspaceListParts.kt: tri-state glyph must remain centered")
 app_row_geometry = (root / "WorkspaceAppRow.kt").read_text(encoding="utf-8")
 if "selectionToIconGap = 0.dp" not in app_row_geometry or "Spacer(Modifier.width(selectionToIconGap))" not in app_row_geometry:
     errors.append("WorkspaceAppRow.kt: shared application selection gap not reduced")
 if "selectionToIconGap: Dp = MaterialUiTokens.appLabelInset" not in app_row_geometry:
     errors.append("WorkspaceAppRow.kt: non-workspace selection gap default not preserved")
+if "contentStartInset = 0.dp" not in app_row_geometry or "contentStartInset: Dp = MaterialUiTokens.pageHorizontal" not in app_row_geometry:
+    errors.append("WorkspaceAppRow.kt: app content must move left without affecting other screens")
+if "start = contentStartInset" not in app_row_geometry or "end = MaterialUiTokens.pageHorizontal" not in app_row_geometry:
+    errors.append("WorkspaceAppRow.kt: app content asymmetric layout contract missing")
 
 # Entry and Root expanded details share one trailing check and tinted surface.
 # There is no blue leading rail and no circular/radio selection glyph.

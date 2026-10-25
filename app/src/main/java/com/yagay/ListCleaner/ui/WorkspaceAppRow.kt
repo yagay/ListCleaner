@@ -54,7 +54,10 @@ internal fun WorkspaceAppRow(
                 onLongClick = { menuExpanded = true }
             ),
             selection = { selection() },
-            // The 48dp selection target already separates its glyph from the app icon.
+            // Move the entire app-row content to the left. The selector's 48dp
+            // target already supplies a 15dp visual inset before its 18dp mark,
+            // balancing the 16dp right edge of the expand arrow.
+            contentStartInset = 0.dp,
             selectionToIconGap = 0.dp,
             details = details,
             trailing = {
@@ -105,7 +108,9 @@ internal fun MaterialAppRowBody(
     subtitle: String,
     modifier: Modifier = Modifier,
     selection: @Composable RowScope.() -> Unit,
-    // Keep the old gap as default for non-workspace callers (e.g. Scope picker).
+    // Only direct workspace app rows are edge-aligned; other callers retain
+    // the shared page inset (e.g. app-scope picker).
+    contentStartInset: Dp = MaterialUiTokens.pageHorizontal,
     selectionToIconGap: Dp = MaterialUiTokens.appLabelInset,
     packageName: String? = null,
     details: @Composable ColumnScope.() -> Unit = {},
@@ -114,7 +119,12 @@ internal fun MaterialAppRowBody(
     Row(
         modifier = modifier.fillMaxWidth()
             .heightIn(min = MaterialUiTokens.listRowHeight)
-            .padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = 4.dp),
+            .padding(
+                start = contentStartInset,
+                end = MaterialUiTokens.pageHorizontal,
+                top = 4.dp,
+                bottom = 4.dp
+            ),
         verticalAlignment = Alignment.CenterVertically
     ) {
         selection()
