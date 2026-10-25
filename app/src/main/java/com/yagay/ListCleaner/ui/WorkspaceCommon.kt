@@ -15,6 +15,7 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.MaterialTheme
@@ -422,22 +423,29 @@ internal fun WorkspaceReadOnlyDetailRow(
 }
 
 /**
- * One slim selection rail for expanded Entry and Root details.
- * The unselected rail is transparent but retains its width, so text never jumps.
- * Multi-select semantics remain on the parent row rather than this decoration.
+ * Selected expanded components show a theme-colored check next to their actions,
+ * not a leading rail. Reserve the mark's width while unchecked so detail text
+ * and the existing three-dot overflow never jump when toggled.
+ *
+ * The check is decorative; row toggleableState remains the accessibility source.
  */
 @Composable
-private fun WorkspaceDetailSelectionRail(
+private fun WorkspaceDetailSelectionCheck(
     selected: Boolean,
     enabled: Boolean,
 ) {
-    val color = MaterialTheme.colorScheme.primary
-    Box(
-        Modifier.width(3.dp).height(34.dp).background(
-            if (selected) color.copy(alpha = if (enabled) 1f else 0.45f)
-            else androidx.compose.ui.graphics.Color.Transparent
-        )
-    )
+    Box(Modifier.size(20.dp), contentAlignment = Alignment.Center) {
+        if (selected) {
+            AdaptiveIcon(
+                Icons.Rounded.Check,
+                null,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.primary.copy(
+                    alpha = if (enabled) 1f else 0.45f
+                )
+            )
+        }
+    }
 }
 
 /** Identical detail-row surface, checkbox, lock menu and hit area for both engines. */
@@ -466,9 +474,10 @@ internal fun WorkspaceDetailRow(
                     else androidx.compose.ui.state.ToggleableState.Off
             }
         val rowContents: @Composable RowScope.() -> Unit = {
-            WorkspaceDetailSelectionRail(selected = checked, enabled = enabled)
-            Spacer(Modifier.width(12.dp))
+            // Preserve the existing leading indentation without the blue rail.
+            Spacer(Modifier.width(15.dp))
             Column(Modifier.weight(1f).padding(vertical = 4.dp)) { content() }
+            WorkspaceDetailSelectionCheck(selected = checked, enabled = enabled)
             if (locked) AdaptiveIcon(
                 Icons.Rounded.Lock, stringResource(R.string.bulk_lock_full),
                 modifier = Modifier.padding(horizontal = 8.dp).size(18.dp)

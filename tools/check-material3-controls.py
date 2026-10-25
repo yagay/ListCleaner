@@ -314,7 +314,7 @@ flat_visual_checks = {
                             "WorkspaceDetailContainer(position, selected = false)",
                             "WorkspaceDetailContainer(position, checked, contentBlock)",
                             "UiCardDetailRow(modifier = clickModifier, content = rowContents)",
-                            "WorkspaceDetailSelectionRail(selected = checked, enabled = enabled)"),
+                            "WorkspaceDetailSelectionCheck(selected = checked, enabled = enabled)"),
     "SettingsWidgets.kt": ("FlatSectionHeader(", "MaterialSectionCard { content() }",
                            "FlatRowSurface(dividerInset = 0.dp)", "FlatRowSurface("),
     "SettingsCenterHome.kt": ("FlatCategoryRow(", "onSelect(section)",
@@ -430,26 +430,30 @@ if "end = MaterialUiTokens.pageHorizontal + MaterialUiTokens.appExpandIndicatorW
 if "val appExpandIndicatorWidth = 18.dp" not in visual_tokens:
     errors.append("MaterialDesignSystem.kt: missing shared overflow alignment width")
 
-# Entry and Root expanded details share one flat selected rail and tinted background.
-# The original circular/radio-style indicator must not return.
+# Entry and Root expanded details share one trailing check and tinted surface.
+# There is no blue leading rail and no circular/radio selection glyph.
 details = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
-rail = details.split("private fun WorkspaceDetailSelectionRail(", 1)[-1].split(
+mark = details.split("private fun WorkspaceDetailSelectionCheck(", 1)[-1].split(
     "/** Identical detail-row surface", 1
 )[0]
-for expected in ("Modifier.width(3.dp).height(34.dp).background(",
-                 "if (selected) color.copy(", "Color.Transparent"):
-    if expected not in rail:
-        errors.append(f"WorkspaceCommon.kt: slim selection rail missing {expected}")
-if "WorkspaceDetailSelectionIndicator(" in details or "CircleShape" in rail:
-    errors.append("WorkspaceCommon.kt: obsolete circular selection mark returned")
+for expected in ("Box(Modifier.size(20.dp)", "if (selected)", "Icons.Rounded.Check",
+                 "MaterialTheme.colorScheme.primary.copy(", "if (enabled) 1f else 0.45f"):
+    if expected not in mark:
+        errors.append(f"WorkspaceCommon.kt: trailing selection check missing {expected}")
+if "WorkspaceDetailSelectionRail(" in details or "CircleShape" in mark:
+    errors.append("WorkspaceCommon.kt: obsolete leading rail or circular selection returned")
 detail_row = details.split("internal fun WorkspaceDetailRow(", 1)[-1]
-for expected in ("WorkspaceDetailSelectionRail(selected = checked, enabled = enabled)",
-                 "Spacer(Modifier.width(12.dp))",
+for expected in ("WorkspaceDetailSelectionCheck(selected = checked, enabled = enabled)",
+                 "Spacer(Modifier.width(15.dp))",
                  "toggleableState = if (checked)",
                  "UiCardDetailRow(modifier = clickModifier, content = rowContents)",
                  "BulkLockContextMenu("):
     if expected not in detail_row:
         errors.append(f"WorkspaceCommon.kt: expanded detail contract missing {expected}")
+if detail_row.index("Column(Modifier.weight(1f)") > detail_row.index("WorkspaceDetailSelectionCheck("):
+    errors.append("WorkspaceCommon.kt: check must follow component text")
+if detail_row.index("WorkspaceDetailSelectionCheck(") > detail_row.index("trailing()"):
+    errors.append("WorkspaceCommon.kt: check must precede overflow actions")
 if "AdaptiveCheckbox(" in detail_row:
     errors.append("WorkspaceCommon.kt: expanded details must not use square checkboxes")
 if "ContinuousDetailSurface(selected = selected, content = content)" not in details:
