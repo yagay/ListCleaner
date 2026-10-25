@@ -383,6 +383,18 @@ for expected in ("FlatWorkspaceDropdownMenu(", "onDismissRequest = { expanded = 
         errors.append(f"WorkspaceCommon.kt: compact direct-choice Filter regression: {expected}")
 if "ModalBottomSheet(" in filter_popup or "LazyRow(" in filter_popup:
     errors.append("WorkspaceCommon.kt: Filter must open near its top button, not as a sheet")
+# Reset/Apply are siblings of the bounded scrolling choices, never inside them.
+for expected in ("LocalConfiguration.current.screenHeightDp", "optionsMaxHeight",
+                 ".heightIn(max = optionsMaxHeight)", ".verticalScroll(rememberScrollState())",
+                 "} // End scrollable filter choices", "// Fixed footer:"):
+    if expected not in filter_popup:
+        errors.append(f"WorkspaceCommon.kt: filter footer layout missing: {expected}")
+scroll_end = filter_popup.find("} // End scrollable filter choices")
+footer_start = filter_popup.find("// Fixed footer:")
+if scroll_end < 0 or footer_start < scroll_end:
+    errors.append("WorkspaceCommon.kt: filter actions must follow, not scroll with, choices")
+if "lc_filter_sheet_reset" not in filter_popup[footer_start:] or "lc_filter_sheet_apply" not in filter_popup[footer_start:]:
+    errors.append("WorkspaceCommon.kt: Reset and Apply must both remain in the fixed footer")
 if "heightIn(max = 480.dp)" in filter_popup or "widthIn(min = 270.dp" in filter_popup:
     errors.append("WorkspaceCommon.kt: Filter must use Category-scale dropdown dimensions")
 # Category and Filter use one flat row style inside anchored menus.

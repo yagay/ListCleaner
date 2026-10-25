@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.text.font.FontWeight
@@ -133,6 +134,9 @@ internal fun WorkspaceFilterBar(
     // Match the category picker: show two group headers, not every filter row.
     val activeCount = (if (appTypeFilter != AppTypeFilter.ALL) 1 else 0) +
         (if (viewFilter != UiFilter.ALL) 1 else 0)
+    // Leave space for the title, fixed actions, and insets in smaller windows.
+    val optionsMaxHeight = (LocalConfiguration.current.screenHeightDp - 220)
+        .coerceIn(96, 280).dp
 
     // Put the popup in the trigger's Box so Material 3 anchors its position
     // directly below the top Filter button, just like the Category menu.
@@ -153,63 +157,71 @@ internal fun WorkspaceFilterBar(
             expanded = expanded,
             onDismissRequest = { expanded = false },
             modifier = Modifier.widthIn(min = 240.dp, max = 328.dp)
-                .heightIn(max = 440.dp)
         ) {
-            AdaptiveText(
-                stringResource(R.string.lc_filter_sheet_title),
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialSelectionPalette.text()
-            )
-            // Direct single-choice groups: no nested menus, draft until Apply.
-            WorkspaceFilterChoiceGroup(
-                title = stringResource(R.string.app_type_filter),
-                options = AppTypeFilter.entries.toList(),
-                selected = draftAppType,
-                titleFor = { stringResource(it.titleRes()) },
-                onSelected = { draftAppType = it }
-            )
-            AdaptiveHorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
-            WorkspaceFilterChoiceGroup(
-                title = stringResource(R.string.view_filter),
-                options = UiFilter.entries.toList(),
-                selected = draftView,
-                titleFor = { viewTitle(it) },
-                onSelected = { draftView = it }
-            )
-            if (extraFilter != null) {
+            Column(Modifier.fillMaxWidth()) {
+                AdaptiveText(
+                    stringResource(R.string.lc_filter_sheet_title),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialSelectionPalette.text()
+                )
+                // Only choices scroll: Reset and Apply are outside this viewport.
+                Column(
+                    Modifier.fillMaxWidth()
+                        .heightIn(max = optionsMaxHeight)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                WorkspaceFilterChoiceGroup(
+                    title = stringResource(R.string.app_type_filter),
+                    options = AppTypeFilter.entries.toList(),
+                    selected = draftAppType,
+                    titleFor = { stringResource(it.titleRes()) },
+                    onSelected = { draftAppType = it }
+                )
+                AdaptiveHorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
+                WorkspaceFilterChoiceGroup(
+                    title = stringResource(R.string.view_filter),
+                    options = UiFilter.entries.toList(),
+                    selected = draftView,
+                    titleFor = { viewTitle(it) },
+                    onSelected = { draftView = it }
+                )
+                if (extraFilter != null) {
+                    AdaptiveHorizontalDivider()
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(
+                            horizontal = 8.dp, vertical = 4.dp
+                        ),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        extraFilter()
+                    }
+                }
+                } // End scrollable filter choices
                 AdaptiveHorizontalDivider()
+                // Fixed footer: Reset and Apply remain visible while choices scroll.
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(
                         horizontal = 8.dp, vertical = 4.dp
                     ),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    extraFilter()
+                    AdaptiveTextButton(onClick = {
+                        draftAppType = AppTypeFilter.ALL
+                        draftView = UiFilter.ALL
+                    }) {
+                        AdaptiveText(stringResource(R.string.lc_filter_sheet_reset))
+                    }
+                    AdaptiveTextButton(onClick = {
+                        if (draftAppType != appTypeFilter) onAppTypeFilter(draftAppType)
+                        if (draftView != viewFilter) onViewFilter(draftView)
+                        expanded = false
+                    }) {
+                        AdaptiveText(stringResource(R.string.lc_filter_sheet_apply))
+                    }
                 }
-            }
-            AdaptiveHorizontalDivider()
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(
-                    horizontal = 8.dp, vertical = 4.dp
-                ),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                AdaptiveTextButton(onClick = {
-                    draftAppType = AppTypeFilter.ALL
-                    draftView = UiFilter.ALL
-                }) {
-                    AdaptiveText(stringResource(R.string.lc_filter_sheet_reset))
-                }
-                AdaptiveTextButton(onClick = {
-                    if (draftAppType != appTypeFilter) onAppTypeFilter(draftAppType)
-                    if (draftView != viewFilter) onViewFilter(draftView)
-                    expanded = false
-                }) {
-                    AdaptiveText(stringResource(R.string.lc_filter_sheet_apply))
-                }
-            }
+            } // End fixed-footer container
         }
     }
 }
