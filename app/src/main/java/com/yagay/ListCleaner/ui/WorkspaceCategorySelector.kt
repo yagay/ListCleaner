@@ -64,8 +64,8 @@ internal fun WorkspaceCategoryFilterRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        filter()
         Box(Modifier.weight(1f)) { category() }
+        filter()
     }
 }
 

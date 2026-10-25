@@ -298,9 +298,9 @@ class MainActivity : ComponentActivity() {
                     { showExportDialog = true },
                     showSearch = state.destination != Destination.SETTINGS,
                     titleRes = when {
-                        componentModeActive || state.destination == Destination.TILES -> R.string.root_screen_title
+                        state.destination == Destination.TILES -> R.string.root_screen_title
                         state.destination == Destination.PRIORITY -> R.string.nav_priority
-                        else -> R.string.workspace_rule_section
+                        else -> R.string.nav_rules
                     },
                     spaces = spaces,
                     selectedSpace = selectedSpace,

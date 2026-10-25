@@ -158,6 +158,20 @@ for filename, symbols in flat_visual_checks.items():
         if symbol not in content:
             errors.append(f"{filename}: missing shared List First visual contract: {symbol}")
 
+# Category is the primary, left-hand control on every direct-list editor.
+# A prior refactor accidentally reversed the UI despite the documented contract.
+picker_source = (root / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
+picker_row = picker_source.split("internal fun WorkspaceCategoryFilterRow(", 1)[-1].split(
+    "/** Unified top-row trigger", 1
+)[0]
+category_position = picker_row.find("Box(Modifier.weight(1f)) { category() }")
+filter_position = picker_row.find("        filter()")
+if category_position < 0 or filter_position < 0 or category_position >= filter_position:
+    errors.append("WorkspaceCategorySelector.kt: Category must precede Filter in the top toolbar")
+toolbar_source = (root / "MainActivity.kt").read_text(encoding="utf-8")
+if "else -> R.string.nav_rules" not in toolbar_source:
+    errors.append("MainActivity.kt: combined Cleanup editor must use the unified Cleanup title")
+
 # Expansion controls and Root/LSPosed actions must not be dropped.
 details = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
 for symbol in ("WorkspaceReadOnlyDetailRow(", "WorkspaceDetailRow(",
