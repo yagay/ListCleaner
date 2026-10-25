@@ -12,11 +12,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -186,17 +184,13 @@ internal fun ComponentRow(
             )
         },
         trailing = {
-            onPreview?.let { launch ->
-                WorkspaceDetailIconAction(
-                    Icons.Rounded.Visibility,
-                    stringResource(R.string.system_preview_action),
-                    launch
-                )
-            }
-            WorkspaceDetailIconAction(
-                Icons.Rounded.Edit,
-                stringResource(R.string.component_edit_display_name),
-                onEditTitle
+            WorkspaceDetailActionsMenu(
+                onPreview = onPreview,
+                onEdit = onEditTitle,
+                locked = locked,
+                lockToggleEnabled = lockToggleEnabled,
+                onLock = onLock,
+                onUnlock = onUnlock
             )
         }
     )

@@ -16,7 +16,6 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -489,20 +488,20 @@ fun RootComponentsScreen(
                         )
                     },
                     trailing = {
-                        AdaptiveIconButton(onClick = {
-                            systemProbeRequest = SystemProbeRequest(
-                                componentKind = item.kind,
-                                userId = item.user,
-                                focusPackage = item.component.packageName,
-                                focusClass = item.component.className,
-                            )
-                        }) {
-                            AdaptiveIcon(
-                                Icons.Rounded.Visibility,
-                                stringResource(R.string.system_preview_action),
-                                Modifier.size(18.dp)
-                            )
-                        }
+                        WorkspaceDetailActionsMenu(
+                            onPreview = {
+                                systemProbeRequest = SystemProbeRequest(
+                                    componentKind = item.kind,
+                                    userId = item.user,
+                                    focusPackage = item.component.packageName,
+                                    focusClass = item.component.className,
+                                )
+                            },
+                            locked = itemLocked,
+                            lockToggleEnabled = lockToggleEnabled,
+                            onLock = { vm.setComponentItemLocked(kind, item, true) },
+                            onUnlock = { vm.setComponentItemLocked(kind, item, false) }
+                        )
                     }
                 )
             }

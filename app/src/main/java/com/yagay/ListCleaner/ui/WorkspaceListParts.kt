@@ -2,12 +2,19 @@ package com.yagay.ListCleaner.ui
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -156,5 +163,72 @@ internal fun WorkspaceDetailIconAction(
             contentDescription,
             modifier = Modifier.size(18.dp)
         )
+    }
+}
+
+
+/**
+ * All expanded Entry/Root item actions live behind one overflow affordance.
+ * Preview remains item-scoped; clicking the row still controls selection.
+ * The existing long-press lock menu is preserved as an alternative.
+ */
+@Composable
+internal fun WorkspaceDetailActionsMenu(
+    onPreview: (() -> Unit)?,
+    locked: Boolean,
+    lockToggleEnabled: Boolean,
+    onLock: () -> Unit,
+    onUnlock: () -> Unit,
+    onEdit: (() -> Unit)? = null
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val actions = buildList {
+        if (onPreview != null) {
+            add(WorkspaceMenuAction(
+                label = stringResource(R.string.system_preview_action),
+                onClick = onPreview
+            ))
+        }
+        if (onEdit != null) {
+            add(WorkspaceMenuAction(
+                label = stringResource(R.string.component_edit_display_name),
+                onClick = onEdit
+            ))
+        }
+        if (lockToggleEnabled) {
+            add(WorkspaceMenuAction(
+                label = stringResource(
+                    if (locked) R.string.bulk_lock_action_unlock
+                    else R.string.bulk_lock_action_lock
+                ),
+                onClick = if (locked) onUnlock else onLock
+            ))
+        }
+    }
+    if (actions.isEmpty()) return
+    Box {
+        AdaptiveIconButton(onClick = { expanded = true }) {
+            AdaptiveIcon(
+                Icons.Rounded.MoreVert,
+                stringResource(R.string.common_more),
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        FlatWorkspaceDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.widthIn(min = 200.dp, max = 280.dp)
+        ) {
+            actions.forEach { action ->
+                WorkspaceFlatMenuRow(
+                    title = action.label,
+                    selected = false,
+                    onClick = {
+                        expanded = false
+                        action.onClick()
+                    }
+                )
+            }
+        }
     }
 }
