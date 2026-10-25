@@ -394,7 +394,7 @@ private fun WorkspaceDetailContainer(
     selected: Boolean,
     content: @Composable () -> Unit
 ) {
-    ContinuousDetailSurface(content)
+    ContinuousDetailSurface(selected = selected, content = content)
 }
 
 /** Read-only details use the exact same row body and indentation. */
@@ -409,44 +409,22 @@ internal fun WorkspaceReadOnlyDetailRow(
 }
 
 /**
- * Circular detail-only selection mark. The parent detail row owns the click and
- * checkbox semantics, keeping this shape decorative and avoiding nested targets.
- * Both LSPosed entries and Root components use this one shared indicator.
+ * One slim selection rail for expanded Entry and Root details.
+ * The unselected rail is transparent but retains its width, so text never jumps.
+ * Multi-select semantics remain on the parent row rather than this decoration.
  */
 @Composable
-private fun WorkspaceDetailSelectionIndicator(
-    checked: Boolean,
+private fun WorkspaceDetailSelectionRail(
+    selected: Boolean,
     enabled: Boolean,
-    modifier: Modifier = Modifier
 ) {
-    val colors = MaterialTheme.colorScheme
-    val disabledColor = colors.onSurface.copy(alpha = 0.38f)
-    val ringColor = if (!enabled) disabledColor
-        else if (checked) colors.primary else colors.outline
+    val color = MaterialTheme.colorScheme.primary
     Box(
-        modifier = modifier.size(MaterialUiTokens.iconTouchTarget),
-        contentAlignment = Alignment.Center
-    ) {
-        // Visual radio-style indicator, but each detail remains an independent
-        // multi-selection checkbox through its parent row's semantics.
-        androidx.compose.material3.Surface(
-            modifier = Modifier.size(22.dp),
-            shape = androidx.compose.foundation.shape.CircleShape,
-            color = androidx.compose.ui.graphics.Color.Transparent,
-            border = androidx.compose.foundation.BorderStroke(2.dp, ringColor)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                if (checked) {
-                    Box(
-                        Modifier.size(10.dp).background(
-                            if (enabled) colors.primary else disabledColor,
-                            androidx.compose.foundation.shape.CircleShape
-                        )
-                    )
-                }
-            }
-        }
-    }
+        Modifier.width(3.dp).height(34.dp).background(
+            if (selected) color.copy(alpha = if (enabled) 1f else 0.45f)
+            else androidx.compose.ui.graphics.Color.Transparent
+        )
+    )
 }
 
 /** Identical detail-row surface, checkbox, lock menu and hit area for both engines. */
@@ -475,11 +453,8 @@ internal fun WorkspaceDetailRow(
                     else androidx.compose.ui.state.ToggleableState.Off
             }
         val rowContents: @Composable RowScope.() -> Unit = {
-            WorkspaceDetailSelectionIndicator(
-                checked = checked,
-                enabled = enabled,
-                modifier = Modifier.padding(horizontal = 8.dp)
-            )
+            WorkspaceDetailSelectionRail(selected = checked, enabled = enabled)
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f).padding(vertical = 4.dp)) { content() }
             if (locked) AdaptiveIcon(
                 Icons.Rounded.Lock, stringResource(R.string.bulk_lock_full),

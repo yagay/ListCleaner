@@ -136,13 +136,15 @@ flat_visual_checks = {
     "MaterialDesignSystem.kt": ("FlatRowSurface(", "fun MaterialSettingsRow(",
                                 "fun MaterialSectionCard(", "shadowElevation = 0.dp"),
     "WorkspaceGroupedRows.kt": ("FlatRowSurface(", "ContinuousApplicationSurface(",
-                                 "ContinuousDetailSurface(", "MaterialFlatPalette.detailSurface()"),
+                                 "ContinuousDetailSurface(", "MaterialFlatPalette.detailSurface()",
+                                 "MaterialFlatPalette.selectedDetailSurface()"),
     "WorkspaceAppRow.kt": ("ContinuousApplicationSurface { appContent() }",
                             "MaterialAppRowBody(", "heightIn(min = MaterialUiTokens.listRowHeight)"),
     "WorkspaceCommon.kt": ("WorkspaceCategoryRow(", "FlatCategoryRow(",
                             "WorkspaceDetailContainer(position, selected = false)",
                             "WorkspaceDetailContainer(position, checked, contentBlock)",
-                            "UiCardDetailRow(modifier = clickModifier, content = rowContents)"),
+                            "UiCardDetailRow(modifier = clickModifier, content = rowContents)",
+                            "WorkspaceDetailSelectionRail(selected = checked, enabled = enabled)"),
     "SettingsWidgets.kt": ("FlatSectionHeader(", "MaterialSectionCard { content() }",
                            "FlatRowSurface(dividerInset = 0.dp)", "FlatRowSurface("),
     "SettingsCenterHome.kt": ("FlatCategoryRow(", "onSelect(section)",
@@ -228,29 +230,40 @@ nav_activity = (root / "MainActivity.kt").read_text(encoding="utf-8")
 if "Modifier.drawWithContent" not in nav_activity or "tonalElevation = 0.dp" not in nav_activity:
     errors.append("MainActivity.kt: flat bottom navigation missing")
 
-# Expansion controls and Root/LSPosed actions must not be dropped.
+# Entry and Root expanded details share one flat selected rail and tinted background.
+# The original circular/radio-style indicator must not return.
 details = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
-if "WorkspaceDetailSelectionIndicator(" not in details or "shape = androidx.compose.foundation.shape.CircleShape" not in details:
-    errors.append("WorkspaceCommon.kt: expanded Entry/Root rows must use a circular detail indicator")
-indicator = details.split("private fun WorkspaceDetailSelectionIndicator(", 1)[-1].split(
+rail = details.split("private fun WorkspaceDetailSelectionRail(", 1)[-1].split(
     "/** Identical detail-row surface", 1
 )[0]
-for expected in ("border = androidx.compose.foundation.BorderStroke(2.dp, ringColor)",
-                 "Modifier.size(10.dp).background(", "if (checked)"):
-    if expected not in indicator:
-        errors.append(f"WorkspaceCommon.kt: hollow ring / selected dot indicator missing: {expected}")
-if "Icons.Rounded.Check" in indicator or "AdaptiveCheckbox(" in indicator:
-    errors.append("WorkspaceCommon.kt: expanded selection indicator must not render a tick or square")
+for expected in ("Modifier.width(3.dp).height(34.dp).background(",
+                 "if (selected) color.copy(", "Color.Transparent"):
+    if expected not in rail:
+        errors.append(f"WorkspaceCommon.kt: slim selection rail missing {expected}")
+if "WorkspaceDetailSelectionIndicator(" in details or "CircleShape" in rail:
+    errors.append("WorkspaceCommon.kt: obsolete circular selection mark returned")
 detail_row = details.split("internal fun WorkspaceDetailRow(", 1)[-1]
-if "AdaptiveCheckbox(" in detail_row or "WorkspaceDetailSelectionIndicator(" not in detail_row:
-    errors.append("WorkspaceCommon.kt: detail rows must not fall back to a square checkbox")
-if "toggleableState = if (checked)" not in detail_row:
-    errors.append("WorkspaceCommon.kt: detail checkbox selection semantics missing")
+for expected in ("WorkspaceDetailSelectionRail(selected = checked, enabled = enabled)",
+                 "Spacer(Modifier.width(12.dp))",
+                 "toggleableState = if (checked)",
+                 "UiCardDetailRow(modifier = clickModifier, content = rowContents)",
+                 "BulkLockContextMenu("):
+    if expected not in detail_row:
+        errors.append(f"WorkspaceCommon.kt: expanded detail contract missing {expected}")
+if "AdaptiveCheckbox(" in detail_row:
+    errors.append("WorkspaceCommon.kt: expanded details must not use square checkboxes")
+if "ContinuousDetailSurface(selected = selected, content = content)" not in details:
+    errors.append("WorkspaceCommon.kt: selected detail background not forwarded to shared surface")
+grouped = (root / "WorkspaceGroupedRows.kt").read_text(encoding="utf-8")
+if "if (selected) MaterialFlatPalette.selectedDetailSurface()" not in grouped:
+    errors.append("WorkspaceGroupedRows.kt: selected detail background missing")
+palette = (root / "MaterialActionColors.kt").read_text(encoding="utf-8")
+if "fun selectedDetailSurface()" not in palette or "MaterialSelectionPalette.activeBackground()" not in palette:
+    errors.append("MaterialActionColors.kt: highlighted detail color not derived from theme")
 for symbol in ("WorkspaceReadOnlyDetailRow(", "WorkspaceDetailRow(",
-               "UiCardDetailRow(modifier = clickModifier, content = rowContents)",
-               "ContinuousDetailSurface(content)", "BulkLockContextMenu("):
+               "ContinuousDetailSurface(selected = selected, content = content)"):
     if symbol not in details:
-        errors.append(f"WorkspaceCommon.kt: expanded component contract missing: {symbol}")
+        errors.append(f"WorkspaceCommon.kt: expanded detail surface contract missing {symbol}")
 
 # Preview tabs, result list and choice dialogs share Material3 list affordances.
 if "AdaptiveFilterChip(" not in (root / "SystemProbeDialog.kt").read_text(encoding="utf-8"):

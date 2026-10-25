@@ -51,6 +51,11 @@ internal object MaterialFlatPalette {
     @Composable fun surface(): Color = MaterialTheme.colorScheme.surface
     @Composable fun sectionSurface(): Color = MaterialTheme.colorScheme.surfaceContainerLow
     @Composable fun detailSurface(): Color = MaterialTheme.colorScheme.surfaceContainerLow
+    @Composable
+    fun selectedDetailSurface(): Color =
+        MaterialSelectionPalette.activeBackground()
+            .copy(alpha = if (LocalListCleanerDarkTheme.current) 0.24f else 0.16f)
+            .compositeOver(detailSurface())
     @Composable fun outline(): Color = MaterialTheme.colorScheme.outlineVariant.copy(
         alpha = if (LocalListCleanerDarkTheme.current) 0.42f else 0.30f
     )
