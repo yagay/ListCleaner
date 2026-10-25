@@ -8,13 +8,13 @@ import org.junit.Test
 
 class AdvancedEntryDefinitionsTest {
     @Test
-    fun serviceActionsAreUniqueAndKindsAreAdvanced() {
+    fun serviceActionsAreUniqueAndRetainSystemSafetyWarnings() {
         assertEquals(
             SYSTEM_SERVICE_ENTRY_DEFINITIONS.size,
             SYSTEM_SERVICE_ENTRY_DEFINITIONS.map { it.action }.toSet().size,
         )
         SYSTEM_SERVICE_ENTRY_DEFINITIONS.forEach { definition ->
-            assertEquals(EntryGroup.ADVANCED, definition.kind.entryGroup())
+            assertTrue(definition.kind.requiresSystemEntrySafetyNote())
             assertEquals(definition.kind, systemServiceEntryKind(definition.action))
             assertFalse(definition.action.isBlank())
         }
