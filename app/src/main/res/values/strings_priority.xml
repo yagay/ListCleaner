@@ -2,13 +2,13 @@
 <resources>
     <string name="priority_unselected">Not prioritized</string>
     <string name="priority_selected">Prioritized</string>
-    <string name="priority_intro">Use Apps to narrow the list to user or system apps without changing saved order. Selecting an app here means prioritize it in supported chooser ordering; it never means set that app as Android\'s default. Long-press without dragging to open the lock menu. Locks only protect bulk select/invert actions and never participate in ordering.</string>
-    <string name="priority_drag_help">Long-press a prioritized app and move to drag and reorder; release to save. A stationary long-press opens the lock menu. After expanding an app, you can also move it up or down. Tap the pencil on a component to change its menu display name for the current Intent category; leave it empty to restore the original name.</string>
+    <string name="priority_intro">Apps only filters user or system apps without changing the saved order. Selecting an app prioritizes it in supported candidate menus, not as the Android default. Long-press an app row for the three-dot menu; drag the right-hand handle to reorder. Unlock a locked row before selecting it; bulk actions skip locked entries. Confirm Apply changes at the bottom to save.</string>
+    <string name="priority_drag_help">Long-press and move the right-hand drag handle to reorder a prioritized app. Releasing it only updates the pending order; confirm Apply changes at the bottom to save. Long-press the app row for the three-dot menu. Expanded apps also support Move up and Move down. Edit a component menu label through its three-dot menu; save an empty label to restore the original.</string>
     <string name="priority_source_inherited">Current ordering source: inherited from Open · All</string>
     <string name="priority_source_dedicated">Current ordering source: dedicated ordering for %1$s</string>
     <string name="priority_source_none">Neither this type nor All has priority ordering</string>
     <string name="priority_restore_inheritance">Restore inheritance from All</string>
-    <string name="priority_inheritance_help">Without dedicated ordering, this type inherits All directly. The first select, deselect, drag, or move operation in this type creates dedicated ordering based on the inherited order. Restoring inheritance makes it follow future changes to All again. Custom and built-in types use the same behavior.</string>
+    <string name="priority_inheritance_help">A type without a dedicated order inherits All. The first select, deselect, drag or move action creates a pending dedicated order based on that inherited order; confirm Apply changes to save it. Restoring inheritance resumes following changes to All. Built-in and custom types behave the same way.</string>
     <string name="priority_general_help">Ordering and display names are saved per entry category. They only influence supported candidate menus; they do not change Android Roles, default apps, service enablement, permissions, app names, component names, or actual targets.</string>
     <string name="priority_compat_disconnected">LSPosed is not connected. Changes can be saved but are not active yet.</string>
     <string name="priority_compat_unknown_host">No resolver host is confirmed, so ordering capability is unknown on this device.</string>

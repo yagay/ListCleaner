@@ -22,7 +22,7 @@
     <string name="runtime_connection_changed">连接已变化，请重试</string>
     <string name="runtime_ack_missing">配置已写入，但系统 Hook 未确认接收；本地管理列表仍可正常使用，可尝试热更新或重启后让系统侧生效</string>
     <string name="runtime_config_changed">配置在确认期间发生变化，正在重新同步</string>
-    <string name="runtime_confirmed_hits">系统 Hook 已确认配置；可在状态页查看过滤、应用可见性和排序的实际命中次数</string>
+    <string name="runtime_confirmed_hits">系统 Hook 已确认当前配置；过滤、应用可见性和排序的实际命中次数可在“设置 → 高级与诊断 → 详细运行信息”中查看。</string>
     <string name="runtime_validation_failed">运行状态验证失败；系统侧规则是否生效尚未确认，但本地管理列表仍可正常使用</string>
     <string name="runtime_recovered_waiting">已恢复本地配置，等待系统确认</string>
     <string name="runtime_reset_waiting">本地已重置并选择暂停，等待系统确认</string>

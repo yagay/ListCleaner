@@ -39,13 +39,13 @@
     <string name="root_permission_required">Root permission required</string>
     <string name="root_permission_ack">Got it</string>
     <string name="root_screen_help">This page is different from Rules: Rules only filter candidate entries, while Component cleanup really enables or disables Android components with Root. It manages launcher entries, tiles, create-shortcut entries, and widgets. Desired disabled state is persisted and reconciled after boot, unlock, and app updates.</string>
-    <string name="root_filter_help">Apps filters All, User apps, or System apps; counts and bulk actions apply only to the current view. Long-press an app or child item to open the lock menu. Unlocked rows show no lock icon; a status icon appears only after locking. Full locks protect the whole app, partial locks protect selected child entries, and Locked under All aggregates locks from Launcher, Tile, Create shortcut, and Widget categories. Locks only skip bulk actions, remain manually editable, do not change Root disabled state, and do not participate in ordering. Core protected system components remain display-only.</string>
-    <string name="root_selection_semantics">Checked means the component is actually disabled. Current state is read back from Android, while List Cleaner also stores the desired disabled policy so restored components can be filtered and automatically disabled again after startup or updates.</string>
-    <string name="root_change_semantics">Checking disables immediately and unchecking explicitly enables immediately, without an extra confirmation dialog. This is a real component-state change, unlike Rules-page filtering. Disabling can affect features currently using the component; enabling does not restore any previous default choice or layout.</string>
+    <string name="root_filter_help">Apps filters All, User apps or System apps and limits bulk targets. Lock or unlock app and component rows with the three-dot menu or a long-press; Locked under All aggregates category locks. Bulk actions skip locked items, and a locked child row cannot be selected directly until it is unlocked. A lock is not actual component disable. Protected system components remain read-only.</string>
+    <string name="root_selection_semantics">Checked means desired disabled; unchecked means desired enabled. Pending changes may differ from actual Android state. Root operations run only after Apply changes is confirmed at the bottom. List Cleaner then reads back the system state, saves the disabled policy and reconciles restored components after boot or app updates.</string>
+    <string name="root_change_semantics">Individual selections and bulk actions first update a pending draft and do not immediately change Android. Confirm bulk targets, then confirm Apply changes at the bottom before Root operations run and the result is verified. Unlike Rules filtering, this changes real component state. Re-enabling does not restore previous launcher, tile or widget placement.</string>
     <string name="root_kind_all_help">Uses Android subsystem registries where available: launcher activities, standard TileService entries, LauncherApps shortcut configuration activities plus legacy creation entries, and AppWidgetManager providers with manifest fallback. This never disables the entire app.</string>
     <string name="root_kind_launcher_help">Lists exported ACTION_MAIN + CATEGORY_LAUNCHER activities and aliases. Disabling one removes that launcher entry and can make an app harder to open if it is the app’s only launcher activity; the app itself remains installed.</string>
     <string name="root_kind_tile_help">Only standard TileService components are listed. Built-in system tiles without an independent service, such as Wi-Fi or Bluetooth, are unsupported; core system components are display-only.</string>
-    <string name="root_kind_shortcut_help">Lists shortcut configuration activities reported by LauncherApps plus legacy shortcut creation activities. It does not represent individual dynamic, pinned, or manifest ShortcutInfo items; observed long-press shortcuts are managed on the Rules page. Disabling here may affect other entry points using the same Activity.</string>
+    <string name="root_kind_shortcut_help">Lists LauncherApps shortcut configuration activities and legacy shortcut creation entries, not individual Manifest, Dynamic or Pinned ShortcutInfo. Long-press shortcut candidates belong under Rule cleanup and may come from runtime Hook observations or read-only proactive discovery. Disabling a configuration activity can affect other entry points.</string>
     <string name="root_kind_widget_help">Uses the AppWidgetManager provider registry first and merges manifest widget receivers as a fallback. Disabling can break placed widgets; enabling does not guarantee restoration of the previous layout.</string>
     <string name="root_summary">App list · %1$d · %2$d components</string>
     <string name="root_show_disabled_only">Show disabled only</string>
@@ -65,7 +65,7 @@
     <string name="root_app_count">%1$d apps</string>
     <string name="root_no_components">No matching components</string>
     <string name="root_batch_confirm_title">Confirm batch component changes</string>
-    <string name="root_batch_confirm_body">%1$s %2$d components? %3$d entries will be skipped (locked, already in the requested state, or unavailable). Component changes take effect immediately.</string>
+    <string name="root_batch_confirm_body">Stage the %1$s operation for %2$d components? %3$d entries will be skipped because they are locked, unchanged or unavailable. Root commands do not run yet; confirm Apply changes at the bottom.</string>
     <string name="root_batch_action_enable">Enable</string>
     <string name="root_batch_action_disable">Disable</string>
     <string name="root_batch_action_invert">Invert</string>
@@ -76,7 +76,7 @@
     <string name="root_batch_stop_remaining">Stop remaining</string>
     <string name="root_empty_filtered">No components match the current filters.</string>
     <string name="root_clear_filters">Clear filters</string>
-    <string name="root_batch_confirmation_text">%1$s the eligible components in the current selection? Locked, unavailable and unchanged entries will be skipped. Changes take effect immediately.</string>
+    <string name="root_batch_confirmation_text">Stage the %1$s operation for eligible components in the current selection? Locked, unavailable and unchanged entries are skipped. Android does not change yet; confirm Apply changes at the bottom.</string>
     <string name="root_batch_processing">Processing components…</string>
     <string name="root_partially_disabled">Partially disabled</string>
     <string name="root_component_status_categories">%1$s · %2$s</string>

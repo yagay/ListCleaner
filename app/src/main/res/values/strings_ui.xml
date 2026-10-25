@@ -26,18 +26,18 @@
     <string name="no_matching_components">No matching components</string>
     <string name="app_list_count">App list · %1$d</string>
     <string name="app_list_count_type">App list · %1$d · %2$s</string>
-    <string name="rules_page_intro">This page manages candidate entries. Detailed behavior for the current entry type is collapsed above; tap the arrow beside the entry name to expand it.</string>
+    <string name="rules_page_intro">Manage system candidate entries here. Use Help in the list summary to see the current category and its limits. Selection changes are staged until Apply changes is confirmed.</string>
     <string name="rules_mode_hide_selected">Current mode: Hide selected. Checked entries are hidden from the corresponding candidate list; uncheck them to restore normal visibility.</string>
     <string name="rules_mode_show_selected">Current mode: Show selected only. Checked entries are kept and other matching entries are hidden.</string>
-    <string name="rules_mode_show_all">Current mode: Show all. Candidate cleaning is paused. Selections are saved but do not filter lists until cleaning is resumed.</string>
-    <string name="rules_usage_help">Checking means hide or keep according to the current global mode; it never means “set as default”. Locks only protect bulk actions and do not change the rule itself.</string>
+    <string name="rules_mode_show_all">Current mode: Show all. Candidate filtering is paused while saved rules remain. New selections require Apply changes confirmation and do not filter candidates while this mode is active.</string>
+    <string name="rules_usage_help">Checked means hide or retain according to the global mode, not set as Android default. Rule selections require Apply confirmation. Unlock locked entries from the three-dot menu before selecting them.</string>
     <string name="rules_typed_help">Editing dedicated rules for “Open · %1$s”. Effective selections combine the generic OPEN rules from All with rules dedicated to the current type. Inherited items remain selected and show their source when expanded. Inherited items must be deselected under All; rules added for the current type affect only that MIME, scheme, or file-extension type.</string>
     <string name="rules_inherited_from_all">Inherited from “Open · All”</string>
     <string name="rules_dedicated_rule">%1$s dedicated rule</string>
     <string name="rules_pause_confirmed">system has confirmed that filtering, ordering, and custom display names are paused; the configuration is retained</string>
     <string name="rules_pause_pending">Paused locally; system application has not yet been confirmed</string>
     <string name="rules_show_selected_empty">Categories with no selections temporarily show all candidates</string>
-    <string name="rules_refresh_incomplete">This refresh did not complete fully; see the status page for details</string>
+    <string name="rules_refresh_incomplete">This refresh was incomplete. Check scan details under Settings - Scanning &amp; Refresh and refresh again.</string>
 
     <string name="dashboard_global_mode">Global cleaning mode</string>
     <string name="dashboard_global_mode_help">Controls whether selected candidate entries are hidden, kept, or temporarily ignored. It does not choose system defaults.</string>
@@ -61,7 +61,7 @@
     <string name="dashboard_manage_app_visibility">Manage app visibility list (%1$d)</string>
     <string name="dashboard_app_visibility_warning">Selections are saved immediately and only apply in Hide selected mode. This runs in android/system_server and hides the whole target package from the source app; it cannot hide only one Activity.</string>
     <string name="dashboard_diagnostics">Diagnostics</string>
-    <string name="dashboard_scan_disclaimer">Scanning discovers manageable candidates and may not exactly match every live menu. Runtime-observed surfaces such as individual shortcuts or Direct Share targets appear only after Android has actually exposed them. Protected system callers are left unchanged.</string>
+    <string name="dashboard_scan_disclaimer">Scans discover manageable candidates and may not match the current system menu. Shortcut and Direct Share sources include runtime Hook observations, proactive read-only scans and history. Proactive candidates are not proof of final display. Privileged system calls and OEM menus may bypass rules.</string>
     <string name="dashboard_inspecting_file">Inspecting file…</string>
     <string name="dashboard_inspect_file">Preview final open targets with an actual file</string>
     <string name="diagnostic_mode">Diagnostic mode</string>
@@ -74,7 +74,7 @@
 
     <string name="rules_scan_summary">Scanned %1$d entries · currently showing %2$d apps</string>
     <string name="root_scan_total">Scanned %1$d components before filters</string>
-    <string name="observed_entry_empty_help">No observed entries yet. Use the target app share panel or launcher shortcuts first, then refresh.</string>
+    <string name="observed_entry_empty_help">No runtime observation for this entry yet. Invoke it in the target app or launcher and refresh. If proactive discovery is enabled, scan candidates under Settings - Scanning &amp; Refresh; those are not necessarily the final menu.</string>
     <string name="entry_group_count">%1$s · %2$d</string>
     <string name="entry_kind_count">%1$s (%2$d)</string>
     <string name="selection_batch_count">%1$s (%2$d)</string>

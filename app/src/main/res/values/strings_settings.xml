@@ -15,13 +15,13 @@
     <string name="settings_icon_size">App icon size</string>
     <string name="settings_appearance_help">Changes apply to shared Material 3 controls immediately. Accessible icon touch targets remain at least 48dp.</string>
     <string name="settings_appearance_section">Appearance and theme</string>
-    <string name="settings_appearance_subtitle">Theme, accent, spacing, corners and controls</string>
+    <string name="settings_appearance_subtitle">Light/dark mode, theme colors, density, icons and spacing</string>
     <string name="settings_list_section">Lists and display</string>
     <string name="settings_list_subtitle">Default sorting, filters and row display</string>
     <string name="settings_scan_subtitle">Automatic scans, caching and manual refresh</string>
-    <string name="settings_compat_subtitle">Global cleaning mode and compatibility hiding</string>
+    <string name="settings_compat_subtitle">Module status, cleanup modes, compatibility visibility and scope</string>
     <string name="settings_backup_subtitle">Import and export cleaning configuration</string>
-    <string name="settings_advanced_subtitle">Module status, scopes and diagnostic tools</string>
+    <string name="settings_advanced_subtitle">Diagnostic export, logs and detailed runtime information</string>
     <string name="settings_backup_note">JSON backups include cleaning and ordering configuration. Local appearance, list defaults and scan preferences are not included.</string>
     <string name="settings_start_page">Open app to</string>
     <string name="settings_sort">Default app order</string>
@@ -43,7 +43,7 @@
     <string name="settings_scan_manual">Manual</string>
     <string name="settings_scan_always">On every entry</string>
     <string name="settings_cache_minutes">Cache age (minutes)</string>
-    <string name="settings_scan_help">Smart mode refreshes when the cache is stale or installed packages change. Manual mode needs an explicit refresh. Repeated scanning can be slow; failed scans retain a 30-second retry cooldown.</string>
+    <string name="settings_scan_help">Smart mode scans when caches expire or installed packages change; Manual mode requires a refresh. Frequent scans may be slower. The retry interval after scan failures follows the value configured on this page.</string>
     <string name="settings_scan_now">Scan components now</string>
     <string name="settings_compat_section">Cleaning and compatibility</string>
     <string name="settings_advanced_section">Advanced and diagnostics</string>

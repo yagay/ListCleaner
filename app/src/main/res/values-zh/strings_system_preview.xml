@@ -10,5 +10,5 @@
     <string name="system_preview_settings_notice">当前打开的是实际系统设置页，不等于最终筛选结果。</string>
     <string name="system_preview_no_handler">设备上没有可用的对应系统界面，或访问受到限制。</string>
     <string name="system_preview_failed">无法打开对应系统界面。</string>
-    <string name="system_preview_explanation">点击预览将通过 Android 实际接口读取列表并显示在本应用弹窗内；也可以打开系统原生弹窗进行对照。不同调用应用、文件类型或用户空间可能返回不同结果。</string>
+    <string name="system_preview_explanation">预览会按当前入口调用可访问的 Android 接口，并区分已启用服务、系统 API 候选和 Hook 观察记录；并非所有类别都能读取最终绘制列表。可在受支持的场景打开系统原生界面对照。调用方、内容类型、厂商实现和用户空间均可能使结果不同。</string>
 </resources>

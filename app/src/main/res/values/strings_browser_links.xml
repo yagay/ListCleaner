@@ -11,7 +11,7 @@
     <string name="rules_browser_inherited">Inherited from “Deep links · All”</string>
     <string name="rules_browser_dedicated">%1$s dedicated rule</string>
     <string name="priority_browser_source_inherited">Current ordering source: inherited from Deep links · All</string>
-    <string name="priority_browser_inheritance_help">Without dedicated ordering, this domain inherits Deep links · All directly. The first select, deselect, drag, or move operation creates dedicated ordering from the inherited order. Restoring inheritance follows future Deep links · All changes again.</string>
+    <string name="priority_browser_inheritance_help">Without a dedicated order, a domain inherits Deep links - All. The first select, deselect, drag or move action creates a pending domain-specific order; confirm Apply changes to save it. Restore inheritance to follow later changes in the generic order.</string>
     <string name="browser_domain_search">Search domains</string>
     <string name="browser_domain_search_empty">No matching domains</string>
 </resources>

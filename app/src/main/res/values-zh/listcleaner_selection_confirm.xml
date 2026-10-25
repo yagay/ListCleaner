@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
   <string name="lc_selection_confirm_title">确认修改</string>
-  <string name="lc_selection_confirm_body">确定要执行以下操作吗？\n%1$s\n\n点击「确定」后才会保存修改。</string>
+  <string name="lc_selection_confirm_body">确认将以下选择加入待应用更改吗？\n%1$s\n\n这一步不会保存规则或执行 Root 命令；还需要点击页面底部“应用更改”并确认。</string>
   <string name="lc_selection_group">应用：%1$s — %2$s</string>
   <string name="lc_selection_item">项目：%1$s — %2$s</string>
   <string name="lc_selection_enable">启用</string>

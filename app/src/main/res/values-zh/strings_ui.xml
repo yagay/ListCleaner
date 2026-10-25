@@ -26,18 +26,18 @@
     <string name="no_matching_components">没有匹配的组件</string>
     <string name="app_list_count">应用列表 · %1$d</string>
     <string name="app_list_count_type">应用列表 · %1$d · %2$s</string>
-    <string name="rules_page_intro">本页管理候选入口。当前入口的详细说明默认收起，点击入口名称右侧的下拉图标即可展开。</string>
+    <string name="rules_page_intro">此页管理候选入口。点击列表统计行的“帮助”查看当前入口的功能与限制；修改选择后先进入待应用状态，确认“应用更改”才保存。</string>
     <string name="rules_mode_hide_selected">当前为“隐藏选中”：勾选项会从对应候选列表中隐藏；取消勾选恢复正常显示。</string>
     <string name="rules_mode_show_selected">当前为“只显示选中”：保留勾选项，隐藏其他匹配候选。</string>
-    <string name="rules_mode_show_all">当前为“全部显示”：暂停候选清理。勾选仍会保存，但恢复清理模式前不会过滤列表。</string>
-    <string name="rules_usage_help">勾选的含义由当前全局模式决定，是“隐藏”或“保留”，不是“设为默认”。锁定只保护批量操作，不会改变规则本身。</string>
+    <string name="rules_mode_show_all">当前为“全部显示”：暂停候选清理，已有规则保留。新的勾选仍需确认“应用更改”后保存；暂停期间不会过滤候选。</string>
+    <string name="rules_usage_help">勾选的意义取决于全局模式，是隐藏或保留候选，而非设置默认应用。规则选择需要确认应用；已锁定项不能直接勾选，请先在三点菜单解锁。</string>
     <string name="rules_typed_help">当前正在编辑“打开方式 · %1$s”专用规则。有效勾选由“全部”中的 OPEN 通用规则与当前类型专用规则共同组成；继承自“全部”的项目会继续显示已勾选，并在展开项中标明来源。继承项不能在分类型里直接取消，需要回到“全部”取消；当前类型新增的规则只影响该 MIME / scheme / 文件后缀类型。</string>
     <string name="rules_inherited_from_all">继承自“打开方式 · 全部”</string>
     <string name="rules_dedicated_rule">%1$s 专用规则</string>
     <string name="rules_pause_confirmed">system 已确认暂停过滤、排序和自定义显示名称；相关配置仍保留</string>
     <string name="rules_pause_pending">本地已选择暂停，尚未确认系统已应用</string>
     <string name="rules_show_selected_empty">未设置勾选的分类暂时显示全部</string>
-    <string name="rules_refresh_incomplete">本次刷新未完整完成，详情见状态页</string>
+    <string name="rules_refresh_incomplete">本次刷新未完整完成；可在“设置 → 扫描与刷新”查看扫描详情并重试。</string>
 
     <string name="dashboard_global_mode">全局清理模式</string>
     <string name="dashboard_global_mode_help">控制已选候选入口是隐藏、保留还是暂时忽略；不会设置系统默认应用。</string>
@@ -61,7 +61,7 @@
     <string name="dashboard_manage_app_visibility">管理应用隐藏列表（%1$d）</string>
     <string name="dashboard_app_visibility_warning">勾选立即保存；仅在“隐藏选中”模式生效。实现位于 android/system_server，属于包级隐藏：命中后该目标包会整体对来源应用不可见，无法只隐藏其中一个 Activity。</string>
     <string name="dashboard_diagnostics">诊断工具</string>
-    <string name="dashboard_scan_disclaimer">扫描用于发现可管理候选，不保证与每次实时菜单完全一致。具体 Shortcut、Direct Share 等运行时观察入口只有在 Android 实际暴露后才会出现；受保护的 system/特权调用保持原样。</string>
+    <string name="dashboard_scan_disclaimer">扫描仅发现可管理候选，未必等于当前系统菜单。Shortcut 和 Direct Share 来源可能是 Hook 运行时观察、主动只读扫描或历史记录；主动候选不能证明最终显示。系统特权调用和厂商自定义界面也可能绕过规则。</string>
     <string name="dashboard_inspecting_file">正在检查文件…</string>
     <string name="dashboard_inspect_file">用实际文件预览最终打开方式</string>
     <string name="diagnostic_mode">诊断模式</string>
@@ -74,7 +74,7 @@
 
     <string name="rules_scan_summary">已扫描 %1$d 个入口 · 当前显示 %2$d 个应用</string>
     <string name="root_scan_total">筛选前已扫描 %1$d 个组件</string>
-    <string name="observed_entry_empty_help">暂未观察到相关入口。请先使用目标应用的分享面板或桌面长按快捷方式，再返回刷新。</string>
+    <string name="observed_entry_empty_help">尚无此入口的运行时观察记录。可先在目标应用或桌面实际调用，再返回刷新；开启主动发现后也能在“设置 → 扫描与刷新”查询候选，但它不等于真实最终菜单。</string>
     <string name="entry_group_count">%1$s · %2$d</string>
     <string name="entry_kind_count">%1$s（%2$d）</string>
     <string name="selection_batch_count">%1$s（%2$d）</string>

@@ -10,5 +10,5 @@
     <string name="system_preview_settings_notice">This opens the real system settings page, not the final filtered list.</string>
     <string name="system_preview_no_handler">No accessible system interface or handler is available on this device.</string>
     <string name="system_preview_failed">The system interface could not be opened.</string>
-    <string name="system_preview_explanation">The preview button reads the actual Android API list inside List Cleaner. The system chooser remains available for comparison. Results may differ for other callers, MIME types and user spaces.</string>
+    <string name="system_preview_explanation">Preview uses accessible Android APIs for the selected entry and distinguishes enabled services, API candidates and Hook observations. Not every category exposes the final rendered list. Open a native system surface for comparison when supported. Calling app, content type, OEM behavior and user space can all affect the result.</string>
 </resources>

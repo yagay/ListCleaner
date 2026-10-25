@@ -39,13 +39,13 @@
     <string name="root_permission_required">需要 Root 授权</string>
     <string name="root_permission_ack">知道了</string>
     <string name="root_screen_help">本页和“规则”页不同：规则页只是过滤候选入口，这里会通过 Root 真实启用或停用 Android 组件。当前管理桌面入口、磁贴、创建快捷方式和小部件；期望禁用状态会持久保存，并在开机、解锁和应用更新后自动校正。</string>
-    <string name="root_filter_help">“应用”可筛选全部、用户应用或系统应用，计数和批量操作只针对当前可见范围。长按应用或子项打开锁定菜单；未锁定不显示锁图标，锁定后才显示状态图标。整体锁保护整个应用，部分锁只保护对应子项；“全部 → 已锁定”会汇总桌面入口、磁贴、创建快捷方式和小部件中的锁定项目。锁只跳过批量操作，仍可手动修改，不改变 Root 真实禁用状态，也不参与排序；核心受保护系统组件仍仅展示。</string>
-    <string name="root_selection_semantics">勾选＝组件真实已禁用。当前状态仍直接回读 Android，同时保存期望禁用策略；若系统在启动或更新后恢复组件，会继续过滤发现结果并自动重新禁用。</string>
-    <string name="root_change_semantics">单项勾选立即禁用，取消勾选立即明确启用；批量修改需要确认。这里是真实组件状态修改，与规则页的入口过滤不同；禁用可能影响正在使用该组件的功能，启用也不会恢复之前的默认选择或布局。</string>
+    <string name="root_filter_help">“应用”可筛选全部、用户应用或系统应用，并限制批量操作对象。应用与组件可通过三点菜单或长按行加锁、解锁；“全部 → 已锁定”可汇总分类锁。批量操作跳过锁定项目，锁定子项也不能直接勾选，需要先从菜单解锁。锁不代表真实禁用；受保护系统组件只展示。</string>
+    <string name="root_selection_semantics">勾选代表期望禁用，取消勾选代表期望启用；存在待应用修改时，此状态可能不同于 Android 的真实状态。点击底部“应用更改”并确认后才执行 Root 操作，随后回读系统状态、保存禁用策略，并在开机或更新后校正异常恢复的组件。</string>
+    <string name="root_change_semantics">单项勾选、取消勾选及批量操作先进入待应用列表，不会立即修改 Android。批量操作先确认目标，再点击底部“应用更改”并确认才执行 Root 命令和回读验证。与规则仅过滤候选不同，这会真实更改组件状态；重新启用不保证恢复原桌面、磁贴或小部件位置。</string>
     <string name="root_kind_all_help">优先使用 Android 各子系统的正式注册表：桌面 Launcher Activity、标准 TileService、LauncherApps 快捷方式配置 Activity + 旧创建入口、AppWidgetManager Provider + Manifest 补充；不会禁用整个应用。</string>
     <string name="root_kind_launcher_help">列出导出的 ACTION_MAIN + CATEGORY_LAUNCHER Activity/Activity Alias。禁用后对应桌面/应用抽屉入口会消失；如果它是应用唯一的桌面入口，应用会更难打开，但应用本身不会被卸载。</string>
     <string name="root_kind_tile_help">仅列出标准 TileService。Wi-Fi、蓝牙等没有独立服务的系统内置磁贴不支持；核心系统组件仅展示。</string>
-    <string name="root_kind_shortcut_help">列出 LauncherApps 返回的快捷方式配置 Activity，并合并旧式快捷方式创建 Activity。这里不代表单独的 Dynamic / Pinned / Manifest ShortcutInfo；运行时观察到的具体长按快捷方式请在“规则”页管理。禁用这里的 Activity 可能影响其他共用入口。</string>
+    <string name="root_kind_shortcut_help">列出 LauncherApps 返回的快捷方式配置 Activity 与旧式快捷方式创建入口，不是单独的 Manifest、Dynamic 或 Pinned ShortcutInfo。具体桌面长按快捷方式候选请在“规则清理”查看，可来自运行时 Hook 观察或只读主动发现。禁用配置 Activity 可能影响其他共用入口。</string>
     <string name="root_kind_widget_help">优先读取 AppWidgetManager 的 Provider 注册表，并合并 Manifest 小部件接收器作为兼容补充。禁用可能使已放置的小部件失效；启用不保证恢复原布局。</string>
     <string name="root_summary">应用列表 · %1$d · %2$d 个组件</string>
     <string name="root_show_disabled_only">只看已禁用</string>
@@ -65,7 +65,7 @@
     <string name="root_app_count">%1$d 个应用</string>
     <string name="root_no_components">没有匹配的组件</string>
     <string name="root_batch_confirm_title">确认批量修改组件</string>
-    <string name="root_batch_confirm_body">确定要%1$s %2$d 个组件吗？将跳过 %3$d 项（已锁定、状态无需改变或不可操作）。组件修改会立即影响 Android 系统。</string>
+    <string name="root_batch_confirm_body">确认将 %2$d 个组件的“%1$s”操作加入待应用列表吗？将跳过 %3$d 项（锁定、无需改变或不可操作）。此处不立即执行 Root 命令，还需在底部确认“应用更改”。</string>
     <string name="root_batch_action_enable">启用</string>
     <string name="root_batch_action_disable">禁用</string>
     <string name="root_batch_action_invert">反选</string>
@@ -76,7 +76,7 @@
     <string name="root_batch_stop_remaining">停止后续操作</string>
     <string name="root_empty_filtered">当前筛选条件下没有匹配的组件。</string>
     <string name="root_clear_filters">清除筛选条件</string>
-    <string name="root_batch_confirmation_text">确定要%1$s当前范围内可操作的组件吗？锁定、不可用及无需变更的项目会跳过；修改立即生效。</string>
+    <string name="root_batch_confirmation_text">确定将当前范围内的“%1$s”操作加入待应用列表吗？锁定、不可用和无需变更的项目会跳过。此时不会立即修改 Android；还需在底部确认“应用更改”。</string>
     <string name="root_batch_processing">正在处理组件…</string>
     <string name="root_partially_disabled">部分禁用</string>
     <string name="root_component_status_categories">%1$s · %2$s</string>

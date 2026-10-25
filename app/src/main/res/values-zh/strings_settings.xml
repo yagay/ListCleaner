@@ -15,13 +15,13 @@
     <string name="settings_icon_size">应用图标大小</string>
     <string name="settings_appearance_help">修改会立即应用到公用 Material 3 控件。图标触控区域仍至少保留 48dp。</string>
     <string name="settings_appearance_section">外观与主题</string>
-    <string name="settings_appearance_subtitle">主题颜色、界面密度、圆角与控件尺寸</string>
+    <string name="settings_appearance_subtitle">明暗模式、主题配色、界面密度、图标与间距</string>
     <string name="settings_list_section">列表与显示</string>
     <string name="settings_list_subtitle">默认排序、筛选与应用显示</string>
     <string name="settings_scan_subtitle">自动扫描、缓存时间与手动刷新</string>
-    <string name="settings_compat_subtitle">全局清理模式、兼容隐藏与应用范围</string>
+    <string name="settings_compat_subtitle">模块状态、清理模式、兼容隐藏与作用域</string>
     <string name="settings_backup_subtitle">导入与导出清理配置</string>
-    <string name="settings_advanced_subtitle">模块状态、作用域与诊断工具</string>
+    <string name="settings_advanced_subtitle">诊断导出、日志与详细运行信息</string>
     <string name="settings_backup_note">JSON 备份包括清理和排序配置，不包含独立保存的外观、列表默认项和扫描偏好。</string>
     <string name="settings_start_page">启动默认页面</string>
     <string name="settings_sort">默认应用排序</string>
@@ -43,7 +43,7 @@
     <string name="settings_scan_manual">仅手动</string>
     <string name="settings_scan_always">每次进入</string>
     <string name="settings_cache_minutes">缓存时间（分钟）</string>
-    <string name="settings_scan_help">智能模式在缓存过期或安装应用变化时扫描；仅手动模式必须点击刷新。频繁扫描可能较慢，扫描失败仍有 30 秒重试间隔。</string>
+    <string name="settings_scan_help">智能模式在缓存过期或应用安装情况变化时扫描；仅手动模式需要主动刷新。频繁扫描可能变慢，扫描失败后的重试间隔以本页设置为准。</string>
     <string name="settings_scan_now">立即扫描组件</string>
     <string name="settings_compat_section">清理与兼容</string>
     <string name="settings_advanced_section">高级与诊断</string>

@@ -8,7 +8,7 @@
     <string name="backup_read_failed">Unable to read backup</string>
     <string name="backup_too_large">Backup file is too large (maximum 2,000,000 characters)</string>
     <string name="backup_import_confirm_title">Import backup?</string>
-    <string name="backup_import_confirm_summary">Backup version %1$d contains %2$d rules. Compared with your current rules: %3$d will be added and %4$d will be removed. Current rules, sorting, display mode and other saved settings will be replaced by the backup. Root component enable/disable states are not included.</string>
+    <string name="backup_import_confirm_summary">Backup version %1$d with %2$d rules. Compared with current rules: %3$d added and %4$d removed. Import replaces cleanup rules, ordering, display mode and related configuration for the target space. It does not restore UI appearance preferences or automatically change actual Root component enabled states.</string>
     <string name="backup_import_apply">Import and replace</string>
     <string name="backup_undo">Undo</string>
     <string name="backup_undo_done">Previous backup restored</string>

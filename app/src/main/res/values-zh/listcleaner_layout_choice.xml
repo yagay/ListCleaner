@@ -3,5 +3,5 @@
     <string name="lc_home_layout_title">清理与排序页面布局</string>
     <string name="lc_home_layout_cards">分类列表</string>
     <string name="lc_home_layout_classic">直接进入应用列表</string>
-    <string name="lc_home_layout_description">分类列表通过扁平行展示 Entry 与 Root 分类；直接列表打开应用管理页，上方保留分类筛选。两种方式共用规则及扫描引擎，卡片展示模式以后可单独加入。</string>
+    <string name="lc_home_layout_description">分类列表与直接应用列表都使用同一套 Material 3 扁平化行组件、规则及扫描引擎。分类列表先浏览入口类别；直接应用列表在页面顶部使用分类筛选。当前未启用独立卡片展示模式。</string>
 </resources>

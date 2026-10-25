@@ -31,7 +31,7 @@ Follow **@LISTCLEANER** for release updates, usage tips, and related news.
 ## Features
 
 - **System entry cleanup:** Manage Share, Multiple Share, Send to, Open with, Browser, Deep links, Dial, content/media pickers, Text processing, Long-press shortcuts and Storage Access Framework locations. Browser and Deep links are distinct; Deep links supports domain rules.
-- **Filtering and actions:** Search, expand apps and filter categories or user/system apps. A three-dot menu (also available by long-press) locks or unlocks app/component rows. Bulk locks skip Select All/Invert while supported individual items stay editable. Rule changes require Apply confirmation.
+- **Filtering and actions:** Search, expand apps and filter categories or user/system apps. A three-dot menu (also available by long-press) locks or unlocks app/component rows. Bulk actions skip locked items and locked child rows must be unlocked before direct selection. Rule changes require Apply confirmation.
 - **Priority ordering:** Save independent ordering per category, drag the handle on prioritized apps or move up/down, and confirm Apply. Long-pressing the app row opens its action menu.
 - **Root components:** Manage launcher icons, TileService tiles, LauncherApps/legacy shortcut-creation activities and AppWidgetManager widgets. Prefer public Android APIs with safe fallbacks. Root disable is backed by LSPosed discovery filtering and boot/update reconciliation; system read-back determines actual state.
 - **Android user spaces:** Isolate rules, priority, component state and bulk locks per user; switch spaces, export selected spaces in v13 and map each source to an import destination.
@@ -40,7 +40,7 @@ Follow **@LISTCLEANER** for release updates, usage tips, and related news.
 <!-- section:usage -->
 ## Usage Notes
 
-Bottom navigation contains **Cleanup, Ordering and Settings**; Cleanup switches between **Rule cleanup (LSPosed)** and **Component cleanup (Root)**. Rules filter system candidates without disabling components, while Component cleanup changes actual enabled state through Root. The three-dot or long-press menu controls **bulk locks**, which are not disabled state. Rule/ordering changes require Apply confirmation.
+Bottom navigation contains **Cleanup, Ordering and Settings**; Cleanup switches between **Rule cleanup (LSPosed)** and **Component cleanup (Root)**. Rules filter system candidates without disabling components, while Component cleanup changes actual enabled state through Root. The three-dot or long-press menu controls **bulk locks**, which are not disabled state. Rule, ordering and Root component changes require Apply confirmation at the bottom before Root commands can run.
 
 When multiple Android user spaces are detected, choose the target space at the top. v13 backups support selected spaces and explicit source-to-target mapping; v1–v12 rule backups remain readable. Root-disabled component records can be exported as **reference information**, but importing **never runs Root commands or restores actual disabled states/protection policies**. Uninstalling or clearing app data also does not automatically re-enable previously disabled components.
 

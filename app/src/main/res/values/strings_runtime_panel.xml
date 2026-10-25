@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="runtime_reset_title">Reset remote cleaning configuration?</string>
-    <string name="runtime_reset_help">This will clear Intent rules, ordering, and tile-cleaning configuration and pause filtering. If an old Hook is still running, system effects may remain until the system confirms the change. Cancel first if you need to preserve the old rules, restore the remote configuration, and export a JSON backup.</string>
+    <string name="runtime_reset_help">Use this only when local configuration is missing or corrupt. It recreates cleanup settings with empty rules and ordering and Show all mode, then synchronizes them to the system Hook. It does not restore or modify Root-disabled components. An older running Hook may retain effects until system acknowledgment. To preserve existing rules, cancel, try Restore remote configuration and export a backup first.</string>
     <string name="runtime_confirm_reset">Reset</string>
     <string name="runtime_validation_failed_help">When validation fails, scan results are not updated; selected rules can still be managed.</string>
     <string name="runtime_restore_remote">Restore remote configuration</string>

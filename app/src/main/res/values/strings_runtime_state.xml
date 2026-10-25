@@ -22,7 +22,7 @@
     <string name="runtime_connection_changed">The service connection changed; try again</string>
     <string name="runtime_ack_missing">Configuration was written, but the system hook did not confirm receipt. Local management lists remain available; try hot update or restart for system-side effect</string>
     <string name="runtime_config_changed">Configuration changed while confirmation was in progress; synchronizing again</string>
-    <string name="runtime_confirmed_hits">The system hook confirmed the configuration; view actual filtering, app-visibility and ordering hit counts on the Status page</string>
+    <string name="runtime_confirmed_hits">The system Hook confirmed the current configuration. View filtering, app-visibility and ordering hit counts under Settings - Advanced &amp; Diagnostics - Technical details.</string>
     <string name="runtime_validation_failed">Runtime verification failed; system-side rule effect is not confirmed, but local management lists remain available</string>
     <string name="runtime_recovered_waiting">Local configuration restored; waiting for system confirmation</string>
     <string name="runtime_reset_waiting">Local configuration reset and pause selected; waiting for system confirmation</string>

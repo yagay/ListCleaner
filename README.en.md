@@ -38,7 +38,7 @@ Long-press shortcuts are managed by the Launcher Activity that publishes them an
 
 An application-row selection applies to the components currently shown for the active category and search, not to the whole application. Expanding an app allows individual components to be selected. Clearing one category does not clear other categories. Configured entries that cannot currently be scanned can still be removed from selected rules.
 
-Use the **three-dot menu** at the end of an app or component row to lock or unlock; **long-pressing the row** opens the same actions. Left/right swipes are no longer used for locks. Full or partial locks skip bulk Select All/Invert operations but allow supported individual edits. Unlocked rows show no lock indicator. Lock state never changes the selected/partial/unselected state or priority order; Locked under All aggregates category locks.
+Use the **three-dot menu** at the end of an app or component row to lock or unlock; **long-pressing the row** opens the same actions. Left/right swipes are no longer used for locks. Full or partial locks skip bulk Select All/Invert operations and prevent direct selection of locked child rows until they are unlocked. Unlocked rows show no lock indicator. Lock state never changes the selected/partial/unselected state or priority order; Locked under All aggregates category locks.
 
 Rules, Ordering and Components share app-type and status filters for All / User apps / System apps and selected / unselected / locked views. Selected filters use the theme highlight. Filtering changes only the current view and bulk-operation targets, **not saved rules, ordering, locks or Root states**. Updated preinstalled apps remain classified as system apps.
 
@@ -74,9 +74,9 @@ Component discovery follows a **public-API first, compatibility fallback, fail-o
 
 A runtime capability handshake protects upgrades. If the APK is newer while system_server still runs an older hook, List Cleaner does not force the new discovery path: widget discovery falls back to the manifest scan, and LauncherApps/AppWidgetManager failures are fail-open rather than fatal. Full AppWidgetManager discovery is enabled again only after the running hook confirms the newer discovery protocol.
 
-**Selected means disabled; unselected means explicitly enabled.** It does not restore a previous default state. Root is checked before an operation and system state is read back afterwards. Missing Root permission or authorization timeout produces an error instead of a false successful state.
+**Selected means a pending request to disable; unselected means a pending request to explicitly enable.** It does not restore a previous default state. Root operations run only after Apply changes is confirmed; Root permission is checked and actual system state is read back afterwards. Missing Root permission or authorization timeout produces an error instead of a false successful state.
 
-Component locks use the same three-dot or long-press menu and Locked filter. Expanded apps and selected details use the shared theme highlight; unselected details have a normal background. **Root disabled state is separate from bulk locks**: locks only skip bulk operations and partial locks protect only the matching child.
+Component locks use the same three-dot or long-press menu and Locked filter. Expanded apps and selected details use the shared theme highlight; unselected details have a normal background. **Root disabled state is separate from bulk locks**: locks skip bulk actions and prevent direct selection of locked child rows until unlocked; partial locks affect only the matching child.
 
 Real Root disable remains the primary component-management mechanism. List Cleaner also persists the desired disabled policy and adds a second LSPosed/system_server discovery filter. If Android or vendor services temporarily restore a component during startup, protected launcher icons, tiles, shortcut-creation entries, and widget providers are still removed from discovery results. Queries made by List Cleaner itself bypass this filtering so those components remain manageable.
 

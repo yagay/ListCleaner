@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
   <string name="lc_selection_confirm_title">Confirm change</string>
-  <string name="lc_selection_confirm_body">Apply this change?\n%1$s\n\nNothing is saved until you confirm.</string>
+  <string name="lc_selection_confirm_body">Add the following selection to pending changes?\n%1$s\n\nThis step does not save rules or run Root commands. Use Apply changes at the bottom and confirm to commit.</string>
   <string name="lc_selection_group">App: %1$s — %2$s</string>
   <string name="lc_selection_item">Item: %1$s — %2$s</string>
   <string name="lc_selection_enable">Enable</string>
