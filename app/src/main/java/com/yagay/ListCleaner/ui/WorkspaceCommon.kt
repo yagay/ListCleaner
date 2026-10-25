@@ -474,8 +474,8 @@ internal fun WorkspaceDetailRow(
                     else androidx.compose.ui.state.ToggleableState.Off
             }
         val rowContents: @Composable RowScope.() -> Unit = {
-            // Preserve the existing leading indentation without the blue rail.
-            Spacer(Modifier.width(15.dp))
+            // The blue selection rail has been removed; detail text begins at
+            // the same outer inset as the right-hand trailing check.
             Column(Modifier.weight(1f).padding(vertical = 4.dp)) { content() }
             if (locked) AdaptiveIcon(
                 Icons.Rounded.Lock, stringResource(R.string.bulk_lock_full),

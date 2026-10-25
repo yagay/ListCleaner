@@ -75,7 +75,7 @@ internal fun UiCard(
     }
 }
 
-/** Shared selectable detail-row body; outer FlatRowSurface owns the background. */
+/** Shared flat detail row, with balanced content insets on both edges. */
 @Composable
 internal fun UiCardDetailRow(
     modifier: Modifier = Modifier,
@@ -88,7 +88,7 @@ internal fun UiCardDetailRow(
         modifier = modifier.fillMaxWidth()
             .heightIn(min = MaterialUiTokens.detailHeight)
             .padding(
-                start = MaterialUiTokens.pageHorizontal + MaterialUiTokens.groupedDetailIndent,
+                start = MaterialUiTokens.pageHorizontal,
                 end = MaterialUiTokens.pageHorizontal + MaterialUiTokens.appExpandIndicatorWidth -
                     trailingAccessoryWidth,
                 top = MaterialUiTokens.detailVertical,

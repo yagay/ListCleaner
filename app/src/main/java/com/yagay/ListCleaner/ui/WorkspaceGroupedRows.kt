@@ -12,14 +12,14 @@ internal fun ContinuousApplicationSurface(content: @Composable () -> Unit) {
     )
 }
 
-/** Recessed, subtly tinted component details under the parent app row. */
+/** Subtly tinted component details under the parent app row, edge-aligned. */
 @Composable
 internal fun ContinuousDetailSurface(
     selected: Boolean = false,
     content: @Composable () -> Unit
 ) {
     FlatRowSurface(
-        dividerInset = MaterialUiTokens.pageHorizontal + MaterialUiTokens.groupedDetailIndent,
+        dividerInset = MaterialUiTokens.pageHorizontal,
         color = if (selected) MaterialFlatPalette.selectedDetailSurface()
             else MaterialFlatPalette.detailSurface(),
         content = content

@@ -475,7 +475,6 @@ if "WorkspaceDetailSelectionRail(" in details or "CircleShape" in mark:
     errors.append("WorkspaceCommon.kt: obsolete leading rail or circular selection returned")
 detail_row = details.split("internal fun WorkspaceDetailRow(", 1)[-1]
 for expected in ("WorkspaceDetailSelectionCheck(selected = checked, enabled = enabled)",
-                 "Spacer(Modifier.width(15.dp))",
                  "toggleableState = if (checked)",
                  "trailingAccessoryWidth = 20.dp",
                  "BulkLockContextMenu("):
@@ -490,11 +489,17 @@ if "end = MaterialUiTokens.pageHorizontal + MaterialUiTokens.appExpandIndicatorW
     errors.append("UiCard.kt: expanded detail check must share the overflow alignment allowance")
 if "AdaptiveCheckbox(" in detail_row:
     errors.append("WorkspaceCommon.kt: expanded details must not use square checkboxes")
+if "Spacer(Modifier.width(15.dp))" in detail_row:
+    errors.append("WorkspaceCommon.kt: obsolete leading rail space remains")
+if "start = MaterialUiTokens.pageHorizontal," not in detail_layout:
+    errors.append("UiCard.kt: expanded component leading edge must match page inset")
 if "ContinuousDetailSurface(selected = selected, content = content)" not in details:
     errors.append("WorkspaceCommon.kt: selected detail background not forwarded to shared surface")
 grouped = (root / "WorkspaceGroupedRows.kt").read_text(encoding="utf-8")
 if "if (selected) MaterialFlatPalette.selectedDetailSurface()" not in grouped:
     errors.append("WorkspaceGroupedRows.kt: selected detail background missing")
+if "dividerInset = MaterialUiTokens.pageHorizontal," not in grouped.split("internal fun ContinuousDetailSurface(", 1)[-1]:
+    errors.append("WorkspaceGroupedRows.kt: component dividers must align with application rows")
 palette = (root / "MaterialActionColors.kt").read_text(encoding="utf-8")
 if "fun selectedDetailSurface()" not in palette or "MaterialSelectionPalette.activeBackground()" not in palette:
     errors.append("MaterialActionColors.kt: highlighted detail color not derived from theme")
