@@ -512,7 +512,7 @@ if "start = contentStartInset" not in app_row_geometry or "end = MaterialUiToken
 # There is no blue leading rail and no circular/radio selection glyph.
 details = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
 mark = details.split("private fun WorkspaceDetailSelectionCheck(", 1)[-1].split(
-    "/** Identical detail-row surface", 1
+    "/** Shared component detail", 1
 )[0]
 for expected in ("Box(Modifier.size(20.dp)", "if (selected)", "Icons.Rounded.Check",
                  "MaterialTheme.colorScheme.primary.copy(", "if (enabled) 1f else 0.45f"):
@@ -529,7 +529,7 @@ for expected in ("WorkspaceDetailSelectionCheck(selected = checked, enabled = en
         errors.append(f"WorkspaceCommon.kt: expanded detail contract missing {expected}")
 if detail_row.index("Column(Modifier.weight(1f)") > detail_row.index("WorkspaceDetailSelectionCheck("):
     errors.append("WorkspaceCommon.kt: check must follow component text")
-if detail_row.index("WorkspaceDetailSelectionCheck(") < detail_row.index("trailing()"):
+if detail_row.index("WorkspaceDetailSelectionCheck(") < detail_row.index("trailing(menuExpanded)"):
     errors.append("WorkspaceCommon.kt: check must follow overflow actions")
 detail_layout = (root / "UiCard.kt").read_text(encoding="utf-8")
 if "end = MaterialUiTokens.pageHorizontal + MaterialUiTokens.appExpandIndicatorWidth -" not in detail_layout:
