@@ -17,7 +17,13 @@
 
 手动发布工作流会执行 Release 编译、签名与对齐校验、包身份检查，然后上传 APK、`SHA256SUMS.txt` 和 `signature.txt` 到 GitHub Releases。签名证书必须与仓库固定记录一致；不会使用 Debug 密钥代替正式签名。
 
-发布新版本前必须同时递增 `versionCode` 和 `versionName`。已存在的版本绝不覆盖。重复构建已发布版本时，构建和校验仍可完成，但发布步骤会跳过已有 Release。
+发布新版本前必须同时递增 `versionCode` 和 `versionName`。已发布 APK 附件不会被覆盖；若对应 Tag 已存在，发布工作流只刷新 Release 说明文字，保留已发布 APK。
+
+## ABI 与自动触发
+
+Debug CI 可设置 `ciArm64Only` 只构建 arm64；**正式 Release 不应用 ABI 过滤**，将依赖提供的全部 ABI 打包到一个通用 APK。发布工作流显式传入 `-PciArm64Only=false`，并在发布前审计 APK。
+
+README、`docs/**` 等 Markdown 改动可能触发 Debug 检查，**不会自动发布 Release**。只有在 `main` 手动启动 `Build and Publish Release` 才会创建或刷新正式发行版，后续完成日志、LSPosed 同步和 Telegram 推送才可能沿正式发布链路继续。
 
 ## 本地构建
 
@@ -61,8 +67,8 @@ storeType=PKCS12
 首次配置时，在源码仓库 Settings → Secrets and variables → Actions 添加：
 
 - `TELEGRAM_BOT_TOKEN`：通过 `@BotFather` 创建的 Bot Token。不要写入源码、日志或聊天。
-- `TELEGRAM_CHAT_ID`：可选。默认使用 `@LISTCLEANER`；仅以后更换频道时需要配置。
+- `TELEGRAM_CHAT_ID`：脚本层支持环境变量覆盖，但当前 `.github/workflows/publish-telegram.yml` **固定传入** `@LISTCLEANER`；仅配置同名 Secret 不会更换频道。需要更换频道时应修改工作流环境变量。
 
 把 Bot 加入 `@LISTCLEANER` 并设为管理员，至少授予发布消息权限。手动运行时可以填写稳定 tag，留空则使用最新稳定 Release。
 
-发送成功后，脚本会在对应 GitHub Release 添加 `telegram-published.json` 标记附件，记录已发送版本和 Telegram `message_id`。之后重新运行相同版本时会检测该标记并跳过重复发送。Telegram 临时失败只会让独立发布工作流失败，不影响 GitHub Release、APK 签名结果或 LSPosed 同步。
+发送成功后，脚本会在对应 GitHub Release 添加 `telegram-published-v2.json` 标记附件，记录已发送版本和 Telegram `message_id`。之后重新运行相同版本且消息内容未变时会检测标记并跳过重复发送；如果发布说明内容更新，脚本会尝试删除旧消息后重新发送，因此 Bot 最好具有删除旧消息的权限。Telegram 临时失败只会让独立发布工作流失败，不影响 GitHub Release、APK 签名结果或 LSPosed 同步。

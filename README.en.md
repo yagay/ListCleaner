@@ -24,7 +24,7 @@ Package name: `com.yagay.ListCleaner`. Chinese environments display “列表清
 
 ### Rules: control which apps appear on system entry surfaces
 
-The Rules page manages Share, multi-file Share, Send to, Open with, Browser, Deep links, Dial, Choose content, Take photo, Record video, Record audio, Text processing, plus two system_server-backed surfaces: **Long-press shortcuts** and **Storage locations**. Browser can also add hosts such as github.com directly below the Browser category; each host inherits Browser · All and can add extra App Link filtering for that domain. Search apps, expand their components, and filter by all, selected, unselected, or locked entries.
+The Rules page handles Share, Multiple Share, Send to, Open with, Browser, Deep links, Dial, Choose content, Take photo, Record video/audio, Text processing, plus system_server-backed **Long-press shortcuts** and **Storage locations**. **Browser and Deep links are separate categories**: Browser handles generic web candidates, while Deep links supports domain-specific App Link rules that inherit the category's generic rules. Search, expand apps and filter categories or states.
 
 On Android 11+, Direct Share contact/conversation suggestions follow normal Share cleanup: when an app is hidden from Share candidates, its Direct Share targets are filtered as well. List Cleaner does not read or store contact names or conversation content.
 
@@ -38,9 +38,9 @@ Long-press shortcuts are managed by the Launcher Activity that publishes them an
 
 An application-row selection applies to the components currently shown for the active category and search, not to the whole application. Expanding an app allows individual components to be selected. Clearing one category does not clear other categories. Configured entries that cannot currently be scanned can still be removed from selected rules.
 
-Each page can independently apply a **bulk-operation lock**. **Swipe right to lock and swipe left to unlock** an app or child entry. Unlocked rows show no lock icon; the icon appears only after locking. A full lock protects an entire app from Select All/Invert-style operations, while a partial lock protects only selected child entries. Locked entries remain manually editable. Lock state never participates in ordering or changes Selected / Partially selected / Unselected calculations; Locked under All aggregates locks from the individual categories.
+Use the **three-dot menu** at the end of an app or component row to lock or unlock; **long-pressing the row** opens the same actions. Left/right swipes are no longer used for locks. Full or partial locks skip bulk Select All/Invert operations but allow supported individual edits. Unlocked rows show no lock indicator. Lock state never changes the selected/partial/unselected state or priority order; Locked under All aggregates category locks.
 
-Rules, Ordering, and Components all use the same compact **Apps: All / User apps / System apps** dropdown, which can be combined with the existing View filter. App type only controls what is currently shown and what bulk actions target; it **never participates in ordering or changes selection, lock, or Root state**. Updated preinstalled system apps remain classified as system apps.
+Rules, Ordering and Components share app-type and status filters for All / User apps / System apps and selected / unselected / locked views. Selected filters use the theme highlight. Filtering changes only the current view and bulk-operation targets, **not saved rules, ordering, locks or Root states**. Updated preinstalled apps remain classified as system apps.
 
 Ordinary Resolver rules alter returned candidate lists; they do not uninstall apps or change component enabled state. Long-press shortcuts and storage locations use dedicated system_server query filtering. Unknown or OEM-specific result shapes fail open so unrecognized data is preserved instead of being accidentally removed.
 
@@ -48,12 +48,14 @@ Package-visibility compatibility applies only to ordinary Resolver categories. L
 
 ### Ordering: put frequently used apps first
 
-Each rule category keeps its own app priority order. Browser domains can also keep a dedicated priority order and inherit Browser · All when no dedicated order exists. Long-press shortcuts and storage locations support the same app-level promotion without changing underlying system data.
+Each category keeps an independent priority order. Deep links may use domain-specific ordering and inherit that category's generic order when none is configured. Long-press shortcuts and storage locations also support app-level priority without changing system component enabled states.
 
 - Select an app to add it to the priority list and place it at the configured position; deselect it to return it to the default alphabetical group.
 - Prioritized apps follow the saved order; other apps are sorted by name. The list can be filtered to all, prioritized, non-prioritized, or locked apps, then narrowed to user or system apps. Neither app-type filtering nor locks move apps or rewrite the saved priority order.
-- **Long-press a prioritized app to drag it.** The list auto-scrolls near its edges and saves when released. Move-up and move-down controls are also available after expansion.
+- **Long-press the drag handle** on the right of a prioritized app and move it to reorder; the list auto-scrolls at the edges. Long-pressing the app row itself opens the three-dot action menu. Expanded apps still provide move-up/down controls.
 - During search, only matching prioritized apps are rearranged; hidden configuration retains its position. Candidates hidden by rules do not appear in the current ordering list, but their saved priority is retained.
+
+Rule selection and priority edits are **staged changes**. Use the bottom Apply action and confirm the dialog or discard the draft. Unconfirmed changes are not published to live rules.
 
 The module applies priority ordering at supported system query and chooser ordering stages. Vendor-customized choosers, application-specific reordering, and custom menus can behave differently.
 
@@ -74,29 +76,35 @@ A runtime capability handshake protects upgrades. If the APK is newer while syst
 
 **Selected means disabled; unselected means explicitly enabled.** It does not restore a previous default state. Root is checked before an operation and system state is read back afterwards. Missing Root permission or authorization timeout produces an error instead of a false successful state.
 
-The Components page also supports bulk-operation locks and a Locked filter. **Swipe right to lock and left to unlock**; unlocked rows show no lock icon, while locked rows show a status icon. A full lock protects the whole app and a partial lock protects only selected child entries. Locked under All aggregates locks from the component categories. Locks only protect Select All/Invert-style operations: they are **not Root disabled state, do not participate in ordering, and do not change selected/partial/unselected state**. Locked entries remain manually editable.
+Component locks use the same three-dot or long-press menu and Locked filter. Expanded apps and selected details use the shared theme highlight; unselected details have a normal background. **Root disabled state is separate from bulk locks**: locks only skip bulk operations and partial locks protect only the matching child.
 
 Real Root disable remains the primary component-management mechanism. List Cleaner also persists the desired disabled policy and adds a second LSPosed/system_server discovery filter. If Android or vendor services temporarily restore a component during startup, protected launcher icons, tiles, shortcut-creation entries, and widget providers are still removed from discovery results. Queries made by List Cleaner itself bypass this filtering so those components remain manageable.
 
 After boot, List Cleaner automatically reconciles persistent disabled state. Delayed checks run after `BOOT_COMPLETED` and user unlock, followed by another settled-startup pass; app install/update events also trigger reconciliation. Only components that should be disabled but are no longer actually `DISABLED` are repaired, so already-correct entries do not receive redundant Root commands.
 
-Component operations apply only to the Android user running List Cleaner. Core system components, SystemUI, List Cleaner itself, and components belonging to an application that is disabled as a whole are displayed but cannot be changed.
+When multiple Android user spaces are found, the top selector switches the target. Rules, priority ordering, component state and bulk-operation locks are isolated per space; component actions affect **the currently selected space**, subject to Root/system permissions. Core system components, SystemUI, List Cleaner itself and entries of fully disabled apps remain read-only.
 
 Disabling a component can affect places where it is already used, including launcher entries, existing tiles, and widgets. Re-enabling does not guarantee restoration to its former position. Clearing List Cleaner data or uninstalling the module **does not revert component disabled states**; re-enable components as needed before uninstalling.
 
 ### Backup and diagnostics
 
-- Import and export JSON rule backups containing rules, display modes, and priority ordering, compatible with backup formats v1–v11. New entry surfaces continue to use the same `ComponentRule` format.
-- Rule backups **do not save or restore actual Root component enabled states**. Legacy tile configuration remains readable for compatibility but is not automatically converted into component-disable operations.
-- The Status page shows module connection, scope, and configuration synchronization state. A diagnostic ZIP can be exported to troubleshoot filtering, ordering, and Root operations. Diagnostics can contain application lists and logs; review them before sharing.
+- **v13 multi-space JSON backups** let you select export spaces and map each source space to a destination on import. Legacy v1–v12 rule backups remain readable. Rules, display modes and priority configuration are included.
+- Multi-space exports may include **reference records** of Root-disabled components; importing never executes Root commands or restores actual disabled states or protection policies. UI appearance preferences are also excluded. Re-enable components manually as needed before uninstalling.
+- View module connection, scope and synchronization in **Settings → Cleanup & Compatibility**, and runtime details / diagnostic ZIP export in **Settings → Advanced & Diagnostics**. Review app lists and logs before sharing.
+
+### Flat UI and settings
+
+Flat Material 3 lists share app rows, component details, category filters and three-dot menus. Bottom navigation is **Cleanup, Ordering, Settings**. Inside Cleanup, switch between **Rule cleanup (LSPosed) / Component cleanup (Root)**; Components is no longer a separate bottom tab. Expanded apps and selected details use theme highlights, while bottom navigation selection has no extra underline.
+
+Settings includes **Appearance & Theme, Lists & Display, Scanning & Refresh, Cleanup & Compatibility, Backup & Restore, Advanced & Diagnostics**, and **About**. Theme, sizing, list and scanning options are configurable. About shows version information and GitHub / [Telegram](https://t.me/LISTCLEANER) links.
 
 ## Getting Started
 
 1. Download and install the release APK from [Releases](https://github.com/yagay/ListCleaner/releases/latest).
 2. Enable List Cleaner in a module manager supporting API 102, configure the recommended system/chooser scope, and restart as instructed by the framework.
-3. Open List Cleaner, confirm module and configuration synchronization on the Status page, then configure a category and display mode on the Rules page.
-4. To change app ordering, select and drag frequently used apps on the Ordering page.
-5. To actually disable launcher icons, tiles, shortcut-creation entries, or widgets, open Components and grant Root in your Root manager. Long-press shortcut and storage-location cleanup does not Root-disable components; it is handled by Rules filtering.
+3. Check runtime and synchronization in Settings → Cleanup & Compatibility, then configure Cleanup → Rule cleanup and confirm Apply.
+4. On Ordering, select apps and use their drag handles to change priority, then confirm Apply.
+5. Open Cleanup → Component cleanup to manage launcher icons, tiles, shortcut-creation entries or widgets with Root. Long-press shortcuts and storage locations instead use LSPosed filtering without disabling components.
 
 Component management is independent of rule display modes. Root performs the real component disable, while the LSPosed system_server layer provides restore protection and discovery filtering; third-party apps do not need to be added to the module scope. System/vendor caches can still require closing and reopening a menu.
 
@@ -128,4 +136,4 @@ Localization architecture and bilingual maintenance rules are documented in [Loc
 
 Signing configuration and automated publishing are documented in [Release build documentation](docs/RELEASE.md). Never commit private keys, signing passwords, or `local.properties`.
 
-Relevant source/build changes on `main` and `test` automatically build Debug and run unit tests. Formal releases use only the Release workflow; the `test` branch does not publish releases.
+Relevant source, documentation and build changes on `main` and `test3` trigger Debug checks under the configured workflow. Releases are **manual only**: README/Markdown commits do not publish APKs, synchronize LSPosed or post to Telegram.

@@ -17,7 +17,13 @@ Official publication is **manual only**. Open Actions → Build and Publish Rele
 
 The manual publishing workflow builds Release, verifies signing and alignment, validates package identity, then uploads the APK, `SHA256SUMS.txt`, and `signature.txt` to GitHub Releases. The signing certificate must match the certificate pinned in the repository; a Debug key is never substituted for release signing.
 
-Increment both `versionCode` and `versionName` before publishing a new version. Existing versions are never overwritten. Rebuilding an already published version may still complete build and validation, but publication skips an existing Release.
+Increment both `versionCode` and `versionName` before a new release. Published APK assets are never overwritten; if the tag already exists, the workflow refreshes Release notes only and keeps the existing APK.
+
+## ABIs and automatic triggers
+
+Debug CI may use `ciArm64Only` to restrict builds to arm64. **Release does not filter ABIs**: one universal APK packages every ABI supplied by the dependencies. The publishing workflow explicitly passes `-PciArm64Only=false` and audits the output.
+
+README / `docs/**` / Markdown changes may trigger Debug checks but **do not automatically publish a Release**. Only manually starting `Build and Publish Release` on `main` can create or refresh a stable release, after which the changelog, LSPosed and Telegram workflows may continue the manual release chain.
 
 ## Local builds
 
@@ -61,8 +67,8 @@ All assets are uploaded to a draft before publication. A failed run can be retri
 For initial setup, add these values under source repository Settings → Secrets and variables → Actions:
 
 - `TELEGRAM_BOT_TOKEN`: Bot Token created with `@BotFather`. Never place it in source, logs, or chat.
-- `TELEGRAM_CHAT_ID`: optional. `@LISTCLEANER` is the default; configure this only if the channel changes later.
+- `TELEGRAM_CHAT_ID`: the script accepts an environment override, but `.github/workflows/publish-telegram.yml` currently **passes** `@LISTCLEANER` explicitly. Setting a Secret with this name alone will not change the channel; update the workflow environment when switching channels.
 
 Add the Bot to `@LISTCLEANER` as an administrator with at least permission to publish messages. For a manual run, specify a stable tag or leave it empty to use the latest stable Release.
 
-After a successful post, the script adds a `telegram-published.json` marker asset to the matching GitHub Release and records the sent version plus Telegram `message_id`. Later reruns of the same version detect this marker and skip duplicate publication. A temporary Telegram failure only fails this independent workflow; it does not affect the GitHub Release, APK signature result, or LSPosed synchronization.
+After a successful post, the script adds a `telegram-published-v2.json` marker asset to the matching GitHub Release and records the sent version plus Telegram `message_id`. Later reruns of the same version with unchanged message content skip duplicates using the marker. If the release notes change, the script attempts to delete the old message before reposting; the Bot should also be allowed to delete its previous messages. A temporary Telegram failure only fails this independent workflow; it does not affect the GitHub Release, APK signature result, or LSPosed synchronization.
