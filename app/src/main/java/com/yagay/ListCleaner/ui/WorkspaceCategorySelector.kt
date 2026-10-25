@@ -3,6 +3,7 @@ package com.yagay.ListCleaner.ui
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
@@ -83,12 +84,10 @@ internal fun WorkspacePickerButton(
     Surface(
         onClick = onClick,
         modifier = modifier,
-        shape = RoundedCornerShape(MaterialUiTokens.listCardRadius),
-        color = if (selected) MaterialFlatPalette.selectedSurface()
-            else MaterialFlatPalette.surface(),
-        contentColor = if (selected) MaterialSelectionPalette.activeText()
-            else MaterialSelectionPalette.text(),
-        border = BorderStroke(0.5.dp, MaterialFlatPalette.outline())
+        shape = RectangleShape,
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = if (selected) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurfaceVariant
     ) {
         Row(
             modifier = Modifier.heightIn(min = 48.dp)
@@ -96,8 +95,8 @@ internal fun WorkspacePickerButton(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            val color = if (selected) MaterialSelectionPalette.activeText()
-                else MaterialSelectionPalette.text()
+            val color = if (selected) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurfaceVariant
             AdaptiveIcon(icon, null, Modifier.size(18.dp), tint = color)
             AdaptiveText(
                 label,
@@ -108,9 +107,11 @@ internal fun WorkspacePickerButton(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            if (count > 0) androidx.compose.material3.Badge {
-                AdaptiveText(count.toString())
-            }
+            if (count > 0) AdaptiveText(
+                count.toString(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
             AdaptiveIcon(
                 if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                 null, Modifier.size(18.dp), tint = color
@@ -146,14 +147,13 @@ private fun WorkspaceCategoryPicker(
                 modifier = Modifier.fillMaxWidth()
             )
         } else {
-            // One shared outline, with two independent 48dp touch targets:
-            // category on the left, format/domain selector on the right.
+            // Two independent 48dp targets on the same flat page surface.
+            // No isolated rounded card or filled selection background.
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(MaterialUiTokens.listCardRadius),
-                color = MaterialFlatPalette.selectedSurface(),
-                contentColor = MaterialSelectionPalette.activeText(),
-                border = BorderStroke(0.5.dp, MaterialFlatPalette.outline()),
+                shape = RectangleShape,
+                color = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.primary,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Row(
@@ -163,7 +163,7 @@ private fun WorkspaceCategoryPicker(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        val color = MaterialSelectionPalette.activeText()
+                        val color = MaterialTheme.colorScheme.primary
                         AdaptiveIcon(Icons.Rounded.Layers, null, Modifier.size(18.dp), tint = color)
                         AdaptiveText(
                             stringResource(R.string.lc_category_picker_current, selectedTitle),

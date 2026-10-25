@@ -172,6 +172,18 @@ toolbar_source = (root / "MainActivity.kt").read_text(encoding="utf-8")
 if "else -> R.string.app_name" not in toolbar_source:
     errors.append("MainActivity.kt: Cleanup top toolbar must retain the List Cleaner app name")
 
+# The pinned Entry/Root controls must stay flat: no filled category box,
+# pill borders or status badges after layout refactors.
+if "border = BorderStroke(" in picker_body or "shape = RoundedCornerShape(" in picker_body:
+    errors.append("WorkspaceCategorySelector.kt: category/filter triggers must remain flat")
+if "androidx.compose.material3.Badge {" in picker_body:
+    errors.append("WorkspaceCategorySelector.kt: pill badge returned to the flat toolbar")
+category_ui = category.split("private fun WorkspaceCategoryPicker(", 1)[1].split(
+    "/** Single selected-category treatment", 1
+)[0]
+if "shape = RectangleShape" not in category_ui:
+    errors.append("WorkspaceCategorySelector.kt: subtype picker must share flat styling")
+
 # Expansion controls and Root/LSPosed actions must not be dropped.
 details = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
 if "WorkspaceDetailSelectionIndicator(" not in details or "shape = androidx.compose.foundation.shape.CircleShape" not in details:
@@ -290,17 +302,17 @@ for filename in ("AppScopePicker.kt", "ScopeScreen.kt"):
     if re.search(r"\bScaffold\s*\(", code):
         errors.append(f"{filename}: use MaterialFullScreenDialog instead of a private Scaffold")
 
-# Cleanup modes use a single-choice segmented control, not oversized FilterChips.
+# Cleanup switches use two flat text tabs with a bottom indicator, not a capsule.
 classic = (root / "ClassicListLayout.kt").read_text(encoding="utf-8")
-for expected in ("SingleChoiceSegmentedButtonRow(", "SegmentedButton(",
-                 "lc_cleanup_mode_entry_short", "lc_cleanup_mode_component_short",
-                 "maxLines = 1"):
+for expected in ("fun FlatCleanupModeTab(", "lc_cleanup_mode_entry_short",
+                 "lc_cleanup_mode_component_short", "RectangleShape",
+                 "heightIn(min = 48.dp)", "height(2.dp)", "Modifier.weight(1f)"):
     if expected not in classic:
-        errors.append(f"ClassicListLayout.kt: missing compact segmented navigation: {expected}")
-if "minLines = 2" in classic:
-    errors.append("ClassicListLayout.kt: full-size two-line mode tabs must not return")
-if "Modifier.weight(1f)" in classic or "modifier = Modifier.fillMaxWidth()," in classic:
-    errors.append("ClassicListLayout.kt: segmented borders must size to labels, not half the screen")
+        errors.append(f"ClassicListLayout.kt: flat cleanup tabs contract missing: {expected}")
+for forbidden in ("SingleChoiceSegmentedButtonRow(", "SegmentedButton(",
+                  "RoundedCornerShape(", "FilterChip("):
+    if forbidden in classic:
+        errors.append(f"ClassicListLayout.kt: capsule-like tabs returned: {forbidden}")
 source = (root / "MaterialDesignSystem.kt").read_text(encoding="utf-8")
 if "val filterChipGap get() = (6f * density).dp" not in source:
     errors.append("MaterialDesignSystem.kt: compact filter spacing token missing")
@@ -321,7 +333,7 @@ if "ModalBottomSheet(" in category or "LazyRow(" in category:
 picker_body = category.split("internal fun WorkspacePickerButton(", 1)[1].split(
     "/**\n * Anchored Material 3 category menu", 1
 )[0]
-for expected in ("Surface(", "MaterialFlatPalette.selectedSurface()", "heightIn(min = 48.dp)",
+for expected in ("Surface(", "shape = RectangleShape", "heightIn(min = 48.dp)",
                  "verticalAlignment = Alignment.CenterVertically",
                  "FontWeight.SemiBold"):
     if expected not in picker_body:
@@ -367,8 +379,8 @@ for expected in ("fun WorkspaceListActions(",
 if "AdaptiveDropdownMenu(expanded = appMenu" in sheet:
     errors.append("WorkspaceCommon.kt: obsolete Apps dropdown must not return")
 # Both cleanup modes must remain fully legible at typical font scales.
-if "widthIn(min = 350.dp)" not in classic:
-    errors.append("ClassicListLayout.kt: segmented row can clip Component/Root label")
+if "WorkspaceControlLabel(" not in classic or "textAlign = TextAlign.Center" not in classic:
+    errors.append("ClassicListLayout.kt: flat tab labels must remain readable and centered")
 # The pinned filter must have the same density and touch affordance as the
 # adjacent category chips; neither list should paint into the pinned control.
 if "WorkspacePickerButton(" not in sheet.split("internal fun WorkspaceFilterBar(", 1)[1].split(

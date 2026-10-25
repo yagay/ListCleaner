@@ -1,29 +1,21 @@
 package com.yagay.ListCleaner.ui
 
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import com.yagay.ListCleaner.R
 
-/** Two mutually exclusive cleanup editors, not unrelated filter chips. */
+/** Two exclusive cleanup editors, presented as flat text tabs, not a raised capsule. */
 internal enum class ClassicCleanupMode { ENTRIES, COMPONENTS }
 
 @Composable
@@ -32,59 +24,66 @@ internal fun ClassicCleanupTabs(
     onEntries: () -> Unit,
     onComponents: () -> Unit,
 ) {
-    val entryDescription = stringResource(R.string.workspace_rule_section)
-    val componentDescription = stringResource(R.string.root_screen_title)
-    Surface(color = MaterialSelectionPalette.background()) {
-        BoxWithConstraints {
-            // Full-width like the flat prototype on normal displays. Narrower
-            // windows keep the 350dp text-safe control and scroll instead of clipping.
-            val needsScroll = maxWidth < 390.dp
+    Surface(color = MaterialTheme.colorScheme.surface) {
+        Column {
             Row(
-                modifier = (if (needsScroll)
-                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                else Modifier.fillMaxWidth())
-                    .padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = 2.dp),
-                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxWidth()
+                    .padding(horizontal = MaterialUiTokens.pageHorizontal),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-            SingleChoiceSegmentedButtonRow(
-                modifier = if (needsScroll) Modifier.widthIn(min = 350.dp)
-                    else Modifier.fillMaxWidth()
-            ) {
-            SegmentedButton(
-                selected = active == ClassicCleanupMode.ENTRIES,
-                onClick = { if (active != ClassicCleanupMode.ENTRIES) onEntries() },
-                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                colors = MaterialActionColors.segmented(),
-                modifier = Modifier.semantics {
-                    contentDescription = entryDescription
-                },
-                icon = {}
-            ) {
-                WorkspaceControlLabel(
-                    stringResource(R.string.lc_cleanup_mode_entry_short),
-                    textAlign = TextAlign.Center,
-                    maxLines = 1
+                FlatCleanupModeTab(
+                    label = stringResource(R.string.lc_cleanup_mode_entry_short),
+                    description = stringResource(R.string.workspace_rule_section),
+                    selected = active == ClassicCleanupMode.ENTRIES,
+                    onClick = onEntries,
+                    modifier = Modifier.weight(1f)
+                )
+                FlatCleanupModeTab(
+                    label = stringResource(R.string.lc_cleanup_mode_component_short),
+                    description = stringResource(R.string.root_screen_title),
+                    selected = active == ClassicCleanupMode.COMPONENTS,
+                    onClick = onComponents,
+                    modifier = Modifier.weight(1f)
                 )
             }
-            SegmentedButton(
-                selected = active == ClassicCleanupMode.COMPONENTS,
-                onClick = { if (active != ClassicCleanupMode.COMPONENTS) onComponents() },
-                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                colors = MaterialActionColors.segmented(),
-                modifier = Modifier.semantics {
-                    contentDescription = componentDescription
-                },
-                icon = {}
+            AdaptiveHorizontalDivider(thickness = 0.5.dp)
+        }
+    }
+}
+
+/** Shared full-width, 48dp touch targets, with a 2dp indicator instead of a filled pill. */
+@Composable
+private fun FlatCleanupModeTab(
+    label: String,
+    description: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.semantics { contentDescription = description },
+        shape = RectangleShape,
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Column {
+            Box(
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                contentAlignment = Alignment.Center
             ) {
                 WorkspaceControlLabel(
-                    stringResource(R.string.lc_cleanup_mode_component_short),
+                    label,
                     textAlign = TextAlign.Center,
-                    maxLines = 1
+                    maxLines = 1,
+                    color = if (selected) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            }
-            }
+            Box(
+                Modifier.fillMaxWidth().height(2.dp)
+                    .background(if (selected) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.surface)
+            )
         }
     }
 }
