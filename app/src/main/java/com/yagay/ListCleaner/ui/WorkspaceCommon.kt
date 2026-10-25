@@ -304,6 +304,7 @@ internal fun WorkspaceListActions(
 internal fun WorkspaceListSummary(
     title: String,
     secondary: String? = null,
+    secondaryMaxLines: Int = 1,
     actions: List<WorkspaceMenuAction> = emptyList(),
     helpExpanded: Boolean = false,
     onHelpToggle: (() -> Unit)? = null,
@@ -317,7 +318,7 @@ internal fun WorkspaceListSummary(
             AdaptiveText(title, style = MaterialTheme.typography.labelMedium, maxLines = 1)
             if (secondary != null) AdaptiveText(
                 secondary, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.labelSmall, maxLines = 1
+                style = MaterialTheme.typography.labelSmall, maxLines = secondaryMaxLines
             )
         }
         WorkspaceListActions(actions, helpExpanded, onHelpToggle)

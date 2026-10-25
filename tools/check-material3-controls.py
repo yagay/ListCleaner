@@ -174,6 +174,28 @@ if "FlatRowSurface(dividerInset = 0.dp)" not in (root / "BrowserHostFilterRow.kt
 if "shadowElevation = 2.dp" not in (root / "PriorityDialog.kt").read_text(encoding="utf-8"):
     errors.append("PriorityDialog.kt: reduced drag feedback must remain distinct")
 
+# Ordering must reuse Cleanup's real components instead of locally duplicated layouts.
+priority = (root / "PriorityDialog.kt").read_text(encoding="utf-8")
+shared_summary = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
+for expected in ("WorkspaceListSummary(", "secondaryMaxLines = 2",
+                 "WorkspaceHelpSection {", "previewActions = listOf(",
+                 "entryKind = kind", "WorkspaceAppSelectionCheckbox(",
+                 "WorkspaceDetailActionsMenu(", "onPreview = {",
+                 "focusPackage = item.rule.packageName",
+                 "focusClass = item.rule.className"):
+    if expected not in priority:
+        errors.append(f"PriorityDialog.kt: cleanup component reuse missing {expected}")
+for forbidden in ("WorkspaceListActions(", "WorkspaceDetailIconAction(", "AdaptiveCheckbox("):
+    if forbidden in priority:
+        errors.append(f"PriorityDialog.kt: duplicated old UI control {forbidden}")
+if "secondaryMaxLines: Int = 1" not in shared_summary or "maxLines = secondaryMaxLines" not in shared_summary:
+    errors.append("WorkspaceCommon.kt: shared summary must preserve two-line Ordering help")
+for expected in ("detectDragGesturesAfterLongPress(", "moveVisiblePriorityTo(",
+                 "moveVisiblePriority(", "PendingChangesBar(",
+                 "SystemSelectionRisk.PRIORITY"):
+    if expected not in priority:
+        errors.append(f"PriorityDialog.kt: ordering-only workflow lost {expected}")
+
 # Unified List First renderer across Cleanup, Ordering, Settings and details.
 flat_visual_checks = {
     "FlatListDesign.kt": ("fun FlatRowSurface(", "fun FlatCategoryRow(",

@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -295,6 +296,17 @@ fun PriorityDialogContent(
                             includeAllKinds = false,
                             showEntryGroups = true,
                             availableEntryKinds = priorityKinds,
+                            previewActions = listOf(
+                                WorkspaceMenuAction(
+                                    label = stringResource(kind.titleRes()),
+                                    onClick = {
+                                        systemProbeRequest = SystemProbeRequest(
+                                            entryKind = kind,
+                                            userId = vm.selectedSpace.value
+                                        )
+                                    }
+                                )
+                            ),
                             viewTitle = {
                                 stringResource(
                                     when (it) {
@@ -341,7 +353,7 @@ fun PriorityDialogContent(
                 }
             }
             item(key = "summary") {
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Column(Modifier.padding(vertical = 6.dp)) {
                     val presetTitle = when {
                         typedOpenPreset != null -> state.openTypes.localizedTitle(typedOpenPreset)
                         deepLinkHost != null -> deepLinkHost
@@ -350,15 +362,10 @@ fun PriorityDialogContent(
                     if (state.loading) {
                         AdaptiveText(stringResource(R.string.priority_count_scanning), style = MaterialTheme.typography.labelLarge)
                     }
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        AdaptiveText(
-                            stringResource(R.string.priority_drag_help),
-                            modifier = Modifier.weight(1f),
-                            maxLines = 2,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        WorkspaceListActions(
+                    WorkspaceListSummary(
+                        title = stringResource(R.string.app_list_count, groups.size),
+                        secondary = stringResource(R.string.priority_drag_help),
+                        secondaryMaxLines = 2,
                             actions = listOf(
                                 WorkspaceMenuAction(stringResource(R.string.select_all), {
                                     val current = orderDraft.effective(rankedRaw)
@@ -398,10 +405,11 @@ fun PriorityDialogContent(
                                     ) { orderDraft.stage(rankedRaw, next) }
                                 }, groups.isNotEmpty())
                             ),
-                            helpExpanded = sortHelpExpanded,
-                            onHelpToggle = { sortHelpExpanded = !sortHelpExpanded }
-                        )
-                    }
+                        helpExpanded = sortHelpExpanded,
+                        onHelpToggle = { sortHelpExpanded = !sortHelpExpanded }
+                    )
+                    WorkspaceHelpSection {
+
                     if (sortHelpExpanded) {
                         AdaptiveText(
                             stringResource(R.string.priority_intro),
@@ -489,6 +497,7 @@ fun PriorityDialogContent(
                     if (state.error != null) {
                         AdaptiveText(stringResource(R.string.rules_refresh_incomplete), color = MaterialTheme.colorScheme.error)
                     }
+                    }
                 }
             }
 
@@ -546,10 +555,12 @@ fun PriorityDialogContent(
                                 }
                             },
                         selection = {
-                            AdaptiveCheckbox(
-                                checked = packageName in stagedOrder,
+                            WorkspaceAppSelectionCheckbox(
+                                state = if (packageName in stagedOrder) ToggleableState.On
+                                    else ToggleableState.Off,
                                 enabled = packageName in stagedOrder || stagedOrder.size < 200,
-                                onCheckedChange = { checked ->
+                                onClick = {
+                                    val checked = packageName !in stagedOrder
                                     if (!vm.isBulkAppLocked(lockScope, packageName)) {
                                         val current = orderDraft.effective(rankedRaw)
                                         val next = if (checked) (current + packageName).distinct().take(200)
@@ -661,7 +672,15 @@ fun PriorityDialogContent(
                             customTitle = state.priorities.titles[item.rule.id],
                             position = if (componentIndex == group.components.lastIndex)
                                 ListRowPosition.LAST else ListRowPosition.MIDDLE,
-                            onEditTitle = { editingTitle = item }
+                            onEditTitle = { editingTitle = item },
+                            onPreview = {
+                                systemProbeRequest = SystemProbeRequest(
+                                    entryKind = item.rule.kind,
+                                    userId = vm.selectedSpace.value,
+                                    focusPackage = item.rule.packageName,
+                                    focusClass = item.rule.className
+                                )
+                            }
                         )
                     }
                 }
@@ -730,7 +749,8 @@ private fun ComponentInfoRow(
     item: ComponentCandidate,
     customTitle: String?,
     position: ListRowPosition,
-    onEditTitle: () -> Unit
+    onEditTitle: () -> Unit,
+    onPreview: () -> Unit
 ) {
     WorkspaceReadOnlyDetailRow(position = position) {
         Column(Modifier.weight(1f)) {
@@ -746,12 +766,13 @@ private fun ComponentInfoRow(
             }
             WorkspaceDetailCaption(item.rule.className)
         }
-        if (item.rule.kind.supportsTitleEditing()) {
-            WorkspaceDetailIconAction(
-                Icons.Rounded.Edit,
-                stringResource(R.string.component_edit_display_name),
-                onEditTitle
-            )
-        }
+        WorkspaceDetailActionsMenu(
+            onPreview = onPreview,
+            locked = false,
+            lockToggleEnabled = false,
+            onLock = {},
+            onUnlock = {},
+            onEdit = onEditTitle.takeIf { item.rule.kind.supportsTitleEditing() }
+        )
     }
 }
