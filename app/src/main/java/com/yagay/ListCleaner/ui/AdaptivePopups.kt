@@ -4,7 +4,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ScrollState
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.AlertDialog
@@ -34,7 +33,7 @@ internal fun AdaptiveAlertDialog(
         icon = icon,
         title = title,
         text = text,
-        shape = RoundedCornerShape(MaterialUiTokens.listCardRadius),
+        shape = RectangleShape,
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
         properties = properties
@@ -53,7 +52,13 @@ internal fun AdaptiveDropdownMenu(
     DropdownMenu(
         expanded = expanded, onDismissRequest = onDismissRequest,
         modifier = modifier, offset = offset,
-        scrollState = scrollState, content = content
+        scrollState = scrollState,
+        shape = RectangleShape,
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp,
+        border = BorderStroke(0.5.dp, MaterialFlatPalette.outline()),
+        content = content
     )
 }
 
@@ -80,15 +85,10 @@ internal fun FlatWorkspaceDropdownMenu(
     modifier: Modifier = Modifier,
     content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit
 ) {
-    DropdownMenu(
+    AdaptiveDropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest,
         modifier = modifier,
-        shape = RectangleShape,
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp,
-        shadowElevation = 0.dp,
-        border = BorderStroke(0.5.dp, MaterialFlatPalette.outline()),
         content = content
     )
 }

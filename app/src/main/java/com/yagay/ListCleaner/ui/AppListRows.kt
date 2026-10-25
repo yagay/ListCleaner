@@ -205,22 +205,18 @@ internal fun BulkLockContextMenu(
     onLock: () -> Unit,
     onUnlock: () -> Unit,
 ) {
-    AdaptiveDropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
-        AdaptiveDropdownMenuItem(
-            text = { AdaptiveText(stringResource(R.string.bulk_lock_action_lock)) },
+    FlatWorkspaceDropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        WorkspaceFlatMenuRow(
+            title = stringResource(R.string.bulk_lock_action_lock),
+            selected = false,
             enabled = canLock,
-            onClick = {
-                onDismiss()
-                onLock()
-            }
+            onClick = { onDismiss(); onLock() }
         )
-        AdaptiveDropdownMenuItem(
-            text = { AdaptiveText(stringResource(R.string.bulk_lock_action_unlock)) },
+        WorkspaceFlatMenuRow(
+            title = stringResource(R.string.bulk_lock_action_unlock),
+            selected = false,
             enabled = canUnlock,
-            onClick = {
-                onDismiss()
-                onUnlock()
-            }
+            onClick = { onDismiss(); onUnlock() }
         )
     }
 }

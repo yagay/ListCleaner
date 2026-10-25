@@ -1,5 +1,12 @@
 package com.yagay.ListCleaner.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
@@ -14,7 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Surface
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -24,7 +31,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TriStateCheckbox
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.Dp
@@ -89,11 +98,32 @@ internal fun AdaptiveFilterChip(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     leadingIcon: @Composable (() -> Unit)? = null
-) = FilterChip(
-    selected = selected, onClick = onClick, label = label,
-    modifier = modifier,
-    enabled = enabled, leadingIcon = leadingIcon
-)
+) {
+    // Shared flat tabs for system preview and app visibility: no capsules.
+    Surface(
+        onClick = onClick, modifier = modifier,
+        enabled = enabled, shape = RectangleShape,
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = if (selected) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurfaceVariant
+    ) {
+        Column {
+            Row(
+                Modifier.heightIn(min = 48.dp).padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                leadingIcon?.invoke()
+                label()
+            }
+            Box(
+                Modifier.fillMaxWidth().height(2.dp).background(
+                    if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
+                )
+            )
+        }
+    }
+}
 
 @Composable
 internal fun AdaptiveTriStateCheckbox(

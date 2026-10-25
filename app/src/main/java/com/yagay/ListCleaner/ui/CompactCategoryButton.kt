@@ -1,21 +1,15 @@
 package com.yagay.ListCleaner.ui
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.material3.InputChip
-import androidx.compose.material3.InputChipDefaults
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.unit.dp
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 
-/**
- * Compatibility entry point for category controls. Its actual surface,
- * selected state, shape, borders and touch target come from Material 3 FilterChip.
- */
+/** Legacy entry point; all selector chips now delegate to the same flat tab renderer. */
 @Composable
 internal fun CompactCategoryButton(
     selected: Boolean,
@@ -24,17 +18,11 @@ internal fun CompactCategoryButton(
     enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit
 ) {
-    InputChip(
+    AdaptiveFilterChip(
         selected = selected,
         onClick = onClick,
         modifier = modifier,
         enabled = enabled,
-        colors = InputChipDefaults.inputChipColors(
-            containerColor = MaterialFlatPalette.surface(),
-            selectedContainerColor = MaterialFlatPalette.selectedSurface(),
-            labelColor = MaterialSelectionPalette.text(),
-            selectedLabelColor = MaterialSelectionPalette.activeText()
-        ),
         label = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -47,5 +35,5 @@ internal fun CompactCategoryButton(
 
 @Composable
 internal fun compactCategoryLabelColor(selected: Boolean): Color =
-    if (selected) MaterialSelectionPalette.activeText()
-    else MaterialSelectionPalette.text()
+    if (selected) androidx.compose.material3.MaterialTheme.colorScheme.primary
+    else androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant

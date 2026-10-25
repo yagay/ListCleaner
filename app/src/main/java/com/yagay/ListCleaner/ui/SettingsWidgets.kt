@@ -20,7 +20,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Surface
 import androidx.compose.material3.ListItem
@@ -181,14 +180,11 @@ internal fun SettingsFlatDialog(
     confirmButton: @Composable () -> Unit,
     dismissButton: @Composable (() -> Unit)? = null
 ) {
-    AlertDialog(
+    AdaptiveAlertDialog(
         onDismissRequest = onDismissRequest,
         title = title, text = text,
         confirmButton = confirmButton,
-        dismissButton = dismissButton,
-        shape = RectangleShape,
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp
+        dismissButton = dismissButton
     )
 }
 
