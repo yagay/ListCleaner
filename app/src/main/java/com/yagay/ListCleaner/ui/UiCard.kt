@@ -79,8 +79,8 @@ internal fun UiCard(
 @Composable
 internal fun UiCardDetailRow(
     modifier: Modifier = Modifier,
-    // Read-only details retain page inset. Selectable details use 0dp so their
-    // 48dp leading lock slot aligns exactly with the parent's selection slot.
+    // Read-only details retain page inset. Selectable details use 0dp and
+    // reserve the parent's 48dp selection slot for aligned component text.
     leadingInset: Dp = MaterialUiTokens.pageHorizontal,
     // Reuse the existing right-hand overflow allowance for an optional suffix.
     // This keeps the three-dot button aligned with the parent application row.

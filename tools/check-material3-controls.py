@@ -537,14 +537,20 @@ if "leadingInset: Dp = MaterialUiTokens.pageHorizontal" not in detail_layout or 
     errors.append("UiCard.kt: read-only inset and selectable lock-slot alignment missing")
 if "leadingInset = 0.dp" not in detail_row:
     errors.append("WorkspaceCommon.kt: component lock-slot must start at app-row left edge")
-if "Modifier.width(MaterialUiTokens.iconTouchTarget)" not in detail_row:
-    errors.append("WorkspaceCommon.kt: component leading lock-slot must match 48dp app selector")
+if "Spacer(Modifier.width(MaterialUiTokens.iconTouchTarget))" not in detail_row:
+    errors.append("WorkspaceCommon.kt: component text must retain 48dp alignment with app icon")
+if "trailingAccessoryWidth = MaterialUiTokens.appExpandIndicatorWidth" not in detail_row:
+    errors.append("WorkspaceCommon.kt: lock must use app expand-arrow space without shifting overflow")
+if "Modifier.size(MaterialUiTokens.appExpandIndicatorWidth)" not in detail_row:
+    errors.append("WorkspaceCommon.kt: fixed-width lock indicator slot missing")
 if detail_row.count("Icons.Rounded.Lock") != 1:
-    errors.append("WorkspaceCommon.kt: duplicate/trailing component lock icon")
-if detail_row.index("Icons.Rounded.Lock") > detail_row.index("Column(Modifier.weight(1f)"):
-    errors.append("WorkspaceCommon.kt: lock belongs before component title, not after")
-if detail_row.index("if (locked)") > detail_row.index("Column(Modifier.weight(1f)"):
-    errors.append("WorkspaceCommon.kt: lock must be in the leading reserved slot")
+    errors.append("WorkspaceCommon.kt: exactly one lock icon required")
+if not (detail_row.index("Column(Modifier.weight(1f)") <
+        detail_row.index("trailing(menuExpanded)") <
+        detail_row.index("Icons.Rounded.Lock")):
+    errors.append("WorkspaceCommon.kt: lock must appear after the component three-dot menu")
+if detail_row.index("if (locked)") < detail_row.index("trailing(menuExpanded)"):
+    errors.append("WorkspaceCommon.kt: obsolete leading lock icon remains")
 if "ContinuousDetailSurface(selected = selected, content = content)" not in details:
     errors.append("WorkspaceCommon.kt: selected detail background not forwarded to shared surface")
 grouped = (root / "WorkspaceGroupedRows.kt").read_text(encoding="utf-8")

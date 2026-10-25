@@ -422,7 +422,7 @@ internal fun WorkspaceReadOnlyDetailRow(
     }
 }
 
-/** Shared component detail: leading lock slot, selection-only background, aligned overflow. */
+/** Shared component detail: app-icon-aligned title, selected background and trailing lock. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 internal fun WorkspaceDetailRow(
@@ -446,29 +446,32 @@ internal fun WorkspaceDetailRow(
                     else androidx.compose.ui.state.ToggleableState.Off
             }
         val rowContents: @Composable RowScope.() -> Unit = {
-            // Match the parent application's 48dp leading selection slot.
-            // The component text now starts at the parent's application icon.
+            // Preserve alignment with the parent app icon: its first 48dp
+            // is the selection target, not a lock indicator.
+            Spacer(Modifier.width(MaterialUiTokens.iconTouchTarget))
+            Column(Modifier.weight(1f).padding(vertical = 4.dp)) { content() }
+            // Both long-press and the three-dot icon control this same menu.
+            trailing(menuExpanded) { menuExpanded = it }
+            // Reuse the space reserved for the app row's expand arrow, so
+            // moving the lock here never shifts the three-dot menu.
             Box(
-                modifier = Modifier.width(MaterialUiTokens.iconTouchTarget),
+                modifier = Modifier.size(MaterialUiTokens.appExpandIndicatorWidth),
                 contentAlignment = Alignment.Center
             ) {
                 if (locked) {
                     AdaptiveIcon(
                         Icons.Rounded.Lock,
                         stringResource(R.string.bulk_lock_full),
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
-            Column(Modifier.weight(1f).padding(vertical = 4.dp)) { content() }
-            // Selection is communicated by the same background as menu choices.
-            // Keep the overflow at its former position using the default
-            // trailing inset (previously 20dp was occupied by the blue check).
-            trailing(menuExpanded) { menuExpanded = it }
         }
         UiCardDetailRow(
             modifier = clickModifier,
             leadingInset = 0.dp,
+            trailingAccessoryWidth = MaterialUiTokens.appExpandIndicatorWidth,
             content = rowContents
         )
     }
