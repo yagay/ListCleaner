@@ -1,10 +1,13 @@
 package com.yagay.ListCleaner.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
@@ -262,25 +265,58 @@ internal fun WorkspaceFlatMenuRow(
     onClick: () -> Unit,
     indented: Boolean = false,
     section: Boolean = false,
+    expanded: Boolean = false,
     trailingIcon: ImageVector? = null,
     enabled: Boolean = true
 ) {
+    // Expansion is a visual state of the header, not a selected cleanup rule.
+    // Keep the same 48dp menu row geometry and flat, square surface.
+    val sectionExpanded = section && expanded
+    val targetColor = if (sectionExpanded) {
+        MaterialTheme.colorScheme.primary.copy(
+            alpha = if (LocalListCleanerDarkTheme.current) 0.12f else 0.08f
+        ).compositeOver(MaterialTheme.colorScheme.surface)
+    } else MaterialTheme.colorScheme.surface
+    val rowColor by animateColorAsState(
+        targetValue = targetColor,
+        animationSpec = tween(durationMillis = 180),
+        label = "workspaceCategorySectionColor"
+    )
     androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth()) {
         AdaptiveDropdownMenuItem(
             modifier = Modifier.fillMaxWidth(),
             enabled = enabled,
+            containerColor = rowColor,
             text = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    FlatSelectionRail(selected)
-                    Spacer(Modifier.width(if (indented) 28.dp else 12.dp))
+                    if (indented) {
+                        // Keep the original 3dp rail + 28dp indentation width.
+                        // Subitems get a quiet hierarchy guide, never a blue dot.
+                        Spacer(Modifier.width(3.dp))
+                        Box(
+                            modifier = Modifier.width(28.dp).height(22.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                Modifier.width(1.dp).height(22.dp)
+                                    .background(MaterialTheme.colorScheme.outlineVariant)
+                            )
+                        }
+                    } else {
+                        FlatSelectionRail(if (section) expanded else selected)
+                        Spacer(Modifier.width(12.dp))
+                    }
                     AdaptiveText(
                         title,
                         style = if (section) MaterialTheme.typography.titleSmall
                             else MaterialTheme.typography.bodyLarge,
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (!enabled) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                            else if (selected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurface,
+                        fontWeight = if (selected || sectionExpanded) FontWeight.SemiBold
+                            else FontWeight.Normal,
+                        color = when {
+                            !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                            selected || sectionExpanded -> MaterialTheme.colorScheme.primary
+                            else -> MaterialTheme.colorScheme.onSurface
+                        },
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -290,7 +326,7 @@ internal fun WorkspaceFlatMenuRow(
                 val icon = trailingIcon ?: if (selected) Icons.Rounded.Check else null
                 if (icon != null) AdaptiveIcon(
                     icon, null, Modifier.size(20.dp),
-                    tint = if (selected) MaterialTheme.colorScheme.primary
+                    tint = if (selected || sectionExpanded) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
@@ -316,13 +352,13 @@ internal fun WorkspaceMenuChoice(
 @Composable
 internal fun WorkspaceMenuSection(
     title: String,
-    active: Boolean,
     expanded: Boolean,
     onClick: () -> Unit
 ) {
     WorkspaceFlatMenuRow(
         title = title,
-        selected = active,
+        selected = false,
+        expanded = expanded,
         onClick = onClick,
         section = true,
         trailingIcon = if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore
@@ -366,7 +402,6 @@ internal fun EntryCategoryPicker(
             val expanded = expandedGroup == group
             WorkspaceMenuSection(
                 title = stringResource(group.titleRes()),
-                active = selected?.entryGroup() == group,
                 expanded = expanded,
                 onClick = { expandedGroup = if (expanded) null else group }
             )
