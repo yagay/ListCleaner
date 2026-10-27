@@ -323,10 +323,12 @@ fun RulesTab(
     LazyColumn(Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
-        stickyHeader(key = "classic-mode-tabs") {
-            ClassicCleanupTabs(
-                active = ClassicCleanupMode.ENTRIES,
-                onEntries = {},
+        item(key = "workspace-status") {
+            ClassicListHeader(state = state, onOpenStatus = onOpenModuleStatus)
+        }
+        stickyHeader(key = "workspace-header") {
+            WorkspaceStickyHeader(
+                mode = ClassicCleanupMode.ENTRIES,
                 onComponents = {
                     navigate {
                         savedRuleQuery = state.query
@@ -336,13 +338,8 @@ fun RulesTab(
                         vm.setQuery(savedComponentQuery)
                     }
                 }
-            )
-        }
-        item(key = "workspace-status") {
-            ClassicListHeader(state = state, onOpenStatus = onOpenModuleStatus)
-        }
-        stickyHeader(key = "list-controls") {
-            PageFilterSection {
+            ) {
+                PageFilterSection {
                 Column {
                     ListControls(
                         state,
@@ -399,6 +396,7 @@ fun RulesTab(
                         }
                     )
                 }
+            }
             }
         }
         item(key = "list-summary") {
