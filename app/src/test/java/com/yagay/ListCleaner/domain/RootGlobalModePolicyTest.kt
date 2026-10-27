@@ -10,8 +10,9 @@ class RootGlobalModePolicyTest {
 
     @Test fun pausedProfileIsExcludedWithoutErasingSavedPolicy() {
         val saved = setOf(first, second, third)
+        val before = saved.toSet()
         assertEquals(setOf(first, third), RootGlobalModePolicy.effectiveKeys(saved, setOf(10)))
-        assertEquals(saved, saved) // No mutation of original desired entries.
+        assertEquals(before, saved) // The original desired rules remain intact.
     }
 
     @Test fun resumeReappliesOnlyMatchingUserKeys() {
