@@ -59,3 +59,13 @@
 ### Beta QA checklist
 
 Verify: runtime mode vs list filter, selected/indeterminate locks, Root system-state vs pending-state markers, ordered/available counts, horizontal preview footer and persistent Close, wide/narrow layouts, large font, all Android user spaces. Debug CI validates compilation, but does not replace those device checks.
+
+## Global Root component mode (beta)
+
+- Active is the default; Root-managed components follow their saved disabled entries.
+- Paused temporarily enables only exact component identities already saved by ListCleaner for the selected Android user. It never clears the desired disabled entries, and it does not change LSPosed's Global Cleaning Mode.
+- Root transitions perform a fresh full component scan before operations and use the existing per-component verification path. A partial transition reports failures and can be retried in the Root workspace.
+- While paused, ordinary Root manual editing is unavailable. On resuming Active, the saved disabled set is applied again.
+- The remote component-state guard and atomic runtime configuration use the **effective** disabled set, excluding paused Android user IDs. Boot/package reconciliation does not re-disable paused users.
+- The mode flag is local to the manager and independent of rule-backup import/export. It does not authorize a backup to execute arbitrary Root commands.
+- On a device where components are unavailable, Root is denied, or discovery is incomplete, the selected mode may be stored while a subset of Android overrides remains unchanged. Review the reported result and use Retry; do not assume all components changed.
