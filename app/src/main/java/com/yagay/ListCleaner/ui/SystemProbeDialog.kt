@@ -207,14 +207,15 @@ internal fun SystemProbeDialog(
         PreviewListSource.UNAVAILABLE -> R.string.system_probe_quality_unavailable
     }
 
-    AdaptiveAlertDialog(
+    MaterialFullScreenDialog(
         onDismissRequest = onDismiss,
         title = {
             AdaptiveText(title, style = MaterialTheme.typography.titleLarge)
         },
-        text = {
+        content = { padding ->
             LazyColumn(
-                Modifier.fillMaxWidth().heightIn(max = 430.dp),
+                Modifier.fillMaxSize().padding(padding)
+                    .padding(horizontal = MaterialUiTokens.pageHorizontal),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 if (choices.size > 1) {
@@ -572,7 +573,11 @@ internal fun SystemProbeDialog(
                 }
             }
         },
-        confirmButton = {
+        bottomBar = {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = 8.dp),
+                horizontalAlignment = androidx.compose.ui.Alignment.End
+            ) {
             if (nativeAvailable || scenarioTestAvailable) {
                 Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
                     if (request.entryKind == IntentKind.INPUT_METHOD) {
@@ -661,17 +666,10 @@ internal fun SystemProbeDialog(
                         }
                     }
                 }
-            } else {
-                AdaptiveTextButton(onClick = onDismiss) {
-                    AdaptiveText(stringResource(R.string.system_probe_close))
-                }
             }
-        },
-        dismissButton = {
-            if (nativeAvailable || scenarioTestAvailable) {
-                AdaptiveTextButton(onClick = onDismiss) {
-                    AdaptiveText(stringResource(R.string.system_probe_close))
-                }
+            AdaptiveTextButton(onClick = onDismiss) {
+                AdaptiveText(stringResource(R.string.system_probe_close))
+            }
             }
         },
     )
