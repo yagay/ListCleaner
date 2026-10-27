@@ -5,6 +5,7 @@ import android.content.Context
 import android.util.Log
 import com.yagay.ListCleaner.ListCleanerApp
 import com.yagay.ListCleaner.domain.ComponentStatePolicy
+import com.yagay.ListCleaner.domain.RootGlobalModePolicy
 
 /**
  * Persists the user's desired disabled state separately from Android's current component override.
@@ -94,9 +95,7 @@ class PersistentComponentStore(private val app: ListCleanerApp) {
     @Synchronized
     fun effectiveDisabledKeys(): Set<String> {
         val paused = pausedUsers()
-        return disabledKeys().filterTo(linkedSetOf()) {
-            PersistentComponentState.parse(it)?.user !in paused
-        }
+        return RootGlobalModePolicy.effectiveKeys(disabledKeys(), paused)
     }
 
     fun isDisabled(component: RootComponent): Boolean =
@@ -127,9 +126,7 @@ class PersistentComponentStore(private val app: ListCleanerApp) {
     @Synchronized
     fun syncRemote(): Boolean {
         val paused = pausedUsers()
-        val values = disabledKeys().filterTo(linkedSetOf()) {
-            PersistentComponentState.parse(it)?.user !in paused
-        }
+        val values = RootGlobalModePolicy.effectiveKeys(disabledKeys(), paused)
         return syncRemote(values, paused)
     }
 
