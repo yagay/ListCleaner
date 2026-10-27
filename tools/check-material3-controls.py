@@ -552,7 +552,7 @@ if "leadingInset: Dp = MaterialUiTokens.pageHorizontal" not in detail_layout or 
     errors.append("UiCard.kt: read-only inset and selectable lock-slot alignment missing")
 if "leadingInset = 0.dp" not in detail_row:
     errors.append("WorkspaceCommon.kt: component lock-slot must start at app-row left edge")
-if "Spacer(Modifier.width(MaterialUiTokens.iconTouchTarget))" not in detail_row:
+if "Spacer(Modifier.width(MaterialUiTokens.appSelectionSlotWidth))" not in detail_row:
     errors.append("WorkspaceCommon.kt: component text must retain 48dp alignment with app icon")
 if "trailingAccessoryWidth = MaterialUiTokens.appExpandIndicatorWidth" not in detail_row:
     errors.append("WorkspaceCommon.kt: lock must use app expand-arrow space without shifting overflow")
