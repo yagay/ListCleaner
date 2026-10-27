@@ -8,6 +8,9 @@ import com.yagay.ListCleaner.runtime.ComponentReconcileReceiver
 import com.yagay.ListCleaner.data.ComponentPersistenceResult
 import com.yagay.ListCleaner.data.ComponentRootCommand
 import com.yagay.ListCleaner.data.PersistentComponentStore
+import com.yagay.ListCleaner.data.PersistentComponentState
+import android.content.pm.PackageManager
+import com.yagay.ListCleaner.runtime.ComponentReconcileJobService
 import com.yagay.ListCleaner.data.RootComponent
 import com.yagay.ListCleaner.data.RootComponentCatalog
 import com.yagay.ListCleaner.data.ProfileComponentCatalog
@@ -42,6 +45,7 @@ internal class RootComponentsController(
         if (targetUserId == userId) return
         check(!mutableBusy.value) { "Cannot switch spaces while Root components are busy" }
         targetUserId = userId
+        mutablePaused.value = persistentComponents.isPaused(userId)
         lastFullScanElapsed = -1L
         lastAutoScanAttemptElapsed = -1L
         lastScannedPackageRevision = -1L
@@ -50,6 +54,8 @@ internal class RootComponentsController(
         mutableScan.value = RootComponentScan(warning = app.getString(R.string.root_not_scanned))
     }
     private val persistentComponents = PersistentComponentStore(app)
+    private val mutablePaused = MutableStateFlow(persistentComponents.isPaused(targetUserId))
+    val paused: StateFlow<Boolean> = mutablePaused.asStateFlow()
 
     private val mutableScan = MutableStateFlow(
         RootComponentScan(warning = app.getString(R.string.root_not_scanned))
@@ -272,7 +278,7 @@ internal class RootComponentsController(
         stoppedMessage: (completed: Int, total: Int, reason: String) -> String,
         operationName: String,
     ) {
-        if (mutableBusy.value) return
+        if (mutableBusy.value || persistentComponents.isPaused(targetUserId)) return
         val targets = visibleTargets.distinctRootTargets()
         if (targets.isEmpty() || targets.any { it.user != targetUserId }) return
         mutableRootNotice.value = null
