@@ -282,8 +282,9 @@ fun PriorityDialogContent(
             state = listState,
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
-            stickyHeader(key = "controls") {
-                PageFilterSection {
+            stickyHeader(key = "workspace-header") {
+                WorkspaceStickyHeader {
+                    PageFilterSection {
                     Column {
                         ListControls(
                             state.copy(filter = kind, uiFilter = viewFilter),
@@ -354,6 +355,7 @@ fun PriorityDialogContent(
                             }
                         )
                     }
+                }
                 }
             }
             item(key = "summary") {
