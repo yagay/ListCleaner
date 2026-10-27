@@ -110,7 +110,7 @@ internal fun WorkspacePickerButton(
             }
             AdaptiveText(
                 label,
-                modifier = Modifier,
+                modifier = Modifier.weight(1f, fill = false),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                 color = color,
