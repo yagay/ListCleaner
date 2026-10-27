@@ -54,8 +54,11 @@ internal fun SettingsCenterHome(state: MainState, onSelect: (SettingsSection) ->
         // Keep the live runtime state discoverable without introducing a dashboard tab.
         MaterialSettingsRow(
             title = stringResource(R.string.dashboard_module_status),
-            supportingText = state.runtime.message.takeIf { it.isNotBlank() }
-                ?: stringResource(R.string.dashboard_sync_status),
+            supportingText = when {
+                !state.runtime.ready && state.runtime.message.isNotBlank() -> state.runtime.message
+                state.syncStatus.isNotBlank() -> state.syncStatus
+                else -> stringResource(R.string.dashboard_sync_status)
+            },
             onClick = { onSelect(SettingsSection.COMPATIBILITY) },
             trailing = {
                 AdaptiveIcon(Icons.Rounded.ChevronRight, null)
