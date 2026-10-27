@@ -48,7 +48,7 @@ internal object MaterialUiTokens {
     // remains active from the former grouped geometry family.
     val groupedDetailIndent get() = (12f * density).dp
     val groupHorizontal get() = pageHorizontal
-    val listRowHeight get() = UiPreferencesRuntime.current.listRowHeight.dp
+    val listRowHeight get() = UiPreferencesRuntime.current.listRowHeight.dp.coerceAtLeast(48.dp)
     val listRowHorizontal get() = (8f * density).dp
     val listRowVertical get() = (6f * density).dp
     val appIconSize get() = UiPreferencesRuntime.current.appIconSize.dp
@@ -57,7 +57,7 @@ internal object MaterialUiTokens {
     // App row overflow comes immediately before the expand arrow; detail rows
     // reserve the exact same trailing width to align both overflow centers.
     val appExpandIndicatorWidth = 18.dp
-    val detailHeight get() = (48f * density).dp
+    val detailHeight get() = (48f * density).dp.coerceAtLeast(48.dp)
     val detailHorizontal get() = (14f * density).dp
     val detailVertical get() = (4f * density).dp
     // Shared Entry/Root details: kind labels must not crowd multi-line titles.
@@ -69,6 +69,9 @@ internal object MaterialUiTokens {
     val settingsRowGap get() = contentGap
     // 48dp remains the minimum icon touch target for accessible controls.
     val iconTouchTarget = 48.dp
+    // Matching selection and overflow slots prevent alignment drift across workspaces.
+    val appSelectionSlotWidth get() = iconTouchTarget
+    val appOverflowSlotWidth get() = iconTouchTarget
     val compactButtonPadding get() = PaddingValues(horizontal = (8f * density).dp, vertical = (4f * density).dp)
     val normalButtonPadding get() = PaddingValues(horizontal = (12f * density).dp, vertical = (6f * density).dp)
 }
