@@ -104,7 +104,9 @@ fun RootComponentsScreen(
         )
     }
     LaunchedEffect(scan.items, busy) {
-        if (!busy) selectionDraft.acknowledge(verifiedDraftKeys())
+        if (!busy && scan.warning.isBlank()) {
+            selectionDraft.acknowledge(verifiedDraftKeys())
+        }
     }
     BackHandler(enabled = backEnabled && (embedded || kind != null)) {
         navigate {
@@ -137,7 +139,9 @@ fun RootComponentsScreen(
     RegisterPendingNavigation(
         pendingNavigation, selectionDraft, selectionDraft.count,
         applyChanges, selectionDraft::discard, rootEditor = true,
-        rootVerification = { verifiedDraftKeys().size == selectionDraft.count }
+        rootVerification = {
+            scan.warning.isBlank() && verifiedDraftKeys().size == selectionDraft.count
+        }
     )
 
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()

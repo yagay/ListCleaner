@@ -375,7 +375,10 @@ internal class RootComponentsController(
                 }
             } else profileCatalog.scan(targetUserId)
         }
-            .onSuccess { mutableScan.value = it }
+            .onSuccess { updated ->
+                mutableScan.value = updated
+                if (updated.warning.isNotBlank()) lastFullScanElapsed = -1L
+            }
             .onFailure { failure ->
                 Log.e(TAG, "Post-mutation Root component refresh failed", failure)
                 lastFullScanElapsed = -1L

@@ -84,7 +84,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val spaces = app.spaces.spaces
     val selectedSpace = app.spaces.selected
     val spaceScanState = app.spaces.scanState
-    private val installedPackages = app.spaces.installedPackages
 
     fun selectSpace(userId: Int) {
         if (rootComponents.busy.value || !app.spaces.select(userId)) return
@@ -306,8 +305,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     )
 
     private val preparedCandidates = combine(
-        candidates, app.rules.rules, app.rules.activeUser, installedPackages
-    ) { scanned, selected, userId, installed ->
+        candidates, app.rules.rules, app.rules.activeUser
+    ) { scanned, selected, _ ->
         val scopedCandidates = scanned
         val items = retainConfiguredCandidates(
             scopedCandidates,
