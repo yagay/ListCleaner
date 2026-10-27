@@ -21,4 +21,16 @@
     <string name="lc_system_app_warning_title">系统应用风险提醒</string>
     <string name="lc_root_pending_disable">待禁用 · 尚未应用</string>
     <string name="lc_root_pending_enable">待启用 · 尚未应用</string>
+    <string name="root_global_mode_title">全局组件模式</string>
+    <string name="root_global_mode_active">启用</string>
+    <string name="root_global_mode_paused">暂停</string>
+    <string name="root_global_mode_explain">Root 全局模式按 Android 用户空间独立保存。</string>
+    <string name="root_global_mode_confirm_pause">暂停此用户空间的组件管理？</string>
+    <string name="root_global_mode_confirm_active">恢复此用户空间保存的组件设置？</string>
+    <string name="root_global_mode_retry">重试应用模式</string>
+    <string name="root_global_mode_pending">请先应用或放弃待处理的更改。</string>
+    <string name="root_mode_processing">正在应用全局组件模式…</string>
+    <string name="root_mode_completed">已更新 %1$d 个组件；失败 %2$d 个。</string>
+    <string name="root_mode_partial">已更新 %1$d 个组件；失败 %2$d 个，请重试。</string>
+    <string name="root_mode_failed">模式切换未能完成，请检查 Root 授权并重试。</string>
 </resources>
