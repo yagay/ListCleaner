@@ -324,7 +324,11 @@ fun RulesTab(
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
         item(key = "workspace-status") {
-            ClassicListHeader(state = state, onOpenStatus = onOpenModuleStatus)
+            ClassicListHeader(
+                state = state,
+                onOpenStatus = onOpenModuleStatus,
+                onDisplayModeChange = vm::setDisplayMode
+            )
         }
         stickyHeader(key = "workspace-header") {
             WorkspaceStickyHeader(
