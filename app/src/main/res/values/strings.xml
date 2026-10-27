@@ -33,4 +33,6 @@
     <string name="root_mode_completed">Updated %1$d components; %2$d failures.</string>
     <string name="root_mode_partial">Updated %1$d components; %2$d failures. Retry to finish.</string>
     <string name="root_mode_failed">Could not complete the mode change. Check Root access and retry.</string>
+    <string name="root_saved_paused_count">Saved disabled rules: %1$d (paused)</string>
+    <string name="root_saved_paused_item">Saved disabled rule · paused</string>
 </resources>
