@@ -46,6 +46,7 @@ internal class RootComponentsController(
         check(!mutableBusy.value) { "Cannot switch spaces while Root components are busy" }
         targetUserId = userId
         mutablePaused.value = persistentComponents.isPaused(userId)
+        mutableManagedKeys.value = persistentComponents.disabledKeys()
         lastFullScanElapsed = -1L
         lastAutoScanAttemptElapsed = -1L
         lastScannedPackageRevision = -1L
@@ -56,6 +57,8 @@ internal class RootComponentsController(
     private val persistentComponents = PersistentComponentStore(app)
     private val mutablePaused = MutableStateFlow(persistentComponents.isPaused(targetUserId))
     val paused: StateFlow<Boolean> = mutablePaused.asStateFlow()
+    private val mutableManagedKeys = MutableStateFlow(persistentComponents.disabledKeys())
+    val managedKeys: StateFlow<Set<String>> = mutableManagedKeys.asStateFlow()
 
     private val mutableScan = MutableStateFlow(
         RootComponentScan(warning = app.getString(R.string.root_not_scanned))
@@ -110,6 +113,7 @@ internal class RootComponentsController(
                 Log.w(TAG, "Component policy saved locally but remote mirror is pending for ${target.id}")
             ComponentPersistenceResult.FULLY_SYNCED -> Unit
         }
+        mutableManagedKeys.value = persistentComponents.disabledKeys()
     }
 
     private fun mutationFailureText(failure: Exception): String =
