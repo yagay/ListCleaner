@@ -448,7 +448,7 @@ internal fun WorkspaceDetailRow(
         val rowContents: @Composable RowScope.() -> Unit = {
             // Preserve alignment with the parent app icon: its first 48dp
             // is the selection target, not a lock indicator.
-            Spacer(Modifier.width(MaterialUiTokens.iconTouchTarget))
+            Spacer(Modifier.width(MaterialUiTokens.appSelectionSlotWidth))
             Column(Modifier.weight(1f).padding(vertical = 4.dp)) { content() }
             // Both long-press and the three-dot icon control this same menu.
             trailing(menuExpanded) { menuExpanded = it }
