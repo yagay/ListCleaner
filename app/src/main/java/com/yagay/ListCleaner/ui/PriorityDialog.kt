@@ -519,7 +519,7 @@ fun PriorityDialogContent(
                                 stringResource(
                                     if (group.rank != null) R.string.priority_selected
                                     else R.string.priority_unselected
-                                ) + " · " + if (group.rank != null) prioritizedAppCount else availableAppCount
+                                ) + " · " + (if (group.rank != null) prioritizedAppCount else availableAppCount)
                             )
                         }
                     }
