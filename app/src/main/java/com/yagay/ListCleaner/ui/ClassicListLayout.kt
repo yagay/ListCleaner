@@ -101,24 +101,13 @@ internal fun ClassicListHeader(
     // Keep this informational/action row scrollable instead of pinning another toolbar.
     CleanupStatusAlert(state, onOpenStatus = onOpenStatus)
     var expanded by remember { mutableStateOf(false) }
-    Row(
-        modifier = Modifier.fillMaxWidth()
-            .padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = 2.dp),
-        verticalAlignment = Alignment.CenterVertically
+    WorkspaceModeStatusRow(
+        title = stringResource(R.string.dashboard_global_mode),
+        status = stringResource(state.displayMode.titleRes())
     ) {
-        AdaptiveText(
-            stringResource(R.string.dashboard_global_mode),
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
         Box {
             AdaptiveTextButton(onClick = { expanded = true }) {
-                AdaptiveText(
-                    stringResource(state.displayMode.titleRes()),
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1
-                )
+                AdaptiveText(stringResource(R.string.dashboard_switch), maxLines = 1)
                 AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(18.dp))
             }
             FlatWorkspaceDropdownMenu(
