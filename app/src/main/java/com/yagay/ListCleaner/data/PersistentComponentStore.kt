@@ -20,6 +20,8 @@ object PersistentComponentState {
     const val REMOTE_KEY = "root_disabled_components_v1"
     const val LOCAL_PREFS = "root_component_state"
     const val LOCAL_KEY = "disabled_components"
+    const val PAUSED_USERS_KEY = "paused_root_users_v1"
+    const val REMOTE_PAUSED_USERS_KEY = "root_paused_users_v1"
     private const val MAX_ENTRIES = 20_000
 
     fun key(user: Int, component: ComponentName): String =
@@ -65,6 +67,38 @@ class PersistentComponentStore(private val app: ListCleanerApp) {
         prefs.getStringSet(PersistentComponentState.LOCAL_KEY, emptySet()).orEmpty()
     )
 
+    /** Mode belongs to an Android user, not the currently selected UI category. */
+    @Synchronized
+    fun pausedUsers(): Set<Int> =
+        prefs.getStringSet(PersistentComponentState.PAUSED_USERS_KEY, emptySet()).orEmpty()
+            .mapNotNull(String::toIntOrNull).filter { it in 0..21474 }.toSet()
+
+    @Synchronized
+    fun isPaused(userId: Int): Boolean = userId in pausedUsers()
+
+    @Synchronized
+    fun setPaused(userId: Int, paused: Boolean): Boolean {
+        require(userId in 0..21474)
+        val next = pausedUsers().toMutableSet().apply {
+            if (paused) add(userId) else remove(userId)
+        }
+        return prefs.edit().putStringSet(
+            PersistentComponentState.PAUSED_USERS_KEY, next.map(Int::toString).toSet()
+        ).commit()
+    }
+
+    /**
+     * Root desired disabled components are retained while paused. Only the effective
+     * active set is published to system_server's re-enable guard and runtime snapshot.
+     */
+    @Synchronized
+    fun effectiveDisabledKeys(): Set<String> {
+        val paused = pausedUsers()
+        return disabledKeys().filterTo(linkedSetOf()) {
+            PersistentComponentState.parse(it)?.user !in paused
+        }
+    }
+
     fun isDisabled(component: RootComponent): Boolean =
         PersistentComponentState.key(component.user, component.component) in disabledKeys()
 
@@ -83,7 +117,7 @@ class PersistentComponentStore(private val app: ListCleanerApp) {
             Log.e(TAG, "Failed to persist desired component state for $key")
             return ComponentPersistenceResult.LOCAL_FAILED
         }
-        return if (syncRemote(next)) {
+        return if (syncRemote()) {
             ComponentPersistenceResult.FULLY_SYNCED
         } else {
             ComponentPersistenceResult.LOCAL_SAVED
@@ -91,14 +125,21 @@ class PersistentComponentStore(private val app: ListCleanerApp) {
     }
 
     @Synchronized
-    fun syncRemote(): Boolean = syncRemote(disabledKeys())
+    fun syncRemote(): Boolean {
+        val paused = pausedUsers()
+        val values = disabledKeys().filterTo(linkedSetOf()) {
+            PersistentComponentState.parse(it)?.user !in paused
+        }
+        return syncRemote(values, paused)
+    }
 
-    private fun syncRemote(values: Set<String>): Boolean {
+    private fun syncRemote(values: Set<String>, paused: Set<Int>): Boolean {
         val session = app.currentSession() ?: return false
         return runCatching {
             val remote = session.service.getRemotePreferences(RuleRepository.REMOTE_PREFS)
             remote.edit()
                 .putStringSet(PersistentComponentState.REMOTE_KEY, HashSet(values))
+                .putStringSet(PersistentComponentState.REMOTE_PAUSED_USERS_KEY, paused.map(Int::toString).toSet())
                 .commit()
         }.onFailure {
             Log.w(TAG, "Unable to mirror persistent component state to Xposed service", it)
