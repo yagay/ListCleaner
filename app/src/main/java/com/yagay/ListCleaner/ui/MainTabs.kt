@@ -315,9 +315,13 @@ fun RulesTab(
         applyChanges, selectionDraft::discard
     )
 
-    Box(Modifier.fillMaxSize()) {
+    WorkspaceEditorFrame(
+        pendingCount = selectionDraft.count,
+        onDiscard = selectionDraft::discard,
+        onApply = { applyChanges() }
+    ) {
     LazyColumn(Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = if (selectionDraft.count > 0) 90.dp else 16.dp)
+        contentPadding = PaddingValues(bottom = 16.dp)
     ) {
         stickyHeader(key = "classic-mode-tabs") {
             ClassicCleanupTabs(
@@ -623,12 +627,7 @@ fun RulesTab(
             }
         }
     }
-    PendingChangesBar(
-        count = selectionDraft.count,
-        onDiscard = selectionDraft::discard,
-        onApply = { applyChanges() },
-        modifier = Modifier.align(Alignment.BottomCenter)
-    )
+
 }
 }
 
