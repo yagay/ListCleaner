@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -574,12 +575,23 @@ internal fun SystemProbeDialog(
             }
         },
         bottomBar = {
-            Column(
-                Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = 8.dp),
-                horizontalAlignment = androidx.compose.ui.Alignment.End
-            ) {
-            if (nativeAvailable || scenarioTestAvailable) {
-                Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
+            Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
+                AdaptiveHorizontalDivider(thickness = 0.5.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(
+                        horizontal = MaterialUiTokens.pageHorizontal, vertical = 2.dp
+                    ),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
+                    // Keep the close action reachable while scenario/system actions
+                    // scroll horizontally instead of creating a tall dialog footer.
+                    Row(
+                        modifier = Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    ) {
+                        if (nativeAvailable || scenarioTestAvailable) {
+
                     if (request.entryKind == IntentKind.INPUT_METHOD) {
                         AdaptiveTextButton(onClick = {
                             SystemEffectPreview.launchSettings(
@@ -665,11 +677,12 @@ internal fun SystemProbeDialog(
                             }))
                         }
                     }
+                        }
+                    }
+                    AdaptiveTextButton(onClick = onDismiss) {
+                        AdaptiveText(stringResource(R.string.system_probe_close))
+                    }
                 }
-            }
-            AdaptiveTextButton(onClick = onDismiss) {
-                AdaptiveText(stringResource(R.string.system_probe_close))
-            }
             }
         },
     )
