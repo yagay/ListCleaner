@@ -19,4 +19,6 @@
     <string name="lc_system_app_warning_priority">Changing the priority of system apps may alter which app Android offers or opens by default. Confirm that this is what you want.</string>
     <string name="lc_system_app_warning_select">Select system app</string>
     <string name="lc_system_app_warning_title">System app warning</string>
+    <string name="lc_root_pending_disable">Pending disable · not applied</string>
+    <string name="lc_root_pending_enable">Pending enable · not applied</string>
 </resources>
