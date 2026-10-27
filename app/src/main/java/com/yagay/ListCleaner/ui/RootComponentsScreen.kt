@@ -245,17 +245,12 @@ fun RootComponentsScreen(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
-        if (embedded) {
-            stickyHeader(key = "classic-mode-tabs") {
-                ClassicCleanupTabs(
-                    active = ClassicCleanupMode.COMPONENTS,
-                    onEntries = { navigate(onExit) },
-                    onComponents = {}
-                )
-            }
-        }
-        stickyHeader(key = "controls") {
-            PageFilterSection {
+        stickyHeader(key = "workspace-header") {
+            WorkspaceStickyHeader(
+                mode = if (embedded) ClassicCleanupMode.COMPONENTS else null,
+                onEntries = { navigate(onExit) }
+            ) {
+                PageFilterSection {
                 Column(Modifier.fillMaxWidth().background(
                     MaterialTheme.colorScheme.surface
                 )) {
@@ -324,6 +319,7 @@ fun RootComponentsScreen(
                     } else if (busy) WorkspaceProgress()
                     AdaptiveHorizontalDivider()
                 }
+            }
             }
         }
         item(key = "summary") {
