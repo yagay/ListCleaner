@@ -591,92 +591,91 @@ internal fun SystemProbeDialog(
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
                     ) {
                         if (nativeAvailable || scenarioTestAvailable) {
-
-                    if (request.entryKind == IntentKind.INPUT_METHOD) {
-                        AdaptiveTextButton(onClick = {
-                            SystemEffectPreview.launchSettings(
-                                context, IntentKind.INPUT_METHOD, request.userId
-                            )
-                        }) {
-                            AdaptiveText(stringResource(R.string.preview_open_keyboard_settings))
-                        }
-                    }
-                    if (request.entryKind == IntentKind.ASSISTANT) {
-                        AdaptiveTextButton(onClick = {
-                            SystemEffectPreview.launchAssistantSettings(
-                                context, request.userId
-                            )
-                        }) {
-                            AdaptiveText(stringResource(R.string.preview_open_assistant_settings))
-                        }
-                    }
-                    if (scenarioTestAvailable) {
-                        AdaptiveTextButton(onClick = {
-                            request.entryKind?.let { kind ->
-                                previewLaunchedAt = System.currentTimeMillis()
-                                SystemEffectPreview.launchScenario(
-                                    context, kind, request.userId, scenario
-                                )
-                            }
-                        }) {
-                            AdaptiveText(stringResource(R.string.preview_test_intent))
-                        }
-                    }
-                    if (nativeAvailable) {
-                        AdaptiveTextButton(onClick = {
-                            if (nativeRoute == SystemPreviewRoute.WIDGET_PICKER) {
-                                if (request.userId != com.yagay.ListCleaner.domain.AndroidUid.userId(
-                                        Process.myUid()
-                                    )) {
-                                    android.widget.Toast.makeText(
-                                        context, R.string.system_preview_other_space,
-                                        android.widget.Toast.LENGTH_LONG
-                                    ).show()
-                                } else if (pendingWidgetId < 0) {
-                                    runCatching {
-                                        val id = widgetHost.allocateAppWidgetId()
-                                        pendingWidgetId = id
-                                        widgetPicker.launch(
-                                            Intent(AppWidgetManager.ACTION_APPWIDGET_PICK).putExtra(
-                                                AppWidgetManager.EXTRA_APPWIDGET_ID, id
-                                            )
-                                        )
-                                    }.onFailure {
-                                        if (pendingWidgetId >= 0) {
-                                            runCatching { widgetHost.deleteAppWidgetId(pendingWidgetId) }
-                                            pendingWidgetId = -1
-                                        }
+                        if (nativeAvailable) {
+                            AdaptiveTextButton(onClick = {
+                                if (nativeRoute == SystemPreviewRoute.WIDGET_PICKER) {
+                                    if (request.userId != com.yagay.ListCleaner.domain.AndroidUid.userId(
+                                            Process.myUid()
+                                        )) {
                                         android.widget.Toast.makeText(
-                                            context, R.string.preview_widget_picker_unavailable,
+                                            context, R.string.system_preview_other_space,
                                             android.widget.Toast.LENGTH_LONG
                                         ).show()
+                                    } else if (pendingWidgetId < 0) {
+                                        runCatching {
+                                            val id = widgetHost.allocateAppWidgetId()
+                                            pendingWidgetId = id
+                                            widgetPicker.launch(
+                                                Intent(AppWidgetManager.ACTION_APPWIDGET_PICK).putExtra(
+                                                    AppWidgetManager.EXTRA_APPWIDGET_ID, id
+                                                )
+                                            )
+                                        }.onFailure {
+                                            if (pendingWidgetId >= 0) {
+                                                runCatching { widgetHost.deleteAppWidgetId(pendingWidgetId) }
+                                                pendingWidgetId = -1
+                                            }
+                                            android.widget.Toast.makeText(
+                                                context, R.string.preview_widget_picker_unavailable,
+                                                android.widget.Toast.LENGTH_LONG
+                                            ).show()
+                                        }
+                                    }
+                                } else {
+                                    previewLaunchedAt = System.currentTimeMillis()
+                                    request.entryKind?.let {
+                                        SystemEffectPreview.launch(context, it, request.userId, scenario)
+                                    } ?: request.componentKind?.let {
+                                        SystemEffectPreview.launch(context, it, request.userId)
                                     }
                                 }
-                            } else {
-                                previewLaunchedAt = System.currentTimeMillis()
-                                request.entryKind?.let {
-                                    SystemEffectPreview.launch(context, it, request.userId, scenario)
-                                } ?: request.componentKind?.let {
-                                    SystemEffectPreview.launch(context, it, request.userId)
-                                }
+                            }) {
+                                AdaptiveText(stringResource(when (nativeRoute) {
+                                    SystemPreviewRoute.PICKER, SystemPreviewRoute.WIDGET_PICKER,
+                                    SystemPreviewRoute.INPUT_METHOD_PICKER ->
+                                        R.string.system_probe_open_picker
+                                    SystemPreviewRoute.SETTINGS -> when (request.entryKind) {
+                                        IntentKind.ASSISTANT ->
+                                            R.string.preview_open_assistant_picker
+                                        IntentKind.CREDENTIAL_PROVIDER ->
+                                            R.string.preview_open_credential_settings
+                                        IntentKind.AUTOFILL -> R.string.preview_open_autofill_picker
+                                        else -> R.string.preview_open_related_settings
+                                    }
+                                    else -> R.string.system_probe_open_system
+                                }))
                             }
-                        }) {
-                            AdaptiveText(stringResource(when (nativeRoute) {
-                                SystemPreviewRoute.PICKER, SystemPreviewRoute.WIDGET_PICKER,
-                                SystemPreviewRoute.INPUT_METHOD_PICKER ->
-                                    R.string.system_probe_open_picker
-                                SystemPreviewRoute.SETTINGS -> when (request.entryKind) {
-                                    IntentKind.ASSISTANT ->
-                                        R.string.preview_open_assistant_picker
-                                    IntentKind.CREDENTIAL_PROVIDER ->
-                                        R.string.preview_open_credential_settings
-                                    IntentKind.AUTOFILL -> R.string.preview_open_autofill_picker
-                                    else -> R.string.preview_open_related_settings
-                                }
-                                else -> R.string.system_probe_open_system
-                            }))
                         }
-                    }
+                        if (request.entryKind == IntentKind.INPUT_METHOD) {
+                            AdaptiveTextButton(onClick = {
+                                SystemEffectPreview.launchSettings(
+                                    context, IntentKind.INPUT_METHOD, request.userId
+                                )
+                            }) {
+                                AdaptiveText(stringResource(R.string.preview_open_keyboard_settings))
+                            }
+                        }
+                        if (request.entryKind == IntentKind.ASSISTANT) {
+                            AdaptiveTextButton(onClick = {
+                                SystemEffectPreview.launchAssistantSettings(
+                                    context, request.userId
+                                )
+                            }) {
+                                AdaptiveText(stringResource(R.string.preview_open_assistant_settings))
+                            }
+                        }
+                        if (scenarioTestAvailable) {
+                            AdaptiveTextButton(onClick = {
+                                request.entryKind?.let { kind ->
+                                    previewLaunchedAt = System.currentTimeMillis()
+                                    SystemEffectPreview.launchScenario(
+                                        context, kind, request.userId, scenario
+                                    )
+                                }
+                            }) {
+                                AdaptiveText(stringResource(R.string.preview_test_intent))
+                            }
+                        }
                         }
                     }
                     AdaptiveTextButton(onClick = onDismiss) {
