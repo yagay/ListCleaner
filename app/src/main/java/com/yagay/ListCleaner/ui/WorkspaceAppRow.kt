@@ -131,7 +131,7 @@ internal fun MaterialAppRowBody(
         Box(
             modifier = Modifier.width(MaterialUiTokens.appSelectionSlotWidth),
             contentAlignment = Alignment.Center
-        ) { selection() }
+        ) { selection(this@Row) }
         Spacer(Modifier.width(selectionToIconGap))
         AppIcon(icon, title)
         Spacer(Modifier.width(MaterialUiTokens.appLabelInset))
