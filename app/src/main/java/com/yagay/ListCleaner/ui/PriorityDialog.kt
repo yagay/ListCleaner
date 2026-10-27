@@ -272,11 +272,15 @@ fun PriorityDialogContent(
         }
     }
 
-    Box(Modifier.fillMaxSize()) {
+    WorkspaceEditorFrame(
+        pendingCount = if (orderDraft.hasChanges()) 1 else 0,
+        onDiscard = orderDraft::discard,
+        onApply = { applyOrder() }
+    ) {
         LazyColumn(
             Modifier.fillMaxSize(),
             state = listState,
-            contentPadding = PaddingValues(bottom = if (orderDraft.hasChanges()) 90.dp else 16.dp)
+            contentPadding = PaddingValues(bottom = 16.dp)
         ) {
             stickyHeader(key = "controls") {
                 PageFilterSection {
@@ -735,12 +739,7 @@ fun PriorityDialogContent(
                 }
             }
         }
-        PendingChangesBar(
-            count = if (orderDraft.hasChanges()) 1 else 0,
-            onDiscard = orderDraft::discard,
-            onApply = { applyOrder() },
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
+
     }
 }
 
