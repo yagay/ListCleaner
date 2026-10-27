@@ -2,7 +2,7 @@ name: Build Debug APK
 
 on:
   push:
-    branches: [main, test3, beta]
+    branches: [main, test3]
     paths:
       - 'app/**'
       - 'README.md'
