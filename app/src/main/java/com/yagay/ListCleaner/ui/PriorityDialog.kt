@@ -239,6 +239,10 @@ fun PriorityDialogContent(
             }
         }
     }
+    // The two visible sections have different actions: drag prioritized apps,
+    // add available apps. Keep the counts explicit without a dashboard.
+    val prioritizedAppCount = remember(groups) { groups.count { it.rank != null } }
+    val availableAppCount = groups.size - prioritizedAppCount
     val moveTargets = remember(groups) {
         groups.filter { it.rank != null }.sortedBy { it.rank }.map { it.packageName }
     }
@@ -515,7 +519,7 @@ fun PriorityDialogContent(
                                 stringResource(
                                     if (group.rank != null) R.string.priority_selected
                                     else R.string.priority_unselected
-                                )
+                                ) + " · " + if (group.rank != null) prioritizedAppCount else availableAppCount
                             )
                         }
                     }
