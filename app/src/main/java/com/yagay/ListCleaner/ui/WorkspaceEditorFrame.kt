@@ -19,6 +19,7 @@ internal fun WorkspaceEditorFrame(
     pendingCount: Int,
     onDiscard: () -> Unit,
     onApply: () -> Unit,
+    pendingEnabled: Boolean = true,
     content: @Composable BoxScope.() -> Unit
 ) {
     Column(Modifier.fillMaxSize()) {
@@ -26,7 +27,8 @@ internal fun WorkspaceEditorFrame(
         PendingChangesBar(
             count = pendingCount,
             onDiscard = onDiscard,
-            onApply = onApply
+            onApply = onApply,
+            enabled = pendingEnabled
         )
     }
 }

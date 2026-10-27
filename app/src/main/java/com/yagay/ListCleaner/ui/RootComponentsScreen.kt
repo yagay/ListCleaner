@@ -95,6 +95,17 @@ fun RootComponentsScreen(
     }
     // Draft is scoped to the current user space and component category.
     val selectionDraft = remember(kind, vm.selectedSpace.value) { PendingSelectionDraft<String>() }
+    // Never treat a shell command being queued as proof that Android changed a component.
+    // Retain unresolved selections when Root is denied, interrupted, or only partly succeeds.
+    val verifiedDraftKeys: () -> Set<String> = {
+        verifiedComponentDraftKeys(
+            selectionDraft.changes,
+            scan.items.associate { it.id to it.enabled?.not() }
+        )
+    }
+    LaunchedEffect(scan.items, busy) {
+        if (!busy) selectionDraft.acknowledge(verifiedDraftKeys())
+    }
     BackHandler(enabled = backEnabled && (embedded || kind != null)) {
         navigate {
             if (embedded) {
@@ -107,6 +118,8 @@ fun RootComponentsScreen(
     val applyChanges: () -> Boolean = {
         if (busy) false else {
             val currentItems = scan.items.associateBy { it.id }
+            val alreadyVerified = verifiedDraftKeys()
+            selectionDraft.acknowledge(alreadyVerified)
             val desired = selectionDraft.changes.mapNotNull { (id, disabled) ->
                 currentItems[id]
                     ?.takeIf { it.blocked == null && it.enabled != null &&
@@ -115,14 +128,16 @@ fun RootComponentsScreen(
             }.toMap()
             if (desired.isEmpty()) false else {
                 vm.changeComponentsDesired(kind, desired)
-                selectionDraft.discard()
+                // Acknowledgement happens only after the refreshed PackageManager
+                // snapshot verifies the requested state; partial failures stay editable.
                 true
             }
         }
     }
     RegisterPendingNavigation(
         pendingNavigation, selectionDraft, selectionDraft.count,
-        applyChanges, selectionDraft::discard, rootEditor = true
+        applyChanges, selectionDraft::discard, rootEditor = true,
+        rootVerification = { verifiedDraftKeys().size == selectionDraft.count }
     )
 
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
@@ -239,7 +254,8 @@ fun RootComponentsScreen(
     WorkspaceEditorFrame(
         pendingCount = selectionDraft.count,
         onDiscard = selectionDraft::discard,
-        onApply = { applyChanges() }
+        onApply = { applyChanges() },
+        pendingEnabled = !busy
     ) {
     LazyColumn(
         Modifier.fillMaxSize(),

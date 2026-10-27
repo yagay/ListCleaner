@@ -27,6 +27,7 @@ import com.yagay.ListCleaner.domain.OpenTypeConfig
 import com.yagay.ListCleaner.domain.PriorityConfig
 import com.yagay.ListCleaner.domain.matchesOpenPreset
 import com.yagay.ListCleaner.domain.normalizeBrowserHost
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -34,6 +35,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -313,7 +315,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             app.getString(R.string.candidate_configured_not_observed)
         )
         PreparedCandidates(items, selected, baseAppGroups(items))
-    }.stateIn(
+    }.flowOn(Dispatchers.Default).stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
         PreparedCandidates(emptyList(), emptySet(), emptyList())
@@ -329,7 +331,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             prepared.selected,
             ui
         )
-    }.stateIn(
+    }.flowOn(Dispatchers.Default).stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
         ListContent(emptyList(), null, emptyList())

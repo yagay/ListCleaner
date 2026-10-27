@@ -21,6 +21,7 @@ class PendingNavigationGuard {
     private var apply: (() -> Boolean)? = null
     private var discard: (() -> Unit)? = null
     private var rootEditor = false
+    private var rootVerification: (() -> Boolean)? = null
     private var navigation: (() -> Unit)? = null
     var showPrompt by mutableStateOf(false)
         private set
@@ -29,13 +30,15 @@ class PendingNavigationGuard {
 
     fun register(
         owner: Any, count: Int, apply: () -> Boolean, discard: () -> Unit,
-        rootEditor: Boolean = false
+        rootEditor: Boolean = false,
+        rootVerification: (() -> Boolean)? = null
     ) {
         this.owner = owner
         pendingCount = count
         this.apply = apply
         this.discard = discard
         this.rootEditor = rootEditor
+        this.rootVerification = rootVerification
     }
 
     fun release(owner: Any) {
@@ -45,6 +48,7 @@ class PendingNavigationGuard {
         apply = null
         discard = null
         rootEditor = false
+        rootVerification = null
     }
 
     fun request(next: () -> Unit) {
@@ -88,9 +92,12 @@ class PendingNavigationGuard {
         if (!busy && observedRootBusy) {
             awaitingRoot = false
             observedRootBusy = false
+            // A completed job is not necessarily a successful job. Navigate only
+            // after the fresh component snapshot verifies every submitted target.
+            val verified = rootVerification?.invoke() == true
             val next = navigation
             stay()
-            next?.invoke()
+            if (verified) next?.invoke()
         }
     }
 }
@@ -102,9 +109,10 @@ internal fun RegisterPendingNavigation(
     count: Int,
     apply: () -> Boolean,
     discard: () -> Unit,
-    rootEditor: Boolean = false
+    rootEditor: Boolean = false,
+    rootVerification: (() -> Boolean)? = null
 ) {
-    SideEffect { guard?.register(owner, count, apply, discard, rootEditor) }
+    SideEffect { guard?.register(owner, count, apply, discard, rootEditor, rootVerification) }
     DisposableEffect(guard, owner) {
         onDispose { guard?.release(owner) }
     }

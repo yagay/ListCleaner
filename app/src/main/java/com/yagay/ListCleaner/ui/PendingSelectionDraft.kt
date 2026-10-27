@@ -55,6 +55,7 @@ internal fun PendingChangesBar(
     onDiscard: () -> Unit,
     onApply: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     if (count == 0) return
     var confirmApply by remember { mutableStateOf(false) }
@@ -64,7 +65,7 @@ internal fun PendingChangesBar(
             title = { AdaptiveText(stringResource(R.string.lc_apply_changes)) },
             text = { AdaptiveText(stringResource(R.string.lc_pending_apply_confirm, count)) },
             confirmButton = {
-                AdaptiveTextButton(onClick = {
+                AdaptiveTextButton(enabled = enabled, onClick = {
                     confirmApply = false
                     onApply()
                 }) { AdaptiveText(stringResource(R.string.common_ok)) }
@@ -94,10 +95,10 @@ internal fun PendingChangesBar(
                 style = MaterialTheme.typography.labelMedium,
                 modifier = Modifier.weight(1f)
             )
-            AdaptiveTextButton(onClick = onDiscard) {
+            AdaptiveTextButton(enabled = enabled, onClick = onDiscard) {
                 AdaptiveText(stringResource(R.string.lc_discard_changes))
             }
-            AdaptiveTextButton(onClick = { confirmApply = true }) {
+            AdaptiveTextButton(enabled = enabled, onClick = { confirmApply = true }) {
                 AdaptiveText(stringResource(R.string.lc_apply_changes))
             }
             }
