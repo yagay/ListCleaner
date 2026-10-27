@@ -883,7 +883,7 @@ for filename in ("MainTabs.kt", "RootComponentsScreen.kt", "PriorityDialog.kt"):
     source = (root / filename).read_text(encoding="utf-8")
     if "WorkspaceEditorFrame(" not in source:
         errors.append(f"{filename}: staged actions must use the measured editor frame")
-    if "WorkspaceStickyHeader(" not in source:
+    if not re.search(r"\bWorkspaceStickyHeader\s*(?:\(|\{)", source):
         errors.append(f"{filename}: category/filter must use the shared sticky header")
     if "PaddingValues(bottom = if (" in source and "90.dp" in source:
         errors.append(f"{filename}: hardcoded footer overlap allowance returned")
