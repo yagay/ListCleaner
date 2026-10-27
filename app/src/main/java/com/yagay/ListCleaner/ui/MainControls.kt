@@ -172,10 +172,9 @@ internal fun ListControls(
                     availableKinds = availableEntryKinds,
                     subtypeTitle = subtypeTitle,
                     previewActions = previewActions,
-                    subtypeSelector = if (
-                        subtypeAvailable &&
-                        (state.filter == IntentKind.OPEN || state.filter == IntentKind.DEEP_LINK)
-                    ) extraFilter else null
+                    // Subtype selection belongs to the filter menu, not another
+                    // inline button competing for the category label's width.
+                    subtypeSelector = null
                 )
             },
             filter = {
@@ -184,7 +183,11 @@ internal fun ListControls(
                     onAppTypeFilter = onAppTypeFilter,
                     viewFilter = state.uiFilter,
                     onViewFilter = onUiFilter,
-                    viewTitle = viewTitle
+                    viewTitle = viewTitle,
+                    extraFilter = if (
+                        subtypeAvailable &&
+                        (state.filter == IntentKind.OPEN || state.filter == IntentKind.DEEP_LINK)
+                    ) extraFilter else null
                 )
             }
         )
