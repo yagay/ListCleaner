@@ -325,6 +325,8 @@ fun RootComponentsScreen(
         item(key = "summary") {
             WorkspaceListSummary(
                 title = stringResource(R.string.root_summary, groups.size, visible.size),
+                secondary = stringResource(R.string.root_selection_semantics),
+                secondaryMaxLines = 2,
                 actions = listOf(
                     WorkspaceMenuAction(stringResource(R.string.select_all), {
                         pendingBatch = PendingRootBatch(kind, visible, false)
@@ -481,6 +483,23 @@ fun RootComponentsScreen(
                         WorkspaceDetailCaption(
                             item.component.flattenToShortString()
                         )
+                        if (item.enabled != null && item.blocked == null) {
+                            val savedDisabled = item.enabled == false
+                            val targetDisabled = selectionDraft.selected(item.id, savedDisabled)
+                            WorkspaceDetailStatus(
+                                text = stringResource(
+                                    when {
+                                        item.id in selectionDraft.changes && targetDisabled ->
+                                            R.string.lc_root_pending_disable
+                                        item.id in selectionDraft.changes ->
+                                            R.string.lc_root_pending_enable
+                                        targetDisabled -> R.string.root_filter_disabled
+                                        else -> R.string.root_filter_enabled
+                                    }
+                                ),
+                                informational = item.id in selectionDraft.changes
+                            )
+                        }
                         AdaptiveText(
                             item.blocked ?: stringResource(
                                 when (item.overrideState) {
