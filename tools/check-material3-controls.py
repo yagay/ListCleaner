@@ -78,7 +78,7 @@ required = {
                               "SettingsSection.BACKUP ->", "SettingsSection.ADVANCED ->",
                               "ScopeDialog(", "SettingsSection.ABOUT -> AboutSettings()"],
     "SettingsCenterHome.kt": ["enum class SettingsSection(",
-                              "SettingsSection.entries.filter { it != SettingsSection.ABOUT }",
+                              "groups.forEach { (heading, sections) ->",
                               "SettingsSection.ABOUT.icon",
                               "FlatCategoryRow(", "onSelect(section)",
                               "APPEARANCE(R.string.settings_appearance_section",
