@@ -323,13 +323,6 @@ fun RulesTab(
     LazyColumn(Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
-        item(key = "workspace-status") {
-            ClassicListHeader(
-                state = state,
-                onOpenStatus = onOpenModuleStatus,
-                onDisplayModeChange = vm::setDisplayMode
-            )
-        }
         stickyHeader(key = "workspace-header") {
             WorkspaceStickyHeader(
                 mode = ClassicCleanupMode.ENTRIES,
@@ -402,6 +395,13 @@ fun RulesTab(
                 }
             }
             }
+        }
+        item(key = "workspace-status") {
+            ClassicListHeader(
+                state = state,
+                onOpenStatus = onOpenModuleStatus,
+                onDisplayModeChange = vm::setDisplayMode
+            )
         }
         item(key = "list-summary") {
             SummaryRow(
