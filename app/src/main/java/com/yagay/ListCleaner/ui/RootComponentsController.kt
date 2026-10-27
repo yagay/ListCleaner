@@ -198,6 +198,88 @@ internal class RootComponentsController(
         }
     }
 
+
+    /**
+     * Transition only verified ListCleaner-managed component identities.
+     * The saved disabled set remains untouched while the global mode is paused.
+     */
+    fun setPaused(paused: Boolean) {
+        if (mutableBusy.value) return
+        val userId = targetUserId
+        mutableBusy.value = true
+        mutableRootNotice.value = null
+        mutableMessage.value = app.getString(R.string.root_mode_processing)
+        val operation = scope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val full = if (userId == app.spaces.currentUserId) catalog.scan()
+                        else profileCatalog.scan(userId)
+                    check(full.warning.isBlank()) { app.getString(R.string.root_scan_failed) }
+                    val managed = persistentComponents.disabledKeys().filterTo(linkedSetOf()) {
+                        PersistentComponentState.parse(it)?.user == userId
+                    }
+                    val found = full.items.associateBy {
+                        PersistentComponentState.key(it.user, it.component)
+                    }
+                    val targets = managed.mapNotNull { found[it] }.distinctBy { it.id }
+                        .filter { it.blocked == null && it.enabled != null &&
+                            (if (paused) it.overrideState == PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                             else it.overrideState != PackageManager.COMPONENT_ENABLED_STATE_DISABLED) }
+                    if (!persistentComponents.setPaused(userId, paused)) {
+                        error(app.getString(R.string.root_persistence_failed))
+                    }
+                    mutablePaused.value = paused
+                    // Publish the current guard mode before modifying Android's state.
+                    persistentComponents.syncRemote()
+                    app.synchronize()
+                    var completed = 0
+                    var failures = 0
+                    targets.forEach { target ->
+                        try {
+                            if (userId == app.spaces.currentUserId) {
+                                catalog.change(target, enable = paused)
+                            } else {
+                                profileCatalog.change(target, enable = paused)
+                            }
+                            completed++
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (failure: Exception) {
+                            failures++
+                            Log.w(TAG, "Managed Root mode component transition failed", failure)
+                        }
+                    }
+                    mutableMessage.value = app.getString(
+                        if (failures == 0) R.string.root_mode_completed else R.string.root_mode_partial,
+                        completed, failures
+                    )
+                    if (failures > 0 && !paused) {
+                        ComponentReconcileJobService.schedule(app, "root_mode_retry")
+                    }
+                    mutableScan.value = if (userId == app.spaces.currentUserId) catalog.scan()
+                        else profileCatalog.scan(userId)
+                    lastFullScanElapsed = -1L
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: ComponentRootCommand.RootAccessException) {
+                mutableMessage.value = rootAccessMessage(failure)
+                mutableRootNotice.value = mutableMessage.value
+            } catch (failure: Exception) {
+                Log.e(TAG, "Root global mode transition failed", failure)
+                mutableMessage.value = app.getString(R.string.root_mode_failed)
+            } finally {
+                mutableBusy.value = false
+                mutationJob = null
+                if (refreshPending) {
+                    refreshPending = false
+                    refresh()
+                }
+            }
+        }
+        mutationJob = operation
+    }
+
     fun change(target: RootComponent, enable: Boolean) = change(listOf(target), enable)
 
     fun change(visibleTargets: List<RootComponent>, enable: Boolean) {
