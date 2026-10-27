@@ -221,10 +221,20 @@ internal class RootComponentsController(
                     val found = full.items.associateBy {
                         PersistentComponentState.key(it.user, it.component)
                     }
+                    // Count saved identities we cannot safely verify. Never call a
+                    // global mode transition fully complete while some entries are missing.
+                    val unresolved = managed.count { key ->
+                        val target = found[key]
+                        target == null || target.blocked != null ||
+                            target.enabled == null || target.overrideState == null
+                    }
                     val targets = managed.mapNotNull { found[it] }.distinctBy { it.id }
                         .filter { it.blocked == null && it.enabled != null &&
                             (if (paused) it.overrideState == PackageManager.COMPONENT_ENABLED_STATE_DISABLED
                              else it.overrideState != PackageManager.COMPONENT_ENABLED_STATE_DISABLED) }
+                    // Don't store a requested mode and show it as applied if the
+                    // device cannot execute the Root changes it requires.
+                    if (targets.isNotEmpty()) catalog.requireRoot()
                     if (!persistentComponents.setPaused(userId, paused)) {
                         error(app.getString(R.string.root_persistence_failed))
                     }
@@ -233,7 +243,8 @@ internal class RootComponentsController(
                     persistentComponents.syncRemote()
                     app.synchronize()
                     var completed = 0
-                    var failures = 0
+                    var failures = unresolved
+                    mutableBatchProgress.value = RootBatchProgress(0, targets.size)
                     targets.forEach { target ->
                         try {
                             if (userId == app.spaces.currentUserId) {
@@ -242,10 +253,16 @@ internal class RootComponentsController(
                                 profileCatalog.change(target, enable = paused)
                             }
                             completed++
+                            mutableBatchProgress.value = RootBatchProgress(
+                                completed + failures - unresolved, targets.size
+                            )
                         } catch (cancelled: CancellationException) {
                             throw cancelled
                         } catch (failure: Exception) {
                             failures++
+                            mutableBatchProgress.value = RootBatchProgress(
+                                completed + failures - unresolved, targets.size
+                            )
                             Log.w(TAG, "Managed Root mode component transition failed", failure)
                         }
                     }
@@ -270,6 +287,7 @@ internal class RootComponentsController(
                 mutableMessage.value = app.getString(R.string.root_mode_failed)
             } finally {
                 mutableBusy.value = false
+                mutableBatchProgress.value = null
                 mutationJob = null
                 if (refreshPending) {
                     refreshPending = false
@@ -278,6 +296,15 @@ internal class RootComponentsController(
             }
         }
         mutationJob = operation
+        // A cancelled lazy/queued coroutine may never enter the body or its
+        // finally block. Always unblock the UI after completion.
+        operation.invokeOnCompletion {
+            if (mutationJob === operation) {
+                mutationJob = null
+                mutableBusy.value = false
+                mutableBatchProgress.value = null
+            }
+        }
     }
 
     fun change(target: RootComponent, enable: Boolean) = change(listOf(target), enable)
