@@ -45,10 +45,18 @@ internal enum class SettingsSection(
 
 @Composable
 internal fun SettingsCenterHome(state: MainState, onSelect: (SettingsSection) -> Unit) {
-    val headings = listOf(
-        R.string.lc_settings_home_interface,
-        R.string.lc_settings_home_functional,
-        R.string.lc_settings_home_maintenance
+    // Explicit information architecture: never infer semantic groups from
+    // enum position or chunk size when new settings are introduced.
+    val groups = listOf(
+        R.string.lc_settings_home_interface to listOf(
+            SettingsSection.APPEARANCE, SettingsSection.LISTS
+        ),
+        R.string.lc_settings_home_functional to listOf(
+            SettingsSection.SCANNING, SettingsSection.COMPATIBILITY
+        ),
+        R.string.lc_settings_home_maintenance to listOf(
+            SettingsSection.BACKUP, SettingsSection.ADVANCED
+        )
     )
     MaterialPageColumn(fullBleed = true) {
         // Keep the live runtime state discoverable without introducing a dashboard tab.
@@ -64,11 +72,10 @@ internal fun SettingsCenterHome(state: MainState, onSelect: (SettingsSection) ->
                 AdaptiveIcon(Icons.Rounded.ChevronRight, null)
             }
         )
-        SettingsSection.entries.filter { it != SettingsSection.ABOUT }
-            .chunked(2).forEachIndexed { groupIndex, sections ->
+        groups.forEach { (heading, sections) ->
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 FlatSectionHeader(
-                    stringResource(headings[groupIndex]),
+                    stringResource(heading),
                     modifier = Modifier.padding(horizontal = MaterialUiTokens.pageHorizontal)
                 )
                 Column(Modifier.fillMaxWidth()) {
