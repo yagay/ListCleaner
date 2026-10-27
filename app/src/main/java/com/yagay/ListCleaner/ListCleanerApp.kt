@@ -298,7 +298,7 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
 
                 val revision = rules.revision.value
                 val config = rules.remoteSnapshot().copy(
-                    rootDisabledComponents = PersistentComponentStore(this@ListCleanerApp).disabledKeys()
+                    rootDisabledComponents = PersistentComponentStore(this@ListCleanerApp).effectiveDisabledKeys()
                 ).validated()
                 val encoded = json.encodeToString(ModuleConfig.serializer(), config)
                 require(encoded.length <= RuleRepository.MAX_BACKUP_CHARS) {
