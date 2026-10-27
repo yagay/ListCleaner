@@ -69,3 +69,17 @@ Verify: runtime mode vs list filter, selected/indeterminate locks, Root system-s
 - The remote component-state guard and atomic runtime configuration use the **effective** disabled set, excluding paused Android user IDs. Boot/package reconciliation does not re-disable paused users.
 - The mode flag is local to the manager and independent of rule-backup import/export. It does not authorize a backup to execute arbitrary Root commands.
 - On a device where components are unavailable, Root is denied, or discovery is incomplete, the selected mode may be stored while a subset of Android overrides remains unchanged. Review the reported result and use Retry; do not assume all components changed.
+
+
+## 完整布局对照（后续修订）
+
+1. **导航**：保持清理 / 排序 / 设置三个主入口，清理内部切换 Entry / Component；不新增仪表盘。
+2. **固定区**：Entry / Component 的模式切换与 Category / Filter 共享一个 sticky header；列表摘要和运行状态随列表滚动。Open / Deep Link 子分类合并进入 Filter 菜单，避免挤压分类宽度。
+3. **统一密集列表**：应用选择区域、图标与组件详情均使用统一的槽位；展开应用使用窄色条提示展开，组件的选中状态仍使用选中背景，两种语义不同。
+4. **全局模式**：LSPosed 规则模式与 Root Active / Paused 模式只共享视觉组件，不共享持久化或底层操作。Root 暂停时展示保存的禁用规则与真实的组件状态。
+5. **排序**：已优先 / 未优先分别显示数量；拖动与原有规则草稿保持独立。
+6. **系统预览**：保留全屏预览、真实结果 / 候选 / 已启用 / 历史来源分段与横向操作区。
+7. **设置**：按照外观与列表、扫描与权限、备份与维护明确分组，不依赖枚举项位置。
+8. **自动回归**：新增按用户空间过滤 Root 有效策略的单元测试，以及针对固定槽位、菜单位置、设置分组和模式语义的结构检查。
+
+构建通过仅代表编译、结构检查和纯逻辑单测通过。Root 模式的真实系统行为、组件自恢复、跨空间切换、预览来源准确性、导航返回以及大字体/窄屏适配必须在测试机上继续验证；这些不能由静态测试替代。
