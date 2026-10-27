@@ -236,10 +236,14 @@ fun RootComponentsScreen(
     }
     val visible = remember(groups) { groups.flatMap { it.second } }
 
-    Box(Modifier.fillMaxSize()) {
+    WorkspaceEditorFrame(
+        pendingCount = selectionDraft.count,
+        onDiscard = selectionDraft::discard,
+        onApply = { applyChanges() }
+    ) {
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = if (selectionDraft.count > 0) 90.dp else 16.dp)
+        contentPadding = PaddingValues(bottom = 16.dp)
     ) {
         if (embedded) {
             stickyHeader(key = "classic-mode-tabs") {
@@ -539,11 +543,6 @@ fun RootComponentsScreen(
             }
         }
     }
-    PendingChangesBar(
-        count = selectionDraft.count,
-        onDiscard = selectionDraft::discard,
-        onApply = { applyChanges() },
-        modifier = Modifier.align(Alignment.BottomCenter)
-    )
+
 }
 }
