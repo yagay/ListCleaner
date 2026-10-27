@@ -4,7 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ExpandMore
+import com.yagay.ListCleaner.domain.DisplayMode
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
@@ -92,7 +95,47 @@ private fun FlatCleanupModeTab(
 internal fun ClassicListHeader(
     state: MainState,
     onOpenStatus: () -> Unit,
+    onDisplayModeChange: (DisplayMode) -> Unit,
 ) {
-    // Keep status beneath the mode switch. Only the two-mode selector is pinned.
+    // Runtime mode controls the effect of saved rules, not the visible list filter.
+    // Keep this informational/action row scrollable instead of pinning another toolbar.
     CleanupStatusAlert(state, onOpenStatus = onOpenStatus)
+    var expanded by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AdaptiveText(
+            stringResource(R.string.dashboard_global_mode),
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Box {
+            AdaptiveTextButton(onClick = { expanded = true }) {
+                AdaptiveText(
+                    stringResource(state.displayMode.titleRes()),
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1
+                )
+                AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(18.dp))
+            }
+            FlatWorkspaceDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                DisplayMode.entries.forEach { mode ->
+                    WorkspaceFlatMenuRow(
+                        title = stringResource(mode.titleRes()),
+                        selected = state.displayMode == mode,
+                        onClick = {
+                            expanded = false
+                            onDisplayModeChange(mode)
+                        }
+                    )
+                }
+            }
+        }
+    }
 }
