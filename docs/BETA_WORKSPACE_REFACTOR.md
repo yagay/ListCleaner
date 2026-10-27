@@ -55,3 +55,7 @@
 ### 与最初方案的边界
 
 本轮没有新增全局「应用管理」主导航，也不重写 Root/LSPosed 数据与执行器；系统预览仍是全屏 Dialog（作为二级工具），不是独立持久导航目的地。未来卡片模式可以作为可选渲染器，但本轮维持唯一的紧凑列表模式。
+
+### Beta QA checklist
+
+Verify: runtime mode vs list filter, selected/indeterminate locks, Root system-state vs pending-state markers, ordered/available counts, horizontal preview footer and persistent Close, wide/narrow layouts, large font, all Android user spaces. Debug CI validates compilation, but does not replace those device checks.
