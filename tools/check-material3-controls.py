@@ -929,6 +929,29 @@ for symbol in ("horizontalScroll(rememberScrollState())",
     if symbol not in preview_source:
         errors.append(f"SystemProbeDialog: compact full-screen action bar missing {symbol}")
 
+# Beta information-architecture acceptance: status is not a list filter,
+# category subtype cannot consume horizontal space, and paused Root choices
+# are driven by persisted keys rather than temporary Android overrides.
+root_mode_screen = (root / "RootComponentsScreen.kt").read_text(encoding="utf-8")
+controls = (root / "MainControls.kt").read_text(encoding="utf-8")
+mode_layout = (root / "WorkspaceModeStatusRow.kt").read_text(encoding="utf-8")
+settings_home = (root / "SettingsCenterHome.kt").read_text(encoding="utf-8")
+root_controller = (root / "RootComponentsController.kt").read_text(encoding="utf-8")
+for symbol in ("WorkspaceModeStatusRow(", "R.string.root_global_mode_title",
+               "storedComponentKey(item) in managedKeys", "root_saved_paused_item"):
+    if symbol not in root_mode_screen:
+        errors.append(f"RootComponentsScreen: missing safe paused policy display {symbol}")
+if "WorkspaceModeStatusRow(" not in (root / "ClassicListLayout.kt").read_text(encoding="utf-8"):
+    errors.append("ClassicListLayout: LSPosed mode row must match Root mode geometry")
+if "subtypeSelector = null" not in controls or "extraFilter = if (" not in controls:
+    errors.append("MainControls: subtype must live in Filter, not compress Category")
+if "chunked(2)" in settings_home or "groups.forEach" not in settings_home:
+    errors.append("SettingsCenterHome: settings groups must be semantic, not positional")
+if "fun setPaused(paused: Boolean)" not in root_controller or "val managedKeys:" not in root_controller:
+    errors.append("RootComponentsController: active/paused policy and saved state must be independent")
+if "heightIn(min = MaterialUiTokens.detailHeight)" not in mode_layout:
+    errors.append("WorkspaceModeStatusRow: compact status row lacks shared row height")
+
 if errors:
     print("\n".join(errors), file=sys.stderr)
     sys.exit(1)
