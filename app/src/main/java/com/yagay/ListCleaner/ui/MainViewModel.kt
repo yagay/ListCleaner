@@ -121,6 +121,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     val componentScan = rootComponents.scan
+    val componentPaused = rootComponents.paused
+    fun setComponentPaused(value: Boolean) = rootComponents.setPaused(value)
     val componentBusy = rootComponents.busy
     val componentMessage = rootComponents.message
     internal val componentBatchProgress = rootComponents.batchProgress
