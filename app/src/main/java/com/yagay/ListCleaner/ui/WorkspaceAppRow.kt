@@ -127,7 +127,11 @@ internal fun MaterialAppRowBody(
             ),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        selection()
+        // Keep the selection column fixed even when a caller uses a native Checkbox.
+        Box(
+            modifier = Modifier.width(MaterialUiTokens.appSelectionSlotWidth),
+            contentAlignment = Alignment.Center
+        ) { selection() }
         Spacer(Modifier.width(selectionToIconGap))
         AppIcon(icon, title)
         Spacer(Modifier.width(MaterialUiTokens.appLabelInset))
