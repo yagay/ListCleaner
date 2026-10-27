@@ -150,6 +150,7 @@ internal class RootComponentsController(
         }
         mutableBusy.value = true
         lastAutoScanAttemptElapsed = SystemClock.elapsedRealtime()
+        mutableManagedKeys.value = persistentComponents.disabledKeys()
         mutableMessage.value = null
         scope.launch {
             try {
