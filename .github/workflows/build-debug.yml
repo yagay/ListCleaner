@@ -2,7 +2,7 @@ name: Build Debug APK
 
 on:
   push:
-    branches: [main, test3]
+    branches: [main, test3, beta]
     paths:
       - 'app/**'
       - 'README.md'
@@ -40,7 +40,7 @@ permissions:
 concurrency:
   group: debug-${{ github.ref }}
   # Keep test3 runs from cancelling each other during rapid debugging pushes.
-  # Production branch still discards obsolete builds.
+  # main/beta discard obsolete runs; release builds remain manual.
   cancel-in-progress: ${{ github.ref != 'refs/heads/test3' }}
 
 jobs:
