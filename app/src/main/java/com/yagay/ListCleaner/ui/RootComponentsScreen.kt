@@ -62,6 +62,8 @@ fun RootComponentsScreen(
 ) {
     val scan by vm.componentScan.collectAsStateWithLifecycle()
     val busy by vm.componentBusy.collectAsStateWithLifecycle()
+    val paused by vm.componentPaused.collectAsStateWithLifecycle()
+    var requestedMode by remember { mutableStateOf<Boolean?>(null) }
     val prefsContext = LocalContext.current
     val navigate: (() -> Unit) -> Unit = { action ->
         if (!busy) {
@@ -85,6 +87,30 @@ fun RootComponentsScreen(
             confirmButton = {
                 AdaptiveTextButton(onClick = vm::dismissComponentRootNotice) {
                     AdaptiveText(stringResource(R.string.root_permission_ack))
+                }
+            }
+        )
+    }
+
+    requestedMode?.let { request ->
+        AdaptiveAlertDialog(
+            onDismissRequest = { requestedMode = null },
+            title = { AdaptiveText(stringResource(R.string.root_global_mode_title)) },
+            text = {
+                AdaptiveText(stringResource(
+                    if (request) R.string.root_global_mode_confirm_pause
+                    else R.string.root_global_mode_confirm_active
+                ))
+            },
+            confirmButton = {
+                AdaptiveTextButton(onClick = {
+                    requestedMode = null
+                    vm.setComponentPaused(request)
+                }) { AdaptiveText(stringResource(R.string.common_ok)) }
+            },
+            dismissButton = {
+                AdaptiveTextButton(onClick = { requestedMode = null }) {
+                    AdaptiveText(stringResource(R.string.common_cancel))
                 }
             }
         )
@@ -118,7 +144,7 @@ fun RootComponentsScreen(
         }
     }
     val applyChanges: () -> Boolean = {
-        if (busy) false else {
+        if (busy || paused) false else {
             val currentItems = scan.items.associateBy { it.id }
             val alreadyVerified = verifiedDraftKeys()
             selectionDraft.acknowledge(alreadyVerified)
@@ -259,7 +285,7 @@ fun RootComponentsScreen(
         pendingCount = selectionDraft.count,
         onDiscard = selectionDraft::discard,
         onApply = { applyChanges() },
-        pendingEnabled = !busy
+        pendingEnabled = !busy && !paused
     ) {
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -342,6 +368,57 @@ fun RootComponentsScreen(
             }
             }
         }
+        item(key = "root-global-mode") {
+            Column(Modifier.fillMaxWidth().padding(
+                horizontal = MaterialUiTokens.pageHorizontal, vertical = 2.dp
+            )) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        AdaptiveText(
+                            stringResource(R.string.root_global_mode_title),
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                        AdaptiveText(
+                            stringResource(
+                                if (paused) R.string.root_global_mode_paused
+                                else R.string.root_global_mode_active
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    AdaptiveTextButton(
+                        enabled = !busy && selectionDraft.count == 0,
+                        onClick = { requestedMode = !paused }
+                    ) {
+                        AdaptiveText(stringResource(
+                            if (paused) R.string.root_global_mode_active
+                            else R.string.root_global_mode_paused
+                        ))
+                    }
+                    AdaptiveTextButton(
+                        enabled = !busy && selectionDraft.count == 0,
+                        onClick = { vm.setComponentPaused(paused) }
+                    ) {
+                        AdaptiveText(stringResource(R.string.root_global_mode_retry))
+                    }
+                }
+                if (paused) {
+                    AdaptiveText(
+                        stringResource(R.string.root_global_mode_explain),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (selectionDraft.count > 0) {
+                    AdaptiveText(
+                        stringResource(R.string.root_global_mode_pending),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
         item(key = "summary") {
             WorkspaceListSummary(
                 title = stringResource(R.string.root_summary, groups.size, visible.size),
@@ -350,17 +427,17 @@ fun RootComponentsScreen(
                 actions = listOf(
                     WorkspaceMenuAction(stringResource(R.string.select_all), {
                         pendingBatch = PendingRootBatch(kind, visible, false)
-                    }, !busy && visible.any {
+                    }, !busy && !paused && visible.any {
                         it.blocked == null && it.enabled == true && !vm.isComponentBulkProtected(kind, it)
                     }),
                     WorkspaceMenuAction(stringResource(R.string.select_none), {
                         pendingBatch = PendingRootBatch(kind, visible, true)
-                    }, !busy && visible.any {
+                    }, !busy && !paused && visible.any {
                         it.blocked == null && it.enabled == false && !vm.isComponentBulkProtected(kind, it)
                     }),
                     WorkspaceMenuAction(stringResource(R.string.invert_selection), {
                         pendingBatch = PendingRootBatch(kind, visible, null)
-                    }, !busy && visible.any {
+                    }, !busy && !paused && visible.any {
                         it.blocked == null && it.enabled != null && !vm.isComponentBulkProtected(kind, it)
                     })
                 ),
@@ -438,7 +515,7 @@ fun RootComponentsScreen(
                     selection = {
                         WorkspaceAppSelectionCheckbox(
                             state = selectionState,
-                            enabled = !busy && editableComponents.isNotEmpty(),
+                            enabled = !busy && !paused && editableComponents.isNotEmpty(),
                             onClick = {
                                 val disable = selectionState != ToggleableState.On
                                 val editableTargets = editableComponents.filterNot {
@@ -482,10 +559,10 @@ fun RootComponentsScreen(
                     position = if (componentIndex == components.lastIndex)
                         ListRowPosition.LAST else ListRowPosition.MIDDLE,
                     checked = selectionDraft.selected(item.id, item.enabled == false),
-                    enabled = editable && !itemLocked,
+                    enabled = editable && !itemLocked && !paused,
                     locked = itemLocked,
                     onToggle = {
-                        if (!busy && vm.selectedSpace.value == item.user) {
+                        if (!busy && !paused && vm.selectedSpace.value == item.user) {
                             val currentDisabled = selectionDraft.selected(item.id, item.enabled == false)
                             val warnCount = if (!currentDisabled && item.appType == AppType.SYSTEM) 1 else 0
                             confirmation.requestForSystemSelection(
