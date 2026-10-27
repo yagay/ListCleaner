@@ -21,4 +21,16 @@
     <string name="lc_system_app_warning_title">System app warning</string>
     <string name="lc_root_pending_disable">Pending disable · not applied</string>
     <string name="lc_root_pending_enable">Pending enable · not applied</string>
+    <string name="root_global_mode_title">Global component mode</string>
+    <string name="root_global_mode_active">Active</string>
+    <string name="root_global_mode_paused">Paused</string>
+    <string name="root_global_mode_explain">Global Root mode is saved separately for each Android user.</string>
+    <string name="root_global_mode_confirm_pause">Pause component management for this Android user?</string>
+    <string name="root_global_mode_confirm_active">Resume saved component settings for this Android user?</string>
+    <string name="root_global_mode_retry">Retry mode</string>
+    <string name="root_global_mode_pending">Apply or discard pending changes first.</string>
+    <string name="root_mode_processing">Applying global component mode…</string>
+    <string name="root_mode_completed">Updated %1$d components; %2$d failures.</string>
+    <string name="root_mode_partial">Updated %1$d components; %2$d failures. Retry to finish.</string>
+    <string name="root_mode_failed">Could not complete the mode change. Check Root access and retry.</string>
 </resources>
