@@ -204,7 +204,7 @@ for forbidden in ("WorkspaceListActions(", "WorkspaceDetailIconAction(", "Adapti
 if "secondaryMaxLines: Int = 1" not in shared_summary or "maxLines = secondaryMaxLines" not in shared_summary:
     errors.append("WorkspaceCommon.kt: shared summary must preserve two-line Ordering help")
 for expected in ("detectDragGesturesAfterLongPress(", "moveVisiblePriorityTo(",
-                 "moveVisiblePriority(", "PendingChangesBar(",
+                 "moveVisiblePriority(", "WorkspaceEditorFrame(",
                  "SystemSelectionRisk.PRIORITY"):
     if expected not in priority:
         errors.append(f"PriorityDialog.kt: ordering-only workflow lost {expected}")
@@ -875,6 +875,27 @@ for expected in ("appTypeFilter != AppTypeFilter.ALL", "viewFilter != UiFilter.A
                  "lc_filter_help_short"):
     if expected not in toolbar:
         errors.append(f"WorkspaceCommon.kt: filter highlight or text regression: {expected}")
+
+
+# Beta workspace refactor: shared sticky header, measured action footer and
+# an inspectable full-screen system preview must not regress to overlays.
+for filename in ("MainTabs.kt", "RootComponentsScreen.kt", "PriorityDialog.kt"):
+    source = (root / filename).read_text(encoding="utf-8")
+    if "WorkspaceEditorFrame(" not in source:
+        errors.append(f"{filename}: staged actions must use the measured editor frame")
+    if "WorkspaceStickyHeader(" not in source:
+        errors.append(f"{filename}: category/filter must use the shared sticky header")
+    if "PaddingValues(bottom = if (" in source and "90.dp" in source:
+        errors.append(f"{filename}: hardcoded footer overlap allowance returned")
+frame_source = (root / "WorkspaceEditorFrame.kt").read_text(encoding="utf-8")
+for symbol in ("Modifier.weight(1f)", "PendingChangesBar(", "Box(", "Column("):
+    if symbol not in frame_source:
+        errors.append(f"WorkspaceEditorFrame.kt: missing measured viewport: {symbol}")
+preview_source = (root / "SystemProbeDialog.kt").read_text(encoding="utf-8")
+if "MaterialFullScreenDialog(" not in preview_source:
+    errors.append("SystemProbeDialog.kt: inspection should use the full-screen dialog")
+if "heightIn(max = 430.dp)" in preview_source:
+    errors.append("SystemProbeDialog.kt: old fixed-height preview returned")
 
 if errors:
     print("\n".join(errors), file=sys.stderr)
