@@ -81,7 +81,8 @@ object ComponentStateReconciler {
         val started = System.currentTimeMillis()
         val app = context.applicationContext as ListCleanerApp
         val store = PersistentComponentStore(app)
-        val keys = store.disabledKeys()
+        // Paused Android users keep their saved rules but must not be re-disabled at boot.
+        val keys = store.effectiveDisabledKeys()
         val currentUser = AndroidUid.userId(Process.myUid())
         val refs = keys.asSequence()
             .mapNotNull(PersistentComponentState::parse)
