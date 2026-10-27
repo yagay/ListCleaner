@@ -16,6 +16,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -374,52 +375,38 @@ fun RootComponentsScreen(
             }
         }
         item(key = "root-global-mode") {
-            Column(Modifier.fillMaxWidth().padding(
-                horizontal = MaterialUiTokens.pageHorizontal, vertical = 2.dp
-            )) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        AdaptiveText(
-                            stringResource(R.string.root_global_mode_title),
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                        AdaptiveText(
-                            stringResource(
-                                if (paused) R.string.root_global_mode_paused
-                                else R.string.root_global_mode_active
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    AdaptiveTextButton(
-                        enabled = !busy && selectionDraft.count == 0,
-                        onClick = { requestedMode = !paused }
-                    ) {
-                        AdaptiveText(stringResource(
+            WorkspaceModeStatusRow(
+                title = stringResource(R.string.root_global_mode_title),
+                status = stringResource(
+                    if (paused) R.string.root_global_mode_paused
+                    else R.string.root_global_mode_active
+                ),
+                note = when {
+                    selectionDraft.count > 0 -> stringResource(R.string.root_global_mode_pending)
+                    paused -> stringResource(R.string.root_global_mode_explain)
+                    else -> null
+                }
+            ) {
+                AdaptiveTextButton(
+                    enabled = !busy && selectionDraft.count == 0,
+                    onClick = { requestedMode = !paused }
+                ) {
+                    AdaptiveText(
+                        stringResource(
                             if (paused) R.string.root_global_mode_active
                             else R.string.root_global_mode_paused
-                        ))
-                    }
-                    AdaptiveTextButton(
-                        enabled = !busy && selectionDraft.count == 0,
-                        onClick = { vm.setComponentPaused(paused) }
-                    ) {
-                        AdaptiveText(stringResource(R.string.root_global_mode_retry))
-                    }
-                }
-                if (paused) {
-                    AdaptiveText(
-                        stringResource(R.string.root_global_mode_explain),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        maxLines = 1
                     )
                 }
-                if (selectionDraft.count > 0) {
-                    AdaptiveText(
-                        stringResource(R.string.root_global_mode_pending),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                AdaptiveIconButton(
+                    enabled = !busy && selectionDraft.count == 0,
+                    onClick = { vm.setComponentPaused(paused) }
+                ) {
+                    AdaptiveIcon(
+                        Icons.Rounded.Refresh,
+                        stringResource(R.string.root_global_mode_retry),
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
