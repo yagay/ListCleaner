@@ -3,6 +3,8 @@ package com.yagay.ListCleaner.ui
 import android.graphics.Bitmap
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ExpandLess
@@ -42,13 +44,26 @@ internal fun WorkspaceAppRow(
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     val expandLabel = stringResource(if (expanded) R.string.common_collapse else R.string.common_expand)
+    val expandedAccent = MaterialTheme.colorScheme.primary
+    val expansionRail = if (expanded) Modifier.drawWithContent {
+        drawContent()
+        // Expansion is a navigation state; the narrow rail deliberately differs
+        // from the filled background used to indicate selected component rules.
+        val x = 2.dp.toPx()
+        drawLine(
+            color = expandedAccent,
+            start = Offset(x, 12.dp.toPx()),
+            end = Offset(x, (size.height - 12.dp.toPx()).coerceAtLeast(12.dp.toPx())),
+            strokeWidth = 3.dp.toPx()
+        )
+    } else Modifier
     val appContent: @Composable () -> Unit = {
         MaterialAppRowBody(
             icon = icon,
             title = title,
             subtitle = subtitle,
             packageName = packageName,
-            modifier = modifier.combinedClickable(
+            modifier = modifier.then(expansionRail).combinedClickable(
                 onClickLabel = expandLabel,
                 onClick = onExpand,
                 onLongClick = { menuExpanded = true }
