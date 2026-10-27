@@ -32,6 +32,8 @@ class ComponentStateGuardModule : XposedModule() {
     @Volatile
     private var protectedComponents: Set<String> = emptySet()
 
+    @Volatile private var pausedUsers: Set<Int> = emptySet()
+
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
 
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
@@ -39,7 +41,8 @@ class ComponentStateGuardModule : XposedModule() {
     }
 
     private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == null || key == PersistentComponentState.REMOTE_KEY) {
+        if (key == null || key == PersistentComponentState.REMOTE_KEY ||
+            key == PersistentComponentState.REMOTE_PAUSED_USERS_KEY) {
             refreshProtectedComponents("preference changed")
         }
     }
@@ -74,9 +77,13 @@ class ComponentStateGuardModule : XposedModule() {
     @Synchronized
     private fun refreshProtectedComponents(reason: String) {
         runCatching {
+            val paused = preferences.getStringSet(
+                PersistentComponentState.REMOTE_PAUSED_USERS_KEY, emptySet()
+            ).orEmpty().mapNotNull(String::toIntOrNull).filter { it in 0..21474 }.toSet()
             protectedComponents = PersistentComponentState.sanitize(
                 preferences.getStringSet(PersistentComponentState.REMOTE_KEY, emptySet()).orEmpty()
             )
+            pausedUsers = paused
             record("POLICY_READ reason=$reason count=${protectedComponents.size}")
         }.onFailure {
             Log.e(TAG, "Unable to read persistent component policy; keeping previous snapshot", it)
@@ -204,6 +211,7 @@ class ComponentStateGuardModule : XposedModule() {
     private fun isProtectedEnable(userId: Int, component: ComponentName, newState: Int): Boolean {
         if (newState != PackageManager.COMPONENT_ENABLED_STATE_DEFAULT &&
             newState != PackageManager.COMPONENT_ENABLED_STATE_ENABLED) return false
+        if (userId in pausedUsers) return false
         val key = PersistentComponentState.key(userId, component)
         val runtime = RuntimeComponentPolicy.snapshot()
         val protected = if (runtime.authoritative) runtime.protectedComponents else protectedComponents
