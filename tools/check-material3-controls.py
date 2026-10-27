@@ -897,6 +897,38 @@ if "MaterialFullScreenDialog(" not in preview_source:
 if "heightIn(max = 430.dp)" in preview_source:
     errors.append("SystemProbeDialog.kt: old fixed-height preview returned")
 
+# Layout/semantics acceptance for the expanded beta workspaces.
+tokens = (root / "MaterialDesignSystem.kt").read_text(encoding="utf-8")
+app_rows = (root / "WorkspaceAppRow.kt").read_text(encoding="utf-8")
+detail_rows = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
+category_rows = (root / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
+root_screen = (root / "RootComponentsScreen.kt").read_text(encoding="utf-8")
+ordering = (root / "PriorityDialog.kt").read_text(encoding="utf-8")
+settings_home = (root / "SettingsCenterHome.kt").read_text(encoding="utf-8")
+for symbol in ("val appSelectionSlotWidth get() = iconTouchTarget",
+               "val appOverflowSlotWidth get() = iconTouchTarget"):
+    if symbol not in tokens:
+        errors.append(f"MaterialUiTokens: workspace geometry contract missing {symbol}")
+if "Modifier.width(MaterialUiTokens.appSelectionSlotWidth)" not in app_rows:
+    errors.append("WorkspaceAppRow: native selection widgets must occupy the shared slot")
+if "Spacer(Modifier.width(MaterialUiTokens.appSelectionSlotWidth))" not in detail_rows:
+    errors.append("WorkspaceDetailRow: title must line up with parent application icon")
+if "Modifier.weight(1f, fill = false)" not in category_rows:
+    errors.append("WorkspaceCategorySelector: long label may hide the trailing arrow")
+for symbol in ("R.string.lc_root_pending_disable", "R.string.lc_root_pending_enable",
+               "R.string.root_filter_disabled", "R.string.root_filter_enabled"):
+    if symbol not in root_screen:
+        errors.append(f"RootComponentsScreen: pending vs actual state marker missing {symbol}")
+for symbol in ("prioritizedAppCount", "availableAppCount"):
+    if symbol not in ordering:
+        errors.append(f"PriorityDialog: ordered and available list separation missing {symbol}")
+if "state.syncStatus.isNotBlank()" not in settings_home:
+    errors.append("SettingsCenterHome: current sync state not surfaced")
+for symbol in ("horizontalScroll(rememberScrollState())",
+               "navigationBarsPadding()", "system_probe_close"):
+    if symbol not in preview_source:
+        errors.append(f"SystemProbeDialog: compact full-screen action bar missing {symbol}")
+
 if errors:
     print("\n".join(errors), file=sys.stderr)
     sys.exit(1)
