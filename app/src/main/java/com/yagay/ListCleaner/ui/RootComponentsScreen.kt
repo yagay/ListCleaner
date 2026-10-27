@@ -34,8 +34,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.data.RootComponent
+import com.yagay.ListCleaner.data.PersistentComponentState
 import com.yagay.ListCleaner.domain.AppType
 import com.yagay.ListCleaner.domain.AppTypeFilter
+
+private fun storedComponentKey(item: RootComponent): String =
+    PersistentComponentState.key(item.user, item.component)
 
 private data class PendingRootBatch(val kind: CleanupKind?, val targets: List<RootComponent>, val enable: Boolean?)
 
@@ -63,6 +67,7 @@ fun RootComponentsScreen(
     val scan by vm.componentScan.collectAsStateWithLifecycle()
     val busy by vm.componentBusy.collectAsStateWithLifecycle()
     val paused by vm.componentPaused.collectAsStateWithLifecycle()
+    val managedKeys by vm.componentManagedKeys.collectAsStateWithLifecycle()
     var requestedMode by remember { mutableStateOf<Boolean?>(null) }
     val prefsContext = LocalContext.current
     val navigate: (() -> Unit) -> Unit = { action ->
@@ -482,7 +487,8 @@ fun RootComponentsScreen(
                     components.filter { it.blocked == null && it.enabled != null }
                 }
                 val disabledCount = editableComponents.count {
-                    selectionDraft.selected(it.id, it.enabled == false)
+                    if (paused) storedComponentKey(it) in managedKeys
+                    else selectionDraft.selected(it.id, it.enabled == false)
                 }
                 val selectionState = listSelectionState(disabledCount, editableComponents.size)
                 val first = components.first()
@@ -499,7 +505,10 @@ fun RootComponentsScreen(
                     packageName = first.component.packageName,
                     subtitle = WorkspaceAppSummaryText(
                         R.string.root_disabled_summary,
-                        components.count { selectionDraft.selected(it.id, it.enabled == false) },
+                        components.count {
+                            if (paused) storedComponentKey(it) in managedKeys
+                            else selectionDraft.selected(it.id, it.enabled == false)
+                        },
                         components.size,
                         kindTitles
                     ),
@@ -536,6 +545,14 @@ fun RootComponentsScreen(
                         )
                     },
                     details = {
+                        if (paused) {
+                            val remembered = components.count { storedComponentKey(it) in managedKeys }
+                            AdaptiveText(
+                                stringResource(R.string.root_saved_paused_count, remembered),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                         if (editableComponents.size < components.size) {
                             AdaptiveText(
                                 stringResource(
@@ -558,7 +575,8 @@ fun RootComponentsScreen(
                 WorkspaceDetailRow(
                     position = if (componentIndex == components.lastIndex)
                         ListRowPosition.LAST else ListRowPosition.MIDDLE,
-                    checked = selectionDraft.selected(item.id, item.enabled == false),
+                    checked = if (paused) storedComponentKey(item) in managedKeys
+                        else selectionDraft.selected(item.id, item.enabled == false),
                     enabled = editable && !itemLocked && !paused,
                     locked = itemLocked,
                     onToggle = {
@@ -580,6 +598,12 @@ fun RootComponentsScreen(
                         WorkspaceDetailCaption(
                             item.component.flattenToShortString()
                         )
+                        if (paused && storedComponentKey(item) in managedKeys) {
+                            WorkspaceDetailStatus(
+                                stringResource(R.string.root_saved_paused_item),
+                                informational = true
+                            )
+                        }
                         if (item.enabled != null && item.blocked == null) {
                             val savedDisabled = item.enabled == false
                             val targetDisabled = selectionDraft.selected(item.id, savedDisabled)
