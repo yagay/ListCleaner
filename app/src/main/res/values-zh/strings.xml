@@ -25,4 +25,5 @@
     <string name="category_manage_pins">管理常用分类</string>
     <string name="category_reset_pins">恢复默认</string>
     <string name="category_drag_help">长按拖动手柄调整顺序</string>
+    <string name="priority_unsupported_current_list">当前列表不支持排序</string>
 </resources>
