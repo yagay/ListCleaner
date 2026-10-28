@@ -323,10 +323,7 @@ fun RulesTab(
     LazyColumn(Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = if (selectionDraft.count > 0) 90.dp else 16.dp)
     ) {
-        item(key = "workspace-status") {
-            ClassicListHeader(state = state, onOpenStatus = onOpenModuleStatus)
-        }
-        stickyHeader(key = "list-controls") {
+        stickyHeader(key = "workspace-header") {
             PageFilterSection {
                 Column {
                     ListControls(
@@ -386,6 +383,9 @@ fun RulesTab(
                     )
                 }
             }
+        }
+        item(key = "workspace-status") {
+            ClassicListHeader(state = state, onOpenStatus = onOpenModuleStatus)
         }
         item(key = "list-summary") {
             SummaryRow(
