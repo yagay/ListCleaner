@@ -241,6 +241,9 @@ class IntentCatalog(private val context: Context) {
         var intentQueryMillis = 0L
         val allProbes = probes(customDefinitions, normalizedBrowserHosts) +
             appLinkFallbackProbes(browserDiscovery)
+        profile?.prefetch(allProbes.mapNotNull { probe ->
+            probe.intent.intentKind()?.let { kind -> probe.intent to queryFlags(kind, true) }
+        })
         for (probe in allProbes) {
             currentCoroutineContext().ensureActive()
             val probeStartNanos = System.nanoTime()
