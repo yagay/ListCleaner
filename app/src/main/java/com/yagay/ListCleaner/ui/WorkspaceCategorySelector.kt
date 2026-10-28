@@ -63,6 +63,7 @@ import com.yagay.ListCleaner.domain.kinds
 internal fun WorkspaceCategoryFilterRow(
     category: @Composable () -> Unit,
     filter: @Composable () -> Unit,
+    beforeFilter: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(
@@ -73,6 +74,7 @@ internal fun WorkspaceCategoryFilterRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(Modifier.weight(1f)) { category() }
+        beforeFilter?.invoke()
         filter()
     }
 }
