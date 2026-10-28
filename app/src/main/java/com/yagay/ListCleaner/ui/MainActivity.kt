@@ -336,9 +336,9 @@ class MainActivity : ComponentActivity() {
                     { showExportDialog = true },
                     showSearch = state.destination != Destination.SETTINGS,
                     titleRes = when {
-                        state.destination == Destination.TILES -> R.string.root_screen_title
+                        state.destination == Destination.TILES -> R.string.component_cleanup_root_title
                         state.destination == Destination.PRIORITY -> R.string.nav_priority
-                        else -> R.string.app_name
+                        else -> R.string.entry_cleanup_lsposed_title
                     },
                     spaces = spaces,
                     selectedSpace = selectedSpace,
@@ -367,9 +367,9 @@ class MainActivity : ComponentActivity() {
                         tonalElevation = 0.dp,
                         windowInsets = WindowInsets(0, 0, 0, 0)
                     ) {
-                        Destination.entries.filter { it != Destination.TILES }.forEach { dest ->
+                        listOf(Destination.RULES, Destination.TILES, Destination.SETTINGS).forEach { dest ->
                             val selected = state.destination == dest ||
-                                (dest == Destination.RULES && state.destination == Destination.TILES)
+                                (dest == Destination.RULES && state.destination == Destination.PRIORITY)
                             NavigationBarItem(
                                 selected = selected,
                                 onClick = {
