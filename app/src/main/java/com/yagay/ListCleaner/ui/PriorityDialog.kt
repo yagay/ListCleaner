@@ -336,6 +336,7 @@ fun PriorityDialogContent(
                             includeAllKinds = false,
                             showEntryGroups = true,
                             availableEntryKinds = priorityKinds,
+                            selectionActions = selectionActions,
                             modeAction = { WorkspaceSortShortcut(kind, ordering = true) { navigate { vm.setDestination(Destination.RULES) } } },
                             previewActions = listOf(
                                 WorkspaceMenuAction(
