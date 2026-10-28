@@ -61,6 +61,6 @@ internal fun ApplicationOverviewDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_ok)) } }
+        confirmButton = { AdaptiveTextButton(onClick = onDismiss) { AdaptiveText(stringResource(R.string.common_ok)) } }
     )
 }
