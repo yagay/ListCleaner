@@ -89,8 +89,8 @@ internal fun DiagnosticsSettings(
     var recordingBusy by remember { mutableStateOf(false) }
     var recordingError by remember { mutableStateOf(false) }
 
-    SettingsArea("多空间日志 / Multi-user logs") {
-        SettingsHint("Root 录制所有用户空间的系统日志，最多保留约 30 MB。录制期间切换空间复现问题，返回后停止；完整日志可能包含敏感信息。")
+    SettingsArea(stringResource(R.string.lc_multiuser_logs_title)) {
+        SettingsHint(stringResource(R.string.lc_multiuser_logs_help))
         SettingsActionButton(
             onClick = {
                 recordingBusy = true
@@ -105,12 +105,11 @@ internal fun DiagnosticsSettings(
             enabled = !recordingBusy,
             modifier = Modifier.fillMaxWidth()
         ) {
-            AdaptiveText(if (recording) "停止并保存日志 / Stop recording"
-                else "开始录制所有空间 / Start recording")
+            AdaptiveText(stringResource(if (recording) R.string.lc_multiuser_logs_stop else R.string.lc_multiuser_logs_start))
         }
-        if (recording) SettingsHint("正在录制；切换到其他空间复现问题后返回停止。")
-        if (recordingError) SettingsHint("Root 日志操作失败，请确认已授权 Root。", warning = true)
-        SettingsHint("录制文件会在完整诊断 ZIP 中导出。")
+        if (recording) SettingsHint(stringResource(R.string.lc_multiuser_logs_recording))
+        if (recordingError) SettingsHint(stringResource(R.string.lc_multiuser_logs_error), warning = true)
+        SettingsHint(stringResource(R.string.lc_multiuser_logs_export))
     }
     SettingsArea(stringResource(R.string.lc_diagnostics_export)) {
         SettingsSwitchRow(
