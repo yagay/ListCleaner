@@ -165,4 +165,7 @@
     <string name="workspace_rule_section">Entry cleanup (LSPosed)</string>
     <string name="workspace_browse_entries">Browse all entries</string>
     <string name="workspace_browse_components">Browse all components</string>
+    <string name="bottom_entry">Entry</string>
+    <string name="entry_cleanup_lsposed_title">Entry Cleanup (LSPosed)</string>
+    <string name="component_cleanup_root_title">Component Cleanup (Root)</string>
 </resources>
