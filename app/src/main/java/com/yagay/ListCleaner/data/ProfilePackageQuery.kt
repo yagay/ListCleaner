@@ -12,21 +12,7 @@ import com.yagay.ListCleaner.domain.PackageIdentity
 internal class ProfilePackageQuery(private val context: Context, val userId: Int) {
     init { require(userId in 0..21474) }
     private val packages = mutableMapOf<String, PackageInfo?>()
-    private val pathsByPackage: Map<String, List<String>> by lazy {
-        runCatching {
-            read("pm list packages -f --user $userId")
-                .lineSequence().mapNotNull { line ->
-                    if (!line.startsWith("package:")) return@mapNotNull null
-                    val raw = line.removePrefix("package:")
-                    val separator = raw.lastIndexOf('=')
-                    if (separator <= 0) return@mapNotNull null
-                    val path = raw.substring(0, separator)
-                    val name = raw.substring(separator + 1)
-                    if (!PackageIdentity.valid(name) || !path.startsWith("/")) null
-                    else name to path
-                }.groupBy({ it.first }, { it.second })
-        }.getOrDefault(emptyMap())
-    }
+    private val pathsByPackage = mutableMapOf<String, List<String>>()
 
     private fun read(command: String): String {
         val result = ComponentRootCommand.runReadOnly(command)
@@ -75,8 +61,34 @@ internal class ProfilePackageQuery(private val context: Context, val userId: Int
                 }
             }
         }
+        prefetchPackagePaths()
     }
 
+    /** Resolve full base and split paths in batches; never use base-only shortcuts. */
+    private fun prefetchPackagePaths() {
+        val names = prefetched.values.asSequence().flatMap { it.lineSequence() }
+            .mapNotNull { ComponentName.unflattenFromString(it.trim())?.packageName }
+            .filter(PackageIdentity::valid).distinct().filterNot { it in pathsByPackage }.toList()
+        names.chunked(12).forEach { batch ->
+            val script = buildString {
+                batch.forEachIndexed { index, name ->
+                    append("printf '\\n__LC_PATH_START_${index}__\\n'; ")
+                    append("pm path --user $userId ${quote(name)}")
+                    append("; printf '\\n__LC_PATH_END_${index}__\\n'; ")
+                }
+            }
+            val output = runCatching { read(script) }.getOrNull() ?: return@forEach
+            batch.forEachIndexed { index, name ->
+                val start = "__LC_PATH_START_${index}__"
+                val end = "__LC_PATH_END_${index}__"
+                if (start !in output || end !in output) return@forEachIndexed
+                val paths = output.substringAfter(start).substringBefore(end)
+                    .lineSequence().filter { it.startsWith("package:") }
+                    .map { it.removePrefix("package:").trim() }.filter { it.startsWith("/") }.toList()
+                if (paths.isNotEmpty()) pathsByPackage[name] = paths
+            }
+        }
+    }
     @Suppress("DEPRECATION")
     fun packageInfo(packageName: String): PackageInfo? = packages.getOrPut(packageName) {
         if (!PackageIdentity.valid(packageName)) return@getOrPut null
