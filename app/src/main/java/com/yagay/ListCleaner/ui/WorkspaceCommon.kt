@@ -326,6 +326,7 @@ internal fun WorkspaceListSummary(
     actions: List<WorkspaceMenuAction> = emptyList(),
     helpExpanded: Boolean = false,
     onHelpToggle: (() -> Unit)? = null,
+    showSelectionActions: Boolean = true,
 ) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = 2.dp),
@@ -339,7 +340,7 @@ internal fun WorkspaceListSummary(
                 style = MaterialTheme.typography.labelSmall, maxLines = secondaryMaxLines
             )
         }
-        WorkspaceListActions(actions, helpExpanded, onHelpToggle)
+        WorkspaceListActions(if (showSelectionActions) actions else emptyList(), helpExpanded, onHelpToggle)
     }
 }
 
