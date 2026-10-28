@@ -4,7 +4,7 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.FormatListNumbered
+import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -32,7 +32,7 @@ internal fun WorkspaceSortShortcut(kind: IntentKind?, ordering: Boolean = false,
     ) {
         Box(contentAlignment = Alignment.Center) {
             AdaptiveIcon(
-                Icons.Rounded.FormatListNumbered,
+                Icons.Rounded.SwapVert,
                 stringResource(if (ordering) R.string.nav_rules else R.string.nav_priority),
                 modifier = Modifier.size(22.dp),
                 tint = when {
