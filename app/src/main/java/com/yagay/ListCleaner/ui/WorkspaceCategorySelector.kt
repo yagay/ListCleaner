@@ -4,6 +4,8 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.RectangleShape
@@ -89,11 +91,12 @@ internal fun WorkspacePickerButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     count: Int = 0,
+    iconOnly: Boolean = false,
     previewActions: List<WorkspaceMenuAction> = emptyList()
 ) {
     Surface(
         onClick = onClick,
-        modifier = modifier,
+        modifier = if (iconOnly) modifier.semantics { contentDescription = label } else modifier,
         shape = RectangleShape,
         color = MaterialTheme.colorScheme.surface,
         contentColor = if (selected) MaterialTheme.colorScheme.primary
@@ -112,7 +115,7 @@ internal fun WorkspacePickerButton(
             } else {
                 AdaptiveIcon(icon, null, Modifier.size(18.dp), tint = color)
             }
-            AdaptiveText(
+            if (!iconOnly) AdaptiveText(
                 label,
                 modifier = Modifier,
                 style = MaterialTheme.typography.labelLarge,
@@ -121,12 +124,12 @@ internal fun WorkspacePickerButton(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            if (count > 0) AdaptiveText(
+            if (!iconOnly && count > 0) AdaptiveText(
                 count.toString(),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary
             )
-            AdaptiveIcon(
+            if (!iconOnly) AdaptiveIcon(
                 if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                 null, Modifier.size(18.dp), tint = color
             )
