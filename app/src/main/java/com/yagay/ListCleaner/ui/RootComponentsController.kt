@@ -148,7 +148,7 @@ internal class RootComponentsController(
                 mutableScan.value = withContext(Dispatchers.IO) {
                     if (targetUserId == app.spaces.currentUserId) catalog.scan()
                     else profileCatalog.scan(targetUserId)
-                }
+                }.copy(scannedUserId = targetUserId)
                 try {
                     withContext(Dispatchers.IO) {
                         persistentComponents.syncRemote()
@@ -164,7 +164,7 @@ internal class RootComponentsController(
                     mutableScan.value = withContext(Dispatchers.IO) {
                     if (targetUserId == app.spaces.currentUserId) catalog.scan()
                     else profileCatalog.scan(targetUserId)
-                }
+                }.copy(scannedUserId = targetUserId)
                 }
                 // A partial scan must retry after the short cooldown rather than appearing fresh.
                 lastFullScanElapsed = ComponentScanRefreshPolicy.completedFullScanAt(
@@ -375,7 +375,7 @@ internal class RootComponentsController(
                 }
             } else profileCatalog.scan(targetUserId)
         }
-            .onSuccess { mutableScan.value = it }
+            .onSuccess { mutableScan.value = it.copy(scannedUserId = targetUserId) }
             .onFailure { failure ->
                 Log.e(TAG, "Post-mutation Root component refresh failed", failure)
                 lastFullScanElapsed = -1L
