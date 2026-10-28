@@ -268,6 +268,7 @@ internal fun WorkspaceFlatMenuRow(
     compactOption: Boolean = false,
     expanded: Boolean = false,
     trailingIcon: ImageVector? = null,
+    leadingIcon: ImageVector? = null,
     enabled: Boolean = true
 ) {
     // Expansion is a visual state of the header, not a selected cleanup rule.
@@ -301,6 +302,10 @@ internal fun WorkspaceFlatMenuRow(
                             FlatSelectionRail(selected)
                         }
                         Spacer(Modifier.width(12.dp))
+                    }
+                    if (leadingIcon != null) {
+                        AdaptiveIcon(leadingIcon, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.width(10.dp))
                     }
                     AdaptiveText(
                         title,
@@ -346,12 +351,14 @@ internal fun WorkspaceMenuChoice(
     selected: Boolean,
     onClick: () -> Unit,
     indented: Boolean = false,
+    icon: ImageVector? = null,
 ) {
     WorkspaceFlatMenuRow(
         title = title,
         selected = selected,
         onClick = onClick,
         indented = indented,
+        leadingIcon = icon,
         compactOption = true
     )
 }
@@ -360,7 +367,8 @@ internal fun WorkspaceMenuChoice(
 internal fun WorkspaceMenuSection(
     title: String,
     expanded: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    icon: ImageVector? = null
 ) {
     WorkspaceFlatMenuRow(
         title = title,
@@ -368,6 +376,7 @@ internal fun WorkspaceMenuSection(
         expanded = expanded,
         onClick = onClick,
         section = true,
+        leadingIcon = icon,
         trailingIcon = if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore
     )
 }
@@ -409,6 +418,7 @@ internal fun EntryCategoryPicker(
             val expanded = expandedGroup == group
             WorkspaceMenuSection(
                 title = stringResource(group.titleRes()),
+                icon = group.hierarchyIcon(),
                 expanded = expanded,
                 onClick = { expandedGroup = if (expanded) null else group }
             )
@@ -418,6 +428,7 @@ internal fun EntryCategoryPicker(
                     .forEach { kind ->
                         WorkspaceMenuChoice(
                             title = stringResource(kind.titleRes()),
+                            icon = kind.hierarchyIcon(),
                             selected = selected == kind,
                             onClick = { dismiss(); onSelected(kind) },
                             indented = true
@@ -446,6 +457,7 @@ internal fun ComponentCategoryPicker(
             WorkspaceMenuChoice(
                 title = if (kind == null) stringResource(R.string.common_all)
                     else stringResource(kind.titleRes()),
+                icon = kind?.hierarchyIcon(),
                 selected = selected == kind,
                 onClick = { dismiss(); onSelected(kind) }
             )
