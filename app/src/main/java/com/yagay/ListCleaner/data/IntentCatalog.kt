@@ -165,6 +165,7 @@ class IntentCatalog(private val context: Context) {
 
         val scanStartedNanos = System.nanoTime()
         val specialFailures = mutableListOf<String>()
+        val specialUnavailable = mutableListOf<String>()
         val specialCandidates: List<ComponentCandidate> = if (profile == null) {
             runCatching { specialEntryDiscovery.scan() }.onSuccess {
                 specialFailures += specialEntryDiscovery.scanFailures
@@ -176,6 +177,7 @@ class IntentCatalog(private val context: Context) {
             runCatching { ProfileEntryDiscovery(context, profile).scan() }.fold(
                 onSuccess = { result ->
                     specialFailures += result.failedSources
+                    specialUnavailable += result.unavailableSources
                     result.candidates
                 },
                 onFailure = { failure ->
@@ -236,6 +238,9 @@ class IntentCatalog(private val context: Context) {
         var shortcutFailures = 0
         if (specialFailures.isNotEmpty()) {
             report.appendLine("specialScanFailures=${specialFailures.joinToString(",")}")
+        }
+        if (specialUnavailable.isNotEmpty()) {
+            report.appendLine("specialScanUnavailable=${specialUnavailable.joinToString(",")}")
         }
         scanWarning = null
         val specialMillis = (System.nanoTime() - scanStartedNanos) / 1_000_000
@@ -299,7 +304,8 @@ class IntentCatalog(private val context: Context) {
             "intentQueriesMs=$intentQueryMillis shortcutsMs=${(System.nanoTime() - shortcutStartNanos) / 1_000_000} " +
             "totalMs=${(System.nanoTime() - scanStartedNanos) / 1_000_000}\n")
         report.insert(0, "scanSummary userId=$userId specialFailures=${specialFailures.size} " +
-            "intentProbeFailures=$intentProbeFailures shortcutFailures=$shortcutFailures totalFailures=$failures\n")
+            "intentProbeFailures=$intentProbeFailures shortcutFailures=$shortcutFailures " +
+            "unavailableSources=${specialUnavailable.size} totalFailures=$failures\n")
         report.appendLine("finishedAt=${Instant.now()} unique=${result.size} failures=$failures")
         lastReport = report.toString()
         if (failures > 0) scanWarning = context.getString(R.string.catalog_partial_scan_failed, failures)
