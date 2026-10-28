@@ -19,24 +19,27 @@ import com.yagay.ListCleaner.domain.IntentKind
 
 /** An Entry-only shortcut; leaves the main branch's existing priority page intact. */
 @Composable
-internal fun WorkspaceSortShortcut(kind: IntentKind?, onOpen: () -> Unit) {
+internal fun WorkspaceSortShortcut(kind: IntentKind?, ordering: Boolean = false, onOpen: () -> Unit) {
     val context = LocalContext.current
-    val supported = kind != null && kind in HomeLayoutPolicy.sortableKinds
+    val supported = ordering || (kind != null && kind in HomeLayoutPolicy.sortableKinds)
     Surface(
         onClick = {
             if (supported) onOpen()
             else Toast.makeText(context, R.string.priority_unsupported_current_list, Toast.LENGTH_SHORT).show()
         },
         modifier = Modifier.size(48.dp), shape = RectangleShape,
-        color = MaterialTheme.colorScheme.surface
+        color = if (ordering) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface
     ) {
         Box(contentAlignment = Alignment.Center) {
             AdaptiveIcon(
                 Icons.Rounded.FormatListNumbered,
-                stringResource(R.string.nav_priority),
+                stringResource(if (ordering) R.string.nav_rules else R.string.nav_priority),
                 modifier = Modifier.size(22.dp),
-                tint = if (supported) MaterialTheme.colorScheme.onSurfaceVariant
-                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                tint = when {
+                    !supported -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    ordering -> MaterialTheme.colorScheme.primary
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
             )
         }
     }
