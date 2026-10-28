@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.DisplayMode
+import kotlinx.coroutines.launch
 
 /** Operational state belongs to compatibility; log collection belongs to diagnostics. */
 @Composable
@@ -83,7 +84,34 @@ internal fun DiagnosticsSettings(
     val fileCheckStatus by vm.fileCheckStatus.collectAsStateWithLifecycle()
     val checkingFile by vm.checkingFile.collectAsStateWithLifecycle()
     var showTechnical by rememberSaveable { mutableStateOf(false) }
+    val recorderScope = rememberCoroutineScope()
+    var recording by remember { mutableStateOf(RootLogRecorder.isRecording(context)) }
+    var recordingBusy by remember { mutableStateOf(false) }
+    var recordingError by remember { mutableStateOf(false) }
 
+    SettingsArea("多空间日志 / Multi-user logs") {
+        SettingsHint("Root 录制所有用户空间的系统日志，最多保留约 30 MB。录制期间切换空间复现问题，返回后停止；完整日志可能包含敏感信息。")
+        SettingsActionButton(
+            onClick = {
+                recordingBusy = true
+                recorderScope.launch {
+                    val ok = if (recording) RootLogRecorder.stop(context)
+                        else RootLogRecorder.start(context)
+                    recording = RootLogRecorder.isRecording(context)
+                    recordingError = !ok
+                    recordingBusy = false
+                }
+            },
+            enabled = !recordingBusy,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            AdaptiveText(if (recording) "停止并保存日志 / Stop recording"
+                else "开始录制所有空间 / Start recording")
+        }
+        if (recording) SettingsHint("正在录制；切换到其他空间复现问题后返回停止。")
+        if (recordingError) SettingsHint("Root 日志操作失败，请确认已授权 Root。", warning = true)
+        SettingsHint("录制文件会在完整诊断 ZIP 中导出。")
+    }
     SettingsArea(stringResource(R.string.lc_diagnostics_export)) {
         SettingsSwitchRow(
             title = stringResource(R.string.lc_diagnostics_full),
