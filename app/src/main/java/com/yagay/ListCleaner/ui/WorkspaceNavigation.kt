@@ -58,7 +58,7 @@ internal fun WorkspaceSortShortcut(kind: IntentKind?, ordering: Boolean = false,
             if (supported) onOpen()
             else Toast.makeText(context, R.string.priority_unsupported_current_list, Toast.LENGTH_SHORT).show()
         },
-        modifier = Modifier.size(48.dp), shape = RectangleShape,
+        modifier = Modifier.size(40.dp), shape = RectangleShape,
         color = if (ordering) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface
     ) {
         Box(contentAlignment = Alignment.Center) {
