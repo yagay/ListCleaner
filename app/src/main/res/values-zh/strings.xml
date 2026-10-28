@@ -34,4 +34,6 @@
     <string name="app_overview_components">Root 组件</string>
     <string name="app_overview_root_unscanned">尚未扫描当前用户空间的 Root 组件</string>
     <string name="app_overview_root_summary">已禁用 %1$d / 共 %2$d 个组件</string>
+    <string name="bottom_entry">入口</string>
+    <string name="bottom_root">组件</string>
 </resources>
