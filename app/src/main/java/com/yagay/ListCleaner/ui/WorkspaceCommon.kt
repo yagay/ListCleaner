@@ -279,7 +279,7 @@ internal fun WorkspaceListActions(
                 androidx.compose.material3.Surface(
                     onClick = { selectionMenuExpanded = true },
                     enabled = actions.any { it.enabled },
-                    modifier = Modifier.size(48.dp),
+                    modifier = Modifier.size(40.dp),
                     shape = androidx.compose.ui.graphics.RectangleShape,
                     color = MaterialTheme.colorScheme.surface
                 ) {
