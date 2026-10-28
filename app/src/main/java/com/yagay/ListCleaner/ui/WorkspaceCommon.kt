@@ -14,6 +14,7 @@ import androidx.compose.material.icons.rounded.FilterAlt
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.SelectAll
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
@@ -275,12 +276,15 @@ internal fun WorkspaceListActions(
         // A labeled menu provides all batch actions without a visible tri-state.
         if (actions.isNotEmpty()) {
             Box {
-                AdaptiveTextButton(
+                AdaptiveIconButton(
                     onClick = { selectionMenuExpanded = true },
                     enabled = actions.any { it.enabled }
                 ) {
-                    AdaptiveText(stringResource(R.string.selection_actions), maxLines = 1)
-                    AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(18.dp))
+                    AdaptiveIcon(
+                        Icons.Rounded.SelectAll,
+                        stringResource(R.string.selection_actions),
+                        Modifier.size(20.dp)
+                    )
                 }
                 FlatWorkspaceDropdownMenu(
                     expanded = selectionMenuExpanded,
