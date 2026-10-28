@@ -66,6 +66,7 @@ internal fun WorkspaceCategoryFilterRow(
     category: @Composable () -> Unit,
     filter: @Composable () -> Unit,
     beforeFilter: (@Composable () -> Unit)? = null,
+    afterFilter: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(
@@ -78,6 +79,7 @@ internal fun WorkspaceCategoryFilterRow(
         Box(Modifier.weight(1f)) { category() }
         beforeFilter?.invoke()
         filter()
+        afterFilter?.invoke()
     }
 }
 
