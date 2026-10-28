@@ -19,4 +19,10 @@
     <string name="lc_system_app_warning_priority">调整系统应用的排序优先级，可能改变 Android 默认推荐或打开的应用。请确认这是你想要的结果。</string>
     <string name="lc_system_app_warning_select">选择系统应用</string>
     <string name="lc_system_app_warning_title">系统应用风险提醒</string>
+    <string name="category_pin">置顶分类</string>
+    <string name="category_unpin">取消置顶</string>
+    <string name="category_favorites">常用分类</string>
+    <string name="category_manage_pins">管理常用分类</string>
+    <string name="category_reset_pins">恢复默认</string>
+    <string name="category_drag_help">长按拖动手柄调整顺序</string>
 </resources>
