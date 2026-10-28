@@ -115,10 +115,29 @@ internal class UnifiedShortcutEngine(private val context: Context) {
         val selectedKinds = kinds.intersect(setOf(IntentKind.DIRECT_SHARE, IntentKind.SHORTCUT_ITEM))
         if (selectedKinds.isEmpty()) return Result(source = "NONE", status = "disabled")
         if (userId !in 0..21474) return Result(source = "NONE", status = "invalid_user")
-        val packages = sharePackages.asSequence()
+        // Desktop long-press shortcuts are not restricted to apps that handle SHARE.
+        // Enumerate the selected Android user's installed packages instead of
+        // borrowing the share resolver's (usually incomplete) package set.
+        val packageCandidates = if (IntentKind.SHORTCUT_ITEM in selectedKinds) {
+            val listing = runCatching {
+                ComponentRootCommand.runReadOnly("pm list packages --user $userId")
+            }.getOrNull()
+            if (listing == null || listing.timedOut || listing.exitCode != 0 ||
+                "[output truncated]" in listing.output ||
+                "[output incomplete]" in listing.output ||
+                "Error:" in listing.output) {
+                return Result(source = "ROOT_SHELL", status = "package_listing_failed")
+            }
+            listing.output.lineSequence().mapNotNull { line ->
+                line.trim().takeIf { it.startsWith("package:") }?.removePrefix("package:")
+            }.toList().also {
+                if (it.isEmpty()) return Result(source = "ROOT_SHELL", status = "package_listing_empty")
+            }
+        } else sharePackages
+        val packages = packageCandidates.asSequence()
             .filter { PackageIdentity.valid(it) && SAFE_PACKAGE.matches(it) }
             .distinct().sorted().take(MAX_PACKAGES).toList()
-        if (packages.isEmpty()) return Result(source = "NONE", status = "no_share_packages")
+        if (packages.isEmpty()) return Result(source = "NONE", status = "no_packages")
         val known = packages.toSet()
 
         // LauncherApps is the public authoritative ShortcutService client, but needs
@@ -134,7 +153,8 @@ internal class UnifiedShortcutEngine(private val context: Context) {
                 launcher.getShortcuts(query, user).orEmpty()
                     .asSequence().filter { it.`package` in known &&
                         it.isEnabled && (it.isDynamic || it.isDeclaredInManifest) &&
-                        !it.categories.isNullOrEmpty() }
+                        (IntentKind.SHORTCUT_ITEM in selectedKinds ||
+                            !it.categories.isNullOrEmpty()) }
                     .take(MAX_CANDIDATES)
                     .flatMap { shortcut ->
                         selectedKinds.asSequence().mapNotNull { kind ->
@@ -217,7 +237,7 @@ internal class UnifiedShortcutEngine(private val context: Context) {
                 shared ?: UnifiedShortcutEngine(context.applicationContext).also { shared = it }
             }
 
-        const val MAX_PACKAGES = 48
+        const val MAX_PACKAGES = 256
         const val MAX_CANDIDATES = 512
         val SAFE_PACKAGE = Regex("[A-Za-z][A-Za-z0-9_.]*")
     }
