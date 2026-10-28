@@ -6,6 +6,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.yagay.ListCleaner.domain.AppTypeFilter
+import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.data.CleanupKind
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
@@ -44,6 +46,8 @@ internal data class UiPreferences(
     val appSort: UiAppSort = UiAppSort.SELECTED_FIRST,
     val defaultFilter: UiFilter = UiFilter.ALL,
     val defaultAppType: AppTypeFilter = AppTypeFilter.ALL,
+    val pinnedEntryKinds: List<IntentKind> = emptyList(),
+    val pinnedRootKinds: List<CleanupKind> = emptyList(),
     val rememberFilters: Boolean = false,
     val openHelpByDefault: Boolean = false,
     val homeColumns: Int = 2,
@@ -78,6 +82,8 @@ internal data class UiPreferences(
         // Legacy GROUPED and CATEGORY_CARDS remain readable only for migration.
         // All active screens render one flat list; stored values do not fork UI.
         listStyle = UiListStyle.ORIGINAL,
+        pinnedEntryKinds = pinnedEntryKinds.distinct().take(16),
+        pinnedRootKinds = pinnedRootKinds.distinct().take(CleanupKind.entries.size),
         homeLayout = UiHomeLayout.CLASSIC_LIST,
         colorOverrides = colorOverrides.filter { (key, hex) -> (key in UiColorRoles.keys || (key.startsWith("dark_") && key.removePrefix("dark_") in UiColorRoles.keys)) && hex.matches(Regex("#[0-9a-fA-F]{6}")) },
         customAccentHex = customAccentHex.takeIf { it.matches(Regex("#[0-9a-fA-F]{6}")) } ?: "#2859AB",
@@ -116,6 +122,9 @@ internal object UiPreferencesStore {
     private fun <T : Enum<T>> stored(name: String?, values: Array<T>, fallback: T): T =
         values.firstOrNull { it.name == name } ?: fallback
 
+    private fun <T : Enum<T>> storedKinds(names: String?, values: Array<T>): List<T> =
+        names.orEmpty().split(',').mapNotNull { name -> values.firstOrNull { it.name == name } }.distinct()
+
     /** Legacy layout names remain readable in backups but resolve to one list. */
     internal fun upgradedListLayout(saved: UiHomeLayout, alreadyUpgraded: Boolean): UiHomeLayout =
         UiHomeLayout.CLASSIC_LIST
@@ -150,6 +159,8 @@ internal object UiPreferencesStore {
             appSort = stored(p.getString("app_sort", null), UiAppSort.entries.toTypedArray(), defaults.appSort),
             defaultFilter = stored(p.getString("default_filter", null), UiFilter.entries.toTypedArray(), defaults.defaultFilter),
             defaultAppType = stored(p.getString("default_app_type", null), AppTypeFilter.entries.toTypedArray(), defaults.defaultAppType),
+            pinnedEntryKinds = storedKinds(p.getString("pinned_entry_kinds", null), IntentKind.entries.toTypedArray()),
+            pinnedRootKinds = storedKinds(p.getString("pinned_root_kinds", null), CleanupKind.entries.toTypedArray()),
             rememberFilters = p.getBoolean("remember_filters", defaults.rememberFilters),
             openHelpByDefault = p.getBoolean("help_default", defaults.openHelpByDefault),
             homeColumns = p.getInt("home_columns", defaults.homeColumns),
@@ -199,6 +210,8 @@ internal object UiPreferencesStore {
             .putString("app_sort", safe.appSort.name)
             .putString("default_filter", safe.defaultFilter.name)
             .putString("default_app_type", safe.defaultAppType.name)
+            .putString("pinned_entry_kinds", safe.pinnedEntryKinds.joinToString(",") { it.name })
+            .putString("pinned_root_kinds", safe.pinnedRootKinds.joinToString(",") { it.name })
             .putBoolean("remember_filters", safe.rememberFilters)
             .putBoolean("help_default", safe.openHelpByDefault)
             .putInt("home_columns", safe.homeColumns)
@@ -286,6 +299,7 @@ internal object UiPreferencesStore {
     }
 
     private val backupTextKeys = setOf("density", "accent", "home_layout", "start_page", "app_sort", "default_filter",
+        "pinned_entry_kinds", "pinned_root_kinds",
         "default_app_type", "scan_mode", "proactive_scan_mode",
         "candidate_source", "component_start", "preview_default", "probe_default_scenario",
         "diagnostics_level", "component_refresh", "last_probe_scenario", "last_filter_rules", "last_filter_priority", "last_filter_components",
@@ -308,6 +322,8 @@ internal object UiPreferencesStore {
         snapshot.put("app_sort", v.appSort.name)
         snapshot.put("default_filter", v.defaultFilter.name)
         snapshot.put("default_app_type", v.defaultAppType.name)
+        snapshot.put("pinned_entry_kinds", v.pinnedEntryKinds.joinToString(",") { it.name })
+        snapshot.put("pinned_root_kinds", v.pinnedRootKinds.joinToString(",") { it.name })
         snapshot.put("scan_mode", v.scanMode.name)
         snapshot.put("proactive_scan_mode", v.proactiveScanMode.name)
         snapshot.put("proactive_direct_share", v.proactiveDirectShare)
@@ -353,6 +369,10 @@ internal object UiPreferencesStore {
         for (key in snapshot.keys()) {
             val value = snapshot.get(key)
             require(when (key) {
+                "pinned_entry_kinds" -> value is String && value.length <= 1024 &&
+                    value.split(',').filter { it.isNotBlank() }.all { name -> IntentKind.entries.any { it.name == name } }
+                "pinned_root_kinds" -> value is String && value.length <= 256 &&
+                    value.split(',').filter { it.isNotBlank() }.all { name -> CleanupKind.entries.any { it.name == name } }
                 in backupTextKeys, "appearance_color_mode" -> value is String && value.length <= 256
                 in backupIntKeys -> value is Number && value.toInt() in -1000..10000
                 in backupBoolKeys -> value is Boolean
