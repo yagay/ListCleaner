@@ -14,7 +14,7 @@ import androidx.compose.material.icons.rounded.FilterAlt
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.SelectAll
+import androidx.compose.material.icons.rounded.PlaylistAddCheck
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
@@ -281,7 +281,7 @@ internal fun WorkspaceListActions(
                     enabled = actions.any { it.enabled }
                 ) {
                     AdaptiveIcon(
-                        Icons.Rounded.SelectAll,
+                        Icons.Rounded.PlaylistAddCheck,
                         stringResource(R.string.selection_actions),
                         Modifier.size(20.dp)
                     )
