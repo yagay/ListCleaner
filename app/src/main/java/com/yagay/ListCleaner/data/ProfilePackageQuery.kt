@@ -12,6 +12,21 @@ import com.yagay.ListCleaner.domain.PackageIdentity
 internal class ProfilePackageQuery(private val context: Context, val userId: Int) {
     init { require(userId in 0..21474) }
     private val packages = mutableMapOf<String, PackageInfo?>()
+    private val pathsByPackage: Map<String, List<String>> by lazy {
+        runCatching {
+            read("pm list packages -f --user $userId")
+                .lineSequence().mapNotNull { line ->
+                    if (!line.startsWith("package:")) return@mapNotNull null
+                    val raw = line.removePrefix("package:")
+                    val separator = raw.lastIndexOf('=')
+                    if (separator <= 0) return@mapNotNull null
+                    val path = raw.substring(0, separator)
+                    val name = raw.substring(separator + 1)
+                    if (!PackageIdentity.valid(name) || !path.startsWith("/")) null
+                    else name to path
+                }.groupBy({ it.first }, { it.second })
+        }.getOrDefault(emptyMap())
+    }
 
     private fun read(command: String): String {
         val result = ComponentRootCommand.runReadOnly(command)
@@ -25,8 +40,11 @@ internal class ProfilePackageQuery(private val context: Context, val userId: Int
     fun packageInfo(packageName: String): PackageInfo? = packages.getOrPut(packageName) {
         if (!PackageIdentity.valid(packageName)) return@getOrPut null
         runCatching {
-            val paths = read("pm path --user $userId $packageName").lineSequence()
-                .filter { it.startsWith("package:") }.map { it.removePrefix("package:").trim() }.toList()
+            val cachedPaths = pathsByPackage[packageName].orEmpty()
+            val paths = if (cachedPaths.isNotEmpty()) cachedPaths else
+                read("pm path --user $userId ${quote(packageName)}").lineSequence()
+                    .filter { it.startsWith("package:") }
+                    .map { it.removePrefix("package:").trim() }.toList()
             val apk = paths.firstOrNull { it.endsWith("/base.apk") } ?: paths.firstOrNull()
                 ?: return@runCatching null
             val flags = PackageManager.GET_ACTIVITIES or PackageManager.GET_SERVICES or
