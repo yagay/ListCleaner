@@ -26,4 +26,9 @@
     <string name="category_reset_pins">恢复默认</string>
     <string name="category_drag_help">长按拖动手柄调整顺序</string>
     <string name="priority_unsupported_current_list">当前列表不支持排序</string>
+    <string name="app_overview_title">应用总览</string>
+    <string name="app_overview_readonly">仅显示已保存状态，不显示未提交的修改。</string>
+    <string name="app_overview_rules">规则</string>
+    <string name="app_overview_priority">排序</string>
+    <string name="app_overview_rank">第 %1$d 位</string>
 </resources>
