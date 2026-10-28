@@ -24,6 +24,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.DropdownMenu
@@ -37,6 +38,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.stringResource
@@ -269,7 +271,8 @@ internal fun WorkspaceFlatMenuRow(
     expanded: Boolean = false,
     trailingIcon: ImageVector? = null,
     leadingIcon: ImageVector? = null,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    trailingAction: (@Composable () -> Unit)? = null
 ) {
     // Expansion is a visual state of the header, not a selected cleanup rule.
     // Keep the same 48dp menu row geometry and flat, square surface.
@@ -329,12 +332,17 @@ internal fun WorkspaceFlatMenuRow(
                 }
             },
             trailingIcon = {
-                val icon = trailingIcon ?: if (selected) Icons.Rounded.Check else null
-                if (icon != null) AdaptiveIcon(
-                    icon, null, Modifier.size(20.dp),
-                    tint = if (selected || sectionExpanded) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (trailingAction != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (selected) AdaptiveIcon(Icons.Rounded.Check, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                        trailingAction()
+                    }
+                } else {
+                    val icon = trailingIcon ?: if (selected) Icons.Rounded.Check else null
+                    if (icon != null) AdaptiveIcon(icon, null, Modifier.size(20.dp),
+                        tint = if (selected || sectionExpanded) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             },
             onClick = onClick
         )
@@ -381,6 +389,27 @@ internal fun WorkspaceMenuSection(
     )
 }
 
+
+/** Independent pin target: tapping the category does not change its favorite state. */
+@Composable
+private fun WorkspaceFavoriteChoice(
+    title: String, selected: Boolean, pinned: Boolean, icon: ImageVector,
+    onSelect: () -> Unit, onPin: () -> Unit, indented: Boolean = false
+) {
+    WorkspaceFlatMenuRow(
+        title = title, selected = selected, onClick = onSelect,
+        indented = indented, compactOption = true, leadingIcon = icon,
+        trailingAction = {
+            AdaptiveIconButton(onClick = onPin) {
+                AdaptiveIcon(Icons.Rounded.PushPin,
+                    stringResource(if (pinned) R.string.category_unpin else R.string.category_pin),
+                    Modifier.size(18.dp),
+                    tint = if (pinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    )
+}
+
 @Composable
 internal fun EntryCategoryPicker(
     selected: IntentKind?,
@@ -392,48 +421,51 @@ internal fun EntryCategoryPicker(
     subtypeSelector: (@Composable () -> Unit)? = null,
     previewActions: List<WorkspaceMenuAction> = emptyList(),
 ) {
-    val availableGroups = EntryGroup.entries
-        .filter { includeAllKinds || it != EntryGroup.DESKTOP }
-        .filter { group ->
-            availableKinds == null || group.kinds().any { it in availableKinds }
-        }
+    val context = LocalContext.current
+    val preferences = UiPreferencesRuntime.current
+    val pinned = preferences.pinnedEntryKinds.filter { availableKinds == null || it in availableKinds }
+    val groups = EntryGroup.entries.filter { includeAllKinds || it != EntryGroup.DESKTOP }
     val currentTitle = if (selected == null) stringResource(R.string.common_all)
         else stringResource(selected.titleRes())
     var expandedGroup by remember(selected) { mutableStateOf(selected?.entryGroup()) }
+    var managePins by remember { mutableStateOf(false) }
+    if (managePins) CategoryPinnedManagerDialog(
+        items = preferences.pinnedEntryKinds,
+        label = { kind -> stringResource(kind.titleRes()) },
+        onChange = { updated -> UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedEntryKinds = updated)) },
+        onDismiss = { managePins = false }
+    )
     WorkspaceCategoryPicker(
         selectedTitle = if (subtypeTitle == null) currentTitle else "$currentTitle · $subtypeTitle",
         menuTitle = stringResource(R.string.lc_category_picker_entry_title),
-        modifier = modifier,
-        trailingSelector = subtypeSelector,
-        previewActions = previewActions,
+        modifier = modifier, trailingSelector = subtypeSelector, previewActions = previewActions,
     ) { dismiss ->
-        if (includeAllKinds) {
-            WorkspaceMenuChoice(
-                title = stringResource(R.string.common_all),
-                selected = selected == null,
-                onClick = { dismiss(); onSelected(null) }
-            )
+        if (includeAllKinds) WorkspaceMenuChoice(
+            title = stringResource(R.string.common_all), selected = selected == null,
+            onClick = { dismiss(); onSelected(null) }
+        )
+        if (preferences.pinnedEntryKinds.isNotEmpty()) WorkspaceMenuChoice(
+            title = stringResource(R.string.category_manage_pins), selected = false,
+            onClick = { dismiss(); managePins = true }
+        )
+        if (pinned.isNotEmpty()) FlatPopupHeader(stringResource(R.string.category_favorites))
+        pinned.forEach { kind ->
+            WorkspaceFavoriteChoice(stringResource(kind.titleRes()), selected == kind, true,
+                kind.hierarchyIcon(), { dismiss(); onSelected(kind) },
+                { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedEntryKinds = UiPreferencesRuntime.current.pinnedEntryKinds - kind)) })
         }
-        availableGroups.forEach { group ->
-            val expanded = expandedGroup == group
-            WorkspaceMenuSection(
-                title = stringResource(group.titleRes()),
-                icon = group.hierarchyIcon(),
-                expanded = expanded,
-                onClick = { expandedGroup = if (expanded) null else group }
-            )
-            if (expanded) {
-                group.kinds()
-                    .filter { availableKinds == null || it in availableKinds }
-                    .forEach { kind ->
-                        WorkspaceMenuChoice(
-                            title = stringResource(kind.titleRes()),
-                            icon = kind.hierarchyIcon(),
-                            selected = selected == kind,
-                            onClick = { dismiss(); onSelected(kind) },
-                            indented = true
-                        )
-                    }
+        groups.forEach { group ->
+            val kinds = group.kinds().filter { (availableKinds == null || it in availableKinds) && it !in pinned }
+            if (kinds.isNotEmpty()) {
+                val expanded = expandedGroup == group
+                WorkspaceMenuSection(stringResource(group.titleRes()), expanded,
+                    onClick = { expandedGroup = if (expanded) null else group }, icon = group.hierarchyIcon())
+                if (expanded) kinds.forEach { kind ->
+                    WorkspaceFavoriteChoice(stringResource(kind.titleRes()), selected == kind, false,
+                        kind.hierarchyIcon(), { dismiss(); onSelected(kind) },
+                        { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedEntryKinds = UiPreferencesRuntime.current.pinnedEntryKinds + kind)) },
+                        indented = true)
+                }
             }
         }
     }
@@ -446,21 +478,34 @@ internal fun ComponentCategoryPicker(
     modifier: Modifier = Modifier,
     previewActions: List<WorkspaceMenuAction> = emptyList()
 ) {
+    val context = LocalContext.current
+    val preferences = UiPreferencesRuntime.current
+    val pinned = preferences.pinnedRootKinds
+    var managePins by remember { mutableStateOf(false) }
+    if (managePins) CategoryPinnedManagerDialog(
+        items = pinned, label = { kind -> stringResource(kind.titleRes()) },
+        onChange = { updated -> UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedRootKinds = updated)) },
+        onDismiss = { managePins = false }
+    )
     WorkspaceCategoryPicker(
-        selectedTitle = if (selected == null) stringResource(R.string.common_all)
-            else stringResource(selected.titleRes()),
+        selectedTitle = if (selected == null) stringResource(R.string.common_all) else stringResource(selected.titleRes()),
         menuTitle = stringResource(R.string.lc_category_picker_component_title),
-        modifier = modifier,
-        previewActions = previewActions
+        modifier = modifier, previewActions = previewActions
     ) { dismiss ->
-        ComponentCategoryFilterPolicy.choices.forEach { kind ->
-            WorkspaceMenuChoice(
-                title = if (kind == null) stringResource(R.string.common_all)
-                    else stringResource(kind.titleRes()),
-                icon = kind?.hierarchyIcon(),
-                selected = selected == kind,
-                onClick = { dismiss(); onSelected(kind) }
-            )
+        WorkspaceMenuChoice(stringResource(R.string.common_all), selected == null, { dismiss(); onSelected(null) })
+        if (pinned.isNotEmpty()) {
+            WorkspaceMenuChoice(stringResource(R.string.category_manage_pins), false, { dismiss(); managePins = true })
+            FlatPopupHeader(stringResource(R.string.category_favorites))
+        }
+        pinned.forEach { kind -> WorkspaceFavoriteChoice(
+            stringResource(kind.titleRes()), selected == kind, true, kind.hierarchyIcon(),
+            { dismiss(); onSelected(kind) },
+            { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedRootKinds = UiPreferencesRuntime.current.pinnedRootKinds - kind)) })
+        }
+        ComponentCategoryFilterPolicy.choices.filterNotNull().filter { it !in pinned }.forEach { kind ->
+            WorkspaceFavoriteChoice(stringResource(kind.titleRes()), selected == kind, false, kind.hierarchyIcon(),
+                { dismiss(); onSelected(kind) },
+                { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedRootKinds = UiPreferencesRuntime.current.pinnedRootKinds + kind)) })
         }
     }
 }
