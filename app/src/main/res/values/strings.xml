@@ -25,4 +25,5 @@
     <string name="category_manage_pins">Manage pinned categories</string>
     <string name="category_reset_pins">Reset pins</string>
     <string name="category_drag_help">Long-press the handle and drag to reorder</string>
+    <string name="priority_unsupported_current_list">This list does not support sorting</string>
 </resources>
