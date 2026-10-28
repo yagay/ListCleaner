@@ -8,11 +8,9 @@ import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -53,15 +51,13 @@ private val AlignedSortArrows: ImageVector = ImageVector.Builder(
 internal fun WorkspaceSortShortcut(kind: IntentKind?, ordering: Boolean = false, onOpen: () -> Unit) {
     val context = LocalContext.current
     val supported = ordering || (kind != null && kind in HomeLayoutPolicy.sortableKinds)
-    Surface(
+    WorkspaceToolbarAction(
         onClick = {
             if (supported) onOpen()
             else Toast.makeText(context, R.string.priority_unsupported_current_list, Toast.LENGTH_SHORT).show()
         },
-        modifier = Modifier.size(40.dp), shape = RectangleShape,
-        color = if (ordering) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface
+        active = ordering
     ) {
-        Box(contentAlignment = Alignment.Center) {
             val iconTint = when {
                 !supported -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                 ordering -> MaterialTheme.colorScheme.primary
@@ -73,6 +69,5 @@ internal fun WorkspaceSortShortcut(kind: IntentKind?, ordering: Boolean = false,
                 modifier = Modifier.size(22.dp),
                 tint = iconTint
             )
-        }
     }
 }
