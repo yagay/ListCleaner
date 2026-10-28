@@ -77,9 +77,14 @@ internal fun WorkspaceCategoryFilterRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(Modifier.weight(1f)) { category() }
-        beforeFilter?.invoke()
-        filter()
-        afterFilter?.invoke()
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(0.dp)
+        ) {
+            beforeFilter?.invoke()
+            filter()
+            afterFilter?.invoke()
+        }
     }
 }
 
@@ -105,7 +110,7 @@ internal fun WorkspacePickerButton(
             else MaterialTheme.colorScheme.onSurfaceVariant
     ) {
         Row(
-            modifier = if (iconOnly) Modifier.size(48.dp) else Modifier.heightIn(min = 48.dp)
+            modifier = if (iconOnly) Modifier.size(40.dp) else Modifier.heightIn(min = 48.dp)
                 .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = if (iconOnly) Arrangement.Center else Arrangement.spacedBy(8.dp)
