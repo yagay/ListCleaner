@@ -686,16 +686,16 @@ class ListCleanerModule : XposedModule() {
             // Binder identity can belong to a different user than the one queried.
             // Unknown system_server signatures fail open instead of borrowing another
             // Android profile's selection or ordering policy.
-            val targetUserId = if (layer == Layer.SYSTEM) {
-                val method = chain.executable as? Method
-                method?.let {
-                    HookCallIdentity.packageManagerTargetUserId(
-                        it.name, it.parameterTypes.map { parameter -> parameter.name }, chain.args,
-                    )
-                }
-            } else {
-                com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid())
-            }
+            val queriedMethod = chain.executable as? Method
+            val userContext = HookCallIdentity.queryUserContext(
+                layerIsSystem = layer == Layer.SYSTEM,
+                methodName = queriedMethod?.name,
+                parameterTypeNames = queriedMethod?.parameterTypes?.map { it.name }.orEmpty(),
+                args = chain.args.toList(),
+                binderUid = callerUid,
+                processUid = Process.myUid(),
+            )
+            val targetUserId = userContext.targetUserId
             if (targetUserId == null) {
                 val method = chain.executable as? Method
                 diagnostic(
@@ -719,6 +719,7 @@ class ListCleanerModule : XposedModule() {
             if (requestedAction == Intent.ACTION_PROCESS_TEXT) {
                 diagnostic(
                     "PROCESS_TEXT_PROFILE layer=$layer targetUser=$targetUserId callerUid=$callerUid " +
+                        "processUser=${userContext.processUserId} source=${userContext.source} " +
                         "callerUser=${if (callerUid >= 0) com.yagay.ListCleaner.domain.AndroidUid.userId(callerUid) else -1} " +
                         "configured=${targetUserId == 0 || targetUserId in policies.otherUsers} " +
                         "rules=${userPolicy.configured.count { it.startsWith("PROCESS_TEXT|") }} " +
@@ -1082,7 +1083,7 @@ class ListCleanerModule : XposedModule() {
                 // existing text rules; keep all other privileged queries untouched.
                 val callerUser = com.yagay.ListCleaner.domain.AndroidUid.userId(callerUid)
                 val scopedTextQuery = kind == IntentKind.PROCESS_TEXT &&
-                    callerUser > 0 && callerUser in policies.otherUsers &&
+                    callerUser == userContext.targetUserId && callerUser > 0 && callerUser in policies.otherUsers &&
                     snapshot.configured.any { it.startsWith("PROCESS_TEXT|") } &&
                     snapshot.displayMode != DisplayMode.SHOW_ALL
                 if (scopedTextQuery) {
