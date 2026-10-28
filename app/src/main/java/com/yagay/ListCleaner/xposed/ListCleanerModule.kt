@@ -712,7 +712,20 @@ class ListCleanerModule : XposedModule() {
                         "configuredUsers=${policies.otherUsers.keys.sorted()}"
                 )
             }
-            activeQuerySnapshot.set(snapshotForUser(targetUserId))
+            val userPolicy = snapshotForUser(targetUserId)
+            val requestedAction = (chain.args.firstOrNull { it is Intent } as? Intent)?.let {
+                (it.selector ?: it).action
+            }
+            if (requestedAction == Intent.ACTION_PROCESS_TEXT) {
+                diagnostic(
+                    "PROCESS_TEXT_PROFILE layer=$layer targetUser=$targetUserId callerUid=$callerUid " +
+                        "callerUser=${if (callerUid >= 0) com.yagay.ListCleaner.domain.AndroidUid.userId(callerUid) else -1} " +
+                        "configured=${targetUserId == 0 || targetUserId in policies.otherUsers} " +
+                        "rules=${userPolicy.configured.count { it.startsWith("PROCESS_TEXT|") }} " +
+                        "mode=${userPolicy.displayMode} result=${original?.javaClass?.name}"
+                )
+            }
+            activeQuerySnapshot.set(userPolicy)
             try {
                 processQuery(chain, original, layer, callerUid)
             } catch (failure: Throwable) {
