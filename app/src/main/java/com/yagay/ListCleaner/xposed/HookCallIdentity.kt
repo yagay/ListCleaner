@@ -8,6 +8,37 @@ package com.yagay.ListCleaner.xposed
  * so hooks prefer the explicit argument whenever a known signature exposes one.
  */
 internal object HookCallIdentity {
+    /** A package query's target is never inferred from Binder UID: cross-user queries exist. */
+    data class QueryUserContext(
+        val callerUid: Int,
+        val callerUserId: Int?,
+        val processUserId: Int,
+        val targetUserId: Int?,
+        val source: String,
+    ) {
+        val hasExplicitTarget: Boolean get() = targetUserId != null
+        val sameUserCaller: Boolean get() = callerUserId != null && callerUserId == targetUserId
+    }
+
+    fun queryUserContext(
+        layerIsSystem: Boolean,
+        methodName: String?,
+        parameterTypeNames: List<String>,
+        args: List<Any?>,
+        binderUid: Int,
+        processUid: Int,
+    ): QueryUserContext {
+        val processUser = com.yagay.ListCleaner.domain.AndroidUid.userId(processUid)
+        val caller = if (layerIsSystem) binderUid else processUid
+        val callerUser = caller.takeIf { it >= 0 }
+            ?.let(com.yagay.ListCleaner.domain.AndroidUid::userId)
+        val target = if (layerIsSystem && methodName != null)
+            packageManagerTargetUserId(methodName, parameterTypeNames, args)
+        else if (!layerIsSystem) processUser else null
+        return QueryUserContext(caller, callerUser, processUser, target,
+            if (layerIsSystem) "explicit_package_query" else "process_uid")
+    }
+
     data class ShortcutCall(
         val callerUid: Int,
         val callingPackage: String?,
