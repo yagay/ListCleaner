@@ -37,8 +37,12 @@ internal class ProfilePackageQuery(private val context: Context, val userId: Int
     }
 
     /** Batch independent probes in one root invocation, falling back per probe on failure. */
-    fun prefetch(queries: List<Pair<Intent, Int>>) {
-        val commands = queries.map { queryCommand(it.first, it.second, "query-activities") }
+    fun prefetch(queries: List<Pair<Intent, Int>>) = prefetchCommands(
+        queries.map { Triple(it.first, it.second, "query-activities") }
+    )
+
+    fun prefetchCommands(queries: List<Triple<Intent, Int, String>>) {
+        val commands = queries.map { queryCommand(it.first, it.second, it.third) }
             .distinct().filterNot { it in prefetched }
         if (commands.isEmpty()) return
         // Limit batch size to keep RootCommand's bounded output and timeout predictable.
