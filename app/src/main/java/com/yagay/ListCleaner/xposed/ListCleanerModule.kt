@@ -1077,7 +1077,22 @@ class ListCleanerModule : XposedModule() {
 
         if (privilegedSystem) {
             if (!resolverSystemRequest) {
-                diagnostic("FILTER_SKIP reason=privileged_caller uid=$callerUid userId=${com.yagay.ListCleaner.domain.AndroidUid.userId(callerUid)} kind=$kind")
+                // A profile-local system UID (e.g. 1001000 for user 10) can build
+                // PROCESS_TEXT menus on behalf of that user. Apply only that user's
+                // existing text rules; keep all other privileged queries untouched.
+                val callerUser = com.yagay.ListCleaner.domain.AndroidUid.userId(callerUid)
+                val scopedTextQuery = kind == IntentKind.PROCESS_TEXT &&
+                    callerUser > 0 && callerUser in policies.otherUsers &&
+                    snapshot.configured.any { it.startsWith("PROCESS_TEXT|") } &&
+                    snapshot.displayMode != DisplayMode.SHOW_ALL
+                if (scopedTextQuery) {
+                    val filtered = transform(kind, extracted.values, layer, callerUid,
+                        resolvedType, openUri?.scheme, openPath, data?.host)
+                    diagnostic("PROFILE_TEXT_SYSTEM_QUERY userId=$callerUser " +
+                        "before=${extracted.values.size} after=${filtered?.size ?: extracted.values.size}")
+                    return if (filtered == null) original else extracted.rebuild(filtered)
+                }
+                diagnostic("FILTER_SKIP reason=privileged_caller uid=$callerUid userId=$callerUser kind=$kind")
                 return original
             }
             val annotated = annotateResolverPolicy(
