@@ -424,7 +424,7 @@ fun RulesTab(
         item(key = "list-summary") {
             SummaryRow(
                 state, shownGroups.size,
-
+                actions = emptyList(),
                 helpExpanded = ruleHelpExpanded,
                 onHelpToggle = { ruleHelpExpanded = !ruleHelpExpanded }
             )
