@@ -15,7 +15,7 @@ import com.yagay.ListCleaner.domain.VisibilityScope
 
 @StringRes
 internal fun Destination.labelRes(): Int = when (this) {
-    Destination.RULES -> R.string.nav_rules
+    Destination.RULES -> R.string.bottom_entry
     Destination.PRIORITY -> R.string.nav_priority
     Destination.TILES -> R.string.nav_components
     Destination.SETTINGS -> R.string.nav_settings
