@@ -2,9 +2,11 @@ package com.yagay.ListCleaner.ui
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.SwapVert
+import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -31,16 +33,25 @@ internal fun WorkspaceSortShortcut(kind: IntentKind?, ordering: Boolean = false,
         color = if (ordering) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface
     ) {
         Box(contentAlignment = Alignment.Center) {
-            AdaptiveIcon(
-                Icons.Rounded.SwapVert,
-                stringResource(if (ordering) R.string.nav_rules else R.string.nav_priority),
-                modifier = Modifier.size(22.dp),
-                tint = when {
-                    !supported -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                    ordering -> MaterialTheme.colorScheme.primary
-                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                }
-            )
+            val iconTint = when {
+                !supported -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                ordering -> MaterialTheme.colorScheme.primary
+                else -> MaterialTheme.colorScheme.onSurfaceVariant
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AdaptiveIcon(
+                    Icons.Rounded.ArrowUpward,
+                    stringResource(if (ordering) R.string.nav_rules else R.string.nav_priority),
+                    modifier = Modifier.size(14.dp),
+                    tint = iconTint
+                )
+                AdaptiveIcon(
+                    Icons.Rounded.ArrowDownward,
+                    null,
+                    modifier = Modifier.size(14.dp),
+                    tint = iconTint
+                )
+            }
         }
     }
 }
