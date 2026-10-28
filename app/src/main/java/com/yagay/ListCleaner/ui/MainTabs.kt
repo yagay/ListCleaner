@@ -69,7 +69,7 @@ fun RulesTab(
     val workspaceStateHolder = rememberSaveableStateHolder()
     var overviewPackage by remember { mutableStateOf<String?>(null) }
     overviewPackage?.let { packageName ->
-        ApplicationOverviewDialog(packageName, state, onDismiss = { overviewPackage = null })
+        ApplicationOverviewDialog(packageName, state, componentScan, vm.selectedSpace.value, onDismiss = { overviewPackage = null })
     }
     var systemProbeRequest by remember { mutableStateOf<SystemProbeRequest?>(null) }
     systemProbeRequest?.let { request ->
