@@ -17,6 +17,19 @@ internal class ProfileEntryDiscovery(private val context: Context, private val q
     fun scan(): ProfileEntryScan {
         val failures = mutableListOf<String>()
         val unavailable = mutableListOf<String>()
+        // Fetch all special entry resolver queries in bounded batches first.
+        query.prefetchCommands(
+            SYSTEM_SERVICE_ENTRY_DEFINITIONS.map {
+                Triple(Intent(it.action), PackageManager.GET_META_DATA, "query-services")
+            } + listOf(
+                Triple(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
+                    PackageManager.MATCH_DEFAULT_ONLY, "query-activities"),
+                Triple(Intent(Intent.ACTION_ASSIST), PackageManager.MATCH_DEFAULT_ONLY, "query-activities"),
+                Triple(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://example.com"))
+                    .addCategory(Intent.CATEGORY_BROWSABLE),
+                    PackageManager.MATCH_DEFAULT_ONLY, "query-activities"),
+            )
+        )
         val items = buildList {
             SYSTEM_SERVICE_ENTRY_DEFINITIONS.forEach { definition ->
                 val matches = runCatching {
