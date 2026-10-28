@@ -276,21 +276,16 @@ internal fun WorkspaceListActions(
         // A labeled menu provides all batch actions without a visible tri-state.
         if (actions.isNotEmpty()) {
             Box {
-                androidx.compose.material3.Surface(
+                WorkspaceToolbarAction(
                     onClick = { selectionMenuExpanded = true },
-                    enabled = actions.any { it.enabled },
-                    modifier = Modifier.size(40.dp),
-                    shape = androidx.compose.ui.graphics.RectangleShape,
-                    color = MaterialTheme.colorScheme.surface
+                    enabled = actions.any { it.enabled }
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
                         AdaptiveIcon(
                             Icons.Rounded.PlaylistAddCheck,
                             stringResource(R.string.selection_actions),
                             Modifier.size(20.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    }
                 }
                 FlatWorkspaceDropdownMenu(
                     expanded = selectionMenuExpanded,
