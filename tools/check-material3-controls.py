@@ -840,7 +840,7 @@ if "fun WorkspacePickerButton(" not in menu_shared:
 if "fun <T> WorkspaceFilterChoiceGroup(" not in sheet or "WorkspaceFlatMenuRow(" not in sheet:
     errors.append("WorkspaceCommon.kt: shared flat filter rows missing")
 for expected in ("fun WorkspaceListActions(",
-                 "WorkspaceListActions(actions, helpExpanded, onHelpToggle)"):
+                 "WorkspaceListActions(if (showSelectionActions) actions else emptyList(), helpExpanded, onHelpToggle)"):
     if expected not in sheet:
         errors.append(f"WorkspaceCommon.kt: list actions regression: {expected}")
 if "AdaptiveDropdownMenu(expanded = appMenu" in sheet:
@@ -866,10 +866,22 @@ if len(entry_help) < 2 or "system_preview_explanation" not in entry_help[1].spli
 )[0]:
     errors.append("MainTabs.kt: preview explanation belongs in expandable help")
 
+# Bulk selection has moved into the pinned toolbar after Filter.
+# Verify all three workspaces provide actions there and suppress the old summary trigger.
 for filename in ("MainTabs.kt", "RootComponentsScreen.kt", "PriorityDialog.kt"):
     code = (root / filename).read_text(encoding="utf-8")
-    if "WorkspaceListActions(" not in code and "actions = listOf(" not in code:
-        errors.append(f"{filename}: bulk actions must live beside the list summary")
+    if "val selectionActions = listOf(" not in code:
+        errors.append(f"{filename}: bulk actions definition missing")
+    if "showSelectionActions = false" not in code:
+        errors.append(f"{filename}: old list-summary bulk trigger still enabled")
+    if filename == "RootComponentsScreen.kt":
+        if "afterFilter = { WorkspaceListActions(actions = selectionActions) }" not in code:
+            errors.append(f"{filename}: selection actions must follow Filter")
+    elif "selectionActions = selectionActions" not in code:
+        errors.append(f"{filename}: selection actions must be passed to pinned toolbar")
+picker = (root / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
+if "filter()\n        afterFilter?.invoke()" not in picker:
+    errors.append("WorkspaceCategorySelector.kt: selection control must follow Filter")
 toolbar = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
 for expected in ("appTypeFilter != AppTypeFilter.ALL", "viewFilter != UiFilter.ALL",
                  "lc_filter_help_short"):
