@@ -67,6 +67,10 @@ fun RulesTab(
     var savedRuleKind by rememberSaveable { mutableStateOf<IntentKind?>(null) }
     var savedComponentQuery by rememberSaveable { mutableStateOf("") }
     val workspaceStateHolder = rememberSaveableStateHolder()
+    var overviewPackage by remember { mutableStateOf<String?>(null) }
+    overviewPackage?.let { packageName ->
+        ApplicationOverviewDialog(packageName, state, onDismiss = { overviewPackage = null })
+    }
     var systemProbeRequest by remember { mutableStateOf<SystemProbeRequest?>(null) }
     systemProbeRequest?.let { request ->
         SystemProbeDialog(request, onDismiss = { systemProbeRequest = null })
@@ -527,6 +531,7 @@ fun RulesTab(
                             false
                         )
                     },
+                    onOverview = { overviewPackage = group.packageName },
                     openWithDefinitions = if (state.filter == IntentKind.OPEN &&
                         typedOpenPreset == null) state.openTypesExplicit.customDefinitions else null
                 )
