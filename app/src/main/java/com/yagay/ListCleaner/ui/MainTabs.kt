@@ -323,21 +323,6 @@ fun RulesTab(
     LazyColumn(Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = if (selectionDraft.count > 0) 90.dp else 16.dp)
     ) {
-        stickyHeader(key = "classic-mode-tabs") {
-            ClassicCleanupTabs(
-                active = ClassicCleanupMode.ENTRIES,
-                onEntries = {},
-                onComponents = {
-                    navigate {
-                        savedRuleQuery = state.query
-                        savedRuleKind = state.filter
-                        browseAllComponents = true
-                        vm.setFilter(null)
-                        vm.setQuery(savedComponentQuery)
-                    }
-                }
-            )
-        }
         item(key = "workspace-status") {
             ClassicListHeader(state = state, onOpenStatus = onOpenModuleStatus)
         }
