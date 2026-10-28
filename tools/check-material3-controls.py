@@ -338,7 +338,7 @@ picker_row = picker_source.split("internal fun WorkspaceCategoryFilterRow(", 1)[
     "/** Unified top-row trigger", 1
 )[0]
 category_position = picker_row.find("Box(Modifier.weight(1f)) { category() }")
-filter_position = picker_row.find("        filter()")
+filter_position = picker_row.find("WorkspaceToolbarActions(beforeFilter, filter, afterFilter)")
 if category_position < 0 or filter_position < 0 or category_position >= filter_position:
     errors.append("WorkspaceCategorySelector.kt: Category must precede Filter in the top toolbar")
 toolbar_source = (root / "MainActivity.kt").read_text(encoding="utf-8")
@@ -880,7 +880,8 @@ for filename in ("MainTabs.kt", "RootComponentsScreen.kt", "PriorityDialog.kt"):
     elif "selectionActions = selectionActions" not in code:
         errors.append(f"{filename}: selection actions must be passed to pinned toolbar")
 picker = (root / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
-if not re.search(r"filter\(\)\s+afterFilter\?\.invoke\(\)", picker):
+toolbar_actions = (root / "WorkspaceToolbar.kt").read_text(encoding="utf-8")
+if not re.search(r"sort\?\.invoke\(\)\s+filter\(\)\s+selection\?\.invoke\(\)", toolbar_actions):
     errors.append("WorkspaceCategorySelector.kt: selection control must follow Filter")
 toolbar = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
 for expected in ("appTypeFilter != AppTypeFilter.ALL", "viewFilter != UiFilter.ALL",
