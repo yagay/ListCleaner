@@ -148,12 +148,15 @@ internal class UnifiedShortcutEngine(private val context: Context) {
                 val user = UserHandle.getUserHandleForUid(userId * 100000)
                 val query = LauncherApps.ShortcutQuery().setQueryFlags(
                     LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or
-                        LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST
+                        LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST or
+                        LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED or
+                        LauncherApps.ShortcutQuery.FLAG_MATCH_CACHED
                 )
                 launcher.getShortcuts(query, user).orEmpty()
                     .asSequence().filter { it.`package` in known &&
-                        it.isEnabled && (it.isDynamic || it.isDeclaredInManifest) &&
-                        (IntentKind.SHORTCUT_ITEM in selectedKinds ||
+                        it.isEnabled &&
+                        ((IntentKind.SHORTCUT_ITEM in selectedKinds &&
+                            (it.isDynamic || it.isDeclaredInManifest || it.isPinned || it.isCached)) ||
                             !it.categories.isNullOrEmpty()) }
                     .take(MAX_CANDIDATES)
                     .flatMap { shortcut ->
