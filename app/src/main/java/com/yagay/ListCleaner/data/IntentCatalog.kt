@@ -163,6 +163,7 @@ class IntentCatalog(private val context: Context) {
             return@withContext cached
         }
 
+        val scanStartedNanos = System.nanoTime()
         val specialFailures = mutableListOf<String>()
         val specialCandidates: List<ComponentCandidate> = if (profile == null) {
             runCatching { specialEntryDiscovery.scan() }.onSuccess {
@@ -237,13 +238,15 @@ class IntentCatalog(private val context: Context) {
             report.appendLine("specialScanFailures=${specialFailures.joinToString(",")}")
         }
         scanWarning = null
-        val scanStartedNanos = System.nanoTime()
+        val specialMillis = (System.nanoTime() - scanStartedNanos) / 1_000_000
         var intentQueryMillis = 0L
         val allProbes = probes(customDefinitions, normalizedBrowserHosts) +
             appLinkFallbackProbes(browserDiscovery)
+        val batchStartNanos = System.nanoTime()
         profile?.prefetch(allProbes.mapNotNull { probe ->
             probe.intent.intentKind()?.let { kind -> probe.intent to queryFlags(kind, true) }
         })
+        val batchMillis = (System.nanoTime() - batchStartNanos) / 1_000_000
         for (probe in allProbes) {
             currentCoroutineContext().ensureActive()
             val probeStartNanos = System.nanoTime()
@@ -269,6 +272,7 @@ class IntentCatalog(private val context: Context) {
             .map { it.rule.packageName }.distinct().toList()
         val activeKinds = proactiveOptions.requestedKinds
         val allowed = proactiveOptions.mayQuery(manualProactive)
+        val shortcutStartNanos = System.nanoTime()
         if (allowed) {
             val snapshot = proactiveShortcuts.scanCached(
                 userId, sharePackages, activeKinds,
@@ -291,7 +295,9 @@ class IntentCatalog(private val context: Context) {
         }
         currentCoroutineContext().ensureActive()
         val result = merge(found)
-        report.insert(0, "scanTiming userId=$userId intentQueriesMs=$intentQueryMillis totalMs=${(System.nanoTime() - scanStartedNanos) / 1_000_000}\n")
+        report.insert(0, "scanTiming userId=$userId specialMs=$specialMillis batchMs=$batchMillis " +
+            "intentQueriesMs=$intentQueryMillis shortcutsMs=${(System.nanoTime() - shortcutStartNanos) / 1_000_000} " +
+            "totalMs=${(System.nanoTime() - scanStartedNanos) / 1_000_000}\n")
         report.insert(0, "scanSummary userId=$userId specialFailures=${specialFailures.size} " +
             "intentProbeFailures=$intentProbeFailures shortcutFailures=$shortcutFailures totalFailures=$failures\n")
         report.appendLine("finishedAt=${Instant.now()} unique=${result.size} failures=$failures")
