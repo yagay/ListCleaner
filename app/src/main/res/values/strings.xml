@@ -31,4 +31,7 @@
     <string name="app_overview_rules">Rules</string>
     <string name="app_overview_priority">Priority</string>
     <string name="app_overview_rank">Position %1$d</string>
+    <string name="app_overview_components">Root components</string>
+    <string name="app_overview_root_unscanned">Root components have not been scanned for this user</string>
+    <string name="app_overview_root_summary">Disabled %1$d of %2$d components</string>
 </resources>
