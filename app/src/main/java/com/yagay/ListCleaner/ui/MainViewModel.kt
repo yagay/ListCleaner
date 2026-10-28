@@ -716,8 +716,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         UiPreferencesStore.rememberFilter(app, value)
     }
     fun setDestination(value: Destination) {
-        // Legacy Component tab redirects into the merged Cleanup workspace.
-        val target = if (value == Destination.TILES) Destination.RULES else value
+        // Restore the compact beta-style Root destination while preserving the main engines.
+        val target = value
         val previous = destination.value
         if (previous == target) return
         val rememberSearch = UiPreferencesRuntime.current.rememberPageSearch
