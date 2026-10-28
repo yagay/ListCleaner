@@ -288,7 +288,7 @@ class IntentCatalog(private val context: Context) {
         }
         currentCoroutineContext().ensureActive()
         val result = merge(found)
-        report.insert(0, "scanTiming userId=$userId intentQueriesMs=$intentQueryMillis totalMs=${(System.nanoTime() - scanStartedNanos) / 1_000_000}\\n")
+        report.insert(0, "scanTiming userId=$userId intentQueriesMs=$intentQueryMillis totalMs=${(System.nanoTime() - scanStartedNanos) / 1_000_000}\n")
         report.insert(0, "scanSummary userId=$userId specialFailures=${specialFailures.size} " +
             "intentProbeFailures=$intentProbeFailures shortcutFailures=$shortcutFailures totalFailures=$failures\n")
         report.appendLine("finishedAt=${Instant.now()} unique=${result.size} failures=$failures")
