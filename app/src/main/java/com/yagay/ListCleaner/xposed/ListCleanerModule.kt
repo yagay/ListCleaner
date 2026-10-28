@@ -697,8 +697,20 @@ class ListCleanerModule : XposedModule() {
                 com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid())
             }
             if (targetUserId == null) {
-                diagnostic("FILTER_SKIP layer=$layer reason=unknown_query_user")
+                val method = chain.executable as? Method
+                diagnostic(
+                    "FILTER_SKIP layer=$layer reason=unknown_query_user callerUid=$callerUid " +
+                        "method=${method?.name} signature=${method?.parameterTypes?.joinToString(",") { it.name }} " +
+                        "args=${chain.args.map { if (it is Int || it is Long || it is Boolean) it else it?.javaClass?.simpleName }}"
+                )
                 return@Hooker original
+            }
+            if (layer == Layer.SYSTEM && targetUserId != 0 &&
+                targetUserId !in policies.otherUsers) {
+                diagnostic(
+                    "PROFILE_POLICY_MISSING userId=$targetUserId callerUid=$callerUid " +
+                        "configuredUsers=${policies.otherUsers.keys.sorted()}"
+                )
             }
             activeQuerySnapshot.set(snapshotForUser(targetUserId))
             try {
@@ -1052,7 +1064,7 @@ class ListCleanerModule : XposedModule() {
 
         if (privilegedSystem) {
             if (!resolverSystemRequest) {
-                diagnostic("FILTER_SKIP reason=privileged_caller uid=$callerUid")
+                diagnostic("FILTER_SKIP reason=privileged_caller uid=$callerUid userId=${com.yagay.ListCleaner.domain.AndroidUid.userId(callerUid)} kind=$kind")
                 return original
             }
             val annotated = annotateResolverPolicy(
