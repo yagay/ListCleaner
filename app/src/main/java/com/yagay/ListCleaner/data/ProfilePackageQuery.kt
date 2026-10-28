@@ -18,7 +18,7 @@ internal class ProfilePackageQuery(private val context: Context, val userId: Int
         val result = ComponentRootCommand.runReadOnly(command)
         check(result.exitCode == 0 && !result.timedOut &&
             !result.output.contains("[output truncated]") &&
-            !result.output.contains("[output incomplete]")) { "profile_query_failed" }
+            !result.output.contains("[output incomplete]")) { "profile_query_failed exit=${result.exitCode} timeout=${result.timedOut} output=${result.output.take(150)}" }
         return result.output
     }
 
