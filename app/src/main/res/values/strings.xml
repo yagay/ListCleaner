@@ -19,4 +19,10 @@
     <string name="lc_system_app_warning_priority">Changing the priority of system apps may alter which app Android offers or opens by default. Confirm that this is what you want.</string>
     <string name="lc_system_app_warning_select">Select system app</string>
     <string name="lc_system_app_warning_title">System app warning</string>
+    <string name="category_pin">Pin category</string>
+    <string name="category_unpin">Unpin category</string>
+    <string name="category_favorites">Pinned categories</string>
+    <string name="category_manage_pins">Manage pinned categories</string>
+    <string name="category_reset_pins">Reset pins</string>
+    <string name="category_drag_help">Long-press the handle and drag to reorder</string>
 </resources>
