@@ -173,9 +173,10 @@ internal fun ListControls(
                     availableKinds = availableEntryKinds,
                     subtypeTitle = subtypeTitle,
                     previewActions = previewActions,
-                    // Beta compact layout: subtype choices belong inside Filter,
-                    // not an extra inline button that crowds the category label.
-                    subtypeSelector = null
+                    subtypeSelector = if (
+                        subtypeAvailable &&
+                        (state.filter == IntentKind.OPEN || state.filter == IntentKind.DEEP_LINK)
+                    ) extraFilter else null
                 )
             },
             beforeFilter = modeAction,
@@ -185,10 +186,7 @@ internal fun ListControls(
                     onAppTypeFilter = onAppTypeFilter,
                     viewFilter = state.uiFilter,
                     onViewFilter = onUiFilter,
-                    viewTitle = viewTitle,
-                    extraFilter = if (subtypeAvailable &&
-                        (state.filter == IntentKind.OPEN || state.filter == IntentKind.DEEP_LINK)
-                    ) extraFilter else null
+                    viewTitle = viewTitle
                 )
             }
         )
