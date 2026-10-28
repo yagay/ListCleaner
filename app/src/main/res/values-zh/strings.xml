@@ -31,4 +31,7 @@
     <string name="app_overview_rules">规则</string>
     <string name="app_overview_priority">排序</string>
     <string name="app_overview_rank">第 %1$d 位</string>
+    <string name="app_overview_components">Root 组件</string>
+    <string name="app_overview_root_unscanned">尚未扫描当前用户空间的 Root 组件</string>
+    <string name="app_overview_root_summary">已禁用 %1$d / 共 %2$d 个组件</string>
 </resources>
