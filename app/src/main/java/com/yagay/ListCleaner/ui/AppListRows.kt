@@ -48,6 +48,7 @@ internal fun AppRow(
     onSelect: (Boolean) -> Unit,
     onLock: () -> Unit,
     onUnlock: () -> Unit,
+    onOverview: (() -> Unit)? = null,
     openWithDefinitions: Map<OpenPreset, CustomOpenDefinition>? = null,
 ) {
     val openTypeSummary = if (openWithDefinitions != null) {
@@ -75,6 +76,7 @@ internal fun AppRow(
         onExpand = onExpand,
         onLock = onLock,
         onUnlock = onUnlock,
+        onOverview = onOverview,
         selection = {
             WorkspaceAppSelectionCheckbox(
                 state = selectionState,
