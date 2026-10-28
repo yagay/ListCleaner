@@ -880,7 +880,7 @@ for filename in ("MainTabs.kt", "RootComponentsScreen.kt", "PriorityDialog.kt"):
     elif "selectionActions = selectionActions" not in code:
         errors.append(f"{filename}: selection actions must be passed to pinned toolbar")
 picker = (root / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
-if "filter()\n        afterFilter?.invoke()" not in picker:
+if not re.search(r"filter\(\)\s+afterFilter\?\.invoke\(\)", picker):
     errors.append("WorkspaceCategorySelector.kt: selection control must follow Filter")
 toolbar = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
 for expected in ("appTypeFilter != AppTypeFilter.ALL", "viewFilter != UiFilter.ALL",
