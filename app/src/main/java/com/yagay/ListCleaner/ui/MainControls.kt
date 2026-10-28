@@ -160,6 +160,7 @@ internal fun ListControls(
     subtypeTitle: String? = null,
     subtypeAvailable: Boolean = true,
     previewActions: List<WorkspaceMenuAction> = emptyList(),
+    modeAction: (@Composable () -> Unit)? = null,
 ) {
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
         WorkspaceCategoryFilterRow(
@@ -178,6 +179,7 @@ internal fun ListControls(
                     ) extraFilter else null
                 )
             },
+            beforeFilter = modeAction,
             filter = {
                 WorkspaceFilterBar(
                     appTypeFilter = appTypeFilter,
