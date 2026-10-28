@@ -146,6 +146,7 @@ internal fun WorkspaceFilterBar(
             selected = activeCount > 0,
             expanded = expanded,
             count = activeCount,
+            iconOnly = true,
             onClick = {
                 draftAppType = appTypeFilter
                 draftView = viewFilter
