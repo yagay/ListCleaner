@@ -322,7 +322,7 @@ flat_visual_checks = {
                               "MaterialPageColumn(fullBleed = true)"),
     "AdaptiveWidgets.kt": ("fun FlatUnderlineTab(", "fun AdaptiveFilterChip("),
     "AppScopePicker.kt": ("FlatRowSurface(Modifier.fillMaxWidth())",),
-    "WorkspaceCategorySelector.kt": ("filter()", "Box(Modifier.weight(1f)) { category() }",
+    "WorkspaceCategorySelector.kt": ("WorkspaceToolbarActions(beforeFilter, filter, afterFilter)", "Box(Modifier.weight(1f)) { category() }",
                                       "WorkspaceFlatMenuRow(", "shape = RectangleShape"),
 }
 for filename, symbols in flat_visual_checks.items():
