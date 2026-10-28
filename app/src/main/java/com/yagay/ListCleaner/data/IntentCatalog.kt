@@ -265,7 +265,8 @@ class IntentCatalog(private val context: Context) {
             )
             val active = snapshot.current
             if (active.status in setOf("root_unavailable", "query_failed",
-                    "unsupported_or_locked", "invalid_user")) {
+                    "unsupported_or_locked", "invalid_user", "package_listing_failed",
+                    "package_listing_empty")) {
                 failures++
             }
             report.appendLine("proactiveShortcuts source=${active.source} status=${active.status} " +
