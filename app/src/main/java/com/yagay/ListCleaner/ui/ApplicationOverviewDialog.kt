@@ -9,12 +9,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import com.yagay.ListCleaner.R
+import com.yagay.ListCleaner.data.RootComponentScan
 
 /** Read-only overview: does not write to rules, priorities, or Root components. */
 @Composable
 internal fun ApplicationOverviewDialog(
     packageName: String,
     state: MainState,
+    rootScan: RootComponentScan,
+    userId: Int,
     onDismiss: () -> Unit
 ) {
     val rules = overviewRules(packageName, state.candidates, state.selected,
@@ -38,6 +41,16 @@ internal fun ApplicationOverviewDialog(
                 }
                 Text(stringResource(R.string.app_overview_priority) + " (" + priorities.size + ")",
                     style = MaterialTheme.typography.titleSmall)
+                val rootItems = rootScan.items.filter { it.user == userId && it.component.packageName == packageName }
+                Text(stringResource(R.string.app_overview_components), style = MaterialTheme.typography.titleSmall)
+                if (rootScan.scannedUserId != userId || rootScan.observedAt == 0L) {
+                    Text(stringResource(R.string.app_overview_root_unscanned))
+                } else if (rootScan.warning.isNotBlank()) {
+                    Text(rootScan.warning)
+                } else {
+                    Text(stringResource(R.string.app_overview_root_summary,
+                        rootItems.count { it.enabled == false }, rootItems.size))
+                }
                 priorities.forEach { priority ->
                     Text(
                         (priority.kind?.let { stringResource(it.titleRes()) }
