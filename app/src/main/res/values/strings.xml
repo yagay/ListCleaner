@@ -26,4 +26,9 @@
     <string name="category_reset_pins">Reset pins</string>
     <string name="category_drag_help">Long-press the handle and drag to reorder</string>
     <string name="priority_unsupported_current_list">This list does not support sorting</string>
+    <string name="app_overview_title">Application overview</string>
+    <string name="app_overview_readonly">Saved state only; pending edits are not shown.</string>
+    <string name="app_overview_rules">Rules</string>
+    <string name="app_overview_priority">Priority</string>
+    <string name="app_overview_rank">Position %1$d</string>
 </resources>
