@@ -350,6 +350,7 @@ fun RulesTab(
                             UiPreferencesStore.rememberAppType(prefsContext, it, "rules")
                         },
                         showEntryGroups = true,
+                        modeAction = { WorkspaceSortShortcut(state.filter) { navigate { vm.setDestination(Destination.PRIORITY) } } },
                         previewActions = (if (state.filter == null) IntentKind.entries.toList()
                             else listOf(requireNotNull(state.filter))).map { previewKind ->
                             WorkspaceMenuAction(
