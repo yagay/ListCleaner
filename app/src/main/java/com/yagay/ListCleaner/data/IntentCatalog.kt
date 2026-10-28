@@ -231,6 +231,8 @@ class IntentCatalog(private val context: Context) {
             }.onFailure { report.appendLine("browserBaseline scheme=$scheme error=${it.javaClass.simpleName}") }
         }
         var failures = specialFailures.size
+        var intentProbeFailures = 0
+        var shortcutFailures = 0
         if (specialFailures.isNotEmpty()) {
             report.appendLine("specialScanFailures=${specialFailures.joinToString(",")}")
         }
@@ -248,6 +250,7 @@ class IntentCatalog(private val context: Context) {
                 throw cancelled
             } catch (failure: Exception) {
                 failures++
+                intentProbeFailures++
                 report.appendLine("${probe.label} ERROR=${failure.javaClass.name}")
             }
         }
@@ -268,6 +271,7 @@ class IntentCatalog(private val context: Context) {
                     "unsupported_or_locked", "invalid_user", "package_listing_failed",
                     "package_listing_empty")) {
                 failures++
+                shortcutFailures++
             }
             report.appendLine("proactiveShortcuts source=${active.source} status=${active.status} " +
                 "kinds=${activeKinds.joinToString(",")} count=${active.candidates.size} " +
@@ -279,6 +283,8 @@ class IntentCatalog(private val context: Context) {
         }
         currentCoroutineContext().ensureActive()
         val result = merge(found)
+        report.insert(0, "scanSummary userId=$userId specialFailures=${specialFailures.size} " +
+            "intentProbeFailures=$intentProbeFailures shortcutFailures=$shortcutFailures totalFailures=$failures\n")
         report.appendLine("finishedAt=${Instant.now()} unique=${result.size} failures=$failures")
         lastReport = report.toString()
         if (failures > 0) scanWarning = context.getString(R.string.catalog_partial_scan_failed, failures)
