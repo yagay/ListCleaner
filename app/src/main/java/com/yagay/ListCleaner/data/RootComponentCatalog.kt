@@ -51,7 +51,9 @@ data class RootComponent(
 data class RootComponentScan(
     val items: List<RootComponent> = emptyList(),
     val warning: String = "",
-    val observedAt: Long = 0
+    val observedAt: Long = 0,
+    /** Null means the current user has not had a verified scan. */
+    val scannedUserId: Int? = null
 )
 
 /**
