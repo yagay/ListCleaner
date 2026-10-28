@@ -308,7 +308,11 @@ class IntentCatalog(private val context: Context) {
             "unavailableSources=${specialUnavailable.size} totalFailures=$failures\n")
         report.appendLine("finishedAt=${Instant.now()} unique=${result.size} failures=$failures")
         lastReport = report.toString()
-        if (failures > 0) scanWarning = context.getString(R.string.catalog_partial_scan_failed, failures)
+        scanWarning = when {
+            failures > 0 -> context.getString(R.string.catalog_partial_scan_failed, failures)
+            specialUnavailable.isNotEmpty() -> context.getString(R.string.catalog_profile_sources_unavailable, specialUnavailable.size)
+            else -> null
+        }
         mutableCandidates.value = result
         mutableSnapshot.value = Snapshot(userId, result)
         cachedInputFingerprint = inputFingerprint
