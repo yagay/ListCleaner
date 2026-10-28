@@ -78,6 +78,7 @@ class ListCleanerModule : XposedModule() {
         otherUsers = emptyMap(),
     )
     private val activeQuerySnapshot = ThreadLocal<RuntimeRuleSnapshot?>()
+    private val activeQueryUserContext = ThreadLocal<HookCallIdentity.QueryUserContext?>()
     private val snapshot: RuntimeRuleSnapshot get() = activeQuerySnapshot.get() ?: policies.primary
 
     private fun snapshotForUser(userId: Int): RuntimeRuleSnapshot {
@@ -726,6 +727,7 @@ class ListCleanerModule : XposedModule() {
                         "mode=${userPolicy.displayMode} result=${original?.javaClass?.name}"
                 )
             }
+            activeQueryUserContext.set(userContext)
             activeQuerySnapshot.set(userPolicy)
             try {
                 processQuery(chain, original, layer, callerUid)
@@ -735,6 +737,7 @@ class ListCleanerModule : XposedModule() {
             }
         } finally {
             activeQuerySnapshot.remove()
+            activeQueryUserContext.remove()
             queryInProgress.remove()
         }
     }
@@ -1083,7 +1086,7 @@ class ListCleanerModule : XposedModule() {
                 // existing text rules; keep all other privileged queries untouched.
                 val callerUser = com.yagay.ListCleaner.domain.AndroidUid.userId(callerUid)
                 val scopedTextQuery = kind == IntentKind.PROCESS_TEXT &&
-                    callerUser == userContext.targetUserId && callerUser > 0 && callerUser in policies.otherUsers &&
+                    callerUser == activeQueryUserContext.get()?.targetUserId && callerUser > 0 && callerUser in policies.otherUsers &&
                     snapshot.configured.any { it.startsWith("PROCESS_TEXT|") } &&
                     snapshot.displayMode != DisplayMode.SHOW_ALL
                 if (scopedTextQuery) {
