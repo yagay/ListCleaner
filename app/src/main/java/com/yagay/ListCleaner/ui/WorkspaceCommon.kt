@@ -10,7 +10,7 @@ import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.FilterList
+import androidx.compose.material.icons.rounded.FilterAlt
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.MoreVert
@@ -142,7 +142,7 @@ internal fun WorkspaceFilterBar(
     Box(modifier = modifier) {
         WorkspacePickerButton(
             label = stringResource(R.string.lc_filter_sheet_button),
-            icon = Icons.Rounded.FilterList,
+            icon = Icons.Rounded.FilterAlt,
             selected = activeCount > 0,
             expanded = expanded,
             count = activeCount,
