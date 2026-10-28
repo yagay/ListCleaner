@@ -90,7 +90,7 @@ fun RootComponentsScreen(
         )
     }
 
-    var kind by rememberSaveable(initialKind, embedded) {
+    var kind by rememberSaveable(initialKind, embedded, vm.selectedSpace.value) {
         mutableStateOf(initialKind)
     }
     // Draft is scoped to the current user space and component category.
@@ -126,10 +126,10 @@ fun RootComponentsScreen(
     )
 
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
-    var viewFilter by rememberSaveable { mutableStateOf(UiPreferencesStore.initialFilter(prefsContext, "components")) }
-    var appTypeFilter by rememberSaveable { mutableStateOf(UiPreferencesStore.initialAppType(prefsContext, "components")) }
-    var expandedAppKey by rememberSaveable { mutableStateOf<String?>(null) }
-    var detailsExpanded by rememberSaveable { mutableStateOf(false) }
+    var viewFilter by rememberSaveable(vm.selectedSpace.value) { mutableStateOf(UiPreferencesStore.initialFilter(prefsContext, "components")) }
+    var appTypeFilter by rememberSaveable(vm.selectedSpace.value) { mutableStateOf(UiPreferencesStore.initialAppType(prefsContext, "components")) }
+    var expandedAppKey by rememberSaveable(vm.selectedSpace.value) { mutableStateOf<String?>(null) }
+    var detailsExpanded by rememberSaveable(vm.selectedSpace.value) { mutableStateOf(false) }
     var pendingBatch by remember { mutableStateOf<PendingRootBatch?>(null) }
     pendingBatch?.let { batch ->
         val eligible = batch.targets.filter { item ->
