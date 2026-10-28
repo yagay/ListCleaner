@@ -236,6 +236,24 @@ fun RootComponentsScreen(
     }
     val visible = remember(groups) { groups.flatMap { it.second } }
 
+    val selectionActions = listOf(
+                    WorkspaceMenuAction(stringResource(R.string.select_all), {
+                        pendingBatch = PendingRootBatch(kind, visible, false)
+                    }, !busy && visible.any {
+                        it.blocked == null && it.enabled == true && !vm.isComponentBulkProtected(kind, it)
+                    }),
+                    WorkspaceMenuAction(stringResource(R.string.select_none), {
+                        pendingBatch = PendingRootBatch(kind, visible, true)
+                    }, !busy && visible.any {
+                        it.blocked == null && it.enabled == false && !vm.isComponentBulkProtected(kind, it)
+                    }),
+                    WorkspaceMenuAction(stringResource(R.string.invert_selection), {
+                        pendingBatch = PendingRootBatch(kind, visible, null)
+                    }, !busy && visible.any {
+                        it.blocked == null && it.enabled != null && !vm.isComponentBulkProtected(kind, it)
+                    })
+                )
+
     Box(Modifier.fillMaxSize()) {
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -280,6 +298,7 @@ fun RootComponentsScreen(
                             }
                         )
                     },
+                    afterFilter = { WorkspaceListActions(actions = selectionActions) },
                     filter = {
                         WorkspaceFilterBar(
                             appTypeFilter = appTypeFilter,
@@ -325,23 +344,7 @@ fun RootComponentsScreen(
         item(key = "summary") {
             WorkspaceListSummary(
                 title = stringResource(R.string.root_summary, groups.size, visible.size),
-                actions = listOf(
-                    WorkspaceMenuAction(stringResource(R.string.select_all), {
-                        pendingBatch = PendingRootBatch(kind, visible, false)
-                    }, !busy && visible.any {
-                        it.blocked == null && it.enabled == true && !vm.isComponentBulkProtected(kind, it)
-                    }),
-                    WorkspaceMenuAction(stringResource(R.string.select_none), {
-                        pendingBatch = PendingRootBatch(kind, visible, true)
-                    }, !busy && visible.any {
-                        it.blocked == null && it.enabled == false && !vm.isComponentBulkProtected(kind, it)
-                    }),
-                    WorkspaceMenuAction(stringResource(R.string.invert_selection), {
-                        pendingBatch = PendingRootBatch(kind, visible, null)
-                    }, !busy && visible.any {
-                        it.blocked == null && it.enabled != null && !vm.isComponentBulkProtected(kind, it)
-                    })
-                ),
+                showSelectionActions = false,
                 helpExpanded = detailsExpanded,
                 onHelpToggle = { detailsExpanded = !detailsExpanded }
             )
