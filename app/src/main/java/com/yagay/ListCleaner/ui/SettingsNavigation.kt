@@ -68,7 +68,7 @@ internal fun SettingsTabContent(
             }
         )
         if (selectedSection == null) {
-            SettingsCenterHome(onSelect = { selectedSection = it })
+            SettingsCenterHome(state = state, onSelect = { selectedSection = it })
         } else {
             // Stable keys preserve the scroll position of each setting area on navigation.
             val page = requireNotNull(selectedSection)
