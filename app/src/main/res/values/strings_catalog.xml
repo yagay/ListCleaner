@@ -3,4 +3,5 @@
     <string name="catalog_configured_waiting">Configured; waiting to confirm the match again</string>
     <string name="catalog_partial_scan_failed">Part of the scan failed (%1$d items). Successful results were updated; unmatched configured items remain manageable under Selected rules.</string>
     <string name="catalog_file_type_unconfirmed">The file type could not be confirmed as an Open request</string>
+    <string name="catalog_profile_sources_unavailable">Some profile-only provider sources (%1$d) cannot be queried by the Android shell. Other entry lists were refreshed.</string>
 </resources>
