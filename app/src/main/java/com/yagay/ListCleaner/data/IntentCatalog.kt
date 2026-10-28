@@ -237,10 +237,13 @@ class IntentCatalog(private val context: Context) {
             report.appendLine("specialScanFailures=${specialFailures.joinToString(",")}")
         }
         scanWarning = null
+        val scanStartedNanos = System.nanoTime()
+        var intentQueryMillis = 0L
         val allProbes = probes(customDefinitions, normalizedBrowserHosts) +
             appLinkFallbackProbes(browserDiscovery)
         for (probe in allProbes) {
             currentCoroutineContext().ensureActive()
+            val probeStartNanos = System.nanoTime()
             try {
                 val result = query(probe, profile = profile)
                 val added = result.candidates.count { known.add(it.rule.id) }
@@ -252,6 +255,8 @@ class IntentCatalog(private val context: Context) {
                 failures++
                 intentProbeFailures++
                 report.appendLine("${probe.label} ERROR=${failure.javaClass.name}")
+            } finally {
+                intentQueryMillis += (System.nanoTime() - probeStartNanos) / 1_000_000
             }
         }
         currentCoroutineContext().ensureActive()
@@ -283,6 +288,7 @@ class IntentCatalog(private val context: Context) {
         }
         currentCoroutineContext().ensureActive()
         val result = merge(found)
+        report.insert(0, "scanTiming userId=$userId intentQueriesMs=$intentQueryMillis totalMs=${(System.nanoTime() - scanStartedNanos) / 1_000_000}\\n")
         report.insert(0, "scanSummary userId=$userId specialFailures=${specialFailures.size} " +
             "intentProbeFailures=$intentProbeFailures shortcutFailures=$shortcutFailures totalFailures=$failures\n")
         report.appendLine("finishedAt=${Instant.now()} unique=${result.size} failures=$failures")
