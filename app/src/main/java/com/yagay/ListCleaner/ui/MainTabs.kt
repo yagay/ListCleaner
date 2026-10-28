@@ -350,7 +350,7 @@ fun RulesTab(
                             }
                         }
                     }, visibleRules.isNotEmpty())
-                ),
+                )
 
     Box(Modifier.fillMaxSize()) {
     LazyColumn(Modifier.fillMaxSize(),
