@@ -319,6 +319,39 @@ fun RulesTab(
         applyChanges, selectionDraft::discard
     )
 
+    val selectionActions = listOf(
+                    WorkspaceMenuAction(stringResource(R.string.select_all), {
+                        confirmation.request(
+                            prefsContext.getString(R.string.select_all),
+                            systemAppCount = newlySelectedSystemAppCount(),
+                            risk = SystemSelectionRisk.ENTRY
+                        ) {
+                            visibleRules.filter(canStageRule).forEach { rule ->
+                                selectionDraft.set(rule, rule in activeSelected, true)
+                            }
+                        }
+                    }, visibleRules.isNotEmpty()),
+                    WorkspaceMenuAction(stringResource(R.string.select_none), {
+                        confirmation.request(prefsContext.getString(R.string.select_none)) {
+                            visibleRules.filter(canStageRule).forEach { rule ->
+                                selectionDraft.set(rule, rule in activeSelected, false)
+                            }
+                        }
+                    }, visibleRules.isNotEmpty()),
+                    WorkspaceMenuAction(stringResource(R.string.invert_selection), {
+                        confirmation.request(
+                            prefsContext.getString(R.string.invert_selection),
+                            systemAppCount = newlySelectedSystemAppCount(),
+                            risk = SystemSelectionRisk.ENTRY
+                        ) {
+                            visibleRules.filter(canStageRule).forEach { rule ->
+                                val current = selectionDraft.selected(rule, rule in activeSelected)
+                                selectionDraft.set(rule, rule in activeSelected, !current)
+                            }
+                        }
+                    }, visibleRules.isNotEmpty())
+                ),
+
     Box(Modifier.fillMaxSize()) {
     LazyColumn(Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = if (selectionDraft.count > 0) 90.dp else 16.dp)
@@ -336,6 +369,7 @@ fun RulesTab(
                             UiPreferencesStore.rememberAppType(prefsContext, it, "rules")
                         },
                         showEntryGroups = true,
+                        selectionActions = selectionActions,
                         modeAction = { WorkspaceSortShortcut(state.filter) { navigate { vm.setDestination(Destination.PRIORITY) } } },
                         previewActions = (if (state.filter == null) IntentKind.entries.toList()
                             else listOf(requireNotNull(state.filter))).map { previewKind ->
@@ -390,38 +424,7 @@ fun RulesTab(
         item(key = "list-summary") {
             SummaryRow(
                 state, shownGroups.size,
-                actions = listOf(
-                    WorkspaceMenuAction(stringResource(R.string.select_all), {
-                        confirmation.request(
-                            prefsContext.getString(R.string.select_all),
-                            systemAppCount = newlySelectedSystemAppCount(),
-                            risk = SystemSelectionRisk.ENTRY
-                        ) {
-                            visibleRules.filter(canStageRule).forEach { rule ->
-                                selectionDraft.set(rule, rule in activeSelected, true)
-                            }
-                        }
-                    }, visibleRules.isNotEmpty()),
-                    WorkspaceMenuAction(stringResource(R.string.select_none), {
-                        confirmation.request(prefsContext.getString(R.string.select_none)) {
-                            visibleRules.filter(canStageRule).forEach { rule ->
-                                selectionDraft.set(rule, rule in activeSelected, false)
-                            }
-                        }
-                    }, visibleRules.isNotEmpty()),
-                    WorkspaceMenuAction(stringResource(R.string.invert_selection), {
-                        confirmation.request(
-                            prefsContext.getString(R.string.invert_selection),
-                            systemAppCount = newlySelectedSystemAppCount(),
-                            risk = SystemSelectionRisk.ENTRY
-                        ) {
-                            visibleRules.filter(canStageRule).forEach { rule ->
-                                val current = selectionDraft.selected(rule, rule in activeSelected)
-                                selectionDraft.set(rule, rule in activeSelected, !current)
-                            }
-                        }
-                    }, visibleRules.isNotEmpty())
-                ),
+
                 helpExpanded = ruleHelpExpanded,
                 onHelpToggle = { ruleHelpExpanded = !ruleHelpExpanded }
             )
@@ -634,6 +637,7 @@ private fun SummaryRow(
     WorkspaceListSummary(
         title = stringResource(R.string.app_list_count, displayedApps),
         secondary = stringResource(state.displayMode.titleRes()),
+        showSelectionActions = false,
         actions = actions,
         helpExpanded = helpExpanded,
         onHelpToggle = onHelpToggle
