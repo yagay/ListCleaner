@@ -27,7 +27,9 @@ import java.util.IdentityHashMap
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
-/** Filters only third-party RootInfo displayed by DocumentsUI, leaving providers and files intact. */
+/** Filters and orders recognized third-party Document Roots in DocumentsUI without changing providers,
+ * system rows, separators, cross-profile slots, or the underlying files. The final sidebar
+ * and cache/loader hooks are version-dependent; absent OEM signatures fail open. */
 class DocumentsUiRootsModule : XposedModule() {
     private data class RootEntry(val rule: ComponentRule, val title: String)
     @Volatile private var processName = ""
