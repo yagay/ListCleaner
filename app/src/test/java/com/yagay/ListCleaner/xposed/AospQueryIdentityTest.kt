@@ -47,7 +47,8 @@ class AospQueryIdentityTest {
 
     @Test fun managerSelectionFlagsAreNotPrintUserId() {
         assertEquals(10, HookCallIdentity.managerTargetUserId("getPrintServices", listOf("int", "int"), listOf(3, 10)))
-        assertEquals(10, HookCallIdentity.managerTargetUserId("getCredentialProviderServices", listOf("int", "int"), listOf(10, 3)))
+        assertNull(HookCallIdentity.managerTargetUserId(
+            "getCredentialProviderServices", listOf("int", "int"), listOf(10, 3)))
         assertNull(HookCallIdentity.managerTargetUserId("unknown", listOf("int"), listOf(10)))
         assertNull(HookCallIdentity.managerTargetUserId("getInputMethodList", listOf("int"), listOf(-2)))
     }

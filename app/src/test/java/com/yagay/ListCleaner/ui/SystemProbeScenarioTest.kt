@@ -39,9 +39,8 @@ class SystemProbeScenarioTest {
         assertEquals(2, nfc.size)
         assertTrue(nfc.all { it.acceptsPermission("android.permission.BIND_NFC_SERVICE") })
         assertFalse(nfc.any { it.acceptsPermission("android.permission.BIND_VPN_SERVICE") })
-        val credential = SYSTEM_SERVICE_ENTRY_DEFINITIONS.single {
+        assertTrue(SYSTEM_SERVICE_ENTRY_DEFINITIONS.none {
             it.kind == IntentKind.CREDENTIAL_PROVIDER
-        }
-        assertFalse(credential.acceptsPermission(null))
+        })
     }
 }

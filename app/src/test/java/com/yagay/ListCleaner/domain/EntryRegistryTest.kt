@@ -34,7 +34,6 @@ class EntryRegistryTest {
             IntentKind.ASSISTANT,
             IntentKind.VPN,
             IntentKind.AUTOFILL,
-            IntentKind.CREDENTIAL_PROVIDER,
             IntentKind.CALL_SCREENING,
         ).forEach { kind ->
             assertEquals(EntryIdentityScope.PACKAGE, requireNotNull(kind.surfaceDefinition()).identity)

@@ -33,7 +33,6 @@ class EntrySurfaceDefinitionsTest {
             IntentKind.PRINT,
             IntentKind.VPN,
             IntentKind.AUTOFILL,
-            IntentKind.CREDENTIAL_PROVIDER,
             IntentKind.NFC_HCE,
         )
         val actual = ENTRY_SURFACE_DEFINITIONS.values
@@ -50,7 +49,6 @@ class EntrySurfaceDefinitionsTest {
             IntentKind.CALL_SCREENING,
             IntentKind.VPN,
             IntentKind.AUTOFILL,
-            IntentKind.CREDENTIAL_PROVIDER,
         )
         packageKinds.forEach { kind ->
             assertEquals("$kind", EntryIdentityScope.PACKAGE, kind.surfaceDefinition()!!.identity)
@@ -62,7 +60,7 @@ class EntrySurfaceDefinitionsTest {
         assertEquals(EntryAuthority.ACCESSIBILITY_MANAGER, IntentKind.ACCESSIBILITY.entryAuthority())
         assertEquals(EntryAuthority.PRINT_MANAGER, IntentKind.PRINT.entryAuthority())
         assertEquals(EntryAuthority.SETTINGS_VPN, IntentKind.VPN.entryAuthority())
-        assertEquals(EntryAuthority.CREDENTIAL_MANAGER, IntentKind.CREDENTIAL_PROVIDER.entryAuthority())
+        assertEquals(null, IntentKind.CREDENTIAL_PROVIDER.surfaceDefinition())
         assertEquals(EntryAuthority.COMBINED_PROVIDER_SETTINGS, IntentKind.AUTOFILL.entryAuthority())
         assertEquals(EntryAuthority.NFC_CARD_EMULATION, IntentKind.NFC_HCE.entryAuthority())
     }

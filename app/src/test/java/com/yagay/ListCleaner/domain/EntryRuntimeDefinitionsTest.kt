@@ -40,7 +40,7 @@ class EntryRuntimeDefinitionsTest {
         assertTrue(EntryRuntimePath.PRINT_MANAGER in IntentKind.PRINT.runtimeDefinition()!!.expectedPaths)
         assertTrue(EntryRuntimePath.SETTINGS_VPN in IntentKind.VPN.runtimeDefinition()!!.expectedPaths)
         assertFalse(EntryRuntimePath.VPN_APP_OPS in IntentKind.VPN.runtimeDefinition()!!.expectedPaths)
-        assertTrue(EntryRuntimePath.CREDENTIAL_MANAGER in IntentKind.CREDENTIAL_PROVIDER.runtimeDefinition()!!.expectedPaths)
+        assertEquals(null, IntentKind.CREDENTIAL_PROVIDER.runtimeDefinition())
         assertTrue(EntryRuntimePath.COMBINED_PROVIDER_SETTINGS in IntentKind.AUTOFILL.runtimeDefinition()!!.expectedPaths)
         assertTrue(EntryRuntimePath.SETTINGS_AUTOFILL_PICKER in IntentKind.AUTOFILL.runtimeDefinition()!!.expectedPaths)
         assertTrue(EntryRuntimePath.NFC_CARD_EMULATION in IntentKind.NFC_HCE.runtimeDefinition()!!.expectedPaths)

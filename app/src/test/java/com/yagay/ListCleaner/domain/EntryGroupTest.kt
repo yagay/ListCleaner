@@ -12,10 +12,12 @@ class EntryGroupTest {
         val expected = IntentKind.entries.filter { it.isSelectableEntryKind() }
 
         assertEquals(7, EntryGroup.entries.size)
-        assertEquals(32, expected.size)
+        assertEquals(31, expected.size)
         assertEquals(expected.size, grouped.size)
         assertEquals(expected.toSet(), grouped.toSet())
         assertFalse(grouped.contains(IntentKind.LAUNCHER_SHORTCUT))
+        assertFalse(grouped.contains(IntentKind.CREDENTIAL_PROVIDER))
+        assertFalse(IntentKind.CREDENTIAL_PROVIDER.isSelectableEntryKind())
     }
 
     @Test
@@ -36,8 +38,7 @@ class EntryGroupTest {
                 IntentKind.HOME, IntentKind.ASSISTANT, IntentKind.SHORTCUT_ITEM
             ),
             EntryGroup.INPUT to setOf(
-                IntentKind.PROCESS_TEXT, IntentKind.INPUT_METHOD, IntentKind.AUTOFILL,
-                IntentKind.CREDENTIAL_PROVIDER
+                IntentKind.PROCESS_TEXT, IntentKind.INPUT_METHOD, IntentKind.AUTOFILL
             ),
             EntryGroup.SYSTEM to setOf(
                 IntentKind.NOTIFICATION_LISTENER, IntentKind.ACCESSIBILITY,
@@ -59,7 +60,7 @@ class EntryGroupTest {
         val systemManaged = setOf(
             IntentKind.HOME, IntentKind.DOCUMENT_PROVIDER, IntentKind.DOCUMENT_ROOT,
             IntentKind.PHOTO_SOURCE, IntentKind.INPUT_METHOD, IntentKind.AUTOFILL,
-            IntentKind.CREDENTIAL_PROVIDER, IntentKind.NOTIFICATION_LISTENER,
+            IntentKind.NOTIFICATION_LISTENER,
             IntentKind.ACCESSIBILITY, IntentKind.VPN, IntentKind.PRINT,
             IntentKind.WALLPAPER, IntentKind.DREAM, IntentKind.NFC_HCE,
             IntentKind.CALL_SCREENING
@@ -67,7 +68,7 @@ class EntryGroupTest {
         IntentKind.entries.forEach { kind ->
             assertEquals(kind.name, kind in systemManaged, kind.requiresSystemEntrySafetyNote())
         }
-        assertTrue(IntentKind.CREDENTIAL_PROVIDER.requiresSystemEntrySafetyNote())
+        assertFalse(IntentKind.CREDENTIAL_PROVIDER.requiresSystemEntrySafetyNote())
         assertFalse(IntentKind.ASSISTANT.requiresSystemEntrySafetyNote())
     }
 }

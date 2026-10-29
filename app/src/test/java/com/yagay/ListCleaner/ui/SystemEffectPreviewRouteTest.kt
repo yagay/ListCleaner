@@ -41,7 +41,7 @@ class SystemEffectPreviewRouteTest {
         listOf(IntentKind.ACCESSIBILITY,
             IntentKind.PRINT, IntentKind.VPN, IntentKind.NFC_HCE,
             IntentKind.NOTIFICATION_LISTENER, IntentKind.DREAM,
-            IntentKind.AUTOFILL, IntentKind.CREDENTIAL_PROVIDER)
+            IntentKind.AUTOFILL)
             .forEach { assertEquals(it.name, SystemPreviewRoute.SETTINGS, systemPreviewRoute(it)) }
     }
 
@@ -70,19 +70,17 @@ class SystemEffectPreviewRouteTest {
             SystemEffectPreview.settingsActions(IntentKind.AUTOFILL))
     }
 
-    @Test fun aospCombinedPickerIsTheSameRealSettingsPageForBothProviders() {
+    @Test fun autofillOpensAospCombinedPickerWithoutCredentialCleanup() {
         assertEquals("com.android.settings", AospProviderSettingsRoute.SETTINGS_PACKAGE)
         assertEquals(
             "com.android.settings.applications.credentials.CredentialsPickerActivity",
-            AospProviderSettingsRoute.pickerComponent(IntentKind.CREDENTIAL_PROVIDER)
+            AospProviderSettingsRoute.pickerComponent(IntentKind.AUTOFILL)
         )
-        assertEquals(AospProviderSettingsRoute.pickerComponent(IntentKind.AUTOFILL),
-            AospProviderSettingsRoute.pickerComponent(IntentKind.CREDENTIAL_PROVIDER))
+        assertFalse(AospProviderSettingsRoute.isProvider(IntentKind.CREDENTIAL_PROVIDER))
     }
 
     @Test fun providerSettingsFallbacksArePublicAndNeverImpersonateAProvider() {
-        assertEquals(listOf(android.provider.Settings.ACTION_SECURITY_SETTINGS,
-            android.provider.Settings.ACTION_SETTINGS),
+        assertEquals(emptyList<String>(),
             AospProviderSettingsRoute.fallbackActions(IntentKind.CREDENTIAL_PROVIDER))
         assertEquals(listOf(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS,
             android.provider.Settings.ACTION_SETTINGS),
@@ -94,7 +92,9 @@ class SystemEffectPreviewRouteTest {
     }
 
     @Test fun aospProviderRouteExcludesUnrelatedSystemLists() {
-        assertTrue(AospProviderSettingsRoute.isProvider(IntentKind.CREDENTIAL_PROVIDER))
+        assertFalse(AospProviderSettingsRoute.isProvider(IntentKind.CREDENTIAL_PROVIDER))
+        assertEquals(SystemPreviewRoute.UNAVAILABLE,
+            systemPreviewRoute(IntentKind.CREDENTIAL_PROVIDER))
         assertTrue(AospProviderSettingsRoute.isProvider(IntentKind.AUTOFILL))
         assertFalse(AospProviderSettingsRoute.isProvider(IntentKind.ACCESSIBILITY))
         assertEquals(emptyList<String>(),
@@ -117,8 +117,10 @@ class SystemEffectPreviewRouteTest {
     }
 
     @Test fun everySelectableKindHasOneContract() {
-        assertEquals(IntentKind.entries.size - 1,
-            IntentKind.entries.count { it != IntentKind.LAUNCHER_SHORTCUT })
+        assertEquals(IntentKind.entries.size - 2,
+            IntentKind.entries.count {
+                it != IntentKind.LAUNCHER_SHORTCUT && it != IntentKind.CREDENTIAL_PROVIDER
+            })
         IntentKind.entries.forEach { kind ->
             assertTrue(systemPreviewRoute(kind) in SystemPreviewRoute.entries)
         }
