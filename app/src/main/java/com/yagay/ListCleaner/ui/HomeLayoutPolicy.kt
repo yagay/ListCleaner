@@ -8,6 +8,6 @@ internal object HomeLayoutPolicy {
     val sortableKinds: Set<IntentKind> =
         IntentKind.entries.filter { it.supportsPriorityEditing() }.toSet()
 
-    fun priorityKind(requested: IntentKind?): IntentKind =
-        requested?.takeIf { it in sortableKinds } ?: IntentKind.SHARE
+    fun priorityKind(requested: IntentKind?): IntentKind? =
+        if (requested == null) IntentKind.SHARE else requested.takeIf { it in sortableKinds }
 }
