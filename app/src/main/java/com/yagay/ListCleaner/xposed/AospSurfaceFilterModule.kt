@@ -45,11 +45,23 @@ class AospSurfaceFilterModule : XposedModule() {
         when (param.packageName) {
             "com.android.systemui" -> {
                 initRules()
-                // AOSP builds and renders the shade list in ShadeListBuilder; consume a
-                // filtered copy only where it is exposed for the UI.
-                install(param.classLoader, "com.android.systemui.statusbar.notification.collection.ShadeListBuilder",
-                    "getShadeList", 0, "shade") { chain ->
-                    filterListResult(chain, SurfaceKind.NOTIFICATION_SHADE, ::notificationPackage)
+                // RenderStageManager is the AOSP hand-off to the view renderer:
+                // filter its presentation argument, not the notification collection.
+                install(param.classLoader,
+                    "com.android.systemui.statusbar.notification.collection.render.RenderStageManager",
+                    "onRenderList", 1, "shade") { chain ->
+                    val args = chain.args.toTypedArray()
+                    val entries = args[0] as? List<*> ?: return@install chain.proceed()
+                    val selected = policy().selected(SurfaceKind.NOTIFICATION_SHADE)
+                    if (selected.isEmpty()) return@install chain.proceed()
+                    val filtered = entries.filterNot { item ->
+                        shouldHideNotification(item, selected)
+                    }
+                    if (filtered.size == entries.size) chain.proceed()
+                    else {
+                        args[0] = ArrayList(filtered)
+                        chain.proceed(args)
+                    }
                 }
                 install(param.classLoader, "com.android.systemui.qs.customize.TileAdapter",
                     "onTilesChanged", 1, "qs") { chain ->
@@ -225,6 +237,16 @@ class AospSurfaceFilterModule : XposedModule() {
             pkg == null || pkg !in selected
         }
         return if (filtered.size == list.size) original else ArrayList(filtered)
+    }
+
+    private fun shouldHideNotification(entry: Any?, selected: Set<String>): Boolean {
+        // Never hide an AOSP GroupEntry unless every child is filtered. This
+        // avoids losing unrelated children when a group summary belongs to a
+        // selected app and preserves group render invariants.
+        val children = ReflectionAccess.invokeNoArg(entry, "getChildren") as? Collection<*>
+        if (children != null) return children.isNotEmpty() &&
+            children.all { notificationPackage(it) in selected }
+        return notificationPackage(entry) in selected
     }
 
     private fun notificationPackage(entry: Any?): String? {
