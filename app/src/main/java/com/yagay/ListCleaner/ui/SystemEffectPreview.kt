@@ -280,98 +280,53 @@ internal object SystemEffectPreview {
     )
 
     /**
-     * Attempt the registered Android credential-provider management destination.
-     * Android 15+ can combine Credential Manager and Autofill; this is deliberately
-     * NOT ACTION_REQUEST_SET_AUTOFILL_SERVICE (ListCleaner is not a provider).
-     *
-     * Discover via Root so package visibility/hidden OEM activities do not produce
-     * false negatives. Only the system-registered Settings handler is launched.
-     * Never silently replace a failed dedicated navigation with generic Settings.
+     * AOSP Settings opens the combined Autofill/Credential chooser with an explicit
+     * CredentialsPickerActivity Intent (DefaultCombinedPreferenceController).
+     * Its AndroidManifest marks the Activity exported. An OEM can remove or
+     * restrict it; in that case use only documented public Settings screens.
+     * Never invoke provider enablement actions on behalf of another package.
      */
-    fun launchProviderManager(context: Context, kind: IntentKind, selectedUserId: Int) {
-        if (kind !in setOf(IntentKind.CREDENTIAL_PROVIDER, IntentKind.AUTOFILL)) return
+    fun launchProviderSettings(context: Context, kind: IntentKind, selectedUserId: Int) {
+        if (!AospProviderSettingsRoute.isProvider(kind)) return
         if (!checkUser(context, selectedUserId)) return
-        CoroutineScope(Dispatchers.Main.immediate).launch {
-            val outcome = withContext(Dispatchers.IO) {
-                runCatching {
-                    val discovery = ComponentRootCommand.runReadOnly(
-                        ProviderSettingsBridge.discoverCommand(selectedUserId)
-                    )
-                    if (discovery.exitCode != 0 || discovery.timedOut ||
-                        discovery.output.contains("[output truncated]") ||
-                        discovery.output.contains("[output incomplete]")) {
-                        return@runCatching ProviderSettingsOutcome(
-                            R.string.preview_provider_discovery_failed,
-                            "DISCOVERY_FAILED kind=$kind exit=${discovery.exitCode} " +
-                                "timeout=${discovery.timedOut} output=${discovery.output.take(350)}"
-                        )
-                    }
-                    val packages = ComponentRootCommand.runReadOnly(
-                        ProviderSettingsBridge.systemPackageQueryCommand(selectedUserId)
-                    )
-                    if (packages.exitCode != 0 || packages.timedOut ||
-                        packages.output.contains("[output truncated]") ||
-                        packages.output.contains("[output incomplete]")) {
-                        return@runCatching ProviderSettingsOutcome(
-                            R.string.preview_provider_discovery_failed,
-                            "SYSTEM_PACKAGES_FAILED kind=$kind exit=${packages.exitCode}"
-                        )
-                    }
-                    val component = ProviderSettingsBridge.selectRegisteredComponent(
-                        discovery.output, AssistantRolePickerBridge.systemPackages(packages.output)
-                    ) ?: return@runCatching ProviderSettingsOutcome(
-                        R.string.preview_provider_missing_component,
-                        "NO_SYSTEM_HANDLER kind=$kind ${discovery.output.take(450)}"
-                    )
-                    val started = ComponentRootCommand.run(
-                        ProviderSettingsBridge.launchCommand(selectedUserId, component)
-                    )
-                    if (started.exitCode != 0 || started.timedOut ||
-                        !ProviderSettingsBridge.launchAccepted(started.output, component)) {
-                        return@runCatching ProviderSettingsOutcome(
-                            R.string.preview_provider_launch_failed,
-                            "LAUNCH_FAILED kind=$kind component=$component " +
-                                "exit=${started.exitCode} output=${started.output.take(450)}"
-                        )
-                    }
-                    val foreground = ComponentRootCommand.runReadOnly("dumpsys activity activities")
-                    if (foreground.exitCode != 0 || foreground.timedOut ||
-                        foreground.output.contains("[output truncated]")) {
-                        return@runCatching ProviderSettingsOutcome(
-                            R.string.preview_provider_not_verified,
-                            "FOREGROUND_QUERY_FAILED kind=$kind component=$component"
-                        )
-                    }
-                    val actual = AssistantRolePickerBridge.foregroundPackage(foreground.output)
-                    if (actual != component.substringBefore('/')) {
-                        ProviderSettingsOutcome(
-                            R.string.preview_provider_redirected,
-                            "REDIRECTED kind=$kind component=$component foreground=$actual"
-                        )
-                    } else {
-                        // A matching Activity does not reveal which OEM Fragment is rendered.
-                        // Never call this a verified Credential/Autofill picker.
-                        ProviderSettingsOutcome(
-                            R.string.preview_provider_not_verified,
-                            "REGISTERED_ACTIVITY_FOREGROUND kind=$kind " +
-                                "component=$component foreground=$actual page=unverified"
-                        )
-                    }
-                }.getOrElse { failure ->
-                    ProviderSettingsOutcome(
-                        R.string.preview_provider_discovery_failed,
-                        "ROOT_EXCEPTION kind=$kind ${failure.javaClass.simpleName}: " +
-                            failure.message.orEmpty().take(120)
-                    )
-                }
+        val component = AospProviderSettingsRoute.pickerComponent(kind)
+        val picker = android.content.ComponentName(
+            AospProviderSettingsRoute.SETTINGS_PACKAGE, component
+        )
+        val info = runCatching {
+            @Suppress("DEPRECATION")
+            context.packageManager.getActivityInfo(picker, 0)
+        }.getOrNull()
+        if (info != null && info.exported && info.permission.isNullOrEmpty()) {
+            try {
+                context.startActivity(Intent(Intent.ACTION_MAIN)
+                    .setComponent(picker)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                Log.i("ListCleaner.SystemPreview",
+                    "AOSP_PROVIDER_PICKER_LAUNCHED kind=$kind component=$component")
+                return
+            } catch (failure: ActivityNotFoundException) {
+                Log.w("ListCleaner.SystemPreview",
+                    "AOSP_PROVIDER_PICKER_MISSING kind=$kind component=$component")
+            } catch (failure: SecurityException) {
+                Log.w("ListCleaner.SystemPreview",
+                    "AOSP_PROVIDER_PICKER_BLOCKED kind=$kind component=$component")
+            } catch (failure: RuntimeException) {
+                Log.w("ListCleaner.SystemPreview",
+                    "AOSP_PROVIDER_PICKER_FAILED kind=$kind error=${failure.javaClass.simpleName}")
             }
-            Log.i("ListCleaner.SystemPreview", "PROVIDER_MANAGER " + outcome.diagnostic)
-            show(context, outcome.messageRes)
+        } else {
+            Log.i("ListCleaner.SystemPreview",
+                "AOSP_PROVIDER_PICKER_UNAVAILABLE kind=$kind found=${info != null} " +
+                    "exported=${info?.exported} permission=${info?.permission}")
         }
+        // Public, non-provider-specific Settings pages remain reachable even
+        // on customized ROMs. These are not misrepresented as a chooser.
+        launchSettingsTargets(context, kind,
+            AospProviderSettingsRoute.fallbackActions(kind).map {
+                Intent(it).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }, firstIndex = 1)
     }
-
-    private data class ProviderSettingsOutcome(val messageRes: Int, val diagnostic: String)
-
     /** Explicit opt-in fallback; never open the wrong page automatically. */
     fun launchAssistantSettings(context: Context, userId: Int) {
         if (!checkUser(context, userId)) return
@@ -667,58 +622,26 @@ internal object SystemEffectPreview {
     }
 }
 
-/**
- * Read-only system handler discovery, plus one user-initiated Settings launch.
- * Do not pass a spoofed package: URI. Android documents this action as an
- * enable-provider request for the caller, so an OEM may reject the navigation.
- */
-internal object ProviderSettingsBridge {
-    internal const val ACTION = "android.settings.CREDENTIAL_PROVIDER"
-    private val componentPattern =
-        Regex("""([A-Za-z_][A-Za-z0-9_.]*)/([A-Za-z_.$][A-Za-z0-9_.$]*)""")
+/** Route taken from AOSP Settings DefaultCombinedPreferenceController and manifest. */
+internal object AospProviderSettingsRoute {
+    internal const val SETTINGS_PACKAGE = "com.android.settings"
+    internal const val COMBINED_PICKER =
+        "com.android.settings.applications.credentials.CredentialsPickerActivity"
 
-    internal fun discoverCommand(userId: Int): String {
-        require(userId >= 0)
-        return "cmd package query-activities --brief --components --user $userId -a $ACTION"
+    internal fun isProvider(kind: IntentKind): Boolean =
+        kind == IntentKind.AUTOFILL || kind == IntentKind.CREDENTIAL_PROVIDER
+
+    internal fun pickerComponent(kind: IntentKind): String {
+        require(isProvider(kind))
+        // Modern AOSP merges Credential Manager and Autofill in one picker.
+        return COMBINED_PICKER
     }
 
-    internal fun systemPackageQueryCommand(userId: Int): String {
-        require(userId >= 0)
-        return "cmd package list packages -s --user $userId"
-    }
-
-    internal fun selectRegisteredComponent(
-        output: String, installedSystemPackages: Set<String>
-    ): String? =
-        componentPattern.findAll(output)
-            .map { it.groupValues[1] to it.groupValues[2] }
-            .filter { (pkg, _) ->
-                pkg in installedSystemPackages &&
-                    (pkg == "com.android.settings" ||
-                        pkg.endsWith(".settings", ignoreCase = true))
-            }
-            .sortedBy { (pkg, _) -> if (pkg == "com.android.settings") 0 else 1 }
-            .firstOrNull()?.let { (pkg, activity) -> "$pkg/$activity" }
-
-    internal fun launchCommand(userId: Int, component: String): String {
-        require(userId >= 0)
-        require(componentPattern.matchEntire(component) != null)
-        val pkg = component.substringBefore('/')
-        require(pkg == "com.android.settings" || pkg.endsWith(".settings", ignoreCase = true))
-        // Protect nested Activity class names containing dollar signs from shell expansion.
-        return "am start -W --user $userId -n '$component' -a $ACTION"
-    }
-
-    internal fun launchAccepted(output: String, component: String): Boolean {
-        if (!output.contains("Status: ok", ignoreCase = true)) return false
-        if (listOf("Error:", "Permission Denial", "SecurityException",
-                "Status: timeout", "Status: canceled", "Status: error").any {
-                output.contains(it, ignoreCase = true)
-            }) return false
-        val pkg = component.substringBefore('/')
-        return output.lineSequence().any {
-            it.trim().startsWith("Activity: ") &&
-                it.substringAfter("Activity: ").trim().startsWith("$pkg/")
-        }
+    internal fun fallbackActions(kind: IntentKind): List<String> = when (kind) {
+        IntentKind.CREDENTIAL_PROVIDER -> listOf(
+            Settings.ACTION_SECURITY_SETTINGS, Settings.ACTION_SETTINGS)
+        IntentKind.AUTOFILL -> listOf(
+            Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS, Settings.ACTION_SETTINGS)
+        else -> emptyList()
     }
 }
