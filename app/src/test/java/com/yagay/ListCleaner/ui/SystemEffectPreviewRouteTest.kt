@@ -89,7 +89,8 @@ class SystemEffectPreviewRouteTest {
     @Test fun providerManagerRejectsUnregisteredOrNonSystemSettingsHandlers() {
         val output = """
             com.evil.settings/.CredentialPicker
-            com.android.settings/.Settings${'            com.oplus.settings/.CredentialsSettings
+            com.android.settings/.Settings${'$'}CredentialManagerActivity
+            com.oplus.settings/.CredentialsSettings
         """.trimIndent()
         assertEquals(
             "com.android.settings/.Settings\$CredentialManagerActivity",
