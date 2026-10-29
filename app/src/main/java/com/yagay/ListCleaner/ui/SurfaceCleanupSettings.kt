@@ -180,4 +180,5 @@ internal fun SurfaceCleanupSettings(state: MainState, vm: MainViewModel) {
             },
         )
     }
+    AospSurfaceSettings(vm, userId)
 }
