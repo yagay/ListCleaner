@@ -98,6 +98,10 @@ fun PriorityDialogContent(
 
     val priorityKinds = HomeLayoutPolicy.sortableKinds
     val kind = HomeLayoutPolicy.priorityKind(state.filter)
+    if (kind == null) {
+        LaunchedEffect(state.filter) { vm.setDestination(Destination.RULES) }
+        return
+    }
     val openPreset by vm.ruleOpenPreset.collectAsStateWithLifecycle()
     val browserHost by vm.ruleBrowserHost.collectAsStateWithLifecycle()
     var confirmPriorityReset by remember { mutableStateOf(false) }
