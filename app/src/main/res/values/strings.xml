@@ -19,4 +19,21 @@
     <string name="lc_system_app_warning_priority">Changing the priority of system apps may alter which app Android offers or opens by default. Confirm that this is what you want.</string>
     <string name="lc_system_app_warning_select">Select system app</string>
     <string name="lc_system_app_warning_title">System app warning</string>
+    <string name="category_pin">Pin category</string>
+    <string name="category_unpin">Unpin category</string>
+    <string name="category_favorites">Pinned categories</string>
+    <string name="category_manage_pins">Manage pinned categories</string>
+    <string name="category_reset_pins">Reset pins</string>
+    <string name="category_drag_help">Long-press the handle and drag to reorder</string>
+    <string name="priority_unsupported_current_list">This list does not support sorting</string>
+    <string name="app_overview_title">Application overview</string>
+    <string name="app_overview_readonly">Saved state only; pending edits are not shown.</string>
+    <string name="app_overview_rules">Rules</string>
+    <string name="app_overview_priority">Priority</string>
+    <string name="app_overview_rank">Position %1$d</string>
+    <string name="app_overview_components">Root components</string>
+    <string name="app_overview_root_unscanned">Root components have not been scanned for this user</string>
+    <string name="app_overview_root_summary">Disabled %1$d of %2$d components</string>
+    <string name="bottom_entry">Entry</string>
+    <string name="bottom_root">Root</string>
 </resources>

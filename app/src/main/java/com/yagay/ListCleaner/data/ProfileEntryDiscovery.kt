@@ -9,12 +9,27 @@ import com.yagay.ListCleaner.domain.*
 internal data class ProfileEntryScan(
     val candidates: List<ComponentCandidate>,
     val failedSources: List<String>,
+    val unavailableSources: List<String> = emptyList(),
 )
 
 /** Cross-profile registration scans remain independent: a failed authority is not an empty authority. */
 internal class ProfileEntryDiscovery(private val context: Context, private val query: ProfilePackageQuery) {
     fun scan(): ProfileEntryScan {
         val failures = mutableListOf<String>()
+        val unavailable = mutableListOf<String>()
+        // Fetch all special entry resolver queries in bounded batches first.
+        query.prefetchCommands(
+            SYSTEM_SERVICE_ENTRY_DEFINITIONS.map {
+                Triple(Intent(it.action), PackageManager.GET_META_DATA, "query-services")
+            } + listOf(
+                Triple(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
+                    PackageManager.MATCH_DEFAULT_ONLY, "query-activities"),
+                Triple(Intent(Intent.ACTION_ASSIST), PackageManager.MATCH_DEFAULT_ONLY, "query-activities"),
+                Triple(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://example.com"))
+                    .addCategory(Intent.CATEGORY_BROWSABLE),
+                    PackageManager.MATCH_DEFAULT_ONLY, "query-activities"),
+            )
+        )
         val items = buildList {
             SYSTEM_SERVICE_ENTRY_DEFINITIONS.forEach { definition ->
                 val matches = runCatching {
@@ -43,20 +58,11 @@ internal class ProfileEntryDiscovery(private val context: Context, private val q
                     resolved.activityInfo?.let { add(candidate(kind, it)) }
                 }
             }
-            listOf(
-                IntentKind.DOCUMENT_PROVIDER to "android.content.action.DOCUMENTS_PROVIDER",
-                IntentKind.PHOTO_SOURCE to "android.content.action.CLOUD_MEDIA_PROVIDER",
-            ).forEach { (kind, action) ->
-                val matches = runCatching {
-                    query.query(Intent(action), PackageManager.GET_META_DATA, "query-content-providers")
-                }.onFailure { failure ->
-                    failures += "provider:${kind.name}:${failure.javaClass.simpleName}"
-                    android.util.Log.w("ListCleaner.Profile", "Provider scan failed user=${query.userId}", failure)
-                }.getOrDefault(emptyList())
-                matches.forEach { resolved ->
-                    resolved.providerInfo?.let { add(candidate(kind, it)) }
-                }
-            }
+            // AOSP PackageManagerShellCommand supports query-activities/services/receivers,
+            // but not query-content-providers. Do not repeatedly run a nonexistent command,
+            // or misreport an unsupported authority query as an empty provider list.
+            unavailable += "provider:DOCUMENT_PROVIDER:shell_api_unavailable"
+            unavailable += "provider:PHOTO_SOURCE:shell_api_unavailable"
             ObservedEntryCache(context).snapshot().filter { it.userId == query.userId }.forEach { observed ->
                 val kind = runCatching { IntentKind.valueOf(observed.kind) }.getOrNull()
                 if (kind != null && query.packageInfo(observed.packageName) != null) {
@@ -71,7 +77,7 @@ internal class ProfileEntryDiscovery(private val context: Context, private val q
                 }
             }
         }
-        return ProfileEntryScan(items, failures.distinct())
+        return ProfileEntryScan(items, failures.distinct(), unavailable.distinct())
     }
 
     private fun candidate(kind: IntentKind, info: ComponentInfo): ComponentCandidate {

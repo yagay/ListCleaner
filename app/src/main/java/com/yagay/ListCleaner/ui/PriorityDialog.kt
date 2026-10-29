@@ -98,6 +98,10 @@ fun PriorityDialogContent(
 
     val priorityKinds = HomeLayoutPolicy.sortableKinds
     val kind = HomeLayoutPolicy.priorityKind(state.filter)
+    if (kind == null) {
+        LaunchedEffect(state.filter) { vm.setDestination(Destination.RULES) }
+        return
+    }
     val openPreset by vm.ruleOpenPreset.collectAsStateWithLifecycle()
     val browserHost by vm.ruleBrowserHost.collectAsStateWithLifecycle()
     var confirmPriorityReset by remember { mutableStateOf(false) }
@@ -272,6 +276,46 @@ fun PriorityDialogContent(
         }
     }
 
+    val selectionActions = listOf(
+                                WorkspaceMenuAction(stringResource(R.string.select_all), {
+                                    val current = orderDraft.effective(rankedRaw)
+                                    val eligible = groups.map { it.packageName }
+                                        .filterNot { vm.isBulkAppLocked(lockScope, it) }
+                                    val next = (current + eligible.filterNot { it in current }).take(200)
+                                    val systemPackages = groups.filter { it.appType == AppType.SYSTEM }
+                                        .map { it.packageName }.toSet()
+                                    val warnCount = next.count { it !in current && it in systemPackages }
+                                    confirmation.request(
+                                        prefsContext.getString(R.string.select_all),
+                                        systemAppCount = warnCount,
+                                        risk = SystemSelectionRisk.PRIORITY
+                                    ) { orderDraft.stage(rankedRaw, next) }
+                                }, groups.isNotEmpty()),
+                                WorkspaceMenuAction(stringResource(R.string.select_none), {
+                                    confirmation.request(prefsContext.getString(R.string.select_none)) {
+                                        val current = orderDraft.effective(rankedRaw)
+                                        val eligible = groups.map { it.packageName }
+                                            .filterNot { vm.isBulkAppLocked(lockScope, it) }
+                                        orderDraft.stage(rankedRaw, current.filterNot { it in eligible })
+                                    }
+                                }, groups.isNotEmpty()),
+                                WorkspaceMenuAction(stringResource(R.string.invert_selection), {
+                                    val current = orderDraft.effective(rankedRaw)
+                                    val eligible = groups.map { it.packageName }
+                                        .filterNot { vm.isBulkAppLocked(lockScope, it) }
+                                    val next = (current.filterNot { it in eligible } +
+                                        eligible.filterNot { it in current }).take(200)
+                                    val systemPackages = groups.filter { it.appType == AppType.SYSTEM }
+                                        .map { it.packageName }.toSet()
+                                    val warnCount = next.count { it !in current && it in systemPackages }
+                                    confirmation.request(
+                                        prefsContext.getString(R.string.invert_selection),
+                                        systemAppCount = warnCount,
+                                        risk = SystemSelectionRisk.PRIORITY
+                                    ) { orderDraft.stage(rankedRaw, next) }
+                                }, groups.isNotEmpty())
+                            )
+
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
             Modifier.fillMaxSize(),
@@ -296,6 +340,8 @@ fun PriorityDialogContent(
                             includeAllKinds = false,
                             showEntryGroups = true,
                             availableEntryKinds = priorityKinds,
+                            selectionActions = selectionActions,
+                            modeAction = { WorkspaceSortShortcut(kind, ordering = true) { navigate { vm.setDestination(Destination.RULES) } } },
                             previewActions = listOf(
                                 WorkspaceMenuAction(
                                     label = stringResource(kind.titleRes()),
@@ -366,45 +412,7 @@ fun PriorityDialogContent(
                         title = stringResource(R.string.app_list_count, groups.size),
                         secondary = stringResource(R.string.priority_drag_help),
                         secondaryMaxLines = 2,
-                            actions = listOf(
-                                WorkspaceMenuAction(stringResource(R.string.select_all), {
-                                    val current = orderDraft.effective(rankedRaw)
-                                    val eligible = groups.map { it.packageName }
-                                        .filterNot { vm.isBulkAppLocked(lockScope, it) }
-                                    val next = (current + eligible.filterNot { it in current }).take(200)
-                                    val systemPackages = groups.filter { it.appType == AppType.SYSTEM }
-                                        .map { it.packageName }.toSet()
-                                    val warnCount = next.count { it !in current && it in systemPackages }
-                                    confirmation.request(
-                                        prefsContext.getString(R.string.select_all),
-                                        systemAppCount = warnCount,
-                                        risk = SystemSelectionRisk.PRIORITY
-                                    ) { orderDraft.stage(rankedRaw, next) }
-                                }, groups.isNotEmpty()),
-                                WorkspaceMenuAction(stringResource(R.string.select_none), {
-                                    confirmation.request(prefsContext.getString(R.string.select_none)) {
-                                        val current = orderDraft.effective(rankedRaw)
-                                        val eligible = groups.map { it.packageName }
-                                            .filterNot { vm.isBulkAppLocked(lockScope, it) }
-                                        orderDraft.stage(rankedRaw, current.filterNot { it in eligible })
-                                    }
-                                }, groups.isNotEmpty()),
-                                WorkspaceMenuAction(stringResource(R.string.invert_selection), {
-                                    val current = orderDraft.effective(rankedRaw)
-                                    val eligible = groups.map { it.packageName }
-                                        .filterNot { vm.isBulkAppLocked(lockScope, it) }
-                                    val next = (current.filterNot { it in eligible } +
-                                        eligible.filterNot { it in current }).take(200)
-                                    val systemPackages = groups.filter { it.appType == AppType.SYSTEM }
-                                        .map { it.packageName }.toSet()
-                                    val warnCount = next.count { it !in current && it in systemPackages }
-                                    confirmation.request(
-                                        prefsContext.getString(R.string.invert_selection),
-                                        systemAppCount = warnCount,
-                                        risk = SystemSelectionRisk.PRIORITY
-                                    ) { orderDraft.stage(rankedRaw, next) }
-                                }, groups.isNotEmpty())
-                            ),
+                            showSelectionActions = false,
                         helpExpanded = sortHelpExpanded,
                         onHelpToggle = { sortHelpExpanded = !sortHelpExpanded }
                     )

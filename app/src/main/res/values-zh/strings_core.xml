@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="nav_rules">清理</string>
-    <string name="nav_priority">排序</string>
+    <string name="nav_rules">入口</string>
+    <string name="nav_priority">优先级排序</string>
     <string name="nav_components">组件</string>
     <string name="nav_status">状态</string>
     <string name="nav_settings">设置</string>
@@ -154,10 +154,9 @@
     <string name="workspace_groups">分类</string>
     <string name="workspace_filter_options">筛选与批量操作</string>
     <string name="workspace_components_link">Root 组件清理</string>
-    <string name="workspace_rule_section">入口清理（LSPosed）</string>
+    <string name="workspace_rule_section">入口管理</string>
     <string name="workspace_browse_entries">浏览全部入口</string>
     <string name="workspace_browse_components">浏览全部组件</string>
-    <string name="bottom_entry">入口</string>
     <string name="entry_cleanup_lsposed_title">入口清理（LSPosed）</string>
-    <string name="component_cleanup_root_title">组件清理（Root）</string>
+    <string name="component_cleanup_root_title">组件管理</string>
 </resources>

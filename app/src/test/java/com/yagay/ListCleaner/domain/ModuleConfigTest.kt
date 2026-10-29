@@ -205,7 +205,7 @@ class ModuleConfigTest {
         assertEquals(setOf(profile), decoded.userSpaces.getValue(10).rules)
         assertEquals(DisplayMode.SHOW_SELECTED, decoded.userSpaces.getValue(10).mode)
         assertTrue(decoded.userSpaces.getValue(11).rules.isEmpty())
-        assertEquals(DisplayMode.SHOW_ALL, decoded.userSpaces.getValue(11).mode)
+        assertEquals(DisplayMode.HIDE_SELECTED, decoded.userSpaces.getValue(11).mode)
     }
 
     @Test fun legacyUserZeroConfigurationLoadsWithNoOtherUsers() {

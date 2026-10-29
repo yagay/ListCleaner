@@ -21,7 +21,11 @@ class HomeLayoutPolicyTest {
         assertFalse(IntentKind.PHOTO_SOURCE in HomeLayoutPolicy.sortableKinds)
         assertFalse(IntentKind.NOTIFICATION_LISTENER in HomeLayoutPolicy.sortableKinds)
         assertEquals(IntentKind.SHARE, HomeLayoutPolicy.priorityKind(null))
-        assertEquals(IntentKind.SHARE, HomeLayoutPolicy.priorityKind(IntentKind.PHOTO_SOURCE))
+        assertEquals(null, HomeLayoutPolicy.priorityKind(IntentKind.PHOTO_SOURCE))
+        assertTrue(IntentKind.DOCUMENT_ROOT in HomeLayoutPolicy.sortableKinds)
+        assertTrue(IntentKind.DREAM in HomeLayoutPolicy.sortableKinds)
+        assertFalse(IntentKind.NOTIFICATION_LISTENER in HomeLayoutPolicy.sortableKinds)
+        assertTrue(IntentKind.DIRECT_SHARE in HomeLayoutPolicy.sortableKinds)
         assertEquals(IntentKind.OPEN, HomeLayoutPolicy.priorityKind(IntentKind.OPEN))
     }
 

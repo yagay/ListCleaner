@@ -34,6 +34,7 @@ internal fun WorkspaceAppRow(
     onExpand: () -> Unit,
     onLock: () -> Unit,
     onUnlock: () -> Unit,
+    onOverview: (() -> Unit)? = null,
     selection: @Composable () -> Unit,
     packageName: String? = null,
     modifier: Modifier = Modifier,
@@ -63,7 +64,8 @@ internal fun WorkspaceAppRow(
             trailing = {
                 trailing()
                 WorkspaceFlatOverflowMenu(
-                    actions = listOf(
+                    actions = listOfNotNull(
+                        onOverview?.let { WorkspaceMenuAction(label = stringResource(R.string.app_overview_title), onClick = it) },
                         WorkspaceMenuAction(
                             label = stringResource(R.string.bulk_lock_action_lock),
                             onClick = onLock,

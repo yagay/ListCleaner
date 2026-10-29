@@ -48,7 +48,20 @@ class RuleRepository(context: Context) {
     private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
     // v13 discriminator and version MUST be present, even though their Kotlin fields have defaults.
     private val portableBackupJson = Json { prettyPrint = true; ignoreUnknownKeys = true; encodeDefaults = true }
-    private val initialConfig = loadInitialConfig().let { config ->
+    private val initialConfig = loadInitialConfig().let { loaded ->
+        // One-time upgrade of the old implicit SHOW_ALL profile default.
+        // Leave explicit SHOW_SELECTED choices intact.
+        val config = if (!prefs.getBoolean("profile_hide_selected_default_v1", false)) {
+            val upgraded = loaded.copy(
+                mode = if (loaded.mode == DisplayMode.SHOW_ALL) DisplayMode.HIDE_SELECTED else loaded.mode,
+                userSpaces = loaded.userSpaces.mapValues { (_, space) ->
+                    if (space.mode == DisplayMode.SHOW_ALL) space.copy(mode = DisplayMode.HIDE_SELECTED) else space
+                }
+            )
+            prefs.edit().putString(KEY_LOCAL_CONFIG, json.encodeToString(ModuleConfig.serializer(), upgraded))
+                .putBoolean("profile_hide_selected_default_v1", true).commit()
+            upgraded
+        } else loaded
         config.copy(
             rules = config.rules.mapNotNull { ComponentRule.fromId(it.id) }.toSet(),
             userSpaces = config.userSpaces.mapValues { (_, space) ->

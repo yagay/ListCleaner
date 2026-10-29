@@ -2,6 +2,7 @@ package com.yagay.ListCleaner.xposed
 
 import android.content.ComponentName
 import android.os.Process
+import com.yagay.ListCleaner.domain.AndroidUid
 import android.util.Log
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.DisplayMode
@@ -20,6 +21,8 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * Hooks Settings-owned final candidate lists that do not have a system_server manager API.
  * The unmodified Settings result is persisted first, then List Cleaner applies its package rules.
+ * Dream ordering is a separate best-effort presentation hook: it changes returned candidates
+ * only, not the selected dream or enabled state. OEM Settings may ignore this list.
  */
 class SettingsEntryAuthorityModule : XposedModule() {
     @Volatile private var processName = ""
@@ -52,12 +55,51 @@ class SettingsEntryAuthorityModule : XposedModule() {
         var installed = 0
         installed += installVpnHooks(param.classLoader)
         installed += installLegacyAutofillHooks(param.classLoader)
+        installed += installDreamOrderingHooks(param.classLoader)
         if (installed > 0) {
             policyProvider.start()
             record("HOOKS_READY package=${param.packageName} new=$installed total=${installedMethods.size}")
         } else {
             record("AUTHORITY_CLASSES_UNAVAILABLE package=${param.packageName}")
         }
+    }
+
+    /**
+     * AOSP Settings DreamBackend returns DreamInfo rows already alphabetized.
+     * Reorder only the returned presentation list, never enabled/default dream state.
+     * Missing or changed OEM implementations are ignored without side effects.
+     */
+    private fun installDreamOrderingHooks(classLoader: ClassLoader): Int {
+        val clazz = runCatching {
+            Class.forName("com.android.settingslib.dream.DreamBackend", false, classLoader)
+        }.getOrNull() ?: runCatching {
+            Class.forName("com.android.settings.dream.DreamBackend", false, classLoader)
+        }.getOrNull() ?: return 0
+        var installed = 0
+        methods(clazz).filter { method ->
+            method.name == "getDreamInfos" && method.parameterCount == 0 &&
+                List::class.java.isAssignableFrom(method.returnType)
+        }.forEach { method ->
+            if (install(method, DREAM_HOOK_ID, XposedInterface.Hooker { chain ->
+                val original = chain.proceed()
+                val values = original as? List<*> ?: return@Hooker original
+                if (values.size < 2) return@Hooker original
+                val userId = AndroidUid.userId(Process.myUid())
+                val ranking = policyProvider.snapshot(userId).priorities(IntentKind.DREAM)
+                if (ranking.isEmpty()) return@Hooker original
+                val ordered = com.yagay.ListCleaner.domain.prioritizeApps(
+                    values, ranking,
+                    { item ->
+                        val component = ReflectionAccess.readField(item, "componentName", "mComponentName")
+                            as? ComponentName
+                        component?.packageName.orEmpty()
+                    },
+                    { userId },
+                )
+                if (ordered == values) original else ArrayList(ordered)
+            })) installed++
+        }
+        return installed
     }
 
     private fun installVpnHooks(classLoader: ClassLoader): Int {
@@ -197,13 +239,14 @@ class SettingsEntryAuthorityModule : XposedModule() {
         const val VPN_SETTINGS_CLASS = "com.android.settings.vpn2.VpnSettings"
         const val DEFAULT_AUTOFILL_PICKER_CLASS =
             "com.android.settings.applications.defaultapps.DefaultAutofillPicker"
+        const val DREAM_HOOK_ID = "lc-settings-dream-order"
         const val VPN_HOOK_ID = "lc-settings-vpn-authority"
         const val AUTOFILL_HOOK_ID = "lc-settings-autofill-picker"
 
         val SETTINGS_PATHS = setOf(EntryRuntimePath.SETTINGS_VPN, EntryRuntimePath.SETTINGS_AUTOFILL_PICKER)
         val SETTINGS_KINDS = ENTRY_RUNTIME_DEFINITIONS.values.asSequence()
             .filter { definition -> definition.expectedPaths.any { it in SETTINGS_PATHS } }
-            .mapTo(linkedSetOf()) { it.kind }
+            .mapTo(linkedSetOf()) { it.kind }.apply { add(IntentKind.DREAM) }
     }
 }
 

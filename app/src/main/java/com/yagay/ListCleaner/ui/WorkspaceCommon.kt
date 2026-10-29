@@ -10,10 +10,11 @@ import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.FilterList
+import androidx.compose.material.icons.rounded.FilterAlt
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.PlaylistAddCheck
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
@@ -142,10 +143,11 @@ internal fun WorkspaceFilterBar(
     Box(modifier = modifier) {
         WorkspacePickerButton(
             label = stringResource(R.string.lc_filter_sheet_button),
-            icon = Icons.Rounded.FilterList,
+            icon = Icons.Rounded.FilterAlt,
             selected = activeCount > 0,
             expanded = expanded,
             count = activeCount,
+            iconOnly = true,
             onClick = {
                 draftAppType = appTypeFilter
                 draftView = viewFilter
@@ -274,12 +276,16 @@ internal fun WorkspaceListActions(
         // A labeled menu provides all batch actions without a visible tri-state.
         if (actions.isNotEmpty()) {
             Box {
-                AdaptiveTextButton(
+                WorkspaceToolbarAction(
                     onClick = { selectionMenuExpanded = true },
                     enabled = actions.any { it.enabled }
                 ) {
-                    AdaptiveText(stringResource(R.string.selection_actions), maxLines = 1)
-                    AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(18.dp))
+                        AdaptiveIcon(
+                            Icons.Rounded.PlaylistAddCheck,
+                            stringResource(R.string.selection_actions),
+                            Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                 }
                 FlatWorkspaceDropdownMenu(
                     expanded = selectionMenuExpanded,
@@ -321,6 +327,7 @@ internal fun WorkspaceListSummary(
     actions: List<WorkspaceMenuAction> = emptyList(),
     helpExpanded: Boolean = false,
     onHelpToggle: (() -> Unit)? = null,
+    showSelectionActions: Boolean = true,
 ) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = 2.dp),
@@ -334,7 +341,7 @@ internal fun WorkspaceListSummary(
                 style = MaterialTheme.typography.labelSmall, maxLines = secondaryMaxLines
             )
         }
-        WorkspaceListActions(actions, helpExpanded, onHelpToggle)
+        WorkspaceListActions(if (showSelectionActions) actions else emptyList(), helpExpanded, onHelpToggle)
     }
 }
 

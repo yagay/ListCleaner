@@ -94,7 +94,7 @@ Disabling a component can affect places where it is already used, including laun
 
 ### Flat UI and settings
 
-Flat Material 3 lists share app rows, component details, category filters and three-dot menus. Bottom navigation is **Cleanup, Ordering, Settings**. Inside Cleanup, switch between **Rule cleanup (LSPosed) / Component cleanup (Root)**; Components is no longer a separate bottom tab. Expanded apps and selected details use theme highlights, while bottom navigation selection has no extra underline.
+Flat Material 3 lists share app rows, component details, category filters and three-dot menus. Bottom navigation is **Entries, Components, Settings**. In Entries, open **Priority Order** using the sort icon for a supported category; Components is a separate bottom tab for Root component management. Expanded apps and selected details use theme highlights, while bottom navigation selection has no extra underline.
 
 Settings includes **Appearance & Theme, Lists & Display, Scanning & Refresh, Cleanup & Compatibility, Backup & Restore, Advanced & Diagnostics**, and **About**. Theme, sizing, list and scanning options are configurable. About shows version information and GitHub / [Telegram](https://t.me/LISTCLEANER) links.
 
@@ -102,8 +102,8 @@ Settings includes **Appearance & Theme, Lists & Display, Scanning & Refresh, Cle
 
 1. Download and install the release APK from [Releases](https://github.com/yagay/ListCleaner/releases/latest).
 2. Enable List Cleaner in a module manager supporting API 102, configure the recommended system/chooser scope, and restart as instructed by the framework.
-3. Check runtime and synchronization in Settings → Cleanup & Compatibility, then configure Cleanup → Rule cleanup and confirm Apply.
-4. On Ordering, select apps and use their drag handles to change priority, then confirm Apply.
+3. Check runtime and synchronization in Settings → Cleanup & Compatibility, then configure a category under Entries and confirm Apply.
+4. In Entries, choose a supported category and tap the sort icon; use the drag handles to change priority, then confirm Apply.
 5. Open Cleanup → Component cleanup to manage launcher icons, tiles, shortcut-creation entries or widgets with Root. Long-press shortcuts and storage locations instead use LSPosed filtering without disabling components.
 
 Component management is independent of rule display modes. Root performs the real component disable, while the LSPosed system_server layer provides restore protection and discovery filtering; third-party apps do not need to be added to the module scope. System/vendor caches can still require closing and reopening a menu.
@@ -137,3 +137,14 @@ Localization architecture and bilingual maintenance rules are documented in [Loc
 Signing configuration and automated publishing are documented in [Release build documentation](docs/RELEASE.md). Never commit private keys, signing passwords, or `local.properties`.
 
 Relevant source, documentation and build changes on `main` and `test3` trigger Debug checks under the configured workflow. Releases are **manual only**: README/Markdown commits do not publish APKs, synchronize LSPosed or post to Telegram.
+
+
+### Ordering support and system hooks
+
+Priority editing is offered only to entry categories with a corresponding runtime consumer. The sort icon appears grey for unsupported categories but remains tappable to explain that the current list does not support ordering. **An editable order is not a guarantee of final UI order**: Android Sharesheet, launchers, role pickers, and vendor UIs may reorder candidates again.
+
+- **Storage locations / Document Root**: Existing DocumentsUI roots and final-sidebar hooks can promote recognized roots while preserving system rows, separators and user/profile slots; OEM forks may differ.
+- **Screen savers / Dream**: A Settings `DreamBackend.getDreamInfos()` hook adjusts the returned candidate order without changing the selected/default dream or enabled state; missing methods are safely skipped.
+- **Document Provider, Photo Source, Notification Listener, Wallpaper** remain unsupported for priority editing without a verified final-UI consumer. The legacy Launcher Shortcut kind is retired.
+
+Rules and priorities are independent per Android user space. New spaces default to Hide selected and the app list defaults to user apps. Existing backup priority data is retained. Validate the actual system UI on your device; passing CI is not device compatibility proof.

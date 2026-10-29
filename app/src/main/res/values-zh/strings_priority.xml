@@ -9,7 +9,7 @@
     <string name="priority_source_none">当前类型和“全部”都没有优先排序</string>
     <string name="priority_restore_inheritance">恢复继承全部</string>
     <string name="priority_inheritance_help">当前类型没有专用排序时继承“全部”。首次勾选、取消、拖动或上下移动只生成待应用的专用顺序，确认“应用更改”后才保存。恢复继承后继续跟随“全部”的变化；内置类型与自定义类型遵循相同逻辑。</string>
-    <string name="priority_general_help">排序和显示名称按入口分类保存，只影响支持的候选菜单；不会修改 Android Role、默认应用、服务启用状态、权限、应用名、组件名或实际跳转目标。</string>
+    <string name="priority_general_help">优先级排序和显示名称按入口分类保存，仅支持具备运行时排序路径的列表；厂商选择器可能再次排序。存储位置（DocumentsUI）和屏保（Settings）采用尽力适配的 Hook，不保证所有设备生效。不会修改 Android Role、默认应用、服务启用状态、权限、应用名、组件名或实际跳转目标。</string>
     <string name="priority_compat_disconnected">LSPosed 未连接：可以保存，但尚未生效。</string>
     <string name="priority_compat_unknown_host">未确认选择器宿主，当前设备排序能力未知。</string>
     <string name="priority_compat_vendor_path">厂商独立排序路径尚未适配；仅走 AOSP 路径时可能有效，不能保证置顶。</string>

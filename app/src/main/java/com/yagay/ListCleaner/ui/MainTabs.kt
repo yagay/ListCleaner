@@ -67,6 +67,10 @@ fun RulesTab(
     var savedRuleKind by rememberSaveable { mutableStateOf<IntentKind?>(null) }
     var savedComponentQuery by rememberSaveable { mutableStateOf("") }
     val workspaceStateHolder = rememberSaveableStateHolder()
+    var overviewPackage by remember { mutableStateOf<String?>(null) }
+    overviewPackage?.let { packageName ->
+        ApplicationOverviewDialog(packageName, state, componentScan, vm.selectedSpace.value, onDismiss = { overviewPackage = null })
+    }
     var systemProbeRequest by remember { mutableStateOf<SystemProbeRequest?>(null) }
     systemProbeRequest?.let { request ->
         SystemProbeDialog(request, onDismiss = { systemProbeRequest = null })
@@ -315,29 +319,44 @@ fun RulesTab(
         applyChanges, selectionDraft::discard
     )
 
+    val selectionActions = listOf(
+                    WorkspaceMenuAction(stringResource(R.string.select_all), {
+                        confirmation.request(
+                            prefsContext.getString(R.string.select_all),
+                            systemAppCount = newlySelectedSystemAppCount(),
+                            risk = SystemSelectionRisk.ENTRY
+                        ) {
+                            visibleRules.filter(canStageRule).forEach { rule ->
+                                selectionDraft.set(rule, rule in activeSelected, true)
+                            }
+                        }
+                    }, visibleRules.isNotEmpty()),
+                    WorkspaceMenuAction(stringResource(R.string.select_none), {
+                        confirmation.request(prefsContext.getString(R.string.select_none)) {
+                            visibleRules.filter(canStageRule).forEach { rule ->
+                                selectionDraft.set(rule, rule in activeSelected, false)
+                            }
+                        }
+                    }, visibleRules.isNotEmpty()),
+                    WorkspaceMenuAction(stringResource(R.string.invert_selection), {
+                        confirmation.request(
+                            prefsContext.getString(R.string.invert_selection),
+                            systemAppCount = newlySelectedSystemAppCount(),
+                            risk = SystemSelectionRisk.ENTRY
+                        ) {
+                            visibleRules.filter(canStageRule).forEach { rule ->
+                                val current = selectionDraft.selected(rule, rule in activeSelected)
+                                selectionDraft.set(rule, rule in activeSelected, !current)
+                            }
+                        }
+                    }, visibleRules.isNotEmpty())
+                )
+
     Box(Modifier.fillMaxSize()) {
     LazyColumn(Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = if (selectionDraft.count > 0) 90.dp else 16.dp)
     ) {
-        stickyHeader(key = "classic-mode-tabs") {
-            ClassicCleanupTabs(
-                active = ClassicCleanupMode.ENTRIES,
-                onEntries = {},
-                onComponents = {
-                    navigate {
-                        savedRuleQuery = state.query
-                        savedRuleKind = state.filter
-                        browseAllComponents = true
-                        vm.setFilter(null)
-                        vm.setQuery(savedComponentQuery)
-                    }
-                }
-            )
-        }
-        item(key = "workspace-status") {
-            ClassicListHeader(state = state, onOpenStatus = onOpenModuleStatus)
-        }
-        stickyHeader(key = "list-controls") {
+        stickyHeader(key = "workspace-header") {
             PageFilterSection {
                 Column {
                     ListControls(
@@ -350,6 +369,8 @@ fun RulesTab(
                             UiPreferencesStore.rememberAppType(prefsContext, it, "rules")
                         },
                         showEntryGroups = true,
+                        selectionActions = selectionActions,
+                        modeAction = { WorkspaceSortShortcut(state.filter) { navigate { vm.setDestination(Destination.PRIORITY) } } },
                         previewActions = (if (state.filter == null) IntentKind.entries.toList()
                             else listOf(requireNotNull(state.filter))).map { previewKind ->
                             WorkspaceMenuAction(
@@ -397,41 +418,13 @@ fun RulesTab(
                 }
             }
         }
+        item(key = "workspace-status") {
+            ClassicListHeader(state = state, onOpenStatus = onOpenModuleStatus)
+        }
         item(key = "list-summary") {
             SummaryRow(
                 state, shownGroups.size,
-                actions = listOf(
-                    WorkspaceMenuAction(stringResource(R.string.select_all), {
-                        confirmation.request(
-                            prefsContext.getString(R.string.select_all),
-                            systemAppCount = newlySelectedSystemAppCount(),
-                            risk = SystemSelectionRisk.ENTRY
-                        ) {
-                            visibleRules.filter(canStageRule).forEach { rule ->
-                                selectionDraft.set(rule, rule in activeSelected, true)
-                            }
-                        }
-                    }, visibleRules.isNotEmpty()),
-                    WorkspaceMenuAction(stringResource(R.string.select_none), {
-                        confirmation.request(prefsContext.getString(R.string.select_none)) {
-                            visibleRules.filter(canStageRule).forEach { rule ->
-                                selectionDraft.set(rule, rule in activeSelected, false)
-                            }
-                        }
-                    }, visibleRules.isNotEmpty()),
-                    WorkspaceMenuAction(stringResource(R.string.invert_selection), {
-                        confirmation.request(
-                            prefsContext.getString(R.string.invert_selection),
-                            systemAppCount = newlySelectedSystemAppCount(),
-                            risk = SystemSelectionRisk.ENTRY
-                        ) {
-                            visibleRules.filter(canStageRule).forEach { rule ->
-                                val current = selectionDraft.selected(rule, rule in activeSelected)
-                                selectionDraft.set(rule, rule in activeSelected, !current)
-                            }
-                        }
-                    }, visibleRules.isNotEmpty())
-                ),
+                actions = emptyList(),
                 helpExpanded = ruleHelpExpanded,
                 onHelpToggle = { ruleHelpExpanded = !ruleHelpExpanded }
             )
@@ -526,6 +519,7 @@ fun RulesTab(
                             false
                         )
                     },
+                    onOverview = { overviewPackage = group.packageName },
                     openWithDefinitions = if (state.filter == IntentKind.OPEN &&
                         typedOpenPreset == null) state.openTypesExplicit.customDefinitions else null
                 )
@@ -643,6 +637,7 @@ private fun SummaryRow(
     WorkspaceListSummary(
         title = stringResource(R.string.app_list_count, displayedApps),
         secondary = stringResource(state.displayMode.titleRes()),
+        showSelectionActions = false,
         actions = actions,
         helpExpanded = helpExpanded,
         onHelpToggle = onHelpToggle

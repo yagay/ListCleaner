@@ -51,7 +51,6 @@ internal fun SettingsCenterHome(state: MainState, onSelect: (SettingsSection) ->
         R.string.lc_settings_home_maintenance
     )
     MaterialPageColumn(fullBleed = true) {
-        // Beta-style live status entry; the existing Compatibility page owns details.
         MaterialSettingsRow(
             title = stringResource(R.string.dashboard_module_status),
             supportingText = when {

@@ -153,4 +153,11 @@
     <string name="lc_category_picker_entry_title">Choose entry category</string>
     <string name="lc_category_picker_component_title">Choose component category</string>
     <string name="lc_category_picker_current">Category: %1$s</string>
+    <string name="lc_multiuser_logs_title">Multi-user logs</string>
+    <string name="lc_multiuser_logs_help">Record system logs across Android users with Root (up to about 30 MB). Switch profiles to reproduce the issue, then stop. Logs may include sensitive information.</string>
+    <string name="lc_multiuser_logs_start">Start recording all users</string>
+    <string name="lc_multiuser_logs_stop">Stop and save recording</string>
+    <string name="lc_multiuser_logs_recording">Recording in progress. Switch to the other user, reproduce the issue and return to stop.</string>
+    <string name="lc_multiuser_logs_error">Root log operation failed. Check Root authorization.</string>
+    <string name="lc_multiuser_logs_export">Recorded files are included in the full diagnostic ZIP.</string>
 </resources>

@@ -96,6 +96,11 @@ object DiagnosticCollector {
                 }
                 zip.addText("app/scan-candidates.txt", "truncated=${candidateEvidence.truncated()}\n" +
                     candidateEvidence.snapshot().toString(StandardCharsets.UTF_8))
+                zip.addCapture("device/android-users.txt", root("pm list users", 128 * 1024))
+                RootLogRecorder.recordings(context).forEachIndexed { index, logFile ->
+                    val name = "logcat/recorded-all-users-${index}.txt"
+                    zip.addCapture(name, root("tail -c 10485760 '${logFile.absolutePath.replace("'", "'\\''")}'", 10 * 1024 * 1024))
+                }
                 zip.addCapture("logcat/buffer-state.txt", root("logcat -g -b all", 128 * 1024))
                 zip.addCapture("root/root-status.txt", root("id; getenforce; command -v su; echo KERNEL=$(uname -a)"))
 

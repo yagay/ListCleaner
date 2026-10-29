@@ -716,7 +716,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         UiPreferencesStore.rememberFilter(app, value)
     }
     fun setDestination(value: Destination) {
-        // Components has its own Root workspace destination.
+        // Restore the compact beta-style Root destination while preserving the main engines.
         val target = value
         val previous = destination.value
         if (previous == target) return

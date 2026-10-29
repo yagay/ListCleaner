@@ -163,7 +163,9 @@ class IntentCatalog(private val context: Context) {
             return@withContext cached
         }
 
+        val scanStartedNanos = System.nanoTime()
         val specialFailures = mutableListOf<String>()
+        val specialUnavailable = mutableListOf<String>()
         val specialCandidates: List<ComponentCandidate> = if (profile == null) {
             runCatching { specialEntryDiscovery.scan() }.onSuccess {
                 specialFailures += specialEntryDiscovery.scanFailures
@@ -175,6 +177,7 @@ class IntentCatalog(private val context: Context) {
             runCatching { ProfileEntryDiscovery(context, profile).scan() }.fold(
                 onSuccess = { result ->
                     specialFailures += result.failedSources
+                    specialUnavailable += result.unavailableSources
                     result.candidates
                 },
                 onFailure = { failure ->
@@ -231,14 +234,27 @@ class IntentCatalog(private val context: Context) {
             }.onFailure { report.appendLine("browserBaseline scheme=$scheme error=${it.javaClass.simpleName}") }
         }
         var failures = specialFailures.size
+        var intentProbeFailures = 0
+        var shortcutFailures = 0
         if (specialFailures.isNotEmpty()) {
             report.appendLine("specialScanFailures=${specialFailures.joinToString(",")}")
         }
+        if (specialUnavailable.isNotEmpty()) {
+            report.appendLine("specialScanUnavailable=${specialUnavailable.joinToString(",")}")
+        }
         scanWarning = null
+        val specialMillis = (System.nanoTime() - scanStartedNanos) / 1_000_000
+        var intentQueryMillis = 0L
         val allProbes = probes(customDefinitions, normalizedBrowserHosts) +
             appLinkFallbackProbes(browserDiscovery)
+        val batchStartNanos = System.nanoTime()
+        profile?.prefetch(allProbes.mapNotNull { probe ->
+            probe.intent.intentKind()?.let { kind -> probe.intent to queryFlags(kind, true) }
+        })
+        val batchMillis = (System.nanoTime() - batchStartNanos) / 1_000_000
         for (probe in allProbes) {
             currentCoroutineContext().ensureActive()
+            val probeStartNanos = System.nanoTime()
             try {
                 val result = query(probe, profile = profile)
                 val added = result.candidates.count { known.add(it.rule.id) }
@@ -248,7 +264,10 @@ class IntentCatalog(private val context: Context) {
                 throw cancelled
             } catch (failure: Exception) {
                 failures++
+                intentProbeFailures++
                 report.appendLine("${probe.label} ERROR=${failure.javaClass.name}")
+            } finally {
+                intentQueryMillis += (System.nanoTime() - probeStartNanos) / 1_000_000
             }
         }
         currentCoroutineContext().ensureActive()
@@ -258,6 +277,7 @@ class IntentCatalog(private val context: Context) {
             .map { it.rule.packageName }.distinct().toList()
         val activeKinds = proactiveOptions.requestedKinds
         val allowed = proactiveOptions.mayQuery(manualProactive)
+        val shortcutStartNanos = System.nanoTime()
         if (allowed) {
             val snapshot = proactiveShortcuts.scanCached(
                 userId, sharePackages, activeKinds,
@@ -265,8 +285,10 @@ class IntentCatalog(private val context: Context) {
             )
             val active = snapshot.current
             if (active.status in setOf("root_unavailable", "query_failed",
-                    "unsupported_or_locked", "invalid_user")) {
+                    "unsupported_or_locked", "invalid_user", "package_listing_failed",
+                    "package_listing_empty")) {
                 failures++
+                shortcutFailures++
             }
             report.appendLine("proactiveShortcuts source=${active.source} status=${active.status} " +
                 "kinds=${activeKinds.joinToString(",")} count=${active.candidates.size} " +
@@ -278,9 +300,19 @@ class IntentCatalog(private val context: Context) {
         }
         currentCoroutineContext().ensureActive()
         val result = merge(found)
+        report.insert(0, "scanTiming userId=$userId specialMs=$specialMillis batchMs=$batchMillis " +
+            "intentQueriesMs=$intentQueryMillis shortcutsMs=${(System.nanoTime() - shortcutStartNanos) / 1_000_000} " +
+            "totalMs=${(System.nanoTime() - scanStartedNanos) / 1_000_000}\n")
+        report.insert(0, "scanSummary userId=$userId specialFailures=${specialFailures.size} " +
+            "intentProbeFailures=$intentProbeFailures shortcutFailures=$shortcutFailures " +
+            "unavailableSources=${specialUnavailable.size} totalFailures=$failures\n")
         report.appendLine("finishedAt=${Instant.now()} unique=${result.size} failures=$failures")
         lastReport = report.toString()
-        if (failures > 0) scanWarning = context.getString(R.string.catalog_partial_scan_failed, failures)
+        scanWarning = when {
+            failures > 0 -> context.getString(R.string.catalog_partial_scan_failed, failures)
+            specialUnavailable.isNotEmpty() -> context.getString(R.string.catalog_profile_sources_unavailable, specialUnavailable.size)
+            else -> null
+        }
         mutableCandidates.value = result
         mutableSnapshot.value = Snapshot(userId, result)
         cachedInputFingerprint = inputFingerprint
