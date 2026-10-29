@@ -596,7 +596,22 @@ internal fun SystemProbeDialog(
                 Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
                     if (providerInventory) {
                         AdaptiveTextButton(onClick = {
-                            request.entryKind?.let { SystemEffectPreview.launchSettings(context, it, request.userId) }
+                            request.entryKind?.let {
+                                SystemEffectPreview.launchProviderManager(context, it, request.userId)
+                            }
+                        }) {
+                            AdaptiveText(stringResource(
+                                if (request.entryKind == IntentKind.CREDENTIAL_PROVIDER)
+                                    R.string.preview_open_credential_manager
+                                else R.string.preview_open_autofill_manager
+                            ))
+                        }
+                        // A generic parent page is a separate, explicit fallback,
+                        // never evidence that the provider picker was opened.
+                        AdaptiveTextButton(onClick = {
+                            request.entryKind?.let {
+                                SystemEffectPreview.launchSettings(context, it, request.userId)
+                            }
                         }) {
                             AdaptiveText(stringResource(R.string.preview_open_related_settings))
                         }
@@ -694,7 +709,7 @@ internal fun SystemProbeDialog(
             }
         },
         dismissButton = {
-            if (nativeAvailable || scenarioTestAvailable) {
+            if (nativeAvailable || scenarioTestAvailable || providerInventory) {
                 AdaptiveTextButton(onClick = onDismiss) {
                     AdaptiveText(stringResource(R.string.system_probe_close))
                 }
