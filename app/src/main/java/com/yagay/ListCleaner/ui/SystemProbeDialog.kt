@@ -115,7 +115,9 @@ internal fun SystemProbeDialog(
     val nativeRoute = request.entryKind?.let(::systemPreviewRoute)
         ?: request.componentKind?.let(::systemPreviewRoute)
         ?: SystemPreviewRoute.UNAVAILABLE
-    val nativeAvailable = nativeRoute in setOf(
+    // Provider inventories have independent data, but OEM Settings may merge their UI.
+    // Never present that shared Settings page as a verified provider picker.
+    val nativeAvailable = !providerInventory && nativeRoute in setOf(
         SystemPreviewRoute.CHOOSER, SystemPreviewRoute.DIRECT,
         SystemPreviewRoute.PICKER, SystemPreviewRoute.SETTINGS,
         SystemPreviewRoute.WIDGET_PICKER, SystemPreviewRoute.INPUT_METHOD_PICKER
@@ -590,8 +592,15 @@ internal fun SystemProbeDialog(
             }
         },
         confirmButton = {
-            if (nativeAvailable || scenarioTestAvailable) {
+            if (nativeAvailable || scenarioTestAvailable || providerInventory) {
                 Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
+                    if (providerInventory) {
+                        AdaptiveTextButton(onClick = {
+                            request.entryKind?.let { SystemEffectPreview.launchSettings(context, it, request.userId) }
+                        }) {
+                            AdaptiveText(stringResource(R.string.preview_open_related_settings))
+                        }
+                    }
                     if (request.entryKind == IntentKind.INPUT_METHOD) {
                         AdaptiveTextButton(onClick = {
                             SystemEffectPreview.launchSettings(
