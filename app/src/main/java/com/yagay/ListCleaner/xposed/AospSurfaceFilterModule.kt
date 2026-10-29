@@ -51,24 +51,24 @@ class AospSurfaceFilterModule : XposedModule() {
                     "com.android.systemui.statusbar.notification.collection.render.RenderStageManager",
                     "onRenderList", 1, "shade") { chain ->
                     val args = chain.args.toTypedArray()
-                    val entries = args[0] as? List<*> ?: return@install chain.proceed()
+                    val entries = args[0] as? List<*> ?: return@install proceedOriginal(chain)
                     val selected = policy().selected(SurfaceKind.NOTIFICATION_SHADE)
-                    if (selected.isEmpty()) return@install chain.proceed()
+                    if (selected.isEmpty()) return@install proceedOriginal(chain)
                     val filtered = entries.filterNot { item ->
                         shouldHideNotification(item, selected)
                     }
-                    if (filtered.size == entries.size) chain.proceed()
+                    if (filtered.size == entries.size) proceedOriginal(chain)
                     else {
                         args[0] = ArrayList(filtered)
-                        chain.proceed(args)
+                        proceedOriginal(chain, args)
                     }
                 }
                 install(param.classLoader, "com.android.systemui.qs.customize.TileAdapter",
                     "onTilesChanged", 1, "qs") { chain ->
                     val args = chain.args.toTypedArray()
-                    val items = args[0] as? List<*> ?: return@install chain.proceed()
+                    val items = args[0] as? List<*> ?: return@install proceedOriginal(chain)
                     val selected = policy().selected(SurfaceKind.QS_EDITOR)
-                    if (selected.isEmpty()) return@install chain.proceed()
+                    if (selected.isEmpty()) return@install proceedOriginal(chain)
                     val activeSpecs = (ReflectionAccess.readField(chain.thisObject,
                         "mCurrentSpecs") as? Collection<*>)?.filterIsInstance<String>().orEmpty()
                     val filtered = items.filter { item ->
@@ -76,15 +76,15 @@ class AospSurfaceFilterModule : XposedModule() {
                         val pkg = tilePackage(spec)
                         pkg == null || pkg !in selected || spec in activeSpecs
                     }
-                    if (filtered.size == items.size) chain.proceed()
+                    if (filtered.size == items.size) proceedOriginal(chain)
                     else {
                         args[0] = ArrayList(filtered)
-                        chain.proceed(args)
+                        proceedOriginal(chain, args)
                     }
                 }
                 install(param.classLoader, "com.android.systemui.media.dialog.MediaOutputController",
                     "getMediaDevices", 0, "media") { chain ->
-                    val original = chain.proceed()
+                    val original = proceedOriginal(chain)
                     val items = original as? Collection<*> ?: return@install original
                     val selected = policy().selected(SurfaceKind.MEDIA_OUTPUT)
                     if (selected.isEmpty()) return@install original
@@ -102,7 +102,7 @@ class AospSurfaceFilterModule : XposedModule() {
                 initRules()
                 install(param.classLoader, "com.android.launcher3.allapps.AllAppsStore",
                     "getApps", 0, "drawer") { chain ->
-                    val original = chain.proceed()
+                    val original = proceedOriginal(chain)
                     val array = original as? Array<*> ?: return@install original
                     val filtered = array.filter { value ->
                         val packageName = appInfoPackage(value)
@@ -124,9 +124,9 @@ class AospSurfaceFilterModule : XposedModule() {
                 install(param.classLoader, "com.android.quickstep.views.RecentsView",
                     "applyLoadPlan", 1, "recents") { chain ->
                     val args = chain.args.toTypedArray()
-                    val groups = args[0] as? List<*> ?: return@install chain.proceed()
+                    val groups = args[0] as? List<*> ?: return@install proceedOriginal(chain)
                     val selected = policy().selected(SurfaceKind.RECENTS)
-                    if (selected.isEmpty()) return@install chain.proceed()
+                    if (selected.isEmpty()) return@install proceedOriginal(chain)
                     val filtered = groups.filter { group ->
                         val tasks = listOf(
                             ReflectionAccess.readField(group, "task1", "mTask1"),
@@ -138,10 +138,10 @@ class AospSurfaceFilterModule : XposedModule() {
                             pkg == null || pkg !in selected
                         }
                     }
-                    if (filtered.size == groups.size) chain.proceed()
+                    if (filtered.size == groups.size) proceedOriginal(chain)
                     else {
                         args[0] = ArrayList(filtered)
-                        chain.proceed(args)
+                        proceedOriginal(chain, args)
                     }
                 }
             }
@@ -159,7 +159,7 @@ class AospSurfaceFilterModule : XposedModule() {
                 initRules()
                 install(param.classLoader, "com.android.documentsui.RecentsLoader",
                     "loadInBackground", 0, "recents-files") { chain ->
-                    val result = chain.proceed() ?: return@install null
+                    val result = proceedOriginal(chain) ?: return@install null
                     val selected = policy().selected(SurfaceKind.DOCUMENT_RECENTS)
                     if (selected.isEmpty()) return@install result
                     val original = ReflectionAccess.readField(result, "cursor") as? Cursor
@@ -185,8 +185,12 @@ class AospSurfaceFilterModule : XposedModule() {
                             })
                         } while (original.moveToNext())
                         matrix.setExtras(original.extras)
-                        ReflectionAccess.writeField(result, matrix, "cursor")
-                        original.close()
+                        if (ReflectionAccess.writeField(result, matrix, "cursor")) {
+                            original.close()
+                        } else {
+                            // The host's DirectoryResult is unfamiliar: retain its live cursor.
+                            matrix.close()
+                        }
                         result
                     } catch (failure: Exception) {
                         matrix.close()
@@ -228,7 +232,7 @@ class AospSurfaceFilterModule : XposedModule() {
         kind: SurfaceKind,
         pkgOf: (Any?) -> String?,
     ): Any? {
-        val original = chain.proceed()
+        val original = proceedOriginal(chain)
         val list = original as? List<*> ?: return original
         val selected = policy().selected(kind)
         if (selected.isEmpty()) return original
@@ -285,6 +289,19 @@ class AospSurfaceFilterModule : XposedModule() {
         return intent?.component?.packageName
     }
 
+    private data class CompletedOriginal(val value: Any?)
+    private val lastOriginal = ThreadLocal<CompletedOriginal?>()
+
+    /** Always keep the last successful AOSP call for fail-open recovery, including null. */
+    private fun proceedOriginal(
+        chain: XposedInterface.Chain,
+        args: Array<Any?>? = null,
+    ): Any? {
+        val result = if (args == null) chain.proceed() else chain.proceed(args)
+        lastOriginal.set(CompletedOriginal(result))
+        return result
+    }
+
     private fun install(loader: ClassLoader, className: String, name: String,
                         params: Int, id: String,
                         callback: (XposedInterface.Chain) -> Any?) {
@@ -300,10 +317,14 @@ class AospSurfaceFilterModule : XposedModule() {
                 method.isAccessible = true
                 hook(method).setId("lc-aosp-$id").intercept(
                     XposedInterface.Hooker { chain ->
+                        lastOriginal.remove()
                         try { callback(chain) }
                         catch (t: Throwable) {
                             Log.w("ListCleaner.AospSurface", "Fail-open surface $id", t)
-                            chain.proceed()
+                            lastOriginal.get()?.value ?: if (lastOriginal.get() != null) null
+                                else chain.proceed()
+                        } finally {
+                            lastOriginal.remove()
                         }
                     }
                 )
