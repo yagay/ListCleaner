@@ -342,8 +342,8 @@ filter_position = picker_row.find("WorkspaceToolbarActions(beforeFilter, filter,
 if category_position < 0 or filter_position < 0 or category_position >= filter_position:
     errors.append("WorkspaceCategorySelector.kt: Category must precede Filter in the top toolbar")
 toolbar_source = (root / "MainActivity.kt").read_text(encoding="utf-8")
-if "else -> R.string.app_name" not in toolbar_source:
-    errors.append("MainActivity.kt: Cleanup top toolbar must retain the List Cleaner app name")
+if "titleRes = R.string.app_name" not in toolbar_source:
+    errors.append("MainActivity.kt: Top toolbar must consistently use the List Cleaner app name")
 
 # Eye preview is the independent leading Category control, never next to Help.
 # Individual Entry/Root items retain their precise preview in overflow.
