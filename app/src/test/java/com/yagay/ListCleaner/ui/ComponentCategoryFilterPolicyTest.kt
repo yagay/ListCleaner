@@ -10,8 +10,8 @@ class ComponentCategoryFilterPolicyTest {
     @Test fun allCategoryAndEverySupportedRootKindAreAvailable() {
         assertEquals(null, ComponentCategoryFilterPolicy.choices.first())
         assertEquals(CleanupKind.entries.toList(), ComponentCategoryFilterPolicy.choices.drop(1))
-        assertEquals(5, ComponentCategoryFilterPolicy.choices.size)
-        assertEquals(5, ComponentCategoryFilterPolicy.choices.distinct().size)
+        assertEquals(6, ComponentCategoryFilterPolicy.choices.size)
+        assertEquals(6, ComponentCategoryFilterPolicy.choices.distinct().size)
     }
 
     @Test fun allShowsEveryKindAndEachCategoryFiltersIndependently() {

@@ -183,4 +183,21 @@
     <string name="surface_confirm_rules_help">从当前用户空间移除 %1$d 条规则？不会卸载应用或删除文件。</string>
     <string name="surface_controls_probe_notice">仅显示已注册的设备控制服务，不代表 SystemUI 控制面板中实际显示的列表。</string>
     <string name="surface_channel_settings">打开 Android 通知渠道设置</string>
+    <string name="surface_aosp_title">AOSP 界面列表过滤</string>
+    <string name="surface_aosp_help">选择要在某个 AOSP 系统列表里隐藏的应用。不会禁用应用、结束任务或删除文件。依赖对应的 AOSP 运行时类，可能需要重启相关进程。</string>
+    <string name="surface_aosp_choose">选择要过滤的列表</string>
+    <string name="surface_aosp_selected">此列表已选中 %1$d 个应用包</string>
+    <string name="surface_aosp_search">搜索应用或包名</string>
+    <string name="surface_aosp_more">另外还有 %1$d 个匹配项，请缩小搜索范围</string>
+    <string name="surface_aosp_apply">应用列表过滤</string>
+    <string name="surface_aosp_confirm">确定应用 AOSP 过滤？</string>
+    <string name="surface_aosp_confirm_help">只影响 SystemUI、Settings、Launcher3 或 DocumentsUI 的列表显示；已运行的进程可能需要重启。是否继续？</string>
+    <string name="surface_aosp_notifications">通知栏</string>
+    <string name="surface_aosp_drawer">桌面应用抽屉</string>
+    <string name="surface_aosp_predictions">桌面推荐应用</string>
+    <string name="surface_aosp_recents">最近任务卡片</string>
+    <string name="surface_aosp_qs">快捷设置添加磁贴列表</string>
+    <string name="surface_aosp_documents">DocumentsUI 最近文件</string>
+    <string name="surface_aosp_settings">系统设置已安装应用列表</string>
+    <string name="surface_aosp_media">媒体输出设备列表</string>
 </resources>

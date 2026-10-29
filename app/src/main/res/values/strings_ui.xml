@@ -183,4 +183,21 @@
     <string name="surface_confirm_rules_help">Remove %1$d rules in the currently selected profile? This does not uninstall apps or delete their files.</string>
     <string name="surface_controls_probe_notice">Registered device-control services only. This is not a verified SystemUI controls panel list.</string>
     <string name="surface_channel_settings">Open Android notification channel settings</string>
+    <string name="surface_aosp_title">AOSP presentation filters</string>
+    <string name="surface_aosp_help">Choose apps to hide in one AOSP list only. No app is disabled, no task is stopped, and no file is deleted. This relies on the exact AOSP runtime classes and may require a process restart.</string>
+    <string name="surface_aosp_choose">Surface to filter</string>
+    <string name="surface_aosp_selected">%1$d packages selected for this surface</string>
+    <string name="surface_aosp_search">Search packages (type to filter)</string>
+    <string name="surface_aosp_more">%1$d additional matches; refine search to see them</string>
+    <string name="surface_aosp_apply">Apply surface filters</string>
+    <string name="surface_aosp_confirm">Apply AOSP filters?</string>
+    <string name="surface_aosp_confirm_help">These filters affect SystemUI, Settings, Launcher3 or DocumentsUI presentation only. A running process may require restart. Continue?</string>
+    <string name="surface_aosp_notifications">Notification shade</string>
+    <string name="surface_aosp_drawer">Launcher app drawer</string>
+    <string name="surface_aosp_predictions">Launcher suggestions</string>
+    <string name="surface_aosp_recents">Recent task cards</string>
+    <string name="surface_aosp_qs">Quick Settings add-tile list</string>
+    <string name="surface_aosp_documents">DocumentsUI recent files</string>
+    <string name="surface_aosp_settings">Settings installed apps</string>
+    <string name="surface_aosp_media">Media output list</string>
 </resources>

@@ -12,13 +12,13 @@ class SettingsSectionNavigationTest {
                 SettingsSection.APPEARANCE, SettingsSection.LISTS,
                 SettingsSection.SCANNING, SettingsSection.COMPATIBILITY,
                 SettingsSection.BACKUP, SettingsSection.ADVANCED,
-                SettingsSection.ABOUT
+                SettingsSection.SURFACES, SettingsSection.ABOUT
             ),
             SettingsSection.entries
         )
-        assertEquals(3, SettingsSection.entries.filter { it != SettingsSection.ABOUT }.chunked(2).size)
+        assertEquals(4, SettingsSection.entries.filter { it != SettingsSection.ABOUT }.chunked(2).size)
         assertEquals(SettingsSection.ABOUT, SettingsSection.entries.last())
         assertTrue(SettingsSection.entries.all { it.titleRes != 0 && it.descriptionRes != 0 })
-        assertEquals(7, SettingsSection.entries.map { it.titleRes }.distinct().size)
+        assertEquals(8, SettingsSection.entries.map { it.titleRes }.distinct().size)
     }
 }
