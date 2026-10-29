@@ -113,11 +113,15 @@ class AospSurfaceFilterModule : XposedModule() {
                             packageName !in selected(SurfaceKind.LAUNCHER_DRAWER, user)
                     }
                     if (filtered.size == array.size) original
-                    else java.lang.reflect.Array.newInstance(
-                        original.javaClass.componentType, filtered.size).also { output ->
+                    else {
+                        val componentType = original.javaClass.componentType
+                            ?: return@install original
+                        java.lang.reflect.Array.newInstance(
+                            componentType, filtered.size).also { output ->
                         filtered.forEachIndexed { index, entry ->
                             java.lang.reflect.Array.set(output, index, entry)
                         }
+                    }
                     }
                 }
                 install(param.classLoader, "com.android.launcher3.allapps.AlphabeticalAppsList",
