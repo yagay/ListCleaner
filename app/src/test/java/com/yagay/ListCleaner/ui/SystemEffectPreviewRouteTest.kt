@@ -73,56 +73,36 @@ class SystemEffectPreviewRouteTest {
         assertEquals(1, SystemEffectPreview.settingsActions(IntentKind.AUTOFILL).size)
     }
 
-    @Test fun providerManagerOnlyQueriesRegisteredPlatformSettings() {
+    @Test fun aospCombinedPickerIsTheSameRealSettingsPageForBothProviders() {
+        assertEquals("com.android.settings", AospProviderSettingsRoute.SETTINGS_PACKAGE)
         assertEquals(
-            "cmd package query-activities --brief --components --user 0 -a android.settings.CREDENTIAL_PROVIDER",
-            ProviderSettingsBridge.discoverCommand(0)
+            "com.android.settings.applications.credentials.CredentialsPickerActivity",
+            AospProviderSettingsRoute.pickerComponent(IntentKind.CREDENTIAL_PROVIDER)
         )
-        assertEquals(
-            "cmd package list packages -s --user 10",
-            ProviderSettingsBridge.systemPackageQueryCommand(10)
-        )
-        assertFalse(ProviderSettingsBridge.discoverCommand(0)
-            .contains("REQUEST_SET_AUTOFILL_SERVICE"))
+        assertEquals(AospProviderSettingsRoute.pickerComponent(IntentKind.AUTOFILL),
+            AospProviderSettingsRoute.pickerComponent(IntentKind.CREDENTIAL_PROVIDER))
     }
 
-    @Test fun providerManagerRejectsUnregisteredOrNonSystemSettingsHandlers() {
-        val output = """
-            com.evil.settings/.CredentialPicker
-            com.android.settings/.Settings${'$'}CredentialManagerActivity
-            com.oplus.settings/.CredentialsSettings
-        """.trimIndent()
-        assertEquals(
-            "com.android.settings/.Settings\$CredentialManagerActivity",
-            ProviderSettingsBridge.selectRegisteredComponent(
-                output, setOf("com.android.settings", "com.oplus.settings")
-            )
-        )
-        assertEquals(
-            null,
-            ProviderSettingsBridge.selectRegisteredComponent(
-                "com.evil.settings/.CredentialPicker", setOf("com.android.settings")
-            )
-        )
+    @Test fun providerSettingsFallbacksArePublicAndNeverImpersonateAProvider() {
+        assertEquals(listOf(android.provider.Settings.ACTION_SECURITY_SETTINGS,
+            android.provider.Settings.ACTION_SETTINGS),
+            AospProviderSettingsRoute.fallbackActions(IntentKind.CREDENTIAL_PROVIDER))
+        assertEquals(listOf(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS,
+            android.provider.Settings.ACTION_SETTINGS),
+            AospProviderSettingsRoute.fallbackActions(IntentKind.AUTOFILL))
+        val actions = IntentKind.entries.filter(AospProviderSettingsRoute::isProvider)
+            .flatMap(AospProviderSettingsRoute::fallbackActions)
+        assertFalse(actions.any { it.contains("CREDENTIAL_PROVIDER") ||
+            it.contains("REQUEST_SET_AUTOFILL_SERVICE") })
     }
 
-    @Test fun providerManagerShellLaunchQuotesNestedActivitiesAndVerifiesAmResult() {
-        val component = "com.android.settings/.Settings\$CredentialManagerActivity"
-        assertEquals(
-            "am start -W --user 10 -n '$component' -a android.settings.CREDENTIAL_PROVIDER",
-            ProviderSettingsBridge.launchCommand(10, component)
-        )
-        assertTrue(ProviderSettingsBridge.launchAccepted(
-            "Status: ok\nActivity: $component", component
-        ))
-        assertFalse(ProviderSettingsBridge.launchAccepted(
-            "Status: ok\nActivity: com.example/.Settings", component
-        ))
-        assertFalse(ProviderSettingsBridge.launchAccepted(
-            "Status: error\nActivity: $component", component
-        ))
+    @Test fun aospProviderRouteExcludesUnrelatedSystemLists() {
+        assertTrue(AospProviderSettingsRoute.isProvider(IntentKind.CREDENTIAL_PROVIDER))
+        assertTrue(AospProviderSettingsRoute.isProvider(IntentKind.AUTOFILL))
+        assertFalse(AospProviderSettingsRoute.isProvider(IntentKind.ACCESSIBILITY))
+        assertEquals(emptyList<String>(),
+            AospProviderSettingsRoute.fallbackActions(IntentKind.ACCESSIBILITY))
     }
-
     @Test fun dynamicShortcutsAndTextSelectionAreNotMisrepresented() {
         assertEquals(SystemPreviewRoute.CONTEXT_MENU,
             systemPreviewRoute(IntentKind.PROCESS_TEXT))
