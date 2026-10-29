@@ -115,7 +115,6 @@ class ModuleConfigTest {
             IntentKind.CALL_SCREENING,
             IntentKind.VPN,
             IntentKind.AUTOFILL,
-            IntentKind.CREDENTIAL_PROVIDER,
         )
         kinds.forEach { kind ->
             val packageName = "com.example.${kind.name.lowercase()}"
@@ -134,6 +133,26 @@ class ModuleConfigTest {
             assertFalse(first.id in config.priorities.titles)
             assertFalse(second.id in config.priorities.titles)
         }
+    }
+
+    @Test fun retiredCredentialRulesRemainReadableButInactive() {
+        val legacy = ComponentRule(
+            IntentKind.CREDENTIAL_PROVIDER,
+            "com.example.legacy",
+            "com.example.legacy.LegacyProvider",
+        )
+        val config = ModuleConfig(
+            rules = setOf(legacy),
+            mode = DisplayMode.HIDE_SELECTED,
+            priorities = PriorityConfig(),
+            diagnostic = false,
+        ).validated()
+        val decoded = Json.decodeFromString(ModuleConfig.serializer(),
+            Json.encodeToString(ModuleConfig.serializer(), config)).validated()
+        assertTrue("Legacy Credential rule must survive config round-trip", legacy in decoded.rules)
+        assertFalse(IntentKind.CREDENTIAL_PROVIDER.isSelectableEntryKind())
+        assertNull(IntentKind.CREDENTIAL_PROVIDER.surfaceDefinition())
+        assertNull(IntentKind.CREDENTIAL_PROVIDER.runtimeDefinition())
     }
 
     @Test fun runtimeComponentPolicyRoundTrip() {
