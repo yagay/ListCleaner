@@ -25,6 +25,7 @@ import com.yagay.ListCleaner.domain.AndroidUid
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.SYSTEM_SERVICE_ENTRY_DEFINITIONS
 import com.yagay.ListCleaner.domain.TileServiceEligibility
+import com.yagay.ListCleaner.domain.ControlsProviderEligibility
 import com.yagay.ListCleaner.domain.RuntimeInterfaceSnapshot
 import com.yagay.ListCleaner.domain.RuntimeInterfaceSnapshotCodec
 import com.yagay.ListCleaner.domain.SystemServiceEntryDefinition
@@ -573,17 +574,20 @@ internal object SystemEntryProbe {
                     )
                 }
             }
-            CleanupKind.TILE ->
+            CleanupKind.TILE, CleanupKind.CONTROLS ->
                 pm.queryIntentServices(
                     SystemEffectPreview.markedQueryIntent(
-                        Intent("android.service.quicksettings.action.QS_TILE")
+                        Intent(kind.action)
                     ), PackageManager.GET_META_DATA,
                 ).mapNotNull { resolved ->
                     val service = resolved.serviceInfo ?: return@mapNotNull null
-                    if (!TileServiceEligibility.active(
+                    if (kind == CleanupKind.TILE && !TileServiceEligibility.active(
                         service.permission, service.exported,
                         service.enabled, service.applicationInfo?.enabled == true,
                     )) return@mapNotNull null
+                    if (kind == CleanupKind.CONTROLS &&
+                        !ControlsProviderEligibility.accepts(service.permission, service.exported))
+                        return@mapNotNull null
                     SystemProbeItem(
                         resolved.loadLabel(pm)?.toString().orEmpty().ifBlank { service.name },
                         service.packageName, service.name,
@@ -597,6 +601,7 @@ internal object SystemEntryProbe {
                 R.string.system_probe_source_launcher else R.string.system_probe_source_services,
             when (kind) {
                 CleanupKind.TILE -> R.string.system_probe_tile_notice
+                CleanupKind.CONTROLS -> R.string.surface_controls_probe_notice
                 CleanupKind.WIDGET -> R.string.system_probe_widget_notice
                 CleanupKind.LAUNCHER -> R.string.system_probe_manager_notice
                 CleanupKind.SHORTCUT -> R.string.system_probe_shortcut_notice

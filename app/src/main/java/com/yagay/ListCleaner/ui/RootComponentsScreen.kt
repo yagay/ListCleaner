@@ -369,6 +369,7 @@ fun RootComponentsScreen(
                         CleanupKind.TILE -> R.string.root_kind_tile_help
                         CleanupKind.SHORTCUT -> R.string.root_kind_shortcut_help
                         CleanupKind.WIDGET -> R.string.root_kind_widget_help
+                        CleanupKind.CONTROLS -> R.string.root_kind_controls_help
                     }),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
