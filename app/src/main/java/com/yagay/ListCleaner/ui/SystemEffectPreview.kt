@@ -279,6 +279,99 @@ internal object SystemEffectPreview {
         val diagnostic: String,
     )
 
+    /**
+     * Attempt the registered Android credential-provider management destination.
+     * Android 15+ can combine Credential Manager and Autofill; this is deliberately
+     * NOT ACTION_REQUEST_SET_AUTOFILL_SERVICE (ListCleaner is not a provider).
+     *
+     * Discover via Root so package visibility/hidden OEM activities do not produce
+     * false negatives. Only the system-registered Settings handler is launched.
+     * Never silently replace a failed dedicated navigation with generic Settings.
+     */
+    fun launchProviderManager(context: Context, kind: IntentKind, selectedUserId: Int) {
+        if (kind !in setOf(IntentKind.CREDENTIAL_PROVIDER, IntentKind.AUTOFILL)) return
+        if (!checkUser(context, selectedUserId)) return
+        CoroutineScope(Dispatchers.Main.immediate).launch {
+            val outcome = withContext(Dispatchers.IO) {
+                runCatching {
+                    val discovery = ComponentRootCommand.runReadOnly(
+                        ProviderSettingsBridge.discoverCommand(selectedUserId)
+                    )
+                    if (discovery.exitCode != 0 || discovery.timedOut ||
+                        discovery.output.contains("[output truncated]") ||
+                        discovery.output.contains("[output incomplete]")) {
+                        return@runCatching ProviderSettingsOutcome(
+                            R.string.preview_provider_discovery_failed,
+                            "DISCOVERY_FAILED kind=$kind exit=${discovery.exitCode} " +
+                                "timeout=${discovery.timedOut} output=${discovery.output.take(350)}"
+                        )
+                    }
+                    val packages = ComponentRootCommand.runReadOnly(
+                        ProviderSettingsBridge.systemPackageQueryCommand(selectedUserId)
+                    )
+                    if (packages.exitCode != 0 || packages.timedOut ||
+                        packages.output.contains("[output truncated]") ||
+                        packages.output.contains("[output incomplete]")) {
+                        return@runCatching ProviderSettingsOutcome(
+                            R.string.preview_provider_discovery_failed,
+                            "SYSTEM_PACKAGES_FAILED kind=$kind exit=${packages.exitCode}"
+                        )
+                    }
+                    val component = ProviderSettingsBridge.selectRegisteredComponent(
+                        discovery.output, AssistantRolePickerBridge.systemPackages(packages.output)
+                    ) ?: return@runCatching ProviderSettingsOutcome(
+                        R.string.preview_provider_missing_component,
+                        "NO_SYSTEM_HANDLER kind=$kind ${discovery.output.take(450)}"
+                    )
+                    val started = ComponentRootCommand.run(
+                        ProviderSettingsBridge.launchCommand(selectedUserId, component)
+                    )
+                    if (started.exitCode != 0 || started.timedOut ||
+                        !ProviderSettingsBridge.launchAccepted(started.output, component)) {
+                        return@runCatching ProviderSettingsOutcome(
+                            R.string.preview_provider_launch_failed,
+                            "LAUNCH_FAILED kind=$kind component=$component " +
+                                "exit=${started.exitCode} output=${started.output.take(450)}"
+                        )
+                    }
+                    val foreground = ComponentRootCommand.runReadOnly("dumpsys activity activities")
+                    if (foreground.exitCode != 0 || foreground.timedOut ||
+                        foreground.output.contains("[output truncated]")) {
+                        return@runCatching ProviderSettingsOutcome(
+                            R.string.preview_provider_not_verified,
+                            "FOREGROUND_QUERY_FAILED kind=$kind component=$component"
+                        )
+                    }
+                    val actual = AssistantRolePickerBridge.foregroundPackage(foreground.output)
+                    if (actual != component.substringBefore('/')) {
+                        ProviderSettingsOutcome(
+                            R.string.preview_provider_redirected,
+                            "REDIRECTED kind=$kind component=$component foreground=$actual"
+                        )
+                    } else {
+                        // A matching Activity does not reveal which OEM Fragment is rendered.
+                        // Never call this a verified Credential/Autofill picker.
+                        ProviderSettingsOutcome(
+                            R.string.preview_provider_not_verified,
+                            "REGISTERED_ACTIVITY_FOREGROUND kind=$kind " +
+                                "component=$component foreground=$actual page=unverified"
+                        )
+                    }
+                }.getOrElse { failure ->
+                    ProviderSettingsOutcome(
+                        R.string.preview_provider_discovery_failed,
+                        "ROOT_EXCEPTION kind=$kind ${failure.javaClass.simpleName}: " +
+                            failure.message.orEmpty().take(120)
+                    )
+                }
+            }
+            Log.i("ListCleaner.SystemPreview", "PROVIDER_MANAGER " + outcome.diagnostic)
+            show(context, outcome.messageRes)
+        }
+    }
+
+    private data class ProviderSettingsOutcome(val messageRes: Int, val diagnostic: String)
+
     /** Explicit opt-in fallback; never open the wrong page automatically. */
     fun launchAssistantSettings(context: Context, userId: Int) {
         if (!checkUser(context, userId)) return
@@ -570,6 +663,61 @@ internal object SystemEffectPreview {
                 else -> file.writeText(context.getString(R.string.system_preview_example_text))
             }
             FileProvider.getUriForFile(context, context.packageName + ".preview-files", file)
+        }
+    }
+}
+
+/**
+ * Read-only system handler discovery, plus one user-initiated Settings launch.
+ * Do not pass a spoofed package: URI. Android documents this action as an
+ * enable-provider request for the caller, so an OEM may reject the navigation.
+ */
+internal object ProviderSettingsBridge {
+    internal const val ACTION = "android.settings.CREDENTIAL_PROVIDER"
+    private val componentPattern =
+        Regex("""([A-Za-z_][A-Za-z0-9_.]*)/([A-Za-z_.$][A-Za-z0-9_.$]*)""")
+
+    internal fun discoverCommand(userId: Int): String {
+        require(userId >= 0)
+        return "cmd package query-activities --brief --components --user $userId -a $ACTION"
+    }
+
+    internal fun systemPackageQueryCommand(userId: Int): String {
+        require(userId >= 0)
+        return "cmd package list packages -s --user $userId"
+    }
+
+    internal fun selectRegisteredComponent(
+        output: String, installedSystemPackages: Set<String>
+    ): String? =
+        componentPattern.findAll(output)
+            .map { it.groupValues[1] to it.groupValues[2] }
+            .filter { (pkg, _) ->
+                pkg in installedSystemPackages &&
+                    (pkg == "com.android.settings" ||
+                        pkg.endsWith(".settings", ignoreCase = true))
+            }
+            .sortedBy { (pkg, _) -> if (pkg == "com.android.settings") 0 else 1 }
+            .firstOrNull()?.let { (pkg, activity) -> "$pkg/$activity" }
+
+    internal fun launchCommand(userId: Int, component: String): String {
+        require(userId >= 0)
+        require(componentPattern.matchEntire(component) != null)
+        val pkg = component.substringBefore('/')
+        require(pkg == "com.android.settings" || pkg.endsWith(".settings", ignoreCase = true))
+        return "am start -W --user $userId -n $component -a $ACTION"
+    }
+
+    internal fun launchAccepted(output: String, component: String): Boolean {
+        if (!output.contains("Status: ok", ignoreCase = true)) return false
+        if (listOf("Error:", "Permission Denial", "SecurityException",
+                "Status: timeout", "Status: canceled", "Status: error").any {
+                output.contains(it, ignoreCase = true)
+            }) return false
+        val pkg = component.substringBefore('/')
+        return output.lineSequence().any {
+            it.trim().startsWith("Activity: ") &&
+                it.substringAfter("Activity: ").trim().startsWith("$pkg/")
         }
     }
 }
