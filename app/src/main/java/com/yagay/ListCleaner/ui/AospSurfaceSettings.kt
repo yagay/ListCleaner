@@ -1,7 +1,5 @@
 package com.yagay.ListCleaner.ui
 
-import android.content.pm.PackageManager
-import android.media.MediaRouter2
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -11,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -20,7 +19,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
-import com.yagay.ListCleaner.domain.SurfaceFilterConfig
+import com.yagay.ListCleaner.runtime.NotificationCleanupController
 import com.yagay.ListCleaner.domain.SurfaceKind
 
 private fun SurfaceKind.label(): Int = when (this) {
@@ -42,50 +41,27 @@ internal fun AospSurfaceSettings(vm: MainViewModel, userId: Int) {
     var query by remember(userId, selectedKind) { mutableStateOf("") }
     var draft by remember(userId, saved) { mutableStateOf(saved) }
     var confirming by remember { mutableStateOf(false) }
+    var refreshRevision by remember(userId) { mutableStateOf(0) }
+    val activeNotifications by NotificationCleanupController.rows.collectAsStateWithLifecycle()
 
-    // Installed apps are the *candidate packages*, not proof that an OEM UI uses the AOSP hook.
-    val packages = remember(userId) {
-        @Suppress("DEPRECATION")
-        context.packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
-            .asSequence()
-            .map { info ->
-                info.packageName to runCatching {
-                    info.loadLabel(context.packageManager).toString()
-                }.getOrDefault(info.packageName)
-            }
-            .distinctBy { it.first }
-            .sortedWith(compareBy({ it.second.lowercase() }, { it.first }))
-            .toList()
-    }
-    val mediaDevices = remember(userId) {
-        runCatching {
-            MediaRouter2.getInstance(context).routes.map { route ->
-                route.id to route.name.toString()
-            }.distinctBy { it.first }.sortedBy { it.second.lowercase() }
-        }.getOrDefault(emptyList())
-    }
-    val documentAuthorities = remember(userId) {
-        @Suppress("DEPRECATION")
-        context.packageManager.getInstalledPackages(PackageManager.GET_PROVIDERS)
-            .asSequence().flatMap { pkg ->
-                pkg.providers.orEmpty().asSequence().flatMap { provider ->
-                    provider.authority.orEmpty().split(';').asSequence().filter { it.isNotBlank() }
-                        .map { authority -> authority to pkg.packageName }
-                }
-            }.distinctBy { it.first }.sortedBy { it.first }.toList()
-    }
-    val selectable = when (selectedKind) {
-        SurfaceKind.MEDIA_OUTPUT -> mediaDevices
-        SurfaceKind.DOCUMENT_RECENTS -> documentAuthorities
-        else -> packages
+    val catalog = remember(userId, selectedKind, refreshRevision, activeNotifications) {
+        SurfaceCandidateDiscovery.query(context, selectedKind, userId, activeNotifications)
     }
     val chosen = draft.selected(selectedKind)
+    // Selected but temporarily unavailable targets remain editable. Never discard
+    // existing rules merely because the source is restricted or currently empty.
+    val selectable = (catalog.items + chosen.map { it to it }).distinctBy { it.first }
+        .sortedWith(compareBy({ it.second.lowercase() }, { it.first }))
     val matches = selectable.filter { (pkg, label) ->
         query.isBlank() || pkg.contains(query.trim(), ignoreCase = true) ||
             label.contains(query.trim(), ignoreCase = true)
     }
     SettingsArea(stringResource(R.string.surface_aosp_title)) {
         SettingsHint(stringResource(R.string.surface_aosp_help))
+        SettingsHint(catalog.description)
+        SettingsActionButton(onClick = { refreshRevision++ }) {
+            AdaptiveText(stringResource(R.string.surface_scan_refresh))
+        }
         SettingsChoices(
             title = stringResource(R.string.surface_aosp_choose),
             value = selectedKind,
