@@ -15,6 +15,7 @@ import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.AndroidUid
 import com.yagay.ListCleaner.domain.AppType
 import com.yagay.ListCleaner.domain.TileServiceEligibility
+import com.yagay.ListCleaner.domain.ControlsProviderEligibility
 import com.yagay.ListCleaner.domain.ComponentStatePolicy
 import com.yagay.ListCleaner.domain.listCleanerAppType
 import kotlinx.coroutines.delay
@@ -23,7 +24,8 @@ enum class CleanupKind(val action: String) {
     LAUNCHER(Intent.ACTION_MAIN),
     TILE("android.service.quicksettings.action.QS_TILE"),
     SHORTCUT("android.intent.action.CREATE_SHORTCUT"),
-    WIDGET("android.appwidget.action.APPWIDGET_UPDATE")
+    WIDGET("android.appwidget.action.APPWIDGET_UPDATE"),
+    CONTROLS("android.service.controls.ControlsProviderService")
 }
 
 enum class ComponentDiscoverySource {
@@ -101,6 +103,7 @@ class RootComponentCatalog(
         CleanupKind.TILE -> R.string.cleanup_tile
         CleanupKind.SHORTCUT -> R.string.cleanup_shortcut
         CleanupKind.WIDGET -> R.string.cleanup_widget
+        CleanupKind.CONTROLS -> R.string.cleanup_controls
     })
 
     private fun componentKey(info: ComponentInfo): ComponentName =
@@ -142,6 +145,13 @@ class RootComponentCatalog(
             .map {
                 DiscoveredComponent(it, setOf(ComponentDiscoverySource.PACKAGE_MANAGER))
             }
+
+    @Suppress("DEPRECATION")
+    private fun queryDeviceControls(): List<DiscoveredComponent> =
+        pm.queryIntentServices(Intent(CleanupKind.CONTROLS.action), flags)
+            .mapNotNull { it.serviceInfo }
+            .filter { ControlsProviderEligibility.accepts(it.permission, it.exported) }
+            .map { DiscoveredComponent(it, setOf(ComponentDiscoverySource.PACKAGE_MANAGER)) }
 
     @Suppress("DEPRECATION")
     private fun queryLegacyShortcutActivities(): List<DiscoveredComponent> =
@@ -215,6 +225,7 @@ class RootComponentCatalog(
     private fun query(kind: CleanupKind): List<DiscoveredComponent> = when (kind) {
         CleanupKind.LAUNCHER -> queryLauncherActivities()
         CleanupKind.TILE -> queryTiles()
+        CleanupKind.CONTROLS -> queryDeviceControls()
         CleanupKind.SHORTCUT -> mergeDiscovered(
             queryShortcutConfigActivities(),
             queryLegacyShortcutActivities()

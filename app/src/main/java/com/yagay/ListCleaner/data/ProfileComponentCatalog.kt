@@ -15,6 +15,7 @@ import androidx.core.graphics.drawable.toBitmap
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.AndroidUid
 import com.yagay.ListCleaner.domain.ComponentStatePolicy
+import com.yagay.ListCleaner.domain.ControlsProviderEligibility
 import com.yagay.ListCleaner.domain.PackageIdentity
 import com.yagay.ListCleaner.domain.listCleanerAppType
 import kotlinx.coroutines.delay
@@ -49,12 +50,13 @@ class ProfileComponentCatalog(private val context: Context) {
     private fun query(userId: Int, kind: CleanupKind): Set<ComponentName>? {
         val command = when (kind) {
             CleanupKind.LAUNCHER, CleanupKind.SHORTCUT -> "query-activities"
-            CleanupKind.TILE -> "query-services"
+            CleanupKind.TILE, CleanupKind.CONTROLS -> "query-services"
             CleanupKind.WIDGET -> "query-receivers"
         }
         val intent = when (kind) {
             CleanupKind.LAUNCHER -> "-a android.intent.action.MAIN -c android.intent.category.LAUNCHER"
             CleanupKind.TILE -> "-a android.service.quicksettings.action.QS_TILE"
+            CleanupKind.CONTROLS -> "-a android.service.controls.ControlsProviderService"
             CleanupKind.SHORTCUT -> "-a android.intent.action.CREATE_SHORTCUT"
             CleanupKind.WIDGET -> "-a android.appwidget.action.APPWIDGET_UPDATE"
         }
@@ -143,7 +145,7 @@ class ProfileComponentCatalog(private val context: Context) {
         val pkg = query.packageInfo(component.packageName) ?: return null
         return when (kind) {
             CleanupKind.LAUNCHER, CleanupKind.SHORTCUT -> pkg.activities?.firstOrNull { it.name == component.className }
-            CleanupKind.TILE -> pkg.services?.firstOrNull { it.name == component.className }
+            CleanupKind.TILE, CleanupKind.CONTROLS -> pkg.services?.firstOrNull { it.name == component.className }
             CleanupKind.WIDGET -> pkg.receivers?.firstOrNull { it.name == component.className }
         }
     }
@@ -173,6 +175,9 @@ class ProfileComponentCatalog(private val context: Context) {
                     info == null -> context.getString(R.string.root_state_read_failed)
                     kind == CleanupKind.TILE && (info !is ServiceInfo ||
                         !info.exported || info.permission != "android.permission.BIND_QUICK_SETTINGS_TILE") ->
+                        context.getString(R.string.root_state_read_failed)
+                    kind == CleanupKind.CONTROLS && (info !is ServiceInfo ||
+                        !ControlsProviderEligibility.accepts(info.permission, info.exported)) ->
                         context.getString(R.string.root_state_read_failed)
                     kind == CleanupKind.WIDGET && (info.metaData?.getInt("android.appwidget.provider", 0) ?: 0) == 0 ->
                         context.getString(R.string.root_state_read_failed)
