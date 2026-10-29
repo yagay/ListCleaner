@@ -6,7 +6,9 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.ServiceInfo
 import android.database.Cursor
-import android.database.MatrixCursor
+import android.database.AbstractCursor
+import android.database.Cursor
+import android.os.Message
 import android.os.Process
 import android.os.UserHandle
 import android.util.Log
@@ -52,10 +54,10 @@ class AospSurfaceFilterModule : XposedModule() {
                     "onRenderList", 1, "shade") { chain ->
                     val args = chain.args.toTypedArray()
                     val entries = args[0] as? List<*> ?: return@install proceedOriginal(chain)
-                    val selected = policy().selected(SurfaceKind.NOTIFICATION_SHADE)
-                    if (selected.isEmpty()) return@install proceedOriginal(chain)
+                    if (profiles.values.all { it.selected(SurfaceKind.NOTIFICATION_SHADE).isEmpty() })
+                        return@install proceedOriginal(chain)
                     val filtered = entries.filterNot { item ->
-                        shouldHideNotification(item, selected)
+                        shouldHideNotification(item)
                     }
                     if (filtered.size == entries.size) proceedOriginal(chain)
                     else {
@@ -125,8 +127,8 @@ class AospSurfaceFilterModule : XposedModule() {
                     "applyLoadPlan", 1, "recents") { chain ->
                     val args = chain.args.toTypedArray()
                     val groups = args[0] as? List<*> ?: return@install proceedOriginal(chain)
-                    val selected = policy().selected(SurfaceKind.RECENTS)
-                    if (selected.isEmpty()) return@install proceedOriginal(chain)
+                    if (profiles.values.all { it.selected(SurfaceKind.RECENTS).isEmpty() })
+                        return@install proceedOriginal(chain)
                     val filtered = groups.filter { group ->
                         val tasks = listOf(
                             ReflectionAccess.readField(group, "task1", "mTask1"),
@@ -135,7 +137,10 @@ class AospSurfaceFilterModule : XposedModule() {
                         // A split group must remain intact if any task is unselected.
                         tasks.isEmpty() || tasks.any { task ->
                             val pkg = taskPackage(task)
-                            pkg == null || pkg !in selected
+                            val key = ReflectionAccess.readField(task, "key", "mKey")
+                            val user = (ReflectionAccess.readField(key, "userId") as? Number)?.toInt()
+                                ?: return@any true
+                            pkg == null || pkg !in selected(SurfaceKind.RECENTS, user)
                         }
                     }
                     if (filtered.size == groups.size) proceedOriginal(chain)
@@ -147,11 +152,30 @@ class AospSurfaceFilterModule : XposedModule() {
             }
             "com.android.settings" -> {
                 initRules()
-                install(param.classLoader, "com.android.settingslib.applications.ApplicationsState\u0024Session",
-                    "rebuild", -1, "settings-apps") { chain ->
-                    filterListResult(chain, SurfaceKind.SETTINGS_APPS) { entry ->
+                // AOSP SettingsLib delivers async rebuild results in the MainHandler
+                // callback, rather than Session.rebuild()'s nullable return value.
+                install(param.classLoader, "com.android.settingslib.applications.ApplicationsState\u0024MainHandler",
+                    "handleMessage", 1, "settings-apps") { chain ->
+                    val message = chain.args.singleOrNull() as? Message
+                        ?: return@install proceedOriginal(chain)
+                    if (message.what != 1) return@install proceedOriginal(chain)
+                    val session = message.obj ?: return@install proceedOriginal(chain)
+                    val original = ReflectionAccess.readField(session, "mLastAppList") as? List<*>
+                        ?: return@install proceedOriginal(chain)
+                    val filtered = original.filter { entry ->
                         val info = ReflectionAccess.readField(entry, "info", "mInfo") as? ApplicationInfo
-                        info?.packageName
+                        val user = info?.uid?.takeIf { it >= 0 }?.div(100000)
+                            ?: return@filter true
+                        info.packageName !in selected(SurfaceKind.SETTINGS_APPS, user)
+                    }
+                    if (original.size == filtered.size) return@install proceedOriginal(chain)
+                    if (!ReflectionAccess.writeField(session, ArrayList(filtered), "mLastAppList"))
+                        return@install proceedOriginal(chain)
+                    diagnostic("FILTER settings-apps total=${original.size} hidden=${original.size - filtered.size}")
+                    try {
+                        proceedOriginal(chain)
+                    } finally {
+                        ReflectionAccess.writeField(session, original, "mLastAppList")
                     }
                 }
             }
@@ -167,37 +191,55 @@ class AospSurfaceFilterModule : XposedModule() {
                     // Clone only a bounded, cursor-backed recents result. Preserve its
                     // column types and extras; no changes are made to the document provider.
                     if (original.count > 1024) return@install result
-                    val authorityIndex = original.getColumnIndex("authority")
+                    val authorityIndex = original.getColumnIndex("android:authority")
                     if (authorityIndex < 0) return@install result
-                    val matrix = MatrixCursor(original.columnNames, original.count)
+                    val positions = ArrayList<Int>(original.count)
                     try {
-                        if (original.moveToFirst()) do {
+                        for (position in 0 until original.count) {
+                            if (!original.moveToPosition(position)) return@install result
                             val authority = original.getString(authorityIndex) ?: ""
-                            if (authority.substringBefore('/') in selected) continue
-                            matrix.addRow(Array<Any?>(original.columnCount) { c ->
-                                when (original.getType(c)) {
-                                    Cursor.FIELD_TYPE_NULL -> null
-                                    Cursor.FIELD_TYPE_INTEGER -> original.getLong(c)
-                                    Cursor.FIELD_TYPE_FLOAT -> original.getDouble(c)
-                                    Cursor.FIELD_TYPE_BLOB -> original.getBlob(c)
-                                    else -> original.getString(c)
-                                }
-                            })
-                        } while (original.moveToNext())
-                        matrix.setExtras(original.extras)
-                        if (ReflectionAccess.writeField(result, matrix, "cursor")) {
-                            original.close()
-                        } else {
-                            // The host's DirectoryResult is unfamiliar: retain its live cursor.
-                            matrix.close()
+                            if (authority !in selected) positions.add(position)
                         }
+                        if (positions.size == original.count) return@install result
+                        // The loader now owns the wrapper; it closes the underlying
+                        // merged cursor at its normal lifecycle boundary.
+                        val replacement = RecentPresentationCursor(original, positions.toIntArray())
+                        if (!ReflectionAccess.writeField(result, replacement, "cursor")) {
+                            // Do not close the original result's live cursor on failure.
+                            return@install result
+                        }
+                        diagnostic("FILTER docs-recents total=${original.count} hidden=${original.count - positions.size}")
                         result
                     } catch (failure: Exception) {
-                        matrix.close()
+                        diagnostic("SKIP docs-recents reason=${failure.javaClass.simpleName}")
                         result
                     }
                 }
             }
+        }
+    }
+
+    private class RecentPresentationCursor(
+        private val original: Cursor,
+        private val positions: IntArray,
+    ) : AbstractCursor() {
+        override fun getCount(): Int = positions.size
+        override fun getColumnNames(): Array<String> = original.columnNames
+        override fun onMove(oldPosition: Int, newPosition: Int): Boolean =
+            original.moveToPosition(positions[newPosition])
+        override fun getString(column: Int): String? = original.getString(column)
+        override fun getShort(column: Int): Short = original.getShort(column)
+        override fun getInt(column: Int): Int = original.getInt(column)
+        override fun getLong(column: Int): Long = original.getLong(column)
+        override fun getFloat(column: Int): Float = original.getFloat(column)
+        override fun getDouble(column: Int): Double = original.getDouble(column)
+        override fun isNull(column: Int): Boolean = original.isNull(column)
+        override fun getType(column: Int): Int = original.getType(column)
+        override fun getBlob(column: Int): ByteArray? = original.getBlob(column)
+        override fun getExtras(): android.os.Bundle = original.extras
+        override fun close() {
+            super.close()
+            original.close()
         }
     }
 
@@ -243,14 +285,22 @@ class AospSurfaceFilterModule : XposedModule() {
         return if (filtered.size == list.size) original else ArrayList(filtered)
     }
 
-    private fun shouldHideNotification(entry: Any?, selected: Set<String>): Boolean {
+    private fun shouldHideNotification(entry: Any?): Boolean {
         // Never hide an AOSP GroupEntry unless every child is filtered. This
         // avoids losing unrelated children when a group summary belongs to a
         // selected app and preserves group render invariants.
         val children = ReflectionAccess.invokeNoArg(entry, "getChildren") as? Collection<*>
         if (children != null) return children.isNotEmpty() &&
-            children.all { notificationPackage(it) in selected }
-        return notificationPackage(entry) in selected
+            children.all { child -> notificationSelected(child) }
+        return notificationSelected(entry)
+    }
+
+    private fun notificationSelected(entry: Any?): Boolean {
+        val representative = ReflectionAccess.invokeNoArg(entry, "getRepresentativeEntry")
+            ?: entry
+        val sbn = ReflectionAccess.invokeNoArg(representative, "getSbn")
+            as? android.service.notification.StatusBarNotification ?: return false
+        return notificationPackage(entry) in selected(SurfaceKind.NOTIFICATION_SHADE, sbn.userId)
     }
 
     private fun notificationPackage(entry: Any?): String? {
@@ -302,11 +352,19 @@ class AospSurfaceFilterModule : XposedModule() {
         return result
     }
 
+    private fun diagnostic(event: String) {
+        Log.i("ListCleaner.AospSurface", "process=$process $event")
+    }
+
     private fun install(loader: ClassLoader, className: String, name: String,
                         params: Int, id: String,
                         callback: (XposedInterface.Chain) -> Any?) {
         val target = runCatching { Class.forName(className, false, loader) }.getOrNull()
-            ?: return
+            ?: run {
+                diagnostic("HOOK_MISSING id=$id class=$className")
+                return
+            }
+        var count = 0
         ReflectionAccess.hierarchyMethods(target).filter { m ->
             m.name == name && !Modifier.isAbstract(m.modifiers) &&
                 (params < 0 || m.parameterCount == params)
@@ -328,7 +386,13 @@ class AospSurfaceFilterModule : XposedModule() {
                         }
                     }
                 )
-            }.onFailure { installed.remove(key) }
+                count++
+                diagnostic("HOOK_INSTALLED id=$id method=$key")
+            }.onFailure {
+                installed.remove(key)
+                diagnostic("HOOK_FAILED id=$id method=$key error=${it.javaClass.simpleName}")
+            }
         }
+        if (count == 0) diagnostic("HOOK_NOT_READY id=$id method=$name class=$className")
     }
 }
