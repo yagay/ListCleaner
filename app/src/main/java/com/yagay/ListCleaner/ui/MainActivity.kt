@@ -335,11 +335,7 @@ class MainActivity : ComponentActivity() {
                     { restore.launch(arrayOf("application/json", "text/plain")) },
                     { showExportDialog = true },
                     showSearch = state.destination != Destination.SETTINGS,
-                    titleRes = when {
-                        state.destination == Destination.TILES -> R.string.component_cleanup_root_title
-                        state.destination == Destination.PRIORITY || state.destination == Destination.RULES -> R.string.entry_cleanup_lsposed_title
-                        else -> R.string.app_name
-                    },
+                    titleRes = R.string.app_name,
                     spaces = spaces,
                     selectedSpace = selectedSpace,
                     onSpaceSelected = { target ->
