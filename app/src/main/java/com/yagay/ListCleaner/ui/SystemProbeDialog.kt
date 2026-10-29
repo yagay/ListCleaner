@@ -595,25 +595,16 @@ internal fun SystemProbeDialog(
             if (nativeAvailable || scenarioTestAvailable || providerInventory) {
                 Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
                     if (providerInventory) {
+                        // Open AOSP Settings combined picker when exported on this ROM.
+                        // The navigator uses public Settings pages if OEM removed it.
                         AdaptiveTextButton(onClick = {
                             request.entryKind?.let {
-                                SystemEffectPreview.launchProviderManager(context, it, request.userId)
+                                SystemEffectPreview.launchProviderSettings(
+                                    context, it, request.userId
+                                )
                             }
                         }) {
-                            AdaptiveText(stringResource(
-                                if (request.entryKind == IntentKind.CREDENTIAL_PROVIDER)
-                                    R.string.preview_open_credential_manager
-                                else R.string.preview_open_autofill_manager
-                            ))
-                        }
-                        // A generic parent page is a separate, explicit fallback,
-                        // never evidence that the provider picker was opened.
-                        AdaptiveTextButton(onClick = {
-                            request.entryKind?.let {
-                                SystemEffectPreview.launchSettings(context, it, request.userId)
-                            }
-                        }) {
-                            AdaptiveText(stringResource(R.string.preview_open_related_settings))
+                            AdaptiveText(stringResource(R.string.preview_open_provider_system_picker))
                         }
                     }
                     if (request.entryKind == IntentKind.INPUT_METHOD) {
@@ -692,9 +683,6 @@ internal fun SystemProbeDialog(
                                 SystemPreviewRoute.SETTINGS -> when (request.entryKind) {
                                     IntentKind.ASSISTANT ->
                                         R.string.preview_open_assistant_picker
-                                    IntentKind.CREDENTIAL_PROVIDER ->
-                                        R.string.preview_open_credential_settings
-                                    IntentKind.AUTOFILL -> R.string.preview_open_autofill_picker
                                     else -> R.string.preview_open_related_settings
                                 }
                                 else -> R.string.system_probe_open_system
