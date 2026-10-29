@@ -72,7 +72,8 @@ class AospSurfaceFilterModule : XposedModule() {
                     val selected = policy().selected(SurfaceKind.QS_EDITOR)
                     if (selected.isEmpty()) return@install proceedOriginal(chain)
                     val activeSpecs = (ReflectionAccess.readField(chain.thisObject,
-                        "mCurrentSpecs") as? Collection<*>)?.filterIsInstance<String>().orEmpty()
+                        "mCurrentSpecs") as? Collection<*>)?.filterIsInstance<String>()
+                        ?: return@install proceedOriginal(chain)
                     val filtered = items.filter { item ->
                         val spec = ReflectionAccess.readField(item, "spec") as? String
                         val pkg = tilePackage(spec)
@@ -92,10 +93,11 @@ class AospSurfaceFilterModule : XposedModule() {
                     if (selected.isEmpty()) return@install original
                     val current = ReflectionAccess.invokeNoArg(chain.thisObject,
                         "getCurrentConnectedMediaDevice")
+                    val currentId = ReflectionAccess.readString(current, "getId")
                     val filtered = items.filter { device ->
                         if (device == null || device === current) return@filter true
                         val routeId = ReflectionAccess.readString(device, "getId")
-                        routeId == null || routeId !in selected
+                        routeId == null || routeId == currentId || routeId !in selected
                     }
                     if (filtered.size == items.size) original else ArrayList(filtered)
                 }
@@ -108,8 +110,9 @@ class AospSurfaceFilterModule : XposedModule() {
                     val array = original as? Array<*> ?: return@install original
                     val filtered = array.filter { value ->
                         val packageName = appInfoPackage(value)
-                        packageName == null ||
-                            packageName !in selected(SurfaceKind.LAUNCHER_DRAWER, itemUser(value))
+                        val user = itemUser(value)
+                        packageName == null || user == null ||
+                            packageName !in selected(SurfaceKind.LAUNCHER_DRAWER, user)
                     }
                     if (filtered.size == array.size) original
                     else java.lang.reflect.Array.newInstance(
@@ -184,7 +187,12 @@ class AospSurfaceFilterModule : XposedModule() {
                 install(param.classLoader, "com.android.documentsui.RecentsLoader",
                     "loadInBackground", 0, "recents-files") { chain ->
                     val result = proceedOriginal(chain) ?: return@install null
-                    val selected = policy().selected(SurfaceKind.DOCUMENT_RECENTS)
+                    val loaderUser = ReflectionAccess.readField(chain.thisObject, "mUserId")
+                    val userId = (ReflectionAccess.invokeNoArg(loaderUser, "getIdentifier") as? Number)
+                        ?.toInt() ?: (loaderUser as? Number)?.toInt()
+                    val actualUser = userId ?: if (loaderUser == null) Process.myUid() / 100000 else null
+                    if (actualUser == null) return@install result
+                    val selected = selected(SurfaceKind.DOCUMENT_RECENTS, actualUser)
                     if (selected.isEmpty()) return@install result
                     val original = ReflectionAccess.readField(result, "cursor") as? Cursor
                         ?: return@install result
@@ -328,10 +336,10 @@ class AospSurfaceFilterModule : XposedModule() {
         return component?.packageName
     }
 
-    private fun itemUser(value: Any?): Int =
+    private fun itemUser(value: Any?): Int? =
         (ReflectionAccess.readField(value, "user") as? UserHandle)?.let {
             ReflectionAccess.invokeNoArg(it, "getIdentifier") as? Int
-        } ?: (Process.myUid() / 100000)
+        }
 
     private fun taskPackage(value: Any?): String? {
         val key = ReflectionAccess.readField(value, "key", "mKey") ?: return null
