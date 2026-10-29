@@ -69,6 +69,15 @@ internal object ReflectionAccess {
         field(receiver.javaClass, *names)?.get(receiver)
     }.getOrNull()
 
+    /** Replace one presentation-only return holder. False means unknown AOSP object shape. */
+    fun writeField(value: Any?, replacement: Any?, vararg names: String): Boolean =
+        runCatching {
+            val receiver = value ?: return@runCatching false
+            val target = field(receiver.javaClass, *names) ?: return@runCatching false
+            target.set(receiver, replacement)
+            true
+        }.getOrDefault(false)
+
     fun readString(value: Any?, vararg methodNames: String): String? {
         val receiver = value ?: return null
         methodNames.forEach { name ->

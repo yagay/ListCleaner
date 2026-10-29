@@ -54,9 +54,9 @@ class AospSurfaceFilterModule : XposedModule() {
                 install(param.classLoader, "com.android.systemui.qs.customize.TileAdapter",
                     "onTilesChanged", 1, "qs") { chain ->
                     val args = chain.args.toTypedArray()
-                    val items = args[0] as? List<*> ?: return@hook chain.proceed()
+                    val items = args[0] as? List<*> ?: return@install chain.proceed()
                     val selected = policy().selected(SurfaceKind.QS_EDITOR)
-                    if (selected.isEmpty()) return@hook chain.proceed()
+                    if (selected.isEmpty()) return@install chain.proceed()
                     val activeSpecs = (ReflectionAccess.readField(chain.thisObject,
                         "mCurrentSpecs") as? Collection<*>)?.filterIsInstance<String>().orEmpty()
                     val filtered = items.filter { item ->
@@ -73,9 +73,9 @@ class AospSurfaceFilterModule : XposedModule() {
                 install(param.classLoader, "com.android.systemui.media.dialog.MediaOutputController",
                     "getMediaDevices", 0, "media") { chain ->
                     val original = chain.proceed()
-                    val items = original as? Collection<*> ?: return@hook original
+                    val items = original as? Collection<*> ?: return@install original
                     val selected = policy().selected(SurfaceKind.MEDIA_OUTPUT)
-                    if (selected.isEmpty()) return@hook original
+                    if (selected.isEmpty()) return@install original
                     val current = ReflectionAccess.invokeNoArg(chain.thisObject,
                         "getCurrentConnectedMediaDevice")
                     val filtered = items.filter { device ->
@@ -91,7 +91,7 @@ class AospSurfaceFilterModule : XposedModule() {
                 install(param.classLoader, "com.android.launcher3.allapps.AllAppsStore",
                     "getApps", 0, "drawer") { chain ->
                     val original = chain.proceed()
-                    val array = original as? Array<*> ?: return@hook original
+                    val array = original as? Array<*> ?: return@install original
                     val filtered = array.filter { value ->
                         val packageName = appInfoPackage(value)
                         packageName == null ||
@@ -112,9 +112,9 @@ class AospSurfaceFilterModule : XposedModule() {
                 install(param.classLoader, "com.android.quickstep.views.RecentsView",
                     "applyLoadPlan", 1, "recents") { chain ->
                     val args = chain.args.toTypedArray()
-                    val groups = args[0] as? List<*> ?: return@hook chain.proceed()
+                    val groups = args[0] as? List<*> ?: return@install chain.proceed()
                     val selected = policy().selected(SurfaceKind.RECENTS)
-                    if (selected.isEmpty()) return@hook chain.proceed()
+                    if (selected.isEmpty()) return@install chain.proceed()
                     val filtered = groups.filter { group ->
                         val tasks = listOf(
                             ReflectionAccess.readField(group, "task1", "mTask1"),
@@ -147,16 +147,16 @@ class AospSurfaceFilterModule : XposedModule() {
                 initRules()
                 install(param.classLoader, "com.android.documentsui.RecentsLoader",
                     "loadInBackground", 0, "recents-files") { chain ->
-                    val result = chain.proceed() ?: return@hook null
+                    val result = chain.proceed() ?: return@install null
                     val selected = policy().selected(SurfaceKind.DOCUMENT_RECENTS)
-                    if (selected.isEmpty()) return@hook result
+                    if (selected.isEmpty()) return@install result
                     val original = ReflectionAccess.readField(result, "cursor") as? Cursor
-                        ?: return@hook result
+                        ?: return@install result
                     // Clone only a bounded, cursor-backed recents result. Preserve its
                     // column types and extras; no changes are made to the document provider.
-                    if (original.count > 1024) return@hook result
+                    if (original.count > 1024) return@install result
                     val authorityIndex = original.getColumnIndex("authority")
-                    if (authorityIndex < 0) return@hook result
+                    if (authorityIndex < 0) return@install result
                     val matrix = MatrixCursor(original.columnNames, original.count)
                     try {
                         if (original.moveToFirst()) do {
