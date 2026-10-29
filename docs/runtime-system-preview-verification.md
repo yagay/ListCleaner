@@ -39,7 +39,7 @@ contents. Writers run on a background executor, not in the hooked Binder call.
 | RoleController | Package names in the hooked post-filter qualifying-packages return | Not installed role holders or pixels in OEM settings |
 | Direct Share | Target package names from the post-filter ShortcutService share-target return | Not the ranked final Sharesheet; contact/shortcut identities are never stored |
 | Accessibility/Print manager | Package names actually returned by hooked manager list methods | Not proof the OEM Settings UI drew all entries |
-| Credential manager | Packages in the hooked post-filter credential service result | Not final credential-picker rendering |
+| Credential manager (retired) | No active ListCleaner scanner or filter; legacy serialized rules are read for compatibility only | Native Android credential providers are not modified or hidden by ListCleaner |
 | DocumentsUI | Matching roots returned by its instrumented RootsCache method | OEM UI can still hide/change roots after the returned collection |
 
 Other categories (PhotoPicker cloud provider, tiles, widgets, launchers, VPN, NFC,

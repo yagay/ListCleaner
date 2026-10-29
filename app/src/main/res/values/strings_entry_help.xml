@@ -28,7 +28,7 @@
     <string name="intent_desc_photo_source">CloudMediaProvider candidates discovered through the Android provider interface. Rules filter eligible PackageManager queries, but privileged system Photo Picker calls may bypass this filter. This does not change your selected photo provider or remove photos.</string>
     <string name="intent_desc_input_method">InputMethodService candidates queried by ordinary apps. This does not enable, disable, or switch the current keyboard; system Settings lists are not guaranteed to be affected.</string>
     <string name="intent_desc_autofill">AutofillService candidates queried by ordinary apps. Filtering does not enable/disable Autofill or change the selected Autofill service.</string>
-    <string name="intent_desc_credential_provider">CredentialProviderService candidates for credentials and passkeys, managed separately from AutofillService. Rules do not delete saved credentials or change the active provider.</string>
+    <string name="intent_desc_credential_provider">Retired Credential Provider entry (legacy backup compatibility only). ListCleaner no longer scans, filters, or sorts credential providers.</string>
     <string name="intent_desc_notification_listener">NotificationListenerService candidates. This does not grant/revoke Notification Access or change the enabled state.</string>
     <string name="intent_desc_accessibility">AccessibilityService candidates. This does not turn an accessibility service on/off or change its granted state.</string>
     <string name="intent_desc_vpn">VpnService candidates. This does not connect, disconnect, authorize, or set a default VPN.</string>

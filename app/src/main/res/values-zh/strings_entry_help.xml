@@ -28,7 +28,7 @@
     <string name="intent_desc_photo_source">通过 Android CloudMediaProvider 接口识别云端照片提供者。规则仅过滤符合条件的 PackageManager 查询；系统照片选择器的特权查询可能绕过过滤。不会修改当前照片来源，也不会删除照片。</string>
     <string name="intent_desc_input_method">普通应用查询到的 InputMethodService 候选。不会启用、停用或切换当前输入法；系统设置页列表不保证受此规则影响。</string>
     <string name="intent_desc_autofill">普通应用查询到的 AutofillService 候选。不会启用/停用自动填充，也不会修改当前默认自动填充服务。</string>
-    <string name="intent_desc_credential_provider">CredentialProviderService 凭据/Passkey 服务候选，与 AutofillService 分开管理。不会删除密码或修改当前凭据提供程序。</string>
+    <string name="intent_desc_credential_provider">已停用的 Credential Provider 入口（仅用于兼容旧备份）。ListCleaner 不再扫描、过滤或排序凭据提供程序。</string>
     <string name="intent_desc_notification_listener">NotificationListenerService 候选。不会授予或撤销“通知使用权”，也不会改变已启用状态。</string>
     <string name="intent_desc_accessibility">AccessibilityService 候选。不会开启/关闭无障碍，也不会改变已经授予的状态。</string>
     <string name="intent_desc_vpn">VpnService 候选。不会连接、断开、授权 VPN，也不会设置默认 VPN。</string>

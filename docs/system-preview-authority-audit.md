@@ -27,7 +27,7 @@ are different operations.
 | Input method | `InputMethodManager.enabledInputMethodList`, installed list optional diagnostics | **Enabled entries** from public manager; Settings UI can still be customized |
 | Accessibility | `AccessibilityManager.getEnabledAccessibilityServiceList(FEEDBACK_ALL_MASK)`, installed list optional diagnostics | **Enabled entries** from public manager; custom OEM Settings may differ |
 | Document provider | `PackageManager.queryIntentContentProviders(DOCUMENTS_PROVIDER)` | Provider declaration, **not** actual visible document roots |
-| Autofill, credential provider | Service registrations and required binding permissions | **Candidates**, not Android 16's combined provider picker list |
+| Autofill | AutofillService registrations and required binding permission | **Candidates**, not Android 16's combined picker list. Credential cleanup has been retired; serialized old rules are inert. |
 | VPN, print, NFC HCE | Binding-permission-eligible services; NFC uses static payment AID groups | **Candidates**, not final manager/settings UI or dynamic AID registrations |
 | Notification listener, wallpaper, dream | Matching enabled service declarations with binding contracts | Registered services; final Settings list may differ |
 

@@ -93,7 +93,7 @@
     <string name="module_scope_partial">Some recommended LSPosed scopes are not granted (module may still work)</string>
     <string name="space_package_scan_failed">Could not read applications in the selected Android space. An empty list is not confirmed; check Root access and retry.</string>
     <string name="backup_root_restore_manual">This import restores rules only. Root-disabled components are recorded for reference and are never changed automatically.</string>
-    <string name="preview_related_settings_only">Only related system security settings can be opened. Android restricts provider-specific Autofill/Credential enable flows to the provider\'s own package; this is not a verified provider picker.</string>
+    <string name="preview_related_settings_only">Only a related system settings screen can be opened when the OEM picker is unavailable. This is not a verified Autofill provider list.</string>
     <string name="preview_default_apps_settings">Opens Android Default apps settings. Optional Intent testing is separate and may open an application; neither is proof of the filtered system list.</string>
     <string name="preview_process_text_selection">Long-press the sample text below and select some text to open Android\'s real text-selection menu. Available Process Text actions depend on the text editor and device.</string>
     <string name="preview_shortcut_observation">Shortcut items are controlled by ShortcutService and the launcher. There is no public system list picker; inspect Hook observations instead.</string>
@@ -131,7 +131,7 @@
     <string name="preview_partial_capture">Partial capture: system returned %1$d items; %2$d were stored. The missing entries were not removed by filtering.</string>
     <string name="preview_captured_at">Captured: %1$s</string>
     <string name="preview_open_provider_system_picker">Open system passwords &amp; autofill picker</string>
-    <string name="preview_credential_navigation">CredentialProviderService candidates are scanned independently and do not prove which services are enabled or visible. The button opens the AOSP Settings combined password, passkey and Autofill picker when its exported Activity is present. If the OEM removes it, only public related settings pages are opened, which are not verified picker lists.</string>
+    <string name="preview_credential_navigation">Credential Provider cleanup has been retired. Legacy backup entries remain readable but are not filtered, sorted, or presented as active ListCleaner entries.</string>
     <string name="preview_autofill_navigation">AutofillService candidates are scanned independently and are not a verified enabled or visible list. Recent AOSP Settings merges Autofill with Credential Manager in one picker; the button launches that native AOSP page when available and otherwise falls back to public related Settings.</string>
     <string name="preview_assistant_role_picker">Uses Root to discover the actual Android PermissionController role picker and verify the foreground Activity after launch. No assistant is changed. If the device blocks the role picker, an error is shown instead of silently opening the assistant settings parent. You may open that settings page separately.</string>
     <string name="preview_open_assistant_picker">Open assistant chooser</string>

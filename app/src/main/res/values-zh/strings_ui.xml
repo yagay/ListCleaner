@@ -93,7 +93,7 @@
     <string name="module_scope_partial">部分推荐的 LSPosed 作用域尚未授权（模块仍可能正常工作）</string>
     <string name="space_package_scan_failed">读取所选 Android 用户空间的应用失败。无法确认列表为空，请检查 Root 授权后重试。</string>
     <string name="backup_root_restore_manual">本次只恢复清理规则。Root 禁用组件记录仅供参考，不会自动修改系统组件状态。</string>
-    <string name="preview_related_settings_only">只能打开相关的系统安全设置。Android 的自动填充／凭据提供方启用流程仅供提供方自身请求，不能作为通用的提供方选择器，且当前列表未经验证。</string>
+    <string name="preview_related_settings_only">厂商系统未提供选择器时，只能打开相关设置页面，该页面不能证明最终显示的自动填充服务列表。</string>
     <string name="preview_default_apps_settings">打开 Android 默认应用设置。另提供独立的 Intent 场景测试，但可能直接启动应用；两者均不能证明系统过滤后的实际列表。</string>
     <string name="preview_process_text_selection">长按下面的示例文字并选中一段，即可打开 Android 原生文字选择菜单。具体“处理文字”选项取决于编辑器与设备。</string>
     <string name="preview_shortcut_observation">快捷方式由 ShortcutService 与桌面管理。没有通用公开的系统列表选择器，请查看 Hook 观察结果。</string>
@@ -131,7 +131,7 @@
     <string name="preview_partial_capture">快照不完整：系统返回了 %1$d 项，保存了 %2$d 项；未保存的内容不等于被清理。</string>
     <string name="preview_captured_at">捕获时间：%1$s</string>
     <string name="preview_open_provider_system_picker">打开系统密码与自动填充选择器</string>
-    <string name="preview_credential_navigation">候选项目单独读取 CredentialProviderService，并不代表系统已启用或最终可见的服务。点击下方按钮将按 AOSP Settings 源码打开合并的密码、通行密钥与自动填充选择器。如果 OxygenOS 未提供该可导出的 Activity，则打开公开的相关设置入口；后者不是已验证的选择列表。</string>
+    <string name="preview_credential_navigation">Credential Provider 清理已停用。旧备份中的规则仍可读取，但不再显示为可清理入口，也不会参与过滤或排序。</string>
     <string name="preview_autofill_navigation">候选项目单独读取 AutofillService，并不代表系统最终可见或已启用列表。较新的 AOSP Settings 将自动填充与凭据管理合并在同一个选择器；下方按钮尝试打开该 AOSP 原生页面，未安装对应 Activity 时才打开公开的相关设置。</string>
     <string name="preview_assistant_role_picker">使用 Root 查询设备实际注册的 PermissionController 助手选择器，打开后再检查真正处于前台的 Activity。不更改默认助手；若系统阻止选择器，会明确提示失败，而不会悄悄回到助手设置上一级。也可以单独打开助手设置。</string>
     <string name="preview_open_assistant_picker">打开助手选择列表</string>
