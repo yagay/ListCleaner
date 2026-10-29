@@ -63,14 +63,11 @@ class SystemEffectPreviewRouteTest {
             SystemEffectPreview.settingsActions(IntentKind.ASSISTANT)[2])
         assertEquals(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS,
             SystemEffectPreview.settingsActions(IntentKind.BROWSER).first())
-        assertEquals(android.provider.Settings.ACTION_SECURITY_SETTINGS,
-            SystemEffectPreview.settingsActions(IntentKind.CREDENTIAL_PROVIDER).first())
-        assertEquals(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS,
-            SystemEffectPreview.settingsActions(IntentKind.AUTOFILL).first())
-        assertFalse(SystemEffectPreview.settingsActions(IntentKind.CREDENTIAL_PROVIDER).first() ==
-            SystemEffectPreview.settingsActions(IntentKind.AUTOFILL).first())
-        assertEquals(1, SystemEffectPreview.settingsActions(IntentKind.CREDENTIAL_PROVIDER).size)
-        assertEquals(1, SystemEffectPreview.settingsActions(IntentKind.AUTOFILL).size)
+        // Provider routes must not use the old generic Settings dispatch.
+        assertEquals(emptyList<String>(),
+            SystemEffectPreview.settingsActions(IntentKind.CREDENTIAL_PROVIDER))
+        assertEquals(emptyList<String>(),
+            SystemEffectPreview.settingsActions(IntentKind.AUTOFILL))
     }
 
     @Test fun aospCombinedPickerIsTheSameRealSettingsPageForBothProviders() {
