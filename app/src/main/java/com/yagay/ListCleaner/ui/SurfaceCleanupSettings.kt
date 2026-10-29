@@ -1,6 +1,6 @@
 package com.yagay.ListCleaner.ui
 
-import android.app.NotificationManager
+import androidx.core.app.NotificationManagerCompat
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.runtime.Composable
@@ -23,7 +23,7 @@ internal fun SurfaceCleanupSettings(state: MainState, vm: MainViewModel) {
     val rows by NotificationCleanupController.rows.collectAsStateWithLifecycle()
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
     val connected by NotificationCleanupController.connected.collectAsStateWithLifecycle()
-    val granted = NotificationManager.getEnabledListenerPackages(context).contains(context.packageName)
+    val granted = NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
     var selectedKeys by remember { mutableStateOf(emptySet<String>()) }
     var confirmNotifications by remember { mutableStateOf(false) }
     var notificationResult by remember { mutableStateOf<Int?>(null) }
