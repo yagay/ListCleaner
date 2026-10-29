@@ -21,6 +21,8 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * Hooks Settings-owned final candidate lists that do not have a system_server manager API.
  * The unmodified Settings result is persisted first, then List Cleaner applies its package rules.
+ * Dream ordering is a separate best-effort presentation hook: it changes returned candidates
+ * only, not the selected dream or enabled state. OEM Settings may ignore this list.
  */
 class SettingsEntryAuthorityModule : XposedModule() {
     @Volatile private var processName = ""
