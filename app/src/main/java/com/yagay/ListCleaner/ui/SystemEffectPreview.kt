@@ -705,7 +705,25 @@ internal object ProviderSettingsBridge {
         require(componentPattern.matchEntire(component) != null)
         val pkg = component.substringBefore('/')
         require(pkg == "com.android.settings" || pkg.endsWith(".settings", ignoreCase = true))
-        return "am start -W --user $userId -n $component -a $ACTION"
+        // Single-quote the validated component: OEM nested Activity classes contain
+        // '
+    }
+
+    internal fun launchAccepted(output: String, component: String): Boolean {
+        if (!output.contains("Status: ok", ignoreCase = true)) return false
+        if (listOf("Error:", "Permission Denial", "SecurityException",
+                "Status: timeout", "Status: canceled", "Status: error").any {
+                output.contains(it, ignoreCase = true)
+            }) return false
+        val pkg = component.substringBefore('/')
+        return output.lineSequence().any {
+            it.trim().startsWith("Activity: ") &&
+                it.substringAfter("Activity: ").trim().startsWith("$pkg/")
+        }
+    }
+}
+ and an unquoted shell command would strip their suffix.
+        return "am start -W --user $userId -n '$component' -a $ACTION"
     }
 
     internal fun launchAccepted(output: String, component: String): Boolean {
