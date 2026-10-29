@@ -1,6 +1,7 @@
 package com.yagay.ListCleaner.ui
 
 import android.content.pm.PackageManager
+import android.media.MediaRouter2
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -56,8 +57,30 @@ internal fun AospSurfaceSettings(vm: MainViewModel, userId: Int) {
             .sortedWith(compareBy({ it.second.lowercase() }, { it.first }))
             .toList()
     }
+    val mediaDevices = remember(userId) {
+        runCatching {
+            MediaRouter2.getInstance(context).routes.map { route ->
+                route.id to route.name.toString()
+            }.distinctBy { it.first }.sortedBy { it.second.lowercase() }
+        }.getOrDefault(emptyList())
+    }
+    val documentAuthorities = remember(userId) {
+        @Suppress("DEPRECATION")
+        context.packageManager.getInstalledPackages(PackageManager.GET_PROVIDERS)
+            .asSequence().flatMap { pkg ->
+                pkg.providers.orEmpty().asSequence().flatMap { provider ->
+                    provider.authority.orEmpty().split(';').asSequence().filter { it.isNotBlank() }
+                        .map { authority -> authority to pkg.packageName }
+                }
+            }.distinctBy { it.first }.sortedBy { it.first }.toList()
+    }
+    val selectable = when (selectedKind) {
+        SurfaceKind.MEDIA_OUTPUT -> mediaDevices
+        SurfaceKind.DOCUMENT_RECENTS -> documentAuthorities
+        else -> packages
+    }
     val chosen = draft.selected(selectedKind)
-    val matches = packages.filter { (pkg, label) ->
+    val matches = selectable.filter { (pkg, label) ->
         query.isBlank() || pkg.contains(query.trim(), ignoreCase = true) ||
             label.contains(query.trim(), ignoreCase = true)
     }

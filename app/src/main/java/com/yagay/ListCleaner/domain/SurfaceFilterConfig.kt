@@ -20,7 +20,14 @@ enum class SurfaceKind {
 data class SurfaceFilterConfig(val packages: Map<SurfaceKind, Set<String>> = emptyMap()) {
     fun validated(): SurfaceFilterConfig {
         require(packages.size <= SurfaceKind.entries.size)
-        require(packages.values.all { it.size <= 2000 && it.all(PackageIdentity::valid) })
+        require(packages.all { (kind, ids) ->
+            ids.size <= 2000 && ids.all { id ->
+                if (kind == SurfaceKind.MEDIA_OUTPUT) {
+                    id.length in 1..256 &&
+                        id.none { it.isISOControl() || it == '|' }
+                } else PackageIdentity.valid(id)
+            }
+        })
         val compact = packages.filterValues { it.isNotEmpty() }
             .mapValues { (_, apps) -> apps.toSet() }
         return if (compact == packages) this else copy(packages = compact)

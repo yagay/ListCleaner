@@ -92,8 +92,8 @@ class AospSurfaceFilterModule : XposedModule() {
                         "getCurrentConnectedMediaDevice")
                     val filtered = items.filter { device ->
                         if (device == null || device === current) return@filter true
-                        val pkg = ReflectionAccess.readString(device, "getPackageName")
-                        pkg == null || pkg !in selected
+                        val routeId = ReflectionAccess.readString(device, "getId")
+                        routeId == null || routeId !in selected
                     }
                     if (filtered.size == items.size) original else ArrayList(filtered)
                 }
