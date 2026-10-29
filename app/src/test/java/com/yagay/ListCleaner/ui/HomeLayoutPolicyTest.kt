@@ -22,7 +22,7 @@ class HomeLayoutPolicyTest {
         assertFalse(IntentKind.NOTIFICATION_LISTENER in HomeLayoutPolicy.sortableKinds)
         assertEquals(IntentKind.SHARE, HomeLayoutPolicy.priorityKind(null))
         assertEquals(null, HomeLayoutPolicy.priorityKind(IntentKind.PHOTO_SOURCE))
-        assertFalse(IntentKind.DOCUMENT_ROOT in HomeLayoutPolicy.sortableKinds)
+        assertTrue(IntentKind.DOCUMENT_ROOT in HomeLayoutPolicy.sortableKinds)
         assertTrue(IntentKind.DIRECT_SHARE in HomeLayoutPolicy.sortableKinds)
         assertEquals(IntentKind.OPEN, HomeLayoutPolicy.priorityKind(IntentKind.OPEN))
     }
