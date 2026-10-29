@@ -113,5 +113,6 @@ data class RuleBackup(
     val openTypes: OpenTypeConfig = OpenTypeConfig(),
     /** User choice only; derived full-package targets are rebuilt from current catalog/rules. */
     val visibilityScopes: Set<VisibilityScope> = emptySet(),
-    val browserLinks: BrowserLinkConfig = BrowserLinkConfig()
+    val browserLinks: BrowserLinkConfig = BrowserLinkConfig(),
+    val surfaceFilters: SurfaceFilterConfig = SurfaceFilterConfig(),
 )

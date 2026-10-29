@@ -605,6 +605,7 @@ class RuleRepository(context: Context) {
             hiddenFromApps = if (old.version >= 5) old.hiddenFromApps else emptySet(),
             openTypes = if (old.version >= 7) old.openTypes else OpenTypeConfig(),
             browserLinks = if (old.version >= 10) old.browserLinks else BrowserLinkConfig(),
+            surfaceFilters = old.surfaceFilters.validated(),
             visibilityCompat = VisibilityCompatConfig(
                 scopes = if (old.version >= 9) old.visibilityScopes else emptySet()
             ),
@@ -697,6 +698,7 @@ class RuleRepository(context: Context) {
             hiddenFromApps = mutableHiddenFromApps.value,
             openTypes = mutableOpenTypes.value,
             browserLinks = mutableBrowserLinks.value,
+            surfaceFilters = mutableSurfaceFilters.value,
             visibilityScopes = mutableVisibilityScopes.value
         )
     )
@@ -736,6 +738,7 @@ class RuleRepository(context: Context) {
                 hiddenFromApps = if (backup.version >= 5) backup.hiddenFromApps else emptySet(),
                 openTypes = if (backup.version >= 7) backup.openTypes else OpenTypeConfig(),
                 browserLinks = if (backup.version >= 10) backup.browserLinks else BrowserLinkConfig(),
+                surfaceFilters = backup.surfaceFilters.validated(),
                 visibilityCompat = VisibilityCompatConfig(
                     scopes = if (backup.version >= 9) backup.visibilityScopes else emptySet()
                 )
