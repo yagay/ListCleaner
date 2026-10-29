@@ -132,6 +132,15 @@ internal object UiPreferencesStore {
     fun read(context: Context): UiPreferences {
         val p = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
         val defaults = UiPreferences()
+        // Upgrade the previous ALL-apps default once, keeping explicit SYSTEM choices.
+        if (!p.getBoolean("default_user_apps_v1", false)) {
+            if (p.getString("default_app_type", null) in setOf(null, AppTypeFilter.ALL.name)) {
+                p.edit().putString("default_app_type", AppTypeFilter.USER.name)
+                    .putBoolean("default_user_apps_v1", true).apply()
+            } else {
+                p.edit().putBoolean("default_user_apps_v1", true).apply()
+            }
+        }
         val migrationKey = "direct_list_default_v3"
         val migrated = p.getBoolean(migrationKey, false)
         val savedLayout = stored(p.getString("home_layout", null),
