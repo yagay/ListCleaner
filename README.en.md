@@ -102,7 +102,7 @@ Settings includes **Appearance & Theme, Lists & Display, Scanning & Refresh, Cle
 
 1. Download and install the release APK from [Releases](https://github.com/yagay/ListCleaner/releases/latest).
 2. Enable List Cleaner in a module manager supporting API 102, configure the recommended system/chooser scope, and restart as instructed by the framework.
-3. Check runtime and synchronization in Settings → Cleanup & Compatibility, then configure Cleanup → Rule cleanup and confirm Apply.
+3. Check runtime and synchronization in Settings → Cleanup & Compatibility, then configure a category under Entries and confirm Apply.
 4. In Entries, choose a supported category and tap the sort icon; use the drag handles to change priority, then confirm Apply.
 5. Open Cleanup → Component cleanup to manage launcher icons, tiles, shortcut-creation entries or widgets with Root. Long-press shortcuts and storage locations instead use LSPosed filtering without disabling components.
 
