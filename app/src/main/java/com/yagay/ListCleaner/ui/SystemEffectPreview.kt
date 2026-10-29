@@ -165,6 +165,10 @@ internal object SystemEffectPreview {
      * retains an AOSP-specific Activity class or pretend that this is the final list.
      */
     fun launchSettings(context: Context, kind: IntentKind, selectedUserId: Int) {
+        if (AospProviderSettingsRoute.isProvider(kind)) {
+            launchProviderSettings(context, kind, selectedUserId)
+            return
+        }
         if (!checkUser(context, selectedUserId)) return
         val targets = settingsIntents(context, kind)
         if (kind == IntentKind.ASSISTANT) {
@@ -385,13 +389,6 @@ internal object SystemEffectPreview {
         IntentKind.NOTIFICATION_LISTENER ->
             listOf(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
         IntentKind.DREAM -> listOf(Settings.ACTION_DREAM_SETTINGS)
-        // These are RELATED settings destinations, not provider candidate pickers.
-        // The credential-provider and request-set-autofill actions target a provider
-        // package; using ListCleaner's own package can open the wrong OEM picker.
-        IntentKind.CREDENTIAL_PROVIDER -> listOf(
-            Settings.ACTION_SECURITY_SETTINGS)
-        IntentKind.AUTOFILL -> listOf(
-            Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
         else -> emptyList()
     }
 
