@@ -130,10 +130,10 @@
     <string name="preview_count_history">%1$d historical entries · %2$d apps</string>
     <string name="preview_partial_capture">Partial capture: system returned %1$d items; %2$d were stored. The missing entries were not removed by filtering.</string>
     <string name="preview_captured_at">Captured: %1$s</string>
-    <string name="preview_credential_navigation">Open Android Credential Provider settings for passwords and passkeys. Your device may combine this with Autofill; this manager does not request to enable itself as a provider. A broader account/security page is used only if unavailable.</string>
-    <string name="preview_autofill_navigation">Open the Android preferred Autofill provider picker. Selecting another service can change your system default. This system UI test does not verify the filtered services in List Cleaner; fallback is Default apps settings.</string>
-    <string name="preview_open_credential_settings">Open Credential settings</string>
-    <string name="preview_open_autofill_picker">Open Autofill picker</string>
+    <string name="preview_credential_navigation">Open the related Android Security settings for credential providers. This is not a credential-provider candidate picker, and OEM devices may combine password, passkey, and Autofill management. Verify available providers separately in List Cleaner.</string>
+    <string name="preview_autofill_navigation">Open Android Default apps settings to manage the preferred Autofill service. This is related settings navigation, not a verification of List Cleaner’s filtered Autofill candidate list.</string>
+    <string name="preview_open_credential_settings">Open Security settings</string>
+    <string name="preview_open_autofill_picker">Open Default apps settings</string>
     <string name="preview_assistant_role_picker">Uses Root to discover the actual Android PermissionController role picker and verify the foreground Activity after launch. No assistant is changed. If the device blocks the role picker, an error is shown instead of silently opening the assistant settings parent. You may open that settings page separately.</string>
     <string name="preview_open_assistant_picker">Open assistant chooser</string>
     <string name="preview_assistant_fallback">The protected assistant chooser is unavailable. Opening Assistant settings instead; select Default digital assistant to see the eligible apps.</string>
