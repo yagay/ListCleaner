@@ -49,10 +49,13 @@ private val AlignedSortArrows: ImageVector = ImageVector.Builder(
 /** An Entry-only shortcut; leaves the main branch's existing priority page intact. */
 @Composable
 internal fun WorkspaceSortShortcut(kind: IntentKind?, ordering: Boolean = false, onOpen: () -> Unit) {
+    val context = LocalContext.current
     val supported = ordering || (kind != null && kind in HomeLayoutPolicy.sortableKinds)
     WorkspaceToolbarAction(
-        onClick = onOpen,
-        enabled = supported,
+        onClick = {
+            if (supported) onOpen()
+            else Toast.makeText(context, R.string.priority_unsupported_current_list, Toast.LENGTH_SHORT).show()
+        },
         active = ordering
     ) {
             val iconTint = when {
