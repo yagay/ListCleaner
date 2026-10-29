@@ -135,21 +135,23 @@ class ModuleConfigTest {
         }
     }
 
-    @Test fun retiredCredentialRulesRemainReadableButInactive() {
+    @Test fun retiredCredentialBackupImportsWithoutRestoringInactiveRules() {
         val legacy = ComponentRule(
             IntentKind.CREDENTIAL_PROVIDER,
             "com.example.legacy",
             "com.example.legacy.LegacyProvider",
         )
-        val config = ModuleConfig(
+        // Old backups still deserialize the stable enum, then validation retires
+        // obsolete rules so the Hook/manager never consumes them again.
+        val legacyConfig = ModuleConfig(
             rules = setOf(legacy),
             mode = DisplayMode.HIDE_SELECTED,
             priorities = PriorityConfig(),
             diagnostic = false,
-        ).validated()
+        )
         val decoded = Json.decodeFromString(ModuleConfig.serializer(),
-            Json.encodeToString(ModuleConfig.serializer(), config)).validated()
-        assertTrue("Legacy Credential rule must survive config round-trip", legacy in decoded.rules)
+            Json.encodeToString(ModuleConfig.serializer(), legacyConfig)).validated()
+        assertTrue("Legacy Credential backup must import safely", decoded.rules.isEmpty())
         assertFalse(IntentKind.CREDENTIAL_PROVIDER.isSelectableEntryKind())
         assertNull(IntentKind.CREDENTIAL_PROVIDER.surfaceDefinition())
         assertNull(IntentKind.CREDENTIAL_PROVIDER.runtimeDefinition())
