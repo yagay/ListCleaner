@@ -67,7 +67,6 @@ fun IntentKind.requiresSystemEntrySafetyNote(): Boolean = when (this) {
     IntentKind.PHOTO_SOURCE,
     IntentKind.INPUT_METHOD,
     IntentKind.AUTOFILL,
-    IntentKind.CREDENTIAL_PROVIDER,
     IntentKind.NOTIFICATION_LISTENER,
     IntentKind.ACCESSIBILITY,
     IntentKind.VPN,
@@ -79,8 +78,9 @@ fun IntentKind.requiresSystemEntrySafetyNote(): Boolean = when (this) {
     else -> false
 }
 
-/** Legacy app-level shortcut surface remains readable but cannot be selected or executed. */
-fun IntentKind.isSelectableEntryKind(): Boolean = this != IntentKind.LAUNCHER_SHORTCUT
+/** Retired kinds remain deserializable but have no active cleanup UI or Hook. */
+fun IntentKind.isSelectableEntryKind(): Boolean =
+    this != IntentKind.LAUNCHER_SHORTCUT && this != IntentKind.CREDENTIAL_PROVIDER
 
 fun EntryGroup.kinds(): List<IntentKind> =
     IntentKind.entries.filter { it.isSelectableEntryKind() && it.entryGroup() == this }

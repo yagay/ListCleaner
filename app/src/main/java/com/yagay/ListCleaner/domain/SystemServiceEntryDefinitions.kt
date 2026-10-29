@@ -30,11 +30,6 @@ val SYSTEM_SERVICE_ENTRY_DEFINITIONS: List<SystemServiceEntryDefinition> = listO
         alternativePermissions = setOf("android.permission.BIND_AUTOFILL"),
     ),
     SystemServiceEntryDefinition(
-        IntentKind.CREDENTIAL_PROVIDER,
-        "android.service.credentials.CredentialProviderService",
-        "android.permission.BIND_CREDENTIAL_PROVIDER_SERVICE",
-    ),
-    SystemServiceEntryDefinition(
         IntentKind.NOTIFICATION_LISTENER,
         "android.service.notification.NotificationListenerService",
         "android.permission.BIND_NOTIFICATION_LISTENER_SERVICE",

@@ -65,7 +65,6 @@ class SystemManagerEntryFilterModule : XposedModule() {
         installInputMethodHooks(param.classLoader)
         installInputMethodMenuHooks(param.classLoader)
         installPrintHooks(param.classLoader)
-        installCredentialHooks(param.classLoader)
     }
 
     /** Android 16 switcher receives the final IME/subtype list, not the installed catalog. */
@@ -135,17 +134,6 @@ class SystemManagerEntryFilterModule : XposedModule() {
         }
     }
 
-    private fun installCredentialHooks(classLoader: ClassLoader) {
-        CREDENTIAL_CLASSES.forEach { className ->
-            val clazz = runCatching { Class.forName(className, false, classLoader) }.getOrNull()
-                ?: return@forEach
-            methods(clazz)
-                .filter { it.name == "getCredentialProviderServices" }
-                .filter(::supportedListResult)
-                .forEach { method -> install(method, CREDENTIAL_HOOK_ID, credentialHooker()) }
-        }
-    }
-
     /** Android 15+ may return InputMethodInfoSafeList; bridge caller identity to the internal List. */
     private fun installInputMethodHooks(classLoader: ClassLoader) {
         IME_CLASSES.forEach { className ->
@@ -199,50 +187,6 @@ class SystemManagerEntryFilterModule : XposedModule() {
             }
         }
         returned
-    }
-
-    private fun credentialHooker() = XposedInterface.Hooker { chain ->
-        val caller = currentCaller()
-        val method = chain.executable as? Method ?: return@Hooker chain.proceed()
-        val userId = HookCallIdentity.managerTargetUserId(method.name, method.parameterTypes.map { it.name }, chain.args)
-            ?: return@Hooker chain.proceed()
-        val original = chain.proceed()
-        val result = listResults.extract(original) ?: return@Hooker original
-        val values = result.values
-
-        values.forEach { value -> credentialComponent(value)?.let { component ->
-            RuntimeObservedEntryStore.observePackage(IntentKind.CREDENTIAL_PROVIDER, component.packageName, userId = userId)
-        } }
-
-        val policy = policyProvider.snapshot(userId)
-        val kept = if (!shouldFilter(caller, policy)) {
-            record("AUTHORITY_OBSERVED kind=${IntentKind.CREDENTIAL_PROVIDER} callerUid=${caller.uid} filterAllowed=false count=${values.size}")
-            values
-        } else {
-            val selected = policy.selectedPackages(IntentKind.CREDENTIAL_PROVIDER)
-            if (policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) values
-            else values.filter { value ->
-                val component = credentialComponent(value) ?: return@filter true
-                policy.displayMode.includes(component.packageName in selected, selected.isNotEmpty())
-            }
-        }
-        val filtered = if (!shouldFilter(caller, policy)) kept else prioritizeApps(
-            kept, policy.priorities(IntentKind.CREDENTIAL_PROVIDER),
-            { credentialComponent(it)?.packageName ?: "" }, { userId },
-        )
-        runtimeCapture.publish(
-            IntentKind.CREDENTIAL_PROVIDER, "CREDENTIAL_MANAGER_RETURN",
-            userId,
-            filtered.mapNotNull { credentialComponent(it)?.packageName },
-            components = filtered.mapNotNull { value ->
-                credentialComponent(value)?.flattenToString()
-            },
-            callerUid = caller.uid,
-        )
-        if (filtered == values) original else {
-            record("CREDENTIAL_FILTER callerUid=${caller.uid} before=${values.size} after=${filtered.size}")
-            result.rebuild(filtered)
-        }
     }
 
     private fun imeOuterHooker() = XposedInterface.Hooker { chain ->
@@ -359,13 +303,6 @@ class SystemManagerEntryFilterModule : XposedModule() {
         else -> reflectedServiceInfo(value)
     }
 
-    private fun credentialComponent(value: Any?): ComponentName? {
-        val direct = ReflectionAccess.invokeNoArg(value, "getComponentName") as? ComponentName
-        if (direct != null) return direct
-        val service = reflectedServiceInfo(value) ?: return null
-        return ComponentName(service.packageName, service.name)
-    }
-
     private fun reflectedServiceInfo(value: Any?): ServiceInfo? =
         ReflectionAccess.invokeNoArg(value, "getServiceInfo") as? ServiceInfo
 
@@ -439,13 +376,11 @@ class SystemManagerEntryFilterModule : XposedModule() {
         const val IME_OUTER_HOOK_ID = "lc-ime-manager-outer"
         const val IME_INTERNAL_HOOK_ID = "lc-ime-manager-internal"
         const val PRINT_HOOK_ID = "lc-print-manager-entries"
-        const val CREDENTIAL_HOOK_ID = "lc-credential-manager-entries"
 
         val MANAGER_PATHS = setOf(
             EntryRuntimePath.ACCESSIBILITY_MANAGER,
             EntryRuntimePath.INPUT_METHOD_MANAGER,
             EntryRuntimePath.PRINT_MANAGER,
-            EntryRuntimePath.CREDENTIAL_MANAGER,
         )
         val MANAGER_KINDS = ENTRY_RUNTIME_DEFINITIONS.values.asSequence()
             .filter { definition -> definition.expectedPaths.any { it in MANAGER_PATHS } }
@@ -458,7 +393,6 @@ class SystemManagerEntryFilterModule : XposedModule() {
         val IME_OUTER_METHODS = setOf("getInputMethodList", "getInputMethodListLegacy",
             "getEnabledInputMethodList", "getEnabledInputMethodListLegacy")
         val PRINT_CLASSES = listOf("com.android.server.print.PrintManagerService")
-        val CREDENTIAL_CLASSES = listOf("com.android.server.credentials.CredentialManagerService")
     }
 }
 

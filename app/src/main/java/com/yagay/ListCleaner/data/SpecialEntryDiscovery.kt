@@ -65,7 +65,6 @@ internal class SpecialEntryDiscovery(private val context: Context) {
             // These managers are hidden from a normal app. Once their final system result has been
             // observed, do not mix PackageManager guesses back into the live catalog.
             if (IntentKind.PRINT !in liveObservedKinds) addAll(serviceFallback(IntentKind.PRINT))
-            if (IntentKind.CREDENTIAL_PROVIDER !in liveObservedKinds) addAll(credentialProviderFallback())
             if (IntentKind.NFC_HCE !in liveObservedKinds) addAll(nfcPaymentFallback())
 
             addAll(packageManagerAuthoritativeServiceEntries())
@@ -383,10 +382,6 @@ internal class SpecialEntryDiscovery(private val context: Context) {
                     },
                 )
             }
-
-    /** CredentialManager is authoritative; this PM result is only used before a live manager result is observed. */
-    private fun credentialProviderFallback(): List<ComponentCandidate> =
-        packageScopedServiceFallback(IntentKind.CREDENTIAL_PROVIDER, "fallback=package_manager")
 
     /** NFC Settings displays only CATEGORY_PAYMENT. Runtime CardEmulation observation replaces this fallback. */
     @Suppress("DEPRECATION")

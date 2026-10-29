@@ -15,7 +15,6 @@ val OBSERVABLE_ENTRY_KINDS: Set<IntentKind> = setOf(
     IntentKind.INPUT_METHOD,
     IntentKind.PRINT,
     IntentKind.AUTOFILL,
-    IntentKind.CREDENTIAL_PROVIDER,
     IntentKind.VPN,
     IntentKind.NFC_HCE,
     IntentKind.DOCUMENT_ROOT,
@@ -31,7 +30,6 @@ val REMOTE_AUTHORITY_SNAPSHOT_KINDS: Set<IntentKind> = setOf(
     IntentKind.BROWSER,
     IntentKind.CALL_SCREENING,
     IntentKind.AUTOFILL,
-    IntentKind.CREDENTIAL_PROVIDER,
     IntentKind.VPN,
     IntentKind.NFC_HCE,
 )

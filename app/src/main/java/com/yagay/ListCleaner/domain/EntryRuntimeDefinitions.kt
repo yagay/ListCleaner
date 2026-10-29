@@ -150,10 +150,6 @@ val ENTRY_RUNTIME_DEFINITIONS: Map<IntentKind, EntryRuntimeDefinition> = buildMa
         IntentKind.AUTOFILL,
         setOf(EntryRuntimePath.COMBINED_PROVIDER_SETTINGS, EntryRuntimePath.SETTINGS_AUTOFILL_PICKER),
     )
-    add(
-        IntentKind.CREDENTIAL_PROVIDER,
-        setOf(EntryRuntimePath.CREDENTIAL_MANAGER, EntryRuntimePath.COMBINED_PROVIDER_SETTINGS),
-    )
     add(IntentKind.NFC_HCE, setOf(EntryRuntimePath.NFC_CARD_EMULATION))
 
     setOf(IntentKind.NOTIFICATION_LISTENER, IntentKind.WALLPAPER, IntentKind.DREAM).forEach { kind ->

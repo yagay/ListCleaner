@@ -224,16 +224,6 @@ val ENTRY_SURFACE_DEFINITIONS: Map<IntentKind, EntrySurfaceDefinition> = buildMa
         )
     )
     put(
-        IntentKind.CREDENTIAL_PROVIDER,
-        EntrySurfaceDefinition(
-            IntentKind.CREDENTIAL_PROVIDER,
-            EntryIdentityScope.PACKAGE,
-            EntryAuthority.CREDENTIAL_MANAGER,
-            setOf(EntryDiscoverySource.CREDENTIAL_MANAGER, EntryDiscoverySource.SYSTEM_SERVICE),
-            EntryAvailabilityMode.AUTHORITY_UPGRADE,
-        )
-    )
-    put(
         IntentKind.AUTOFILL,
         EntrySurfaceDefinition(
             IntentKind.AUTOFILL,

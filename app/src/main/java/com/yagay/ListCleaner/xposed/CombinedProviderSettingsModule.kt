@@ -79,31 +79,33 @@ class CombinedProviderSettingsModule : XposedModule() {
         if (method.parameterTypes.map { it.name } != listOf("java.util.List", "java.util.List", "java.lang.String")) {
             return@Hooker chain.proceed()
         }
+        // Only Autofill is managed. Credential providers (second argument) must
+        // pass through unchanged, including when old Credential rules are stored.
         val args = chain.args.toTypedArray()
-        listOf(IntentKind.AUTOFILL, IntentKind.CREDENTIAL_PROVIDER).forEachIndexed { index, kind ->
-            val values = args[index] as? List<*> ?: return@forEachIndexed
-            val grouped = values.groupBy { providerUser(it) }
-            grouped.forEach { (user, entries) ->
-                if (user != null) authorityWriter.replacePackages(
-                    kind, entries.mapNotNull { providerService(it)?.packageName }, userId = user,
-                )
-            }
-            args[index] = ArrayList(values.filter { value ->
-                val service = providerService(value) ?: return@filter true
-                val user = providerUser(value) ?: return@filter true
-                val policy = policyProvider.snapshot(user)
-                val selected = policy.selectedPackages(kind)
-                selected.isEmpty() || policy.displayMode.includes(service.packageName in selected, true)
-            })
+        val autofill = args[0] as? List<*> ?: return@Hooker chain.proceed()
+        autofill.groupBy { providerUser(it) }.forEach { (user, entries) ->
+            if (user != null) authorityWriter.replacePackages(
+                IntentKind.AUTOFILL,
+                entries.mapNotNull { providerService(it)?.packageName },
+                userId = user,
+            )
         }
+        args[0] = ArrayList(autofill.filter { value ->
+            val service = providerService(value) ?: return@filter true
+            val user = providerUser(value) ?: return@filter true
+            val policy = policyProvider.snapshot(user)
+            val selected = policy.selectedPackages(IntentKind.AUTOFILL)
+            selected.isEmpty() || policy.displayMode.includes(service.packageName in selected, true)
+        })
         val original = chain.proceed(args)
         val values = original as? List<*> ?: return@Hooker original
         val ordered = values.toMutableList()
-        values.indices.groupBy { mergedUser(values[it]) }.forEach { (user, positions) ->
+        values.indices.filter { hasAutofill(values[it]) }
+            .groupBy { mergedUser(values[it]) }.forEach { (user, positions) ->
             if (user == null) return@forEach
             val policy = policyProvider.snapshot(user)
-            val ranks = (policy.priorities(IntentKind.AUTOFILL) +
-                policy.priorities(IntentKind.CREDENTIAL_PROVIDER)).distinct().withIndex().associate { it.value to it.index }
+            val ranks = policy.priorities(IntentKind.AUTOFILL)
+                .distinct().withIndex().associate { it.value to it.index }
             val promoted = positions.map { values[it] }.sortedBy { ranks[packageName(it)] ?: Int.MAX_VALUE }
             positions.forEachIndexed { index, position -> ordered[position] = promoted[index] }
         }
@@ -125,9 +127,6 @@ class CombinedProviderSettingsModule : XposedModule() {
 
     private fun hasAutofill(value: Any?): Boolean =
         ReflectionAccess.invokeNoArg(value, "getAutofillServiceInfo") != null
-
-    private fun hasCredential(value: Any?): Boolean =
-        (ReflectionAccess.invokeNoArg(value, "getCredentialProviderInfos") as? Collection<*>)?.isNotEmpty() == true
 
     private fun record(message: String) {
         val line = "pid=${Process.myPid()} process=$processName $message"
