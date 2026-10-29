@@ -182,4 +182,5 @@
     <string name="surface_confirm_rules">确定移除规则？</string>
     <string name="surface_confirm_rules_help">从当前用户空间移除 %1$d 条规则？不会卸载应用或删除文件。</string>
     <string name="surface_controls_probe_notice">仅显示已注册的设备控制服务，不代表 SystemUI 控制面板中实际显示的列表。</string>
+    <string name="surface_channel_settings">打开 Android 通知渠道设置</string>
 </resources>

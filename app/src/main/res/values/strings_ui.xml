@@ -182,4 +182,5 @@
     <string name="surface_confirm_rules">Remove selected rules?</string>
     <string name="surface_confirm_rules_help">Remove %1$d rules in the currently selected profile? This does not uninstall apps or delete their files.</string>
     <string name="surface_controls_probe_notice">Registered device-control services only. This is not a verified SystemUI controls panel list.</string>
+    <string name="surface_channel_settings">Open Android notification channel settings</string>
 </resources>

@@ -59,6 +59,31 @@ internal fun SurfaceCleanupSettings(state: MainState, vm: MainViewModel) {
                         else currentSelected - groupKeys
                     },
                 )
+                if (userId == android.os.Process.myUid() / 100000) {
+                    SettingsActionButton(onClick = {
+                        val channelIntent = if (key.second == "(default)") {
+                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                .putExtra(Settings.EXTRA_APP_PACKAGE, key.first)
+                        } else {
+                            Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                                .putExtra(Settings.EXTRA_APP_PACKAGE, key.first)
+                                .putExtra(Settings.EXTRA_CHANNEL_ID, key.second)
+                        }.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        // Public AOSP Settings actions; OEMs may omit individual activities.
+                        runCatching { context.startActivity(channelIntent) }
+                            .onFailure {
+                                runCatching {
+                                    context.startActivity(
+                                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                            .putExtra(Settings.EXTRA_APP_PACKAGE, key.first)
+                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    )
+                                }
+                            }
+                    }) {
+                        AdaptiveText(stringResource(R.string.surface_channel_settings))
+                    }
+                }
             }
             SettingsActionButton(
                 onClick = { confirmNotifications = true },
