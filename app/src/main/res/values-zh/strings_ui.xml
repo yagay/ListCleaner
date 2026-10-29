@@ -200,4 +200,5 @@
     <string name="surface_aosp_documents">DocumentsUI 最近文件</string>
     <string name="surface_aosp_settings">系统设置已安装应用列表</string>
     <string name="surface_aosp_media">媒体输出设备列表</string>
+    <string name="surface_scan_refresh">刷新候选列表</string>
 </resources>

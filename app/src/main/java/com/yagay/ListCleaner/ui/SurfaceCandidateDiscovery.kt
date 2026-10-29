@@ -27,7 +27,11 @@ internal object SurfaceCandidateDiscovery {
         val pm = context.packageManager
         val user = runCatching {
             context.getSystemService(UserManager::class.java)?.userProfiles
-                ?.firstOrNull { it.identifier == userId }
+                ?.firstOrNull { handle ->
+                    runCatching {
+                        (handle.javaClass.getMethod("getIdentifier").invoke(handle) as? Int) == userId
+                    }.getOrDefault(false)
+                }
         }.getOrNull()
         val ownUser = android.os.Process.myUid() / 100000
         fun appLabel(pkg: String): String = runCatching {

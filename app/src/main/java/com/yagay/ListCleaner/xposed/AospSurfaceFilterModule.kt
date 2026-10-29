@@ -7,7 +7,6 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.ServiceInfo
 import android.database.Cursor
 import android.database.AbstractCursor
-import android.database.Cursor
 import android.os.Message
 import android.os.Process
 import android.os.UserHandle

@@ -200,4 +200,5 @@
     <string name="surface_aosp_documents">DocumentsUI recent files</string>
     <string name="surface_aosp_settings">Settings installed apps</string>
     <string name="surface_aosp_media">Media output list</string>
+    <string name="surface_scan_refresh">Refresh candidate list</string>
 </resources>
