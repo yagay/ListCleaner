@@ -159,4 +159,27 @@
     <string name="lc_multiuser_logs_recording">正在录制。切换至其他空间复现问题后返回停止。</string>
     <string name="lc_multiuser_logs_error">Root 日志操作失败，请确认 Root 授权。</string>
     <string name="lc_multiuser_logs_export">录制文件将包含在完整诊断 ZIP 中。</string>
+    <string name="surface_cleanup">更多清理</string>
+    <string name="surface_cleanup_help">通知清理与失效规则维护</string>
+    <string name="surface_notifications">当前通知</string>
+    <string name="surface_notifications_help">授权后只列出当前通知。撤销通知会真正移除通知，而不是仅在界面隐藏。常驻、前台服务、来电及闹钟通知受到保护。渠道列表只来自当前通知，不代表全部已注册渠道。</string>
+    <string name="surface_grant_listener">前往系统设置授权通知访问权限</string>
+    <string name="surface_wait_for_listener">已授权，但通知监听服务尚未连接。请检查服务状态。</string>
+    <string name="surface_active_count">当前通知 %1$d 条；可撤销 %2$d 条</string>
+    <string name="surface_no_notifications">当前没有可撤销的通知。</string>
+    <string name="surface_channel_count">当前通知 %1$d 条</string>
+    <string name="surface_dismiss_selected">撤销选中的 %1$d 条通知</string>
+    <string name="surface_dismiss_requested">已请求撤销 %1$d 条通知，部分通知可能已提前消失。</string>
+    <string name="surface_confirm_notifications">确定撤销通知？</string>
+    <string name="surface_confirm_notifications_help">将实际移除 %1$d 条当前通知，并非仅隐藏界面；此操作无法撤销。</string>
+    <string name="surface_rules">失效清理规则</string>
+    <string name="surface_rules_help">完整扫描当前用户空间后，检查未找到对应项目的已选规则。系统查询受限也可能导致误判；只移除你确认不再需要的规则，已锁定的规则仍受保护。</string>
+    <string name="surface_refresh_rules">完整扫描并检查失效规则</string>
+    <string name="surface_scanning">正在扫描当前空间…</string>
+    <string name="surface_stale_count">有 %1$d 条已选规则当前显示为不可用</string>
+    <string name="surface_remove_rules">移除选中的 %1$d 条规则</string>
+    <string name="surface_scan_error">扫描失败，无法移除规则。</string>
+    <string name="surface_confirm_rules">确定移除规则？</string>
+    <string name="surface_confirm_rules_help">从当前用户空间移除 %1$d 条规则？不会卸载应用或删除文件。</string>
+    <string name="surface_controls_probe_notice">仅显示已注册的设备控制服务，不代表 SystemUI 控制面板中实际显示的列表。</string>
 </resources>

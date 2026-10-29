@@ -94,4 +94,6 @@
     <string name="root_filter_enabled">已启用组件</string>
     <string name="root_category_count">%1$d 个组件</string>
     <string name="root_category_open_to_scan">浏览组件</string>
+    <string name="cleanup_controls">设备控制服务</string>
+    <string name="root_kind_controls_help">Android 设备控制提供程序。禁用组件可能导致已添加的智能家居控件不可用，恢复组件后才能继续使用。这是 Root 组件管理，并非仅隐藏显示。</string>
 </resources>

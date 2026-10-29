@@ -94,4 +94,6 @@
     <string name="root_filter_enabled">Enabled components</string>
     <string name="root_category_count">%1$d components</string>
     <string name="root_category_open_to_scan">Browse components</string>
+    <string name="cleanup_controls">Device Controls</string>
+    <string name="root_kind_controls_help">Android device control providers. Disabling a provider component may make saved controls unavailable until it is restored. This is Root component control, not display-only filtering.</string>
 </resources>

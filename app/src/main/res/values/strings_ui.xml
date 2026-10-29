@@ -159,4 +159,27 @@
     <string name="lc_multiuser_logs_recording">Recording in progress. Switch to the other user, reproduce the issue and return to stop.</string>
     <string name="lc_multiuser_logs_error">Root log operation failed. Check Root authorization.</string>
     <string name="lc_multiuser_logs_export">Recorded files are included in the full diagnostic ZIP.</string>
+    <string name="surface_cleanup">More cleanup</string>
+    <string name="surface_cleanup_help">Notification dismissal and stale rule maintenance</string>
+    <string name="surface_notifications">Active notifications</string>
+    <string name="surface_notifications_help">Only shows active notifications after permission is granted. Dismissal actually removes notifications; it does not silently hide them. Ongoing, foreground-service, call and alarm notifications are protected. Channel rows are active-channel observations, not the complete registered channel list.</string>
+    <string name="surface_grant_listener">Grant notification access in Android Settings</string>
+    <string name="surface_wait_for_listener">Access is enabled, but the notification listener is not connected. Check the service status.</string>
+    <string name="surface_active_count">%1$d active notifications; %2$d available to dismiss</string>
+    <string name="surface_no_notifications">No dismissible notifications currently.</string>
+    <string name="surface_channel_count">%1$d active notifications</string>
+    <string name="surface_dismiss_selected">Dismiss %1$d selected notifications</string>
+    <string name="surface_dismiss_requested">Requested dismissal of %1$d notifications; some may have already disappeared.</string>
+    <string name="surface_confirm_notifications">Dismiss notifications?</string>
+    <string name="surface_confirm_notifications_help">This will remove %1$d active notifications. It is not a UI-only hide, and cannot be undone.</string>
+    <string name="surface_rules">Stale cleanup rules</string>
+    <string name="surface_rules_help">Full-scan the current user profile, then review rules whose items could not be found. Missing results may be caused by system query restrictions; only remove rules you recognize. Locked rules remain protected.</string>
+    <string name="surface_refresh_rules">Full scan for missing rules</string>
+    <string name="surface_scanning">Scanning the current profile…</string>
+    <string name="surface_stale_count">%1$d selected rules currently marked unavailable</string>
+    <string name="surface_remove_rules">Remove %1$d selected rules</string>
+    <string name="surface_scan_error">The scan failed; no rules can be removed.</string>
+    <string name="surface_confirm_rules">Remove selected rules?</string>
+    <string name="surface_confirm_rules_help">Remove %1$d rules in the currently selected profile? This does not uninstall apps or delete their files.</string>
+    <string name="surface_controls_probe_notice">Registered device-control services only. This is not a verified SystemUI controls panel list.</string>
 </resources>
