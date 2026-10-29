@@ -95,8 +95,14 @@ internal fun SystemProbeDialog(
     var scenarioMenu by remember { mutableStateOf(false) }
     // AOSP separates actual resolver results, provider registries, enabled
     // managers and shortcut history. Switching tabs never changes provenance.
+    // Provider registration lists are available through separate service queries,
+    // while their Settings destinations may be a merged OEM management screen.
+    // Show the correctly typed inventory first, not an absent "current picker".
+    val providerInventory = request.entryKind in setOf(
+        IntentKind.AUTOFILL, IntentKind.CREDENTIAL_PROVIDER
+    )
     var viewMode by remember(request) { mutableStateOf(
-        when (UiPreferencesRuntime.current.previewDefault) {
+        if (providerInventory) PreviewListMode.CANDIDATES else when (UiPreferencesRuntime.current.previewDefault) {
             UiPreviewDefault.CURRENT -> PreviewListMode.CURRENT
             UiPreviewDefault.CANDIDATES -> PreviewListMode.CANDIDATES
             UiPreviewDefault.ENABLED -> PreviewListMode.ENABLED
@@ -274,6 +280,17 @@ internal fun SystemProbeDialog(
                                     setPadding(12, 12, 12, 12)
                                 }
                             },
+                        )
+                    }
+                }
+                if (providerInventory) {
+                    item(key = "provider-inventory-explanation") {
+                        AdaptiveText(
+                            stringResource(if (request.entryKind == IntentKind.AUTOFILL)
+                                R.string.preview_autofill_navigation
+                            else R.string.preview_credential_navigation),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
