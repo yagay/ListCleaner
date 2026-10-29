@@ -23,6 +23,27 @@ class SystemPreviewSelectionTest {
             capturedAtMillis = 99_000L, packages = listOf("com.example.filtered"),
         )
 
+    @Test fun credentialAndAutofillCandidateInventoriesRemainSeparate() {
+        val autofill = SystemProbeItem("Autofill service", "com.example.autofill", ".AutofillService")
+        val credential = SystemProbeItem("Passkey provider", "com.example.passkey", ".CredentialProvider")
+        val autofillResult = SystemPreviewSelection.select(
+            request(IntentKind.AUTOFILL), result(autofill), false,
+            now, null, 12345, viewMode = PreviewListMode.CANDIDATES,
+        )
+        val credentialResult = SystemPreviewSelection.select(
+            request(IntentKind.CREDENTIAL_PROVIDER), result(credential), false,
+            now, null, 12345, viewMode = PreviewListMode.CANDIDATES,
+        )
+        assertEquals(PreviewListSource.DIAGNOSTIC, autofillResult.source)
+        assertEquals(PreviewListSource.DIAGNOSTIC, credentialResult.source)
+        assertEquals("com.example.autofill", autofillResult.items.single().packageName)
+        assertEquals("com.example.passkey", credentialResult.items.single().packageName)
+        assertEquals(PreviewListSource.UNAVAILABLE, SystemPreviewSelection.select(
+            request(IntentKind.CREDENTIAL_PROVIDER), result(credential),
+            false, now, null, 12345, viewMode = PreviewListMode.CURRENT,
+        ).source)
+    }
+
     @Test fun managerCandidatesNeverPretendToBeFiltered() {
         val actual = SystemPreviewSelection.select(
             request(IntentKind.ACCESSIBILITY), result(raw),
