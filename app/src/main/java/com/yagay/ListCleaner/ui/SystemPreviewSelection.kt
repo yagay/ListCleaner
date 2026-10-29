@@ -38,8 +38,7 @@ internal object SystemPreviewSelection {
     ): PreviewListResult {
         if (value == null) return PreviewListResult(emptyList(), PreviewListSource.UNAVAILABLE)
         val kind = request.entryKind
-        val isManager = kind == IntentKind.ACCESSIBILITY ||
-            kind == IntentKind.PRINT || kind == IntentKind.CREDENTIAL_PROVIDER
+        val isManager = kind == IntentKind.ACCESSIBILITY || kind == IntentKind.PRINT
 
         val mode = if (showDiagnostics) PreviewListMode.CANDIDATES else viewMode
         when (mode) {
@@ -108,8 +107,6 @@ internal object SystemPreviewSelection {
         val sourceMatches = when (kind) {
             IntentKind.ACCESSIBILITY, IntentKind.PRINT ->
                 snapshot?.source == "SYSTEM_MANAGER_RETURN"
-            IntentKind.CREDENTIAL_PROVIDER ->
-                snapshot?.source == "CREDENTIAL_MANAGER_RETURN"
             else -> snapshot?.source != null
         }
         val callerMatches = !isManager ||
@@ -130,8 +127,6 @@ internal object SystemPreviewSelection {
             val validHostSource = when (kind) {
                 IntentKind.ACCESSIBILITY, IntentKind.PRINT ->
                     host?.source == "SYSTEM_MANAGER_RETURN"
-                IntentKind.CREDENTIAL_PROVIDER ->
-                    host?.source == "CREDENTIAL_MANAGER_RETURN"
                 else -> false
             }
             if (host != null && host.callerUid != currentCallerUid &&

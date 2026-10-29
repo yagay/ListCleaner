@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.yagay.ListCleaner.domain.AppTypeFilter
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.isSelectableEntryKind
 import com.yagay.ListCleaner.data.CleanupKind
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -82,7 +83,7 @@ internal data class UiPreferences(
         // Legacy GROUPED and CATEGORY_CARDS remain readable only for migration.
         // All active screens render one flat list; stored values do not fork UI.
         listStyle = UiListStyle.ORIGINAL,
-        pinnedEntryKinds = pinnedEntryKinds.distinct().take(16),
+        pinnedEntryKinds = pinnedEntryKinds.filter { it.isSelectableEntryKind() }.distinct().take(16),
         pinnedRootKinds = pinnedRootKinds.distinct().take(CleanupKind.entries.size),
         homeLayout = UiHomeLayout.CLASSIC_LIST,
         colorOverrides = colorOverrides.filter { (key, hex) -> (key in UiColorRoles.keys || (key.startsWith("dark_") && key.removePrefix("dark_") in UiColorRoles.keys)) && hex.matches(Regex("#[0-9a-fA-F]{6}")) },

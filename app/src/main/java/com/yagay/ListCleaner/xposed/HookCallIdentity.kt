@@ -110,7 +110,7 @@ internal object HookCallIdentity {
     fun managerTargetUserId(name: String, types: List<String>, args: List<Any?>): Int? {
         val index = when (name) {
             "getPrintServices" -> 1
-            "getInstalledAccessibilityServiceList", "getCredentialProviderServices",
+            "getInstalledAccessibilityServiceList",
             "getInputMethodList", "getInputMethodListLegacy", "getInputMethodListInternal",
             "getEnabledInputMethodList", "getEnabledInputMethodListLegacy",
             "getEnabledInputMethodListInternal" -> 0

@@ -50,10 +50,9 @@ internal fun systemPreviewRoute(kind: IntentKind): SystemPreviewRoute = when (ki
     IntentKind.CALL_SCREENING, IntentKind.ACCESSIBILITY,
     IntentKind.PRINT, IntentKind.VPN, IntentKind.NFC_HCE,
     IntentKind.NOTIFICATION_LISTENER, IntentKind.DREAM,
-    // Credential/Autofill settings below are related navigation only, not a
-    // privileged request to enable a provider from another package.
-    IntentKind.CREDENTIAL_PROVIDER, IntentKind.AUTOFILL ->
-        SystemPreviewRoute.SETTINGS
+    IntentKind.AUTOFILL -> SystemPreviewRoute.SETTINGS
+    // Retired legacy kind: no system preview or cleanable route.
+    IntentKind.CREDENTIAL_PROVIDER -> SystemPreviewRoute.UNAVAILABLE
 
     IntentKind.INPUT_METHOD -> SystemPreviewRoute.INPUT_METHOD_PICKER
     IntentKind.PROCESS_TEXT -> SystemPreviewRoute.CONTEXT_MENU
@@ -77,7 +76,7 @@ internal fun supportsScenarioTest(kind: IntentKind): Boolean = kind in setOf(
 
 /** UI wording: a system settings page is NOT evidence of filtered candidates. */
 internal fun previewRouteNote(kind: IntentKind): Int = when (kind) {
-    IntentKind.CREDENTIAL_PROVIDER -> R.string.preview_credential_navigation
+    IntentKind.CREDENTIAL_PROVIDER -> R.string.system_preview_unavailable
     IntentKind.AUTOFILL -> R.string.preview_autofill_navigation
     IntentKind.ASSISTANT -> R.string.preview_assistant_role_picker
     IntentKind.HOME, IntentKind.BROWSER,
@@ -626,7 +625,7 @@ internal object AospProviderSettingsRoute {
         "com.android.settings.applications.credentials.CredentialsPickerActivity"
 
     internal fun isProvider(kind: IntentKind): Boolean =
-        kind == IntentKind.AUTOFILL || kind == IntentKind.CREDENTIAL_PROVIDER
+        kind == IntentKind.AUTOFILL
 
     internal fun pickerComponent(kind: IntentKind): String {
         require(isProvider(kind))
@@ -635,8 +634,6 @@ internal object AospProviderSettingsRoute {
     }
 
     internal fun fallbackActions(kind: IntentKind): List<String> = when (kind) {
-        IntentKind.CREDENTIAL_PROVIDER -> listOf(
-            Settings.ACTION_SECURITY_SETTINGS, Settings.ACTION_SETTINGS)
         IntentKind.AUTOFILL -> listOf(
             Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS, Settings.ACTION_SETTINGS)
         else -> emptyList()

@@ -29,6 +29,7 @@ import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.requiresSystemEntrySafetyNote
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.isSelectableEntryKind
 import com.yagay.ListCleaner.domain.AppType
 import com.yagay.ListCleaner.domain.AppTypeFilter
 import com.yagay.ListCleaner.domain.OpenPreset
@@ -371,7 +372,7 @@ fun RulesTab(
                         showEntryGroups = true,
                         selectionActions = selectionActions,
                         modeAction = { WorkspaceSortShortcut(state.filter) { navigate { vm.setDestination(Destination.PRIORITY) } } },
-                        previewActions = (if (state.filter == null) IntentKind.entries.toList()
+                        previewActions = (if (state.filter == null) IntentKind.entries.filter { it.isSelectableEntryKind() }
                             else listOf(requireNotNull(state.filter))).map { previewKind ->
                             WorkspaceMenuAction(
                                 label = stringResource(previewKind.titleRes()),

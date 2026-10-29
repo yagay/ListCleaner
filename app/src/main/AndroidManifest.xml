@@ -39,7 +39,6 @@
         <intent><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent>
         <intent><action android:name="android.view.InputMethod"/></intent>
         <intent><action android:name="android.service.autofill.AutofillService"/></intent>
-        <intent><action android:name="android.service.credentials.CredentialProviderService"/></intent>
         <intent><action android:name="android.service.notification.NotificationListenerService"/></intent>
         <intent><action android:name="android.accessibilityservice.AccessibilityService"/></intent>
         <intent><action android:name="android.net.VpnService"/></intent>

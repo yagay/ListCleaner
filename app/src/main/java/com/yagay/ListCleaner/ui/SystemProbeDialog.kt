@@ -98,9 +98,7 @@ internal fun SystemProbeDialog(
     // Provider registration lists are available through separate service queries,
     // while their Settings destinations may be a merged OEM management screen.
     // Show the correctly typed inventory first, not an absent "current picker".
-    val providerInventory = request.entryKind in setOf(
-        IntentKind.AUTOFILL, IntentKind.CREDENTIAL_PROVIDER
-    )
+    val providerInventory = request.entryKind == IntentKind.AUTOFILL
     var viewMode by remember(request) { mutableStateOf(
         if (providerInventory) PreviewListMode.CANDIDATES else when (UiPreferencesRuntime.current.previewDefault) {
             UiPreviewDefault.CURRENT -> PreviewListMode.CURRENT
@@ -288,9 +286,7 @@ internal fun SystemProbeDialog(
                 if (providerInventory) {
                     item(key = "provider-inventory-explanation") {
                         AdaptiveText(
-                            stringResource(if (request.entryKind == IntentKind.AUTOFILL)
-                                R.string.preview_autofill_navigation
-                            else R.string.preview_credential_navigation),
+                            stringResource(R.string.preview_autofill_navigation),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -470,8 +466,7 @@ internal fun SystemProbeDialog(
                                 stringResource(when {
                                     documentPicker -> R.string.system_probe_no_matched_document_roots
                                     request.entryKind in setOf(
-                                        IntentKind.ACCESSIBILITY, IntentKind.PRINT,
-                                        IntentKind.CREDENTIAL_PROVIDER
+                                        IntentKind.ACCESSIBILITY, IntentKind.PRINT
                                     ) -> R.string.system_probe_no_filtered_manager_return
                                     else -> R.string.preview_no_verified_list
                                 }),
