@@ -337,41 +337,27 @@ internal object SystemEffectPreview {
         IntentKind.NOTIFICATION_LISTENER ->
             listOf(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
         IntentKind.DREAM -> listOf(Settings.ACTION_DREAM_SETTINGS)
-        // Keep the Android-defined Credential settings and Autofill picker
-        // separate. On Android 14+ the Settings UI can still combine both
-        // providers into a single passwords/passkeys/autofill screen.
+        // These are RELATED settings destinations, not provider candidate pickers.
+        // The credential-provider and request-set-autofill actions target a provider
+        // package; using ListCleaner's own package can open the wrong OEM picker.
         IntentKind.CREDENTIAL_PROVIDER -> listOf(
-            ACTION_CREDENTIAL_PROVIDER,
-            Settings.ACTION_SYNC_SETTINGS,
             Settings.ACTION_SECURITY_SETTINGS)
         IntentKind.AUTOFILL -> listOf(
-            Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE,
-            Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS,
-            Settings.ACTION_SECURITY_SETTINGS)
+            Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
         else -> emptyList()
     }
 
-    /**
-     * The primary Credential and Autofill actions require package: data.
-     * Always use this manager's OWN package; never claim to be a provider
-     * package or make a silent default-service change. Both are navigation
-     * requests; user confirmation/selection is owned by Android Settings.
-     */
+    /** Navigation only; never impersonate a credential/autofill service package. */
     internal fun settingsIntents(context: Context, kind: IntentKind): List<Intent> =
-        settingsActions(kind).mapIndexed { index, action ->
+        settingsActions(kind).map { action ->
             Intent(action).apply {
-                if (index == 0 && kind in setOf(
-                        IntentKind.CREDENTIAL_PROVIDER, IntentKind.AUTOFILL
-                    )) {
-                    data = Uri.fromParts("package", context.packageName, null)
-                } else if (index == 0 && kind == IntentKind.ASSISTANT) {
+                if (kind == IntentKind.ASSISTANT && action == ACTION_MANAGE_DEFAULT_APP) {
                     addCategory(Intent.CATEGORY_DEFAULT)
                     putExtra(EXTRA_ROLE_NAME, ROLE_ASSISTANT)
                 }
             }
         }
 
-    private const val ACTION_CREDENTIAL_PROVIDER = "android.settings.CREDENTIAL_PROVIDER"
     private const val ACTION_MANAGE_DEFAULT_APP = "android.intent.action.MANAGE_DEFAULT_APP"
     private const val EXTRA_ROLE_NAME = "android.intent.extra.ROLE_NAME"
     private const val ROLE_ASSISTANT = "android.app.role.ASSISTANT"
