@@ -89,11 +89,10 @@ class SystemEffectPreviewRouteTest {
     @Test fun providerManagerRejectsUnregisteredOrNonSystemSettingsHandlers() {
         val output = """
             com.evil.settings/.CredentialPicker
-            com.android.settings/.Settings\\$CredentialManagerActivity
-            com.oplus.settings/.CredentialsSettings
+            com.android.settings/.Settings${'            com.oplus.settings/.CredentialsSettings
         """.trimIndent()
         assertEquals(
-            "com.android.settings/.Settings\\$CredentialManagerActivity",
+            "com.android.settings/.Settings\$CredentialManagerActivity",
             ProviderSettingsBridge.selectRegisteredComponent(
                 output, setOf("com.android.settings", "com.oplus.settings")
             )
@@ -107,19 +106,77 @@ class SystemEffectPreviewRouteTest {
     }
 
     @Test fun providerManagerShellLaunchQuotesNestedActivitiesAndVerifiesAmResult() {
-        val component = "com.android.settings/.Settings\\$CredentialManagerActivity"
+        val component = "com.android.settings/.Settings\$CredentialManagerActivity"
         assertEquals(
             "am start -W --user 10 -n '$component' -a android.settings.CREDENTIAL_PROVIDER",
             ProviderSettingsBridge.launchCommand(10, component)
         )
         assertTrue(ProviderSettingsBridge.launchAccepted(
-            "Status: ok\\nActivity: $component", component
+            "Status: ok\nActivity: $component", component
         ))
         assertFalse(ProviderSettingsBridge.launchAccepted(
-            "Status: ok\\nActivity: com.example/.Settings", component
+            "Status: ok\nActivity: com.example/.Settings", component
         ))
         assertFalse(ProviderSettingsBridge.launchAccepted(
-            "Status: error\\nActivity: $component", component
+            "Status: error\nActivity: $component", component
+        ))
+    }
+
+    @Test fun dynamicShortcutsAndTextSelectionAreNotMisrepresented() {
+        assertEquals(SystemPreviewRoute.CONTEXT_MENU,
+            systemPreviewRoute(IntentKind.PROCESS_TEXT))
+        assertEquals(SystemPreviewRoute.UNAVAILABLE,
+            systemPreviewRoute(IntentKind.SHORTCUT_ITEM))
+        assertEquals(SystemPreviewRoute.UNAVAILABLE,
+            systemPreviewRoute(IntentKind.LAUNCHER_SHORTCUT))
+    }
+
+    @Test fun rootWidgetHostIsTemporaryButTileEditorIsNotPublic() {
+        assertEquals(SystemPreviewRoute.CHOOSER, systemPreviewRoute(CleanupKind.LAUNCHER))
+        assertEquals(SystemPreviewRoute.CHOOSER, systemPreviewRoute(CleanupKind.SHORTCUT))
+        assertEquals(SystemPreviewRoute.WIDGET_PICKER, systemPreviewRoute(CleanupKind.WIDGET))
+        assertEquals(SystemPreviewRoute.UNAVAILABLE, systemPreviewRoute(CleanupKind.TILE))
+    }
+
+    @Test fun everySelectableKindHasOneContract() {
+        assertEquals(IntentKind.entries.size - 1,
+            IntentKind.entries.count { it != IntentKind.LAUNCHER_SHORTCUT })
+        IntentKind.entries.forEach { kind ->
+            assertTrue(systemPreviewRoute(kind) in SystemPreviewRoute.entries)
+        }
+    }
+}
+}CredentialManagerActivity
+            com.oplus.settings/.CredentialsSettings
+        """.trimIndent()
+        assertEquals(
+            "com.android.settings/.Settings\$CredentialManagerActivity",
+            ProviderSettingsBridge.selectRegisteredComponent(
+                output, setOf("com.android.settings", "com.oplus.settings")
+            )
+        )
+        assertEquals(
+            null,
+            ProviderSettingsBridge.selectRegisteredComponent(
+                "com.evil.settings/.CredentialPicker", setOf("com.android.settings")
+            )
+        )
+    }
+
+    @Test fun providerManagerShellLaunchQuotesNestedActivitiesAndVerifiesAmResult() {
+        val component = "com.android.settings/.Settings\$CredentialManagerActivity"
+        assertEquals(
+            "am start -W --user 10 -n '$component' -a android.settings.CREDENTIAL_PROVIDER",
+            ProviderSettingsBridge.launchCommand(10, component)
+        )
+        assertTrue(ProviderSettingsBridge.launchAccepted(
+            "Status: ok\nActivity: $component", component
+        ))
+        assertFalse(ProviderSettingsBridge.launchAccepted(
+            "Status: ok\nActivity: com.example/.Settings", component
+        ))
+        assertFalse(ProviderSettingsBridge.launchAccepted(
+            "Status: error\nActivity: $component", component
         ))
     }
 
