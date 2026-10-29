@@ -40,11 +40,23 @@ Follow **@LISTCLEANER** for release updates, usage tips, and related news.
 <!-- section:usage -->
 ## Usage Notes
 
-Bottom navigation contains **Cleanup, Ordering and Settings**; Cleanup switches between **Rule cleanup (LSPosed)** and **Component cleanup (Root)**. Rules filter system candidates without disabling components, while Component cleanup changes actual enabled state through Root. The three-dot or long-press menu controls **bulk locks**, which are not disabled state. Rule, ordering and Root component changes require Apply confirmation at the bottom before Root commands can run.
+Bottom navigation contains **Entries, Components and Settings**. In Entries, tap the sort icon on a supported category to open **Priority Order**; the Components tab manages Root components. Rules filter system candidates without disabling components, while Component cleanup changes actual enabled state through Root. The three-dot or long-press menu controls **bulk locks**, which are not disabled state. Rule, ordering and Root component changes require Apply confirmation at the bottom before Root commands can run.
 
 When multiple Android user spaces are detected, choose the target space at the top. v13 backups support selected spaces and explicit source-to-target mapping; v1–v12 rule backups remain readable. Root-disabled component records can be exported as **reference information**, but importing **never runs Root commands or restores actual disabled states/protection policies**. Uninstalling or clearing app data also does not automatically re-enable previously disabled components.
 
 OEM choosers, private app menus and some dynamic shortcuts may differ. Discovery uses public Android APIs with safe compatibility fallbacks. An updated APK may degrade discovery safely while an older system_server hook remains loaded; restart as required by the framework. Check Settings → Cleanup & Compatibility / Advanced & Diagnostics, and review logs before sharing.
+
+
+
+### Ordering support and system hooks
+
+Priority editing is offered only to entry categories with a corresponding runtime consumer. The sort icon appears grey for unsupported categories but remains tappable to explain that the current list does not support ordering. **An editable order is not a guarantee of final UI order**: Android Sharesheet, launchers, role pickers, and vendor UIs may reorder candidates again.
+
+- **Storage locations / Document Root**: Existing DocumentsUI roots and final-sidebar hooks can promote recognized roots while preserving system rows, separators and user/profile slots; OEM forks may differ.
+- **Screen savers / Dream**: A Settings `DreamBackend.getDreamInfos()` hook adjusts the returned candidate order without changing the selected/default dream or enabled state; missing methods are safely skipped.
+- **Document Provider, Photo Source, Notification Listener, Wallpaper** remain unsupported for priority editing without a verified final-UI consumer. The legacy Launcher Shortcut kind is retired.
+
+Rules and priorities are independent per Android user space. New spaces default to Hide selected and the app list defaults to user apps. Existing backup priority data is retained. Validate the actual system UI on your device; passing CI is not device compatibility proof.
 
 <!-- section:release -->
 Official builds in the author repository and the LSPosed repository use the same APK and pinned release signature. Debug builds may use a different signature, so export your rules and review component states before uninstalling.
