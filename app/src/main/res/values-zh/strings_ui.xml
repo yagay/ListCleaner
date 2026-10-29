@@ -130,8 +130,8 @@
     <string name="preview_count_history">历史项目 %1$d 个 · 应用 %2$d 个</string>
     <string name="preview_partial_capture">快照不完整：系统返回了 %1$d 项，保存了 %2$d 项；未保存的内容不等于被清理。</string>
     <string name="preview_captured_at">捕获时间：%1$s</string>
-    <string name="preview_credential_navigation">打开 Android 安全设置中与凭据提供方相关的管理入口。此页面不是凭据候选列表；厂商系统可能合并密码、通行密钥和自动填充设置。实际候选请在列表清理中分别查看。</string>
-    <string name="preview_autofill_navigation">打开 Android 默认应用设置，管理首选自动填充服务。这只是相关设置入口，不代表已验证列表清理过滤后的自动填充候选。</string>
+    <string name="preview_credential_navigation">当前显示独立扫描到的凭据提供方服务（CredentialProviderService），不是系统最终可见或已启用列表。下方“打开安全设置”只是相关设置入口，厂商可能将密码、通行密钥和自动填充合并管理。</string>
+    <string name="preview_autofill_navigation">当前显示独立扫描到的自动填充服务（AutofillService），不是系统最终可见或已启用列表。下方“打开默认应用设置”只是相关设置入口，不能验证当前 Hook 的过滤结果。</string>
     <string name="preview_open_credential_settings">打开安全设置</string>
     <string name="preview_open_autofill_picker">打开默认应用设置</string>
     <string name="preview_assistant_role_picker">使用 Root 查询设备实际注册的 PermissionController 助手选择器，打开后再检查真正处于前台的 Activity。不更改默认助手；若系统阻止选择器，会明确提示失败，而不会悄悄回到助手设置上一级。也可以单独打开助手设置。</string>
