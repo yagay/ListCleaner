@@ -19,6 +19,8 @@ data class ModuleConfig(
     /** Empty by default. Only explicitly selected categories contribute fully-selected package targets. */
     val visibilityCompat: VisibilityCompatConfig = VisibilityCompatConfig(),
     val browserLinks: BrowserLinkConfig = BrowserLinkConfig(),
+    /** Per-profile presentation-only AOSP surface filtering; never disables packages. */
+    val surfaceFilters: SurfaceFilterConfig = SurfaceFilterConfig(),
     /**
      * Runtime-only component protection snapshot. It is carried in the atomic config so the
      * system_server guard/discovery hooks do not depend on RemotePreferences cache freshness.
@@ -80,12 +82,14 @@ data class ModuleConfig(
 
         val cleanOpenTypes = openTypes.validated()
         val cleanBrowserLinks = browserLinks.validated()
+        val cleanSurfaceFilters = surfaceFilters.validated()
         val cleanVisibilityCompat = visibilityCompat.validated()
         return if (
             cleanRules == rules &&
             migratedPriorities == priorities &&
             cleanOpenTypes == openTypes &&
             cleanBrowserLinks == browserLinks &&
+            cleanSurfaceFilters == surfaceFilters &&
             cleanVisibilityCompat == visibilityCompat &&
             validatedSpaces == userSpaces
         ) this else copy(
@@ -93,6 +97,7 @@ data class ModuleConfig(
             priorities = migratedPriorities,
             openTypes = cleanOpenTypes,
             browserLinks = cleanBrowserLinks,
+            surfaceFilters = cleanSurfaceFilters,
             visibilityCompat = cleanVisibilityCompat,
             userSpaces = validatedSpaces
         )

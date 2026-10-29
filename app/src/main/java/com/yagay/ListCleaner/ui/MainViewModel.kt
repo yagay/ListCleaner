@@ -413,6 +413,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refreshModuleStatus()
     }
 
+    val surfaceFilters: StateFlow<com.yagay.ListCleaner.domain.SurfaceFilterConfig>
+        get() = app.rules.surfaceFilters
+
+    fun setSurfaceFilters(value: com.yagay.ListCleaner.domain.SurfaceFilterConfig) {
+        if (!canEdit()) return
+        app.rules.setSurfaceFilters(value)
+        viewModelScope.launch { app.synchronize() }
+    }
+
     fun setHiddenFromApps(packages: Set<String>) {
         app.rules.setHiddenFromApps(packages)
         viewModelScope.launch { app.synchronize() }

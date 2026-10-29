@@ -94,6 +94,7 @@ class RuleRepository(context: Context) {
         mutableBrowserLinks.value = next.browserLinks
         mutableDiagnostic.value = next.diagnostic
         mutableHiddenFromApps.value = next.hiddenFromApps
+        mutableSurfaceFilters.value = next.surfaceFilters
         mutableVisibilityScopes.value = next.visibilityCompat.scopes
         mutableVisibilityFullPackages.value = derivedVisibility[userId].orEmpty()
         persistLocalSnapshot()
@@ -109,12 +110,15 @@ class RuleRepository(context: Context) {
     private val mutableBrowserLinks = MutableStateFlow(initialConfig.browserLinks)
     private val mutableDiagnostic = MutableStateFlow(initialConfig.diagnostic)
     private val mutableHiddenFromApps = MutableStateFlow(initialConfig.hiddenFromApps)
+    private val mutableSurfaceFilters = MutableStateFlow(initialConfig.surfaceFilters)
     private val mutableVisibilityScopes = MutableStateFlow(initialConfig.visibilityCompat.scopes)
     private val mutableVisibilityFullPackages = MutableStateFlow<Map<VisibilityScope, Set<String>>>(emptyMap())
 
     val openTypes: StateFlow<OpenTypeConfig> = mutableOpenTypes.asStateFlow()
     val browserLinks: StateFlow<BrowserLinkConfig> = mutableBrowserLinks.asStateFlow()
     val hiddenFromApps: StateFlow<Set<String>> = mutableHiddenFromApps.asStateFlow()
+    val surfaceFilters: StateFlow<com.yagay.ListCleaner.domain.SurfaceFilterConfig> =
+        mutableSurfaceFilters.asStateFlow()
     val visibilityScopes: StateFlow<Set<VisibilityScope>> = mutableVisibilityScopes.asStateFlow()
     val visibilityFullPackages: StateFlow<Map<VisibilityScope, Set<String>>> = mutableVisibilityFullPackages.asStateFlow()
     val rules: StateFlow<Set<ComponentRule>> = mutableRules.asStateFlow()
@@ -258,6 +262,7 @@ class RuleRepository(context: Context) {
         priorities = mutablePriorities.value,
         diagnostic = mutableDiagnostic.value,
         hiddenFromApps = mutableHiddenFromApps.value.toSet(),
+        surfaceFilters = mutableSurfaceFilters.value,
         openTypes = mutableOpenTypes.value,
         browserLinks = mutableBrowserLinks.value,
         visibilityCompat = VisibilityCompatConfig(scopes = mutableVisibilityScopes.value.toSet()),
@@ -285,6 +290,14 @@ class RuleRepository(context: Context) {
     }
 
     private fun persistLocalSnapshot() = persistPrepared(localSnapshot())
+
+    @Synchronized fun setSurfaceFilters(value: com.yagay.ListCleaner.domain.SurfaceFilterConfig) {
+        val validated = value.validated()
+        if (validated == mutableSurfaceFilters.value) return
+        mutableSurfaceFilters.value = validated
+        persistLocalSnapshot()
+        mutableRevision.value++
+    }
 
     @Synchronized fun setHiddenFromApps(packages: Set<String>) {
         val valid = normalizeHiddenApps(packages)
@@ -667,6 +680,7 @@ class RuleRepository(context: Context) {
         mutableBrowserLinks.value = active.browserLinks
         mutableDiagnostic.value = active.diagnostic
         mutableHiddenFromApps.value = active.hiddenFromApps
+        mutableSurfaceFilters.value = active.surfaceFilters
         mutableVisibilityScopes.value = active.visibilityCompat.scopes
         mutableVisibilityFullPackages.value = emptyMap()
         mutableRevision.value++
@@ -756,6 +770,7 @@ class RuleRepository(context: Context) {
         mutableBrowserLinks.value = prepared.browserLinks
         mutableDiagnostic.value = prepared.diagnostic
         mutableHiddenFromApps.value = prepared.hiddenFromApps
+        mutableSurfaceFilters.value = prepared.surfaceFilters
         mutableVisibilityScopes.value = prepared.visibilityCompat.scopes
         mutableVisibilityFullPackages.value = emptyMap()
         mutableRevision.value++

@@ -16,6 +16,7 @@ data class UserSpaceRules(
     val openTypes: OpenTypeConfig = OpenTypeConfig(),
     val browserLinks: BrowserLinkConfig = BrowserLinkConfig(),
     val visibilityCompat: VisibilityCompatConfig = VisibilityCompatConfig(),
+    val surfaceFilters: SurfaceFilterConfig = SurfaceFilterConfig(),
 ) {
     fun validated(): UserSpaceRules {
         val validated = toModuleConfig().validated()
@@ -30,7 +31,8 @@ data class UserSpaceRules(
         hiddenFromApps = hiddenFromApps,
         openTypes = openTypes,
         browserLinks = browserLinks,
-        visibilityCompat = visibilityCompat
+        visibilityCompat = visibilityCompat,
+        surfaceFilters = surfaceFilters
     )
 }
 
@@ -38,4 +40,5 @@ fun ModuleConfig.toSpaceRules(): UserSpaceRules = UserSpaceRules(
     rules = rules, mode = mode, priorities = priorities, diagnostic = diagnostic,
     hiddenFromApps = hiddenFromApps, openTypes = openTypes,
     browserLinks = browserLinks, visibilityCompat = visibilityCompat,
+    surfaceFilters = surfaceFilters,
 )
