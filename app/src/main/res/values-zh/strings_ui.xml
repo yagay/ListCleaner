@@ -201,4 +201,6 @@
     <string name="surface_aosp_settings">系统设置已安装应用列表</string>
     <string name="surface_aosp_media">媒体输出设备列表</string>
     <string name="surface_scan_refresh">刷新候选列表</string>
+    <string name="surface_select_shown">选中当前显示的候选项</string>
+    <string name="surface_clear_selected">清空当前列表选中项</string>
 </resources>

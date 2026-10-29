@@ -201,4 +201,6 @@
     <string name="surface_aosp_settings">Settings installed apps</string>
     <string name="surface_aosp_media">Media output list</string>
     <string name="surface_scan_refresh">Refresh candidate list</string>
+    <string name="surface_select_shown">Select the shown candidates</string>
+    <string name="surface_clear_selected">Clear this surface's selection</string>
 </resources>

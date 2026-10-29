@@ -124,8 +124,13 @@ internal fun SurfaceCleanupSettings(state: MainState, vm: MainViewModel) {
     var selectedRules by remember(userId) { mutableStateOf(emptySet<ComponentRule>()) }
     var confirmRules by remember { mutableStateOf(false) }
     val staleRules = if (scanComplete && state.error.isNullOrBlank()) {
-        state.candidates.filter { it.unavailable && it.rule in state.selected }
-            .mapTo(linkedSetOf()) { it.rule }
+        val returned = state.candidates.mapTo(hashSetOf()) { it.rule }
+        // Also include selected rules which disappeared completely from a
+        // successful full scan. These are review candidates, NOT auto-deleted:
+        // partial package visibility may produce false missing results.
+        (state.selected - returned) + state.candidates.asSequence()
+            .filter { it.unavailable && it.rule in state.selected }
+            .map { it.rule }.toSet()
     } else emptySet()
     val chosenRules = selectedRules.intersect(staleRules)
     SettingsArea(stringResource(R.string.surface_rules)) {

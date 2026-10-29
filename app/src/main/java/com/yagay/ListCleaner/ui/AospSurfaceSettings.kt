@@ -69,6 +69,17 @@ internal fun AospSurfaceSettings(vm: MainViewModel, userId: Int) {
             onSelected = { selectedKind = it }
         )
         SettingsHint(stringResource(R.string.surface_aosp_selected, chosen.size))
+        SettingsActionButton(
+            onClick = {
+                draft = draft.withSelected(selectedKind,
+                    chosen + matches.take(120).map { it.first })
+            },
+            enabled = matches.take(120).any { it.first !in chosen }
+        ) { AdaptiveText(stringResource(R.string.surface_select_shown)) }
+        SettingsActionButton(
+            onClick = { draft = draft.withSelected(selectedKind, emptySet()) },
+            enabled = chosen.isNotEmpty()
+        ) { AdaptiveText(stringResource(R.string.surface_clear_selected)) }
         BasicTextField(
             value = query,
             onValueChange = { query = it.take(80) },
