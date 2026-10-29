@@ -17,6 +17,7 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Security
+import androidx.compose.material.icons.rounded.CleaningServices
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -40,6 +41,7 @@ internal enum class SettingsSection(
     COMPATIBILITY(R.string.settings_compat_section, R.string.settings_compat_subtitle, Icons.Rounded.Security),
     BACKUP(R.string.dashboard_data_backup, R.string.settings_backup_subtitle, Icons.Rounded.Backup),
     ADVANCED(R.string.settings_advanced_section, R.string.settings_advanced_subtitle, Icons.Rounded.BugReport),
+    SURFACES(R.string.surface_cleanup, R.string.surface_cleanup_help, Icons.Rounded.CleaningServices),
     ABOUT(R.string.lc_settings_about_section, R.string.lc_settings_about_subtitle, Icons.Rounded.Info)
 }
 
@@ -61,8 +63,9 @@ internal fun SettingsCenterHome(state: MainState, onSelect: (SettingsSection) ->
             onClick = { onSelect(SettingsSection.COMPATIBILITY) },
             trailing = { AdaptiveIcon(Icons.Rounded.ChevronRight, null) }
         )
-        SettingsSection.entries.filter { it != SettingsSection.ABOUT }
-            .chunked(2).forEachIndexed { groupIndex, sections ->
+        val allSections = SettingsSection.entries.filter { it != SettingsSection.ABOUT }
+        listOf(allSections.take(2), allSections.drop(2).take(2), allSections.drop(4))
+            .forEachIndexed { groupIndex, sections ->
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 FlatSectionHeader(
                     stringResource(headings[groupIndex]),

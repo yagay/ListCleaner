@@ -101,6 +101,7 @@ internal fun SettingsTabContent(
                                     state, vm, collectingDiagnostics,
                                     onCollectDiagnostics, onInspectFile
                                 )
+                                SettingsSection.SURFACES -> SurfaceCleanupSettings(state, vm)
                                 SettingsSection.ABOUT -> AboutSettings()
                             }
                         }
