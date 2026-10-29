@@ -7,7 +7,6 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.ServiceInfo
 import android.database.Cursor
 import android.database.AbstractCursor
-import android.os.Message
 import android.os.Process
 import android.os.UserHandle
 import android.util.Log
@@ -154,30 +153,28 @@ class AospSurfaceFilterModule : XposedModule() {
             }
             "com.android.settings" -> {
                 initRules()
-                // AOSP SettingsLib delivers async rebuild results in the MainHandler
-                // callback, rather than Session.rebuild()'s nullable return value.
-                install(param.classLoader, "com.android.settingslib.applications.ApplicationsState\u0024MainHandler",
-                    "handleMessage", 1, "settings-apps") { chain ->
-                    val message = chain.args.singleOrNull() as? Message
+                // AOSP ManageApplications.ApplicationsAdapter receives both
+                // synchronous rebuild results and async onRebuildComplete callbacks.
+                // Restrict the filtering to this presentation adapter, never the
+                // SettingsLib app inventory or other permission/role pages.
+                install(param.classLoader,
+                    "com.android.settings.applications.manageapplications.ManageApplications" +
+                        '$' + "ApplicationsAdapter",
+                    "onRebuildComplete", 1, "settings-apps") { chain ->
+                    val args = chain.args.toTypedArray()
+                    val rows = args.singleOrNull() as? List<*>
                         ?: return@install proceedOriginal(chain)
-                    if (message.what != 1) return@install proceedOriginal(chain)
-                    val session = message.obj ?: return@install proceedOriginal(chain)
-                    val original = ReflectionAccess.readField(session, "mLastAppList") as? List<*>
-                        ?: return@install proceedOriginal(chain)
-                    val filtered = original.filter { entry ->
+                    val filtered = rows.filter { entry ->
                         val info = ReflectionAccess.readField(entry, "info", "mInfo") as? ApplicationInfo
                         val user = info?.uid?.takeIf { it >= 0 }?.div(100000)
                             ?: return@filter true
                         info.packageName !in selected(SurfaceKind.SETTINGS_APPS, user)
                     }
-                    if (original.size == filtered.size) return@install proceedOriginal(chain)
-                    if (!ReflectionAccess.writeField(session, ArrayList(filtered), "mLastAppList"))
-                        return@install proceedOriginal(chain)
-                    diagnostic("FILTER settings-apps total=${original.size} hidden=${original.size - filtered.size}")
-                    try {
-                        proceedOriginal(chain)
-                    } finally {
-                        ReflectionAccess.writeField(session, original, "mLastAppList")
+                    if (rows.size == filtered.size) proceedOriginal(chain)
+                    else {
+                        diagnostic("FILTER settings-apps total=${rows.size} hidden=${rows.size - filtered.size}")
+                        args[0] = ArrayList(filtered)
+                        proceedOriginal(chain, args)
                     }
                 }
             }
