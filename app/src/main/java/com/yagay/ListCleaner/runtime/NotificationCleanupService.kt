@@ -83,7 +83,9 @@ object NotificationCleanupController {
             val current = listener
                 ?: return@withContext ChannelInventory(emptyList(), ChannelInventoryStatus.DISCONNECTED)
             val all = runCatching {
-                val handle = UserHandle.of(userId)
+                val handle = if (userId == android.os.Process.myUid() / 100000)
+                    android.os.Process.myUserHandle()
+                else throw SecurityException("Cross-user notification channel registry is privileged")
                 current.getNotificationChannels(pkg, handle).orEmpty()
                     .map { channel ->
                         RegisteredChannelRow(pkg, channel.id, channel.name?.toString() ?: channel.id,

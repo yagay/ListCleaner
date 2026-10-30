@@ -156,6 +156,7 @@ internal fun CleanupKind.titleRes(): Int = when (this) {
     CleanupKind.SHORTCUT -> R.string.cleanup_shortcut
     CleanupKind.WIDGET -> R.string.cleanup_widget
     CleanupKind.CONTROLS -> R.string.cleanup_controls
+    CleanupKind.AUTHENTICATOR -> R.string.cleanup_authenticator
 }
 
 @StringRes
