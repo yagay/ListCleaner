@@ -171,3 +171,22 @@ internal fun SurfaceWorkspaceSearchField(
         )
     }
 }
+
+/** Entry-style bulk selection semantics shared by all Lists editors.
+ * Only visible, unlocked identifiers are passed as editable.
+ * Existing selections outside the viewport are preserved.
+ */
+internal enum class SurfaceBulkOperation { ALL, INVERT, NONE }
+
+internal fun <T> applySurfaceBulkSelection(
+    selected: Set<T>,
+    editable: Collection<T>,
+    operation: SurfaceBulkOperation,
+): Set<T> {
+    val targets = editable.toSet()
+    return when (operation) {
+        SurfaceBulkOperation.ALL -> selected + targets
+        SurfaceBulkOperation.INVERT -> (selected - targets) + (targets - selected)
+        SurfaceBulkOperation.NONE -> selected - targets
+    }
+}
