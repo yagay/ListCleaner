@@ -73,6 +73,7 @@ internal fun SurfaceChannelSettings(
         scanning = true
         scanProgress = 0
         packageInventories = emptyMap()
+        NotificationCleanupController.invalidateChannelScanCache(userId)
         val targets = observedPackages
         try {
             for (batch in targets.chunked(32)) {
