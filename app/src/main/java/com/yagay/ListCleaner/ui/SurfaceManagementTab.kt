@@ -81,14 +81,22 @@ internal enum class SurfaceManagerPage(
 
 /** Category -> list type -> flat editor, without inserting another top-level toolbar. */
 @Composable
-internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
+internal fun SurfaceManagementTab(
+    state: MainState,
+    vm: MainViewModel,
+    pendingNavigation: PendingNavigationGuard? = null,
+) {
     var group by rememberSaveable { mutableStateOf<SurfaceManagerGroup?>(null) }
     var page by rememberSaveable { mutableStateOf<SurfaceManagerPage?>(null) }
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
     val activeNotifications by NotificationCleanupController.rows.collectAsStateWithLifecycle()
 
     val navigateBack: () -> Unit = {
-        if (page != null) page = null else group = null
+        val performBack = {
+            if (page != null) page = null else group = null
+        }
+        if (pendingNavigation != null) pendingNavigation.request(performBack)
+        else performBack()
     }
     BackHandler(enabled = group != null || page != null, onBack = navigateBack)
 
@@ -103,9 +111,9 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                 when (current) {
                     SurfaceManagerPage.NOTIFICATIONS_CURRENT -> ActiveNotificationManagement(vm)
                     SurfaceManagerPage.NOTIFICATIONS_CHANNELS ->
-                        SurfaceChannelSettings(vm, userId, activeNotifications)
+                        SurfaceChannelSettings(vm, userId, activeNotifications, pendingNavigation)
                     SurfaceManagerPage.INVALID_RULES -> StaleRuleManagement(state, vm)
-                    else -> AospSurfaceSettings(vm, userId, requireNotNull(current.kind))
+                    else -> AospSurfaceSettings(vm, userId, requireNotNull(current.kind), pendingNavigation)
                 }
             }
             group != null -> {

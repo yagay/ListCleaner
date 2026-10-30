@@ -302,7 +302,7 @@ class MainActivity : ComponentActivity() {
                     )
                     Destination.PRIORITY -> PriorityTab(state, vm, pendingNavigation)
                     Destination.TILES -> RootComponentsScreen(state, vm, pendingNavigation = pendingNavigation)
-                    Destination.SURFACES -> SurfaceManagementTab(state, vm)
+                    Destination.SURFACES -> SurfaceManagementTab(state, vm, pendingNavigation)
                     Destination.SETTINGS -> SettingsTabContent(
                         state,
                         vm,

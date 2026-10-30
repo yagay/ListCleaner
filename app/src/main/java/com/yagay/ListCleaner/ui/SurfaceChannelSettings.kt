@@ -35,11 +35,22 @@ internal fun SurfaceChannelSettings(
     vm: MainViewModel,
     userId: Int,
     observed: List<ActiveNotificationRow>,
+    pendingNavigation: PendingNavigationGuard? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val saved by vm.surfaceFilters.collectAsStateWithLifecycle()
     var draft by remember(userId, saved) { mutableStateOf(saved) }
+    val guardOwner = remember(userId) { Any() }
+    RegisterPendingNavigation(
+        pendingNavigation, guardOwner,
+        if (draft != saved) 1 else 0,
+        apply = {
+            vm.setSurfaceFilters(draft)
+            true
+        },
+        discard = { draft = saved },
+    )
     var pkg by remember(userId) { mutableStateOf("") }
     var inventory by remember(userId) { mutableStateOf<ChannelInventory?>(null) }
     var querying by remember(userId) { mutableStateOf(false) }

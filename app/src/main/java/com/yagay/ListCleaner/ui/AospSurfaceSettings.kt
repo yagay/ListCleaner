@@ -35,11 +35,26 @@ private fun SurfaceKind.label(): Int = when (this) {
 }
 
 @Composable
-internal fun AospSurfaceSettings(vm: MainViewModel, userId: Int, selectedKind: SurfaceKind) {
+internal fun AospSurfaceSettings(
+    vm: MainViewModel,
+    userId: Int,
+    selectedKind: SurfaceKind,
+    pendingNavigation: PendingNavigationGuard? = null,
+) {
     val context = LocalContext.current
     val saved by vm.surfaceFilters.collectAsStateWithLifecycle()
     var query by remember(userId, selectedKind) { mutableStateOf("") }
     var draft by remember(userId, saved) { mutableStateOf(saved) }
+    val guardOwner = remember(userId, selectedKind) { Any() }
+    RegisterPendingNavigation(
+        pendingNavigation, guardOwner,
+        if (draft != saved) 1 else 0,
+        apply = {
+            vm.setSurfaceFilters(draft)
+            true
+        },
+        discard = { draft = saved },
+    )
     var confirming by remember { mutableStateOf(false) }
     var refreshRevision by remember(userId) { mutableStateOf(0) }
     val activeNotifications by NotificationCleanupController.rows.collectAsStateWithLifecycle()
