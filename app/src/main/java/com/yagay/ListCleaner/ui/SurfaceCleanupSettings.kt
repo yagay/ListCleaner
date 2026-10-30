@@ -233,6 +233,9 @@ internal fun ActiveNotificationManagement(
             else stringResource(R.string.notification_category_help),
     )
     if (categoryMode) {
+        SettingsActionButton(onClick = { NotificationCleanupController.rescan() }) {
+            AdaptiveText(stringResource(R.string.surface_scan_refresh))
+        }
         WorkspaceAppNote(stringResource(R.string.surface_channels_restricted))
         if (scan.status != NotificationScanStatus.CONNECTED) {
             WorkspaceAppNote(stringResource(R.string.surface_wait_for_listener), warning = true)
