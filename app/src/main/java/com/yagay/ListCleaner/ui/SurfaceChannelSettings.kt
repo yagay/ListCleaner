@@ -136,6 +136,14 @@ internal fun SurfaceChannelSettings(
                     }
                 }
             },
+            actions = if (userId == android.os.Process.myUid() / 100000) listOf(
+                WorkspaceMenuAction(stringResource(R.string.surface_channel_settings), {
+                    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, appPackage)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    runCatching { context.startActivity(intent) }
+                }),
+            ) else emptyList(),
             details = {
                 if (found != null) {
                     WorkspaceAppNote(stringResource(when (found.status) {
