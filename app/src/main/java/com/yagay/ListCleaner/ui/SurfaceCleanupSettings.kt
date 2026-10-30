@@ -21,6 +21,21 @@ import com.yagay.ListCleaner.runtime.NotificationCleanupController
 /** Grouping is a browsing choice, never a different notification dismissal backend. */
 internal enum class ActiveNotificationGrouping { ALL, APPLICATION, CHANNEL, CATEGORY }
 
+/** Stable categories shown even when no matching notification is currently posted.
+ * "Push" is not an AOSP category; it is the explicit unclassified bucket.
+ * Updates cannot reliably be inferred from an Android notification category.
+ */
+internal val notificationCategoryIds = listOf(
+    Notification.CATEGORY_PROMO, Notification.CATEGORY_MESSAGE,
+    Notification.CATEGORY_EMAIL, Notification.CATEGORY_SOCIAL,
+    Notification.CATEGORY_PROGRESS, Notification.CATEGORY_REMINDER,
+    Notification.CATEGORY_EVENT, Notification.CATEGORY_TRANSPORT,
+    Notification.CATEGORY_CALL, Notification.CATEGORY_ALARM,
+    Notification.CATEGORY_SERVICE, Notification.CATEGORY_SYSTEM, "(other)"
+)
+internal fun notificationCategoryKey(row: ActiveNotificationRow): String =
+    row.category?.takeIf { it in notificationCategoryIds } ?: "(other)"
+
 internal data class ActiveNotificationGroup(
     val key: String,
     val rows: List<ActiveNotificationRow>,
@@ -38,7 +53,7 @@ internal fun groupActiveNotifications(
             ActiveNotificationGrouping.ALL -> row.key
             ActiveNotificationGrouping.APPLICATION -> row.packageName
             ActiveNotificationGrouping.CHANNEL -> row.packageName + "|" + row.channelId
-            ActiveNotificationGrouping.CATEGORY -> row.category ?: "(other)"
+            ActiveNotificationGrouping.CATEGORY -> notificationCategoryKey(row)
         }
     }
     return groups.entries.sortedBy { it.key }
@@ -85,7 +100,12 @@ internal fun ActiveNotificationManagement(
     val selectableKeys = available.mapTo(hashSetOf()) { it.key }
     val chosen = selectedKeys.intersect(selectableKeys)
     val groups = groupActiveNotifications(sameProfile, grouping)
-    val shownGroups = groups.filter { group ->
+    val displayGroups = if (initialGrouping == ActiveNotificationGrouping.CATEGORY) {
+        notificationCategoryIds.map { id ->
+            ActiveNotificationGroup(id, groups.firstOrNull { it.key == id }?.rows.orEmpty())
+        }
+    } else groups
+    val shownGroups = displayGroups.filter { group ->
         if (initialGrouping == ActiveNotificationGrouping.CATEGORY &&
             categorySelection != null && group.key != categorySelection) return@filter false
         val allowed = group.rows.asSequence().filterNot { it.protected }.map { it.key }.toSet()
@@ -127,7 +147,7 @@ internal fun ActiveNotificationManagement(
             categorySelection ?: "ALL" else grouping.name,
         options = if (initialGrouping == ActiveNotificationGrouping.CATEGORY) {
             listOf("ALL" to stringResource(R.string.common_all)) +
-                groups.map { it.key }.distinct().sorted().map { key ->
+                notificationCategoryIds.map { key ->
                     key to notificationCategoryLabel(key.takeUnless { it == "(other)" })
                 }
         } else ActiveNotificationGrouping.entries.map { mode ->
@@ -166,13 +186,13 @@ internal fun ActiveNotificationManagement(
         val allowedKeys = group.rows.filterNot { it.protected }.map { it.key }.toSet()
         val complete = allowedKeys.isNotEmpty() && allowedKeys.all { it in chosen }
         val any = allowedKeys.any { it in chosen }
-        val first = group.rows.first()
+        val first = group.rows.firstOrNull()
         val title = when (grouping) {
-            ActiveNotificationGrouping.ALL -> first.packageName + " · " +
+            ActiveNotificationGrouping.ALL -> requireNotNull(first).packageName + " · " +
                 notificationCategoryLabel(first.category)
-            ActiveNotificationGrouping.APPLICATION -> first.packageName
-            ActiveNotificationGrouping.CHANNEL -> first.packageName + " · " + first.channelId
-            ActiveNotificationGrouping.CATEGORY -> notificationCategoryLabel(first.category)
+            ActiveNotificationGrouping.APPLICATION -> requireNotNull(first).packageName
+            ActiveNotificationGrouping.CHANNEL -> requireNotNull(first).packageName + " · " + first.channelId
+            ActiveNotificationGrouping.CATEGORY -> notificationCategoryLabel(group.key.takeUnless { it == "(other)" })
         }
         val subtitle = stringResource(R.string.notification_group_count,
             group.rows.size, group.rows.count { it.protected })
@@ -207,7 +227,7 @@ internal fun ActiveNotificationManagement(
                 }
             } else null,
             actions = if (grouping == ActiveNotificationGrouping.CHANNEL &&
-                userId == android.os.Process.myUid() / 100000) listOf(
+                userId == android.os.Process.myUid() / 100000 && first != null) listOf(
                 WorkspaceMenuAction(stringResource(R.string.surface_channel_settings), {
                     val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
                         .putExtra(Settings.EXTRA_APP_PACKAGE, first.packageName)
