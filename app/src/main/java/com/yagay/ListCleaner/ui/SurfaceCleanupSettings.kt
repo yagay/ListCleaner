@@ -501,11 +501,13 @@ internal fun StaleRuleManagement(
         count = selectedRules.size,
         onDiscard = { selectedRules = emptySet() },
         onApply = {
-            if (completed && state.error.isNullOrBlank()) {
+            if (completed && state.error.isNullOrBlank() &&
+                selected.isNotEmpty() && selected.size == selectedRules.size
+            ) {
                 vm.deselectRules(selected, null, null)
+                selectedRules = emptySet()
+                refreshed = false
             }
-            selectedRules = emptySet()
-            refreshed = false
         },
     )    }
 
