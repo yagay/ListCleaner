@@ -115,7 +115,8 @@ internal fun ActiveNotificationManagement(
         val allowed = group.rows.asSequence().filterNot { it.protected }.map { it.key }.toSet()
         val complete = allowed.isNotEmpty() && allowed.all { it in chosen }
         val protected = group.rows.any { it.protected }
-        surfaceFilterAllows(filter, complete, protected)
+        surfaceFilterAllows(filter, if (categoryMode) group.key in hiddenCategories else complete,
+            if (categoryMode) false else protected)
     }
     val shownKeys = shownGroups.flatMap { group ->
         group.rows.filterNot { it.protected }.map { it.key }
