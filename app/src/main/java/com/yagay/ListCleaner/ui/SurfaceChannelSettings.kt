@@ -18,7 +18,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
-import com.yagay.ListCleaner.domain.PackageIdentity
 import com.yagay.ListCleaner.runtime.ActiveNotificationRow
 import com.yagay.ListCleaner.runtime.ChannelInventory
 import com.yagay.ListCleaner.runtime.ChannelInventoryStatus
@@ -38,8 +37,6 @@ internal fun SurfaceChannelSettings(
     val saved by vm.surfaceFilters.collectAsStateWithLifecycle()
     var draft by remember(userId, saved) { mutableStateOf(saved) }
     var pkg by remember(userId) { mutableStateOf("") }
-    var inventory by remember(userId) { mutableStateOf<ChannelInventory?>(null) }
-    var querying by remember(userId) { mutableStateOf(false) }
     var viewFilter by remember(userId) { mutableStateOf(UiFilter.ALL) }
     var expandedPackage by remember(userId) { mutableStateOf<String?>(null) }
     var packageInventories by remember(userId) { mutableStateOf<Map<String, ChannelInventory>>(emptyMap()) }
@@ -59,33 +56,34 @@ internal fun SurfaceChannelSettings(
     )
 
     val observedPackages = (installedPackages + observed.filter { it.userId == userId }.map { it.packageName } + NotificationCleanupController.observedRows.value.filter { it.userId == userId }.map { it.packageName }).distinct().sorted()
-    val chosenIds = inventory?.items.orEmpty()
+    val visiblePackages = observedPackages.filter {
+        pkg.isBlank() || it.contains(pkg.trim(), ignoreCase = true)
+    }
+    val visibleChannels = visiblePackages.flatMap { packageInventories[it]?.items.orEmpty() }
         .filter { surfaceFilterAllows(viewFilter,
             draft.isChannelHidden(it.packageName, it.channelId), false) }
     SurfaceWorkspaceToolbar(
-        category = pkg,
-        options = (listOf("" to stringResource(R.string.surface_channels_choose)) +
-            (observedPackages + pkg.takeIf { PackageIdentity.valid(it) }.orEmpty())
-                .filter { it.isNotBlank() }.distinct().sorted().map { it to it }),
-        onCategory = { pkg = it; inventory = null },
+        category = "",
+        options = listOf("" to stringResource(R.string.common_all)),
+        onCategory = {},
         filter = viewFilter, onFilter = { viewFilter = it },
         actions = listOf(
             WorkspaceMenuAction(stringResource(R.string.select_all), {
-                chosenIds.forEach { channel ->
+                visibleChannels.forEach { channel ->
                     draft = draft.withChannelHidden(channel.packageName, channel.channelId, true)
                 }
-            }, chosenIds.any { !draft.isChannelHidden(it.packageName, it.channelId) }),
+            }, visibleChannels.any { !draft.isChannelHidden(it.packageName, it.channelId) }),
             WorkspaceMenuAction(stringResource(R.string.surface_invert_selected), {
-                chosenIds.forEach { channel ->
+                visibleChannels.forEach { channel ->
                     draft = draft.withChannelHidden(channel.packageName, channel.channelId,
                         !draft.isChannelHidden(channel.packageName, channel.channelId))
                 }
-            }, chosenIds.isNotEmpty()),
+            }, visibleChannels.isNotEmpty()),
             WorkspaceMenuAction(stringResource(R.string.select_none), {
-                chosenIds.forEach { channel ->
+                visibleChannels.forEach { channel ->
                     draft = draft.withChannelHidden(channel.packageName, channel.channelId, false)
                 }
-            }, chosenIds.any { draft.isChannelHidden(it.packageName, it.channelId) }),
+            }, visibleChannels.any { draft.isChannelHidden(it.packageName, it.channelId) }),
         ),
     )
     WorkspaceListSummary(
@@ -94,7 +92,7 @@ internal fun SurfaceChannelSettings(
     )
     BasicTextField(
         value = pkg,
-        onValueChange = { pkg = it.trim().take(255); inventory = null },
+        onValueChange = { pkg = it.take(255) },
         singleLine = true,
         modifier = Modifier.fillMaxWidth().padding(
             horizontal = MaterialUiTokens.pageHorizontal,
@@ -109,21 +107,7 @@ internal fun SurfaceChannelSettings(
             }
         },
     )
-    SettingsActionButton(
-        enabled = PackageIdentity.valid(pkg) && !querying,
-        onClick = {
-            querying = true
-            scope.launch {
-                try {
-                    inventory = NotificationCleanupController.channelsForPackage(pkg, userId)
-                } finally {
-                    querying = false
-                }
-            }
-        },
-    ) { AdaptiveText(stringResource(R.string.surface_channels_scan)) }
-
-    observedPackages.forEach { appPackage ->
+    visiblePackages.take(250).forEach { appPackage ->
         val found = packageInventories[appPackage]
         val channels = found?.items.orEmpty()
         val selected = channels.isNotEmpty() && channels.all { draft.isChannelHidden(appPackage, it.channelId) }
@@ -167,39 +151,6 @@ internal fun SurfaceChannelSettings(
                 }
             },
         )
-    }
-    inventory?.let { result ->
-        val statusRes = when (result.status) {
-            ChannelInventoryStatus.COMPLETE -> R.string.surface_channels_full
-            ChannelInventoryStatus.OBSERVED_ONLY -> R.string.surface_channels_restricted
-            ChannelInventoryStatus.DISCONNECTED -> R.string.surface_wait_for_listener
-        }
-        WorkspaceListSummary(
-            title = stringResource(R.string.surface_channels_count, result.items.size),
-            secondary = stringResource(statusRes),
-        )
-        chosenIds.forEach { channel ->
-            val selected = draft.isChannelHidden(channel.packageName, channel.channelId)
-            SurfaceWorkspaceRow(
-                title = channel.label,
-                subtitle = channel.channelId,
-                selected = selected,
-                onToggle = {
-                    draft = draft.withChannelHidden(
-                        channel.packageName, channel.channelId, !selected,
-                    )
-                },
-                actions = if (userId == android.os.Process.myUid() / 100000) listOf(
-                    WorkspaceMenuAction(stringResource(R.string.surface_channel_settings), {
-                        val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
-                            .putExtra(Settings.EXTRA_APP_PACKAGE, channel.packageName)
-                            .putExtra(Settings.EXTRA_CHANNEL_ID, channel.channelId)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        runCatching { context.startActivity(intent) }
-                    }),
-                ) else emptyList(),
-            )
-        }
     }
     if (draft != saved) PendingChangesBar(
         count = 1, onDiscard = { draft = saved },
