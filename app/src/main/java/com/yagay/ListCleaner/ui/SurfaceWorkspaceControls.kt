@@ -1,5 +1,6 @@
 package com.yagay.ListCleaner.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -117,13 +118,17 @@ internal fun SurfaceWorkspaceRow(
     expanded: Boolean = false,
     onExpand: (() -> Unit)? = null,
     details: @Composable (() -> Unit)? = null,
+    nested: Boolean = false,
 ) {
     var overflow by remember { mutableStateOf(false) }
     ContinuousApplicationSurface(expanded = expanded && onExpand != null) {
         Column {
         Row(
             modifier = Modifier.fillMaxWidth().heightIn(min = MaterialUiTokens.listRowHeight)
-                .padding(horizontal = MaterialUiTokens.pageHorizontal),
+                .background(if (nested) MaterialFlatPalette.selectionHighlightSurface()
+                    else androidx.compose.ui.graphics.Color.Transparent)
+                .padding(start = MaterialUiTokens.pageHorizontal + if (nested) 24.dp else 0.dp,
+                    end = MaterialUiTokens.pageHorizontal),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap),
         ) {
@@ -137,7 +142,8 @@ internal fun SurfaceWorkspaceRow(
             )
             Column(Modifier.weight(1f).then(if (onExpand != null) Modifier.clickable(onClick = onExpand) else Modifier.clickable(onClick = onToggle))) {
                 AdaptiveText(
-                    title, style = MaterialTheme.typography.bodyLarge,
+                    title, style = if (nested) MaterialTheme.typography.bodyMedium
+                        else MaterialTheme.typography.bodyLarge,
                     maxLines = 2, overflow = TextOverflow.Ellipsis,
                 )
                 AdaptiveText(
