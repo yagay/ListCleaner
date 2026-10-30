@@ -22,6 +22,8 @@ data class SurfaceFilterConfig(
     val order: Map<SurfaceKind, List<String>> = emptyMap(),
     /** Specific shade channels, keyed by package and AOSP channel ID. */
     val hiddenNotificationChannels: Set<String> = emptySet(),
+    /** Persistent AOSP category rules; (other) matches missing/unknown categories. */
+    val hiddenNotificationCategories: Set<String> = emptySet(),
 ) {
     private fun allowed(kind: SurfaceKind, value: String): Boolean =
         if (kind == SurfaceKind.MEDIA_OUTPUT) value.length in 1..256 &&
@@ -33,6 +35,8 @@ data class SurfaceFilterConfig(
         require(locks.size <= SurfaceKind.entries.size)
         require(order.size <= SurfaceKind.entries.size)
         require(hiddenNotificationChannels.size <= 4000)
+        require(hiddenNotificationCategories.size <= 32)
+        require(hiddenNotificationCategories.all { it.length in 1..64 && it.none(Char::isISOControl) })
         require(hiddenNotificationChannels.all { key ->
             val pkg = key.substringBefore('|', "")
             val channelId = key.substringAfter('|', "")
@@ -61,6 +65,10 @@ data class SurfaceFilterConfig(
     }
 
     fun selected(kind: SurfaceKind): Set<String> = packages[kind].orEmpty()
+
+    fun withNotificationCategoryHidden(category: String, hidden: Boolean): SurfaceFilterConfig =
+        copy(hiddenNotificationCategories = if (hidden) hiddenNotificationCategories + category
+            else hiddenNotificationCategories - category).validated()
 
     fun isChannelHidden(pkg: String, id: String): Boolean =
         "$pkg|$id" in hiddenNotificationChannels
