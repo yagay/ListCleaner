@@ -42,8 +42,8 @@ internal fun AospSurfaceSettings(
     val saved by vm.surfaceFilters.collectAsStateWithLifecycle()
     var draft by remember(userId, saved) { mutableStateOf(saved) }
     var query by remember(userId, selectedKind) { mutableStateOf("") }
-    var viewFilter by remember(userId, selectedKind) { mutableStateOf(UiFilter.ALL) }
-    var appCategory by remember(userId, selectedKind) { mutableStateOf(AppTypeFilter.ALL) }
+    var viewFilter by remember(userId, selectedKind) { mutableStateOf(UiPreferencesStore.initialFilter(context, "lists_aosp_${selectedKind.name}")) }
+    var appCategory by remember(userId, selectedKind) { mutableStateOf(UiPreferencesStore.initialAppType(context, "lists_aosp_${selectedKind.name}")) }
     var refreshRevision by remember(userId, selectedKind) { mutableStateOf(0) }
     var expandedId by remember(userId, selectedKind) { mutableStateOf<String?>(null) }
     val guardOwner = remember(userId, selectedKind) { Any() }
@@ -100,9 +100,9 @@ internal fun AospSurfaceSettings(
                 category = "",
                 options = listOf("" to stringResource(R.string.common_all)),
                 onCategory = {},
-                filter = viewFilter, onFilter = { viewFilter = it },
+                filter = viewFilter, onFilter = { viewFilter = it; UiPreferencesStore.rememberFilter(context, it, "lists_aosp_${selectedKind.name}") },
                 appTypeFilter = appCategory,
-                onAppTypeFilter = { appCategory = it },
+                onAppTypeFilter = { appCategory = it; UiPreferencesStore.rememberAppType(context, it, "lists_aosp_${selectedKind.name}") },
                 showAppTypeFilter = applicationBased,
                 actions = listOf(
                     WorkspaceMenuAction(stringResource(R.string.select_all), {
