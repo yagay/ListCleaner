@@ -192,7 +192,18 @@ internal fun SurfaceChannelSettings(
                     },
                 )
             },
-            menuActions = if (userId == android.os.Process.myUid() / 100000) listOf(
+            menuActions = listOf(
+                WorkspaceMenuAction(
+                    stringResource(R.string.surface_lock_target),
+                    { channels.forEach { draft = draft.withChannelLocked(appPackage, it.channelId, true) } },
+                    !scanning && channels.isNotEmpty() && !appLocked,
+                ),
+                WorkspaceMenuAction(
+                    stringResource(R.string.surface_unlock_item),
+                    { channels.forEach { draft = draft.withChannelLocked(appPackage, it.channelId, false) } },
+                    !scanning && channels.any { draft.isChannelLocked(appPackage, it.channelId) },
+                ),
+            ) + if (userId == android.os.Process.myUid() / 100000) listOf(
                 WorkspaceMenuAction(stringResource(R.string.surface_channel_settings), {
                     val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                         .putExtra(Settings.EXTRA_APP_PACKAGE, appPackage)
