@@ -175,43 +175,58 @@ object NotificationCleanupController {
         return uids[pkg]
     }
 
-    private fun rootChannelsForPackage(pkg: String, userId: Int): List<RegisteredChannelRow>? {
-        if (!pkg.matches(Regex("[A-Za-z0-9_]+([.][A-Za-z0-9_]+)+"))) return null
-        val context = listener?.applicationContext ?: return null
-        val targetUid = targetPackageUid(pkg, userId) ?: return null
-        val apk = context.applicationInfo.sourceDir
-        if (!apk.startsWith("/") || apk.contains("'") || apk.contains("\\n")) return null
-        val command = "CLASSPATH='${apk}' app_process /system/bin " +
-            "com.yagay.ListCleaner.runtime.RootNotificationChannelProbe ${pkg} ${targetUid}"
-        val output = runCatching { ComponentRootCommand.runReadOnly(command) }.getOrNull()
-            ?: return null
-        if (output.exitCode != 0 || output.timedOut) return null
-        val line = output.output.lineSequence().firstOrNull { it.startsWith("LC_CHANNELS:") }
-            ?: return null
-        return runCatching {
-            val json = JSONArray(line.removePrefix("LC_CHANNELS:"))
-            (0 until minOf(json.length(), 2000)).map { i ->
-                val item = json.getJSONObject(i)
-                RegisteredChannelRow(
-                    packageName = pkg,
-                    channelId = item.getString("id"),
-                    label = item.getString("name"),
-                    importance = item.getInt("importance"),
-                    groupId = item.optString("group").ifBlank { null },
-                )
+    suspend fun channelsForPackages(packages: List<String>, userId: Int): Map<String, ChannelInventory> =
+        withContext(Dispatchers.IO) {
+            val result = mutableMapOf<String, ChannelInventory>()
+            val context = listener?.applicationContext
+            val apk = context?.applicationInfo?.sourceDir
+            val valid = packages.distinct().filter {
+                it.matches(Regex("[A-Za-z0-9_]+([.][A-Za-z0-9_]+)+"))
             }
-        }.getOrNull()
-    }
+            if (apk != null && apk.startsWith("/") && !apk.contains("'") && !apk.contains("\\n")) {
+                for (batch in valid.chunked(32)) {
+                    val pairs = batch.mapNotNull { pkg ->
+                        targetPackageUid(pkg, userId)?.let { uid -> "$pkg $uid" }
+                    }
+                    if (pairs.isEmpty()) continue
+                    val command = "CLASSPATH='$apk' app_process /system/bin " +
+                        "com.yagay.ListCleaner.runtime.RootNotificationChannelProbe " +
+                        pairs.joinToString(" ")
+                    val response = runCatching { ComponentRootCommand.runReadOnly(command) }.getOrNull()
+                    if (response?.exitCode != 0 || response.timedOut) continue
+                    val line = response.output.lineSequence().firstOrNull {
+                        it.startsWith("LC_CHANNELS:")
+                    } ?: continue
+                    runCatching {
+                        val rows = JSONArray(line.removePrefix("LC_CHANNELS:"))
+                        for (i in 0 until rows.length()) {
+                            val entry = rows.getJSONObject(i)
+                            val pkg = entry.getString("pkg")
+                            val channels = entry.optJSONArray("channels") ?: continue
+                            val items = (0 until minOf(channels.length(), 2000)).map { n ->
+                                val ch = channels.getJSONObject(n)
+                                RegisteredChannelRow(pkg, ch.getString("id"), ch.getString("name"),
+                                    ch.getInt("importance"), ch.optString("group").ifBlank { null })
+                            }
+                            result[pkg] = ChannelInventory(items, ChannelInventoryStatus.COMPLETE)
+                        }
+                    }
+                }
+            }
+            for (pkg in packages.distinct()) {
+                if (pkg !in result) result[pkg] = channelsForPackageFallback(pkg, userId)
+            }
+            result
+        }
 
-    suspend fun channelsForPackage(pkg: String, userId: Int): ChannelInventory =
+    private suspend fun channelsForPackageFallback(pkg: String, userId: Int): ChannelInventory =
         withContext(Dispatchers.IO) {
             val current = listener
-            val all = rootChannelsForPackage(pkg, userId)
-                ?: runCatching {
+            val all = runCatching {
                 val available = current ?: throw IllegalStateException("Listener disconnected")
                 val handle = if (userId == android.os.Process.myUid() / 100000)
                     android.os.Process.myUserHandle()
-                else throw SecurityException("Cross-user notification channel registry is privileged")
+                else throw SecurityException("Cross-user registry is privileged")
                 val groups = runCatching {
                     available.getNotificationChannelGroups(pkg, handle)
                         ?.associate { it.id to it.name?.toString().orEmpty() }
@@ -221,15 +236,10 @@ object NotificationCleanupController {
                     .map { channel ->
                         RegisteredChannelRow(pkg, channel.id, channel.name?.toString() ?: channel.id,
                             channel.importance, channel.group, groups[channel.group])
-                    }
-                    .distinctBy { it.channelId }
-                    .sortedBy { it.label.lowercase() }
+                    }.distinctBy { it.channelId }.sortedBy { it.label.lowercase() }
             }.getOrNull()
-            if (all != null) {
-                ChannelInventory(all, ChannelInventoryStatus.COMPLETE)
-            } else {
-                // A normal NotificationListenerService is not necessarily a
-                // privileged channel manager. Never claim this is a complete list.
+            if (all != null) ChannelInventory(all, ChannelInventoryStatus.COMPLETE)
+            else {
                 val observed = observedRows.value.filter { it.packageName == pkg && it.userId == userId }
                     .map { RegisteredChannelRow(pkg, it.channelId, it.channelId, -1) }
                     .distinctBy { it.channelId }.sortedBy { it.channelId }
@@ -237,6 +247,10 @@ object NotificationCleanupController {
                     else ChannelInventoryStatus.OBSERVED_ONLY)
             }
         }
+
+    suspend fun channelsForPackage(pkg: String, userId: Int): ChannelInventory =
+        channelsForPackages(listOf(pkg), userId)[pkg]
+            ?: ChannelInventory(emptyList(), ChannelInventoryStatus.DISCONNECTED)
 
     /** User-requested rescan; does not claim access to channels never observed. */
     fun rescan(): Boolean {
