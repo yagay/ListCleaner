@@ -5,6 +5,9 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.content.pm.PackageManager
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -90,40 +93,45 @@ internal fun AospSurfaceSettings(
     val visibleIds = visible.take(250).map { it.first }
     val editableIds = visibleIds.filter { it !in locked }
 
-    SurfaceWorkspaceToolbar(
-        category = "",
-        options = listOf("" to stringResource(R.string.common_all)),
-        onCategory = {},
-        filter = viewFilter, onFilter = { viewFilter = it },
-        appTypeFilter = appCategory,
-        onAppTypeFilter = { appCategory = it },
-        showAppTypeFilter = applicationBased,
-        actions = listOf(
-            WorkspaceMenuAction(stringResource(R.string.select_all), {
-                draft = draft.withSelected(selectedKind, selected + editableIds)
-            }, editableIds.any { it !in selected }),
-            WorkspaceMenuAction(stringResource(R.string.surface_invert_selected), {
-                draft = draft.withSelected(
-                    selectedKind, (selected - editableIds.toSet()) +
-                        editableIds.filter { it !in selected }
-                )
-            }, editableIds.isNotEmpty()),
-            WorkspaceMenuAction(stringResource(R.string.select_none), {
-                draft = draft.withSelected(selectedKind, selected - editableIds.toSet())
-            }, editableIds.any { it in selected }),
-        ),
-    )
-    WorkspaceListSummary(
-        title = stringResource(R.string.surface_aosp_selected, selected.size),
-        secondary = catalog.description,
-    )
-    SurfaceWorkspaceSearchField(
-        value = query,
-        onValueChange = { query = it },
-        label = stringResource(R.string.surface_aosp_search),
-        maxLength = 80,
-    )
-    visible.take(250).forEach { (id, title) ->
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        item(key = "controls") {
+            Column {
+            SurfaceWorkspaceToolbar(
+                category = "",
+                options = listOf("" to stringResource(R.string.common_all)),
+                onCategory = {},
+                filter = viewFilter, onFilter = { viewFilter = it },
+                appTypeFilter = appCategory,
+                onAppTypeFilter = { appCategory = it },
+                showAppTypeFilter = applicationBased,
+                actions = listOf(
+                    WorkspaceMenuAction(stringResource(R.string.select_all), {
+                        draft = draft.withSelected(selectedKind, selected + editableIds)
+                    }, editableIds.any { it !in selected }),
+                    WorkspaceMenuAction(stringResource(R.string.surface_invert_selected), {
+                        draft = draft.withSelected(
+                            selectedKind, (selected - editableIds.toSet()) +
+                                editableIds.filter { it !in selected }
+                        )
+                    }, editableIds.isNotEmpty()),
+                    WorkspaceMenuAction(stringResource(R.string.select_none), {
+                        draft = draft.withSelected(selectedKind, selected - editableIds.toSet())
+                    }, editableIds.any { it in selected }),
+                ),
+            )
+            WorkspaceListSummary(
+                title = stringResource(R.string.surface_aosp_selected, selected.size),
+                secondary = catalog.description,
+            )
+            SurfaceWorkspaceSearchField(
+                value = query,
+                onValueChange = { query = it },
+                label = stringResource(R.string.surface_aosp_search),
+                maxLength = 80,
+            )
+                    }
+        }
+        items(visible.take(250), key = { it.first }) { (id, title) ->
         val appIcon = remember(id, userId) {
             if (!applicationBased) null else runCatching {
                 val drawable = context.packageManager.getApplicationIcon(id).mutate()
@@ -180,16 +188,20 @@ internal fun AospSurfaceSettings(
             },
         )
     }
-    if (visible.size > 250) WorkspaceAppNote(
-        stringResource(R.string.surface_aosp_more, visible.size - 250),
-    )
-    WorkspaceListActions(actions = listOf(
-        WorkspaceMenuAction(stringResource(R.string.surface_scan_refresh), {
-            refreshRevision++
-        }),
-    ))
-    if (draft != saved) PendingChangesBar(
-        count = 1, onDiscard = { draft = saved },
-        onApply = { vm.setSurfaceFilters(draft) },
-    )
+        item(key = "footer") {
+            Column {
+            if (visible.size > 250) WorkspaceAppNote(
+                stringResource(R.string.surface_aosp_more, visible.size - 250),
+            )
+            WorkspaceListActions(actions = listOf(
+                WorkspaceMenuAction(stringResource(R.string.surface_scan_refresh), {
+                    refreshRevision++
+                }),
+            ))
+            if (draft != saved) PendingChangesBar(
+                count = 1, onDiscard = { draft = saved },
+                onApply = { vm.setSurfaceFilters(draft) },
+            )            }
+        }
+    }
 }
