@@ -101,7 +101,7 @@ internal fun AospSurfaceSettings(
             WorkspaceMenuAction(stringResource(R.string.select_all), {
                 draft = draft.withSelected(selectedKind, selected + editableIds)
             }, editableIds.any { it !in selected }),
-            WorkspaceMenuAction(stringResource(R.string.select_invert), {
+            WorkspaceMenuAction(stringResource(R.string.surface_invert_selected), {
                 draft = draft.withSelected(
                     selectedKind, (selected - editableIds.toSet()) +
                         editableIds.filter { it !in selected }

@@ -20,6 +20,7 @@ data class ActiveNotificationRow(
     val channelId: String,
     val userId: Int,
     val protected: Boolean,
+    val category: String? = null,
 )
 
 data class RegisteredChannelRow(
@@ -75,6 +76,7 @@ object NotificationCleanupController {
             channelId = notification.channelId ?: "(default)",
             userId = item.userId,
             protected = NotificationCleanupPolicy.protected(notification.flags, notification.category),
+            category = notification.category,
         )
     }
 
