@@ -80,8 +80,17 @@ internal fun SurfaceChannelSettings(
         }
         scanning = false
     }
-    val visiblePackages = observedPackages.filter {
-        pkg.isBlank() || it.contains(pkg.trim(), ignoreCase = true)
+    val packageLabels = remember(userId, observedPackages) {
+        observedPackages.associateWith { name ->
+            runCatching {
+                val info = context.packageManager.getApplicationInfo(name, 0)
+                context.packageManager.getApplicationLabel(info).toString()
+            }.getOrDefault(name)
+        }
+    }
+    val visiblePackages = observedPackages.filter { name ->
+        pkg.isBlank() || name.contains(pkg.trim(), ignoreCase = true) ||
+            packageLabels[name].orEmpty().contains(pkg.trim(), ignoreCase = true)
     }
     val visibleChannels = visiblePackages.flatMap { packageInventories[it]?.items.orEmpty() }
         .filter { surfaceFilterAllows(viewFilter,
@@ -136,12 +145,7 @@ internal fun SurfaceChannelSettings(
         },
     )
     visiblePackages.take(250).forEach { appPackage ->
-        val appLabel = remember(appPackage) {
-            runCatching {
-                val info = context.packageManager.getApplicationInfo(appPackage, 0)
-                context.packageManager.getApplicationLabel(info).toString()
-            }.getOrDefault(appPackage)
-        }
+        val appLabel = packageLabels[appPackage] ?: appPackage
         val appIcon = remember(appPackage, userId) {
             runCatching {
                 val drawable = context.packageManager.getApplicationIcon(appPackage).mutate()
