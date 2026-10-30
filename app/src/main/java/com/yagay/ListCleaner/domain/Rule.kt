@@ -41,7 +41,9 @@ enum class IntentKind(val action: String) {
     NFC_HCE("android.nfc.cardemulation.action.HOST_APDU_SERVICE"),
     CALL_SCREENING("android.telecom.CallScreeningService"),
     DOCUMENT_ROOT("com.yagay.ListCleaner.action.DOCUMENT_ROOT"),
-    PHOTO_SOURCE("android.content.action.CLOUD_MEDIA_PROVIDER")
+    PHOTO_SOURCE("android.content.action.CLOUD_MEDIA_PROVIDER"),
+    EDIT(Intent.ACTION_EDIT),
+    PICK(Intent.ACTION_PICK)
 }
 
 @Serializable

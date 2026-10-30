@@ -14,7 +14,7 @@ import com.yagay.ListCleaner.domain.IntentKind.*
 enum class PriorityCapability { SUPPORTED, PARTIAL, UNSUPPORTED }
 
 fun IntentKind.priorityCapability(): PriorityCapability = when (this) {
-    SHARE, SHARE_MULTIPLE, SEND_TO, OPEN, BROWSER, DEEP_LINK, DIAL,
+    SHARE, SHARE_MULTIPLE, SEND_TO, OPEN, EDIT, PICK, BROWSER, DEEP_LINK, DIAL,
     GET_CONTENT, OPEN_DOCUMENT, CREATE_DOCUMENT,
     CAPTURE_IMAGE, CAPTURE_VIDEO, RECORD_AUDIO, PROCESS_TEXT,
     INPUT_METHOD, DOCUMENT_ROOT -> PriorityCapability.SUPPORTED
@@ -32,7 +32,8 @@ fun IntentKind.supportsPriorityEditing(): Boolean =
     priorityCapability() != PriorityCapability.UNSUPPORTED
 
 fun IntentKind.supportsTitleEditing(): Boolean = this in setOf(
-    IntentKind.SHARE, IntentKind.SHARE_MULTIPLE, IntentKind.OPEN, IntentKind.SEND_TO,
+    IntentKind.SHARE, IntentKind.SHARE_MULTIPLE, IntentKind.OPEN, IntentKind.EDIT,
+    IntentKind.PICK, IntentKind.SEND_TO,
     IntentKind.BROWSER, IntentKind.DEEP_LINK, IntentKind.DIAL,
     IntentKind.CAPTURE_IMAGE, IntentKind.CAPTURE_VIDEO, IntentKind.RECORD_AUDIO,
     IntentKind.PROCESS_TEXT,

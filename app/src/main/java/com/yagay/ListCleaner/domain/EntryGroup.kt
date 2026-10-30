@@ -23,9 +23,11 @@ fun IntentKind.entryGroup(): EntryGroup = when (this) {
     IntentKind.OPEN,
     IntentKind.BROWSER,
     IntentKind.DEEP_LINK,
-    IntentKind.DIAL -> EntryGroup.OPEN
+    IntentKind.DIAL,
+    IntentKind.EDIT -> EntryGroup.OPEN
 
     IntentKind.GET_CONTENT,
+    IntentKind.PICK,
     IntentKind.OPEN_DOCUMENT,
     IntentKind.CREATE_DOCUMENT,
     IntentKind.CAPTURE_IMAGE,

@@ -61,6 +61,22 @@ internal fun additionalEntryProbes(): List<AdditionalEntryProbe> = buildList {
         add(AdditionalEntryProbe(Intent(definition.action), false, definition.label))
     }
 
+    // Separate ACTION_EDIT and ACTION_PICK from the existing VIEW/GET_CONTENT rules.
+    listOf("image/png", "image/jpeg", "text/plain", "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        .forEach { mime ->
+            add(AdditionalEntryProbe(
+                Intent(Intent.ACTION_EDIT).setDataAndType(
+                    Uri.parse("content://com.yagay.ListCleaner.placeholder/edit"), mime),
+                false, "EDIT mime=$mime"
+            ))
+        }
+    listOf("vnd.android.cursor.dir/contact", "vnd.android.cursor.dir/phone_v2",
+        "image/*", "video/*").forEach { mime ->
+        add(AdditionalEntryProbe(Intent(Intent.ACTION_PICK).setType(mime),
+            false, "PICK mime=$mime"))
+    }
     DOCUMENT_MIMES.forEach { mime ->
         add(documentProbe(Intent.ACTION_GET_CONTENT, mime, "GET_CONTENT"))
         add(documentProbe(Intent.ACTION_OPEN_DOCUMENT, mime, "OPEN_DOCUMENT"))

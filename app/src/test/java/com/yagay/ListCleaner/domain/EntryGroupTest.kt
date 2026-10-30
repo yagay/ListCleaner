@@ -12,7 +12,7 @@ class EntryGroupTest {
         val expected = IntentKind.entries.filter { it.isSelectableEntryKind() }
 
         assertEquals(7, EntryGroup.entries.size)
-        assertEquals(31, expected.size)
+        assertEquals(33, expected.size)
         assertEquals(expected.size, grouped.size)
         assertEquals(expected.toSet(), grouped.toSet())
         assertFalse(grouped.contains(IntentKind.LAUNCHER_SHORTCUT))
@@ -27,10 +27,10 @@ class EntryGroupTest {
                 IntentKind.SHARE, IntentKind.SHARE_MULTIPLE, IntentKind.DIRECT_SHARE, IntentKind.SEND_TO
             ),
             EntryGroup.OPEN to setOf(
-                IntentKind.OPEN, IntentKind.BROWSER, IntentKind.DEEP_LINK, IntentKind.DIAL
+                IntentKind.OPEN, IntentKind.EDIT, IntentKind.BROWSER, IntentKind.DEEP_LINK, IntentKind.DIAL
             ),
             EntryGroup.FILES to setOf(
-                IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT, IntentKind.CREATE_DOCUMENT,
+                IntentKind.GET_CONTENT, IntentKind.PICK, IntentKind.OPEN_DOCUMENT, IntentKind.CREATE_DOCUMENT,
                 IntentKind.CAPTURE_IMAGE, IntentKind.CAPTURE_VIDEO, IntentKind.RECORD_AUDIO,
                 IntentKind.DOCUMENT_PROVIDER, IntentKind.DOCUMENT_ROOT, IntentKind.PHOTO_SOURCE
             ),

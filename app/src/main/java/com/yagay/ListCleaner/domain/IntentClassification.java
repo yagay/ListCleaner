@@ -10,6 +10,8 @@ public final class IntentClassification {
         if ("android.intent.action.SEND_MULTIPLE".equals(action)) return "SHARE_MULTIPLE";
         if ("android.intent.action.SENDTO".equals(action)) return "SEND_TO";
         if ("android.intent.action.DIAL".equals(action)) return "DIAL";
+        if ("android.intent.action.EDIT".equals(action)) return "EDIT";
+        if ("android.intent.action.PICK".equals(action)) return "PICK";
         if ("android.intent.action.GET_CONTENT".equals(action)) return "GET_CONTENT";
         if ("android.intent.action.OPEN_DOCUMENT".equals(action)) return "OPEN_DOCUMENT";
         if ("android.intent.action.CREATE_DOCUMENT".equals(action)) return "CREATE_DOCUMENT";

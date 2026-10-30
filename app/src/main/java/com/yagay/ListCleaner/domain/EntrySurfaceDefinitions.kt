@@ -79,6 +79,8 @@ val ENTRY_SURFACE_DEFINITIONS: Map<IntentKind, EntrySurfaceDefinition> = buildMa
         IntentKind.SHARE_MULTIPLE,
         IntentKind.SEND_TO,
         IntentKind.OPEN,
+        IntentKind.EDIT,
+        IntentKind.PICK,
         IntentKind.DIAL,
         IntentKind.GET_CONTENT,
         IntentKind.OPEN_DOCUMENT,

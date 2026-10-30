@@ -76,6 +76,8 @@ val ENTRY_RUNTIME_DEFINITIONS: Map<IntentKind, EntryRuntimeDefinition> = buildMa
         IntentKind.SHARE_MULTIPLE,
         IntentKind.SEND_TO,
         IntentKind.OPEN,
+        IntentKind.EDIT,
+        IntentKind.PICK,
         IntentKind.DEEP_LINK,
         IntentKind.DIAL,
         IntentKind.GET_CONTENT,
