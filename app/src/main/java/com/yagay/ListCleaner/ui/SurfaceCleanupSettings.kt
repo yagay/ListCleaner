@@ -85,8 +85,12 @@ internal fun ActiveNotificationManagement(
 ) {
     val context = LocalContext.current
     val rows by NotificationCleanupController.rows.collectAsStateWithLifecycle()
+    val savedCategories by vm.surfaceFilters.collectAsStateWithLifecycle()
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
+    var draftCategories by remember(userId) { mutableStateOf<Set<String>?>(null) }
     val connected by NotificationCleanupController.connected.collectAsStateWithLifecycle()
+    val categoryMode = initialGrouping == ActiveNotificationGrouping.CATEGORY
+    val hiddenCategories = draftCategories ?: savedCategories.hiddenNotificationCategories
     val granted = NotificationManagerCompat.getEnabledListenerPackages(context)
         .contains(context.packageName)
     var grouping by remember(userId, initialGrouping) { mutableStateOf(initialGrouping) }
@@ -118,16 +122,23 @@ internal fun ActiveNotificationManagement(
     }.toSet()
     val guardOwner = remember(userId) { Any() }
     RegisterPendingNavigation(
-        pendingNavigation, guardOwner, chosen.size,
+        pendingNavigation, guardOwner, if (categoryMode) {
+            if (hiddenCategories != savedCategories.hiddenNotificationCategories) 1 else 0
+        } else chosen.size,
         apply = {
-            dismissalCount = NotificationCleanupController.dismiss(chosen)
-            selectedKeys = emptySet()
+            if (categoryMode) {
+                vm.setSurfaceFilters(savedCategories.copy(hiddenNotificationCategories = hiddenCategories).validated())
+                draftCategories = null
+            } else {
+                dismissalCount = NotificationCleanupController.dismiss(chosen)
+                selectedKeys = emptySet()
+            }
             true
         },
-        discard = { selectedKeys = emptySet() },
+        discard = { if (categoryMode) draftCategories = null else selectedKeys = emptySet() },
     )
 
-    if (!granted) {
+    if (!granted && !categoryMode) {
         SettingsHint(stringResource(R.string.surface_notifications_help))
         SettingsActionButton(onClick = {
             runCatching {
@@ -137,7 +148,7 @@ internal fun ActiveNotificationManagement(
         }) { AdaptiveText(stringResource(R.string.surface_grant_listener)) }
         return
     }
-    if (!connected) {
+    if (!connected && !categoryMode) {
         SettingsHint(stringResource(R.string.surface_wait_for_listener))
         return
     }
@@ -166,14 +177,18 @@ internal fun ActiveNotificationManagement(
         filter = filter, onFilter = { filter = it },
         actions = listOf(
             WorkspaceMenuAction(stringResource(R.string.select_all), {
-                selectedKeys = chosen + shownKeys
-            }, shownKeys.any { it !in chosen }),
+                if (categoryMode) draftCategories = hiddenCategories + shownGroups.map { it.key }
+                else selectedKeys = chosen + shownKeys
+            }, if (categoryMode) shownGroups.any { it.key !in hiddenCategories } else shownKeys.any { it !in chosen }),
             WorkspaceMenuAction(stringResource(R.string.surface_invert_selected), {
-                selectedKeys = (chosen - shownKeys) + shownKeys.filter { it !in chosen }
-            }, shownKeys.isNotEmpty()),
+                if (categoryMode) draftCategories = (hiddenCategories - shownGroups.map { it.key }.toSet()) +
+                    shownGroups.map { it.key }.filter { it !in hiddenCategories }
+                else selectedKeys = (chosen - shownKeys) + shownKeys.filter { it !in chosen }
+            }, if (categoryMode) shownGroups.isNotEmpty() else shownKeys.isNotEmpty()),
             WorkspaceMenuAction(stringResource(R.string.select_none), {
-                selectedKeys = chosen - shownKeys
-            }, shownKeys.any { it in chosen }),
+                if (categoryMode) draftCategories = hiddenCategories - shownGroups.map { it.key }.toSet()
+                else selectedKeys = chosen - shownKeys
+            }, if (categoryMode) shownGroups.any { it.key in hiddenCategories } else shownKeys.any { it in chosen }),
         ),
     )
     WorkspaceListSummary(
@@ -198,11 +213,14 @@ internal fun ActiveNotificationManagement(
             group.rows.size, group.rows.count { it.protected })
         SurfaceWorkspaceRow(
             title = title, subtitle = subtitle,
-            selected = complete, indeterminate = any && !complete,
-            enabled = allowedKeys.isNotEmpty(),
-            locked = allowedKeys.isEmpty(),
+            selected = if (categoryMode) group.key in hiddenCategories else complete,
+            indeterminate = !categoryMode && any && !complete,
+            enabled = if (categoryMode) true else allowedKeys.isNotEmpty(),
+            locked = !categoryMode && allowedKeys.isEmpty(),
             onToggle = {
-                selectedKeys = if (complete) chosen - allowedKeys else chosen + allowedKeys
+                if (categoryMode) draftCategories = if (group.key in hiddenCategories)
+                    hiddenCategories - group.key else hiddenCategories + group.key
+                else selectedKeys = if (complete) chosen - allowedKeys else chosen + allowedKeys
             },
             expanded = expandedGroup == group.key,
             onExpand = if (grouping != ActiveNotificationGrouping.ALL && group.rows.size > 1) {
@@ -241,7 +259,16 @@ internal fun ActiveNotificationManagement(
     dismissalCount?.let {
         WorkspaceAppNote(stringResource(R.string.surface_dismiss_requested, it))
     }
-    if (chosen.isNotEmpty()) PendingChangesBar(
+    if (categoryMode && hiddenCategories != savedCategories.hiddenNotificationCategories) PendingChangesBar(
+        count = (hiddenCategories - savedCategories.hiddenNotificationCategories).size +
+            (savedCategories.hiddenNotificationCategories - hiddenCategories).size,
+        onDiscard = { draftCategories = null },
+        onApply = {
+            vm.setSurfaceFilters(savedCategories.copy(hiddenNotificationCategories = hiddenCategories).validated())
+            draftCategories = null
+        },
+    )
+    if (!categoryMode && chosen.isNotEmpty()) PendingChangesBar(
         count = chosen.size,
         onDiscard = { selectedKeys = emptySet() },
         onApply = {
