@@ -196,7 +196,7 @@ internal fun AospSurfaceSettings(
                 }),
             ))
             if (draft != saved) PendingChangesBar(
-                count = 1, onDiscard = { draft = saved },
+                count = surfacePendingChangeCount(saved, draft), onDiscard = { draft = saved },
                 onApply = { vm.setSurfaceFilters(draft) },
             )            }
         }
