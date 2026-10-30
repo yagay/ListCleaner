@@ -501,17 +501,17 @@ if "end = MaterialUiTokens.pageHorizontal + MaterialUiTokens.appExpandIndicatorW
 if "val appExpandIndicatorWidth = 18.dp" not in visual_tokens:
     errors.append("MaterialDesignSystem.kt: missing shared overflow alignment width")
 
-# Application headers use a single borderless three-state mark, never the
-# Material square checkbox. Native 48dp hit area and tri-state semantics survive.
+# Application headers share the three-state square glyphs.
+# Native 48dp hit area and tri-state semantics survive.
 app_select = (root / "WorkspaceListParts.kt").read_text(encoding="utf-8").split(
     "internal fun WorkspaceAppSelectionCheckbox(", 1
 )[-1].split("internal fun WorkspaceAppSummaryText(", 1)[0]
 for token in ("triStateToggleable(", "state = state", "enabled = enabled",
               "role = Role.Checkbox", "onClick = onClick",
               "MaterialUiTokens.iconTouchTarget",
-              "ToggleableState.Off -> Icons.Rounded.Add",
-              "ToggleableState.Indeterminate -> Icons.Rounded.Remove",
-              "ToggleableState.On -> Icons.Rounded.Check",
+              "ToggleableState.Off -> Icons.Rounded.CheckBoxOutlineBlank",
+              "ToggleableState.Indeterminate -> Icons.Rounded.IndeterminateCheckBox",
+              "ToggleableState.On -> Icons.Rounded.CheckBox",
               "MaterialTheme.colorScheme.primary",
               "MaterialTheme.colorScheme.onSurfaceVariant"):
     if token not in app_select:
