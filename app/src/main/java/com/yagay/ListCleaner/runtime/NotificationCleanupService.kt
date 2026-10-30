@@ -75,7 +75,7 @@ object NotificationCleanupController {
 
     @Synchronized private fun saveHistory(context: Context) {
         val array = JSONArray()
-        history.values.takeLast(4000).forEach { row ->
+        history.values.toList().takeLast(4000).forEach { row ->
             array.put(JSONObject().apply {
                 put("pkg", row.packageName)
                 put("channel", row.channelId)
