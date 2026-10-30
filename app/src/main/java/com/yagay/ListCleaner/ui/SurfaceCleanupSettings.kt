@@ -402,7 +402,11 @@ internal fun ActiveNotificationManagement(
 
 /** Stale-rule review uses the same checkbox and category/filter system as Entry cleanup. */
 @Composable
-internal fun StaleRuleManagement(state: MainState, vm: MainViewModel) {
+internal fun StaleRuleManagement(
+    state: MainState,
+    vm: MainViewModel,
+    pendingNavigation: PendingNavigationGuard? = null,
+) {
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
     var refreshed by remember(userId) { mutableStateOf(false) }
     var scanStarted by remember(userId) { mutableStateOf(false) }
@@ -429,6 +433,19 @@ internal fun StaleRuleManagement(state: MainState, vm: MainViewModel) {
         (category == "ALL" || it.kind.name == category) &&
             surfaceFilterAllows(viewFilter, it in selected, false)
     }.sortedWith(compareBy({ it.packageName }, { it.kind.name }, { it.className })).toList()
+    val guardOwner = remember(userId) { Any() }
+    RegisterPendingNavigation(
+        pendingNavigation, guardOwner, selected.size,
+        apply = {
+            if (!completed || !state.error.isNullOrBlank()) false else {
+                vm.deselectRules(selected, null, null)
+                selectedRules = emptySet()
+                refreshed = false
+                true
+            }
+        },
+        discard = { selectedRules = emptySet() },
+    )
     val categories = listOf("ALL" to stringResource(R.string.common_all)) +
         stale.map { it.kind }.distinct().sortedBy { it.name }
             .map { it.name to stringResource(it.titleRes()) }
