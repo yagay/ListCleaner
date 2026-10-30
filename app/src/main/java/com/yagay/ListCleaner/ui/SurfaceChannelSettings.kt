@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +45,9 @@ internal fun SurfaceChannelSettings(
     var viewFilter by remember(userId) { mutableStateOf(UiFilter.ALL) }
     var expandedPackage by remember(userId) { mutableStateOf<String?>(null) }
     var packageInventories by remember(userId) { mutableStateOf<Map<String, ChannelInventory>>(emptyMap()) }
+    var scanProgress by remember(userId) { mutableStateOf(0) }
+    var scanning by remember(userId) { mutableStateOf(false) }
+    var scanRevision by remember(userId) { mutableStateOf(0) }
     val installedPackages = remember(userId) {
         if (userId == android.os.Process.myUid() / 100000) {
             runCatching {
@@ -58,6 +64,20 @@ internal fun SurfaceChannelSettings(
     )
 
     val observedPackages = (installedPackages + observed.filter { it.userId == userId }.map { it.packageName } + NotificationCleanupController.observedRows.value.filter { it.userId == userId }.map { it.packageName }).distinct().sorted()
+    // Scan once on entering the page, independent of expansion. Keep one root
+    // probe at a time and publish partial results without blocking composition.
+    LaunchedEffect(userId, installedPackages, scanRevision) {
+        scanning = true
+        scanProgress = 0
+        val targets = observedPackages
+        for (appPackage in targets) {
+            coroutineContext.ensureActive()
+            val result = NotificationCleanupController.channelsForPackage(appPackage, userId)
+            packageInventories = packageInventories + (appPackage to result)
+            scanProgress++
+        }
+        scanning = false
+    }
     val visiblePackages = observedPackages.filter {
         pkg.isBlank() || it.contains(pkg.trim(), ignoreCase = true)
     }
@@ -90,8 +110,12 @@ internal fun SurfaceChannelSettings(
     )
     WorkspaceListSummary(
         title = stringResource(R.string.surface_channels_title),
-        secondary = stringResource(R.string.surface_channels_help),
+        secondary = if (scanning) "$scanProgress / ${observedPackages.size}"
+            else stringResource(R.string.surface_channels_help),
     )
+    SettingsActionButton(onClick = { scanRevision++ }) {
+        AdaptiveText(stringResource(R.string.surface_scan_refresh))
+    }
     BasicTextField(
         value = pkg,
         onValueChange = { pkg = it.take(255) },
@@ -121,12 +145,7 @@ internal fun SurfaceChannelSettings(
         val selected = channels.isNotEmpty() && channels.all { draft.isChannelHidden(appPackage, it.channelId) }
         val expandApp: () -> Unit = {
             expandedPackage = if (expandedPackage == appPackage) null else appPackage
-            if (expandedPackage == appPackage && found == null) {
-                scope.launch {
-                    val result = NotificationCleanupController.channelsForPackage(appPackage, userId)
-                    packageInventories = packageInventories + (appPackage to result)
-                }
-            }
+
         }
         WorkspaceAppRow(
             icon = null,
