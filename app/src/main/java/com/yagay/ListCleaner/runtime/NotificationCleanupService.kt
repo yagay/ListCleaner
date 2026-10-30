@@ -152,7 +152,7 @@ object NotificationCleanupController {
     /** Root probe is read-only. Failure is not proof of an empty channel registry. */
     private fun rootChannelsForPackage(pkg: String, userId: Int): List<RegisteredChannelRow>? {
         if (userId != android.os.Process.myUid() / 100000) return null
-        if (!pkg.matches(Regex("[A-Za-z0-9_]+(\\\\.[A-Za-z0-9_]+)+"))) return null
+        if (!pkg.matches(Regex("[A-Za-z0-9_]+([.][A-Za-z0-9_]+)+"))) return null
         val context = listener?.applicationContext ?: return null
         val app = runCatching { context.packageManager.getApplicationInfo(pkg, 0) }.getOrNull()
             ?: return null
