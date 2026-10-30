@@ -429,13 +429,13 @@ internal fun StaleRuleManagement(state: MainState, vm: MainViewModel) {
         filter = viewFilter, onFilter = { viewFilter = it },
         actions = listOf(
             WorkspaceMenuAction(stringResource(R.string.select_all), {
-                selectedRules = selected + visible
+                selectedRules = applySurfaceBulkSelection(selected, visible, SurfaceBulkOperation.ALL)
             }, visible.any { it !in selected }),
             WorkspaceMenuAction(stringResource(R.string.surface_invert_selected), {
-                selectedRules = (selected - visible.toSet()) + visible.filter { it !in selected }
+                selectedRules = applySurfaceBulkSelection(selected, visible, SurfaceBulkOperation.INVERT)
             }, visible.isNotEmpty()),
             WorkspaceMenuAction(stringResource(R.string.select_none), {
-                selectedRules = selected - visible.toSet()
+                selectedRules = applySurfaceBulkSelection(selected, visible, SurfaceBulkOperation.NONE)
             }, visible.any { it in selected }),
         ),
     )
