@@ -13,7 +13,8 @@ public final class RootNotificationChannelProbe {
 
     public static void main(String[] args) {
         try {
-            if (args.length < 2 || args.length % 2 != 0 || args.length > 128)\n                throw new IllegalArgumentException("expected up to 64 package/uid pairs");
+            if (args.length < 2 || args.length % 2 != 0 || args.length > 128)
+                throw new IllegalArgumentException("expected up to 64 package/uid pairs");
             Class<?> serviceManager = Class.forName("android.os.ServiceManager");
             IBinder binder = (IBinder) serviceManager.getMethod("getService", String.class)
                 .invoke(null, "notification");
@@ -26,7 +27,7 @@ public final class RootNotificationChannelProbe {
             for (int i = 0; i < args.length; i += 2) {
                 String pkg = args[i];
                 int uid = Integer.parseInt(args[i + 1]);
-                if (!pkg.matches("[A-Za-z0-9_]+(\\\\.[A-Za-z0-9_]+)+") || uid < 0)
+                if (!pkg.matches("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)+") || uid < 0)
                     continue;
                 JSONObject item = new JSONObject();
                 item.put("pkg", pkg);
