@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FilterAlt
 import androidx.compose.material.icons.rounded.Layers
+import com.yagay.ListCleaner.domain.AppTypeFilter
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
@@ -71,25 +72,12 @@ internal fun SurfaceWorkspaceToolbar(
             }
         },
         filter = {
-            Box {
-                WorkspacePickerButton(
-                    label = stringResource(R.string.lc_filter_sheet_button),
-                    icon = Icons.Rounded.FilterAlt, selected = filter != UiFilter.ALL,
-                    expanded = filterOpen, iconOnly = true,
-                    onClick = { filterOpen = true },
-                )
-                FlatWorkspaceDropdownMenu(
-                    expanded = filterOpen, onDismissRequest = { filterOpen = false },
-                ) {
-                    UiFilter.entries.forEach { option ->
-                        WorkspaceFlatMenuRow(
-                            title = stringResource(option.titleRes()),
-                            selected = option == filter,
-                            onClick = { filterOpen = false; onFilter(option) },
-                        )
-                    }
-                }
-            }
+            WorkspaceFilterBar(
+                appTypeFilter = AppTypeFilter.ALL,
+                onAppTypeFilter = {},
+                viewFilter = filter,
+                onViewFilter = onFilter,
+            )
         },
         afterFilter = {
             WorkspaceListActions(actions = actions)
