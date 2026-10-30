@@ -148,59 +148,25 @@ internal fun SurfaceWorkspaceRow(
         )
         return
     }
-    var overflow by remember { mutableStateOf(false) }
-    ContinuousDetailSurface(selected = selected) {
-        Column {
-        Row(
-            modifier = Modifier.fillMaxWidth().heightIn(min = MaterialUiTokens.listRowHeight)
-                .background(if (nested) MaterialFlatPalette.selectionHighlightSurface()
-                    else androidx.compose.ui.graphics.Color.Transparent)
-                .padding(start = MaterialUiTokens.pageHorizontal + (if (nested) 24.dp else 0.dp),
-                    end = MaterialUiTokens.pageHorizontal),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap),
-        ) {
-            WorkspaceAppSelectionCheckbox(
-                state = when {
-                    indeterminate -> ToggleableState.Indeterminate
-                    selected -> ToggleableState.On
-                    else -> ToggleableState.Off
-                },
-                enabled = enabled, onClick = onToggle,
-            )
-            Column(Modifier.weight(1f).combinedClickable(
-                onClick = { if (enabled) onToggle() },
-                onLongClick = { if (actions.isNotEmpty()) overflow = true },
-            )) {
-                AdaptiveText(
-                    title, style = if (nested) MaterialTheme.typography.bodyMedium
-                        else MaterialTheme.typography.bodyLarge,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis,
-                )
-                AdaptiveText(
-                    subtitle, style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis,
-                )
-            }
-            if (locked) AdaptiveIcon(
-                Icons.Rounded.Lock, stringResource(R.string.filter_locked),
-                modifier = Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.primary,
-            )
+    // Entry/Component detail rows own the selection surface, inset and overflow.
+    // Lists supplies only its own selection state and backend callbacks.
+    WorkspaceDetailRow(
+        position = ListRowPosition.SINGLE,
+        checked = selected,
+        enabled = enabled,
+        locked = locked,
+        onToggle = onToggle,
+        content = {
+            WorkspaceDetailHeading(title = title, kind = "")
+            WorkspaceDetailCaption(subtitle)
+        },
+        trailing = { open, setOpen ->
             WorkspaceFlatOverflowMenu(
-                actions = actions, expanded = overflow, onExpandedChange = { overflow = it },
+                actions = actions,
+                expanded = open,
+                onExpandedChange = setOpen,
                 contentDescription = stringResource(R.string.common_more),
             )
-            if (onExpand != null) AdaptiveIconButton(onClick = onExpand) {
-                AdaptiveIcon(
-                    if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                    stringResource(if (expanded) R.string.common_collapse else R.string.common_expand),
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-        }
-        if (expanded) details?.invoke()
-        }
-    }
+        },
+    )
 }
