@@ -71,7 +71,7 @@ internal fun SurfaceChannelSettings(
     val guardOwner = remember(userId) { Any() }
     RegisterPendingNavigation(
         pendingNavigation, guardOwner, surfacePendingChangeCount(saved, draft),
-        apply = { vm.setSurfaceFilters(draft); true },
+        apply = { vm.setSurfaceFilters(draft) },
         discard = { draft = saved },
     )
 
