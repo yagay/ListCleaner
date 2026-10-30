@@ -183,17 +183,17 @@ object NotificationCleanupController {
     suspend fun channelsForPackage(pkg: String, userId: Int): ChannelInventory =
         withContext(Dispatchers.IO) {
             val current = listener
-                ?: return@withContext ChannelInventory(emptyList(), ChannelInventoryStatus.DISCONNECTED)
             val all = rootChannelsForPackage(pkg, userId)
                 ?: runCatching {
+                val available = current ?: throw IllegalStateException("Listener disconnected")
                 val handle = if (userId == android.os.Process.myUid() / 100000)
                     android.os.Process.myUserHandle()
                 else throw SecurityException("Cross-user notification channel registry is privileged")
                 val groups = runCatching {
-                    current.getNotificationChannelGroups(pkg, handle)
+                    available.getNotificationChannelGroups(pkg, handle)
                         ?.associate { it.id to it.name?.toString().orEmpty() }
                 }.getOrNull().orEmpty()
-                (current.getNotificationChannels(pkg, handle)
+                (available.getNotificationChannels(pkg, handle)
                     ?: throw SecurityException("Channel registry not available"))
                     .map { channel ->
                         RegisteredChannelRow(pkg, channel.id, channel.name?.toString() ?: channel.id,
@@ -210,7 +210,8 @@ object NotificationCleanupController {
                 val observed = observedRows.value.filter { it.packageName == pkg && it.userId == userId }
                     .map { RegisteredChannelRow(pkg, it.channelId, it.channelId, -1) }
                     .distinctBy { it.channelId }.sortedBy { it.channelId }
-                ChannelInventory(observed, ChannelInventoryStatus.OBSERVED_ONLY)
+                ChannelInventory(observed, if (current == null) ChannelInventoryStatus.DISCONNECTED
+                    else ChannelInventoryStatus.OBSERVED_ONLY)
             }
         }
 
