@@ -127,7 +127,7 @@ internal fun SurfaceWorkspaceRow(
             modifier = Modifier.fillMaxWidth().heightIn(min = MaterialUiTokens.listRowHeight)
                 .background(if (nested) MaterialFlatPalette.selectionHighlightSurface()
                     else androidx.compose.ui.graphics.Color.Transparent)
-                .padding(start = MaterialUiTokens.pageHorizontal + if (nested) 24.dp else 0.dp,
+                .padding(start = MaterialUiTokens.pageHorizontal + (if (nested) 24.dp else 0.dp),
                     end = MaterialUiTokens.pageHorizontal),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap),
