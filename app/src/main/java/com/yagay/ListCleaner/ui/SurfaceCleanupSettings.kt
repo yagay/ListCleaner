@@ -107,13 +107,16 @@ internal fun ActiveNotificationManagement(
         (savedCategories.hiddenNotificationCategories - hiddenCategories).size
     val channelChanges = (hiddenChannels - savedCategories.hiddenNotificationChannels).size +
         (savedCategories.hiddenNotificationChannels - hiddenChannels).size
-    val applyCategoryChanges: () -> Unit = {
-        vm.setSurfaceFilters(savedCategories.copy(
+    val applyCategoryChanges: () -> Boolean = {
+        val accepted = vm.setSurfaceFilters(savedCategories.copy(
             hiddenNotificationCategories = hiddenCategories,
             hiddenNotificationChannels = hiddenChannels,
         ).validated())
-        draftCategories = null
-        draftChannels = null
+        if (accepted) {
+            draftCategories = null
+            draftChannels = null
+        }
+        accepted
     }
     val granted = NotificationManagerCompat.getEnabledListenerPackages(context)
         .contains(context.packageName)
@@ -175,8 +178,8 @@ internal fun ActiveNotificationManagement(
             } else {
                 dismissalCount = NotificationCleanupController.dismiss(chosen)
                 selectedKeys = emptySet()
+                true
             }
-            true
         },
         discard = {
             if (categoryMode) { draftCategories = null; draftChannels = null }
