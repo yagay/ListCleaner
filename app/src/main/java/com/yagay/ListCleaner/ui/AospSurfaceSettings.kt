@@ -182,7 +182,10 @@ internal fun AospSurfaceSettings(
                 )) {
                     WorkspaceDetailHeading(title = title, kind = selectedKind.name)
                     WorkspaceDetailCaption(id)
-                    WorkspaceListActions(actions = actions)
+                    if (isLocked) WorkspaceAppNote(
+                        stringResource(R.string.filter_locked),
+                        informational = true,
+                    )
                 }
             },
         )
