@@ -7,7 +7,6 @@ import android.content.pm.PackageManager
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -118,20 +117,11 @@ internal fun AospSurfaceSettings(
         title = stringResource(R.string.surface_aosp_selected, selected.size),
         secondary = catalog.description,
     )
-    BasicTextField(
+    SurfaceWorkspaceSearchField(
         value = query,
-        onValueChange = { query = it.take(80) },
-        modifier = Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal),
-        textStyle = MaterialTheme.typography.bodyLarge.copy(
-            color = MaterialTheme.colorScheme.onSurface,
-        ),
-        singleLine = true,
-        decorationBox = { input ->
-            Column {
-                WorkspaceDetailCaption(stringResource(R.string.surface_aosp_search))
-                input()
-            }
-        },
+        onValueChange = { query = it },
+        label = stringResource(R.string.surface_aosp_search),
+        maxLength = 80,
     )
     visible.take(250).forEach { (id, title) ->
         val appIcon = remember(id, userId) {
