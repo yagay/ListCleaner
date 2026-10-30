@@ -42,10 +42,14 @@ internal fun AospSurfaceSettings(
     val saved by vm.surfaceFilters.collectAsStateWithLifecycle()
     var draft by remember(userId, saved) { mutableStateOf(saved) }
     var query by remember(userId, selectedKind) { mutableStateOf("") }
-    var viewFilter by remember(userId, selectedKind) { mutableStateOf(UiPreferencesStore.initialFilter(context, "lists_aosp_${selectedKind.name}")) }
-    var appCategory by remember(userId, selectedKind) { mutableStateOf(UiPreferencesStore.initialAppType(context, "lists_aosp_${selectedKind.name}")) }
+    val uiState = rememberSurfaceWorkspaceUiState(
+        userId, "aosp_${selectedKind.name}",
+        UiPreferencesStore.initialFilter(context, "lists_aosp_${selectedKind.name}"),
+        UiPreferencesStore.initialAppType(context, "lists_aosp_${selectedKind.name}"),
+    )
+    val viewFilter = uiState.viewFilter
+    val appCategory = uiState.appTypeFilter
     var refreshRevision by remember(userId, selectedKind) { mutableStateOf(0) }
-    var expandedId by remember(userId, selectedKind) { mutableStateOf<String?>(null) }
     val guardOwner = remember(userId, selectedKind) { Any() }
     RegisterPendingNavigation(
         pendingNavigation, guardOwner, if (draft != saved) 1 else 0,
@@ -100,9 +104,9 @@ internal fun AospSurfaceSettings(
                 category = "",
                 options = listOf("" to stringResource(R.string.common_all)),
                 onCategory = {},
-                filter = viewFilter, onFilter = { viewFilter = it; UiPreferencesStore.rememberFilter(context, it, "lists_aosp_${selectedKind.name}") },
+                filter = viewFilter, onFilter = { uiState.viewFilter = it; UiPreferencesStore.rememberFilter(context, it, "lists_aosp_${selectedKind.name}") },
                 appTypeFilter = appCategory,
-                onAppTypeFilter = { appCategory = it; UiPreferencesStore.rememberAppType(context, it, "lists_aosp_${selectedKind.name}") },
+                onAppTypeFilter = { uiState.appTypeFilter = it; UiPreferencesStore.rememberAppType(context, it, "lists_aosp_${selectedKind.name}") },
                 showAppTypeFilter = applicationBased,
                 actions = listOf(
                     WorkspaceMenuAction(stringResource(R.string.select_all), {
@@ -171,8 +175,8 @@ internal fun AospSurfaceSettings(
             }, actions = actions,
             onLock = { draft = draft.withLocked(selectedKind, locked + id) },
             onUnlock = { draft = draft.withLocked(selectedKind, locked - id) },
-            expanded = expandedId == id,
-            onExpand = { expandedId = if (expandedId == id) null else id },
+            expanded = uiState.expandedKey == id,
+            onExpand = { uiState.toggleExpanded(id) },
             details = {
                 Column(Modifier.fillMaxWidth().padding(
                     start = MaterialUiTokens.pageHorizontal, end = MaterialUiTokens.pageHorizontal,
