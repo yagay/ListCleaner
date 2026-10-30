@@ -2,6 +2,12 @@ package com.yagay.ListCleaner.ui
 
 import android.graphics.Bitmap
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.Modifier
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.runtime.Composable
@@ -145,6 +151,31 @@ internal fun SurfaceWorkspaceRow(
                 onExpandedChange = setOpen,
                 contentDescription = stringResource(R.string.common_more),
             )
+        },
+    )
+}
+
+/** Shared searchable workspace control; data source and filtering stay with each editor. */
+@Composable
+internal fun SurfaceWorkspaceSearchField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    maxLength: Int = 255,
+) {
+    BasicTextField(
+        value = value,
+        onValueChange = { onValueChange(it.take(maxLength)) },
+        modifier = Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal),
+        textStyle = MaterialTheme.typography.bodyLarge.copy(
+            color = MaterialTheme.colorScheme.onSurface,
+        ),
+        singleLine = true,
+        decorationBox = { input ->
+            Column {
+                WorkspaceDetailCaption(label)
+                input()
+            }
         },
     )
 }
