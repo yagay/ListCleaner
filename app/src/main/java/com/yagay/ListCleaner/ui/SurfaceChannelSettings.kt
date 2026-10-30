@@ -134,6 +134,23 @@ internal fun SurfaceChannelSettings(
     }
     val displayedPackages = filteredPackages.take(250)
     val visibleChannels = displayedPackages.flatMap { packageInventories[it]?.items.orEmpty() }
+    val editableChannels = visibleChannels.filterNot {
+        draft.isChannelLocked(it.packageName, it.channelId)
+    }
+    val visibleChannelIds = editableChannels.map { it.packageName to it.channelId }.toSet()
+    val selectedChannelIds = editableChannels.filter {
+        draft.isChannelHidden(it.packageName, it.channelId)
+    }.map { it.packageName to it.channelId }.toSet()
+    val applyBulkChannels: (SurfaceBulkOperation) -> Unit = { operation ->
+        val updated = applySurfaceBulkSelection(selectedChannelIds, visibleChannelIds, operation)
+        editableChannels.forEach { channel ->
+            val id = channel.packageName to channel.channelId
+            if ((id in updated) != (id in selectedChannelIds)) {
+                draft = draft.withChannelHidden(channel.packageName, channel.channelId, id in updated)
+            }
+        }
+    }
+
     Column(Modifier.fillMaxSize()) {
         Column {
 
@@ -147,21 +164,14 @@ internal fun SurfaceChannelSettings(
                 showAppTypeFilter = true,
                 actions = listOf(
                     WorkspaceMenuAction(stringResource(R.string.select_all), {
-                        visibleChannels.filterNot { draft.isChannelLocked(it.packageName, it.channelId) }.forEach { channel ->
-                            draft = draft.withChannelHidden(channel.packageName, channel.channelId, true)
-                        }
-                    }, !scanning && visibleChannels.any { !draft.isChannelLocked(it.packageName, it.channelId) && !draft.isChannelHidden(it.packageName, it.channelId) }),
+                        applyBulkChannels(SurfaceBulkOperation.ALL)
+                    }, !scanning && visibleChannelIds.any { it !in selectedChannelIds }),
                     WorkspaceMenuAction(stringResource(R.string.surface_invert_selected), {
-                        visibleChannels.filterNot { draft.isChannelLocked(it.packageName, it.channelId) }.forEach { channel ->
-                            draft = draft.withChannelHidden(channel.packageName, channel.channelId,
-                                !draft.isChannelHidden(channel.packageName, channel.channelId))
-                        }
-                    }, !scanning && visibleChannels.any { !draft.isChannelLocked(it.packageName, it.channelId) }),
+                        applyBulkChannels(SurfaceBulkOperation.INVERT)
+                    }, !scanning && visibleChannelIds.isNotEmpty()),
                     WorkspaceMenuAction(stringResource(R.string.select_none), {
-                        visibleChannels.filterNot { draft.isChannelLocked(it.packageName, it.channelId) }.forEach { channel ->
-                            draft = draft.withChannelHidden(channel.packageName, channel.channelId, false)
-                        }
-                    }, !scanning && visibleChannels.any { !draft.isChannelLocked(it.packageName, it.channelId) && draft.isChannelHidden(it.packageName, it.channelId) }),
+                        applyBulkChannels(SurfaceBulkOperation.NONE)
+                    }, !scanning && selectedChannelIds.isNotEmpty()),
                 ),
             )
             WorkspaceListSummary(
