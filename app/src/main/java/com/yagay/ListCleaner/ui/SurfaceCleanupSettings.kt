@@ -419,12 +419,12 @@ internal fun StaleRuleManagement(
     }
     val completed = refreshed && scanStarted && !state.loading
     var selectedRules by remember(userId) { mutableStateOf(emptySet<ComponentRule>()) }
-    var category by remember(userId) { mutableStateOf("ALL") }
     val maintenanceUi = rememberSurfaceWorkspaceUiState(
         userId, "maintenance",
         UiPreferencesStore.initialFilter(context, "lists_maintenance"),
         UiPreferencesStore.initialAppType(context, "lists_maintenance"),
     )
+    val category = maintenanceUi.selectedCategory
     val viewFilter = maintenanceUi.viewFilter
     val stale = if (completed && state.error.isNullOrBlank()) {
         val returned = state.candidates.mapTo(hashSetOf()) { it.rule }
@@ -457,7 +457,7 @@ internal fun StaleRuleManagement(
     Column(Modifier.fillMaxSize()) {
     SurfaceWorkspaceToolbar(
         category = category, options = categories,
-        onCategory = { category = it },
+        onCategory = { maintenanceUi.selectedCategory = it },
         filter = viewFilter, onFilter = { maintenanceUi.viewFilter = it; UiPreferencesStore.rememberFilter(context, it, "lists_maintenance") },
         actions = listOf(
             WorkspaceMenuAction(stringResource(R.string.select_all), {

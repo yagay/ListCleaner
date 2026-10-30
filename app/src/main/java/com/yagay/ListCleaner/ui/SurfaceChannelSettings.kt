@@ -47,12 +47,12 @@ internal fun SurfaceChannelSettings(
     val scope = rememberCoroutineScope()
     val saved by vm.surfaceFilters.collectAsStateWithLifecycle()
     var draft by remember(userId, saved) { mutableStateOf(saved) }
-    var pkg by remember(userId) { mutableStateOf("") }
     val uiState = rememberSurfaceWorkspaceUiState(
         userId, "channels",
         UiPreferencesStore.initialFilter(context, "lists_channels"),
         UiPreferencesStore.initialAppType(context, "lists_channels"),
     )
+    val pkg = uiState.searchQuery
     val viewFilter = uiState.viewFilter
     val appTypeFilter = uiState.appTypeFilter
     var packageInventories by remember(userId) { mutableStateOf<Map<String, ChannelInventory>>(emptyMap()) }
@@ -188,7 +188,7 @@ internal fun SurfaceChannelSettings(
             }
             SurfaceWorkspaceSearchField(
                 value = pkg,
-                onValueChange = { pkg = it },
+                onValueChange = { uiState.searchQuery = it },
                 label = stringResource(R.string.surface_channels_package),
             )
         

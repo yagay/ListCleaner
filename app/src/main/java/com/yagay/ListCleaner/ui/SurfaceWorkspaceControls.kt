@@ -224,6 +224,8 @@ internal class SurfaceWorkspaceUiState(
     var appTypeFilter by mutableStateOf(initialAppType)
     var expandedKey by mutableStateOf<String?>(null)
         private set
+    var searchQuery by mutableStateOf("")
+    var selectedCategory by mutableStateOf("ALL")
 
     fun toggleExpanded(key: String) {
         expandedKey = if (expandedKey == key) null else key
@@ -232,7 +234,7 @@ internal class SurfaceWorkspaceUiState(
 
 private val SurfaceWorkspaceUiSaver = Saver<SurfaceWorkspaceUiState, List<String>>(
     save = { state ->
-        listOf(state.viewFilter.name, state.appTypeFilter.name, state.expandedKey.orEmpty())
+        listOf(state.viewFilter.name, state.appTypeFilter.name, state.expandedKey.orEmpty(), state.searchQuery, state.selectedCategory)
     },
     restore = { values ->
         SurfaceWorkspaceUiState(
@@ -240,6 +242,8 @@ private val SurfaceWorkspaceUiSaver = Saver<SurfaceWorkspaceUiState, List<String
             AppTypeFilter.entries.firstOrNull { it.name == values.getOrNull(1) } ?: AppTypeFilter.USER,
         ).also { state ->
             values.getOrNull(2)?.takeIf { it.isNotEmpty() }?.let(state::toggleExpanded)
+            state.searchQuery = values.getOrNull(3).orEmpty()
+            state.selectedCategory = values.getOrNull(4) ?: "ALL"
         }
     },
 )

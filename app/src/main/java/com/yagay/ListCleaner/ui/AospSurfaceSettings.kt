@@ -41,12 +41,12 @@ internal fun AospSurfaceSettings(
     val context = LocalContext.current
     val saved by vm.surfaceFilters.collectAsStateWithLifecycle()
     var draft by remember(userId, saved) { mutableStateOf(saved) }
-    var query by remember(userId, selectedKind) { mutableStateOf("") }
     val uiState = rememberSurfaceWorkspaceUiState(
         userId, "aosp_${selectedKind.name}",
         UiPreferencesStore.initialFilter(context, "lists_aosp_${selectedKind.name}"),
         UiPreferencesStore.initialAppType(context, "lists_aosp_${selectedKind.name}"),
     )
+    val query = uiState.searchQuery
     val viewFilter = uiState.viewFilter
     val appCategory = uiState.appTypeFilter
     var refreshRevision by remember(userId, selectedKind) { mutableStateOf(0) }
@@ -126,7 +126,7 @@ internal fun AospSurfaceSettings(
             )
             SurfaceWorkspaceSearchField(
                 value = query,
-                onValueChange = { query = it },
+                onValueChange = { uiState.searchQuery = it },
                 label = stringResource(R.string.surface_aosp_search),
                 maxLength = 80,
             )

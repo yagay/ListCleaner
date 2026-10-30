@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -94,6 +95,7 @@ internal fun SurfaceManagementTab(
     var page by rememberSaveable { mutableStateOf<SurfaceManagerPage?>(null) }
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
     val activeNotifications by NotificationCleanupController.rows.collectAsStateWithLifecycle()
+    val editorStateHolder = rememberSaveableStateHolder()
 
     val navigateBack: () -> Unit = {
         val performBack = {
@@ -114,7 +116,8 @@ internal fun SurfaceManagementTab(
                 onBack = navigateBack,
             )
             Box(Modifier.weight(1f)) {
-                when (current) {
+                editorStateHolder.SaveableStateProvider("lists-${userId}-${current.name}") {
+                    when (current) {
                     SurfaceManagerPage.NOTIFICATIONS_CHANNELS ->
                         SurfaceChannelSettings(vm, userId, activeNotifications, pendingNavigation)
                     SurfaceManagerPage.NOTIFICATIONS_CURRENT ->
@@ -123,6 +126,7 @@ internal fun SurfaceManagementTab(
                         ActiveNotificationManagement(vm, pendingNavigation, ActiveNotificationGrouping.CATEGORY)
                     SurfaceManagerPage.INVALID_RULES -> StaleRuleManagement(state, vm, pendingNavigation)
                     else -> AospSurfaceSettings(vm, userId, requireNotNull(current.kind), pendingNavigation)
+                    }
                 }
             }
         }
