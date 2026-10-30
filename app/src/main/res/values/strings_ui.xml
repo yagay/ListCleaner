@@ -216,4 +216,21 @@
     <string name="surface_channels_count">%1$d channels found</string>
     <string name="surface_channels_confirm">Apply notification channel filters?</string>
     <string name="surface_channels_confirm_help">Only notification shade display is filtered. Channel importance and saved notifications are not changed.</string>
+    <string name="nav_surface_management">Lists</string>
+    <string name="surface_group_notifications">Notifications</string>
+    <string name="surface_group_notifications_help">Current notifications, notification shade and channels</string>
+    <string name="surface_group_launcher">Home and recents</string>
+    <string name="surface_group_launcher_help">App drawer, suggestions and recent task cards</string>
+    <string name="surface_group_system">System lists</string>
+    <string name="surface_group_system_help">Quick Settings, recent files, app management and media devices</string>
+    <string name="surface_group_maintenance">Rule maintenance</string>
+    <string name="surface_group_maintenance_help">Review invalid rules before removing them</string>
+    <string name="surface_shade_filter_help">Hide selected applications in the notification shade, without dismissing posted notifications</string>
+    <string name="surface_drawer_filter_help">Hide selected apps from the AOSP app drawer without disabling launch activities</string>
+    <string name="surface_prediction_filter_help">Manage the launcher's suggested applications</string>
+    <string name="surface_recents_filter_help">Filter recent task cards without stopping running tasks</string>
+    <string name="surface_qs_filter_help">Hide or prioritize available tiles in the add-tile editor</string>
+    <string name="surface_documents_filter_help">Filter recent file sources in AOSP DocumentsUI</string>
+    <string name="surface_settings_filter_help">Hide or prioritize rows in the AOSP installed-app list</string>
+    <string name="surface_media_filter_help">Hide unconnected media output destinations from the device list</string>
 </resources>

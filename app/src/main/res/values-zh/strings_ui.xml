@@ -216,4 +216,21 @@
     <string name="surface_channels_count">找到 %1$d 个通知渠道</string>
     <string name="surface_channels_confirm">确定应用通知渠道过滤？</string>
     <string name="surface_channels_confirm_help">只过滤通知栏显示，不修改通知重要性，也不删除已保存的通知。</string>
+    <string name="nav_surface_management">列表清理</string>
+    <string name="surface_group_notifications">通知清理</string>
+    <string name="surface_group_notifications_help">当前通知、通知栏隐藏及通知渠道</string>
+    <string name="surface_group_launcher">桌面与最近任务</string>
+    <string name="surface_group_launcher_help">应用抽屉、推荐应用及最近任务卡片</string>
+    <string name="surface_group_system">系统列表</string>
+    <string name="surface_group_system_help">快捷设置、最近文件、应用管理及媒体设备</string>
+    <string name="surface_group_maintenance">规则维护</string>
+    <string name="surface_group_maintenance_help">检查失效规则后再手动移除</string>
+    <string name="surface_shade_filter_help">只隐藏通知栏内的指定应用，不会撤销已发布的通知</string>
+    <string name="surface_drawer_filter_help">从 AOSP 应用抽屉隐藏应用，不禁用 Launcher 组件</string>
+    <string name="surface_prediction_filter_help">管理桌面推荐应用</string>
+    <string name="surface_recents_filter_help">隐藏最近任务卡片，不停止后台任务</string>
+    <string name="surface_qs_filter_help">隐藏或调整添加磁贴界面中的候选顺序</string>
+    <string name="surface_documents_filter_help">过滤 AOSP DocumentsUI 的最近文件来源</string>
+    <string name="surface_settings_filter_help">过滤或调整 AOSP 已安装应用列表</string>
+    <string name="surface_media_filter_help">从媒体输出列表中隐藏未连接的设备</string>
 </resources>
