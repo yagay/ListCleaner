@@ -52,7 +52,7 @@ internal fun AospSurfaceSettings(
     var refreshRevision by remember(userId, selectedKind) { mutableStateOf(0) }
     val guardOwner = remember(userId, selectedKind) { Any() }
     RegisterPendingNavigation(
-        pendingNavigation, guardOwner, if (draft != saved) 1 else 0,
+        pendingNavigation, guardOwner, surfacePendingChangeCount(saved, draft),
         apply = { vm.setSurfaceFilters(draft); true },
         discard = { draft = saved },
     )
