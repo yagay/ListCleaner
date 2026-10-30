@@ -70,8 +70,12 @@ class AospSurfaceFilterModule : XposedModule() {
                     "onTilesChanged", 1, "qs") { chain ->
                     val args = chain.args.toTypedArray()
                     val items = args[0] as? List<*> ?: return@install proceedOriginal(chain)
-                    val selected = policy().selected(SurfaceKind.QS_EDITOR)
-                    if (selected.isEmpty()) return@install proceedOriginal(chain)
+                    val user = Process.myUid() / 100000
+                    val policy = policy(user)
+                    val selected = policy.selected(SurfaceKind.QS_EDITOR)
+                    val rank = policy.priorities(SurfaceKind.QS_EDITOR).withIndex()
+                        .associate { it.value to it.index }
+                    if (selected.isEmpty() && rank.isEmpty()) return@install proceedOriginal(chain)
                     val activeSpecs = (ReflectionAccess.readField(chain.thisObject,
                         "mCurrentSpecs") as? Collection<*>)?.filterIsInstance<String>()
                         ?: return@install proceedOriginal(chain)
@@ -80,9 +84,20 @@ class AospSurfaceFilterModule : XposedModule() {
                         val pkg = tilePackage(spec)
                         pkg == null || pkg !in selected || spec in activeSpecs
                     }
-                    if (filtered.size == items.size) proceedOriginal(chain)
+                    // Reorder editor suggestions only; never move already added tiles.
+                    val positions = filtered.indices.filter { index ->
+                        val spec = ReflectionAccess.readField(filtered[index], "spec") as? String
+                        spec !in activeSpecs
+                    }
+                    val arranged = filtered.toMutableList()
+                    val ranked = positions.map { filtered[it] }.sortedWith(compareBy { item ->
+                        val spec = ReflectionAccess.readField(item, "spec") as? String
+                        rank[tilePackage(spec)] ?: Int.MAX_VALUE
+                    })
+                    positions.forEachIndexed { i, index -> arranged[index] = ranked[i] }
+                    if (arranged == items) proceedOriginal(chain)
                     else {
-                        args[0] = ArrayList(filtered)
+                        args[0] = ArrayList(arranged)
                         proceedOriginal(chain, args)
                     }
                 }
