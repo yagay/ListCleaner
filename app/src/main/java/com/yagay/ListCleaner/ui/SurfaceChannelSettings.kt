@@ -1,6 +1,8 @@
 package com.yagay.ListCleaner.ui
 
 import android.content.Intent
+import android.content.pm.ApplicationInfo
+import com.yagay.ListCleaner.domain.AppTypeFilter
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.provider.Settings
@@ -45,6 +47,7 @@ internal fun SurfaceChannelSettings(
     var draft by remember(userId, saved) { mutableStateOf(saved) }
     var pkg by remember(userId) { mutableStateOf("") }
     var viewFilter by remember(userId) { mutableStateOf(UiFilter.ALL) }
+    var appTypeFilter by remember(userId) { mutableStateOf(AppTypeFilter.ALL) }
     var expandedPackage by remember(userId) { mutableStateOf<String?>(null) }
     var packageInventories by remember(userId) { mutableStateOf<Map<String, ChannelInventory>>(emptyMap()) }
     var scanProgress by remember(userId) { mutableStateOf(0) }
@@ -98,6 +101,18 @@ internal fun SurfaceChannelSettings(
     val visiblePackages = observedPackages.filter { name ->
         pkg.isBlank() || name.contains(pkg.trim(), ignoreCase = true) ||
             packageLabels[name].orEmpty().contains(pkg.trim(), ignoreCase = true)
+    }.filter { name ->
+        if (appTypeFilter == AppTypeFilter.ALL) true else {
+            val isSystem = runCatching {
+                val info = context.packageManager.getApplicationInfo(name, 0)
+                (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+            }.getOrNull()
+            when (appTypeFilter) {
+                AppTypeFilter.ALL -> true
+                AppTypeFilter.USER -> isSystem == false
+                AppTypeFilter.SYSTEM -> isSystem == true
+            }
+        }
     }
     // Filter at the app level, like Entry/Component: the rows and the
     // bulk-action scope must be based on exactly the same visible apps.
@@ -122,6 +137,9 @@ internal fun SurfaceChannelSettings(
         options = listOf("" to stringResource(R.string.common_all)),
         onCategory = {},
         filter = viewFilter, onFilter = { viewFilter = it },
+        appTypeFilter = appTypeFilter,
+        onAppTypeFilter = { appTypeFilter = it },
+        showAppTypeFilter = true,
         actions = listOf(
             WorkspaceMenuAction(stringResource(R.string.select_all), {
                 visibleChannels.filterNot { draft.isChannelLocked(it.packageName, it.channelId) }.forEach { channel ->
