@@ -50,8 +50,9 @@ internal fun SurfaceChannelSettings(
     var scanProgress by remember(userId) { mutableStateOf(0) }
     var scanning by remember(userId) { mutableStateOf(false) }
     var scanRevision by remember(userId) { mutableStateOf(0) }
+    val localUserId = android.os.Process.myUid() / 100000
     val installedPackages = remember(userId) {
-        if (userId == android.os.Process.myUid() / 100000) {
+        if (userId == localUserId) {
             runCatching {
                 context.packageManager.getInstalledApplications(0).map { it.packageName }
             }.getOrDefault(emptyList())
@@ -153,7 +154,7 @@ internal fun SurfaceChannelSettings(
     visiblePackages.take(250).forEach { appPackage ->
         val appLabel = packageLabels[appPackage] ?: appPackage
         val appIcon = remember(appPackage, userId) {
-            runCatching {
+            if (userId != localUserId) null else runCatching {
                 val drawable = context.packageManager.getApplicationIcon(appPackage).mutate()
                 val size = (48 * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
                 val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
