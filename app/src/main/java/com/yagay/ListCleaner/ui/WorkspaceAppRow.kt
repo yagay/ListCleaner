@@ -39,7 +39,9 @@ internal fun WorkspaceAppRow(
     packageName: String? = null,
     modifier: Modifier = Modifier,
     details: @Composable ColumnScope.() -> Unit = {},
-    trailing: @Composable RowScope.() -> Unit = {}
+    trailing: @Composable RowScope.() -> Unit = {},
+    menuActions: List<WorkspaceMenuAction>? = null,
+    expandedContent: @Composable ColumnScope.() -> Unit = {},
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     val expandLabel = stringResource(if (expanded) R.string.common_collapse else R.string.common_expand)
@@ -64,7 +66,7 @@ internal fun WorkspaceAppRow(
             trailing = {
                 trailing()
                 WorkspaceFlatOverflowMenu(
-                    actions = listOfNotNull(
+                    actions = menuActions ?: listOfNotNull(
                         onOverview?.let { WorkspaceMenuAction(label = stringResource(R.string.app_overview_title), onClick = it) },
                         WorkspaceMenuAction(
                             label = stringResource(R.string.bulk_lock_action_lock),
@@ -96,7 +98,9 @@ internal fun WorkspaceAppRow(
             }
         )
     }
-    ContinuousApplicationSurface(expanded = expanded) { appContent() }
+    ContinuousApplicationSurface(expanded = expanded) {
+        Column { appContent(); if (expanded) expandedContent() }
+    }
 }
 
 /**
