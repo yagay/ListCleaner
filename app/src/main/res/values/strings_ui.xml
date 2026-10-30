@@ -203,4 +203,7 @@
     <string name="surface_scan_refresh">Refresh candidate list</string>
     <string name="surface_select_shown">Select the shown candidates</string>
     <string name="surface_clear_selected">Clear selections for this surface</string>
+    <string name="surface_lock_target">Lock selection against bulk changes</string>
+    <string name="surface_move_earlier">Move earlier (priority)</string>
+    <string name="surface_move_later">Move later (priority)</string>
 </resources>

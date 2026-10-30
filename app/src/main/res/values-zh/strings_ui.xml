@@ -203,4 +203,7 @@
     <string name="surface_scan_refresh">刷新候选列表</string>
     <string name="surface_select_shown">选中当前显示的候选项</string>
     <string name="surface_clear_selected">清空当前列表选中项</string>
+    <string name="surface_lock_target">锁定选中项目（批量操作不影响）</string>
+    <string name="surface_move_earlier">优先级上移</string>
+    <string name="surface_move_later">优先级下移</string>
 </resources>

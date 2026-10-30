@@ -21,6 +21,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.runtime.NotificationCleanupController
 import com.yagay.ListCleaner.domain.SurfaceKind
+import com.yagay.ListCleaner.domain.supportsSurfaceOrdering
 
 private fun SurfaceKind.label(): Int = when (this) {
     SurfaceKind.NOTIFICATION_SHADE -> R.string.surface_aosp_notifications
@@ -50,8 +51,12 @@ internal fun AospSurfaceSettings(vm: MainViewModel, userId: Int) {
     val chosen = draft.selected(selectedKind)
     // Selected but temporarily unavailable targets remain editable. Never discard
     // existing rules merely because the source is restricted or currently empty.
+    val priorities = draft.priorities(selectedKind)
+    val ranks = priorities.withIndex().associate { it.value to it.index }
     val selectable = (catalog.items + chosen.map { it to it }).distinctBy { it.first }
-        .sortedWith(compareBy({ it.second.lowercase() }, { it.first }))
+        .sortedWith(compareBy<Pair<String, String>>(
+            { ranks[it.first] ?: Int.MAX_VALUE }, { it.second.lowercase() }, { it.first }
+        ))
     val matches = selectable.filter { (pkg, label) ->
         query.isBlank() || pkg.contains(query.trim(), ignoreCase = true) ||
             label.contains(query.trim(), ignoreCase = true)
@@ -101,11 +106,32 @@ internal fun AospSurfaceSettings(vm: MainViewModel, userId: Int) {
                     title = label,
                     supportingText = pkg,
                     checked = pkg in chosen,
+                    enabled = pkg !in draft.locked(selectedKind),
                     onCheckedChange = { enabled ->
                         val update = if (enabled) chosen + pkg else chosen - pkg
                         draft = draft.withSelected(selectedKind, update)
                     }
                 )
+                if (pkg in chosen) {
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.surface_lock_target),
+                        supportingText = pkg,
+                        checked = pkg in draft.locked(selectedKind),
+                        onCheckedChange = { locked ->
+                            val next = if (locked) draft.locked(selectedKind) + pkg
+                                else draft.locked(selectedKind) - pkg
+                            draft = draft.withLocked(selectedKind, next)
+                        },
+                    )
+                    if (selectedKind.supportsSurfaceOrdering()) {
+                        SettingsActionButton(onClick = {
+                            draft = draft.movePriority(selectedKind, pkg, -1)
+                        }) { AdaptiveText(stringResource(R.string.surface_move_earlier)) }
+                        SettingsActionButton(onClick = {
+                            draft = draft.movePriority(selectedKind, pkg, 1)
+                        }) { AdaptiveText(stringResource(R.string.surface_move_later)) }
+                    }
+                }
             }
         }
         if (matches.size > 120) SettingsHint(
