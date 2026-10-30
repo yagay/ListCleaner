@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
@@ -211,4 +212,29 @@ internal fun surfacePendingChangeCount(
         changedSet(saved.hiddenNotificationChannels, draft.hiddenNotificationChannels) +
         changedSet(saved.lockedNotificationChannels, draft.lockedNotificationChannels) +
         changedSet(saved.hiddenNotificationCategories, draft.hiddenNotificationCategories)
+}
+
+/** Shared UI-only state. Rule data and cleanup implementations remain in each editor. */
+internal class SurfaceWorkspaceUiState(
+    initialFilter: UiFilter,
+    initialAppType: AppTypeFilter,
+) {
+    var viewFilter by mutableStateOf(initialFilter)
+    var appTypeFilter by mutableStateOf(initialAppType)
+    var expandedKey by mutableStateOf<String?>(null)
+        private set
+
+    fun toggleExpanded(key: String) {
+        expandedKey = if (expandedKey == key) null else key
+    }
+}
+
+@Composable
+internal fun rememberSurfaceWorkspaceUiState(
+    userId: Int,
+    pageKey: String,
+    initialFilter: UiFilter,
+    initialAppType: AppTypeFilter,
+): SurfaceWorkspaceUiState = remember(userId, pageKey) {
+    SurfaceWorkspaceUiState(initialFilter, initialAppType)
 }
