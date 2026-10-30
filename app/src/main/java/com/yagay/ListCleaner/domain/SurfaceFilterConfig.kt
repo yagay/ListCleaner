@@ -22,6 +22,7 @@ data class SurfaceFilterConfig(
     val order: Map<SurfaceKind, List<String>> = emptyMap(),
     /** Specific shade channels, keyed by package and AOSP channel ID. */
     val hiddenNotificationChannels: Set<String> = emptySet(),
+    val lockedNotificationChannels: Set<String> = emptySet(),
     /** Persistent AOSP category rules; (other) matches missing/unknown categories. */
     val hiddenNotificationCategories: Set<String> = emptySet(),
 ) {
@@ -35,6 +36,12 @@ data class SurfaceFilterConfig(
         require(locks.size <= SurfaceKind.entries.size)
         require(order.size <= SurfaceKind.entries.size)
         require(hiddenNotificationChannels.size <= 4000)
+        require(lockedNotificationChannels.size <= 4000)
+        require(lockedNotificationChannels.all { key ->
+            val pkg = key.substringBefore('|', "")
+            val id = key.substringAfter('|', "")
+            PackageIdentity.valid(pkg) && id.isNotEmpty() && id.length <= 512 && id.none(Char::isISOControl)
+        })
         require(hiddenNotificationCategories.size <= 32)
         require(hiddenNotificationCategories.all { it.length in 1..64 && it.none(Char::isISOControl) })
         require(hiddenNotificationChannels.all { key ->
@@ -70,11 +77,20 @@ data class SurfaceFilterConfig(
         copy(hiddenNotificationCategories = if (hidden) hiddenNotificationCategories + category
             else hiddenNotificationCategories - category).validated()
 
+    fun isChannelLocked(pkg: String, id: String): Boolean = "$pkg|$id" in lockedNotificationChannels
+
+    fun withChannelLocked(pkg: String, id: String, locked: Boolean): SurfaceFilterConfig {
+        val key = "$pkg|$id"
+        return copy(lockedNotificationChannels = if (locked)
+            lockedNotificationChannels + key else lockedNotificationChannels - key).validated()
+    }
+
     fun isChannelHidden(pkg: String, id: String): Boolean =
         "$pkg|$id" in hiddenNotificationChannels
 
     fun withChannelHidden(pkg: String, id: String, hide: Boolean): SurfaceFilterConfig {
         val key = "$pkg|$id"
+        if (key in lockedNotificationChannels) return this
         return copy(hiddenNotificationChannels = if (hide)
             hiddenNotificationChannels + key else hiddenNotificationChannels - key).validated()
     }
