@@ -151,16 +151,39 @@ internal fun SurfaceChannelSettings(
                         ChannelInventoryStatus.OBSERVED_ONLY -> R.string.surface_channels_restricted
                         ChannelInventoryStatus.DISCONNECTED -> R.string.surface_wait_for_listener
                     }))
-                    channels.forEach { channel ->
-                        val checked = draft.isChannelHidden(appPackage, channel.channelId)
-                        SurfaceWorkspaceRow(
-                            title = channel.label,
-                            subtitle = channel.channelId,
-                            selected = checked,
-                            onToggle = {
-                                draft = draft.withChannelHidden(appPackage, channel.channelId, !checked)
-                            },
-                        )
+                    channels.groupBy { channel ->
+                        channel.groupId.orEmpty()
+                    }.toSortedMap().forEach { (_, groupChannels) ->
+                        val groupTitle = groupChannels.firstOrNull()?.groupLabel
+                        if (!groupTitle.isNullOrBlank()) {
+                            WorkspaceDetailHeading(
+                                title = groupTitle,
+                                kind = groupChannels.size.toString(),
+                            )
+                        }
+                        groupChannels.forEach { channel ->
+                            val checked = draft.isChannelHidden(appPackage, channel.channelId)
+                            SurfaceWorkspaceRow(
+                                title = channel.label,
+                                subtitle = channel.channelId,
+                                selected = checked,
+                                onToggle = {
+                                    draft = draft.withChannelHidden(
+                                        appPackage, channel.channelId, !checked)
+                                },
+                                actions = if (userId == android.os.Process.myUid() / 100000)
+                                    listOf(WorkspaceMenuAction(
+                                        stringResource(R.string.surface_channel_settings),
+                                        {
+                                            val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                                                .putExtra(Settings.EXTRA_APP_PACKAGE, appPackage)
+                                                .putExtra(Settings.EXTRA_CHANNEL_ID, channel.channelId)
+                                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            runCatching { context.startActivity(intent) }
+                                        },
+                                    )) else emptyList(),
+                            )
+                        }
                     }
                 }
             },
