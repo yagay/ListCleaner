@@ -154,6 +154,11 @@ object NotificationCleanupController {
     private val rootPackageUids = mutableMapOf<Int, Map<String, Int>>()
 
     @Synchronized
+    fun invalidateChannelScanCache(userId: Int) {
+        rootPackageUids.remove(userId)
+    }
+
+    @Synchronized
     private fun targetPackageUid(pkg: String, userId: Int): Int? {
         if (userId !in 0..9999) return null
         val uids = rootPackageUids[userId] ?: run {
@@ -193,7 +198,7 @@ object NotificationCleanupController {
                         "com.yagay.ListCleaner.runtime.RootNotificationChannelProbe " +
                         pairs.joinToString(" ")
                     val response = runCatching { ComponentRootCommand.runReadOnly(command) }.getOrNull()
-                    if (response?.exitCode != 0 || response.timedOut) continue
+                    if (response == null || response.exitCode != 0 || response.timedOut) continue
                     val line = response.output.lineSequence().firstOrNull {
                         it.startsWith("LC_CHANNELS:")
                     } ?: continue
@@ -202,6 +207,7 @@ object NotificationCleanupController {
                         for (i in 0 until rows.length()) {
                             val entry = rows.getJSONObject(i)
                             val pkg = entry.getString("pkg")
+                            if (pkg !in batch) continue
                             val channels = entry.optJSONArray("channels")
                             if (channels == null) continue
                             val items = (0 until minOf(channels.length(), 2000)).map { n ->
