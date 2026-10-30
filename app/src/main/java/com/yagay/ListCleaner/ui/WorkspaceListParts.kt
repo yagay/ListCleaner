@@ -11,10 +11,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
+import androidx.compose.material.icons.rounded.CheckBox
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Remove
+import androidx.compose.material.icons.rounded.IndeterminateCheckBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,7 +41,7 @@ import com.yagay.ListCleaner.R
 /**
  * Shared borderless three-state application selection control.
  *
- * Off = muted plus, Indeterminate = primary minus, On = primary check.
+ * Off = empty checkbox, Indeterminate = checkbox with dash, On = checked checkbox.
  * Keep the native 48dp touch target and Checkbox semantics; callers retain
  * the existing bulk-selection, lock and system-confirmation behaviour.
  */
@@ -52,9 +52,9 @@ internal fun WorkspaceAppSelectionCheckbox(
     onClick: () -> Unit
 ) {
     val icon = when (state) {
-        ToggleableState.Off -> Icons.Rounded.Add
-        ToggleableState.Indeterminate -> Icons.Rounded.Remove
-        ToggleableState.On -> Icons.Rounded.Check
+        ToggleableState.Off -> Icons.Rounded.CheckBoxOutlineBlank
+        ToggleableState.Indeterminate -> Icons.Rounded.IndeterminateCheckBox
+        ToggleableState.On -> Icons.Rounded.CheckBox
     }
     val baseTint = if (state == ToggleableState.Off) {
         MaterialTheme.colorScheme.onSurfaceVariant
