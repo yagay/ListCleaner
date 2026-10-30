@@ -1,6 +1,6 @@
 package com.yagay.ListCleaner.ui
 
-import androidx.core.app.NotificationManagerCompat
+import android.app.Notification
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.runtime.Composable
@@ -12,113 +12,191 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.core.app.NotificationManagerCompat
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.ComponentRule
+import com.yagay.ListCleaner.runtime.ActiveNotificationRow
 import com.yagay.ListCleaner.runtime.NotificationCleanupController
 
-/** All destructive actions require a refreshed snapshot and an explicit confirmation. */
-/** Current posted-notification operations; distinct from non-destructive shade hiding. */
+/** Grouping is a browsing choice, never a different notification dismissal backend. */
+internal enum class ActiveNotificationGrouping { ALL, APPLICATION, CHANNEL, CATEGORY }
+
+internal data class ActiveNotificationGroup(
+    val key: String,
+    val rows: List<ActiveNotificationRow>,
+)
+
+internal fun groupActiveNotifications(
+    rows: List<ActiveNotificationRow>,
+    grouping: ActiveNotificationGrouping,
+): List<ActiveNotificationGroup> {
+    if (grouping == ActiveNotificationGrouping.ALL) {
+        return rows.map { ActiveNotificationGroup(it.key, listOf(it)) }
+    }
+    val groups = rows.groupBy { row ->
+        when (grouping) {
+            ActiveNotificationGrouping.ALL -> row.key
+            ActiveNotificationGrouping.APPLICATION -> row.packageName
+            ActiveNotificationGrouping.CHANNEL -> row.packageName + "|" + row.channelId
+            ActiveNotificationGrouping.CATEGORY -> row.category ?: "(other)"
+        }
+    }
+    return groups.entries.sortedBy { it.key }
+        .map { ActiveNotificationGroup(it.key, it.value) }
+}
+
 @Composable
-internal fun ActiveNotificationManagement(vm: MainViewModel) {
+private fun notificationCategoryLabel(value: String?): String = when (value) {
+    Notification.CATEGORY_MESSAGE -> stringResource(R.string.notification_category_message)
+    Notification.CATEGORY_EMAIL -> stringResource(R.string.notification_category_email)
+    Notification.CATEGORY_CALL -> stringResource(R.string.notification_category_call)
+    Notification.CATEGORY_ALARM -> stringResource(R.string.notification_category_alarm)
+    Notification.CATEGORY_SERVICE -> stringResource(R.string.notification_category_service)
+    Notification.CATEGORY_PROGRESS -> stringResource(R.string.notification_category_progress)
+    Notification.CATEGORY_REMINDER -> stringResource(R.string.notification_category_reminder)
+    Notification.CATEGORY_EVENT -> stringResource(R.string.notification_category_event)
+    Notification.CATEGORY_SOCIAL -> stringResource(R.string.notification_category_social)
+    Notification.CATEGORY_TRANSPORT -> stringResource(R.string.notification_category_transport)
+    Notification.CATEGORY_PROMO -> stringResource(R.string.notification_category_promo)
+    Notification.CATEGORY_SYSTEM -> stringResource(R.string.notification_category_system)
+    else -> stringResource(R.string.notification_category_other)
+}
+
+@Composable
+internal fun ActiveNotificationManagement(
+    vm: MainViewModel,
+    pendingNavigation: PendingNavigationGuard? = null,
+) {
     val context = LocalContext.current
     val rows by NotificationCleanupController.rows.collectAsStateWithLifecycle()
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
     val connected by NotificationCleanupController.connected.collectAsStateWithLifecycle()
-    val granted = NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
-    var selectedKeys by remember { mutableStateOf(emptySet<String>()) }
-    var confirmNotifications by remember { mutableStateOf(false) }
-    var notificationResult by remember { mutableStateOf<Int?>(null) }
-    val sameUserRows = rows.filter { it.userId == userId }
-    val allowedRows = sameUserRows.filterNot { it.protected }
-    val liveKeys = allowedRows.mapTo(hashSetOf()) { it.key }
-    val currentSelected = selectedKeys.intersect(liveKeys)
-    val grouped = allowedRows.groupBy { it.packageName to it.channelId }
-
-    SettingsArea(stringResource(R.string.surface_notifications)) {
-        SettingsHint(stringResource(R.string.surface_notifications_help))
-        if (!granted) {
-            SettingsActionButton(onClick = {
-                runCatching {
-                    context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                }
-            }) { AdaptiveText(stringResource(R.string.surface_grant_listener)) }
-        } else if (!connected) {
-            SettingsHint(stringResource(R.string.surface_wait_for_listener))
-        } else {
-            SettingsHint(stringResource(R.string.surface_active_count, sameUserRows.size, allowedRows.size))
-            if (grouped.isEmpty()) SettingsHint(stringResource(R.string.surface_no_notifications))
-            grouped.entries.sortedWith(compareBy({ it.key.first }, { it.key.second }))
-                .take(40).forEach { (key, group) ->
-                val groupKeys = group.mapTo(hashSetOf()) { it.key }
-                SettingsSwitchRow(
-                    title = "${key.first} · ${key.second}",
-                    supportingText = stringResource(R.string.surface_channel_count, group.size),
-                    checked = groupKeys.isNotEmpty() && groupKeys.all { it in currentSelected },
-                    onCheckedChange = { selected ->
-                        selectedKeys = if (selected) currentSelected + groupKeys
-                        else currentSelected - groupKeys
-                    },
-                )
-                if (userId == android.os.Process.myUid() / 100000) {
-                    SettingsActionButton(onClick = {
-                        val channelIntent = if (key.second == "(default)") {
-                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                                .putExtra(Settings.EXTRA_APP_PACKAGE, key.first)
-                        } else {
-                            Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
-                                .putExtra(Settings.EXTRA_APP_PACKAGE, key.first)
-                                .putExtra(Settings.EXTRA_CHANNEL_ID, key.second)
-                        }.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        // Public AOSP Settings actions; OEMs may omit individual activities.
-                        runCatching { context.startActivity(channelIntent) }
-                            .onFailure {
-                                runCatching {
-                                    context.startActivity(
-                                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                                            .putExtra(Settings.EXTRA_APP_PACKAGE, key.first)
-                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    )
-                                }
-                            }
-                    }) {
-                        AdaptiveText(stringResource(R.string.surface_channel_settings))
-                    }
-                }
-            }
-            SettingsActionButton(
-                onClick = { confirmNotifications = true },
-                enabled = currentSelected.isNotEmpty(),
-                style = SettingsActionStyle.DANGER,
-            ) { AdaptiveText(stringResource(R.string.surface_dismiss_selected, currentSelected.size)) }
-            notificationResult?.let {
-                SettingsHint(stringResource(R.string.surface_dismiss_requested, it))
-            }
-        }
+    val granted = NotificationManagerCompat.getEnabledListenerPackages(context)
+        .contains(context.packageName)
+    var grouping by remember(userId) { mutableStateOf(ActiveNotificationGrouping.APPLICATION) }
+    var filter by remember(userId) { mutableStateOf(UiFilter.ALL) }
+    var selectedKeys by remember(userId) { mutableStateOf(emptySet<String>()) }
+    var dismissalCount by remember(userId) { mutableStateOf<Int?>(null) }
+    val sameProfile = rows.filter { it.userId == userId }
+    val available = sameProfile.filterNot { it.protected }
+    val selectableKeys = available.mapTo(hashSetOf()) { it.key }
+    val chosen = selectedKeys.intersect(selectableKeys)
+    val groups = groupActiveNotifications(sameProfile, grouping)
+    val shownGroups = groups.filter { group ->
+        val allowed = group.rows.asSequence().filterNot { it.protected }.map { it.key }.toSet()
+        val complete = allowed.isNotEmpty() && allowed.all { it in chosen }
+        val protected = group.rows.any { it.protected }
+        surfaceFilterAllows(filter, complete, protected)
     }
-    if (confirmNotifications) {
-        SettingsFlatDialog(
-            onDismissRequest = { confirmNotifications = false },
-            title = { AdaptiveText(stringResource(R.string.surface_confirm_notifications)) },
-            text = { AdaptiveText(stringResource(R.string.surface_confirm_notifications_help, currentSelected.size)) },
-            confirmButton = {
-                AdaptiveTextButton(onClick = {
-                    confirmNotifications = false
-                    notificationResult = NotificationCleanupController.dismiss(currentSelected)
-                    selectedKeys = emptySet()
-                }) { AdaptiveText(stringResource(R.string.common_ok)) }
+    val shownKeys = shownGroups.flatMap { group ->
+        group.rows.filterNot { it.protected }.map { it.key }
+    }.toSet()
+    val guardOwner = remember(userId) { Any() }
+    RegisterPendingNavigation(
+        pendingNavigation, guardOwner, chosen.size,
+        apply = {
+            dismissalCount = NotificationCleanupController.dismiss(chosen)
+            selectedKeys = emptySet()
+            true
+        },
+        discard = { selectedKeys = emptySet() },
+    )
+
+    if (!granted) {
+        SettingsHint(stringResource(R.string.surface_notifications_help))
+        SettingsActionButton(onClick = {
+            runCatching {
+                context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }
+        }) { AdaptiveText(stringResource(R.string.surface_grant_listener)) }
+        return
+    }
+    if (!connected) {
+        SettingsHint(stringResource(R.string.surface_wait_for_listener))
+        return
+    }
+
+    SurfaceWorkspaceToolbar(
+        category = grouping.name,
+        options = ActiveNotificationGrouping.entries.map { mode ->
+            mode.name to stringResource(when (mode) {
+                ActiveNotificationGrouping.ALL -> R.string.common_all
+                ActiveNotificationGrouping.APPLICATION -> R.string.notification_group_application
+                ActiveNotificationGrouping.CHANNEL -> R.string.notification_group_channel
+                ActiveNotificationGrouping.CATEGORY -> R.string.notification_group_category
+            })
+        },
+        onCategory = { value ->
+            grouping = ActiveNotificationGrouping.entries.first { it.name == value }
+        },
+        filter = filter, onFilter = { filter = it },
+        actions = listOf(
+            WorkspaceMenuAction(stringResource(R.string.select_all), {
+                selectedKeys = chosen + shownKeys
+            }, shownKeys.any { it !in chosen }),
+            WorkspaceMenuAction(stringResource(R.string.surface_invert_selected), {
+                selectedKeys = (chosen - shownKeys) + shownKeys.filter { it !in chosen }
+            }, shownKeys.isNotEmpty()),
+            WorkspaceMenuAction(stringResource(R.string.select_none), {
+                selectedKeys = chosen - shownKeys
+            }, shownKeys.any { it in chosen }),
+        ),
+    )
+    WorkspaceListSummary(
+        title = stringResource(R.string.surface_active_count, sameProfile.size, available.size),
+        secondary = stringResource(R.string.notification_category_help),
+    )
+    if (groups.isEmpty()) WorkspaceAppNote(stringResource(R.string.surface_no_notifications))
+
+    shownGroups.forEach { group ->
+        val allowedKeys = group.rows.filterNot { it.protected }.map { it.key }.toSet()
+        val complete = allowedKeys.isNotEmpty() && allowedKeys.all { it in chosen }
+        val any = allowedKeys.any { it in chosen }
+        val first = group.rows.first()
+        val title = when (grouping) {
+            ActiveNotificationGrouping.ALL -> first.packageName + " · " +
+                notificationCategoryLabel(first.category)
+            ActiveNotificationGrouping.APPLICATION -> first.packageName
+            ActiveNotificationGrouping.CHANNEL -> first.packageName + " · " + first.channelId
+            ActiveNotificationGrouping.CATEGORY -> notificationCategoryLabel(first.category)
+        }
+        val subtitle = stringResource(R.string.notification_group_count,
+            group.rows.size, group.rows.count { it.protected })
+        SurfaceWorkspaceRow(
+            title = title, subtitle = subtitle,
+            selected = complete, indeterminate = any && !complete,
+            enabled = allowedKeys.isNotEmpty(),
+            locked = allowedKeys.isEmpty(),
+            onToggle = {
+                selectedKeys = if (complete) chosen - allowedKeys else chosen + allowedKeys
             },
-            dismissButton = {
-                AdaptiveTextButton(onClick = { confirmNotifications = false }) {
-                    AdaptiveText(stringResource(R.string.common_cancel))
-                }
-            },
+            actions = if (grouping == ActiveNotificationGrouping.CHANNEL &&
+                userId == android.os.Process.myUid() / 100000) listOf(
+                WorkspaceMenuAction(stringResource(R.string.surface_channel_settings), {
+                    val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, first.packageName)
+                        .putExtra(Settings.EXTRA_CHANNEL_ID, first.channelId)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    runCatching { context.startActivity(intent) }
+                }),
+            ) else emptyList(),
         )
     }
-
+    dismissalCount?.let {
+        WorkspaceAppNote(stringResource(R.string.surface_dismiss_requested, it))
+    }
+    if (chosen.isNotEmpty()) PendingChangesBar(
+        count = chosen.size,
+        onDiscard = { selectedKeys = emptySet() },
+        onApply = {
+            dismissalCount = NotificationCleanupController.dismiss(chosen)
+            selectedKeys = emptySet()
+        },
+    )
 }
- 
-/** Review-only stale-rule cleanup; no automatic deletion. */
+
+/** Stale-rule review uses the same checkbox and category/filter system as Entry cleanup. */
 @Composable
 internal fun StaleRuleManagement(state: MainState, vm: MainViewModel) {
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
@@ -127,69 +205,74 @@ internal fun StaleRuleManagement(state: MainState, vm: MainViewModel) {
     LaunchedEffect(refreshed, state.loading) {
         if (refreshed && state.loading) scanStarted = true
     }
-    val scanComplete = refreshed && scanStarted && !state.loading
+    val completed = refreshed && scanStarted && !state.loading
     var selectedRules by remember(userId) { mutableStateOf(emptySet<ComponentRule>()) }
-    var confirmRules by remember { mutableStateOf(false) }
-    val staleRules = if (scanComplete && state.error.isNullOrBlank()) {
+    var category by remember(userId) { mutableStateOf("ALL") }
+    var viewFilter by remember(userId) { mutableStateOf(UiFilter.ALL) }
+    val stale = if (completed && state.error.isNullOrBlank()) {
         val returned = state.candidates.mapTo(hashSetOf()) { it.rule }
-        // Also include selected rules which disappeared completely from a
-        // successful full scan. These are review candidates, NOT auto-deleted:
-        // partial package visibility may produce false missing results.
         (state.selected - returned) + state.candidates.asSequence()
             .filter { it.unavailable && it.rule in state.selected }
             .map { it.rule }.toSet()
     } else emptySet()
-    val chosenRules = selectedRules.intersect(staleRules)
-    SettingsArea(stringResource(R.string.surface_rules)) {
-        SettingsHint(stringResource(R.string.surface_rules_help))
-        SettingsActionButton(onClick = {
-            refreshed = true
-            scanStarted = false
-            selectedRules = emptySet()
-            vm.refresh(forceCatalog = true)
-        }) { AdaptiveText(stringResource(R.string.surface_refresh_rules)) }
-        if (refreshed && !scanComplete) SettingsHint(stringResource(R.string.surface_scanning))
-        if (scanComplete && state.error.isNullOrBlank()) {
-            SettingsHint(stringResource(R.string.surface_stale_count, staleRules.size))
-            staleRules.take(40).forEach { rule ->
-                SettingsSwitchRow(
-                    title = rule.packageName,
-                    supportingText = rule.kind.name + " · " + rule.className,
-                    checked = rule in chosenRules,
-                    onCheckedChange = { selected ->
-                        selectedRules = if (selected) chosenRules + rule else chosenRules - rule
-                    },
-                )
-            }
-            SettingsActionButton(
-                enabled = chosenRules.isNotEmpty(),
-                onClick = { confirmRules = true },
-                style = SettingsActionStyle.DANGER,
-            ) { AdaptiveText(stringResource(R.string.surface_remove_rules, chosenRules.size)) }
-        } else if (scanComplete && !state.error.isNullOrBlank()) {
-            SettingsHint(stringResource(R.string.surface_scan_error), warning = true)
-        }
+    val selected = selectedRules.intersect(stale)
+    val visible = stale.asSequence().filter {
+        (category == "ALL" || it.kind.name == category) &&
+            surfaceFilterAllows(viewFilter, it in selected, false)
+    }.sortedWith(compareBy({ it.packageName }, { it.kind.name }, { it.className })).toList()
+    val categories = listOf("ALL" to stringResource(R.string.common_all)) +
+        stale.map { it.kind }.distinct().sortedBy { it.name }
+            .map { it.name to stringResource(it.titleRes()) }
+
+    SurfaceWorkspaceToolbar(
+        category = category, options = categories,
+        onCategory = { category = it },
+        filter = viewFilter, onFilter = { viewFilter = it },
+        actions = listOf(
+            WorkspaceMenuAction(stringResource(R.string.select_all), {
+                selectedRules = selected + visible
+            }, visible.any { it !in selected }),
+            WorkspaceMenuAction(stringResource(R.string.surface_invert_selected), {
+                selectedRules = (selected - visible.toSet()) + visible.filter { it !in selected }
+            }, visible.isNotEmpty()),
+            WorkspaceMenuAction(stringResource(R.string.select_none), {
+                selectedRules = selected - visible.toSet()
+            }, visible.any { it in selected }),
+        ),
+    )
+    WorkspaceListSummary(
+        title = stringResource(R.string.surface_stale_count, stale.size),
+        secondary = stringResource(R.string.surface_rules_help),
+    )
+    SettingsActionButton(onClick = {
+        refreshed = true
+        scanStarted = false
+        selectedRules = emptySet()
+        vm.refresh(forceCatalog = true)
+    }) { AdaptiveText(stringResource(R.string.surface_refresh_rules)) }
+    if (refreshed && !completed) WorkspaceAppNote(stringResource(R.string.surface_scanning))
+    if (completed && !state.error.isNullOrBlank()) {
+        WorkspaceAppNote(stringResource(R.string.surface_scan_error), warning = true)
     }
-    if (confirmRules) {
-        SettingsFlatDialog(
-            onDismissRequest = { confirmRules = false },
-            title = { AdaptiveText(stringResource(R.string.surface_confirm_rules)) },
-            text = { AdaptiveText(stringResource(R.string.surface_confirm_rules_help, chosenRules.size)) },
-            confirmButton = {
-                AdaptiveTextButton(onClick = {
-                    confirmRules = false
-                    if (scanComplete && state.error.isNullOrBlank()) {
-                        vm.deselectRules(chosenRules, null, null)
-                    }
-                    selectedRules = emptySet()
-                    refreshed = false
-                }) { AdaptiveText(stringResource(R.string.common_ok)) }
-            },
-            dismissButton = {
-                AdaptiveTextButton(onClick = { confirmRules = false }) {
-                    AdaptiveText(stringResource(R.string.common_cancel))
-                }
+    if (completed && state.error.isNullOrBlank()) visible.forEach { rule ->
+        SurfaceWorkspaceRow(
+            title = rule.packageName,
+            subtitle = rule.kind.name + " · " + rule.className,
+            selected = rule in selected,
+            onToggle = {
+                selectedRules = if (rule in selected) selected - rule else selected + rule
             },
         )
     }
+    if (selected.isNotEmpty()) PendingChangesBar(
+        count = selected.size,
+        onDiscard = { selectedRules = emptySet() },
+        onApply = {
+            if (completed && state.error.isNullOrBlank()) {
+                vm.deselectRules(selected, null, null)
+            }
+            selectedRules = emptySet()
+            refreshed = false
+        },
+    )
 }
