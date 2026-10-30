@@ -38,7 +38,8 @@ internal fun systemPreviewRoute(kind: IntentKind): SystemPreviewRoute = when (ki
     IntentKind.SHARE, IntentKind.SHARE_MULTIPLE, IntentKind.DIRECT_SHARE ->
         SystemPreviewRoute.CHOOSER
 
-    IntentKind.SEND_TO, IntentKind.OPEN, IntentKind.DEEP_LINK, IntentKind.DIAL,
+    IntentKind.SEND_TO, IntentKind.OPEN, IntentKind.EDIT, IntentKind.PICK,
+    IntentKind.DEEP_LINK, IntentKind.DIAL,
     IntentKind.CAPTURE_IMAGE, IntentKind.CAPTURE_VIDEO, IntentKind.RECORD_AUDIO,
     IntentKind.WALLPAPER -> SystemPreviewRoute.DIRECT
 
@@ -521,6 +522,14 @@ internal object SystemEffectPreview {
         IntentKind.SEND_TO -> Intent(Intent.ACTION_SENDTO,
             if (scenario == SystemProbeScenario.SMS) Uri.parse("smsto:0000000000")
             else Uri.parse("mailto:preview@example.invalid"))
+        IntentKind.PICK -> Intent(Intent.ACTION_PICK).apply {
+            type = scenario.mimeType ?: "image/*"
+        }
+        IntentKind.EDIT -> Intent(Intent.ACTION_EDIT).apply {
+            setDataAndType(sampleFiles(context, scenario).first(),
+                scenario.mimeType ?: "text/plain")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
         IntentKind.OPEN -> Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(sampleFiles(context, scenario).first(),
                 scenario.mimeType ?: "text/plain")

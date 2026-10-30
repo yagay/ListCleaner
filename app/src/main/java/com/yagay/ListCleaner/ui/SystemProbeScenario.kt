@@ -21,8 +21,10 @@ internal enum class SystemProbeScenario(val titleRes: Int, val mimeType: String?
 internal fun availableProbeScenarios(kind: IntentKind): List<SystemProbeScenario> = when (kind) {
     IntentKind.SHARE, IntentKind.SHARE_MULTIPLE ->
         listOf(SystemProbeScenario.TEXT, SystemProbeScenario.IMAGE, SystemProbeScenario.PDF)
-    IntentKind.OPEN ->
+    IntentKind.OPEN, IntentKind.EDIT ->
         listOf(SystemProbeScenario.TEXT, SystemProbeScenario.IMAGE, SystemProbeScenario.PDF)
+    IntentKind.PICK ->
+        listOf(SystemProbeScenario.IMAGE, SystemProbeScenario.VIDEO, SystemProbeScenario.ANY)
     IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT, IntentKind.CREATE_DOCUMENT ->
         listOf(SystemProbeScenario.ANY, SystemProbeScenario.TEXT, SystemProbeScenario.IMAGE,
             SystemProbeScenario.PDF, SystemProbeScenario.VIDEO, SystemProbeScenario.AUDIO)

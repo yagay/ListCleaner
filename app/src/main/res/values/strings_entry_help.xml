@@ -37,4 +37,6 @@
     <string name="intent_desc_dream">DreamService screensaver candidates. This does not enable screensaver mode or choose the active screensaver.</string>
     <string name="intent_desc_nfc_hce">Host/off-host NFC card-emulation service candidates. This does not change AIDs, payment defaults, NFC routing, or enable/disable the service.</string>
     <string name="intent_desc_call_screening">CallScreeningService candidates. This does not grant the call-screening role, enable call blocking, or change the current phone role.</string>
+    <string name="intent_desc_edit">Editors responding to ACTION_EDIT. Rules are separate from file viewing.</string>
+    <string name="intent_desc_pick">ACTION_PICK targets for contacts and media, separate from GET_CONTENT and the file picker.</string>
 </resources>

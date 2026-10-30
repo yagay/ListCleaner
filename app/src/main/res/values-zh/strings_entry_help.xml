@@ -37,4 +37,6 @@
     <string name="intent_desc_dream">DreamService 屏保候选。不会开启屏保功能，也不会选择当前屏保。</string>
     <string name="intent_desc_nfc_hce">Host / Off-host NFC 卡模拟服务候选。不会修改 AID、支付默认项、NFC 路由，也不会启用/停用服务。</string>
     <string name="intent_desc_call_screening">CallScreeningService 来电筛选候选。不会授予来电筛选角色、开启拦截或修改当前电话角色。</string>
+    <string name="intent_desc_edit">使用 ACTION_EDIT 的独立编辑器候选，与文件打开方式分开清理。</string>
+    <string name="intent_desc_pick">使用 ACTION_PICK 的联系人、图片等项目选择候选，与 GET_CONTENT 和文件选择器分开清理。</string>
 </resources>

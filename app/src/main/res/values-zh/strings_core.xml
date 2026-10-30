@@ -159,4 +159,6 @@
     <string name="workspace_browse_components">浏览全部组件</string>
     <string name="entry_cleanup_lsposed_title">入口清理（LSPosed）</string>
     <string name="component_cleanup_root_title">组件管理</string>
+    <string name="intent_edit">编辑方式</string>
+    <string name="intent_pick">项目选择</string>
 </resources>

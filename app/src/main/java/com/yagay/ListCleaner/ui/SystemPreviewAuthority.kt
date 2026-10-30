@@ -40,6 +40,8 @@ internal fun IntentKind.previewAuthority(): PreviewAuthority = when (this) {
     IntentKind.SHARE_MULTIPLE,
     IntentKind.SEND_TO,
     IntentKind.OPEN,
+    IntentKind.EDIT,
+    IntentKind.PICK,
     IntentKind.DEEP_LINK,
     IntentKind.DIAL,
     IntentKind.CAPTURE_IMAGE,

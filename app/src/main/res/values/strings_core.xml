@@ -167,4 +167,6 @@
     <string name="workspace_browse_components">Browse all components</string>
     <string name="entry_cleanup_lsposed_title">Entry Management</string>
     <string name="component_cleanup_root_title">Component Management</string>
+    <string name="intent_edit">Edit with</string>
+    <string name="intent_pick">Pick item</string>
 </resources>

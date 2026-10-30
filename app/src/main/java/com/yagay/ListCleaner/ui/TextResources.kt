@@ -61,6 +61,8 @@ internal fun IntentKind.titleRes(): Int = when (this) {
     IntentKind.DIRECT_SHARE -> R.string.intent_direct_share
     IntentKind.SEND_TO -> R.string.intent_send_to
     IntentKind.OPEN -> R.string.intent_open
+    IntentKind.EDIT -> R.string.intent_edit
+    IntentKind.PICK -> R.string.intent_pick
     IntentKind.BROWSER -> R.string.intent_browser
     IntentKind.DEEP_LINK -> R.string.intent_deep_link
     IntentKind.DIAL -> R.string.intent_dial
@@ -98,6 +100,8 @@ internal fun IntentKind.descriptionRes(): Int = when (this) {
     IntentKind.DIRECT_SHARE -> R.string.intent_desc_direct_share
     IntentKind.SEND_TO -> R.string.intent_desc_send_to
     IntentKind.OPEN -> R.string.intent_desc_open
+    IntentKind.EDIT -> R.string.intent_desc_edit
+    IntentKind.PICK -> R.string.intent_desc_pick
     IntentKind.BROWSER -> R.string.intent_desc_browser
     IntentKind.DEEP_LINK -> R.string.intent_desc_deep_link
     IntentKind.DIAL -> R.string.intent_desc_dial

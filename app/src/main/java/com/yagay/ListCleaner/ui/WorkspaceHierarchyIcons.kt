@@ -66,6 +66,8 @@ internal fun IntentKind.hierarchyIcon(): ImageVector = when (this) {
     IntentKind.DIRECT_SHARE -> Icons.Rounded.People
     IntentKind.SEND_TO -> Icons.Rounded.Send
     IntentKind.OPEN -> Icons.Rounded.OpenInNew
+    IntentKind.EDIT -> Icons.Rounded.Description
+    IntentKind.PICK -> Icons.Rounded.TouchApp
     IntentKind.BROWSER -> Icons.Rounded.Language
     IntentKind.DEEP_LINK -> Icons.Rounded.Link
     IntentKind.DIAL -> Icons.Rounded.Call
