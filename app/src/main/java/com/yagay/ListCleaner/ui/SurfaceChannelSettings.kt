@@ -99,10 +99,24 @@ internal fun SurfaceChannelSettings(
         pkg.isBlank() || name.contains(pkg.trim(), ignoreCase = true) ||
             packageLabels[name].orEmpty().contains(pkg.trim(), ignoreCase = true)
     }
-    val visibleChannels = visiblePackages.flatMap { packageInventories[it]?.items.orEmpty() }
-        .filter { surfaceFilterAllows(viewFilter,
-            draft.isChannelHidden(it.packageName, it.channelId),
-            draft.isChannelLocked(it.packageName, it.channelId)) }
+    // Filter at the app level, like Entry/Component: the rows and the
+    // bulk-action scope must be based on exactly the same visible apps.
+    val filteredPackages = visiblePackages.filter { appPackage ->
+        val channels = packageInventories[appPackage]?.items.orEmpty()
+        when (viewFilter) {
+            UiFilter.ALL -> true
+            UiFilter.HIDE_SELECTED -> channels.isNotEmpty() &&
+                channels.any { !draft.isChannelHidden(appPackage, it.channelId) }
+            UiFilter.SHOW_SELECTED -> channels.any {
+                draft.isChannelHidden(appPackage, it.channelId)
+            }
+            UiFilter.LOCKED -> channels.any {
+                draft.isChannelLocked(appPackage, it.channelId)
+            }
+        }
+    }
+    val displayedPackages = filteredPackages.take(250)
+    val visibleChannels = displayedPackages.flatMap { packageInventories[it]?.items.orEmpty() }
     SurfaceWorkspaceToolbar(
         category = "",
         options = listOf("" to stringResource(R.string.common_all)),
@@ -115,13 +129,13 @@ internal fun SurfaceChannelSettings(
                 }
             }, !scanning && visibleChannels.any { !draft.isChannelLocked(it.packageName, it.channelId) && !draft.isChannelHidden(it.packageName, it.channelId) }),
             WorkspaceMenuAction(stringResource(R.string.surface_invert_selected), {
-                visibleChannels.forEach { channel ->
+                visibleChannels.filterNot { draft.isChannelLocked(it.packageName, it.channelId) }.forEach { channel ->
                     draft = draft.withChannelHidden(channel.packageName, channel.channelId,
                         !draft.isChannelHidden(channel.packageName, channel.channelId))
                 }
             }, !scanning && visibleChannels.any { !draft.isChannelLocked(it.packageName, it.channelId) }),
             WorkspaceMenuAction(stringResource(R.string.select_none), {
-                visibleChannels.forEach { channel ->
+                visibleChannels.filterNot { draft.isChannelLocked(it.packageName, it.channelId) }.forEach { channel ->
                     draft = draft.withChannelHidden(channel.packageName, channel.channelId, false)
                 }
             }, !scanning && visibleChannels.any { !draft.isChannelLocked(it.packageName, it.channelId) && draft.isChannelHidden(it.packageName, it.channelId) }),
@@ -152,7 +166,7 @@ internal fun SurfaceChannelSettings(
             }
         },
     )
-    visiblePackages.take(250).forEach { appPackage ->
+    displayedPackages.forEach { appPackage ->
         val appLabel = packageLabels[appPackage] ?: appPackage
         val appIcon = remember(appPackage, userId) {
             if (userId != localUserId) null else runCatching {
