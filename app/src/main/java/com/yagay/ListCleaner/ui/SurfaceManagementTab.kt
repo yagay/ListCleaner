@@ -104,7 +104,7 @@ internal fun SurfaceManagementTab(
     }
     BackHandler(enabled = group != null || page != null, onBack = navigateBack)
 
-    if (page?.kind != null) {
+    if (page?.kind != null || page == SurfaceManagerPage.NOTIFICATIONS_CHANNELS) {
         val current = requireNotNull(page)
         Column(Modifier.fillMaxSize()) {
             SurfaceNavigationHeading(
@@ -112,7 +112,9 @@ internal fun SurfaceManagementTab(
                 onBack = navigateBack,
             )
             Box(Modifier.weight(1f)) {
-                AospSurfaceSettings(vm, userId, requireNotNull(current.kind), pendingNavigation)
+                if (current == SurfaceManagerPage.NOTIFICATIONS_CHANNELS)
+                    SurfaceChannelSettings(vm, userId, activeNotifications, pendingNavigation)
+                else AospSurfaceSettings(vm, userId, requireNotNull(current.kind), pendingNavigation)
             }
         }
         return
