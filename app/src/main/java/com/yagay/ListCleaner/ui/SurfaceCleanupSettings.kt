@@ -66,6 +66,7 @@ private fun notificationCategoryLabel(value: String?): String = when (value) {
 internal fun ActiveNotificationManagement(
     vm: MainViewModel,
     pendingNavigation: PendingNavigationGuard? = null,
+    initialGrouping: ActiveNotificationGrouping = ActiveNotificationGrouping.APPLICATION,
 ) {
     val context = LocalContext.current
     val rows by NotificationCleanupController.rows.collectAsStateWithLifecycle()
@@ -73,7 +74,7 @@ internal fun ActiveNotificationManagement(
     val connected by NotificationCleanupController.connected.collectAsStateWithLifecycle()
     val granted = NotificationManagerCompat.getEnabledListenerPackages(context)
         .contains(context.packageName)
-    var grouping by remember(userId) { mutableStateOf(ActiveNotificationGrouping.APPLICATION) }
+    var grouping by remember(userId, initialGrouping) { mutableStateOf(initialGrouping) }
     var filter by remember(userId) { mutableStateOf(UiFilter.ALL) }
     var selectedKeys by remember(userId) { mutableStateOf(emptySet<String>()) }
     var dismissalCount by remember(userId) { mutableStateOf<Int?>(null) }

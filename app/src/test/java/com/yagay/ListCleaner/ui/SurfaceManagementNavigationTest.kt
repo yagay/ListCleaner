@@ -14,7 +14,7 @@ class SurfaceManagementNavigationTest {
                 SurfaceManagerGroup.SYSTEM, SurfaceManagerGroup.MAINTENANCE),
             SurfaceManagerGroup.entries
         )
-        assertEquals(3, SurfaceManagerPage.entries.count {
+        assertEquals(4, SurfaceManagerPage.entries.count {
             it.group == SurfaceManagerGroup.NOTIFICATIONS
         })
         assertEquals(3, SurfaceManagerPage.entries.count {

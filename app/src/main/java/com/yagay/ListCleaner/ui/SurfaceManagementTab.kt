@@ -57,6 +57,8 @@ internal enum class SurfaceManagerPage(
 ) {
     NOTIFICATIONS_CURRENT(SurfaceManagerGroup.NOTIFICATIONS, R.string.surface_notifications,
         R.string.surface_notifications_help, Icons.Rounded.Notifications),
+    NOTIFICATIONS_TYPES(SurfaceManagerGroup.NOTIFICATIONS, R.string.notification_group_category,
+        R.string.notification_group_category_help, Icons.Rounded.Notifications),
     NOTIFICATIONS_SHADE(SurfaceManagerGroup.NOTIFICATIONS, R.string.surface_aosp_notifications,
         R.string.surface_shade_filter_help, Icons.Rounded.Apps, SurfaceKind.NOTIFICATION_SHADE),
     NOTIFICATIONS_CHANNELS(SurfaceManagerGroup.NOTIFICATIONS, R.string.surface_channels_title,
@@ -110,6 +112,8 @@ internal fun SurfaceManagementTab(
                 )
                 when (current) {
                     SurfaceManagerPage.NOTIFICATIONS_CURRENT -> ActiveNotificationManagement(vm, pendingNavigation)
+                    SurfaceManagerPage.NOTIFICATIONS_TYPES ->
+                        ActiveNotificationManagement(vm, pendingNavigation, ActiveNotificationGrouping.CATEGORY)
                     SurfaceManagerPage.NOTIFICATIONS_CHANNELS ->
                         SurfaceChannelSettings(vm, userId, activeNotifications, pendingNavigation)
                     SurfaceManagerPage.INVALID_RULES -> StaleRuleManagement(state, vm)

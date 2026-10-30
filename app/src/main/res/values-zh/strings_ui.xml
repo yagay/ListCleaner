@@ -253,4 +253,5 @@
     <string name="notification_category_promo">促销</string>
     <string name="notification_category_system">系统</string>
     <string name="notification_category_other">其他或未分类</string>
+    <string name="notification_group_category_help">按 Android 消息、邮件、通话、闹钟等类别浏览当前通知</string>
 </resources>

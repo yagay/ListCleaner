@@ -253,4 +253,5 @@
     <string name="notification_category_promo">Promotions</string>
     <string name="notification_category_system">System</string>
     <string name="notification_category_other">Other / unspecified</string>
+    <string name="notification_group_category_help">Browse current notifications by Android message, email, call, alarm and other categories</string>
 </resources>
