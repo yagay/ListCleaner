@@ -98,6 +98,9 @@ internal fun AospSurfaceSettings(
             appCategory = AppTypeFilter.entries.firstOrNull { it.name == value } ?: AppTypeFilter.ALL
         },
         filter = viewFilter, onFilter = { viewFilter = it },
+        appTypeFilter = appCategory,
+        onAppTypeFilter = { appCategory = it },
+        showAppTypeFilter = applicationBased,
         actions = listOf(
             WorkspaceMenuAction(stringResource(R.string.select_all), {
                 draft = draft.withSelected(selectedKind, selected + editableIds)
