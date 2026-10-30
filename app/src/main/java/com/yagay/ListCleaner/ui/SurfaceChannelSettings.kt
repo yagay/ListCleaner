@@ -132,7 +132,7 @@ internal fun SurfaceChannelSettings(
             }
         }
     }
-    val displayedPackages = filteredPackages.take(250)
+    val displayedPackages = filteredPackages
     val visibleChannels = displayedPackages.flatMap { packageInventories[it]?.items.orEmpty() }
     val editableChannels = visibleChannels.filterNot {
         draft.isChannelLocked(it.packageName, it.channelId)
