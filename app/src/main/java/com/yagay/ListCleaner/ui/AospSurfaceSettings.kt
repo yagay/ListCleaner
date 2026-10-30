@@ -1,15 +1,14 @@
 package com.yagay.ListCleaner.ui
 
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -19,21 +18,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
-import com.yagay.ListCleaner.runtime.NotificationCleanupController
 import com.yagay.ListCleaner.domain.SurfaceKind
 import com.yagay.ListCleaner.domain.supportsSurfaceOrdering
+import com.yagay.ListCleaner.runtime.NotificationCleanupController
 
-private fun SurfaceKind.label(): Int = when (this) {
-    SurfaceKind.NOTIFICATION_SHADE -> R.string.surface_aosp_notifications
-    SurfaceKind.LAUNCHER_DRAWER -> R.string.surface_aosp_drawer
-    SurfaceKind.LAUNCHER_PREDICTIONS -> R.string.surface_aosp_predictions
-    SurfaceKind.RECENTS -> R.string.surface_aosp_recents
-    SurfaceKind.QS_EDITOR -> R.string.surface_aosp_qs
-    SurfaceKind.DOCUMENT_RECENTS -> R.string.surface_aosp_documents
-    SurfaceKind.SETTINGS_APPS -> R.string.surface_aosp_settings
-    SurfaceKind.MEDIA_OUTPUT -> R.string.surface_aosp_media
-}
-
+/**
+ * AOSP list editor now shares Entry/Root's category/filter/selection controls.
+ * Rules, locks and priorities live in ONE staged profile-aware SurfaceFilterConfig.
+ */
 @Composable
 internal fun AospSurfaceSettings(
     vm: MainViewModel,
@@ -43,115 +35,145 @@ internal fun AospSurfaceSettings(
 ) {
     val context = LocalContext.current
     val saved by vm.surfaceFilters.collectAsStateWithLifecycle()
-    var query by remember(userId, selectedKind) { mutableStateOf("") }
     var draft by remember(userId, saved) { mutableStateOf(saved) }
+    var query by remember(userId, selectedKind) { mutableStateOf("") }
+    var viewFilter by remember(userId, selectedKind) { mutableStateOf(UiFilter.ALL) }
+    var appCategory by remember(userId, selectedKind) { mutableStateOf(AppTypeFilter.ALL) }
+    var refreshRevision by remember(userId, selectedKind) { mutableStateOf(0) }
+    var confirming by remember { mutableStateOf(false) }
     val guardOwner = remember(userId, selectedKind) { Any() }
     RegisterPendingNavigation(
-        pendingNavigation, guardOwner,
-        if (draft != saved) 1 else 0,
-        apply = {
-            vm.setSurfaceFilters(draft)
-            true
-        },
+        pendingNavigation, guardOwner, if (draft != saved) 1 else 0,
+        apply = { vm.setSurfaceFilters(draft); true },
         discard = { draft = saved },
     )
-    var confirming by remember { mutableStateOf(false) }
-    var refreshRevision by remember(userId) { mutableStateOf(0) }
-    val activeNotifications by NotificationCleanupController.rows.collectAsStateWithLifecycle()
 
-    val catalog = remember(userId, selectedKind, refreshRevision, activeNotifications) {
-        SurfaceCandidateDiscovery.query(context, selectedKind, userId, activeNotifications)
+    val active by NotificationCleanupController.rows.collectAsStateWithLifecycle()
+    val catalog = remember(userId, selectedKind, refreshRevision, active) {
+        SurfaceCandidateDiscovery.query(context, selectedKind, userId, active)
     }
-    val chosen = draft.selected(selectedKind)
-    // Selected but temporarily unavailable targets remain editable. Never discard
-    // existing rules merely because the source is restricted or currently empty.
-    val priorities = draft.priorities(selectedKind)
-    val ranks = priorities.withIndex().associate { it.value to it.index }
-    val selectable = (catalog.items + chosen.map { it to it }).distinctBy { it.first }
+    val selected = draft.selected(selectedKind)
+    val locked = draft.locked(selectedKind)
+    val priority = draft.priorities(selectedKind).withIndex().associate { it.value to it.index }
+    val entries = (catalog.items + (selected + locked + draft.priorities(selectedKind))
+        .map { it to it }).distinctBy { it.first }
         .sortedWith(compareBy<Pair<String, String>>(
-            { ranks[it.first] ?: Int.MAX_VALUE }, { it.second.lowercase() }, { it.first }
+            { priority[it.first] ?: Int.MAX_VALUE }, { it.second.lowercase() }, { it.first },
         ))
-    val matches = selectable.filter { (pkg, label) ->
-        query.isBlank() || pkg.contains(query.trim(), ignoreCase = true) ||
-            label.contains(query.trim(), ignoreCase = true)
+
+    val applicationBased = selectedKind in setOf(
+        SurfaceKind.NOTIFICATION_SHADE, SurfaceKind.LAUNCHER_DRAWER,
+        SurfaceKind.LAUNCHER_PREDICTIONS, SurfaceKind.RECENTS,
+        SurfaceKind.QS_EDITOR, SurfaceKind.SETTINGS_APPS,
+    )
+    val types = remember(entries, applicationBased) {
+        if (!applicationBased) emptyMap() else entries.associate { (pkg, _) ->
+            val system = runCatching {
+                @Suppress("DEPRECATION")
+                val app = context.packageManager.getApplicationInfo(pkg, 0)
+                (app.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+            }.getOrNull()
+            pkg to system
+        }
     }
-    SettingsArea(stringResource(R.string.surface_aosp_title)) {
-        SettingsHint(stringResource(R.string.surface_aosp_help))
-        SettingsHint(catalog.description)
-        SettingsActionButton(onClick = { refreshRevision++ }) {
-            AdaptiveText(stringResource(R.string.surface_scan_refresh))
-        }
-        SettingsHint(stringResource(R.string.surface_aosp_selected, chosen.size))
-        SettingsActionButton(
-            onClick = {
-                draft = draft.withSelected(selectedKind,
-                    chosen + matches.take(120).map { it.first })
-            },
-            enabled = matches.take(120).any { it.first !in chosen }
-        ) { AdaptiveText(stringResource(R.string.surface_select_shown)) }
-        SettingsActionButton(
-            onClick = { draft = draft.withSelected(selectedKind, emptySet()) },
-            enabled = chosen.isNotEmpty()
-        ) { AdaptiveText(stringResource(R.string.surface_clear_selected)) }
-        BasicTextField(
-            value = query,
-            onValueChange = { query = it.take(80) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            textStyle = MaterialTheme.typography.bodyLarge.copy(
-                color = MaterialTheme.colorScheme.onSurface
-            ),
-            decorationBox = { inner ->
-                Column {
-                    SettingsHint(stringResource(R.string.surface_aosp_search))
-                    inner()
-                }
-            }
-        )
-        Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
-            matches.take(120).forEach { (pkg, label) ->
-                SettingsSwitchRow(
-                    title = label,
-                    supportingText = pkg,
-                    checked = pkg in chosen,
-                    enabled = pkg !in draft.locked(selectedKind),
-                    onCheckedChange = { enabled ->
-                        val update = if (enabled) chosen + pkg else chosen - pkg
-                        draft = draft.withSelected(selectedKind, update)
-                    }
+    val visible = entries.filter { (id, title) ->
+        (query.isBlank() || title.contains(query.trim(), ignoreCase = true) ||
+            id.contains(query.trim(), ignoreCase = true)) &&
+            (!applicationBased || when (appCategory) {
+                AppTypeFilter.ALL -> true
+                AppTypeFilter.USER -> types[id] == false
+                AppTypeFilter.SYSTEM -> types[id] == true
+            }) && surfaceFilterAllows(viewFilter, id in selected, id in locked)
+    }
+    val visibleIds = visible.take(250).map { it.first }
+    val editableIds = visibleIds.filter { it !in locked }
+
+    SurfaceWorkspaceToolbar(
+        category = appCategory.name,
+        options = if (applicationBased) AppTypeFilter.entries.map {
+            it.name to stringResource(it.titleRes())
+        } else listOf(AppTypeFilter.ALL.name to stringResource(R.string.common_all)),
+        onCategory = { value ->
+            appCategory = AppTypeFilter.entries.firstOrNull { it.name == value } ?: AppTypeFilter.ALL
+        },
+        filter = viewFilter, onFilter = { viewFilter = it },
+        actions = listOf(
+            WorkspaceMenuAction(stringResource(R.string.select_all), {
+                draft = draft.withSelected(selectedKind, selected + editableIds)
+            }, editableIds.any { it !in selected }),
+            WorkspaceMenuAction(stringResource(R.string.select_invert), {
+                draft = draft.withSelected(
+                    selectedKind, (selected - editableIds.toSet()) +
+                        editableIds.filter { it !in selected }
                 )
-                run {
-                    SettingsSwitchRow(
-                        title = stringResource(R.string.surface_lock_target),
-                        supportingText = pkg,
-                        checked = pkg in draft.locked(selectedKind),
-                        onCheckedChange = { locked ->
-                            val next = if (locked) draft.locked(selectedKind) + pkg
-                                else draft.locked(selectedKind) - pkg
-                            draft = draft.withLocked(selectedKind, next)
-                        },
-                    )
-                    if (selectedKind.supportsSurfaceOrdering()) {
-                        SettingsActionButton(onClick = {
-                            draft = draft.movePriority(selectedKind, pkg, -1)
-                        }) { AdaptiveText(stringResource(R.string.surface_move_earlier)) }
-                        SettingsActionButton(onClick = {
-                            draft = draft.movePriority(selectedKind, pkg, 1)
-                        }) { AdaptiveText(stringResource(R.string.surface_move_later)) }
-                    }
-                }
+            }, editableIds.isNotEmpty()),
+            WorkspaceMenuAction(stringResource(R.string.select_none), {
+                draft = draft.withSelected(selectedKind, selected - editableIds.toSet())
+            }, editableIds.any { it in selected }),
+        ),
+    )
+    WorkspaceListSummary(
+        title = stringResource(R.string.surface_aosp_selected, selected.size),
+        secondary = catalog.description,
+    )
+    BasicTextField(
+        value = query,
+        onValueChange = { query = it.take(80) },
+        modifier = Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal),
+        textStyle = MaterialTheme.typography.bodyLarge.copy(
+            color = MaterialTheme.colorScheme.onSurface,
+        ),
+        singleLine = true,
+        decorationBox = { input ->
+            Column {
+                WorkspaceDetailCaption(stringResource(R.string.surface_aosp_search))
+                input()
+            }
+        },
+    )
+    visible.take(250).forEach { (id, title) ->
+        val isLocked = id in locked
+        val actions = buildList {
+            add(WorkspaceMenuAction(
+                label = context.getString(
+                    if (isLocked) R.string.surface_unlock_item else R.string.surface_lock_target
+                ),
+                onClick = {
+                    draft = draft.withLocked(selectedKind,
+                        if (isLocked) locked - id else locked + id)
+                },
+            ))
+            if (selectedKind.supportsSurfaceOrdering()) {
+                add(WorkspaceMenuAction(context.getString(R.string.surface_move_earlier), {
+                    draft = draft.movePriority(selectedKind, id, -1)
+                }))
+                add(WorkspaceMenuAction(context.getString(R.string.surface_move_later), {
+                    draft = draft.movePriority(selectedKind, id, 1)
+                }))
             }
         }
-        if (matches.size > 120) SettingsHint(
-            stringResource(R.string.surface_aosp_more, matches.size - 120)
+        SurfaceWorkspaceRow(
+            title = title, subtitle = id, selected = id in selected,
+            enabled = !isLocked, locked = isLocked,
+            onToggle = {
+                draft = draft.withSelected(selectedKind,
+                    if (id in selected) selected - id else selected + id)
+            }, actions = actions,
         )
-        SettingsActionButton(
-            onClick = { confirming = true },
-            enabled = draft != saved,
-            style = SettingsActionStyle.PRIMARY
-        ) {
-            AdaptiveText(stringResource(R.string.surface_aosp_apply))
-        }
+    }
+    if (visible.size > 250) WorkspaceAppNote(
+        stringResource(R.string.surface_aosp_more, visible.size - 250),
+    )
+    WorkspaceListActions(actions = listOf(
+        WorkspaceMenuAction(stringResource(R.string.surface_scan_refresh), {
+            refreshRevision++
+        }),
+    ))
+    if (draft != saved) {
+        PendingChangesBar(
+            count = 1, onDiscard = { draft = saved },
+            onApply = { confirming = true },
+        )
     }
     if (confirming) {
         SettingsFlatDialog(
@@ -168,7 +190,7 @@ internal fun AospSurfaceSettings(
                 AdaptiveTextButton(onClick = { confirming = false }) {
                     AdaptiveText(stringResource(R.string.common_cancel))
                 }
-            }
+            },
         )
     }
 }
