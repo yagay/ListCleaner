@@ -52,8 +52,10 @@ class AospSurfaceFilterModule : XposedModule() {
                     "onRenderList", 1, "shade") { chain ->
                     val args = chain.args.toTypedArray()
                     val entries = args[0] as? List<*> ?: return@install proceedOriginal(chain)
-                    if (profiles.values.all { it.selected(SurfaceKind.NOTIFICATION_SHADE).isEmpty() })
-                        return@install proceedOriginal(chain)
+                    if (profiles.values.all {
+                            it.selected(SurfaceKind.NOTIFICATION_SHADE).isEmpty() &&
+                                it.hiddenNotificationChannels.isEmpty()
+                        }) return@install proceedOriginal(chain)
                     val filtered = entries.filterNot { item ->
                         shouldHideNotification(item)
                     }
@@ -308,7 +310,9 @@ class AospSurfaceFilterModule : XposedModule() {
             ?: entry
         val sbn = ReflectionAccess.invokeNoArg(representative, "getSbn")
             as? android.service.notification.StatusBarNotification ?: return false
-        return notificationPackage(entry) in selected(SurfaceKind.NOTIFICATION_SHADE, sbn.userId)
+        val policy = policy(sbn.userId)
+        return sbn.packageName in policy.selected(SurfaceKind.NOTIFICATION_SHADE) ||
+            policy.isChannelHidden(sbn.packageName, sbn.notification.channelId.orEmpty())
     }
 
     private fun notificationPackage(entry: Any?): String? {
