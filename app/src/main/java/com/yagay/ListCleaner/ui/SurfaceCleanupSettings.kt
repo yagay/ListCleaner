@@ -237,17 +237,19 @@ internal fun ActiveNotificationManagement(
         showAppTypeFilter = true,
         actions = listOf(
             WorkspaceMenuAction(stringResource(R.string.select_all), {
-                if (categoryMode) draftCategories = hiddenCategories + shownGroups.map { it.key }
-                else selectedKeys = chosen + shownKeys
+                if (categoryMode) draftCategories = applySurfaceBulkSelection(
+                    hiddenCategories, shownGroups.map { it.key }, SurfaceBulkOperation.ALL)
+                else selectedKeys = applySurfaceBulkSelection(chosen, shownKeys, SurfaceBulkOperation.ALL)
             }, if (categoryMode) shownGroups.any { it.key !in hiddenCategories } else shownKeys.any { it !in chosen }),
             WorkspaceMenuAction(stringResource(R.string.surface_invert_selected), {
-                if (categoryMode) draftCategories = (hiddenCategories - shownGroups.map { it.key }.toSet()) +
-                    shownGroups.map { it.key }.filter { it !in hiddenCategories }
-                else selectedKeys = (chosen - shownKeys) + shownKeys.filter { it !in chosen }
+                if (categoryMode) draftCategories = applySurfaceBulkSelection(
+                    hiddenCategories, shownGroups.map { it.key }, SurfaceBulkOperation.INVERT)
+                else selectedKeys = applySurfaceBulkSelection(chosen, shownKeys, SurfaceBulkOperation.INVERT)
             }, if (categoryMode) shownGroups.isNotEmpty() else shownKeys.isNotEmpty()),
             WorkspaceMenuAction(stringResource(R.string.select_none), {
-                if (categoryMode) draftCategories = hiddenCategories - shownGroups.map { it.key }.toSet()
-                else selectedKeys = chosen - shownKeys
+                if (categoryMode) draftCategories = applySurfaceBulkSelection(
+                    hiddenCategories, shownGroups.map { it.key }, SurfaceBulkOperation.NONE)
+                else selectedKeys = applySurfaceBulkSelection(chosen, shownKeys, SurfaceBulkOperation.NONE)
             }, if (categoryMode) shownGroups.any { it.key in hiddenCategories } else shownKeys.any { it in chosen }),
         ),
     )
