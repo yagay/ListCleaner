@@ -7,6 +7,9 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.provider.Settings
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -131,47 +134,53 @@ internal fun SurfaceChannelSettings(
     }
     val displayedPackages = filteredPackages.take(250)
     val visibleChannels = displayedPackages.flatMap { packageInventories[it]?.items.orEmpty() }
-    SurfaceWorkspaceToolbar(
-        category = "",
-        options = listOf("" to stringResource(R.string.common_all)),
-        onCategory = {},
-        filter = viewFilter, onFilter = { viewFilter = it },
-        appTypeFilter = appTypeFilter,
-        onAppTypeFilter = { appTypeFilter = it },
-        showAppTypeFilter = true,
-        actions = listOf(
-            WorkspaceMenuAction(stringResource(R.string.select_all), {
-                visibleChannels.filterNot { draft.isChannelLocked(it.packageName, it.channelId) }.forEach { channel ->
-                    draft = draft.withChannelHidden(channel.packageName, channel.channelId, true)
-                }
-            }, !scanning && visibleChannels.any { !draft.isChannelLocked(it.packageName, it.channelId) && !draft.isChannelHidden(it.packageName, it.channelId) }),
-            WorkspaceMenuAction(stringResource(R.string.surface_invert_selected), {
-                visibleChannels.filterNot { draft.isChannelLocked(it.packageName, it.channelId) }.forEach { channel ->
-                    draft = draft.withChannelHidden(channel.packageName, channel.channelId,
-                        !draft.isChannelHidden(channel.packageName, channel.channelId))
-                }
-            }, !scanning && visibleChannels.any { !draft.isChannelLocked(it.packageName, it.channelId) }),
-            WorkspaceMenuAction(stringResource(R.string.select_none), {
-                visibleChannels.filterNot { draft.isChannelLocked(it.packageName, it.channelId) }.forEach { channel ->
-                    draft = draft.withChannelHidden(channel.packageName, channel.channelId, false)
-                }
-            }, !scanning && visibleChannels.any { !draft.isChannelLocked(it.packageName, it.channelId) && draft.isChannelHidden(it.packageName, it.channelId) }),
-        ),
-    )
-    WorkspaceListSummary(
-        title = stringResource(R.string.surface_channels_title),
-        secondary = if (scanning) "$scanProgress / ${observedPackages.size}"
-            else stringResource(R.string.surface_channels_help),
-    )
-    SettingsActionButton(enabled = !scanning, onClick = { scanRevision++ }) {
-        AdaptiveText(stringResource(R.string.surface_scan_refresh))
-    }
-    SurfaceWorkspaceSearchField(
-        value = pkg,
-        onValueChange = { pkg = it },
-        label = stringResource(R.string.surface_channels_package),
-    )
-    displayedPackages.forEach { appPackage ->
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        item(key = "controls") {
+            Column {
+            SurfaceWorkspaceToolbar(
+                category = "",
+                options = listOf("" to stringResource(R.string.common_all)),
+                onCategory = {},
+                filter = viewFilter, onFilter = { viewFilter = it },
+                appTypeFilter = appTypeFilter,
+                onAppTypeFilter = { appTypeFilter = it },
+                showAppTypeFilter = true,
+                actions = listOf(
+                    WorkspaceMenuAction(stringResource(R.string.select_all), {
+                        visibleChannels.filterNot { draft.isChannelLocked(it.packageName, it.channelId) }.forEach { channel ->
+                            draft = draft.withChannelHidden(channel.packageName, channel.channelId, true)
+                        }
+                    }, !scanning && visibleChannels.any { !draft.isChannelLocked(it.packageName, it.channelId) && !draft.isChannelHidden(it.packageName, it.channelId) }),
+                    WorkspaceMenuAction(stringResource(R.string.surface_invert_selected), {
+                        visibleChannels.filterNot { draft.isChannelLocked(it.packageName, it.channelId) }.forEach { channel ->
+                            draft = draft.withChannelHidden(channel.packageName, channel.channelId,
+                                !draft.isChannelHidden(channel.packageName, channel.channelId))
+                        }
+                    }, !scanning && visibleChannels.any { !draft.isChannelLocked(it.packageName, it.channelId) }),
+                    WorkspaceMenuAction(stringResource(R.string.select_none), {
+                        visibleChannels.filterNot { draft.isChannelLocked(it.packageName, it.channelId) }.forEach { channel ->
+                            draft = draft.withChannelHidden(channel.packageName, channel.channelId, false)
+                        }
+                    }, !scanning && visibleChannels.any { !draft.isChannelLocked(it.packageName, it.channelId) && draft.isChannelHidden(it.packageName, it.channelId) }),
+                ),
+            )
+            WorkspaceListSummary(
+                title = stringResource(R.string.surface_channels_title),
+                secondary = if (scanning) "$scanProgress / ${observedPackages.size}"
+                    else stringResource(R.string.surface_channels_help),
+            )
+            SettingsActionButton(enabled = !scanning, onClick = { scanRevision++ }) {
+                AdaptiveText(stringResource(R.string.surface_scan_refresh))
+            }
+            SurfaceWorkspaceSearchField(
+                value = pkg,
+                onValueChange = { pkg = it },
+                label = stringResource(R.string.surface_channels_package),
+            )
+        
+            }
+        }
+        items(displayedPackages, key = { it }) { appPackage ->
         val appLabel = packageLabels[appPackage] ?: appPackage
         val appIcon = remember(appPackage, userId) {
             if (userId != localUserId) null else runCatching {
@@ -309,8 +318,11 @@ internal fun SurfaceChannelSettings(
             },
         )
     }
+        item(key = "footer") {
     if (draft != saved) PendingChangesBar(
         count = 1, onDiscard = { draft = saved },
         onApply = { vm.setSurfaceFilters(draft) },
     )
+        }
+    }
 }
