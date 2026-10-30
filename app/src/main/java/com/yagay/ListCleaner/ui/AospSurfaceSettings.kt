@@ -205,6 +205,4 @@ internal fun AospSurfaceSettings(
             )            }
         }
     }
-        }
-    }
 }
