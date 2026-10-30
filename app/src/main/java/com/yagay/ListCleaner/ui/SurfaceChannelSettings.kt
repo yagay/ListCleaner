@@ -94,7 +94,8 @@ internal fun SurfaceChannelSettings(
     }
     val visibleChannels = visiblePackages.flatMap { packageInventories[it]?.items.orEmpty() }
         .filter { surfaceFilterAllows(viewFilter,
-            draft.isChannelHidden(it.packageName, it.channelId), false) }
+            draft.isChannelHidden(it.packageName, it.channelId),
+            draft.isChannelLocked(it.packageName, it.channelId)) }
     SurfaceWorkspaceToolbar(
         category = "",
         options = listOf("" to stringResource(R.string.common_all)),
@@ -102,21 +103,21 @@ internal fun SurfaceChannelSettings(
         filter = viewFilter, onFilter = { viewFilter = it },
         actions = listOf(
             WorkspaceMenuAction(stringResource(R.string.select_all), {
-                visibleChannels.forEach { channel ->
+                visibleChannels.filterNot { draft.isChannelLocked(it.packageName, it.channelId) }.forEach { channel ->
                     draft = draft.withChannelHidden(channel.packageName, channel.channelId, true)
                 }
-            }, visibleChannels.any { !draft.isChannelHidden(it.packageName, it.channelId) }),
+            }, !scanning && visibleChannels.any { !draft.isChannelLocked(it.packageName, it.channelId) && !draft.isChannelHidden(it.packageName, it.channelId) }),
             WorkspaceMenuAction(stringResource(R.string.surface_invert_selected), {
                 visibleChannels.forEach { channel ->
                     draft = draft.withChannelHidden(channel.packageName, channel.channelId,
                         !draft.isChannelHidden(channel.packageName, channel.channelId))
                 }
-            }, visibleChannels.isNotEmpty()),
+            }, !scanning && visibleChannels.any { !draft.isChannelLocked(it.packageName, it.channelId) }),
             WorkspaceMenuAction(stringResource(R.string.select_none), {
                 visibleChannels.forEach { channel ->
                     draft = draft.withChannelHidden(channel.packageName, channel.channelId, false)
                 }
-            }, visibleChannels.any { draft.isChannelHidden(it.packageName, it.channelId) }),
+            }, !scanning && visibleChannels.any { !draft.isChannelLocked(it.packageName, it.channelId) && draft.isChannelHidden(it.packageName, it.channelId) }),
         ),
     )
     WorkspaceListSummary(
@@ -159,6 +160,7 @@ internal fun SurfaceChannelSettings(
         val found = packageInventories[appPackage]
         val channels = found?.items.orEmpty()
         val selected = channels.isNotEmpty() && channels.all { draft.isChannelHidden(appPackage, it.channelId) }
+        val appLocked = channels.isNotEmpty() && channels.all { draft.isChannelLocked(appPackage, it.channelId) }
         val expandApp: () -> Unit = {
             expandedPackage = if (expandedPackage == appPackage) null else appPackage
 
@@ -170,10 +172,10 @@ internal fun SurfaceChannelSettings(
                 appPackage else stringResource(R.string.surface_channels_count, channels.size),
             packageName = appPackage,
             expanded = expandedPackage == appPackage,
-            lockState = BulkLockState.NONE,
+            lockState = if (appLocked) BulkLockState.FULL else if (channels.any { draft.isChannelLocked(appPackage, it.channelId) }) BulkLockState.PARTIAL else BulkLockState.NONE,
             onExpand = expandApp,
-            onLock = {},
-            onUnlock = {},
+            onLock = { channels.forEach { draft = draft.withChannelLocked(appPackage, it.channelId, true) } },
+            onUnlock = { channels.forEach { draft = draft.withChannelLocked(appPackage, it.channelId, false) } },
             selection = {
                 WorkspaceAppSelectionCheckbox(
                     state = when {
@@ -182,9 +184,9 @@ internal fun SurfaceChannelSettings(
                             ToggleableState.Indeterminate
                         else -> ToggleableState.Off
                     },
-                    enabled = channels.isNotEmpty(),
+                    enabled = channels.isNotEmpty() && !scanning && !appLocked,
                     onClick = {
-                        channels.forEach {
+                        channels.filterNot { draft.isChannelLocked(appPackage, it.channelId) }.forEach {
                             draft = draft.withChannelHidden(appPackage, it.channelId, !selected)
                         }
                     },
@@ -228,7 +230,8 @@ internal fun SurfaceChannelSettings(
                                 position = if (index == groupChannels.lastIndex)
                                     ListRowPosition.LAST else ListRowPosition.MIDDLE,
                                 checked = checked,
-                                locked = false,
+                                locked = draft.isChannelLocked(appPackage, channel.channelId),
+                                enabled = !draft.isChannelLocked(appPackage, channel.channelId),
                                 onToggle = {
                                     draft = draft.withChannelHidden(
                                         appPackage, channel.channelId, !checked)
@@ -239,7 +242,12 @@ internal fun SurfaceChannelSettings(
                                 },
                                 trailing = { menuOpen, setMenuOpen ->
                                     WorkspaceFlatOverflowMenu(
-                                        actions = if (userId == android.os.Process.myUid() / 100000)
+                                        actions = listOf(
+                                            WorkspaceMenuAction(
+                                                stringResource(if (draft.isChannelLocked(appPackage, channel.channelId)) R.string.surface_unlock_item else R.string.surface_lock_target),
+                                                { draft = draft.withChannelLocked(appPackage, channel.channelId, !draft.isChannelLocked(appPackage, channel.channelId)) },
+                                            ),
+                                        ) + if (userId == android.os.Process.myUid() / 100000)
                                             listOf(WorkspaceMenuAction(
                                                 stringResource(R.string.surface_channel_settings), {
                                                     val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
