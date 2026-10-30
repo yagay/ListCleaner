@@ -106,16 +106,13 @@ internal fun AospSurfaceSettings(
                 showAppTypeFilter = applicationBased,
                 actions = listOf(
                     WorkspaceMenuAction(stringResource(R.string.select_all), {
-                        draft = draft.withSelected(selectedKind, selected + editableIds)
+                        draft = draft.withSelected(selectedKind, applySurfaceBulkSelection(selected, editableIds, SurfaceBulkOperation.ALL))
                     }, editableIds.any { it !in selected }),
                     WorkspaceMenuAction(stringResource(R.string.surface_invert_selected), {
-                        draft = draft.withSelected(
-                            selectedKind, (selected - editableIds.toSet()) +
-                                editableIds.filter { it !in selected }
-                        )
+                        draft = draft.withSelected(selectedKind, applySurfaceBulkSelection(selected, editableIds, SurfaceBulkOperation.INVERT))
                     }, editableIds.isNotEmpty()),
                     WorkspaceMenuAction(stringResource(R.string.select_none), {
-                        draft = draft.withSelected(selectedKind, selected - editableIds.toSet())
+                        draft = draft.withSelected(selectedKind, applySurfaceBulkSelection(selected, editableIds, SurfaceBulkOperation.NONE))
                     }, editableIds.any { it in selected }),
                 ),
             )
