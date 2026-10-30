@@ -48,8 +48,8 @@ internal fun SurfaceChannelSettings(
     val saved by vm.surfaceFilters.collectAsStateWithLifecycle()
     var draft by remember(userId, saved) { mutableStateOf(saved) }
     var pkg by remember(userId) { mutableStateOf("") }
-    var viewFilter by remember(userId) { mutableStateOf(UiFilter.ALL) }
-    var appTypeFilter by remember(userId) { mutableStateOf(AppTypeFilter.ALL) }
+    var viewFilter by remember(userId) { mutableStateOf(UiPreferencesStore.initialFilter(context, "lists_channels")) }
+    var appTypeFilter by remember(userId) { mutableStateOf(UiPreferencesStore.initialAppType(context, "lists_channels")) }
     var expandedPackage by remember(userId) { mutableStateOf<String?>(null) }
     var packageInventories by remember(userId) { mutableStateOf<Map<String, ChannelInventory>>(emptyMap()) }
     var scanProgress by remember(userId) { mutableStateOf(0) }
@@ -141,9 +141,9 @@ internal fun SurfaceChannelSettings(
                 category = "",
                 options = listOf("" to stringResource(R.string.common_all)),
                 onCategory = {},
-                filter = viewFilter, onFilter = { viewFilter = it },
+                filter = viewFilter, onFilter = { viewFilter = it; UiPreferencesStore.rememberFilter(context, it, "lists_channels") },
                 appTypeFilter = appTypeFilter,
-                onAppTypeFilter = { appTypeFilter = it },
+                onAppTypeFilter = { appTypeFilter = it; UiPreferencesStore.rememberAppType(context, it, "lists_channels") },
                 showAppTypeFilter = true,
                 actions = listOf(
                     WorkspaceMenuAction(stringResource(R.string.select_all), {
