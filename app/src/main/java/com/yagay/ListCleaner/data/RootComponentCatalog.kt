@@ -25,7 +25,8 @@ enum class CleanupKind(val action: String) {
     TILE("android.service.quicksettings.action.QS_TILE"),
     SHORTCUT("android.intent.action.CREATE_SHORTCUT"),
     WIDGET("android.appwidget.action.APPWIDGET_UPDATE"),
-    CONTROLS("android.service.controls.ControlsProviderService")
+    CONTROLS("android.service.controls.ControlsProviderService"),
+    AUTHENTICATOR("android.accounts.AccountAuthenticator")
 }
 
 enum class ComponentDiscoverySource {
@@ -104,6 +105,7 @@ class RootComponentCatalog(
         CleanupKind.SHORTCUT -> R.string.cleanup_shortcut
         CleanupKind.WIDGET -> R.string.cleanup_widget
         CleanupKind.CONTROLS -> R.string.cleanup_controls
+        CleanupKind.AUTHENTICATOR -> R.string.cleanup_authenticator
     })
 
     private fun componentKey(info: ComponentInfo): ComponentName =
@@ -151,6 +153,13 @@ class RootComponentCatalog(
         pm.queryIntentServices(Intent(CleanupKind.CONTROLS.action), flags)
             .mapNotNull { it.serviceInfo }
             .filter { ControlsProviderEligibility.accepts(it.permission, it.exported) }
+            .map { DiscoveredComponent(it, setOf(ComponentDiscoverySource.PACKAGE_MANAGER)) }
+
+    @Suppress("DEPRECATION")
+    private fun queryAccountAuthenticators(): List<DiscoveredComponent> =
+        pm.queryIntentServices(Intent(CleanupKind.AUTHENTICATOR.action), flags)
+            .mapNotNull { it.serviceInfo }
+            .filter { it.metaData?.containsKey("android.accounts.AccountAuthenticator") == true }
             .map { DiscoveredComponent(it, setOf(ComponentDiscoverySource.PACKAGE_MANAGER)) }
 
     @Suppress("DEPRECATION")
@@ -226,6 +235,7 @@ class RootComponentCatalog(
         CleanupKind.LAUNCHER -> queryLauncherActivities()
         CleanupKind.TILE -> queryTiles()
         CleanupKind.CONTROLS -> queryDeviceControls()
+        CleanupKind.AUTHENTICATOR -> queryAccountAuthenticators()
         CleanupKind.SHORTCUT -> mergeDiscovered(
             queryShortcutConfigActivities(),
             queryLegacyShortcutActivities()

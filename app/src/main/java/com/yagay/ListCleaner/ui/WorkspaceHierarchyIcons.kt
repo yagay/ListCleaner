@@ -104,6 +104,7 @@ internal fun CleanupKind.hierarchyIcon(): ImageVector = when (this) {
     CleanupKind.SHORTCUT -> Icons.Rounded.Link
     CleanupKind.WIDGET -> Icons.Rounded.Widgets
     CleanupKind.CONTROLS -> Icons.Rounded.Extension
+    CleanupKind.AUTHENTICATOR -> Icons.Rounded.Security
 }
 
 internal val rootHierarchyIcon: ImageVector get() = Icons.Rounded.Extension

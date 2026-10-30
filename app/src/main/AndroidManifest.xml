@@ -13,6 +13,9 @@
         <package android:name="android"/>
         <intent><action android:name="android.service.quicksettings.action.QS_TILE"/></intent>
         <intent><action android:name="android.service.controls.ControlsProviderService"/></intent>
+        <intent><action android:name="android.accounts.AccountAuthenticator"/></intent>
+        <intent><action android:name="android.intent.action.EDIT"/></intent>
+        <intent><action android:name="android.intent.action.PICK"/></intent>
         <intent><action android:name="android.intent.action.CHOOSER"/></intent>
         <intent><action android:name="android.intent.action.SEND"/><data android:mimeType="*/*"/></intent>
         <intent><action android:name="android.intent.action.SEND_MULTIPLE"/><data android:mimeType="*/*"/></intent>

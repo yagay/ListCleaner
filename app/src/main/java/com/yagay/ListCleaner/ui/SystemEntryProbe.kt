@@ -574,7 +574,7 @@ internal object SystemEntryProbe {
                     )
                 }
             }
-            CleanupKind.TILE, CleanupKind.CONTROLS ->
+            CleanupKind.TILE, CleanupKind.CONTROLS, CleanupKind.AUTHENTICATOR ->
                 pm.queryIntentServices(
                     SystemEffectPreview.markedQueryIntent(
                         Intent(kind.action)
@@ -587,6 +587,9 @@ internal object SystemEntryProbe {
                     )) return@mapNotNull null
                     if (kind == CleanupKind.CONTROLS &&
                         !ControlsProviderEligibility.accepts(service.permission, service.exported))
+                        return@mapNotNull null
+                    if (kind == CleanupKind.AUTHENTICATOR &&
+                        service.metaData?.containsKey("android.accounts.AccountAuthenticator") != true)
                         return@mapNotNull null
                     SystemProbeItem(
                         resolved.loadLabel(pm)?.toString().orEmpty().ifBlank { service.name },
@@ -602,6 +605,7 @@ internal object SystemEntryProbe {
             when (kind) {
                 CleanupKind.TILE -> R.string.system_probe_tile_notice
                 CleanupKind.CONTROLS -> R.string.surface_controls_probe_notice
+                CleanupKind.AUTHENTICATOR -> R.string.root_kind_authenticator_help
                 CleanupKind.WIDGET -> R.string.system_probe_widget_notice
                 CleanupKind.LAUNCHER -> R.string.system_probe_manager_notice
                 CleanupKind.SHORTCUT -> R.string.system_probe_shortcut_notice

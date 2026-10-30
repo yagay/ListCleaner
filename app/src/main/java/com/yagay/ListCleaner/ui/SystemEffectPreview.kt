@@ -67,7 +67,8 @@ internal fun systemPreviewRoute(kind: IntentKind): SystemPreviewRoute = when (ki
 internal fun systemPreviewRoute(kind: CleanupKind): SystemPreviewRoute = when (kind) {
     CleanupKind.LAUNCHER, CleanupKind.SHORTCUT -> SystemPreviewRoute.CHOOSER
     CleanupKind.WIDGET -> SystemPreviewRoute.WIDGET_PICKER
-    CleanupKind.TILE, CleanupKind.CONTROLS -> SystemPreviewRoute.UNAVAILABLE
+    CleanupKind.TILE, CleanupKind.CONTROLS, CleanupKind.AUTHENTICATOR ->
+        SystemPreviewRoute.UNAVAILABLE
 }
 
 /** An extra scenario tester never replaces an Android role/default-app settings UI. */
@@ -97,6 +98,7 @@ internal fun previewRouteNote(kind: IntentKind): Int = when (kind) {
 internal fun previewRouteNote(kind: CleanupKind): Int = when (kind) {
     CleanupKind.TILE -> R.string.preview_tile_no_public_editor
     CleanupKind.CONTROLS -> R.string.surface_controls_probe_notice
+    CleanupKind.AUTHENTICATOR -> R.string.root_kind_authenticator_help
     CleanupKind.WIDGET -> R.string.preview_widget_temporary_host
     CleanupKind.LAUNCHER, CleanupKind.SHORTCUT ->
         R.string.preview_launcher_chooser_not_real_host
