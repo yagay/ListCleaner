@@ -120,6 +120,32 @@ internal fun SurfaceWorkspaceRow(
     details: @Composable (() -> Unit)? = null,
     nested: Boolean = false,
 ) {
+    if (onExpand != null) {
+        WorkspaceAppRow(
+            icon = null,
+            title = title,
+            subtitle = subtitle,
+            expanded = expanded,
+            lockState = if (locked) BulkLockState.FULL else BulkLockState.NONE,
+            onExpand = onExpand,
+            onLock = {},
+            onUnlock = {},
+            selection = {
+                WorkspaceAppSelectionCheckbox(
+                    state = when {
+                        indeterminate -> ToggleableState.Indeterminate
+                        selected -> ToggleableState.On
+                        else -> ToggleableState.Off
+                    },
+                    enabled = enabled,
+                    onClick = onToggle,
+                )
+            },
+            menuActions = actions,
+            expandedContent = { details?.invoke() },
+        )
+        return
+    }
     var overflow by remember { mutableStateOf(false) }
     ContinuousApplicationSurface(expanded = expanded && onExpand != null) {
         Column {
