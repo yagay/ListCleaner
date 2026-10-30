@@ -115,8 +115,8 @@ internal fun SurfaceWorkspaceRow(
             expanded = expanded,
             lockState = if (locked) BulkLockState.FULL else BulkLockState.NONE,
             onExpand = onExpand,
-            onLock = onLock,
-            onUnlock = onUnlock,
+            onLock = { onLock?.invoke() },
+            onUnlock = { onUnlock?.invoke() },
             selection = {
                 WorkspaceAppSelectionCheckbox(
                     state = when {
