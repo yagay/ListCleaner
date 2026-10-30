@@ -1,7 +1,6 @@
 package com.yagay.ListCleaner.runtime;
 
 import android.os.IBinder;
-import android.os.ServiceManager;
 import android.app.NotificationChannel;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -20,7 +19,9 @@ public final class RootNotificationChannelProbe {
             if (!pkg.matches("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)+") || uid < 0) {
                 throw new IllegalArgumentException("invalid target");
             }
-            IBinder binder = ServiceManager.getService("notification");
+            Class<?> serviceManager = Class.forName("android.os.ServiceManager");
+            IBinder binder = (IBinder) serviceManager.getMethod("getService", String.class)
+                .invoke(null, "notification");
             if (binder == null) throw new IllegalStateException("notification service absent");
             Class<?> stub = Class.forName("android.app.INotificationManager$Stub");
             Object service = stub.getMethod("asInterface", IBinder.class).invoke(null, binder);
