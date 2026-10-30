@@ -156,7 +156,7 @@ internal fun SurfaceWorkspaceRow(
                 actions = actions, expanded = overflow, onExpandedChange = { overflow = it },
                 contentDescription = stringResource(R.string.common_more),
             )
-            if (onExpand != null) androidx.compose.material3.IconButton(onClick = onExpand) {
+            if (onExpand != null) AdaptiveIconButton(onClick = onExpand) {
                 AdaptiveIcon(
                     if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                     stringResource(if (expanded) R.string.common_collapse else R.string.common_expand),
