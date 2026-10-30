@@ -134,9 +134,9 @@ internal fun SurfaceChannelSettings(
     }
     val displayedPackages = filteredPackages.take(250)
     val visibleChannels = displayedPackages.flatMap { packageInventories[it]?.items.orEmpty() }
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        item(key = "controls") {
-            Column {
+    Column(Modifier.fillMaxSize()) {
+        Column {
+
             SurfaceWorkspaceToolbar(
                 category = "",
                 options = listOf("" to stringResource(R.string.common_all)),
@@ -178,8 +178,9 @@ internal fun SurfaceChannelSettings(
                 label = stringResource(R.string.surface_channels_package),
             )
         
-            }
+
         }
+        LazyColumn(modifier = Modifier.weight(1f)) {
         items(displayedPackages, key = { it }) { appPackage ->
         val appLabel = packageLabels[appPackage] ?: appPackage
         val appIcon = remember(appPackage, userId) {
@@ -323,6 +324,8 @@ internal fun SurfaceChannelSettings(
         count = 1, onDiscard = { draft = saved },
         onApply = { vm.setSurfaceFilters(draft) },
     )
+        }
+    }
         }
     }
 }
