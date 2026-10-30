@@ -55,25 +55,23 @@ internal fun SurfaceWorkspaceToolbar(
     var categoryOpen by remember { mutableStateOf(false) }
     WorkspaceCategoryFilterRow(
         category = {
-            if (options.size == 1) {
-                AdaptiveText(
-                    options.single().second,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else Box {
+            Box {
                 WorkspacePickerButton(
                     label = options.firstOrNull { it.first == category }?.second ?: category,
-                    icon = Icons.Rounded.Layers, selected = category != options.firstOrNull()?.first,
-                    expanded = categoryOpen, onClick = { categoryOpen = true },
+                    icon = Icons.Rounded.Layers,
+                    selected = category != options.firstOrNull()?.first,
+                    expanded = categoryOpen,
+                    onClick = { categoryOpen = true },
                 )
                 FlatWorkspaceDropdownMenu(
-                    expanded = categoryOpen, onDismissRequest = { categoryOpen = false },
+                    expanded = categoryOpen,
+                    onDismissRequest = { categoryOpen = false },
                     menuWidth = 256.dp,
                 ) {
                     options.forEach { (id, title) ->
                         WorkspaceFlatMenuRow(
-                            title = title, selected = category == id,
+                            title = title,
+                            selected = category == id,
                             onClick = { categoryOpen = false; onCategory(id) },
                         )
                     }
