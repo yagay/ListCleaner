@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -146,20 +147,27 @@ internal fun SurfaceChannelSettings(
             ) else emptyList(),
             details = {
                 if (found != null) {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal)) {
                     WorkspaceAppNote(stringResource(when (found.status) {
                         ChannelInventoryStatus.COMPLETE -> R.string.surface_channels_full
                         ChannelInventoryStatus.OBSERVED_ONLY -> R.string.surface_channels_restricted
                         ChannelInventoryStatus.DISCONNECTED -> R.string.surface_wait_for_listener
                     }))
+                    }
                     channels.groupBy { channel ->
                         channel.groupId.orEmpty()
                     }.toSortedMap().forEach { (_, groupChannels) ->
                         val groupTitle = groupChannels.firstOrNull()?.groupLabel
                         if (!groupTitle.isNullOrBlank()) {
-                            WorkspaceDetailHeading(
-                                title = groupTitle,
-                                kind = groupChannels.size.toString(),
-                            )
+                            Column(Modifier.fillMaxWidth().padding(
+                                start = MaterialUiTokens.pageHorizontal + 24.dp,
+                                end = MaterialUiTokens.pageHorizontal,
+                            )) {
+                                WorkspaceDetailHeading(
+                                    title = groupTitle,
+                                    kind = groupChannels.size.toString(),
+                                )
+                            }
                         }
                         groupChannels.forEach { channel ->
                             val checked = draft.isChannelHidden(appPackage, channel.channelId)
@@ -167,6 +175,7 @@ internal fun SurfaceChannelSettings(
                                 title = channel.label,
                                 subtitle = channel.channelId,
                                 selected = checked,
+                                nested = true,
                                 onToggle = {
                                     draft = draft.withChannelHidden(
                                         appPackage, channel.channelId, !checked)
