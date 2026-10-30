@@ -97,6 +97,8 @@ internal fun SurfaceWorkspaceRow(
     indeterminate: Boolean = false,
     enabled: Boolean = true,
     locked: Boolean = false,
+    onLock: (() -> Unit)? = null,
+    onUnlock: (() -> Unit)? = null,
     onToggle: () -> Unit,
     actions: List<WorkspaceMenuAction> = emptyList(),
     expanded: Boolean = false,
@@ -113,8 +115,8 @@ internal fun SurfaceWorkspaceRow(
             expanded = expanded,
             lockState = if (locked) BulkLockState.FULL else BulkLockState.NONE,
             onExpand = onExpand,
-            onLock = {},
-            onUnlock = {},
+            onLock = onLock,
+            onUnlock = onUnlock,
             selection = {
                 WorkspaceAppSelectionCheckbox(
                     state = when {
