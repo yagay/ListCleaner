@@ -104,7 +104,8 @@ internal fun SurfaceManagementTab(
     }
     BackHandler(enabled = group != null || page != null, onBack = navigateBack)
 
-    if (page?.kind != null || page == SurfaceManagerPage.NOTIFICATIONS_CHANNELS) {
+    if (page?.kind != null || page == SurfaceManagerPage.NOTIFICATIONS_CHANNELS ||
+        page == SurfaceManagerPage.NOTIFICATIONS_CURRENT || page == SurfaceManagerPage.NOTIFICATIONS_TYPES) {
         val current = requireNotNull(page)
         Column(Modifier.fillMaxSize()) {
             SurfaceNavigationHeading(
@@ -112,9 +113,15 @@ internal fun SurfaceManagementTab(
                 onBack = navigateBack,
             )
             Box(Modifier.weight(1f)) {
-                if (current == SurfaceManagerPage.NOTIFICATIONS_CHANNELS)
-                    SurfaceChannelSettings(vm, userId, activeNotifications, pendingNavigation)
-                else AospSurfaceSettings(vm, userId, requireNotNull(current.kind), pendingNavigation)
+                when (current) {
+                    SurfaceManagerPage.NOTIFICATIONS_CHANNELS ->
+                        SurfaceChannelSettings(vm, userId, activeNotifications, pendingNavigation)
+                    SurfaceManagerPage.NOTIFICATIONS_CURRENT ->
+                        ActiveNotificationManagement(vm, pendingNavigation)
+                    SurfaceManagerPage.NOTIFICATIONS_TYPES ->
+                        ActiveNotificationManagement(vm, pendingNavigation, ActiveNotificationGrouping.CATEGORY)
+                    else -> AospSurfaceSettings(vm, userId, requireNotNull(current.kind), pendingNavigation)
+                }
             }
         }
         return
