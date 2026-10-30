@@ -1,6 +1,9 @@
 package com.yagay.ListCleaner.runtime
 
 import android.app.Notification
+import android.os.UserHandle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +22,21 @@ data class ActiveNotificationRow(
     val protected: Boolean,
 )
 
+data class RegisteredChannelRow(
+    val packageName: String,
+    val channelId: String,
+    val label: String,
+    val importance: Int,
+)
+
+enum class ChannelInventoryStatus { COMPLETE, OBSERVED_ONLY, DISCONNECTED }
+
+data class ChannelInventory(
+    val items: List<RegisteredChannelRow>,
+    val status: ChannelInventoryStatus,
+)
+
+/** Retrieves all registered channels only where platform listener privileges permit it. */
 object NotificationCleanupController {
     private val mutableRows = MutableStateFlow<List<ActiveNotificationRow>>(emptyList())
     val rows: StateFlow<List<ActiveNotificationRow>> = mutableRows.asStateFlow()
@@ -59,6 +77,32 @@ object NotificationCleanupController {
             protected = NotificationCleanupPolicy.protected(notification.flags, notification.category),
         )
     }
+
+    suspend fun channelsForPackage(pkg: String, userId: Int): ChannelInventory =
+        withContext(Dispatchers.IO) {
+            val current = listener
+                ?: return@withContext ChannelInventory(emptyList(), ChannelInventoryStatus.DISCONNECTED)
+            val all = runCatching {
+                val handle = UserHandle.of(userId)
+                current.getNotificationChannels(pkg, handle).orEmpty()
+                    .map { channel ->
+                        RegisteredChannelRow(pkg, channel.id, channel.name?.toString() ?: channel.id,
+                            channel.importance)
+                    }
+                    .distinctBy { it.channelId }
+                    .sortedBy { it.label.lowercase() }
+            }.getOrNull()
+            if (all != null) {
+                ChannelInventory(all, ChannelInventoryStatus.COMPLETE)
+            } else {
+                // A normal NotificationListenerService is not necessarily a
+                // privileged channel manager. Never claim this is a complete list.
+                val observed = rows.value.filter { it.packageName == pkg && it.userId == userId }
+                    .map { RegisteredChannelRow(pkg, it.channelId, it.channelId, -1) }
+                    .distinctBy { it.channelId }.sortedBy { it.channelId }
+                ChannelInventory(observed, ChannelInventoryStatus.OBSERVED_ONLY)
+            }
+        }
 
     /** Never dismiss protected, changed or no-longer-active notifications. */
     fun dismiss(keys: Set<String>): Int {
