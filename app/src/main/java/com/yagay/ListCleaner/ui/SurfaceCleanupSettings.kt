@@ -119,10 +119,14 @@ internal fun ActiveNotificationManagement(
         .contains(context.packageName)
     var grouping by remember(userId, initialGrouping) { mutableStateOf(initialGrouping) }
     var categorySelection by remember(userId, initialGrouping) { mutableStateOf<String?>(null) }
-    var filter by remember(userId, initialGrouping) { mutableStateOf(UiPreferencesStore.initialFilter(context, "lists_notifications_${initialGrouping.name}")) }
-    var appTypeFilter by remember(userId, initialGrouping) { mutableStateOf(UiPreferencesStore.initialAppType(context, "lists_notifications_${initialGrouping.name}")) }
+    val uiState = rememberSurfaceWorkspaceUiState(
+        userId, "notifications_${initialGrouping.name}",
+        UiPreferencesStore.initialFilter(context, "lists_notifications_${initialGrouping.name}"),
+        UiPreferencesStore.initialAppType(context, "lists_notifications_${initialGrouping.name}"),
+    )
+    val filter = uiState.viewFilter
+    val appTypeFilter = uiState.appTypeFilter
     var selectedKeys by remember(userId) { mutableStateOf(emptySet<String>()) }
-    var expandedGroup by remember(userId, initialGrouping) { mutableStateOf<String?>(null) }
     var dismissalCount by remember(userId) { mutableStateOf<Int?>(null) }
     val sameProfile = rows.filter { it.userId == userId }
     val available = sameProfile.filterNot { it.protected }
@@ -231,9 +235,9 @@ internal fun ActiveNotificationManagement(
                 categorySelection = value.takeUnless { it == "ALL" }
             } else grouping = ActiveNotificationGrouping.entries.first { it.name == value }
         },
-        filter = filter, onFilter = { filter = it; UiPreferencesStore.rememberFilter(context, it, "lists_notifications_${initialGrouping.name}") },
+        filter = filter, onFilter = { uiState.viewFilter = it; UiPreferencesStore.rememberFilter(context, it, "lists_notifications_${initialGrouping.name}") },
         appTypeFilter = appTypeFilter,
-        onAppTypeFilter = { appTypeFilter = it; UiPreferencesStore.rememberAppType(context, it, "lists_notifications_${initialGrouping.name}") },
+        onAppTypeFilter = { uiState.appTypeFilter = it; UiPreferencesStore.rememberAppType(context, it, "lists_notifications_${initialGrouping.name}") },
         showAppTypeFilter = true,
         actions = listOf(
             WorkspaceMenuAction(stringResource(R.string.select_all), {
@@ -300,9 +304,9 @@ internal fun ActiveNotificationManagement(
                     hiddenCategories - group.key else hiddenCategories + group.key
                 else selectedKeys = if (complete) chosen - allowedKeys else chosen + allowedKeys
             },
-            expanded = expandedGroup == group.key,
+            expanded = uiState.expandedKey == group.key,
             onExpand = if (categoryMode || (grouping != ActiveNotificationGrouping.ALL && group.rows.size > 1)) {
-                { expandedGroup = if (expandedGroup == group.key) null else group.key }
+                { uiState.toggleExpanded(group.key) }
             } else null,
             details = if (categoryMode) {
                 {
@@ -408,7 +412,12 @@ internal fun StaleRuleManagement(state: MainState, vm: MainViewModel) {
     val completed = refreshed && scanStarted && !state.loading
     var selectedRules by remember(userId) { mutableStateOf(emptySet<ComponentRule>()) }
     var category by remember(userId) { mutableStateOf("ALL") }
-    var viewFilter by remember(userId) { mutableStateOf(UiFilter.ALL) }
+    val maintenanceUi = rememberSurfaceWorkspaceUiState(
+        userId, "maintenance",
+        UiPreferencesStore.initialFilter(LocalContext.current, "lists_maintenance"),
+        UiPreferencesStore.initialAppType(LocalContext.current, "lists_maintenance"),
+    )
+    val viewFilter = maintenanceUi.viewFilter
     val stale = if (completed && state.error.isNullOrBlank()) {
         val returned = state.candidates.mapTo(hashSetOf()) { it.rule }
         (state.selected - returned) + state.candidates.asSequence()
@@ -428,7 +437,7 @@ internal fun StaleRuleManagement(state: MainState, vm: MainViewModel) {
     SurfaceWorkspaceToolbar(
         category = category, options = categories,
         onCategory = { category = it },
-        filter = viewFilter, onFilter = { viewFilter = it },
+        filter = viewFilter, onFilter = { maintenanceUi.viewFilter = it; UiPreferencesStore.rememberFilter(LocalContext.current, it, "lists_maintenance") },
         actions = listOf(
             WorkspaceMenuAction(stringResource(R.string.select_all), {
                 selectedRules = applySurfaceBulkSelection(selected, visible, SurfaceBulkOperation.ALL)
