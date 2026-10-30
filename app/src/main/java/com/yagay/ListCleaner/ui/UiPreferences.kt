@@ -20,7 +20,7 @@ internal enum class UiListStyle { ORIGINAL, GROUPED }
  */
 internal enum class UiHomeLayout { CATEGORY_CARDS, CLASSIC_LIST }
 internal enum class UiAccent { DYNAMIC, BLUE, GREEN, PURPLE, CUSTOM }
-internal enum class UiStartPage { CLEANUP, ORDERING, SETTINGS }
+internal enum class UiStartPage { CLEANUP, ORDERING, SURFACES, SETTINGS }
 internal enum class UiAppSort { SELECTED_FIRST, NAME, PACKAGE }
 internal enum class UiScanMode { SMART, MANUAL, EVERY_ENTRY }
 /** Applies to proactive read-only ShortcutService discovery, not passive Hooks. */
@@ -417,5 +417,6 @@ internal object UiPreferencesStore {
 internal fun UiStartPage.destination(): Destination = when (this) {
     UiStartPage.CLEANUP -> Destination.RULES
     UiStartPage.ORDERING -> Destination.PRIORITY
+    UiStartPage.SURFACES -> Destination.SURFACES
     UiStartPage.SETTINGS -> Destination.SETTINGS
 }

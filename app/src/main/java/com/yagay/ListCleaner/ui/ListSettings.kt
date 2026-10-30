@@ -35,6 +35,7 @@ internal fun SettingsListControls() {
             listOf(
                 UiStartPage.CLEANUP to stringResource(R.string.nav_rules),
                 UiStartPage.ORDERING to stringResource(R.string.nav_priority),
+                UiStartPage.SURFACES to stringResource(R.string.nav_surface_management),
                 UiStartPage.SETTINGS to stringResource(R.string.nav_settings),
             )
         ) { UiPreferencesStore.write(context, current.copy(startPage = it)) }

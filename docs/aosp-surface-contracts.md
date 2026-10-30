@@ -10,8 +10,13 @@ terminating a task, cancelling a notification or deleting a document.
 
 ## UI / persistence
 
-- Settings → More cleanup → AOSP presentation filters
-- Choose one of 8 independent surfaces, select matching items, then confirm Apply
+- Bottom navigation: **Entry cleanup | Components | Lists | Settings**
+- **Lists** → Notifications / Home and recents / System lists / Rule maintenance
+- Choose an individual surface or operation, edit its candidates, locks or order,
+  then confirm Apply. Navigation and Android user switching are protected by
+  the existing staged-change guard; Settings now contains configuration only.
+- **Entry cleanup** continues to own ACTION_EDIT and ACTION_PICK.
+  **Components** continues to own Device Controls and AccountAuthenticator Root actions.
 - Each Android user has its own `SurfaceFilterConfig` inside `UserSpaceRules`
 - The complete `ModuleConfig` is sent through the existing RemotePreferences
   configuration bridge to LSPosed; legacy configs default to empty surface rules

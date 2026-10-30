@@ -71,6 +71,7 @@ class UiPreferencesTest {
     @Test fun openingPageMapsToExistingDestinations() {
         assertEquals(Destination.RULES, UiStartPage.CLEANUP.destination())
         assertEquals(Destination.PRIORITY, UiStartPage.ORDERING.destination())
+        assertEquals(Destination.SURFACES, UiStartPage.SURFACES.destination())
         assertEquals(Destination.SETTINGS, UiStartPage.SETTINGS.destination())
     }
 
