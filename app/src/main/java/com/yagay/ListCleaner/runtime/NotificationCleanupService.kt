@@ -150,16 +150,39 @@ object NotificationCleanupController {
     }
 
     /** Root probe is read-only. Failure is not proof of an empty channel registry. */
+    // Resolve UIDs in the selected Android user; reuse one Root package listing.
+    private val rootPackageUids = mutableMapOf<Int, Map<String, Int>>()
+
+    @Synchronized
+    private fun targetPackageUid(pkg: String, userId: Int): Int? {
+        if (userId !in 0..9999) return null
+        val uids = rootPackageUids[userId] ?: run {
+            val result = runCatching {
+                ComponentRootCommand.runReadOnly("cmd package list packages --user $userId -U")
+            }.getOrNull() ?: return null
+            if (result.exitCode != 0 || result.timedOut) return null
+            val parsed = mutableMapOf<String, Int>()
+            val entry = Regex("^package:([^\\s]+)\\s+uid:(\\d+)")
+            result.output.lineSequence().forEach { line ->
+                val match = entry.find(line.trim()) ?: return@forEach
+                val uid = match.groupValues[2].toIntOrNull() ?: return@forEach
+                parsed[match.groupValues[1]] = uid
+            }
+            if (parsed.isEmpty()) return null
+            rootPackageUids[userId] = parsed
+            parsed
+        }
+        return uids[pkg]
+    }
+
     private fun rootChannelsForPackage(pkg: String, userId: Int): List<RegisteredChannelRow>? {
-        if (userId != android.os.Process.myUid() / 100000) return null
         if (!pkg.matches(Regex("[A-Za-z0-9_]+([.][A-Za-z0-9_]+)+"))) return null
         val context = listener?.applicationContext ?: return null
-        val app = runCatching { context.packageManager.getApplicationInfo(pkg, 0) }.getOrNull()
-            ?: return null
+        val targetUid = targetPackageUid(pkg, userId) ?: return null
         val apk = context.applicationInfo.sourceDir
         if (!apk.startsWith("/") || apk.contains("'") || apk.contains("\\n")) return null
         val command = "CLASSPATH='${apk}' app_process /system/bin " +
-            "com.yagay.ListCleaner.runtime.RootNotificationChannelProbe ${pkg} ${app.uid}"
+            "com.yagay.ListCleaner.runtime.RootNotificationChannelProbe ${pkg} ${targetUid}"
         val output = runCatching { ComponentRootCommand.runReadOnly(command) }.getOrNull()
             ?: return null
         if (output.exitCode != 0 || output.timedOut) return null
