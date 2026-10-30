@@ -90,13 +90,9 @@ internal fun AospSurfaceSettings(
     val editableIds = visibleIds.filter { it !in locked }
 
     SurfaceWorkspaceToolbar(
-        category = appCategory.name,
-        options = if (applicationBased) AppTypeFilter.entries.map {
-            it.name to stringResource(it.titleRes())
-        } else listOf(AppTypeFilter.ALL.name to stringResource(R.string.common_all)),
-        onCategory = { value ->
-            appCategory = AppTypeFilter.entries.firstOrNull { it.name == value } ?: AppTypeFilter.ALL
-        },
+        category = "",
+        options = listOf("" to stringResource(R.string.common_all)),
+        onCategory = {},
         filter = viewFilter, onFilter = { viewFilter = it },
         appTypeFilter = appCategory,
         onAppTypeFilter = { appCategory = it },
