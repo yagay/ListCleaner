@@ -1,6 +1,9 @@
 package com.yagay.ListCleaner.runtime
 
 import android.app.Notification
+import android.content.Context
+import org.json.JSONArray
+import org.json.JSONObject
 import android.os.UserHandle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -47,6 +50,44 @@ object NotificationCleanupController {
     private val mutableConnected = MutableStateFlow(false)
     val connected: StateFlow<Boolean> = mutableConnected.asStateFlow()
     @Volatile private var listener: ListCleanerNotificationListener? = null
+    private const val HISTORY_PREF = "notification_observation"
+    private const val HISTORY_KEY = "channels_v1"
+
+    @Synchronized private fun loadHistory(context: Context) {
+        val encoded = context.getSharedPreferences(HISTORY_PREF, Context.MODE_PRIVATE)
+            .getString(HISTORY_KEY, null) ?: return
+        val array = runCatching { JSONArray(encoded) }.getOrNull() ?: return
+        for (index in 0 until minOf(array.length(), 4000)) {
+            val item = array.optJSONObject(index) ?: continue
+            val pkg = item.optString("pkg")
+            val channel = item.optString("channel")
+            if (pkg.isBlank() || channel.isBlank()) continue
+            val row = ActiveNotificationRow(
+                key = "observed:$index", packageName = pkg,
+                channelId = channel, userId = item.optInt("user", 0),
+                protected = item.optBoolean("protected", false),
+                category = item.optString("category").ifEmpty { null },
+            )
+            history.putIfAbsent(observationKey(row), row)
+        }
+        mutableHistory.value = history.values.toList()
+    }
+
+    @Synchronized private fun saveHistory(context: Context) {
+        val array = JSONArray()
+        history.values.takeLast(4000).forEach { row ->
+            array.put(JSONObject().apply {
+                put("pkg", row.packageName)
+                put("channel", row.channelId)
+                put("user", row.userId)
+                put("protected", row.protected)
+                put("category", row.category.orEmpty())
+            })
+        }
+        context.getSharedPreferences(HISTORY_PREF, Context.MODE_PRIVATE)
+            .edit().putString(HISTORY_KEY, array.toString()).apply()
+    }
+
     private val history = linkedMapOf<String, ActiveNotificationRow>()
     private val mutableHistory = MutableStateFlow<List<ActiveNotificationRow>>(emptyList())
     val observedRows: StateFlow<List<ActiveNotificationRow>> = mutableHistory.asStateFlow()
@@ -64,6 +105,7 @@ object NotificationCleanupController {
 
     internal fun attach(value: ListCleanerNotificationListener) {
         listener = value
+        loadHistory(value.applicationContext)
         mutableConnected.value = true
         refresh(value)
     }
@@ -88,6 +130,7 @@ object NotificationCleanupController {
                 ActiveNotificationRow::key)
         )
         recordObservation(mutableRows.value)
+        saveHistory(value.applicationContext)
     }
 
     private fun toRow(item: StatusBarNotification): ActiveNotificationRow? {
