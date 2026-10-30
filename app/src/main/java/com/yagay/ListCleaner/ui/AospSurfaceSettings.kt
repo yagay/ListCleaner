@@ -1,6 +1,8 @@
 package com.yagay.ListCleaner.ui
 
 import android.content.pm.ApplicationInfo
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.content.pm.PackageManager
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -132,6 +134,16 @@ internal fun AospSurfaceSettings(
         },
     )
     visible.take(250).forEach { (id, title) ->
+        val appIcon = remember(id, userId) {
+            if (!applicationBased) null else runCatching {
+                val drawable = context.packageManager.getApplicationIcon(id).mutate()
+                val size = (48 * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
+                Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888).also {
+                    drawable.setBounds(0, 0, size, size)
+                    drawable.draw(Canvas(it))
+                }
+            }.getOrNull()
+        }
         val isLocked = id in locked
         val actions = buildList {
             add(WorkspaceMenuAction(
@@ -153,6 +165,8 @@ internal fun AospSurfaceSettings(
             }
         }
         SurfaceWorkspaceRow(
+            icon = appIcon,
+            packageName = if (applicationBased) id else null,
             title = title, subtitle = id, selected = id in selected,
             enabled = !isLocked, locked = isLocked,
             onToggle = {
