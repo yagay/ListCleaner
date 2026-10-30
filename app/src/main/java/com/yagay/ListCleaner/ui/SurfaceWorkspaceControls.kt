@@ -192,3 +192,23 @@ internal fun <T> applySurfaceBulkSelection(
         SurfaceBulkOperation.NONE -> selected - targets
     }
 }
+
+/** Number of pending rule changes across all Lists dimensions. */
+internal fun surfacePendingChangeCount(
+    saved: com.yagay.ListCleaner.domain.SurfaceFilterConfig,
+    draft: com.yagay.ListCleaner.domain.SurfaceFilterConfig,
+): Int {
+    fun <K, V> changedSets(old: Map<K, Set<V>>, newer: Map<K, Set<V>>): Int =
+        (old.keys + newer.keys).sumOf { key ->
+            (old[key].orEmpty() - newer[key].orEmpty()).size +
+                (newer[key].orEmpty() - old[key].orEmpty()).size
+        }
+    fun <T> changedSet(old: Set<T>, newer: Set<T>) =
+        (old - newer).size + (newer - old).size
+    return changedSets(saved.packages, draft.packages) +
+        changedSets(saved.locks, draft.locks) +
+        (saved.order.keys + draft.order.keys).count { saved.order[it] != draft.order[it] } +
+        changedSet(saved.hiddenNotificationChannels, draft.hiddenNotificationChannels) +
+        changedSet(saved.lockedNotificationChannels, draft.lockedNotificationChannels) +
+        changedSet(saved.hiddenNotificationCategories, draft.hiddenNotificationCategories)
+}
