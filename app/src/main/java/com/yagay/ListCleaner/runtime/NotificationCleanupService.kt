@@ -202,7 +202,8 @@ object NotificationCleanupController {
                         for (i in 0 until rows.length()) {
                             val entry = rows.getJSONObject(i)
                             val pkg = entry.getString("pkg")
-                            val channels = entry.optJSONArray("channels") ?: continue
+                            val channels = entry.optJSONArray("channels")
+                            if (channels == null) continue
                             val items = (0 until minOf(channels.length(), 2000)).map { n ->
                                 val ch = channels.getJSONObject(n)
                                 RegisteredChannelRow(pkg, ch.getString("id"), ch.getString("name"),
