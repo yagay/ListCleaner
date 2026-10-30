@@ -97,6 +97,7 @@ object NotificationCleanupController {
         "${row.userId}|${row.packageName}|${row.channelId}|${row.category.orEmpty()}"
     @Synchronized private fun recordObservation(current: List<ActiveNotificationRow>) {
         current.forEach { history[observationKey(it)] = it }
+        while (history.size > 4000) history.remove(history.keys.first())
         mutableHistory.value = history.values.toList()
         mutableScan.value = NotificationScanState(
             NotificationScanStatus.CONNECTED, current.size, history.size)
@@ -173,6 +174,13 @@ object NotificationCleanupController {
                 ChannelInventory(observed, ChannelInventoryStatus.OBSERVED_ONLY)
             }
         }
+
+    /** User-requested rescan; does not claim access to channels never observed. */
+    fun rescan(): Boolean {
+        val current = listener ?: return false
+        refresh(current)
+        return mutableScan.value.status == NotificationScanStatus.CONNECTED
+    }
 
     /** Never dismiss protected, changed or no-longer-active notifications. */
     fun dismiss(keys: Set<String>): Int {
