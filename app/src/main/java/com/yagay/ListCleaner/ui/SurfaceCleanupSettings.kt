@@ -17,6 +17,7 @@ import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.runtime.ActiveNotificationRow
 import com.yagay.ListCleaner.runtime.NotificationCleanupController
+import com.yagay.ListCleaner.runtime.NotificationScanStatus
 
 /** Grouping is a browsing choice, never a different notification dismissal backend. */
 internal enum class ActiveNotificationGrouping { ALL, APPLICATION, CHANNEL, CATEGORY }
@@ -85,6 +86,8 @@ internal fun ActiveNotificationManagement(
 ) {
     val context = LocalContext.current
     val rows by NotificationCleanupController.rows.collectAsStateWithLifecycle()
+    val observedRows by NotificationCleanupController.observedRows.collectAsStateWithLifecycle()
+    val scan by NotificationCleanupController.scan.collectAsStateWithLifecycle()
     val savedCategories by vm.surfaceFilters.collectAsStateWithLifecycle()
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
     var draftCategories by remember(userId) { mutableStateOf<Set<String>?>(null) }
@@ -117,7 +120,8 @@ internal fun ActiveNotificationManagement(
     val available = sameProfile.filterNot { it.protected }
     val selectableKeys = available.mapTo(hashSetOf()) { it.key }
     val chosen = selectedKeys.intersect(selectableKeys)
-    val groups = groupActiveNotifications(sameProfile, grouping)
+    val inventoryRows = if (categoryMode) observedRows.filter { it.userId == userId } else sameProfile
+    val groups = groupActiveNotifications(inventoryRows, grouping)
     val displayGroups = if (initialGrouping == ActiveNotificationGrouping.CATEGORY) {
         notificationCategoryIds.map { id ->
             ActiveNotificationGroup(id, groups.firstOrNull { it.key == id }?.rows.orEmpty())
@@ -224,12 +228,17 @@ internal fun ActiveNotificationManagement(
     )
     WorkspaceListSummary(
         title = stringResource(R.string.surface_active_count, sameProfile.size, available.size),
-        secondary = stringResource(R.string.notification_category_help),
+        secondary = if (categoryMode) stringResource(R.string.notification_category_help) +
+            " · " + stringResource(R.string.surface_channels_count, inventoryRows.size)
+            else stringResource(R.string.notification_category_help),
     )
-    if (categoryMode && connected) {
+    if (categoryMode) {
         WorkspaceAppNote(stringResource(R.string.surface_channels_restricted))
+        if (scan.status != NotificationScanStatus.CONNECTED) {
+            WorkspaceAppNote(stringResource(R.string.surface_wait_for_listener), warning = true)
+        }
     }
-    if (categoryMode && connected && sameProfile.isEmpty()) {
+    if (categoryMode && connected && inventoryRows.isEmpty()) {
         WorkspaceAppNote(stringResource(R.string.surface_no_notifications))
     } else if (!categoryMode && groups.isEmpty()) {
         WorkspaceAppNote(stringResource(R.string.surface_no_notifications))
