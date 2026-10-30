@@ -2,6 +2,7 @@ package com.yagay.ListCleaner.runtime
 
 import android.app.Notification
 import android.content.Context
+import com.yagay.ListCleaner.data.ComponentRootCommand
 import org.json.JSONArray
 import org.json.JSONObject
 import android.os.UserHandle
@@ -148,11 +149,43 @@ object NotificationCleanupController {
         )
     }
 
+    /** Root probe is read-only. Failure is not proof of an empty channel registry. */
+    private fun rootChannelsForPackage(pkg: String, userId: Int): List<RegisteredChannelRow>? {
+        if (userId != android.os.Process.myUid() / 100000) return null
+        if (!pkg.matches(Regex("[A-Za-z0-9_]+(\\\\.[A-Za-z0-9_]+)+"))) return null
+        val context = listener?.applicationContext ?: return null
+        val app = runCatching { context.packageManager.getApplicationInfo(pkg, 0) }.getOrNull()
+            ?: return null
+        val apk = context.applicationInfo.sourceDir
+        if (!apk.startsWith("/") || apk.contains("'") || apk.contains("\\n")) return null
+        val command = "CLASSPATH='${apk}' app_process /system/bin " +
+            "com.yagay.ListCleaner.runtime.RootNotificationChannelProbe ${pkg} ${app.uid}"
+        val output = runCatching { ComponentRootCommand.runReadOnly(command) }.getOrNull()
+            ?: return null
+        if (output.exitCode != 0 || output.timedOut) return null
+        val line = output.output.lineSequence().firstOrNull { it.startsWith("LC_CHANNELS:") }
+            ?: return null
+        return runCatching {
+            val json = JSONArray(line.removePrefix("LC_CHANNELS:"))
+            (0 until minOf(json.length(), 2000)).map { i ->
+                val item = json.getJSONObject(i)
+                RegisteredChannelRow(
+                    packageName = pkg,
+                    channelId = item.getString("id"),
+                    label = item.getString("name"),
+                    importance = item.getInt("importance"),
+                    groupId = item.optString("group").ifBlank { null },
+                )
+            }
+        }.getOrNull()
+    }
+
     suspend fun channelsForPackage(pkg: String, userId: Int): ChannelInventory =
         withContext(Dispatchers.IO) {
             val current = listener
                 ?: return@withContext ChannelInventory(emptyList(), ChannelInventoryStatus.DISCONNECTED)
-            val all = runCatching {
+            val all = rootChannelsForPackage(pkg, userId)
+                ?: runCatching {
                 val handle = if (userId == android.os.Process.myUid() / 100000)
                     android.os.Process.myUserHandle()
                 else throw SecurityException("Cross-user notification channel registry is privileged")
