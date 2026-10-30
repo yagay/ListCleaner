@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -118,26 +119,43 @@ internal fun SurfaceChannelSettings(
         val found = packageInventories[appPackage]
         val channels = found?.items.orEmpty()
         val selected = channels.isNotEmpty() && channels.all { draft.isChannelHidden(appPackage, it.channelId) }
-        SurfaceWorkspaceRow(
+        val expandApp: () -> Unit = {
+            expandedPackage = if (expandedPackage == appPackage) null else appPackage
+            if (expandedPackage == appPackage && found == null) {
+                scope.launch {
+                    val result = NotificationCleanupController.channelsForPackage(appPackage, userId)
+                    packageInventories = packageInventories + (appPackage to result)
+                }
+            }
+        }
+        WorkspaceAppRow(
+            icon = null,
             title = appLabel,
             subtitle = if (found == null || found.status != ChannelInventoryStatus.COMPLETE)
                 appPackage else stringResource(R.string.surface_channels_count, channels.size),
-            selected = selected,
-            enabled = channels.isNotEmpty(),
-            onToggle = {
-                channels.forEach { draft = draft.withChannelHidden(appPackage, it.channelId, !selected) }
-            },
+            packageName = appPackage,
             expanded = expandedPackage == appPackage,
-            onExpand = {
-                expandedPackage = if (expandedPackage == appPackage) null else appPackage
-                if (expandedPackage == appPackage && found == null) {
-                    scope.launch {
-                        val result = NotificationCleanupController.channelsForPackage(appPackage, userId)
-                        packageInventories = packageInventories + (appPackage to result)
-                    }
-                }
+            lockState = BulkLockState.NONE,
+            onExpand = expandApp,
+            onLock = {},
+            onUnlock = {},
+            selection = {
+                WorkspaceAppSelectionCheckbox(
+                    state = when {
+                        selected -> ToggleableState.On
+                        channels.any { draft.isChannelHidden(appPackage, it.channelId) } ->
+                            ToggleableState.Indeterminate
+                        else -> ToggleableState.Off
+                    },
+                    enabled = channels.isNotEmpty(),
+                    onClick = {
+                        channels.forEach {
+                            draft = draft.withChannelHidden(appPackage, it.channelId, !selected)
+                        }
+                    },
+                )
             },
-            actions = if (userId == android.os.Process.myUid() / 100000) listOf(
+            menuActions = if (userId == android.os.Process.myUid() / 100000) listOf(
                 WorkspaceMenuAction(stringResource(R.string.surface_channel_settings), {
                     val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                         .putExtra(Settings.EXTRA_APP_PACKAGE, appPackage)
@@ -145,7 +163,7 @@ internal fun SurfaceChannelSettings(
                     runCatching { context.startActivity(intent) }
                 }),
             ) else emptyList(),
-            details = {
+            expandedContent = {
                 if (found != null) {
                     Column(Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal)) {
                     WorkspaceAppNote(stringResource(when (found.status) {
