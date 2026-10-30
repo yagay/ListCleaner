@@ -119,8 +119,8 @@ internal fun ActiveNotificationManagement(
         .contains(context.packageName)
     var grouping by remember(userId, initialGrouping) { mutableStateOf(initialGrouping) }
     var categorySelection by remember(userId, initialGrouping) { mutableStateOf<String?>(null) }
-    var filter by remember(userId) { mutableStateOf(UiFilter.ALL) }
-    var appTypeFilter by remember(userId) { mutableStateOf(AppTypeFilter.ALL) }
+    var filter by remember(userId, initialGrouping) { mutableStateOf(UiPreferencesStore.initialFilter(context, "lists_notifications_${initialGrouping.name}")) }
+    var appTypeFilter by remember(userId, initialGrouping) { mutableStateOf(UiPreferencesStore.initialAppType(context, "lists_notifications_${initialGrouping.name}")) }
     var selectedKeys by remember(userId) { mutableStateOf(emptySet<String>()) }
     var expandedGroup by remember(userId, initialGrouping) { mutableStateOf<String?>(null) }
     var dismissalCount by remember(userId) { mutableStateOf<Int?>(null) }
@@ -231,9 +231,9 @@ internal fun ActiveNotificationManagement(
                 categorySelection = value.takeUnless { it == "ALL" }
             } else grouping = ActiveNotificationGrouping.entries.first { it.name == value }
         },
-        filter = filter, onFilter = { filter = it },
+        filter = filter, onFilter = { filter = it; UiPreferencesStore.rememberFilter(context, it, "lists_notifications_${initialGrouping.name}") },
         appTypeFilter = appTypeFilter,
-        onAppTypeFilter = { appTypeFilter = it },
+        onAppTypeFilter = { appTypeFilter = it; UiPreferencesStore.rememberAppType(context, it, "lists_notifications_${initialGrouping.name}") },
         showAppTypeFilter = true,
         actions = listOf(
             WorkspaceMenuAction(stringResource(R.string.select_all), {
