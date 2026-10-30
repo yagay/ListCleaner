@@ -53,7 +53,7 @@ internal fun AospSurfaceSettings(
     val guardOwner = remember(userId, selectedKind) { Any() }
     RegisterPendingNavigation(
         pendingNavigation, guardOwner, surfacePendingChangeCount(saved, draft),
-        apply = { vm.setSurfaceFilters(draft); true },
+        apply = { vm.setSurfaceFilters(draft) },
         discard = { draft = saved },
     )
 
