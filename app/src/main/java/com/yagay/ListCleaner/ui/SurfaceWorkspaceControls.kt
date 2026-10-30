@@ -16,6 +16,8 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
@@ -105,6 +107,7 @@ internal fun surfaceFilterAllows(
 }
 
 /** One shared Entry/Root-like row; use a 3-dot menu for lock, order and OS actions. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun SurfaceWorkspaceRow(
     title: String,
@@ -147,7 +150,7 @@ internal fun SurfaceWorkspaceRow(
         return
     }
     var overflow by remember { mutableStateOf(false) }
-    ContinuousApplicationSurface(expanded = expanded && onExpand != null) {
+    ContinuousDetailSurface(selected = selected) {
         Column {
         Row(
             modifier = Modifier.fillMaxWidth().heightIn(min = MaterialUiTokens.listRowHeight)
@@ -166,7 +169,10 @@ internal fun SurfaceWorkspaceRow(
                 },
                 enabled = enabled, onClick = onToggle,
             )
-            Column(Modifier.weight(1f).then(if (onExpand != null) Modifier.clickable(onClick = onExpand) else Modifier.clickable(onClick = onToggle))) {
+            Column(Modifier.weight(1f).combinedClickable(
+                onClick = { if (enabled) onToggle() },
+                onLongClick = { if (actions.isNotEmpty()) overflow = true },
+            )) {
                 AdaptiveText(
                     title, style = if (nested) MaterialTheme.typography.bodyMedium
                         else MaterialTheme.typography.bodyLarge,
