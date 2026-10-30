@@ -75,6 +75,7 @@ internal fun ActiveNotificationManagement(
     val granted = NotificationManagerCompat.getEnabledListenerPackages(context)
         .contains(context.packageName)
     var grouping by remember(userId, initialGrouping) { mutableStateOf(initialGrouping) }
+    var categorySelection by remember(userId, initialGrouping) { mutableStateOf<String?>(null) }
     var filter by remember(userId) { mutableStateOf(UiFilter.ALL) }
     var selectedKeys by remember(userId) { mutableStateOf(emptySet<String>()) }
     var dismissalCount by remember(userId) { mutableStateOf<Int?>(null) }
@@ -84,6 +85,8 @@ internal fun ActiveNotificationManagement(
     val chosen = selectedKeys.intersect(selectableKeys)
     val groups = groupActiveNotifications(sameProfile, grouping)
     val shownGroups = groups.filter { group ->
+        if (initialGrouping == ActiveNotificationGrouping.CATEGORY &&
+            categorySelection != null && group.key != categorySelection) return@filter false
         val allowed = group.rows.asSequence().filterNot { it.protected }.map { it.key }.toSet()
         val complete = allowed.isNotEmpty() && allowed.all { it in chosen }
         val protected = group.rows.any { it.protected }
@@ -119,8 +122,14 @@ internal fun ActiveNotificationManagement(
     }
 
     SurfaceWorkspaceToolbar(
-        category = grouping.name,
-        options = ActiveNotificationGrouping.entries.map { mode ->
+        category = if (initialGrouping == ActiveNotificationGrouping.CATEGORY)
+            categorySelection ?: "ALL" else grouping.name,
+        options = if (initialGrouping == ActiveNotificationGrouping.CATEGORY) {
+            listOf("ALL" to stringResource(R.string.common_all)) +
+                groups.map { it.key }.distinct().sorted().map { key ->
+                    key to notificationCategoryLabel(key.takeUnless { it == "(other)" })
+                }
+        } else ActiveNotificationGrouping.entries.map { mode ->
             mode.name to stringResource(when (mode) {
                 ActiveNotificationGrouping.ALL -> R.string.common_all
                 ActiveNotificationGrouping.APPLICATION -> R.string.notification_group_application
@@ -129,7 +138,9 @@ internal fun ActiveNotificationManagement(
             })
         },
         onCategory = { value ->
-            grouping = ActiveNotificationGrouping.entries.first { it.name == value }
+            if (initialGrouping == ActiveNotificationGrouping.CATEGORY) {
+                categorySelection = value.takeUnless { it == "ALL" }
+            } else grouping = ActiveNotificationGrouping.entries.first { it.name == value }
         },
         filter = filter, onFilter = { filter = it },
         actions = listOf(
