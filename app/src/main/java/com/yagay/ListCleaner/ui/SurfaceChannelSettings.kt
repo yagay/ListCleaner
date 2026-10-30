@@ -48,9 +48,13 @@ internal fun SurfaceChannelSettings(
     val saved by vm.surfaceFilters.collectAsStateWithLifecycle()
     var draft by remember(userId, saved) { mutableStateOf(saved) }
     var pkg by remember(userId) { mutableStateOf("") }
-    var viewFilter by remember(userId) { mutableStateOf(UiPreferencesStore.initialFilter(context, "lists_channels")) }
-    var appTypeFilter by remember(userId) { mutableStateOf(UiPreferencesStore.initialAppType(context, "lists_channels")) }
-    var expandedPackage by remember(userId) { mutableStateOf<String?>(null) }
+    val uiState = rememberSurfaceWorkspaceUiState(
+        userId, "channels",
+        UiPreferencesStore.initialFilter(context, "lists_channels"),
+        UiPreferencesStore.initialAppType(context, "lists_channels"),
+    )
+    val viewFilter = uiState.viewFilter
+    val appTypeFilter = uiState.appTypeFilter
     var packageInventories by remember(userId) { mutableStateOf<Map<String, ChannelInventory>>(emptyMap()) }
     var scanProgress by remember(userId) { mutableStateOf(0) }
     var scanning by remember(userId) { mutableStateOf(false) }
@@ -158,9 +162,9 @@ internal fun SurfaceChannelSettings(
                 category = "",
                 options = listOf("" to stringResource(R.string.common_all)),
                 onCategory = {},
-                filter = viewFilter, onFilter = { viewFilter = it; UiPreferencesStore.rememberFilter(context, it, "lists_channels") },
+                filter = viewFilter, onFilter = { uiState.viewFilter = it; UiPreferencesStore.rememberFilter(context, it, "lists_channels") },
                 appTypeFilter = appTypeFilter,
-                onAppTypeFilter = { appTypeFilter = it; UiPreferencesStore.rememberAppType(context, it, "lists_channels") },
+                onAppTypeFilter = { uiState.appTypeFilter = it; UiPreferencesStore.rememberAppType(context, it, "lists_channels") },
                 showAppTypeFilter = true,
                 actions = listOf(
                     WorkspaceMenuAction(stringResource(R.string.select_all), {
@@ -211,7 +215,7 @@ internal fun SurfaceChannelSettings(
         val allEditableSelected = editableChannels.isNotEmpty() &&
             editableChannels.all { draft.isChannelHidden(appPackage, it.channelId) }
         val expandApp: () -> Unit = {
-            expandedPackage = if (expandedPackage == appPackage) null else appPackage
+            uiState.toggleExpanded(appPackage)
 
         }
         WorkspaceAppRow(
@@ -220,7 +224,7 @@ internal fun SurfaceChannelSettings(
             subtitle = if (found == null || found.status != ChannelInventoryStatus.COMPLETE)
                 appPackage else stringResource(R.string.surface_channels_count, channels.size),
             packageName = appPackage,
-            expanded = expandedPackage == appPackage,
+            expanded = uiState.expandedKey == appPackage,
             lockState = if (appLocked) BulkLockState.FULL else if (channels.any { draft.isChannelLocked(appPackage, it.channelId) }) BulkLockState.PARTIAL else BulkLockState.NONE,
             onExpand = expandApp,
             onLock = { channels.forEach { draft = draft.withChannelLocked(appPackage, it.channelId, true) } },
