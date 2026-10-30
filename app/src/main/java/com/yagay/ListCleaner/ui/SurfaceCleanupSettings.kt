@@ -435,9 +435,9 @@ internal fun StaleRuleManagement(
     }.sortedWith(compareBy({ it.packageName }, { it.kind.name }, { it.className })).toList()
     val guardOwner = remember(userId) { Any() }
     RegisterPendingNavigation(
-        pendingNavigation, guardOwner, selected.size,
+        pendingNavigation, guardOwner, selectedRules.size,
         apply = {
-            if (!completed || !state.error.isNullOrBlank()) false else {
+            if (!completed || !state.error.isNullOrBlank() || selected.size != selectedRules.size) false else {
                 vm.deselectRules(selected, null, null)
                 selectedRules = emptySet()
                 refreshed = false
@@ -493,8 +493,8 @@ internal fun StaleRuleManagement(
         )
     }
         }
-    if (selected.isNotEmpty()) PendingChangesBar(
-        count = selected.size,
+    if (selectedRules.isNotEmpty()) PendingChangesBar(
+        count = selectedRules.size,
         onDiscard = { selectedRules = emptySet() },
         onApply = {
             if (completed && state.error.isNullOrBlank()) {
