@@ -422,6 +422,7 @@ internal fun StaleRuleManagement(state: MainState, vm: MainViewModel) {
         stale.map { it.kind }.distinct().sortedBy { it.name }
             .map { it.name to stringResource(it.titleRes()) }
 
+    Column(Modifier.fillMaxSize()) {
     SurfaceWorkspaceToolbar(
         category = category, options = categories,
         onCategory = { category = it },
@@ -452,7 +453,8 @@ internal fun StaleRuleManagement(state: MainState, vm: MainViewModel) {
     if (completed && !state.error.isNullOrBlank()) {
         WorkspaceAppNote(stringResource(R.string.surface_scan_error), warning = true)
     }
-    if (completed && state.error.isNullOrBlank()) visible.forEach { rule ->
+        LazyColumn(Modifier.weight(1f)) {
+            if (completed && state.error.isNullOrBlank()) items(visible, key = { it.packageName + "|" + it.kind.name + "|" + it.className }) { rule ->
         SurfaceWorkspaceRow(
             title = rule.packageName,
             subtitle = rule.kind.name + " · " + rule.className,
@@ -462,6 +464,7 @@ internal fun StaleRuleManagement(state: MainState, vm: MainViewModel) {
             },
         )
     }
+        }
     if (selected.isNotEmpty()) PendingChangesBar(
         count = selected.size,
         onDiscard = { selectedRules = emptySet() },
@@ -472,5 +475,6 @@ internal fun StaleRuleManagement(state: MainState, vm: MainViewModel) {
             selectedRules = emptySet()
             refreshed = false
         },
-    )
+    )    }
+
 }
