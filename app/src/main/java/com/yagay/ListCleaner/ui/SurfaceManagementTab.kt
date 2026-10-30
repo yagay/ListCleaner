@@ -121,7 +121,7 @@ internal fun SurfaceManagementTab(
                         ActiveNotificationManagement(vm, pendingNavigation)
                     SurfaceManagerPage.NOTIFICATIONS_TYPES ->
                         ActiveNotificationManagement(vm, pendingNavigation, ActiveNotificationGrouping.CATEGORY)
-                    SurfaceManagerPage.INVALID_RULES -> StaleRuleManagement(state, vm)
+                    SurfaceManagerPage.INVALID_RULES -> StaleRuleManagement(state, vm, pendingNavigation)
                     else -> AospSurfaceSettings(vm, userId, requireNotNull(current.kind), pendingNavigation)
                 }
             }
@@ -142,7 +142,7 @@ internal fun SurfaceManagementTab(
                         ActiveNotificationManagement(vm, pendingNavigation, ActiveNotificationGrouping.CATEGORY)
                     SurfaceManagerPage.NOTIFICATIONS_CHANNELS ->
                         SurfaceChannelSettings(vm, userId, activeNotifications, pendingNavigation)
-                    SurfaceManagerPage.INVALID_RULES -> StaleRuleManagement(state, vm)
+                    SurfaceManagerPage.INVALID_RULES -> StaleRuleManagement(state, vm, pendingNavigation)
                     else -> AospSurfaceSettings(vm, userId, requireNotNull(current.kind), pendingNavigation)
                 }
             }
