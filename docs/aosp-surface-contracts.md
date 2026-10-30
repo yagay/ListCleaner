@@ -52,6 +52,35 @@ Root component states rather than a display-only filter.
   confirmation and runtime hook-installation diagnostics are needed to declare
   each surface effective.
 
+
+## Completed new cleanup types
+
+- **Edit with**: separate `Intent.ACTION_EDIT` rule identity, component discovery
+  using MIME-scoped content URIs, independent resolver filtering and direct preview
+  with temporary read/write access to ListCleaner-owned sample documents.
+- **Pick item**: `Intent.ACTION_PICK` probes for contacts and media, separate
+  from GET_CONTENT and DocumentsUI. These are normal resolver activities.
+- **AccountAuthenticator services**: an additional **Root component** category,
+  using `android.accounts.AccountAuthenticator` service registration and
+  metadata. A disabled authenticator may break adding/recovering accounts and
+  synchronization. This is a reversible, user-confirmed *component state change*,
+  **not** AccountManager token interception or Credential Provider cleanup.
+- **Registered notification channels**: optionally query
+  `NotificationListenerService.getNotificationChannels(pkg, user)` where the
+  platform grants associated-device / notification-assistant privilege. Without
+  it, the manager clearly labels an **observed-only** list from current posts.
+  Per-channel selections are stored for the current Android profile and applied
+  only to the notification-shade presentation hook.
+- **Surface lock and ordering**: a locked selected item stays hidden and a
+  locked unselected item stays visible during bulk operations. Selected orders
+  are separate per profile and surface, with stable order hooks for Launcher
+  drawer/predictions, Settings managed-app rows and the QS edit list. The
+  existing active QS tiles and task/notification safety protections remain.
+
+No user-facing option silently deletes accounts, rewrites other packages'
+registered notification-channel importance, or disables an application's
+non-authenticator components.
+
 ## AOSP source references
 
 - [NotifPipeline / notification render sequence](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/packages/SystemUI/src/com/android/systemui/statusbar/notification/collection/NotifPipeline.kt)

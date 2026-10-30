@@ -530,7 +530,7 @@ internal object SystemEffectPreview {
         IntentKind.EDIT -> Intent(Intent.ACTION_EDIT).apply {
             setDataAndType(sampleFiles(context, scenario).first(),
                 scenario.mimeType ?: "text/plain")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
         }
         IntentKind.OPEN -> Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(sampleFiles(context, scenario).first(),
