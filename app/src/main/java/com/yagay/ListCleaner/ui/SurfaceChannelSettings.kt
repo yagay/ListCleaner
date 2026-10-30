@@ -71,14 +71,19 @@ internal fun SurfaceChannelSettings(
     LaunchedEffect(userId, installedPackages, scanRevision) {
         scanning = true
         scanProgress = 0
+        packageInventories = emptyMap()
         val targets = observedPackages
-        for (appPackage in targets) {
-            coroutineContext.ensureActive()
-            val result = NotificationCleanupController.channelsForPackage(appPackage, userId)
-            packageInventories = packageInventories + (appPackage to result)
-            scanProgress++
+        try {
+            for (appPackage in targets) {
+                coroutineContext.ensureActive()
+                val result = NotificationCleanupController.channelsForPackage(appPackage, userId)
+                coroutineContext.ensureActive()
+                packageInventories = packageInventories + (appPackage to result)
+                scanProgress++
+            }
+        } finally {
+            scanning = false
         }
-        scanning = false
     }
     val packageLabels = remember(userId, observedPackages) {
         observedPackages.associateWith { name ->
@@ -125,7 +130,7 @@ internal fun SurfaceChannelSettings(
         secondary = if (scanning) "$scanProgress / ${observedPackages.size}"
             else stringResource(R.string.surface_channels_help),
     )
-    SettingsActionButton(onClick = { scanRevision++ }) {
+    SettingsActionButton(enabled = !scanning, onClick = { scanRevision++ }) {
         AdaptiveText(stringResource(R.string.surface_scan_refresh))
     }
     BasicTextField(
@@ -161,6 +166,9 @@ internal fun SurfaceChannelSettings(
         val channels = found?.items.orEmpty()
         val selected = channels.isNotEmpty() && channels.all { draft.isChannelHidden(appPackage, it.channelId) }
         val appLocked = channels.isNotEmpty() && channels.all { draft.isChannelLocked(appPackage, it.channelId) }
+        val editableChannels = channels.filterNot { draft.isChannelLocked(appPackage, it.channelId) }
+        val allEditableSelected = editableChannels.isNotEmpty() &&
+            editableChannels.all { draft.isChannelHidden(appPackage, it.channelId) }
         val expandApp: () -> Unit = {
             expandedPackage = if (expandedPackage == appPackage) null else appPackage
 
@@ -184,10 +192,10 @@ internal fun SurfaceChannelSettings(
                             ToggleableState.Indeterminate
                         else -> ToggleableState.Off
                     },
-                    enabled = channels.isNotEmpty() && !scanning && !appLocked,
+                    enabled = editableChannels.isNotEmpty() && !scanning,
                     onClick = {
-                        channels.filterNot { draft.isChannelLocked(appPackage, it.channelId) }.forEach {
-                            draft = draft.withChannelHidden(appPackage, it.channelId, !selected)
+                        editableChannels.forEach {
+                            draft = draft.withChannelHidden(appPackage, it.channelId, !allEditableSelected)
                         }
                     },
                 )
