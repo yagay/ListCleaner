@@ -206,4 +206,14 @@
     <string name="surface_lock_target">锁定选中项目（批量操作不影响）</string>
     <string name="surface_move_earlier">优先级上移</string>
     <string name="surface_move_later">优先级下移</string>
+    <string name="surface_channels_title">通知渠道过滤</string>
+    <string name="surface_channels_help">按具体渠道隐藏 AOSP 通知栏中的显示项，不禁用应用也不删除通知。读取全部渠道需要平台允许的配对设备或通知助手权限；否则只能列出当前通知中观察到的渠道。</string>
+    <string name="surface_channels_choose">选择有通知的应用</string>
+    <string name="surface_channels_package">应用包名（可编辑）</string>
+    <string name="surface_channels_scan">读取已注册通知渠道</string>
+    <string name="surface_channels_full">已获得平台授权，显示完整注册渠道</string>
+    <string name="surface_channels_restricted">访问受限：仅显示当前通知中观察到的渠道，未出现的渠道不包含在内。</string>
+    <string name="surface_channels_count">找到 %1$d 个通知渠道</string>
+    <string name="surface_channels_confirm">确定应用通知渠道过滤？</string>
+    <string name="surface_channels_confirm_help">只过滤通知栏显示，不修改通知重要性，也不删除已保存的通知。</string>
 </resources>

@@ -206,4 +206,14 @@
     <string name="surface_lock_target">Lock selection against bulk changes</string>
     <string name="surface_move_earlier">Move earlier (priority)</string>
     <string name="surface_move_later">Move later (priority)</string>
+    <string name="surface_channels_title">Notification channel filtering</string>
+    <string name="surface_channels_help">Hide a specific channel in the AOSP notification shade without disabling its app or deleting notifications. A complete channel inventory requires associated-device or notification-assistant privilege; otherwise only channels observed in active notifications can be shown.</string>
+    <string name="surface_channels_choose">Select app with active notifications</string>
+    <string name="surface_channels_package">Package name (editable)</string>
+    <string name="surface_channels_scan">Read registered channels</string>
+    <string name="surface_channels_full">Complete registered channel list (platform-authorized)</string>
+    <string name="surface_channels_restricted">Restricted access: only channels observed in active notifications. Unseen channels are not shown.</string>
+    <string name="surface_channels_count">%1$d channels found</string>
+    <string name="surface_channels_confirm">Apply notification channel filters?</string>
+    <string name="surface_channels_confirm_help">Only notification shade display is filtered. Channel importance and saved notifications are not changed.</string>
 </resources>

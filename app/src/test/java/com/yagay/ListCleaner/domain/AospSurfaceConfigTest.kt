@@ -52,6 +52,33 @@ class AospSurfaceConfigTest {
         assertEquals(work, decoded.userSpaces.getValue(10).surfaceFilters)
     }
 
+    @Test fun channelRulesRemainIndependentFromWholeAppHiding() {
+        val config = SurfaceFilterConfig()
+            .withChannelHidden("com.example.mail", "promotions", true)
+        assertTrue(config.isChannelHidden("com.example.mail", "promotions"))
+        assertFalse(config.isChannelHidden("com.example.mail", "messages"))
+        assertTrue(config.selected(SurfaceKind.NOTIFICATION_SHADE).isEmpty())
+        assertFalse(config.withChannelHidden("com.example.mail", "promotions", false)
+            .isChannelHidden("com.example.mail", "promotions"))
+    }
+
+    @Test fun lockedItemsSurviveBulkClearAndPriorityOrderRoundTrips() {
+        val config = SurfaceFilterConfig()
+            .withSelected(SurfaceKind.LAUNCHER_DRAWER, setOf("com.example.alpha", "com.example.beta"))
+            .withLocked(SurfaceKind.LAUNCHER_DRAWER, setOf("com.example.alpha"))
+            .withSelected(SurfaceKind.LAUNCHER_DRAWER, emptySet())
+            .withPriorities(SurfaceKind.LAUNCHER_DRAWER,
+                listOf("com.example.beta", "com.example.alpha"))
+        assertEquals(setOf("com.example.alpha"), config.selected(SurfaceKind.LAUNCHER_DRAWER))
+        assertEquals(setOf("com.example.alpha"), config.locked(SurfaceKind.LAUNCHER_DRAWER))
+        assertEquals(listOf("com.example.alpha", "com.example.beta"),
+            config.movePriority(SurfaceKind.LAUNCHER_DRAWER, "com.example.alpha", -1)
+                .priorities(SurfaceKind.LAUNCHER_DRAWER))
+        val decoded = json.decodeFromString(SurfaceFilterConfig.serializer(),
+            json.encodeToString(SurfaceFilterConfig.serializer(), config))
+        assertEquals(config, decoded)
+    }
+
     @Test fun oldConfigurationWithoutSurfaceRulesStillLoadsSafely() {
         val old = """{"rules":[],"mode":"HIDE_SELECTED","priorities":{},"diagnostic":false}"""
         val config = json.decodeFromString(ModuleConfig.serializer(), old).validated()

@@ -43,4 +43,15 @@ class AdditionalEntryClassificationTest {
         scopedKinds.forEach { kind -> assertEquals(kind.name, VisibilityScope.forKind(kind)?.name) }
         (IntentKind.entries - scopedKinds).forEach { kind -> assertNull(VisibilityScope.forKind(kind)) }
     }
+    @Test fun editAndPickActionsClassifyIndependentlyFromViewAndGetContent() {
+        assertEquals("EDIT", IntentClassification.classify("android.intent.action.EDIT",
+            "content", "image/png"))
+        assertEquals("PICK", IntentClassification.classify("android.intent.action.PICK",
+            null, "vnd.android.cursor.dir/contact"))
+        assertEquals("OPEN", IntentClassification.classify("android.intent.action.VIEW",
+            "content", "image/png"))
+        assertEquals("GET_CONTENT", IntentClassification.classify("android.intent.action.GET_CONTENT",
+            null, "image/*"))
+    }
+
 }
