@@ -41,6 +41,15 @@ internal fun SurfaceChannelSettings(
     var inventory by remember(userId) { mutableStateOf<ChannelInventory?>(null) }
     var querying by remember(userId) { mutableStateOf(false) }
     var viewFilter by remember(userId) { mutableStateOf(UiFilter.ALL) }
+    var expandedPackage by remember(userId) { mutableStateOf<String?>(null) }
+    var packageInventories by remember(userId) { mutableStateOf<Map<String, ChannelInventory>>(emptyMap()) }
+    val installedPackages = remember(userId) {
+        if (userId == android.os.Process.myUid() / 100000) {
+            runCatching {
+                context.packageManager.getInstalledApplications(0).map { it.packageName }
+            }.getOrDefault(emptyList())
+        } else emptyList()
+    }
 
     val guardOwner = remember(userId) { Any() }
     RegisterPendingNavigation(
@@ -49,8 +58,7 @@ internal fun SurfaceChannelSettings(
         discard = { draft = saved },
     )
 
-    val observedPackages = observed.asSequence().filter { it.userId == userId }
-        .map { it.packageName }.distinct().sorted().toList()
+    val observedPackages = (installedPackages + observed.filter { it.userId == userId }.map { it.packageName } + NotificationCleanupController.observedRows.value.filter { it.userId == userId }.map { it.packageName }).distinct().sorted()
     val chosenIds = inventory?.items.orEmpty()
         .filter { surfaceFilterAllows(viewFilter,
             draft.isChannelHidden(it.packageName, it.channelId), false) }
@@ -115,6 +123,51 @@ internal fun SurfaceChannelSettings(
         },
     ) { AdaptiveText(stringResource(R.string.surface_channels_scan)) }
 
+    observedPackages.forEach { appPackage ->
+        val found = packageInventories[appPackage]
+        val channels = found?.items.orEmpty()
+        val selected = channels.isNotEmpty() && channels.all { draft.isChannelHidden(appPackage, it.channelId) }
+        SurfaceWorkspaceRow(
+            title = appPackage,
+            subtitle = if (found == null) stringResource(R.string.surface_channels_help)
+                else stringResource(R.string.surface_channels_count, channels.size),
+            selected = selected,
+            enabled = channels.isNotEmpty(),
+            onToggle = {
+                channels.forEach { draft = draft.withChannelHidden(appPackage, it.channelId, !selected) }
+            },
+            expanded = expandedPackage == appPackage,
+            onExpand = {
+                expandedPackage = if (expandedPackage == appPackage) null else appPackage
+                if (expandedPackage == appPackage && found == null) {
+                    scope.launch {
+                        val result = NotificationCleanupController.channelsForPackage(appPackage, userId)
+                        packageInventories = packageInventories + (appPackage to result)
+                    }
+                }
+            },
+            details = {
+                if (found != null) {
+                    WorkspaceAppNote(stringResource(when (found.status) {
+                        ChannelInventoryStatus.COMPLETE -> R.string.surface_channels_full
+                        ChannelInventoryStatus.OBSERVED_ONLY -> R.string.surface_channels_restricted
+                        ChannelInventoryStatus.DISCONNECTED -> R.string.surface_wait_for_listener
+                    }))
+                    channels.forEach { channel ->
+                        val checked = draft.isChannelHidden(appPackage, channel.channelId)
+                        SurfaceWorkspaceRow(
+                            title = channel.label,
+                            subtitle = channel.channelId,
+                            selected = checked,
+                            onToggle = {
+                                draft = draft.withChannelHidden(appPackage, channel.channelId, !checked)
+                            },
+                        )
+                    }
+                }
+            },
+        )
+    }
     inventory?.let { result ->
         val statusRes = when (result.status) {
             ChannelInventoryStatus.COMPLETE -> R.string.surface_channels_full
