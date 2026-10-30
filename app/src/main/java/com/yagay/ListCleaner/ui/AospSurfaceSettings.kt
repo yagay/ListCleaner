@@ -90,7 +90,7 @@ internal fun AospSurfaceSettings(
                 AppTypeFilter.SYSTEM -> types[id] == true
             }) && surfaceFilterAllows(viewFilter, id in selected, id in locked)
     }
-    val visibleIds = visible.take(250).map { it.first }
+    val visibleIds = visible.map { it.first }
     val editableIds = visibleIds.filter { it !in locked }
 
     Column(Modifier.fillMaxSize()) {
@@ -129,7 +129,7 @@ internal fun AospSurfaceSettings(
         
         }
         LazyColumn(modifier = Modifier.weight(1f)) {
-        items(visible.take(250), key = { it.first }) { (id, title) ->
+        items(visible, key = { it.first }) { (id, title) ->
         val appIcon = remember(id, userId) {
             if (!applicationBased) null else runCatching {
                 val drawable = context.packageManager.getApplicationIcon(id).mutate()
@@ -169,6 +169,8 @@ internal fun AospSurfaceSettings(
                 draft = draft.withSelected(selectedKind,
                     if (id in selected) selected - id else selected + id)
             }, actions = actions,
+            onLock = { draft = draft.withLocked(selectedKind, locked + id) },
+            onUnlock = { draft = draft.withLocked(selectedKind, locked - id) },
             expanded = expandedId == id,
             onExpand = { expandedId = if (expandedId == id) null else id },
             details = {
@@ -188,9 +190,6 @@ internal fun AospSurfaceSettings(
     }
         item(key = "footer") {
             Column {
-            if (visible.size > 250) WorkspaceAppNote(
-                stringResource(R.string.surface_aosp_more, visible.size - 250),
-            )
             WorkspaceListActions(actions = listOf(
                 WorkspaceMenuAction(stringResource(R.string.surface_scan_refresh), {
                     refreshRevision++
