@@ -41,7 +41,7 @@ data class SurfaceFilterConfig(
         })
         require(packages.all { (kind, ids) -> ids.size <= 2000 && ids.all { allowed(kind, it) } })
         require(locks.all { (kind, ids) ->
-            ids.size <= 2000 && ids.all { allowed(kind, it) && it in selected(kind) }
+            ids.size <= 2000 && ids.all { allowed(kind, it) }
         })
         require(order.all { (kind, values) ->
             kind.supportsSurfaceOrdering() && values.size <= 2000 &&
@@ -75,7 +75,7 @@ data class SurfaceFilterConfig(
 
     fun withSelected(kind: SurfaceKind, apps: Set<String>): SurfaceFilterConfig {
         val keep = locked(kind)
-        val selected = apps + keep
+        val selected = (apps - (keep - selected(kind))) + (keep intersect selected(kind))
         return copy(packages = if (selected.isEmpty()) packages - kind
             else packages + (kind to selected)).validated()
     }

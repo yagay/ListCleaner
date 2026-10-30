@@ -79,6 +79,17 @@ class AospSurfaceConfigTest {
         assertEquals(config, decoded)
     }
 
+    @Test fun aLockedVisibleCandidateStaysVisibleOnBulkSelect() {
+        val before = SurfaceFilterConfig()
+            .withLocked(SurfaceKind.LAUNCHER_DRAWER, setOf("com.example.safe"))
+        val after = before.withSelected(
+            SurfaceKind.LAUNCHER_DRAWER, setOf("com.example.safe", "com.example.other"))
+        assertFalse("Locked visible app must remain unhidden",
+            "com.example.safe" in after.selected(SurfaceKind.LAUNCHER_DRAWER))
+        assertTrue("Unlocked app is still selectable",
+            "com.example.other" in after.selected(SurfaceKind.LAUNCHER_DRAWER))
+    }
+
     @Test fun oldConfigurationWithoutSurfaceRulesStillLoadsSafely() {
         val old = """{"rules":[],"mode":"HIDE_SELECTED","priorities":{},"diagnostic":false}"""
         val config = json.decodeFromString(ModuleConfig.serializer(), old).validated()

@@ -112,7 +112,7 @@ internal fun AospSurfaceSettings(vm: MainViewModel, userId: Int) {
                         draft = draft.withSelected(selectedKind, update)
                     }
                 )
-                if (pkg in chosen) {
+                run {
                     SettingsSwitchRow(
                         title = stringResource(R.string.surface_lock_target),
                         supportingText = pkg,
