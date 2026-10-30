@@ -1,40 +1,19 @@
 package com.yagay.ListCleaner.ui
 
 import android.graphics.Bitmap
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.FilterAlt
 import androidx.compose.material.icons.rounded.Layers
-import com.yagay.ListCleaner.domain.AppTypeFilter
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.state.ToggleableState
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.R
+import com.yagay.ListCleaner.domain.AppTypeFilter
 
 /**
  * Reuse Entry/Root's flat picker, selected glyph, overflow and selection menu.
@@ -103,7 +82,6 @@ internal fun surfaceFilterAllows(
 }
 
 /** One shared Entry/Root-like row; use a 3-dot menu for lock, order and OS actions. */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun SurfaceWorkspaceRow(
     icon: Bitmap? = null,
