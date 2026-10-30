@@ -326,6 +326,4 @@ internal fun SurfaceChannelSettings(
     )
         }
     }
-        }
-    }
 }
