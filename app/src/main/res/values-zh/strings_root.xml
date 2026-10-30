@@ -96,4 +96,6 @@
     <string name="root_category_open_to_scan">浏览组件</string>
     <string name="cleanup_controls">设备控制服务</string>
     <string name="root_kind_controls_help">Android 设备控制提供程序。禁用组件可能导致已添加的智能家居控件不可用，恢复组件后才能继续使用。这是 Root 组件管理，并非仅隐藏显示。</string>
+    <string name="cleanup_authenticator">账户认证服务</string>
+    <string name="root_kind_authenticator_help">AOSP AccountAuthenticator 服务，与 Credential Provider 不同。Root 禁用可能影响账户登录、账户恢复和同步；请谨慎操作，出现账户异常时恢复组件。</string>
 </resources>

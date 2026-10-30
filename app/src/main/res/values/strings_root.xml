@@ -96,4 +96,6 @@
     <string name="root_category_open_to_scan">Browse components</string>
     <string name="cleanup_controls">Device Controls</string>
     <string name="root_kind_controls_help">Android device control providers. Disabling a provider component may make saved controls unavailable until it is restored. This is Root component control, not display-only filtering.</string>
+    <string name="cleanup_authenticator">Account Authenticators</string>
+    <string name="root_kind_authenticator_help">AOSP AccountAuthenticator services, separate from Credential Providers. Root disabling may prevent account sign-in, account recovery and syncing. Review carefully, and restore the component if an account stops working.</string>
 </resources>
