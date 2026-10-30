@@ -75,12 +75,12 @@ internal fun SurfaceChannelSettings(
         packageInventories = emptyMap()
         val targets = observedPackages
         try {
-            for (appPackage in targets) {
+            for (batch in targets.chunked(32)) {
                 coroutineContext.ensureActive()
-                val result = NotificationCleanupController.channelsForPackage(appPackage, userId)
+                val found = NotificationCleanupController.channelsForPackages(batch, userId)
                 coroutineContext.ensureActive()
-                packageInventories = packageInventories + (appPackage to result)
-                scanProgress++
+                packageInventories = packageInventories + found
+                scanProgress += batch.size
             }
         } finally {
             scanning = false
