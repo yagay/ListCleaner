@@ -17,8 +17,9 @@ import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.runtime.NotificationCleanupController
 
 /** All destructive actions require a refreshed snapshot and an explicit confirmation. */
+/** Current posted-notification operations; distinct from non-destructive shade hiding. */
 @Composable
-internal fun SurfaceCleanupSettings(state: MainState, vm: MainViewModel) {
+internal fun ActiveNotificationManagement(vm: MainViewModel) {
     val context = LocalContext.current
     val rows by NotificationCleanupController.rows.collectAsStateWithLifecycle()
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
@@ -115,6 +116,12 @@ internal fun SurfaceCleanupSettings(state: MainState, vm: MainViewModel) {
         )
     }
 
+}
+ 
+/** Review-only stale-rule cleanup; no automatic deletion. */
+@Composable
+internal fun StaleRuleManagement(state: MainState, vm: MainViewModel) {
+    val userId by vm.selectedSpace.collectAsStateWithLifecycle()
     var refreshed by remember(userId) { mutableStateOf(false) }
     var scanStarted by remember(userId) { mutableStateOf(false) }
     LaunchedEffect(refreshed, state.loading) {
@@ -185,6 +192,4 @@ internal fun SurfaceCleanupSettings(state: MainState, vm: MainViewModel) {
             },
         )
     }
-    SurfaceChannelSettings(vm, userId, rows)
-    AospSurfaceSettings(vm, userId)
 }
