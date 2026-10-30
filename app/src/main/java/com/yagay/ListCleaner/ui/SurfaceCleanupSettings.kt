@@ -88,9 +88,23 @@ internal fun ActiveNotificationManagement(
     val savedCategories by vm.surfaceFilters.collectAsStateWithLifecycle()
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
     var draftCategories by remember(userId) { mutableStateOf<Set<String>?>(null) }
+    var draftChannels by remember(userId) { mutableStateOf<Set<String>?>(null) }
     val connected by NotificationCleanupController.connected.collectAsStateWithLifecycle()
     val categoryMode = initialGrouping == ActiveNotificationGrouping.CATEGORY
     val hiddenCategories = draftCategories ?: savedCategories.hiddenNotificationCategories
+    val hiddenChannels = draftChannels ?: savedCategories.hiddenNotificationChannels
+    val categoryChanges = (hiddenCategories - savedCategories.hiddenNotificationCategories).size +
+        (savedCategories.hiddenNotificationCategories - hiddenCategories).size
+    val channelChanges = (hiddenChannels - savedCategories.hiddenNotificationChannels).size +
+        (savedCategories.hiddenNotificationChannels - hiddenChannels).size
+    val applyCategoryChanges: () -> Unit = {
+        vm.setSurfaceFilters(savedCategories.copy(
+            hiddenNotificationCategories = hiddenCategories,
+            hiddenNotificationChannels = hiddenChannels,
+        ).validated())
+        draftCategories = null
+        draftChannels = null
+    }
     val granted = NotificationManagerCompat.getEnabledListenerPackages(context)
         .contains(context.packageName)
     var grouping by remember(userId, initialGrouping) { mutableStateOf(initialGrouping) }
@@ -124,19 +138,21 @@ internal fun ActiveNotificationManagement(
     val guardOwner = remember(userId) { Any() }
     RegisterPendingNavigation(
         pendingNavigation, guardOwner, if (categoryMode) {
-            if (hiddenCategories != savedCategories.hiddenNotificationCategories) 1 else 0
+            categoryChanges + channelChanges
         } else chosen.size,
         apply = {
             if (categoryMode) {
-                vm.setSurfaceFilters(savedCategories.copy(hiddenNotificationCategories = hiddenCategories).validated())
-                draftCategories = null
+                applyCategoryChanges()
             } else {
                 dismissalCount = NotificationCleanupController.dismiss(chosen)
                 selectedKeys = emptySet()
             }
             true
         },
-        discard = { if (categoryMode) draftCategories = null else selectedKeys = emptySet() },
+        discard = {
+            if (categoryMode) { draftCategories = null; draftChannels = null }
+            else selectedKeys = emptySet()
+        },
     )
 
     if (!granted && !categoryMode) {
@@ -210,6 +226,9 @@ internal fun ActiveNotificationManagement(
         title = stringResource(R.string.surface_active_count, sameProfile.size, available.size),
         secondary = stringResource(R.string.notification_category_help),
     )
+    if (categoryMode && connected) {
+        WorkspaceAppNote(stringResource(R.string.surface_channels_restricted))
+    }
     if (categoryMode && connected && sameProfile.isEmpty()) {
         WorkspaceAppNote(stringResource(R.string.surface_no_notifications))
     } else if (!categoryMode && groups.isEmpty()) {
@@ -242,10 +261,52 @@ internal fun ActiveNotificationManagement(
                 else selectedKeys = if (complete) chosen - allowedKeys else chosen + allowedKeys
             },
             expanded = expandedGroup == group.key,
-            onExpand = if (grouping != ActiveNotificationGrouping.ALL && group.rows.size > 1) {
+            onExpand = if (categoryMode || (grouping != ActiveNotificationGrouping.ALL && group.rows.size > 1)) {
                 { expandedGroup = if (expandedGroup == group.key) null else group.key }
             } else null,
-            details = if (grouping != ActiveNotificationGrouping.ALL && group.rows.size > 1) {
+            details = if (categoryMode) {
+                {
+                    val packages = group.rows.groupBy { it.packageName }
+                    packages.toSortedMap().forEach { (pkg, notifications) ->
+                        val channels = notifications.groupBy { it.channelId }.toSortedMap()
+                        WorkspaceDetailHeading(
+                            title = pkg,
+                            kind = channels.size.toString(),
+                        )
+                        channels.forEach { (channelId, channelRows) ->
+                            val key = "$pkg|$channelId"
+                            val safeToHide = channelRows.none { it.protected }
+                            val hidden = key in hiddenChannels
+                            SurfaceWorkspaceRow(
+                                title = channelId,
+                                subtitle = stringResource(
+                                    R.string.notification_group_count,
+                                    channelRows.size,
+                                    channelRows.count { it.protected },
+                                ),
+                                selected = hidden,
+                                enabled = safeToHide,
+                                locked = !safeToHide,
+                                onToggle = {
+                                    draftChannels = if (hidden) hiddenChannels - key
+                                        else hiddenChannels + key
+                                },
+                                actions = if (userId == android.os.Process.myUid() / 100000)
+                                    listOf(WorkspaceMenuAction(
+                                        stringResource(R.string.surface_channel_settings),
+                                        {
+                                            val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                                                .putExtra(Settings.EXTRA_APP_PACKAGE, pkg)
+                                                .putExtra(Settings.EXTRA_CHANNEL_ID, channelId)
+                                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            runCatching { context.startActivity(intent) }
+                                        },
+                                    )) else emptyList(),
+                            )
+                        }
+                    }
+                }
+            } else if (grouping != ActiveNotificationGrouping.ALL && group.rows.size > 1) {
                 {
                     group.rows.forEach { notification ->
                         SurfaceWorkspaceRow(
@@ -278,14 +339,10 @@ internal fun ActiveNotificationManagement(
     dismissalCount?.let {
         WorkspaceAppNote(stringResource(R.string.surface_dismiss_requested, it))
     }
-    if (categoryMode && hiddenCategories != savedCategories.hiddenNotificationCategories) PendingChangesBar(
-        count = (hiddenCategories - savedCategories.hiddenNotificationCategories).size +
-            (savedCategories.hiddenNotificationCategories - hiddenCategories).size,
-        onDiscard = { draftCategories = null },
-        onApply = {
-            vm.setSurfaceFilters(savedCategories.copy(hiddenNotificationCategories = hiddenCategories).validated())
-            draftCategories = null
-        },
+    if (categoryMode && categoryChanges + channelChanges > 0) PendingChangesBar(
+        count = categoryChanges + channelChanges,
+        onDiscard = { draftCategories = null; draftChannels = null },
+        onApply = applyCategoryChanges,
     )
     if (!categoryMode && chosen.isNotEmpty()) PendingChangesBar(
         count = chosen.size,
