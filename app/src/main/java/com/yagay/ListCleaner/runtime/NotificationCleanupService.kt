@@ -31,6 +31,9 @@ data class RegisteredChannelRow(
 )
 
 enum class ChannelInventoryStatus { COMPLETE, OBSERVED_ONLY, DISCONNECTED }
+enum class NotificationScanStatus { DISCONNECTED, CONNECTED, FAILED }
+data class NotificationScanState(val status: NotificationScanStatus, val active: Int, val observed: Int)
+
 
 data class ChannelInventory(
     val items: List<RegisteredChannelRow>,
@@ -44,6 +47,20 @@ object NotificationCleanupController {
     private val mutableConnected = MutableStateFlow(false)
     val connected: StateFlow<Boolean> = mutableConnected.asStateFlow()
     @Volatile private var listener: ListCleanerNotificationListener? = null
+    private val history = linkedMapOf<String, ActiveNotificationRow>()
+    private val mutableHistory = MutableStateFlow<List<ActiveNotificationRow>>(emptyList())
+    val observedRows: StateFlow<List<ActiveNotificationRow>> = mutableHistory.asStateFlow()
+    private val mutableScan = MutableStateFlow(NotificationScanState(NotificationScanStatus.DISCONNECTED, 0, 0))
+    val scan: StateFlow<NotificationScanState> = mutableScan.asStateFlow()
+    private fun observationKey(row: ActiveNotificationRow) =
+        "${row.userId}|${row.packageName}|${row.channelId}|${row.category.orEmpty()}"
+    @Synchronized private fun recordObservation(current: List<ActiveNotificationRow>) {
+        current.forEach { history[observationKey(it)] = it }
+        mutableHistory.value = history.values.toList()
+        mutableScan.value = NotificationScanState(
+            NotificationScanStatus.CONNECTED, current.size, history.size)
+    }
+
 
     internal fun attach(value: ListCleanerNotificationListener) {
         listener = value
@@ -56,16 +73,21 @@ object NotificationCleanupController {
         listener = null
         mutableConnected.value = false
         mutableRows.value = emptyList()
+        mutableScan.value = mutableScan.value.copy(status = NotificationScanStatus.DISCONNECTED, active = 0)
     }
 
     internal fun refresh(value: ListCleanerNotificationListener) {
         if (listener !== value) return
         val snapshot = runCatching { value.activeNotifications?.toList() }.getOrNull()
-            ?: return
+        if (snapshot == null) {
+            mutableScan.value = mutableScan.value.copy(status = NotificationScanStatus.FAILED)
+            return
+        }
         mutableRows.value = snapshot.mapNotNull(::toRow).sortedWith(
             compareBy(ActiveNotificationRow::packageName, ActiveNotificationRow::channelId,
                 ActiveNotificationRow::key)
         )
+        recordObservation(mutableRows.value)
     }
 
     private fun toRow(item: StatusBarNotification): ActiveNotificationRow? {
