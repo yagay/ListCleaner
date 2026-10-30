@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.material.icons.Icons
@@ -163,19 +162,12 @@ internal fun SurfaceWorkspaceSearchField(
     label: String,
     maxLength: Int = 255,
 ) {
-    BasicTextField(
-        value = value,
-        onValueChange = { onValueChange(it.take(maxLength)) },
-        modifier = Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal),
-        textStyle = MaterialTheme.typography.bodyLarge.copy(
-            color = MaterialTheme.colorScheme.onSurface,
-        ),
-        singleLine = true,
-        decorationBox = { input ->
-            Column {
-                WorkspaceDetailCaption(label)
-                input()
-            }
-        },
-    )
+    Box(Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal)) {
+        CompactSearchField(
+            query = value,
+            onQueryChange = { onValueChange(it.take(maxLength)) },
+            autoFocus = false,
+            placeholder = label,
+        )
+    }
 }
