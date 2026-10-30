@@ -187,28 +187,38 @@ internal fun SurfaceChannelSettings(
                                 )
                             }
                         }
-                        groupChannels.forEach { channel ->
+                        groupChannels.forEachIndexed { index, channel ->
                             val checked = draft.isChannelHidden(appPackage, channel.channelId)
-                            SurfaceWorkspaceRow(
-                                title = channel.label,
-                                subtitle = channel.channelId,
-                                selected = checked,
-                                nested = true,
+                            WorkspaceDetailRow(
+                                position = if (index == groupChannels.lastIndex)
+                                    ListRowPosition.LAST else ListRowPosition.MIDDLE,
+                                checked = checked,
+                                locked = false,
                                 onToggle = {
                                     draft = draft.withChannelHidden(
                                         appPackage, channel.channelId, !checked)
                                 },
-                                actions = if (userId == android.os.Process.myUid() / 100000)
-                                    listOf(WorkspaceMenuAction(
-                                        stringResource(R.string.surface_channel_settings),
-                                        {
-                                            val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
-                                                .putExtra(Settings.EXTRA_APP_PACKAGE, appPackage)
-                                                .putExtra(Settings.EXTRA_CHANNEL_ID, channel.channelId)
-                                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                            runCatching { context.startActivity(intent) }
-                                        },
-                                    )) else emptyList(),
+                                content = {
+                                    WorkspaceDetailHeading(channel.label, "")
+                                    WorkspaceDetailCaption(channel.channelId)
+                                },
+                                trailing = { menuOpen, setMenuOpen ->
+                                    WorkspaceFlatOverflowMenu(
+                                        actions = if (userId == android.os.Process.myUid() / 100000)
+                                            listOf(WorkspaceMenuAction(
+                                                stringResource(R.string.surface_channel_settings), {
+                                                    val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                                                        .putExtra(Settings.EXTRA_APP_PACKAGE, appPackage)
+                                                        .putExtra(Settings.EXTRA_CHANNEL_ID, channel.channelId)
+                                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                    runCatching { context.startActivity(intent) }
+                                                },
+                                            )) else emptyList(),
+                                        expanded = menuOpen,
+                                        onExpandedChange = setMenuOpen,
+                                        contentDescription = stringResource(R.string.common_more),
+                                    )
+                                },
                             )
                         }
                     }
