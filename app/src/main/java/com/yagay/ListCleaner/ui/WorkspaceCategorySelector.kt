@@ -113,7 +113,7 @@ internal fun WorkspacePickerButton(
             if (previewActions.isNotEmpty()) {
                 WorkspaceCategoryPreviewIcon(previewActions)
             } else {
-                AdaptiveIcon(icon, null, Modifier.size(18.dp), tint = color)
+                AdaptiveIcon(icon, null, Modifier.size(if (iconOnly) 20.dp else 18.dp), tint = color)
             }
             if (!iconOnly) AdaptiveText(
                 label,
