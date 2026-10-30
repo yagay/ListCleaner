@@ -18,6 +18,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
+import com.yagay.ListCleaner.domain.AppTypeFilter
 import com.yagay.ListCleaner.domain.SurfaceKind
 import com.yagay.ListCleaner.domain.supportsSurfaceOrdering
 import com.yagay.ListCleaner.runtime.NotificationCleanupController
