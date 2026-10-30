@@ -53,10 +53,15 @@ internal fun SurfaceWorkspaceToolbar(
     showAppTypeFilter: Boolean = false,
 ) {
     var categoryOpen by remember { mutableStateOf(false) }
-    var filterOpen by remember { mutableStateOf(false) }
     WorkspaceCategoryFilterRow(
         category = {
-            Box {
+            if (options.size == 1) {
+                AdaptiveText(
+                    options.single().second,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else Box {
                 WorkspacePickerButton(
                     label = options.firstOrNull { it.first == category }?.second ?: category,
                     icon = Icons.Rounded.Layers, selected = category != options.firstOrNull()?.first,
