@@ -78,6 +78,7 @@ internal fun ActiveNotificationManagement(
     var categorySelection by remember(userId, initialGrouping) { mutableStateOf<String?>(null) }
     var filter by remember(userId) { mutableStateOf(UiFilter.ALL) }
     var selectedKeys by remember(userId) { mutableStateOf(emptySet<String>()) }
+    var expandedGroup by remember(userId, initialGrouping) { mutableStateOf<String?>(null) }
     var dismissalCount by remember(userId) { mutableStateOf<Int?>(null) }
     val sameProfile = rows.filter { it.userId == userId }
     val available = sameProfile.filterNot { it.protected }
@@ -183,6 +184,28 @@ internal fun ActiveNotificationManagement(
             onToggle = {
                 selectedKeys = if (complete) chosen - allowedKeys else chosen + allowedKeys
             },
+            expanded = expandedGroup == group.key,
+            onExpand = if (grouping != ActiveNotificationGrouping.ALL && group.rows.size > 1) {
+                { expandedGroup = if (expandedGroup == group.key) null else group.key }
+            } else null,
+            details = if (grouping != ActiveNotificationGrouping.ALL && group.rows.size > 1) {
+                {
+                    group.rows.forEach { notification ->
+                        SurfaceWorkspaceRow(
+                            title = notification.packageName + " · " +
+                                notificationCategoryLabel(notification.category),
+                            subtitle = notification.channelId,
+                            selected = notification.key in chosen,
+                            enabled = !notification.protected,
+                            locked = notification.protected,
+                            onToggle = {
+                                selectedKeys = if (notification.key in chosen)
+                                    chosen - notification.key else chosen + notification.key
+                            },
+                        )
+                    }
+                }
+            } else null,
             actions = if (grouping == ActiveNotificationGrouping.CHANNEL &&
                 userId == android.os.Process.myUid() / 100000) listOf(
                 WorkspaceMenuAction(stringResource(R.string.surface_channel_settings), {
