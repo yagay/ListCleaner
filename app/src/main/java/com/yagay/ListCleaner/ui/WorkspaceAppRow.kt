@@ -98,8 +98,9 @@ internal fun WorkspaceAppRow(
             }
         )
     }
-    ContinuousApplicationSurface(expanded = expanded) {
-        Column { appContent(); if (expanded) expandedContent() }
+    ContinuousApplicationSurface(expanded = expanded) { appContent() }
+    if (expanded) ContinuousDetailSurface(selected = true) {
+        Column { expandedContent() }
     }
 }
 
