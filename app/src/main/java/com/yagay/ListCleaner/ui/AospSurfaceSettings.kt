@@ -41,6 +41,7 @@ internal fun AospSurfaceSettings(
     var viewFilter by remember(userId, selectedKind) { mutableStateOf(UiFilter.ALL) }
     var appCategory by remember(userId, selectedKind) { mutableStateOf(AppTypeFilter.ALL) }
     var refreshRevision by remember(userId, selectedKind) { mutableStateOf(0) }
+    var expandedId by remember(userId, selectedKind) { mutableStateOf<String?>(null) }
     val guardOwner = remember(userId, selectedKind) { Any() }
     RegisterPendingNavigation(
         pendingNavigation, guardOwner, if (draft != saved) 1 else 0,
@@ -159,6 +160,18 @@ internal fun AospSurfaceSettings(
                 draft = draft.withSelected(selectedKind,
                     if (id in selected) selected - id else selected + id)
             }, actions = actions,
+            expanded = expandedId == id,
+            onExpand = { expandedId = if (expandedId == id) null else id },
+            details = {
+                Column(Modifier.fillMaxWidth().padding(
+                    start = MaterialUiTokens.pageHorizontal, end = MaterialUiTokens.pageHorizontal,
+                    bottom = 8.dp,
+                )) {
+                    WorkspaceDetailHeading(title = title, kind = selectedKind.name)
+                    WorkspaceDetailCaption(id)
+                    WorkspaceListActions(actions = actions)
+                }
+            },
         )
     }
     if (visible.size > 250) WorkspaceAppNote(
