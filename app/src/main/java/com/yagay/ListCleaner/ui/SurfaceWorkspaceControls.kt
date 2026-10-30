@@ -104,6 +104,7 @@ internal fun SurfaceWorkspaceRow(
     title: String,
     subtitle: String,
     selected: Boolean,
+    indeterminate: Boolean = false,
     enabled: Boolean = true,
     locked: Boolean = false,
     onToggle: () -> Unit,
@@ -118,7 +119,11 @@ internal fun SurfaceWorkspaceRow(
             horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.contentGap),
         ) {
             WorkspaceAppSelectionCheckbox(
-                state = if (selected) ToggleableState.On else ToggleableState.Off,
+                state = when {
+                    indeterminate -> ToggleableState.Indeterminate
+                    selected -> ToggleableState.On
+                    else -> ToggleableState.Off
+                },
                 enabled = enabled, onClick = onToggle,
             )
             Column(Modifier.weight(1f)) {
