@@ -1,6 +1,8 @@
 package com.yagay.ListCleaner.ui
 
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.provider.Settings
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -140,6 +142,16 @@ internal fun SurfaceChannelSettings(
                 context.packageManager.getApplicationLabel(info).toString()
             }.getOrDefault(appPackage)
         }
+        val appIcon = remember(appPackage, userId) {
+            runCatching {
+                val drawable = context.packageManager.getApplicationIcon(appPackage).mutate()
+                val size = (48 * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
+                val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+                drawable.setBounds(0, 0, size, size)
+                drawable.draw(Canvas(bitmap))
+                bitmap
+            }.getOrNull()
+        }
         val found = packageInventories[appPackage]
         val channels = found?.items.orEmpty()
         val selected = channels.isNotEmpty() && channels.all { draft.isChannelHidden(appPackage, it.channelId) }
@@ -148,7 +160,7 @@ internal fun SurfaceChannelSettings(
 
         }
         WorkspaceAppRow(
-            icon = null,
+            icon = appIcon,
             title = appLabel,
             subtitle = if (found == null || found.status != ChannelInventoryStatus.COMPLETE)
                 appPackage else stringResource(R.string.surface_channels_count, channels.size),
