@@ -212,7 +212,8 @@ class MainActivity : ComponentActivity() {
             }
         }
         LaunchedEffect(state.destination) {
-            if (state.destination == Destination.SETTINGS) closeSearch()
+            if (state.destination == Destination.SETTINGS || state.destination == Destination.SURFACES)
+                closeSearch()
         }
         LifecycleResumeEffect(vm) {
             vm.refreshModuleStatus()
@@ -282,6 +283,7 @@ class MainActivity : ComponentActivity() {
                 }
                 Destination.PRIORITY -> vm.refresh(forceCatalog = true)
                 Destination.TILES -> vm.refreshComponents()
+                Destination.SURFACES -> vm.refresh(forceCatalog = true)
                 Destination.SETTINGS -> vm.refreshModuleStatus()
             }
         }
@@ -300,6 +302,7 @@ class MainActivity : ComponentActivity() {
                     )
                     Destination.PRIORITY -> PriorityTab(state, vm, pendingNavigation)
                     Destination.TILES -> RootComponentsScreen(state, vm, pendingNavigation = pendingNavigation)
+                    Destination.SURFACES -> SurfaceManagementTab(state, vm)
                     Destination.SETTINGS -> SettingsTabContent(
                         state,
                         vm,
@@ -334,7 +337,8 @@ class MainActivity : ComponentActivity() {
                     onRefresh,
                     { restore.launch(arrayOf("application/json", "text/plain")) },
                     { showExportDialog = true },
-                    showSearch = state.destination != Destination.SETTINGS,
+                    showSearch = state.destination != Destination.SETTINGS &&
+                        state.destination != Destination.SURFACES,
                     titleRes = R.string.app_name,
                     spaces = spaces,
                     selectedSpace = selectedSpace,
@@ -363,7 +367,8 @@ class MainActivity : ComponentActivity() {
                         tonalElevation = 0.dp,
                         windowInsets = WindowInsets(0, 0, 0, 0)
                     ) {
-                        listOf(Destination.RULES, Destination.TILES, Destination.SETTINGS).forEach { dest ->
+                        listOf(Destination.RULES, Destination.TILES, Destination.SURFACES, Destination.SETTINGS)
+                            .forEach { dest ->
                             val selected = state.destination == dest ||
                                 (dest == Destination.RULES && state.destination == Destination.PRIORITY)
                             NavigationBarItem(

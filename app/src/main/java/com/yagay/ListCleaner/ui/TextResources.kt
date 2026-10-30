@@ -18,6 +18,7 @@ internal fun Destination.labelRes(): Int = when (this) {
     Destination.RULES -> R.string.bottom_entry
     Destination.PRIORITY -> R.string.nav_priority
     Destination.TILES -> R.string.nav_components
+    Destination.SURFACES -> R.string.nav_surface_management
     Destination.SETTINGS -> R.string.nav_settings
 }
 

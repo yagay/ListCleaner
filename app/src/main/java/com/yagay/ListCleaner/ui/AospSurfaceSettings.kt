@@ -35,10 +35,9 @@ private fun SurfaceKind.label(): Int = when (this) {
 }
 
 @Composable
-internal fun AospSurfaceSettings(vm: MainViewModel, userId: Int) {
+internal fun AospSurfaceSettings(vm: MainViewModel, userId: Int, selectedKind: SurfaceKind) {
     val context = LocalContext.current
     val saved by vm.surfaceFilters.collectAsStateWithLifecycle()
-    var selectedKind by remember(userId) { mutableStateOf(SurfaceKind.LAUNCHER_DRAWER) }
     var query by remember(userId, selectedKind) { mutableStateOf("") }
     var draft by remember(userId, saved) { mutableStateOf(saved) }
     var confirming by remember { mutableStateOf(false) }
@@ -67,12 +66,6 @@ internal fun AospSurfaceSettings(vm: MainViewModel, userId: Int) {
         SettingsActionButton(onClick = { refreshRevision++ }) {
             AdaptiveText(stringResource(R.string.surface_scan_refresh))
         }
-        SettingsChoices(
-            title = stringResource(R.string.surface_aosp_choose),
-            value = selectedKind,
-            options = SurfaceKind.entries.map { it to context.getString(it.label()) },
-            onSelected = { selectedKind = it }
-        )
         SettingsHint(stringResource(R.string.surface_aosp_selected, chosen.size))
         SettingsActionButton(
             onClick = {

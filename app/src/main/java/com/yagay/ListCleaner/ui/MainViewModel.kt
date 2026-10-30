@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.lifecycle.AndroidViewModel
@@ -43,6 +44,7 @@ enum class Destination(val icon: androidx.compose.ui.graphics.vector.ImageVector
     RULES(Icons.AutoMirrored.Rounded.List),
     PRIORITY(Icons.AutoMirrored.Rounded.Sort),
     TILES(Icons.Rounded.GridView),
+    SURFACES(Icons.Rounded.Tune),
     SETTINGS(Icons.Rounded.Settings)
 }
 
