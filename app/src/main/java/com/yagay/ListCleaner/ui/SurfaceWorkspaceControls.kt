@@ -1,5 +1,6 @@
 package com.yagay.ListCleaner.ui
 
+import android.graphics.Bitmap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -102,6 +103,8 @@ internal fun surfaceFilterAllows(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun SurfaceWorkspaceRow(
+    icon: Bitmap? = null,
+    packageName: String? = null,
     title: String,
     subtitle: String,
     selected: Boolean,
@@ -117,7 +120,8 @@ internal fun SurfaceWorkspaceRow(
 ) {
     if (onExpand != null) {
         WorkspaceAppRow(
-            icon = null,
+            icon = icon,
+            packageName = packageName,
             title = title,
             subtitle = subtitle,
             expanded = expanded,
