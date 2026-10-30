@@ -109,7 +109,7 @@ internal fun SurfaceManagementTab(
                     onBack = navigateBack,
                 )
                 when (current) {
-                    SurfaceManagerPage.NOTIFICATIONS_CURRENT -> ActiveNotificationManagement(vm)
+                    SurfaceManagerPage.NOTIFICATIONS_CURRENT -> ActiveNotificationManagement(vm, pendingNavigation)
                     SurfaceManagerPage.NOTIFICATIONS_CHANNELS ->
                         SurfaceChannelSettings(vm, userId, activeNotifications, pendingNavigation)
                     SurfaceManagerPage.INVALID_RULES -> StaleRuleManagement(state, vm)

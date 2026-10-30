@@ -40,7 +40,6 @@ internal fun AospSurfaceSettings(
     var viewFilter by remember(userId, selectedKind) { mutableStateOf(UiFilter.ALL) }
     var appCategory by remember(userId, selectedKind) { mutableStateOf(AppTypeFilter.ALL) }
     var refreshRevision by remember(userId, selectedKind) { mutableStateOf(0) }
-    var confirming by remember { mutableStateOf(false) }
     val guardOwner = remember(userId, selectedKind) { Any() }
     RegisterPendingNavigation(
         pendingNavigation, guardOwner, if (draft != saved) 1 else 0,
@@ -169,28 +168,8 @@ internal fun AospSurfaceSettings(
             refreshRevision++
         }),
     ))
-    if (draft != saved) {
-        PendingChangesBar(
-            count = 1, onDiscard = { draft = saved },
-            onApply = { confirming = true },
-        )
-    }
-    if (confirming) {
-        SettingsFlatDialog(
-            onDismissRequest = { confirming = false },
-            title = { AdaptiveText(stringResource(R.string.surface_aosp_confirm)) },
-            text = { AdaptiveText(stringResource(R.string.surface_aosp_confirm_help)) },
-            confirmButton = {
-                AdaptiveTextButton(onClick = {
-                    confirming = false
-                    vm.setSurfaceFilters(draft)
-                }) { AdaptiveText(stringResource(R.string.common_ok)) }
-            },
-            dismissButton = {
-                AdaptiveTextButton(onClick = { confirming = false }) {
-                    AdaptiveText(stringResource(R.string.common_cancel))
-                }
-            },
-        )
-    }
+    if (draft != saved) PendingChangesBar(
+        count = 1, onDiscard = { draft = saved },
+        onApply = { vm.setSurfaceFilters(draft) },
+    )
 }

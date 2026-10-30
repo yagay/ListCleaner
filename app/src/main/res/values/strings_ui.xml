@@ -233,4 +233,24 @@
     <string name="surface_documents_filter_help">Filter recent file sources in AOSP DocumentsUI</string>
     <string name="surface_settings_filter_help">Hide or prioritize rows in the AOSP installed-app list</string>
     <string name="surface_media_filter_help">Hide unconnected media output destinations from the device list</string>
+    <string name="surface_invert_selected">Invert visible selection</string>
+    <string name="surface_unlock_item">Unlock item</string>
+    <string name="notification_group_application">By application</string>
+    <string name="notification_group_channel">By channel</string>
+    <string name="notification_group_category">By notification type</string>
+    <string name="notification_group_count">%1$d notifications · %2$d protected</string>
+    <string name="notification_category_help">Select notifications in the list; protected items stay visible but cannot be dismissed.</string>
+    <string name="notification_category_message">Messages</string>
+    <string name="notification_category_email">Email</string>
+    <string name="notification_category_call">Calls</string>
+    <string name="notification_category_alarm">Alarms</string>
+    <string name="notification_category_service">Services</string>
+    <string name="notification_category_progress">Progress</string>
+    <string name="notification_category_reminder">Reminders</string>
+    <string name="notification_category_event">Events</string>
+    <string name="notification_category_social">Social</string>
+    <string name="notification_category_transport">Transport</string>
+    <string name="notification_category_promo">Promotions</string>
+    <string name="notification_category_system">System</string>
+    <string name="notification_category_other">Other / unspecified</string>
 </resources>

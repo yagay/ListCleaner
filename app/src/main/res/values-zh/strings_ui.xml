@@ -233,4 +233,24 @@
     <string name="surface_documents_filter_help">过滤 AOSP DocumentsUI 的最近文件来源</string>
     <string name="surface_settings_filter_help">过滤或调整 AOSP 已安装应用列表</string>
     <string name="surface_media_filter_help">从媒体输出列表中隐藏未连接的设备</string>
+    <string name="surface_invert_selected">反选当前显示项</string>
+    <string name="surface_unlock_item">解锁项目</string>
+    <string name="notification_group_application">按应用分类</string>
+    <string name="notification_group_channel">按通知渠道分类</string>
+    <string name="notification_group_category">按通知类型分类</string>
+    <string name="notification_group_count">%1$d 条通知 · %2$d 条受保护</string>
+    <string name="notification_category_help">勾选要清理的通知；受保护的通知仍然显示，但不能撤销。</string>
+    <string name="notification_category_message">消息</string>
+    <string name="notification_category_email">邮件</string>
+    <string name="notification_category_call">通话</string>
+    <string name="notification_category_alarm">闹钟</string>
+    <string name="notification_category_service">服务</string>
+    <string name="notification_category_progress">进度</string>
+    <string name="notification_category_reminder">提醒</string>
+    <string name="notification_category_event">事件</string>
+    <string name="notification_category_social">社交</string>
+    <string name="notification_category_transport">交通</string>
+    <string name="notification_category_promo">促销</string>
+    <string name="notification_category_system">系统</string>
+    <string name="notification_category_other">其他或未分类</string>
 </resources>
