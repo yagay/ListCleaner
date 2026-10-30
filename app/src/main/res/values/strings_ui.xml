@@ -227,7 +227,7 @@
     <string name="surface_group_maintenance_help">Review invalid rules before removing them</string>
     <string name="surface_shade_filter_help">Hide selected applications in the notification shade, without dismissing posted notifications</string>
     <string name="surface_drawer_filter_help">Hide selected apps from the AOSP app drawer without disabling launch activities</string>
-    <string name="surface_prediction_filter_help">Manage the launcher's suggested applications</string>
+    <string name="surface_prediction_filter_help">Manage suggested launcher applications</string>
     <string name="surface_recents_filter_help">Filter recent task cards without stopping running tasks</string>
     <string name="surface_qs_filter_help">Hide or prioritize available tiles in the add-tile editor</string>
     <string name="surface_documents_filter_help">Filter recent file sources in AOSP DocumentsUI</string>
