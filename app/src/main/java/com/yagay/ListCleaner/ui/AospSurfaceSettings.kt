@@ -93,9 +93,9 @@ internal fun AospSurfaceSettings(
     val visibleIds = visible.take(250).map { it.first }
     val editableIds = visibleIds.filter { it !in locked }
 
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        item(key = "controls") {
-            Column {
+    Column(Modifier.fillMaxSize()) {
+        Column {
+
             SurfaceWorkspaceToolbar(
                 category = "",
                 options = listOf("" to stringResource(R.string.common_all)),
@@ -129,8 +129,9 @@ internal fun AospSurfaceSettings(
                 label = stringResource(R.string.surface_aosp_search),
                 maxLength = 80,
             )
-                    }
+        
         }
+        LazyColumn(modifier = Modifier.weight(1f)) {
         items(visible.take(250), key = { it.first }) { (id, title) ->
         val appIcon = remember(id, userId) {
             if (!applicationBased) null else runCatching {
@@ -202,6 +203,8 @@ internal fun AospSurfaceSettings(
                 count = 1, onDiscard = { draft = saved },
                 onApply = { vm.setSurfaceFilters(draft) },
             )            }
+        }
+    }
         }
     }
 }
