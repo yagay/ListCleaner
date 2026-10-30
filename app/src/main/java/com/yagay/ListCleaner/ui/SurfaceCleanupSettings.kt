@@ -1,6 +1,11 @@
 package com.yagay.ListCleaner.ui
 
 import android.app.Notification
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.Modifier
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import com.yagay.ListCleaner.domain.AppTypeFilter
@@ -204,6 +209,7 @@ internal fun ActiveNotificationManagement(
         SettingsHint(stringResource(R.string.surface_wait_for_listener))
     }
 
+    Column(Modifier.fillMaxSize()) {
     SurfaceWorkspaceToolbar(
         category = if (initialGrouping == ActiveNotificationGrouping.CATEGORY)
             categorySelection ?: "ALL" else grouping.name,
@@ -266,7 +272,8 @@ internal fun ActiveNotificationManagement(
         WorkspaceAppNote(stringResource(R.string.surface_no_notifications))
     }
 
-    shownGroups.forEach { group ->
+        LazyColumn(modifier = Modifier.weight(1f)) {
+            items(shownGroups, key = { it.key }) { group ->
         val allowedKeys = group.rows.filterNot { it.protected }.map { it.key }.toSet()
         val complete = allowedKeys.isNotEmpty() && allowedKeys.all { it in chosen }
         val any = allowedKeys.any { it in chosen }
@@ -367,6 +374,7 @@ internal fun ActiveNotificationManagement(
             ) else emptyList(),
         )
     }
+        }
     dismissalCount?.let {
         WorkspaceAppNote(stringResource(R.string.surface_dismiss_requested, it))
     }
@@ -382,7 +390,8 @@ internal fun ActiveNotificationManagement(
             dismissalCount = NotificationCleanupController.dismiss(chosen)
             selectedKeys = emptySet()
         },
-    )
+    )    }
+
 }
 
 /** Stale-rule review uses the same checkbox and category/filter system as Entry cleanup. */
