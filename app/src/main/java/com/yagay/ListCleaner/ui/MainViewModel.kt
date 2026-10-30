@@ -418,10 +418,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val surfaceFilters: StateFlow<com.yagay.ListCleaner.domain.SurfaceFilterConfig>
         get() = app.rules.surfaceFilters
 
-    fun setSurfaceFilters(value: com.yagay.ListCleaner.domain.SurfaceFilterConfig) {
-        if (!canEdit()) return
-        app.rules.setSurfaceFilters(value)
-        viewModelScope.launch { app.synchronize() }
+    /** Returns true only when the local rules update was accepted. Sync is asynchronous. */
+    fun setSurfaceFilters(value: com.yagay.ListCleaner.domain.SurfaceFilterConfig): Boolean {
+        if (!canEdit()) return false
+        return runCatching {
+            app.rules.setSurfaceFilters(value)
+            viewModelScope.launch { app.synchronize() }
+            true
+        }.getOrDefault(false)
     }
 
     fun setHiddenFromApps(packages: Set<String>) {
