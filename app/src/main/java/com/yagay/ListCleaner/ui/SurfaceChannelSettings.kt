@@ -108,13 +108,19 @@ internal fun SurfaceChannelSettings(
         },
     )
     visiblePackages.take(250).forEach { appPackage ->
+        val appLabel = remember(appPackage) {
+            runCatching {
+                val info = context.packageManager.getApplicationInfo(appPackage, 0)
+                context.packageManager.getApplicationLabel(info).toString()
+            }.getOrDefault(appPackage)
+        }
         val found = packageInventories[appPackage]
         val channels = found?.items.orEmpty()
         val selected = channels.isNotEmpty() && channels.all { draft.isChannelHidden(appPackage, it.channelId) }
         SurfaceWorkspaceRow(
-            title = appPackage,
-            subtitle = if (found == null) stringResource(R.string.surface_channels_help)
-                else stringResource(R.string.surface_channels_count, channels.size),
+            title = appLabel,
+            subtitle = if (found == null || found.status != ChannelInventoryStatus.COMPLETE)
+                appPackage else stringResource(R.string.surface_channels_count, channels.size),
             selected = selected,
             enabled = channels.isNotEmpty(),
             onToggle = {
