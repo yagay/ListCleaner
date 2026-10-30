@@ -124,7 +124,7 @@ object NotificationCleanupController {
             } else {
                 // A normal NotificationListenerService is not necessarily a
                 // privileged channel manager. Never claim this is a complete list.
-                val observed = rows.value.filter { it.packageName == pkg && it.userId == userId }
+                val observed = observedRows.value.filter { it.packageName == pkg && it.userId == userId }
                     .map { RegisteredChannelRow(pkg, it.channelId, it.channelId, -1) }
                     .distinctBy { it.channelId }.sortedBy { it.channelId }
                 ChannelInventory(observed, ChannelInventoryStatus.OBSERVED_ONLY)
