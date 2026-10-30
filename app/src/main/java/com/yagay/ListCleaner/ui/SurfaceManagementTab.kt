@@ -4,6 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -102,6 +104,19 @@ internal fun SurfaceManagementTab(
     }
     BackHandler(enabled = group != null || page != null, onBack = navigateBack)
 
+    if (page?.kind != null) {
+        val current = requireNotNull(page)
+        Column(Modifier.fillMaxSize()) {
+            SurfaceNavigationHeading(
+                title = stringResource(current.title),
+                onBack = navigateBack,
+            )
+            Box(Modifier.weight(1f)) {
+                AospSurfaceSettings(vm, userId, requireNotNull(current.kind), pendingNavigation)
+            }
+        }
+        return
+    }
     MaterialPageColumn(fullBleed = true) {
         when {
             page != null -> {
