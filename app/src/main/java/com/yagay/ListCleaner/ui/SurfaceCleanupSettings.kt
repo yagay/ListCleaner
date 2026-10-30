@@ -390,7 +390,7 @@ internal fun ActiveNotificationManagement(
     if (categoryMode && categoryChanges + channelChanges > 0) PendingChangesBar(
         count = categoryChanges + channelChanges,
         onDiscard = { draftCategories = null; draftChannels = null },
-        onApply = applyCategoryChanges,
+        onApply = { applyCategoryChanges(); },
     )
     if (!categoryMode && chosen.isNotEmpty()) PendingChangesBar(
         count = chosen.size,
@@ -411,6 +411,7 @@ internal fun StaleRuleManagement(
     pendingNavigation: PendingNavigationGuard? = null,
 ) {
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     var refreshed by remember(userId) { mutableStateOf(false) }
     var scanStarted by remember(userId) { mutableStateOf(false) }
     LaunchedEffect(refreshed, state.loading) {
@@ -421,8 +422,8 @@ internal fun StaleRuleManagement(
     var category by remember(userId) { mutableStateOf("ALL") }
     val maintenanceUi = rememberSurfaceWorkspaceUiState(
         userId, "maintenance",
-        UiPreferencesStore.initialFilter(LocalContext.current, "lists_maintenance"),
-        UiPreferencesStore.initialAppType(LocalContext.current, "lists_maintenance"),
+        UiPreferencesStore.initialFilter(context, "lists_maintenance"),
+        UiPreferencesStore.initialAppType(context, "lists_maintenance"),
     )
     val viewFilter = maintenanceUi.viewFilter
     val stale = if (completed && state.error.isNullOrBlank()) {
@@ -457,7 +458,7 @@ internal fun StaleRuleManagement(
     SurfaceWorkspaceToolbar(
         category = category, options = categories,
         onCategory = { category = it },
-        filter = viewFilter, onFilter = { maintenanceUi.viewFilter = it; UiPreferencesStore.rememberFilter(LocalContext.current, it, "lists_maintenance") },
+        filter = viewFilter, onFilter = { maintenanceUi.viewFilter = it; UiPreferencesStore.rememberFilter(context, it, "lists_maintenance") },
         actions = listOf(
             WorkspaceMenuAction(stringResource(R.string.select_all), {
                 selectedRules = applySurfaceBulkSelection(selected, visible, SurfaceBulkOperation.ALL)
