@@ -14,6 +14,7 @@ import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.ModuleConfig
 import com.yagay.ListCleaner.domain.SurfaceFilterConfig
 import com.yagay.ListCleaner.domain.SurfaceKind
+import com.yagay.ListCleaner.domain.supportsSurfaceOrdering
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
@@ -114,13 +115,15 @@ class AospSurfaceFilterModule : XposedModule() {
                         packageName == null || user == null ||
                             packageName !in selected(SurfaceKind.LAUNCHER_DRAWER, user)
                     }
-                    if (filtered.size == array.size) original
+                    val ordered = prioritizedByProfile(
+                        SurfaceKind.LAUNCHER_DRAWER, filtered, ::appInfoPackage, ::itemUser)
+                    if (ordered == array.toList()) original
                     else {
                         val componentType = original.javaClass.componentType
                             ?: return@install original
                         java.lang.reflect.Array.newInstance(
-                            componentType, filtered.size).also { output ->
-                        filtered.forEachIndexed { index, entry ->
+                            componentType, ordered.size).also { output ->
+                        ordered.forEachIndexed { index, entry ->
                             java.lang.reflect.Array.set(output, index, entry)
                         }
                     }
@@ -176,10 +179,20 @@ class AospSurfaceFilterModule : XposedModule() {
                             ?: return@filter true
                         info.packageName !in selected(SurfaceKind.SETTINGS_APPS, user)
                     }
-                    if (rows.size == filtered.size) proceedOriginal(chain)
+                    val ordered = prioritizedByProfile(
+                        SurfaceKind.SETTINGS_APPS, filtered,
+                        { entry ->
+                            (ReflectionAccess.readField(entry, "info", "mInfo") as? ApplicationInfo)?.packageName
+                        },
+                        { entry ->
+                            (ReflectionAccess.readField(entry, "info", "mInfo") as? ApplicationInfo)
+                                ?.uid?.takeIf { it >= 0 }?.div(100000)
+                        },
+                    )
+                    if (ordered == rows) proceedOriginal(chain)
                     else {
                         diagnostic("FILTER settings-apps total=${rows.size} hidden=${rows.size - filtered.size}")
-                        args[0] = ArrayList(filtered)
+                        args[0] = ArrayList(ordered)
                         proceedOriginal(chain, args)
                     }
                 }
@@ -286,13 +299,35 @@ class AospSurfaceFilterModule : XposedModule() {
     ): Any? {
         val original = proceedOriginal(chain)
         val list = original as? List<*> ?: return original
-        val selected = policy().selected(kind)
-        if (selected.isEmpty()) return original
+        if (profiles.values.all {
+                it.selected(kind).isEmpty() && it.priorities(kind).isEmpty()
+            }) return original
         val filtered = list.filter { entry ->
             val pkg = pkgOf(entry)
-            pkg == null || pkg !in selected
+            val user = itemUser(entry)
+            pkg == null || user == null || pkg !in selected(kind, user)
         }
-        return if (filtered.size == list.size) original else ArrayList(filtered)
+        val ordered = prioritizedByProfile(kind, filtered, pkgOf, ::itemUser)
+        return if (ordered == list) original else ArrayList(ordered)
+    }
+
+    /** Stable per-profile ordering without moving items into another Android user slot. */
+    private fun prioritizedByProfile(
+        kind: SurfaceKind, items: List<*>,
+        pkgOf: (Any?) -> String?, userOf: (Any?) -> Int?,
+    ): List<Any?> {
+        if (!kind.supportsSurfaceOrdering()) return items
+        val result = items.toMutableList()
+        items.indices.groupBy { userOf(items[it]) }.forEach { (user, positions) ->
+            if (user == null) return@forEach
+            val ranks = policy(user).priorities(kind).withIndex()
+                .associate { it.value to it.index }
+            if (ranks.isEmpty()) return@forEach
+            val ordered = positions.map { items[it] }
+                .sortedWith(compareBy({ ranks[pkgOf(it)] ?: Int.MAX_VALUE }))
+            positions.forEachIndexed { index, position -> result[position] = ordered[index] }
+        }
+        return result
     }
 
     private fun shouldHideNotification(entry: Any?): Boolean {
@@ -310,6 +345,7 @@ class AospSurfaceFilterModule : XposedModule() {
             ?: entry
         val sbn = ReflectionAccess.invokeNoArg(representative, "getSbn")
             as? android.service.notification.StatusBarNotification ?: return false
+        if (notificationPackage(entry) == null) return false
         val policy = policy(sbn.userId)
         return sbn.packageName in policy.selected(SurfaceKind.NOTIFICATION_SHADE) ||
             policy.isChannelHidden(sbn.packageName, sbn.notification.channelId.orEmpty())
