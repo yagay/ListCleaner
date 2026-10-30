@@ -130,22 +130,6 @@ internal fun SurfaceManagementTab(
     }
     MaterialPageColumn(fullBleed = true) {
         when {
-            page != null -> {
-                val current = requireNotNull(page)
-                SurfaceNavigationHeading(
-                    title = stringResource(current.title),
-                    onBack = navigateBack,
-                )
-                when (current) {
-                    SurfaceManagerPage.NOTIFICATIONS_CURRENT -> ActiveNotificationManagement(vm, pendingNavigation)
-                    SurfaceManagerPage.NOTIFICATIONS_TYPES ->
-                        ActiveNotificationManagement(vm, pendingNavigation, ActiveNotificationGrouping.CATEGORY)
-                    SurfaceManagerPage.NOTIFICATIONS_CHANNELS ->
-                        SurfaceChannelSettings(vm, userId, activeNotifications, pendingNavigation)
-                    SurfaceManagerPage.INVALID_RULES -> StaleRuleManagement(state, vm, pendingNavigation)
-                    else -> AospSurfaceSettings(vm, userId, requireNotNull(current.kind), pendingNavigation)
-                }
-            }
             group != null -> {
                 val selected = requireNotNull(group)
                 SurfaceNavigationHeading(
