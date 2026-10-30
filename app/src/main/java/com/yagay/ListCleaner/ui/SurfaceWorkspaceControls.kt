@@ -47,6 +47,9 @@ internal fun SurfaceWorkspaceToolbar(
     filter: UiFilter,
     onFilter: (UiFilter) -> Unit,
     actions: List<WorkspaceMenuAction> = emptyList(),
+    appTypeFilter: AppTypeFilter = AppTypeFilter.ALL,
+    onAppTypeFilter: (AppTypeFilter) -> Unit = {},
+    showAppTypeFilter: Boolean = false,
 ) {
     var categoryOpen by remember { mutableStateOf(false) }
     var filterOpen by remember { mutableStateOf(false) }
@@ -73,8 +76,9 @@ internal fun SurfaceWorkspaceToolbar(
         },
         filter = {
             WorkspaceFilterBar(
-                appTypeFilter = AppTypeFilter.ALL,
-                onAppTypeFilter = {},
+                appTypeFilter = appTypeFilter,
+                onAppTypeFilter = onAppTypeFilter,
+                showAppTypeFilter = showAppTypeFilter,
                 viewFilter = filter,
                 onViewFilter = onFilter,
             )
