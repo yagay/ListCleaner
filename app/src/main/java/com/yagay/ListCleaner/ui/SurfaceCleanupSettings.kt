@@ -154,6 +154,20 @@ internal fun ActiveNotificationManagement(
         return
     }
 
+    // Category rules must remain editable with no posted notifications, but the
+    // observation status must never be silently presented as a real zero count.
+    if (categoryMode && !granted) {
+        SettingsHint(stringResource(R.string.surface_notifications_help))
+        SettingsActionButton(onClick = {
+            runCatching {
+                context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }
+        }) { AdaptiveText(stringResource(R.string.surface_grant_listener)) }
+    } else if (categoryMode && !connected) {
+        SettingsHint(stringResource(R.string.surface_wait_for_listener))
+    }
+
     SurfaceWorkspaceToolbar(
         category = if (initialGrouping == ActiveNotificationGrouping.CATEGORY)
             categorySelection ?: "ALL" else grouping.name,
@@ -196,7 +210,11 @@ internal fun ActiveNotificationManagement(
         title = stringResource(R.string.surface_active_count, sameProfile.size, available.size),
         secondary = stringResource(R.string.notification_category_help),
     )
-    if (groups.isEmpty()) WorkspaceAppNote(stringResource(R.string.surface_no_notifications))
+    if (categoryMode && connected && sameProfile.isEmpty()) {
+        WorkspaceAppNote(stringResource(R.string.surface_no_notifications))
+    } else if (!categoryMode && groups.isEmpty()) {
+        WorkspaceAppNote(stringResource(R.string.surface_no_notifications))
+    }
 
     shownGroups.forEach { group ->
         val allowedKeys = group.rows.filterNot { it.protected }.map { it.key }.toSet()
