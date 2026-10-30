@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
@@ -229,12 +230,26 @@ internal class SurfaceWorkspaceUiState(
     }
 }
 
+private val SurfaceWorkspaceUiSaver = Saver<SurfaceWorkspaceUiState, List<String>>(
+    save = { state ->
+        listOf(state.viewFilter.name, state.appTypeFilter.name, state.expandedKey.orEmpty())
+    },
+    restore = { values ->
+        SurfaceWorkspaceUiState(
+            UiFilter.entries.firstOrNull { it.name == values.getOrNull(0) } ?: UiFilter.ALL,
+            AppTypeFilter.entries.firstOrNull { it.name == values.getOrNull(1) } ?: AppTypeFilter.USER,
+        ).also { state ->
+            values.getOrNull(2)?.takeIf { it.isNotEmpty() }?.let(state::toggleExpanded)
+        }
+    },
+)
+
 @Composable
 internal fun rememberSurfaceWorkspaceUiState(
     userId: Int,
     pageKey: String,
     initialFilter: UiFilter,
     initialAppType: AppTypeFilter,
-): SurfaceWorkspaceUiState = remember(userId, pageKey) {
+): SurfaceWorkspaceUiState = rememberSaveable(userId, pageKey, saver = SurfaceWorkspaceUiSaver) {
     SurfaceWorkspaceUiState(initialFilter, initialAppType)
 }
