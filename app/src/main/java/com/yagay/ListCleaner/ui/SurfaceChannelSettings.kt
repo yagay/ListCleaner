@@ -9,7 +9,6 @@ import android.provider.Settings
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -167,22 +166,10 @@ internal fun SurfaceChannelSettings(
     SettingsActionButton(enabled = !scanning, onClick = { scanRevision++ }) {
         AdaptiveText(stringResource(R.string.surface_scan_refresh))
     }
-    BasicTextField(
+    SurfaceWorkspaceSearchField(
         value = pkg,
-        onValueChange = { pkg = it.take(255) },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth().padding(
-            horizontal = MaterialUiTokens.pageHorizontal,
-        ),
-        textStyle = MaterialTheme.typography.bodyLarge.copy(
-            color = MaterialTheme.colorScheme.onSurface,
-        ),
-        decorationBox = { inner ->
-            Column {
-                WorkspaceDetailCaption(stringResource(R.string.surface_channels_package))
-                inner()
-            }
-        },
+        onValueChange = { pkg = it },
+        label = stringResource(R.string.surface_channels_package),
     )
     displayedPackages.forEach { appPackage ->
         val appLabel = packageLabels[appPackage] ?: appPackage
