@@ -44,16 +44,21 @@ import com.yagay.ListCleaner.domain.entryGroup
 import com.yagay.ListCleaner.domain.kinds
 
 @Composable
-internal fun CompactSearchField(query: String, onQueryChange: (String) -> Unit) {
+internal fun CompactSearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    autoFocus: Boolean = true,
+    placeholder: String? = null,
+) {
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    LaunchedEffect(autoFocus) { if (autoFocus) focusRequester.requestFocus() }
     OutlinedTextField(
         value = query,
         onValueChange = onQueryChange,
         singleLine = true,
         modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
-        placeholder = { AdaptiveText(stringResource(R.string.search_apps_components_packages)) },
+        placeholder = { AdaptiveText(placeholder ?: stringResource(R.string.search_apps_components_packages)) },
         leadingIcon = { AdaptiveIcon(Icons.Rounded.Search, contentDescription = null) },
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() })
