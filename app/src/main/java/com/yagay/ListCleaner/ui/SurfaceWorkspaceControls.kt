@@ -12,6 +12,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FilterAlt
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -109,9 +115,13 @@ internal fun SurfaceWorkspaceRow(
     locked: Boolean = false,
     onToggle: () -> Unit,
     actions: List<WorkspaceMenuAction> = emptyList(),
+    expanded: Boolean = false,
+    onExpand: (() -> Unit)? = null,
+    details: @Composable (() -> Unit)? = null,
 ) {
     var overflow by remember { mutableStateOf(false) }
-    FlatRowSurface(onClick = if (enabled) onToggle else null) {
+    ContinuousApplicationSurface(expanded = expanded && onExpand != null) {
+        Column {
         Row(
             modifier = Modifier.fillMaxWidth().heightIn(min = MaterialUiTokens.listRowHeight)
                 .padding(horizontal = MaterialUiTokens.pageHorizontal),
@@ -126,7 +136,7 @@ internal fun SurfaceWorkspaceRow(
                 },
                 enabled = enabled, onClick = onToggle,
             )
-            Column(Modifier.weight(1f)) {
+            Column(Modifier.weight(1f).then(if (onExpand != null) Modifier.clickable(onClick = onExpand) else Modifier.clickable(onClick = onToggle))) {
                 AdaptiveText(
                     title, style = MaterialTheme.typography.bodyLarge,
                     maxLines = 2, overflow = TextOverflow.Ellipsis,
@@ -146,6 +156,15 @@ internal fun SurfaceWorkspaceRow(
                 actions = actions, expanded = overflow, onExpandedChange = { overflow = it },
                 contentDescription = stringResource(R.string.common_more),
             )
+            if (onExpand != null) androidx.compose.material3.IconButton(onClick = onExpand) {
+                AdaptiveIcon(
+                    if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    stringResource(if (expanded) R.string.common_collapse else R.string.common_expand),
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
+        if (expanded) details?.invoke()
         }
     }
 }
