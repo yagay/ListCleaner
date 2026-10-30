@@ -55,7 +55,8 @@ class AospSurfaceFilterModule : XposedModule() {
                     val entries = args[0] as? List<*> ?: return@install proceedOriginal(chain)
                     if (profiles.values.all {
                             it.selected(SurfaceKind.NOTIFICATION_SHADE).isEmpty() &&
-                                it.hiddenNotificationChannels.isEmpty()
+                                it.hiddenNotificationChannels.isEmpty() &&
+                                it.hiddenNotificationCategories.isEmpty()
                         }) return@install proceedOriginal(chain)
                     val filtered = entries.filterNot { item ->
                         shouldHideNotification(item)
@@ -362,8 +363,18 @@ class AospSurfaceFilterModule : XposedModule() {
             as? android.service.notification.StatusBarNotification ?: return false
         if (notificationPackage(entry) == null) return false
         val policy = policy(sbn.userId)
+        val category = sbn.notification.category
+        val categoryKey = category?.takeIf { it in setOf(
+            Notification.CATEGORY_PROMO, Notification.CATEGORY_MESSAGE,
+            Notification.CATEGORY_EMAIL, Notification.CATEGORY_SOCIAL,
+            Notification.CATEGORY_PROGRESS, Notification.CATEGORY_REMINDER,
+            Notification.CATEGORY_EVENT, Notification.CATEGORY_TRANSPORT,
+            Notification.CATEGORY_CALL, Notification.CATEGORY_ALARM,
+            Notification.CATEGORY_SERVICE, Notification.CATEGORY_SYSTEM,
+        ) } ?: "(other)"
         return sbn.packageName in policy.selected(SurfaceKind.NOTIFICATION_SHADE) ||
-            policy.isChannelHidden(sbn.packageName, sbn.notification.channelId.orEmpty())
+            policy.isChannelHidden(sbn.packageName, sbn.notification.channelId.orEmpty()) ||
+            categoryKey in policy.hiddenNotificationCategories
     }
 
     private fun notificationPackage(entry: Any?): String? {
