@@ -185,5 +185,6 @@ internal fun SurfaceCleanupSettings(state: MainState, vm: MainViewModel) {
             },
         )
     }
+    SurfaceChannelSettings(vm, userId, rows)
     AospSurfaceSettings(vm, userId)
 }
