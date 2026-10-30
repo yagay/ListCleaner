@@ -2,6 +2,8 @@ package com.yagay.ListCleaner.ui
 
 import android.app.Notification
 import android.content.Intent
+import android.content.pm.ApplicationInfo
+import com.yagay.ListCleaner.domain.AppTypeFilter
 import android.provider.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -113,6 +115,7 @@ internal fun ActiveNotificationManagement(
     var grouping by remember(userId, initialGrouping) { mutableStateOf(initialGrouping) }
     var categorySelection by remember(userId, initialGrouping) { mutableStateOf<String?>(null) }
     var filter by remember(userId) { mutableStateOf(UiFilter.ALL) }
+    var appTypeFilter by remember(userId) { mutableStateOf(AppTypeFilter.ALL) }
     var selectedKeys by remember(userId) { mutableStateOf(emptySet<String>()) }
     var expandedGroup by remember(userId, initialGrouping) { mutableStateOf<String?>(null) }
     var dismissalCount by remember(userId) { mutableStateOf<Int?>(null) }
@@ -121,7 +124,20 @@ internal fun ActiveNotificationManagement(
     val selectableKeys = available.mapTo(hashSetOf()) { it.key }
     val chosen = selectedKeys.intersect(selectableKeys)
     val inventoryRows = if (categoryMode) observedRows.filter { it.userId == userId } else sameProfile
-    val groups = groupActiveNotifications(inventoryRows, grouping)
+    val filteredInventoryRows = inventoryRows.filter { row ->
+        if (appTypeFilter == AppTypeFilter.ALL) true else {
+            val system = runCatching {
+                val app = context.packageManager.getApplicationInfo(row.packageName, 0)
+                (app.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+            }.getOrNull()
+            when (appTypeFilter) {
+                AppTypeFilter.ALL -> true
+                AppTypeFilter.USER -> system == false
+                AppTypeFilter.SYSTEM -> system == true
+            }
+        }
+    }
+    val groups = groupActiveNotifications(filteredInventoryRows, grouping)
     val displayGroups = if (initialGrouping == ActiveNotificationGrouping.CATEGORY) {
         notificationCategoryIds.map { id ->
             ActiveNotificationGroup(id, groups.firstOrNull { it.key == id }?.rows.orEmpty())
@@ -210,6 +226,9 @@ internal fun ActiveNotificationManagement(
             } else grouping = ActiveNotificationGrouping.entries.first { it.name == value }
         },
         filter = filter, onFilter = { filter = it },
+        appTypeFilter = appTypeFilter,
+        onAppTypeFilter = { appTypeFilter = it },
+        showAppTypeFilter = true,
         actions = listOf(
             WorkspaceMenuAction(stringResource(R.string.select_all), {
                 if (categoryMode) draftCategories = hiddenCategories + shownGroups.map { it.key }
