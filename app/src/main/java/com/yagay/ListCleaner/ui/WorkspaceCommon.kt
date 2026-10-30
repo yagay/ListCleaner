@@ -127,12 +127,13 @@ internal fun WorkspaceFilterBar(
     viewTitle: @Composable (UiFilter) -> String = { stringResource(it.titleRes()) },
     modifier: Modifier = Modifier,
     extraFilter: (@Composable () -> Unit)? = null,
+    showAppTypeFilter: Boolean = true,
 ) {
     var expanded by remember { mutableStateOf(false) }
     var draftAppType by remember { mutableStateOf(appTypeFilter) }
     var draftView by remember { mutableStateOf(viewFilter) }
     // Match the category picker: show two group headers, not every filter row.
-    val activeCount = (if (appTypeFilter != AppTypeFilter.ALL) 1 else 0) +
+    val activeCount = (if (showAppTypeFilter && appTypeFilter != AppTypeFilter.ALL) 1 else 0) +
         (if (viewFilter != UiFilter.ALL) 1 else 0)
     // Leave space for the title, fixed actions, and insets in smaller windows.
     val optionsMaxHeight = (LocalConfiguration.current.screenHeightDp - 220)
@@ -184,14 +185,14 @@ internal fun WorkspaceFilterBar(
         ) {
             // Options alone scroll inside FlatPopupMenu. No nested scrolling
             // Column or Material DropdownMenu padding can displace the footer.
-            WorkspaceFilterChoiceGroup(
+            if (showAppTypeFilter) WorkspaceFilterChoiceGroup(
                 title = stringResource(R.string.app_type_filter),
                 options = AppTypeFilter.entries.toList(),
                 selected = draftAppType,
                 titleFor = { stringResource(it.titleRes()) },
                 onSelected = { draftAppType = it }
             )
-            AdaptiveHorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
+            if (showAppTypeFilter) AdaptiveHorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
             WorkspaceFilterChoiceGroup(
                 title = stringResource(R.string.view_filter),
                 options = UiFilter.entries.toList(),
