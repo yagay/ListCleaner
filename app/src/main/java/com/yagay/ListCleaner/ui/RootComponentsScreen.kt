@@ -106,6 +106,24 @@ fun RootComponentsScreen(
     var kind by rememberSaveable(initialKind, embedded, vm.selectedSpace.value) {
         mutableStateOf(initialKind)
     }
+    // Presentation-only application and notification rules live inside the
+    // Components workspace, never in the Root component enable/disable engine.
+    var managedSurface by rememberSaveable(embedded, vm.selectedSpace.value) {
+        mutableStateOf<ManagedComponentSurface?>(null)
+    }
+    if (managedSurface != null) {
+        ComponentsSurfaceEditor(
+            state = state, vm = vm,
+            surface = requireNotNull(managedSurface),
+            pendingNavigation = pendingNavigation,
+            onRootKind = { selected ->
+                kind = selected
+                managedSurface = null
+            },
+            onManagedKind = { selected -> managedSurface = selected },
+        )
+        return
+    }
     // Draft is scoped to the current user space and component category.
     val selectionDraft = remember(kind, vm.selectedSpace.value) { PendingSelectionDraft<String>() }
     BackHandler(enabled = backEnabled && (embedded || kind != null)) {
@@ -342,7 +360,13 @@ fun RootComponentsScreen(
                                     kind = selected
                                     expandedAppKey = null
                                 }
-                            }
+                            },
+                            onManagedSurface = { selected ->
+                                navigate {
+                                    managedSurface = selected
+                                    expandedAppKey = null
+                                }
+                            },
                         )
                     },
                     beforeFilter = {
