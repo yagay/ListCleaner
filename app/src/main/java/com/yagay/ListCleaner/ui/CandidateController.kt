@@ -99,6 +99,14 @@ internal class CandidateController(
             mutableLoading.value = true
             mutableError.value = null
             try {
+                // Explicit UI refresh or initial full scan asks system_server to
+                // enumerate *unfiltered* Sharing Shortcuts by MIME type. This
+                // does not launch the Sharesheet, start target apps, or modify
+                // existing cleanup rules. Failure falls back to old observations.
+                if (forceCatalog || manualProactive) {
+                    app.requestDirectShareScan(userId)
+                    if (!isCurrent(currentGeneration, userId)) return@launch
+                }
                 // Pull runtime authority observations before catalog discovery. When the observed
                 // cache changes, invalidate the catalog so an old empty special-entry result cannot
                 // mask newly observed Role/Settings/NFC/manager candidates.
