@@ -140,7 +140,15 @@ internal class SpecialEntryDiscovery(private val context: Context) {
                 ?: return@mapNotNull null
             // A recent DocumentsUI observation is history, not proof of current
             // availability. The bridge preserves recent observations and their original timestamps.
-            val live = observed.key in liveKeys
+            // The launcher sends read-only, per-user Shortcut Host snapshots
+            // through the existing remote observed-entry cache. Such snapshots
+            // remain current for one observer refresh window even when the
+            // system_server synthetic query has not yet returned them.
+            // Other observed kinds keep their strict live-runtime semantics.
+            val recentlyObservedLauncherShortcut =
+                kind == IntentKind.SHORTCUT_ITEM &&
+                    System.currentTimeMillis() - observed.observedAt in 0..600_000L
+            val live = observed.key in liveKeys || recentlyObservedLauncherShortcut
             ComponentCandidate(
                 rule = rule,
                 appLabel = runCatching { app.loadLabel(pm).toString() }.getOrDefault(observed.packageName),
@@ -152,6 +160,8 @@ internal class SpecialEntryDiscovery(private val context: Context) {
                 appType = app.listCleanerAppType(),
                 evidence = buildList {
                     add("AUTHORITY_OBSERVED kind=${kind.name} source=${if (live) "recent_runtime" else "cache_history"}")
+                    if (recentlyObservedLauncherShortcut && observed.key !in liveKeys)
+                        add("SHORTCUT_HOST_SNAPSHOT userId=${observed.userId}")
                     observed.activityClass?.takeIf { it.isNotBlank() }?.let { add("component=$it") }
                     add("observedAt=${observed.observedAt}")
                 },
