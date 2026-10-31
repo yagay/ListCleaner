@@ -16,10 +16,10 @@
     <string name="settings_appearance_help">Changes apply to shared Material 3 controls immediately. Accessible icon touch targets remain at least 48dp.</string>
     <string name="settings_appearance_section">Appearance and theme</string>
     <string name="settings_appearance_subtitle">Light/dark mode, theme colors, density, icons and spacing</string>
-    <string name="settings_list_section">Lists and display</string>
-    <string name="settings_list_subtitle">Default sorting, filters and row display</string>
+    <string name="settings_list_section">Global mode</string>
+    <string name="settings_list_subtitle">Default mode and individual Entry category modes</string>
     <string name="settings_scan_subtitle">Automatic scans, caching and manual refresh</string>
-    <string name="settings_compat_subtitle">Module status, cleanup modes, compatibility visibility and scope</string>
+    <string name="settings_compat_subtitle">Module status, compatibility visibility and scope</string>
     <string name="settings_backup_subtitle">Import and export cleaning configuration</string>
     <string name="settings_advanced_subtitle">Diagnostic export, logs and detailed runtime information</string>
     <string name="settings_backup_note">JSON backups include cleaning and ordering configuration. Local appearance, list defaults and scan preferences are not included.</string>

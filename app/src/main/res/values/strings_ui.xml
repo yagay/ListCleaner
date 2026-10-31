@@ -256,4 +256,10 @@
     <string name="notification_group_category_help">Browse current notifications by Android message, email, call, alarm and other categories</string>
     <string name="lc_mode_follow_global">Follow global default</string>
     <string name="lc_mode_settings_help">Choose the global default or override the current Entry category. Categories without an override inherit the global mode. These settings affect system candidate visibility, not ListCleaner\u0027s own list filter.</string>
+    <string name="lc_mode_default_title">Default mode</string>
+    <string name="lc_mode_category_overrides">Entry category modes</string>
+    <string name="lc_mode_category_overrides_help">Each entry type inherits the default unless you choose its own mode. These options change the system resolver, not the app list filter.</string>
+    <string name="lc_mode_all_inherit">All follow global mode</string>
+    <string name="lc_mode_override_count">%1$d of %2$d independently configured</string>
+    <string name="lc_mode_follow_global_value">Follow global (%1$s)</string>
 </resources>

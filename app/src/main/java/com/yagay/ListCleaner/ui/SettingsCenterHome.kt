@@ -12,7 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.FormatListBulleted
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Refresh
@@ -35,7 +35,7 @@ internal enum class SettingsSection(
     val icon: ImageVector
 ) {
     APPEARANCE(R.string.settings_appearance_section, R.string.settings_appearance_subtitle, Icons.Rounded.Palette),
-    LISTS(R.string.settings_list_section, R.string.settings_list_subtitle, Icons.Rounded.FormatListBulleted),
+    LISTS(R.string.settings_list_section, R.string.settings_list_subtitle, Icons.Rounded.Tune),
     SCANNING(R.string.settings_scan_section, R.string.settings_scan_subtitle, Icons.Rounded.Refresh),
     COMPATIBILITY(R.string.settings_compat_section, R.string.settings_compat_subtitle, Icons.Rounded.Security),
     BACKUP(R.string.dashboard_data_backup, R.string.settings_backup_subtitle, Icons.Rounded.Backup),

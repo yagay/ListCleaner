@@ -11,7 +11,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
-import com.yagay.ListCleaner.domain.DisplayMode
 import kotlinx.coroutines.launch
 
 /** Operational state belongs to compatibility; log collection belongs to diagnostics. */
@@ -22,7 +21,6 @@ internal fun CompatibilitySettings(
     onScope: () -> Unit,
     onAppPicker: () -> Unit,
 ) {
-    val currentMode = state.displayMode
     SettingsArea(stringResource(R.string.lc_settings_runtime_group)) {
         SettingsHint(stringResource(R.string.dashboard_sync_status))
         SettingsHint(state.syncStatus)
@@ -31,14 +29,6 @@ internal fun CompatibilitySettings(
         }
     }
     RuntimePanel(state, vm)
-    SettingsArea(stringResource(R.string.dashboard_global_mode)) {
-        SettingsChoices(
-            stringResource(R.string.dashboard_global_mode),
-            currentMode,
-            DisplayMode.entries.map { it to stringResource(it.titleRes()) }
-        ) { vm.setDisplayMode(it) }
-        SettingsHint(stringResource(R.string.dashboard_global_mode_help))
-    }
     SettingsArea(stringResource(R.string.dashboard_app_visibility)) {
         SettingsHint(stringResource(R.string.dashboard_app_visibility_help))
         SettingsActionButton(onClick = onAppPicker, modifier = Modifier.fillMaxWidth()) {
