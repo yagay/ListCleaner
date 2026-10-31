@@ -153,14 +153,12 @@ fun RulesTab(
     val deepLinkScoped = deepLinkHost != null
     val lockScope = deepLinkHost?.let(::browserRuleBulkLockScope) ?: ruleBulkLockScope(state.filter, openPreset)
     val genericDirectShare = state.selected.filterTo(linkedSetOf()) {
-        it.kind == IntentKind.DIRECT_SHARE && DirectShareTypeRules.family(it) == null
+        it.kind == IntentKind.DIRECT_SHARE
     }
-    val typedDirectShareSelected = state.selected.filterTo(linkedSetOf()) {
-        DirectShareTypeRules.family(it) == directShareType && directShareType != null
-    }
-    val scopedDirectShareSelected = if (directShareType == null) emptySet() else
-        genericDirectShare.mapTo(linkedSetOf()) { DirectShareTypeRules.typed(it, directShareType) } +
-            typedDirectShareSelected
+    val typedDirectShareSelected = directShareType?.let {
+        state.directShareTypes.selectedRules(it)
+    }.orEmpty()
+    val scopedDirectShareSelected = genericDirectShare + typedDirectShareSelected
     val activeSelected = when {
         typedOpenPreset != null -> typedSelected
         deepLinkHost != null -> deepLinkSelected
@@ -192,7 +190,7 @@ fun RulesTab(
                 !vm.isBulkProtected(lockScope, rule.packageName, rule.id)
             deepLinkHost != null -> rule !in genericDeepLinkSelected &&
                 !vm.isBulkProtected(lockScope, rule.packageName, rule.id)
-            directShareType != null -> DirectShareTypeRules.base(rule) !in genericDirectShare &&
+            directShareType != null -> rule !in genericDirectShare &&
                 !vm.isRuleBulkProtected(state.filter, openPreset, rule)
             else -> !vm.isRuleBulkProtected(state.filter, openPreset, rule)
         }
@@ -201,7 +199,7 @@ fun RulesTab(
 
     // Independent navigation and runtime heartbeat updates must not re-filter every app.
     val lockScopeCandidates = remember(
-        typedOpenPreset, deepLinkHost, state.candidates,
+        typedOpenPreset, deepLinkHost, directShareType, state.candidates,
         state.openTypesExplicit.customDefinitions, deepLinkSelected, state.filter
     ) {
         when {
@@ -212,6 +210,10 @@ fun RulesTab(
             deepLinkHost != null -> state.candidates.filter {
                 it.rule.kind == IntentKind.DEEP_LINK &&
                     (it.matchesBrowserHost(deepLinkHost) || it.rule in deepLinkSelected)
+            }
+            directShareType != null -> state.candidates.filter {
+                it.rule.kind == IntentKind.DIRECT_SHARE && !it.unavailable &&
+                    directShareType in DirectShareTypeRules.observed(it.evidence)
             }
             else -> state.candidates.filter { state.filter == null || it.rule.kind == state.filter }
         }
@@ -229,7 +231,7 @@ fun RulesTab(
         })
     }
     val scopedAppGroups = remember(
-        catalogAppGroups, typedOpenPreset, deepLinkHost,
+        catalogAppGroups, typedOpenPreset, deepLinkHost, directShareType,
         state.openTypesExplicit.customDefinitions, deepLinkSelected
     ) {
         val eligible: (com.yagay.ListCleaner.domain.ComponentCandidate) -> Boolean = when {
@@ -240,9 +242,13 @@ fun RulesTab(
                 item.rule.kind == IntentKind.DEEP_LINK &&
                     (item.matchesBrowserHost(deepLinkHost) || item.rule in deepLinkSelected)
             }
+            directShareType != null -> { item ->
+                item.rule.kind == IntentKind.DIRECT_SHARE && !item.unavailable &&
+                    directShareType in DirectShareTypeRules.observed(item.evidence)
+            }
             else -> { _ -> true }
         }
-        if (typedOpenPreset == null && deepLinkHost == null) catalogAppGroups
+        if (typedOpenPreset == null && deepLinkHost == null && directShareType == null) catalogAppGroups
         else catalogAppGroups.mapNotNull { group ->
             val matching = group.components.filter(eligible)
             if (matching.isEmpty()) null else {
@@ -259,7 +265,7 @@ fun RulesTab(
     // Staged edits change checkboxes only. Sorting and selected/unselected filters
     // depend on confirmed selection, and must not rebuild the catalog grouping.
     val baseShownGroups = remember(
-        scopedAppGroups, activeSelected, state.filter, typedOpenPreset, deepLinkHost,
+        scopedAppGroups, activeSelected, state.filter, typedOpenPreset, deepLinkHost, directShareType,
         state.query, state.uiFilter, UiPreferencesRuntime.current
     ) {
         filterAppGroups(
@@ -289,7 +295,7 @@ fun RulesTab(
     val shownGroups = remember(lockFilteredGroups, appTypeFilter) {
         lockFilteredGroups.filter { appTypeFilter.matches(it.appType) }
     }
-    LaunchedEffect(state.filter, openPreset, browserHost, shownGroups.firstOrNull()?.packageName,
+    LaunchedEffect(state.filter, openPreset, browserHost, directShareType, shownGroups.firstOrNull()?.packageName,
         UiPreferencesRuntime.current.expandFirstApp) {
         if (UiPreferencesRuntime.current.expandFirstApp && state.expandedAppKey == null) {
             shownGroups.firstOrNull()?.let { group ->
@@ -322,6 +328,10 @@ fun RulesTab(
                 deepLinkHost != null -> {
                     vm.selectBrowserHostRules(deepLinkHost, add, lockScope)
                     vm.deselectBrowserHostRules(deepLinkHost, remove, lockScope)
+                }
+                directShareType != null -> {
+                    vm.selectDirectShareTypeRules(directShareType, add, lockScope)
+                    vm.deselectDirectShareTypeRules(directShareType, remove, lockScope)
                 }
                 else -> {
                     vm.selectRules(add, state.filter, openPreset)
@@ -407,12 +417,14 @@ fun RulesTab(
                         subtypeTitle = when (state.filter) {
                             IntentKind.OPEN -> openPreset?.let { state.openTypesExplicit.localizedTitle(it) }
                             IntentKind.DEEP_LINK -> browserHost
+                            IntentKind.DIRECT_SHARE -> directShareType?.let { stringResource(it.titleRes()) }
                             else -> null
                         },
                         subtypeAvailable = when (state.filter) {
                             IntentKind.OPEN -> state.openTypesExplicit.configuredPresets().isNotEmpty()
                             IntentKind.DEEP_LINK -> state.browserAvailableHosts.isNotEmpty() ||
                                 state.browserLinks.hosts.isNotEmpty() || browserHost != null
+                            IntentKind.DIRECT_SHARE -> true
                             else -> false
                         },
                         extraFilter = {
@@ -423,6 +435,10 @@ fun RulesTab(
                                     onSelected = { preset -> navigate { vm.setRuleOpenPreset(preset) } },
                                     onManageCustom = { showCustomTypes = true },
                                     iconOnly = true
+                                )
+                                IntentKind.DIRECT_SHARE -> DirectShareTypeFilterMenu(
+                                    selected = directShareType,
+                                    onSelected = { type -> navigate { directShareTypeName = type?.name } }
                                 )
                                 IntentKind.DEEP_LINK -> BrowserHostFilterMenu(
                                     selected = browserHost,
@@ -482,7 +498,7 @@ fun RulesTab(
 
         }
         shownGroups.forEach { group ->
-            val key = "${state.filter?.name ?: "ALL"}|${openPreset?.name ?: browserHost ?: "ALL"}|${group.packageName}"
+            val key = "${state.filter?.name ?: "ALL"}|${directShareType?.name ?: openPreset?.name ?: browserHost ?: "ALL"}|${group.packageName}"
             val expanded = state.expandedAppKey == key
             item(key = "app|${group.packageName}", contentType = "app") {
                 AppRow(
@@ -553,6 +569,14 @@ fun RulesTab(
                             component.rule in explicitTypedSelected -> stringResource(
                                 R.string.rules_dedicated_rule,
                                 state.openTypes.localizedTitle(typedOpenPreset)
+                            )
+                            else -> null
+                        }
+                        directShareType != null && component.rule in displayedSelected -> when {
+                            component.rule in genericDirectShare -> stringResource(R.string.rules_inherited_from_all)
+                            component.rule in typedDirectShareSelected -> stringResource(
+                                R.string.rules_dedicated_rule,
+                                stringResource(directShareType.titleRes())
                             )
                             else -> null
                         }
