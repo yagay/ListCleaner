@@ -97,7 +97,9 @@ internal fun SurfaceChannelSettings(
         observed.filter { it.userId == userId }.map { it.packageName } +
         observedRows.filter { it.userId == userId }.map { it.packageName } +
         saved.selected(SurfaceKind.NOTIFICATION_SHADE) +
-        saved.locked(SurfaceKind.NOTIFICATION_SHADE)).distinct().sorted()
+        saved.locked(SurfaceKind.NOTIFICATION_SHADE) +
+        (saved.hiddenNotificationChannels + saved.lockedNotificationChannels)
+            .map { it.substringBefore('|') }).distinct().sorted()
     // Scan once on entering the page, independent of expansion. Keep one root
     // probe at a time and publish partial results without blocking composition.
     LaunchedEffect(userId, observedPackages, scanRevision) {
@@ -137,7 +139,9 @@ internal fun SurfaceChannelSettings(
     val appLocks = draft.locked(SurfaceKind.NOTIFICATION_SHADE)
     val packagesWithChannels = observedPackages.filter { name ->
         packageInventories[name]?.items?.isNotEmpty() == true ||
-            name in appHidden || name in appLocks
+            name in appHidden || name in appLocks ||
+            (draft.hiddenNotificationChannels + draft.lockedNotificationChannels)
+                .any { it.substringBefore('|') == name }
     }
     val visiblePackages = packagesWithChannels.filter { name ->
         pkg.isBlank() || name.contains(pkg.trim(), ignoreCase = true) ||
@@ -166,10 +170,10 @@ internal fun SurfaceChannelSettings(
                 channels.none { draft.isChannelHidden(appPackage, it.channelId) }
             UiFilter.SHOW_SELECTED -> appPackage in appHidden || channels.any {
                 draft.isChannelHidden(appPackage, it.channelId)
-            }
+            } || draft.hiddenNotificationChannels.any { it.substringBefore('|') == appPackage }
             UiFilter.LOCKED -> appPackage in appLocks || channels.any {
                 draft.isChannelLocked(appPackage, it.channelId)
-            }
+            } || draft.lockedNotificationChannels.any { it.substringBefore('|') == appPackage }
         }
     }
     val displayedPackages = filteredPackages
@@ -267,7 +271,20 @@ internal fun SurfaceChannelSettings(
             }.getOrNull()
         }
         val found = packageInventories[appPackage]
-        val channels = found?.items.orEmpty()
+        // A scan may be incomplete. Do not strand old hidden/locked channel
+        // rules just because the channel has not been rediscovered.
+        val discoveredChannels = found?.items.orEmpty()
+        val retainedChannelIds = (draft.hiddenNotificationChannels +
+            draft.lockedNotificationChannels).mapNotNull { key ->
+            if (key.substringBefore('|') == appPackage) key.substringAfter('|')
+            else null
+        }.filter { it.isNotBlank() }.toSet()
+        val missingChannelIds = retainedChannelIds -
+            discoveredChannels.map { it.channelId }.toSet()
+        val channels = discoveredChannels + missingChannelIds.sorted().map { id ->
+            com.yagay.ListCleaner.runtime.RegisteredChannelRow(
+                appPackage, id, id, -1)
+        }
         val selected = appPackage in appHidden
         val appLocked = appPackage in appLocks
         val hiddenChannelCount = channels.count { draft.isChannelHidden(appPackage, it.channelId) }
@@ -331,6 +348,9 @@ internal fun SurfaceChannelSettings(
                         informational = true)
                     if (channels.isEmpty() && selected) WorkspaceAppNote(
                         stringResource(R.string.notification_cleanup_app_legacy),
+                        informational = true)
+                    if (missingChannelIds.isNotEmpty()) WorkspaceAppNote(
+                        stringResource(R.string.notification_cleanup_retained_channel),
                         informational = true)
                     if (found != null) WorkspaceAppNote(stringResource(when (found.status) {
                         ChannelInventoryStatus.COMPLETE -> R.string.surface_channels_full
