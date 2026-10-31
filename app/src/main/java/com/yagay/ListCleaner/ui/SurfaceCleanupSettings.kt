@@ -227,7 +227,8 @@ internal fun ActiveNotificationManagement(
         SettingsHint(stringResource(R.string.surface_wait_for_listener))
     }
 
-    Column(Modifier.fillMaxSize()) {
+    ListsEditorScaffold(
+        controls = {
     SurfaceWorkspaceToolbar(
         category = if (initialGrouping == ActiveNotificationGrouping.CATEGORY)
             categorySelection ?: "ALL" else grouping.name,
@@ -271,6 +272,8 @@ internal fun ActiveNotificationManagement(
             }, if (categoryMode) shownGroups.any { it.key in hiddenCategories } else shownKeys.any { it in chosen }),
         ),
     )
+        },
+        summary = {
     WorkspaceListSummary(
         title = stringResource(R.string.surface_active_count, sameProfile.size, available.size),
         secondary = if (categoryMode) stringResource(R.string.notification_category_help) +
@@ -291,8 +294,26 @@ internal fun ActiveNotificationManagement(
     } else if (!categoryMode && groups.isEmpty()) {
         WorkspaceAppNote(stringResource(R.string.surface_no_notifications))
     }
-
-        LazyColumn(modifier = Modifier.weight(1f)) {
+            dismissalCount?.let {
+                WorkspaceAppNote(stringResource(R.string.surface_dismiss_requested, it))
+            }
+        },
+        pending = {
+if (categoryMode && categoryChanges + channelChanges > 0) PendingChangesBar(
+    count = categoryChanges + channelChanges,
+    onDiscard = { draftCategories = null; draftChannels = null },
+    onApply = { applyCategoryChanges(); },
+)
+if (!categoryMode && chosen.isNotEmpty()) PendingChangesBar(
+    count = chosen.size,
+    onDiscard = { selectedKeys = emptySet() },
+    onApply = {
+        dismissalCount = NotificationCleanupController.dismiss(chosen)
+        selectedKeys = emptySet()
+    },
+)
+        },
+    ) {
             items(shownGroups, key = { it.key }) { group ->
         val allowedKeys = group.rows.filterNot { it.protected }.map { it.key }.toSet()
         val complete = allowedKeys.isNotEmpty() && allowedKeys.all { it in chosen }
@@ -394,24 +415,7 @@ internal fun ActiveNotificationManagement(
             ) else emptyList(),
         )
     }
-        }
-    dismissalCount?.let {
-        WorkspaceAppNote(stringResource(R.string.surface_dismiss_requested, it))
     }
-    if (categoryMode && categoryChanges + channelChanges > 0) PendingChangesBar(
-        count = categoryChanges + channelChanges,
-        onDiscard = { draftCategories = null; draftChannels = null },
-        onApply = { applyCategoryChanges(); },
-    )
-    if (!categoryMode && chosen.isNotEmpty()) PendingChangesBar(
-        count = chosen.size,
-        onDiscard = { selectedKeys = emptySet() },
-        onApply = {
-            dismissalCount = NotificationCleanupController.dismiss(chosen)
-            selectedKeys = emptySet()
-        },
-    )    }
-
 }
 
 /** Stale-rule review uses the same checkbox and category/filter system as Entry cleanup. */
@@ -472,7 +476,8 @@ internal fun StaleRuleManagement(
         stale.map { it.kind }.distinct().sortedBy { it.name }
             .map { it.name to stringResource(it.titleRes()) }
 
-    Column(Modifier.fillMaxSize()) {
+    ListsEditorScaffold(
+        controls = {
     SurfaceWorkspaceToolbar(
         category = category, options = categories,
         onCategory = { maintenanceUi.selectedCategory = it },
@@ -489,6 +494,8 @@ internal fun StaleRuleManagement(
             }, visible.any { it in selected }),
         ),
     )
+        },
+        summary = {
     WorkspaceListSummary(
         title = stringResource(R.string.surface_stale_count, stale.size),
         secondary = stringResource(R.string.surface_rules_help),
@@ -503,18 +510,8 @@ internal fun StaleRuleManagement(
     if (completed && !state.error.isNullOrBlank()) {
         WorkspaceAppNote(stringResource(R.string.surface_scan_error), warning = true)
     }
-        LazyColumn(Modifier.weight(1f)) {
-            if (completed && state.error.isNullOrBlank()) items(visible, key = { it.packageName + "|" + it.kind.name + "|" + it.className }) { rule ->
-        SurfaceWorkspaceRow(
-            title = rule.packageName,
-            subtitle = rule.kind.name + " · " + rule.className,
-            selected = rule in selected,
-            onToggle = {
-                selectedRules = if (rule in selected) selected - rule else selected + rule
-            },
-        )
-    }
-        }
+        },
+        pending = {
     if (selectedRules.isNotEmpty()) PendingChangesBar(
         count = selectedRules.size,
         onDiscard = { selectedRules = emptySet() },
@@ -527,6 +524,18 @@ internal fun StaleRuleManagement(
                 refreshed = false
             }
         },
-    )    }
-
+    )
+        },
+    ) {
+            if (completed && state.error.isNullOrBlank()) items(visible, key = { it.packageName + "|" + it.kind.name + "|" + it.className }) { rule ->
+        SurfaceWorkspaceRow(
+            title = rule.packageName,
+            subtitle = rule.kind.name + " · " + rule.className,
+            selected = rule in selected,
+            onToggle = {
+                selectedRules = if (rule in selected) selected - rule else selected + rule
+            },
+        )
+    }
+    }
 }
