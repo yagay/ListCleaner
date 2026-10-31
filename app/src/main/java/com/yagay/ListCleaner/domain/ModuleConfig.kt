@@ -29,11 +29,15 @@ data class ModuleConfig(
      */
     val rootDisabledComponents: Set<String>? = null,
     /** Additional Android user profiles. User 0 remains the legacy top-level configuration. */
-    val userSpaces: Map<Int, UserSpaceRules> = emptyMap()
+    val userSpaces: Map<Int, UserSpaceRules> = emptyMap(),
+    val modeOverrides: Map<IntentKind, DisplayMode> = emptyMap()
 ) {
+    fun modeFor(kind: IntentKind): DisplayMode = modeOverrides[kind] ?: mode
+
     fun validated(): ModuleConfig {
         require(rules.size <= 20_000 && rules.all(ComponentRule::isValid))
         require(userSpaces.size <= 16 && userSpaces.keys.all { it in 1..99999 })
+        require(modeOverrides.size <= IntentKind.entries.size && modeOverrides.keys.all { it.isSelectableEntryKind() })
         val validatedSpaces = userSpaces.mapValues { (_, space) -> space.validated() }
         val cleanRules = rules.asSequence()
             .filter { it.kind.isSelectableEntryKind() || it.kind == IntentKind.SHORTCUT_ITEM }

@@ -8,6 +8,7 @@ import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.CustomOpenDefinition
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.isSelectableEntryKind
 import com.yagay.ListCleaner.domain.ModuleConfig
 import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.OpenTypeConfig
@@ -103,6 +104,7 @@ class RuleRepository(context: Context) {
         val next = storedSpaces[userId] ?: UserSpaceRules()
         mutableRules.value = next.rules.mapNotNull { ComponentRule.fromId(it.id) }.toSet()
         mutableMode.value = next.mode
+        mutableModeOverrides.value = next.modeOverrides
         mutablePriorities.value = next.priorities
         mutableOpenTypes.value = next.openTypes
         mutableDirectShareTypes.value = next.directShareTypes
@@ -120,6 +122,7 @@ class RuleRepository(context: Context) {
 
     private val mutableRules = MutableStateFlow(initialConfig.rules.mapNotNull { ComponentRule.fromId(it.id) }.toSet())
     private val mutableMode = MutableStateFlow(initialConfig.mode)
+    private val mutableModeOverrides = MutableStateFlow(initialConfig.modeOverrides)
     private val mutablePriorities = MutableStateFlow(initialConfig.priorities)
     private val mutableOpenTypes = MutableStateFlow(initialConfig.openTypes)
     private val mutableDirectShareTypes = MutableStateFlow(initialConfig.directShareTypes)
@@ -140,6 +143,7 @@ class RuleRepository(context: Context) {
     val visibilityFullPackages: StateFlow<Map<VisibilityScope, Set<String>>> = mutableVisibilityFullPackages.asStateFlow()
     val rules: StateFlow<Set<ComponentRule>> = mutableRules.asStateFlow()
     val displayMode: StateFlow<DisplayMode> = mutableMode.asStateFlow()
+    val modeOverrides: StateFlow<Map<IntentKind, DisplayMode>> = mutableModeOverrides.asStateFlow()
     val priorities: StateFlow<PriorityConfig> = mutablePriorities.asStateFlow()
     val diagnosticMode: StateFlow<Boolean> = mutableDiagnostic.asStateFlow()
     private val mutableRevision = MutableStateFlow(0L)
@@ -276,6 +280,7 @@ class RuleRepository(context: Context) {
     private fun localSnapshot(): ModuleConfig = ModuleConfig(
         rules = mutableRules.value.toSet(),
         mode = mutableMode.value,
+        modeOverrides = mutableModeOverrides.value,
         priorities = mutablePriorities.value,
         diagnostic = mutableDiagnostic.value,
         hiddenFromApps = mutableHiddenFromApps.value.toSet(),
@@ -560,6 +565,17 @@ class RuleRepository(context: Context) {
         }.toSet())
     }
 
+    @Synchronized fun setKindDisplayMode(kind: IntentKind, value: DisplayMode?) {
+        require(kind.isSelectableEntryKind())
+        val next = mutableModeOverrides.value.toMutableMap().apply {
+            if (value == null) remove(kind) else put(kind, value)
+        }.toMap()
+        if (next == mutableModeOverrides.value) return
+        mutableModeOverrides.value = next
+        persistLocalSnapshot()
+        mutableRevision.value++
+    }
+
     @Synchronized fun setDisplayMode(value: DisplayMode) {
         if (mutableMode.value == value) return
         mutableMode.value = value
@@ -628,7 +644,7 @@ class RuleRepository(context: Context) {
             return json.decodeFromString(MultiSpaceBackup.serializer(), content).validated()
         }
         val old = json.decodeFromString(RuleBackup.serializer(), content)
-        require(old.version in 1..13) {
+        require(old.version in 1..14) {
             appContext.getString(R.string.repo_backup_unsupported_version, old.version)
         }
         if (old.version >= 3) requireNotNull(old.displayMode) {
@@ -640,6 +656,7 @@ class RuleRepository(context: Context) {
         val settings = UserSpaceRules(
             rules = old.rules,
             mode = old.displayMode ?: DisplayMode.fromStored(null, old.blacklist),
+            modeOverrides = old.modeOverrides,
             priorities = if (old.version == 1) PriorityConfig() else old.priorities,
             diagnostic = false,
             hiddenFromApps = if (old.version >= 5) old.hiddenFromApps else emptySet(),
@@ -717,6 +734,7 @@ class RuleRepository(context: Context) {
         val active = storedSpaces[activeUserId] ?: UserSpaceRules()
         mutableRules.value = active.rules
         mutableMode.value = active.mode
+        mutableModeOverrides.value = active.modeOverrides
         mutablePriorities.value = active.priorities
         mutableOpenTypes.value = active.openTypes
         mutableDirectShareTypes.value = active.directShareTypes
@@ -732,11 +750,12 @@ class RuleRepository(context: Context) {
     @Synchronized fun exportJson(): String = json.encodeToString(
         RuleBackup.serializer(),
         RuleBackup(
-            version = 13,
+            version = 14,
             blacklist = mutableMode.value != DisplayMode.SHOW_SELECTED,
             rules = mutableRules.value,
             priorities = mutablePriorities.value,
             displayMode = mutableMode.value,
+            modeOverrides = mutableModeOverrides.value,
             hiddenFromApps = mutableHiddenFromApps.value,
             openTypes = mutableOpenTypes.value,
             directShareTypes = mutableDirectShareTypes.value,
@@ -749,7 +768,7 @@ class RuleRepository(context: Context) {
     @Synchronized fun previewImportJson(content: String): BackupImportPreview {
         require(content.length <= MAX_BACKUP_CHARS) { appContext.getString(R.string.repo_backup_too_large) }
         val backup = json.decodeFromString(RuleBackup.serializer(), content)
-        require(backup.version in 1..13) {
+        require(backup.version in 1..14) {
             appContext.getString(R.string.repo_backup_unsupported_version, backup.version)
         }
         if (backup.version >= 3) requireNotNull(backup.displayMode) {
@@ -766,7 +785,7 @@ class RuleRepository(context: Context) {
     @Synchronized fun importJson(content: String) {
         require(content.length <= MAX_BACKUP_CHARS) { appContext.getString(R.string.repo_backup_too_large) }
         val backup = json.decodeFromString(RuleBackup.serializer(), content)
-        require(backup.version in 1..12) {
+        require(backup.version in 1..14) {
             appContext.getString(R.string.repo_backup_unsupported_version, backup.version)
         }
         val displayMode = if (backup.version >= 3) requireNotNull(backup.displayMode) {
@@ -776,6 +795,7 @@ class RuleRepository(context: Context) {
             ModuleConfig(
                 rules = backup.rules,
                 mode = displayMode,
+                modeOverrides = backup.modeOverrides,
                 priorities = if (backup.version == 1) PriorityConfig() else backup.priorities,
                 diagnostic = mutableDiagnostic.value,
                 hiddenFromApps = if (backup.version >= 5) backup.hiddenFromApps else emptySet(),
@@ -813,6 +833,7 @@ class RuleRepository(context: Context) {
 
         mutableRules.value = prepared.rules
         mutableMode.value = prepared.mode
+        mutableModeOverrides.value = prepared.modeOverrides
         mutablePriorities.value = prepared.priorities
         mutableOpenTypes.value = prepared.openTypes
         mutableDirectShareTypes.value = prepared.directShareTypes

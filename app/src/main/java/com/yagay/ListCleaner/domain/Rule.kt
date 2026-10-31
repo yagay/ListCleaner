@@ -118,4 +118,5 @@ data class RuleBackup(
     val visibilityScopes: Set<VisibilityScope> = emptySet(),
     val browserLinks: BrowserLinkConfig = BrowserLinkConfig(),
     val surfaceFilters: SurfaceFilterConfig = SurfaceFilterConfig(),
+    val modeOverrides: Map<IntentKind, DisplayMode> = emptyMap(),
 )

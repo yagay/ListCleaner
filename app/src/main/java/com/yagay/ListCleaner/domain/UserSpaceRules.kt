@@ -18,6 +18,7 @@ data class UserSpaceRules(
     val browserLinks: BrowserLinkConfig = BrowserLinkConfig(),
     val visibilityCompat: VisibilityCompatConfig = VisibilityCompatConfig(),
     val surfaceFilters: SurfaceFilterConfig = SurfaceFilterConfig(),
+    val modeOverrides: Map<IntentKind, DisplayMode> = emptyMap()
 ) {
     fun validated(): UserSpaceRules {
         val validated = toModuleConfig().validated()
@@ -34,7 +35,8 @@ data class UserSpaceRules(
         directShareTypes = directShareTypes,
         browserLinks = browserLinks,
         visibilityCompat = visibilityCompat,
-        surfaceFilters = surfaceFilters
+        surfaceFilters = surfaceFilters,
+        modeOverrides = modeOverrides
     )
 }
 
@@ -43,4 +45,5 @@ fun ModuleConfig.toSpaceRules(): UserSpaceRules = UserSpaceRules(
     hiddenFromApps = hiddenFromApps, openTypes = openTypes, directShareTypes = directShareTypes,
     browserLinks = browserLinks, visibilityCompat = visibilityCompat,
     surfaceFilters = surfaceFilters,
+    modeOverrides = modeOverrides,
 )
