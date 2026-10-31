@@ -58,7 +58,8 @@ fun RootComponentsScreen(
     embedded: Boolean = false,
     backEnabled: Boolean = true,
     pendingNavigation: PendingNavigationGuard? = null,
-    onExit: () -> Unit = {}
+    onExit: () -> Unit = {},
+    refreshRegistry: ListsRefreshRegistry? = null,
 ) {
     val scan by vm.componentScan.collectAsStateWithLifecycle()
     val busy by vm.componentBusy.collectAsStateWithLifecycle()
@@ -116,6 +117,7 @@ fun RootComponentsScreen(
             state = state, vm = vm,
             surface = requireNotNull(managedSurface),
             pendingNavigation = pendingNavigation,
+            refreshRegistry = refreshRegistry,
             onRootKind = { selected ->
                 kind = selected
                 managedSurface = null
