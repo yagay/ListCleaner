@@ -8,6 +8,7 @@ import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.OpenTypeConfig
 import com.yagay.ListCleaner.domain.PriorityConfig
 import com.yagay.ListCleaner.domain.BrowserLinkConfig
+import com.yagay.ListCleaner.domain.DirectShareType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -147,6 +148,112 @@ class SystemPreviewProjectionTest {
             priorities = PriorityConfig(apps = mapOf(kind to listOf("com.test.a"))),
         )!!
         assertEquals(listOf("com.test.b", "com.test.a"), result.items.map { it.packageName })
+    }
+
+    @Test fun apiQueryAndSameMimeScanAreMergedWithoutIncludingOtherMimeTargets() {
+        val kind = IntentKind.SHARE
+        val b = ComponentCandidate(
+            ComponentRule(kind, "com.test.b", "com.test.b.Send"), "B", "Send",
+            evidence = listOf("SEND mime=text/plain"),
+        )
+        val a = ComponentCandidate(
+            ComponentRule(kind, "com.test.a", "com.test.a.Send"), "A", "Send",
+            evidence = listOf("SEND mime=text/plain"),
+        )
+        val image = ComponentCandidate(
+            ComponentRule(kind, "com.test.image", "com.test.image.Send"), "Image", "Image",
+            evidence = listOf("SEND mime=image/png"),
+        )
+        val probe = SystemProbeResult(0, 0,
+            items = listOf(SystemProbeItem("B", "com.test.b", "com.test.b.Send")))
+        val result = SystemPreviewProjection.estimate(kind, listOf(a,b,image),
+            emptySet(), DisplayMode.SHOW_ALL, emptyMap(), probe,
+            scenario = SystemProbeScenario.TEXT)!!
+        assertEquals(listOf("com.test.b", "com.test.a"),
+            result.items.map { it.packageName })
+        assertEquals(PreviewListSource.ESTIMATED, result.source)
+    }
+
+    @Test fun openPdfScanIsPreservedWhileOtherFileTypesStayOut() {
+        val pdf = ComponentCandidate(
+            ComponentRule(kind, "com.test.pdf", "com.test.pdf.Open"), "PDF", "PDF",
+            evidence = listOf("VIEW scheme=content mime=application/pdf sample=example.pdf"),
+        )
+        val text = ComponentCandidate(
+            ComponentRule(kind, "com.test.txt", "com.test.txt.Open"), "Text", "Text",
+            evidence = listOf("VIEW scheme=content mime=text/plain sample=example.txt"),
+        )
+        val result = SystemPreviewProjection.estimate(
+            kind, listOf(text,pdf), emptySet(), DisplayMode.SHOW_ALL, emptyMap(), null,
+            scenario = SystemProbeScenario.PDF, requestedPreset = OpenPreset.PDF,
+        )!!
+        assertEquals(listOf("com.test.pdf"), result.items.map { it.packageName })
+    }
+
+    @Test fun scopedDraftImmediatelyChangesEstimatedVisibleListWithoutSavingRules() {
+        val uncommitted = setOf(b)
+        val result = SystemPreviewProjection.estimate(
+            kind, candidates, emptySet(), DisplayMode.HIDE_SELECTED, emptyMap(), null,
+            scopeSelected = uncommitted,
+        )!!
+        assertEquals(listOf("com.test.a"), result.items.map { it.packageName })
+        val source = PreviewListResult(emptyList(), PreviewListSource.ORDERED_ADAPTER)
+        assertEquals(result, preferredPreviewResult(PreviewListMode.CURRENT, source, result,
+            hasPendingDraft = true))
+        assertEquals(source, preferredPreviewResult(PreviewListMode.CURRENT, source, result))
+    }
+
+    @Test fun scopedDeepLinkHostDoesNotLeakCandidatesFromOtherHosts() {
+        val kind = IntentKind.DEEP_LINK
+        val first = ComponentCandidate(
+            ComponentRule(kind, "com.test.first", "com.test.first.Link"), "First", "First",
+            browserHosts = setOf("a.example"),
+        )
+        val other = ComponentCandidate(
+            ComponentRule(kind, "com.test.other", "com.test.other.Link"), "Other", "Other",
+            browserHosts = setOf("b.example"),
+        )
+        val result = SystemPreviewProjection.estimate(
+            kind, listOf(first, other), emptySet(), DisplayMode.SHOW_ALL,
+            emptyMap(), null, requestHost = "a.example",
+        )!!
+        assertEquals(listOf("com.test.first"), result.items.map { it.packageName })
+    }
+
+    @Test fun currentDirectShareUsesMatchingActiveScanInsteadOfUnrelatedHistory() {
+        val kind = IntentKind.DIRECT_SHARE
+        val image = ComponentCandidate(
+            ComponentRule(kind, "com.test.image", "com.test.image.Direct"), "Image", "Image",
+            evidence = listOf("DIRECT_SHARE_MATCHED_MIME=IMAGE"),
+        )
+        val text = ComponentCandidate(
+            ComponentRule(kind, "com.test.text", "com.test.text.Direct"), "Text", "Text",
+            evidence = listOf("DIRECT_SHARE_MATCHED_MIME=TEXT"),
+        )
+        val result = SystemPreviewProjection.estimate(
+            kind, listOf(image,text), emptySet(), DisplayMode.SHOW_ALL, emptyMap(), null,
+            directShareType = DirectShareType.IMAGE,
+        )!!
+        assertEquals(listOf("com.test.image"), result.items.map { it.packageName })
+        val history = PreviewListResult(
+            listOf(SystemProbeItem("Old", "com.test.old", "@old")),
+            PreviewListSource.HISTORY,
+        )
+        assertEquals(result, preferredPreviewResult(
+            PreviewListMode.CURRENT, history, result, kind = kind,
+            directShareType = DirectShareType.IMAGE,
+        ))
+    }
+
+    @Test fun schemeAndDocumentSubtypesRetainTheirExactTestParameters() {
+        assertEquals("application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            scopedProbeMime(OpenPreset.WORD))
+        assertEquals("magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567",
+            scopedProbeUri(OpenPreset.MAGNET))
+        assertEquals(SystemProbeScenario.PDF,
+            scopedProbeScenario(IntentKind.OPEN, OpenPreset.PDF))
+        assertEquals(SystemProbeScenario.IMAGE,
+            scopedProbeScenario(IntentKind.DIRECT_SHARE, directShareType = DirectShareType.IMAGE))
     }
 
 }
