@@ -84,7 +84,11 @@ internal enum class SurfaceManagerPage(
         R.string.surface_rules_help, Icons.Rounded.Description),
 }
 
-/** Category -> list type -> flat editor, without inserting another top-level toolbar. */
+/**
+ * Lists V2: one selection screen and one shared editor host.
+ * A single tap opens each AOSP/notification/maintenance editor.
+ * Backend implementations remain separate.
+ */
 @Composable
 internal fun SurfaceManagementTab(
     state: MainState,
@@ -92,57 +96,27 @@ internal fun SurfaceManagementTab(
     pendingNavigation: PendingNavigationGuard? = null,
     onSearchStateChanged: ((SurfaceWorkspaceUiState?) -> Unit)? = null,
 ) {
-    var group by rememberSaveable { mutableStateOf<SurfaceManagerGroup?>(null) }
     var page by rememberSaveable { mutableStateOf<SurfaceManagerPage?>(null) }
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
     val activeNotifications by NotificationCleanupController.rows.collectAsStateWithLifecycle()
     val editorStateHolder = rememberSaveableStateHolder()
-
     val navigateBack: () -> Unit = {
-        val performBack = {
-            if (page != null) page = null else group = null
-        }
-        if (pendingNavigation != null) pendingNavigation.request(performBack)
-        else performBack()
+        val next = { page = null }
+        if (pendingNavigation != null) pendingNavigation.request(next) else next()
     }
-    BackHandler(enabled = group != null || page != null, onBack = navigateBack)
 
-    if (page?.kind != null || page == SurfaceManagerPage.NOTIFICATIONS_CHANNELS ||
-        page == SurfaceManagerPage.NOTIFICATIONS_CURRENT || page == SurfaceManagerPage.NOTIFICATIONS_TYPES ||
-        page == SurfaceManagerPage.INVALID_RULES) {
-        val current = requireNotNull(page)
-        Column(Modifier.fillMaxSize()) {
-            SurfaceNavigationHeading(
-                title = stringResource(current.title),
-                onBack = navigateBack,
-            )
-            Box(Modifier.weight(1f)) {
-                editorStateHolder.SaveableStateProvider("lists-${userId}-${current.name}") {
-                    when (current) {
-                    SurfaceManagerPage.NOTIFICATIONS_CHANNELS ->
-                        SurfaceChannelSettings(vm, userId, activeNotifications, pendingNavigation, onSearchStateChanged)
-                    SurfaceManagerPage.NOTIFICATIONS_CURRENT ->
-                        ActiveNotificationManagement(vm, pendingNavigation, onSearchStateChanged = onSearchStateChanged)
-                    SurfaceManagerPage.NOTIFICATIONS_TYPES ->
-                        ActiveNotificationManagement(vm, pendingNavigation, ActiveNotificationGrouping.CATEGORY, onSearchStateChanged)
-                    SurfaceManagerPage.INVALID_RULES -> StaleRuleManagement(state, vm, pendingNavigation, onSearchStateChanged)
-                    else -> AospSurfaceSettings(vm, userId, requireNotNull(current.kind), pendingNavigation, onSearchStateChanged)
-                    }
+    val current = page
+    if (current == null) {
+        androidx.compose.foundation.lazy.LazyColumn(Modifier.fillMaxSize()) {
+            SurfaceManagerGroup.entries.forEach { section ->
+                item(key = "group-${section.name}") {
+                    FlatSectionHeader(
+                        stringResource(section.title),
+                        modifier = Modifier.padding(horizontal = MaterialUiTokens.pageHorizontal),
+                    )
                 }
-            }
-        }
-        return
-    }
-    MaterialPageColumn(fullBleed = true) {
-        when {
-            group != null -> {
-                val selected = requireNotNull(group)
-                SurfaceNavigationHeading(
-                    title = stringResource(selected.title),
-                    onBack = navigateBack,
-                )
-                Column(Modifier.fillMaxWidth()) {
-                    SurfaceManagerPage.entries.filter { it.group == selected }.forEach { option ->
+                SurfaceManagerPage.entries.filter { it.group == section }.forEach { option ->
+                    item(key = "page-${option.name}") {
                         FlatCategoryRow(
                             icon = option.icon,
                             title = stringResource(option.title),
@@ -152,20 +126,29 @@ internal fun SurfaceManagementTab(
                     }
                 }
             }
-            else -> {
-                FlatSectionHeader(
-                    stringResource(R.string.nav_surface_management),
-                    modifier = Modifier.padding(horizontal = MaterialUiTokens.pageHorizontal),
-                )
-                Column(Modifier.fillMaxWidth()) {
-                    SurfaceManagerGroup.entries.forEach { section ->
-                        FlatCategoryRow(
-                            icon = section.icon,
-                            title = stringResource(section.title),
-                            description = stringResource(section.description),
-                            onClick = { group = section; page = null },
-                        )
-                    }
+        }
+        return
+    }
+
+    BackHandler(onBack = navigateBack)
+    Column(Modifier.fillMaxSize()) {
+        SurfaceNavigationHeading(
+            title = stringResource(current.title),
+            onBack = navigateBack,
+        )
+        Box(Modifier.weight(1f)) {
+            editorStateHolder.SaveableStateProvider("lists-v2-${userId}-${current.name}") {
+                when (current) {
+                    SurfaceManagerPage.NOTIFICATIONS_CHANNELS ->
+                        SurfaceChannelSettings(vm, userId, activeNotifications, pendingNavigation, onSearchStateChanged)
+                    SurfaceManagerPage.NOTIFICATIONS_CURRENT ->
+                        ActiveNotificationManagement(vm, pendingNavigation, onSearchStateChanged = onSearchStateChanged)
+                    SurfaceManagerPage.NOTIFICATIONS_TYPES ->
+                        ActiveNotificationManagement(vm, pendingNavigation, ActiveNotificationGrouping.CATEGORY, onSearchStateChanged)
+                    SurfaceManagerPage.INVALID_RULES ->
+                        StaleRuleManagement(state, vm, pendingNavigation, onSearchStateChanged)
+                    else ->
+                        AospSurfaceSettings(vm, userId, requireNotNull(current.kind), pendingNavigation, onSearchStateChanged)
                 }
             }
         }
@@ -182,9 +165,6 @@ private fun SurfaceNavigationHeading(title: String, onBack: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.sectionGap),
     ) {
         AdaptiveBackButton(onClick = onBack)
-        AdaptiveText(
-            title,
-            style = MaterialTheme.typography.titleMedium,
-        )
+        AdaptiveText(title, style = MaterialTheme.typography.titleMedium)
     }
 }
