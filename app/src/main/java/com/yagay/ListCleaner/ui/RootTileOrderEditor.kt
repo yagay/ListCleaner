@@ -31,6 +31,8 @@ import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.data.RootComponent
 import com.yagay.ListCleaner.domain.AppTypeFilter
+import com.yagay.ListCleaner.domain.activePriorityRanks
+import com.yagay.ListCleaner.domain.addActivePriority
 import com.yagay.ListCleaner.domain.SurfaceFilterConfig
 import com.yagay.ListCleaner.domain.moveVisiblePriority
 import com.yagay.ListCleaner.domain.moveVisiblePriorityTo
@@ -107,6 +109,8 @@ internal fun RootTileOrderEditor(
             .distinctBy { it.component.flattenToString() }
     }
     val byComponent = known.associateBy { it.component.flattenToString() }
+    val availableIds = byComponent.keys
+    val activeRanks = activePriorityRanks(draft, availableIds)
     // A vanished TileService can stay in the saved policy until its rule is
     // restored, but never appears as a fabricated draggable component row.
     val ranked = draft.filter { it in byComponent }
@@ -126,7 +130,7 @@ internal fun RootTileOrderEditor(
     val moveTargets = visible.map { it.component.flattenToString() }.filter { it in draft }
 
     fun toggle(id: String) {
-        draft = if (id in draft) draft - id else (draft + id).distinct().take(2000)
+        draft = if (id in draft) draft - id else addActivePriority(draft, availableIds, id)
     }
     val listState = rememberLazyListState()
     val dragState = remember(listState) { PriorityDragState(listState) }
@@ -189,9 +193,10 @@ internal fun RootTileOrderEditor(
                                     WorkspaceMenuAction(
                                         stringResource(R.string.select_all),
                                         {
-                                            draft = (draft + visible.map {
-                                                it.component.flattenToString()
-                                            }).distinct().take(2000)
+                                            draft = visible.fold(draft) { order, item ->
+                                                addActivePriority(order, availableIds,
+                                                    item.component.flattenToString())
+                                            }
                                         },
                                         visible.any { it.component.flattenToString() !in draft },
                                     ),
@@ -251,7 +256,8 @@ internal fun RootTileOrderEditor(
                         },
                         details = {
                             if (id in draft) AdaptiveText(
-                                stringResource(R.string.priority_rank, draft.indexOf(id) + 1),
+                                stringResource(R.string.priority_rank,
+                                    requireNotNull(activeRanks[id])),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.primary,
                             )
