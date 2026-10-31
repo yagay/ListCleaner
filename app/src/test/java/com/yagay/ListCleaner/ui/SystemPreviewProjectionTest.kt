@@ -102,8 +102,13 @@ class SystemPreviewProjectionTest {
             hosts = setOf("example.com"),
             priorities = mapOf("example.com" to listOf("com.test.b")),
         )
+        // The tested query establishes that both apps match this URI; scan
+        // candidates without host evidence alone cannot prove that.
+        val queried = SystemProbeResult(0, 0, items = hostCandidates.map {
+            SystemProbeItem(it.activityLabel, it.rule.packageName, it.rule.className)
+        })
         fun preview(host: String?) = SystemPreviewProjection.estimate(
-            deep, hostCandidates, emptySet(), DisplayMode.HIDE_SELECTED, emptyMap(), null,
+            deep, hostCandidates, emptySet(), DisplayMode.HIDE_SELECTED, emptyMap(), queried,
             browserLinks = config, requestHost = host,
         )!!.items.map { it.packageName }
         assertEquals(listOf("com.test.b", "com.test.a"), preview("example.com"))
