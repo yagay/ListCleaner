@@ -12,6 +12,8 @@ import com.yagay.ListCleaner.domain.AppTypeFilter
 import android.provider.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -101,6 +103,19 @@ internal fun ActiveNotificationManagement(
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
     var draftCategories by remember(userId) { mutableStateOf<Set<String>?>(null) }
     var draftChannels by remember(userId) { mutableStateOf<Set<String>?>(null) }
+    var categoryBase by remember(userId) { mutableStateOf(savedCategories) }
+    LaunchedEffect(userId, savedCategories) {
+        if (categoryBase != savedCategories) {
+            val local = categoryBase.copy(
+                hiddenNotificationCategories = draftCategories ?: categoryBase.hiddenNotificationCategories,
+                hiddenNotificationChannels = draftChannels ?: categoryBase.hiddenNotificationChannels,
+            )
+            val merged = rebaseSurfaceDraft(categoryBase, local, savedCategories)
+            if (draftCategories != null) draftCategories = merged.hiddenNotificationCategories
+            if (draftChannels != null) draftChannels = merged.hiddenNotificationChannels
+            categoryBase = savedCategories
+        }
+    }
     val connected by NotificationCleanupController.connected.collectAsStateWithLifecycle()
     val categoryMode = initialGrouping == ActiveNotificationGrouping.CATEGORY
     val hiddenCategories = draftCategories ?: savedCategories.hiddenNotificationCategories
@@ -110,10 +125,12 @@ internal fun ActiveNotificationManagement(
     val channelChanges = (hiddenChannels - savedCategories.hiddenNotificationChannels).size +
         (savedCategories.hiddenNotificationChannels - hiddenChannels).size
     val applyCategoryChanges: () -> Boolean = {
-        val accepted = vm.setSurfaceFilters(savedCategories.copy(
+        val local = categoryBase.copy(
             hiddenNotificationCategories = hiddenCategories,
             hiddenNotificationChannels = hiddenChannels,
-        ).validated())
+        )
+        val accepted = vm.setSurfaceFilters(
+            rebaseSurfaceDraft(categoryBase, local, savedCategories))
         if (accepted) {
             draftCategories = null
             draftChannels = null
@@ -141,17 +158,20 @@ internal fun ActiveNotificationManagement(
     val selectableKeys = available.mapTo(hashSetOf()) { it.key }
     val chosen = selectedKeys.intersect(selectableKeys)
     val inventoryRows = if (categoryMode) observedRows.filter { it.userId == userId } else sameProfile
+    val notificationPackages = inventoryRows.map { it.packageName }.distinct()
+    var notificationAppTypes by remember(userId) {
+        mutableStateOf<Map<String, Boolean?>>(emptyMap())
+    }
+    LaunchedEffect(userId, notificationPackages) {
+        notificationAppTypes = withContext(Dispatchers.IO) {
+            SurfaceProfileAppTypes.classify(context, userId, notificationPackages)
+        }
+    }
     val filteredInventoryRows = inventoryRows.filter { row ->
-        if (appTypeFilter == AppTypeFilter.ALL) true else {
-            val system = runCatching {
-                val app = context.packageManager.getApplicationInfo(row.packageName, 0)
-                (app.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-            }.getOrNull()
-            when (appTypeFilter) {
-                AppTypeFilter.ALL -> true
-                AppTypeFilter.USER -> system == false
-                AppTypeFilter.SYSTEM -> system == true
-            }
+        when (appTypeFilter) {
+            AppTypeFilter.ALL -> true
+            AppTypeFilter.USER -> notificationAppTypes[row.packageName] != true
+            AppTypeFilter.SYSTEM -> notificationAppTypes[row.packageName] == true
         }
     }
     val groups = groupActiveNotifications(filteredInventoryRows, grouping)
