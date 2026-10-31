@@ -11,7 +11,7 @@ terminating a task, cancelling a notification or deleting a document.
 ## UI / persistence
 
 - Bottom navigation: **Entry cleanup | Components | Lists | Settings**
-- **Lists** → Notifications / Home and recents / System lists / Rule maintenance
+- **Lists** → Notification Cleanup (single page) / Home and recents / System lists / Rule maintenance
 - Choose an individual surface or operation, edit its candidates, locks or order,
   then confirm Apply. Navigation and Android user switching are protected by
   the existing staged-change guard; Settings now contains configuration only.
@@ -38,9 +38,23 @@ terminating a task, cancelling a notification or deleting a document.
 All hooks check the expected class and method shape, return the original result on
 unsupported signatures, and do not manipulate underlying Android registries.
 
-The notification **dismiss** screen is separate: a user-granted
-`NotificationListenerService.cancelNotifications(keys)` really removes currently
-posted notifications. The notification-shade rule above affects only presentation.
+**Notification Cleanup** now combines application-level notification-shade rules
+and registered channel rules on one page. Selecting the app hides all of its
+unprotected shade notifications; selecting an expanded channel hides only
+notifications from that channel. The two rule sets have separate locks and are
+saved independently per Android user. Bulk actions target only the visible,
+unlocked **channels**, not the whole-app rule. Scanning registered channels uses
+one batched, read-only root `app_process` probe (with listener/observed fallback);
+apps with no discovered channels are omitted unless a saved app-level rule
+exists. Scan failures must not be described as an empty channel registry.
+
+The previous separate Current Notifications, Types, and Notification Shade
+navigation entries are not exposed. Existing global category rules remain
+active for backward compatibility and are visible/removable in a legacy-rule
+section of Notification Cleanup. Backup schemas and SystemUI presentation-hook
+identity are unchanged. The notification listener still observes current
+notifications for inventory fallback, but the cleanup screen never invokes
+`cancelNotifications`; hiding a notification is not cancelling its delivery.
 
 Device Controls is also separate: its `ControlsProviderService` entries are
 Root component states rather than a display-only filter.
@@ -70,12 +84,13 @@ Root component states rather than a display-only filter.
   metadata. A disabled authenticator may break adding/recovering accounts and
   synchronization. This is a reversible, user-confirmed *component state change*,
   **not** AccountManager token interception or Credential Provider cleanup.
-- **Registered notification channels**: optionally query
-  `NotificationListenerService.getNotificationChannels(pkg, user)` where the
-  platform grants associated-device / notification-assistant privilege. Without
-  it, the manager clearly labels an **observed-only** list from current posts.
-  Per-channel selections are stored for the current Android profile and applied
-  only to the notification-shade presentation hook.
+- **Registered notification channels**: use a batched read-only Root
+  `RootNotificationChannelProbe` to inspect installed apps' registered channels
+  (32 packages per batch), falling back to
+  `NotificationListenerService.getNotificationChannels(pkg, user)` where permitted,
+  then historical observations where privileged APIs are unavailable.
+  Per-channel and per-app hide rules remain separate and apply only to
+  notification-shade presentation hooks; neither disables a notification channel.
 - **Surface lock and ordering**: a locked selected item stays hidden and a
   locked unselected item stays visible during bulk operations. Selected orders
   are separate per profile and surface, with stable order hooks for Launcher
