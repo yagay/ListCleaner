@@ -43,6 +43,7 @@ internal fun SurfaceChannelSettings(
     observed: List<ActiveNotificationRow>,
     pendingNavigation: PendingNavigationGuard? = null,
     onSearchStateChanged: ((SurfaceWorkspaceUiState?) -> Unit)? = null,
+    refreshRegistry: ListsRefreshRegistry? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -61,6 +62,7 @@ internal fun SurfaceChannelSettings(
     var scanProgress by remember(userId) { mutableStateOf(0) }
     var scanning by remember(userId) { mutableStateOf(false) }
     var scanRevision by remember(userId) { mutableStateOf(0) }
+    RegisterListsRefresh(refreshRegistry, enabled = !scanning) { scanRevision++ }
     val localUserId = android.os.Process.myUid() / 100000
     val installedPackages = remember(userId) {
         if (userId == localUserId) {
@@ -186,9 +188,6 @@ internal fun SurfaceChannelSettings(
                     secondary = if (scanning) "$scanProgress / ${observedPackages.size}"
                         else stringResource(R.string.surface_channels_help),
                 )
-                SettingsActionButton(enabled = !scanning, onClick = { scanRevision++ }) {
-                    AdaptiveText(stringResource(R.string.surface_scan_refresh))
-                }
         },
         pending = {
             if (draft != saved) PendingChangesBar(

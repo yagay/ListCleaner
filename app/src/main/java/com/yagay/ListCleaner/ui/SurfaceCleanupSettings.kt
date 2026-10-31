@@ -91,6 +91,7 @@ internal fun ActiveNotificationManagement(
     pendingNavigation: PendingNavigationGuard? = null,
     initialGrouping: ActiveNotificationGrouping = ActiveNotificationGrouping.APPLICATION,
     onSearchStateChanged: ((SurfaceWorkspaceUiState?) -> Unit)? = null,
+    refreshRegistry: ListsRefreshRegistry? = null,
 ) {
     val context = LocalContext.current
     val rows by NotificationCleanupController.rows.collectAsStateWithLifecycle()
@@ -129,6 +130,7 @@ internal fun ActiveNotificationManagement(
         UiPreferencesStore.initialAppType(context, "lists_notifications_${initialGrouping.name}"),
     )
     RegisterSurfaceWorkspaceSearch(uiState, onSearchStateChanged)
+    RegisterListsRefresh(refreshRegistry) { NotificationCleanupController.rescan() }
     val searchQuery = uiState.searchQuery.trim()
     val filter = uiState.viewFilter
     val appTypeFilter = uiState.appTypeFilter
@@ -281,9 +283,6 @@ internal fun ActiveNotificationManagement(
             else stringResource(R.string.notification_category_help),
     )
     if (categoryMode) {
-        SettingsActionButton(onClick = { NotificationCleanupController.rescan() }) {
-            AdaptiveText(stringResource(R.string.surface_scan_refresh))
-        }
         WorkspaceAppNote(stringResource(R.string.surface_channels_restricted))
         if (scan.status != NotificationScanStatus.CONNECTED) {
             WorkspaceAppNote(stringResource(R.string.surface_wait_for_listener), warning = true)
@@ -425,11 +424,17 @@ internal fun StaleRuleManagement(
     vm: MainViewModel,
     pendingNavigation: PendingNavigationGuard? = null,
     onSearchStateChanged: ((SurfaceWorkspaceUiState?) -> Unit)? = null,
+    refreshRegistry: ListsRefreshRegistry? = null,
 ) {
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var refreshed by remember(userId) { mutableStateOf(false) }
     var scanStarted by remember(userId) { mutableStateOf(false) }
+    RegisterListsRefresh(refreshRegistry, enabled = !state.loading) {
+        refreshed = true
+        scanStarted = false
+        vm.refresh(forceCatalog = true)
+    }
     LaunchedEffect(refreshed, state.loading) {
         if (refreshed && state.loading) scanStarted = true
     }
@@ -500,12 +505,6 @@ internal fun StaleRuleManagement(
         title = stringResource(R.string.surface_stale_count, stale.size),
         secondary = stringResource(R.string.surface_rules_help),
     )
-    SettingsActionButton(onClick = {
-        refreshed = true
-        scanStarted = false
-        selectedRules = emptySet()
-        vm.refresh(forceCatalog = true)
-    }) { AdaptiveText(stringResource(R.string.surface_refresh_rules)) }
     if (refreshed && !completed) WorkspaceAppNote(stringResource(R.string.surface_scanning))
     if (completed && !state.error.isNullOrBlank()) {
         WorkspaceAppNote(stringResource(R.string.surface_scan_error), warning = true)

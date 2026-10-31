@@ -38,6 +38,7 @@ internal fun AospSurfaceSettings(
     selectedKind: SurfaceKind,
     pendingNavigation: PendingNavigationGuard? = null,
     onSearchStateChanged: ((SurfaceWorkspaceUiState?) -> Unit)? = null,
+    refreshRegistry: ListsRefreshRegistry? = null,
 ) {
     val context = LocalContext.current
     val saved by vm.surfaceFilters.collectAsStateWithLifecycle()
@@ -52,6 +53,7 @@ internal fun AospSurfaceSettings(
     val viewFilter = uiState.viewFilter
     val appCategory = uiState.appTypeFilter
     var refreshRevision by remember(userId, selectedKind) { mutableStateOf(0) }
+    RegisterListsRefresh(refreshRegistry) { refreshRevision++ }
     val guardOwner = remember(userId, selectedKind) { Any() }
     RegisterPendingNavigation(
         pendingNavigation, guardOwner, surfacePendingChangeCount(saved, draft),
@@ -195,10 +197,5 @@ internal fun AospSurfaceSettings(
             },
         )
     }
-        item(key = "refresh") {
-            WorkspaceListActions(actions = listOf(
-                    WorkspaceMenuAction(stringResource(R.string.surface_scan_refresh), { refreshRevision++ }),
-                ))
-        }
     }
 }

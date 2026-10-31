@@ -95,6 +95,7 @@ internal fun SurfaceManagementTab(
     vm: MainViewModel,
     pendingNavigation: PendingNavigationGuard? = null,
     onSearchStateChanged: ((SurfaceWorkspaceUiState?) -> Unit)? = null,
+    refreshRegistry: ListsRefreshRegistry? = null,
 ) {
     var page by rememberSaveable { mutableStateOf<SurfaceManagerPage?>(null) }
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
@@ -140,15 +141,15 @@ internal fun SurfaceManagementTab(
             editorStateHolder.SaveableStateProvider("lists-v2-${userId}-${current.name}") {
                 when (current) {
                     SurfaceManagerPage.NOTIFICATIONS_CHANNELS ->
-                        SurfaceChannelSettings(vm, userId, activeNotifications, pendingNavigation, onSearchStateChanged)
+                        SurfaceChannelSettings(vm, userId, activeNotifications, pendingNavigation, onSearchStateChanged, refreshRegistry)
                     SurfaceManagerPage.NOTIFICATIONS_CURRENT ->
-                        ActiveNotificationManagement(vm, pendingNavigation, onSearchStateChanged = onSearchStateChanged)
+                        ActiveNotificationManagement(vm, pendingNavigation, onSearchStateChanged = onSearchStateChanged, refreshRegistry = refreshRegistry)
                     SurfaceManagerPage.NOTIFICATIONS_TYPES ->
-                        ActiveNotificationManagement(vm, pendingNavigation, ActiveNotificationGrouping.CATEGORY, onSearchStateChanged)
+                        ActiveNotificationManagement(vm, pendingNavigation, ActiveNotificationGrouping.CATEGORY, onSearchStateChanged, refreshRegistry)
                     SurfaceManagerPage.INVALID_RULES ->
-                        StaleRuleManagement(state, vm, pendingNavigation, onSearchStateChanged)
+                        StaleRuleManagement(state, vm, pendingNavigation, onSearchStateChanged, refreshRegistry)
                     else ->
-                        AospSurfaceSettings(vm, userId, requireNotNull(current.kind), pendingNavigation, onSearchStateChanged)
+                        AospSurfaceSettings(vm, userId, requireNotNull(current.kind), pendingNavigation, onSearchStateChanged, refreshRegistry)
                 }
             }
         }

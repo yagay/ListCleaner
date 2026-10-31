@@ -81,6 +81,8 @@ internal fun MainToolbar(
     selectedSpace: Int = 0,
     onSpaceSelected: (Int) -> Unit = {},
     titleRes: Int = R.string.app_name,
+    showRefresh: Boolean = true,
+    refreshEnabled: Boolean = true,
 ) {
     var menu by remember { mutableStateOf(false) }
     var spaceMenu by remember { mutableStateOf(false) }
@@ -130,7 +132,9 @@ internal fun MainToolbar(
                 if (showSearch) AdaptiveIconButton(onClick = onSearch) {
                     AdaptiveIcon(Icons.Rounded.Search, stringResource(R.string.common_search))
                 }
-                AdaptiveIconButton(onClick = onRefresh) { AdaptiveIcon(Icons.Rounded.Refresh, stringResource(R.string.common_refresh)) }
+                if (showRefresh) AdaptiveIconButton(onClick = onRefresh, enabled = refreshEnabled) {
+                    AdaptiveIcon(Icons.Rounded.Refresh, stringResource(R.string.common_refresh))
+                }
                 Box {
                     AdaptiveIconButton(onClick = { menu = true }) { AdaptiveIcon(Icons.Rounded.MoreVert, stringResource(R.string.common_more)) }
                     FlatWorkspaceDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {

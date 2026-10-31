@@ -122,6 +122,7 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(componentBusy) { pendingNavigation.observeRootBusy(componentBusy) }
         var searchExpanded by rememberSaveable { mutableStateOf(false) }
         val surfaceSearchState = remember { mutableStateOf<SurfaceWorkspaceUiState?>(null) }
+        val listsRefresh = remember { ListsRefreshRegistry() }
         val onSurfaceSearchChanged: (SurfaceWorkspaceUiState?) -> Unit = remember { { surfaceSearchState.value = it } }
         // The merged cleanup tab hosts both rule and Root component editors.
         var componentModeActive by remember { mutableStateOf(false) }
@@ -292,7 +293,7 @@ class MainActivity : ComponentActivity() {
                 }
                 Destination.PRIORITY -> vm.refresh(forceCatalog = true)
                 Destination.TILES -> vm.refreshComponents()
-                Destination.SURFACES -> vm.refresh(forceCatalog = true)
+                Destination.SURFACES -> listsRefresh.refresh()
                 Destination.SETTINGS -> vm.refreshModuleStatus()
             }
         }
@@ -311,7 +312,7 @@ class MainActivity : ComponentActivity() {
                     )
                     Destination.PRIORITY -> PriorityTab(state, vm, pendingNavigation)
                     Destination.TILES -> RootComponentsScreen(state, vm, pendingNavigation = pendingNavigation)
-                    Destination.SURFACES -> SurfaceManagementTab(state, vm, pendingNavigation, onSurfaceSearchChanged)
+                    Destination.SURFACES -> SurfaceManagementTab(state, vm, pendingNavigation, onSurfaceSearchChanged, listsRefresh)
                     Destination.SETTINGS -> SettingsTabContent(
                         state,
                         vm,
@@ -351,6 +352,8 @@ class MainActivity : ComponentActivity() {
                     { showExportDialog = true },
                     showSearch = state.destination != Destination.SETTINGS &&
                         (state.destination != Destination.SURFACES || surfaceSearchState.value != null),
+                    showRefresh = state.destination != Destination.SURFACES || listsRefresh.available,
+                    refreshEnabled = state.destination != Destination.SURFACES || listsRefresh.enabled,
                     titleRes = R.string.app_name,
                     spaces = spaces,
                     selectedSpace = selectedSpace,
