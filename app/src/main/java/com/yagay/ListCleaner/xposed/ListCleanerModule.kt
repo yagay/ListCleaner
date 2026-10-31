@@ -1353,6 +1353,7 @@ class ListCleanerModule : XposedModule() {
             protectedComponents = protected,
             displayMode = config.mode,
             entryRules = nextSnapshot.configured,
+            directShareTypes = config.directShareTypes,
             entryPriorities = config.priorities.apps,
             digest = digest,
         )
@@ -1365,6 +1366,7 @@ class ListCleanerModule : XposedModule() {
                     protectedComponents = protected,
                     displayMode = space.mode,
                     entryRules = space.rules.map { it.id },
+                    directShareTypes = space.directShareTypes,
                     entryPriorities = space.priorities.apps,
                     digest = digest,
                 )
