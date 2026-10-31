@@ -19,6 +19,7 @@ import com.yagay.ListCleaner.domain.SpaceBackupEntry
 import com.yagay.ListCleaner.domain.VisibilityCompatConfig
 import com.yagay.ListCleaner.domain.VisibilityScope
 import com.yagay.ListCleaner.domain.UserSpaceRules
+import com.yagay.ListCleaner.domain.LegacyDirectShareRuleCleanup
 import com.yagay.ListCleaner.domain.toSpaceRules
 import com.yagay.ListCleaner.domain.normalizeBrowserHost
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -62,12 +63,25 @@ class RuleRepository(context: Context) {
                 .putBoolean("profile_hide_selected_default_v1", true).commit()
             upgraded
         } else loaded
-        config.copy(
+        val canonical = config.copy(
             rules = config.rules.mapNotNull { ComponentRule.fromId(it.id) }.toSet(),
             userSpaces = config.userSpaces.mapValues { (_, space) ->
                 space.copy(rules = space.rules.mapNotNull { ComponentRule.fromId(it.id) }.toSet())
             }
         )
+        if (prefs.getBoolean(KEY_DIRECT_SHARE_LEGACY_CLEANUP_V1, false)) canonical
+        else {
+            // The first start of this version retires every previously selected Direct Share
+            // rule across user spaces. Persist the migration marker atomically with the rules:
+            // later newly selected Direct Share targets must survive normal app restarts.
+            val cleaned = LegacyDirectShareRuleCleanup.remove(canonical).validated()
+            val encoded = json.encodeToString(ModuleConfig.serializer(), cleaned)
+            check(prefs.edit()
+                .putString(KEY_LOCAL_CONFIG, encoded)
+                .putBoolean(KEY_DIRECT_SHARE_LEGACY_CLEANUP_V1, true)
+                .commit()) { "Unable to commit Direct Share legacy rule cleanup" }
+            cleaned
+        }
     }
     /** Each Android user has independent rules; 0 is always the legacy-compatible base. */
     private val storedSpaces = mutableMapOf<Int, UserSpaceRules>().apply {
@@ -843,6 +857,7 @@ class RuleRepository(context: Context) {
     }
 
     companion object {
+        private const val KEY_DIRECT_SHARE_LEGACY_CLEANUP_V1 = "direct_share_legacy_rules_purged_v1"
         const val REMOTE_PREFS = "rules"
         const val KEY_RULES = "components"
         const val KEY_BLACKLIST = "blacklist"

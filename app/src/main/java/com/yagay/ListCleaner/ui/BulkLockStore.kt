@@ -39,11 +39,37 @@ internal class BulkLockStore(context: Context) {
     val revision: StateFlow<Long> = mutableRevision.asStateFlow()
 
     @Volatile
-    private var cachedEntries: Set<String> =
-        migrateLegacyDeepLinkLocks(prefs.getStringSet(KEY_ENTRIES, emptySet()).orEmpty().toSet()).also { migrated ->
-            if (migrated != prefs.getStringSet(KEY_ENTRIES, emptySet()).orEmpty().toSet()) {
-                prefs.edit().putStringSet(KEY_ENTRIES, migrated).apply()
-            }
+    private var cachedEntries: Set<String> = run {
+        val existing = prefs.getStringSet(KEY_ENTRIES, emptySet()).orEmpty().toSet()
+        val deepLinkMigrated = migrateLegacyDeepLinkLocks(existing)
+        val purgeLegacy = !prefs.getBoolean(KEY_DIRECT_SHARE_LEGACY_LOCKS_PURGED_V1, false)
+        val cleaned = if (purgeLegacy) removeLegacyDirectShareLocks(deepLinkMigrated) else deepLinkMigrated
+        if (cleaned != existing || purgeLegacy) {
+            val editor = prefs.edit().putStringSet(KEY_ENTRIES, cleaned)
+            if (purgeLegacy) editor.putBoolean(KEY_DIRECT_SHARE_LEGACY_LOCKS_PURGED_V1, true)
+            check(editor.commit()) { "Unable to commit Direct Share legacy lock cleanup" }
+        }
+        cleaned
+    }
+
+    /**
+     * Only remove Direct Share-specific UI locks left from old rules.
+     * Locks in generic app groups may also protect unrelated entry kinds, so
+     * only their explicitly identified DIRECT_SHARE item keys are removed.
+     */
+    private fun removeLegacyDirectShareLocks(source: Set<String>): Set<String> =
+        source.filterTo(linkedSetOf()) { entry ->
+            val parts = entry.split(SEPARATOR, limit = 3)
+            if (parts.size != 3) return@filterTo true
+            val scope = parts[0].split(':')
+            val directShareScope = scope.firstOrNull() in setOf("rules", "priority") &&
+                (scope.getOrNull(1) == IntentKind.DIRECT_SHARE.name ||
+                    (scope.getOrNull(1)?.startsWith("SPACE_") == true &&
+                        scope.getOrNull(2) == IntentKind.DIRECT_SHARE.name))
+            val directShareItem = parts[0].startsWith("rules:") &&
+                parts[1] == "item" &&
+                ComponentRule.fromId(parts[2])?.kind == IntentKind.DIRECT_SHARE
+            !directShareScope && !directShareItem
         }
 
     private fun migrateLegacyDeepLinkLocks(source: Set<String>): Set<String> {
@@ -187,6 +213,7 @@ internal class BulkLockStore(context: Context) {
 
     private companion object {
         const val PREFS = "bulk_action_locks"
+        const val KEY_DIRECT_SHARE_LEGACY_LOCKS_PURGED_V1 = "direct_share_legacy_locks_purged_v1"
         const val KEY_ENTRIES = "entries_v1"
         const val SEPARATOR = "\u001f"
     }
