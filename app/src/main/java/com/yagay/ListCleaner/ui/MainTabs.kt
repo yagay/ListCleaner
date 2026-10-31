@@ -69,12 +69,6 @@ fun RulesTab(
         ApplicationOverviewDialog(packageName, state, componentScan, vm.selectedSpace.value, onDismiss = { overviewPackage = null })
     }
     var systemProbeRequest by remember { mutableStateOf<SystemProbeRequest?>(null) }
-    systemProbeRequest?.let { request ->
-        SystemProbeDialog(
-            request, onDismiss = { systemProbeRequest = null },
-            previewState = state,
-        )
-    }
     editingTitle?.let { item ->
         ComponentTitleDialog(
             item,
@@ -156,6 +150,14 @@ fun RulesTab(
                 if (selected) add(rule) else remove(rule)
             }
         }.toSet()
+    }
+    systemProbeRequest?.let { request ->
+        SystemProbeDialog(
+            request, onDismiss = { systemProbeRequest = null },
+            previewState = state,
+            previewScopedSelection = displayedSelected,
+            hasPendingDraft = draftChanges.isNotEmpty(),
+        )
     }
     val canStageRule: (ComponentRule) -> Boolean = { rule ->
         when {
@@ -394,6 +396,12 @@ fun RulesTab(
                                     systemProbeRequest = SystemProbeRequest(
                                         entryKind = previewKind,
                                         userId = vm.selectedSpace.value,
+                                        scenario = scopedProbeScenario(previewKind, typedOpenPreset, directShareType),
+                                        openPreset = typedOpenPreset.takeIf { previewKind == IntentKind.OPEN },
+                                        browserHost = deepLinkHost.takeIf { previewKind == IntentKind.DEEP_LINK },
+                                        directShareType = directShareType.takeIf { previewKind == IntentKind.DIRECT_SHARE },
+                                        customMimeType = scopedProbeMime(typedOpenPreset, state.openTypesExplicit.customDefinitions)
+                                            .takeIf { previewKind == IntentKind.OPEN },
                                     )
                                 },
                             )
@@ -612,6 +620,12 @@ fun RulesTab(
                             systemProbeRequest = SystemProbeRequest(
                                 entryKind = component.rule.kind,
                                 userId = vm.selectedSpace.value,
+                                scenario = scopedProbeScenario(component.rule.kind, typedOpenPreset, directShareType),
+                                openPreset = typedOpenPreset.takeIf { component.rule.kind == IntentKind.OPEN },
+                                browserHost = deepLinkHost.takeIf { component.rule.kind == IntentKind.DEEP_LINK },
+                                directShareType = directShareType.takeIf { component.rule.kind == IntentKind.DIRECT_SHARE },
+                                customMimeType = scopedProbeMime(typedOpenPreset, state.openTypesExplicit.customDefinitions)
+                                    .takeIf { component.rule.kind == IntentKind.OPEN },
                                 focusPackage = component.rule.packageName,
                                 focusClass = component.rule.className,
                             )
