@@ -73,7 +73,10 @@ internal fun SurfaceChannelSettings(
     var scanProgress by remember(userId) { mutableStateOf(0) }
     var scanning by remember(userId) { mutableStateOf(false) }
     var scanRevision by remember(userId) { mutableStateOf(0) }
-    RegisterListsRefresh(refreshRegistry, enabled = !scanning) { scanRevision++ }
+    // Refresh must remain actionable during a long channel inventory scan.
+    // Incrementing the revision cancels the previous LaunchedEffect and
+    // starts a fresh scan, rather than silently dropping the user's request.
+    RegisterListsRefresh(refreshRegistry) { scanRevision++ }
     val localUserId = android.os.Process.myUid() / 100000
     val installedPackages = remember(userId, remoteInstalled) {
         if (userId != localUserId) remoteInstalled.orEmpty().toList()
