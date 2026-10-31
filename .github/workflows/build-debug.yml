@@ -2,7 +2,7 @@ name: Build Debug APK
 
 on:
   push:
-    branches: [main, test3, main-feature, bata, lists-rebuild-v2]
+    branches: [main, test3, main-feature, bata, lists-rebuild-v2, lists-audit-fix-20261031]
     paths:
       - 'app/**'
       - 'README.md'
