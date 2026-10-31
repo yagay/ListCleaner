@@ -31,7 +31,20 @@ internal fun EntryModeSettingsDialog(
     vm: MainViewModel,
     onDismiss: () -> Unit,
 ) {
-    val kind: IntentKind? = state.filter
+    EntryModeConfirmationDialog(state, vm, state.filter, onDismiss)
+}
+
+/**
+ * Shared confirmation flow for the Entry header and the bottom Lists tab.
+ * Mode choices remain local until Confirm; dismiss/back only drops the draft.
+ */
+@Composable
+internal fun EntryModeConfirmationDialog(
+    state: MainState,
+    vm: MainViewModel,
+    kind: IntentKind?,
+    onDismiss: () -> Unit,
+) {
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
     val saved: DisplayMode? =
         if (kind == null) state.displayMode else state.modeOverrides[kind]

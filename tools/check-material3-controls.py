@@ -78,12 +78,14 @@ required = {
                               "SettingsSection.BACKUP ->", "SettingsSection.ADVANCED ->",
                               "ScopeDialog(", "SettingsSection.ABOUT -> AboutSettings()"],
     "SurfaceManagementTab.kt": ["fun SurfaceManagementTab(state: MainState, vm: MainViewModel)",
-                                 "EntryGroup.entries", "SettingsChoices(",
-                                 "state.modeOverrides[kind]", "vm.setKindDisplayMode(kind, chosen)",
+                                 "EntryGroup.entries", "GlobalModeSettingsRow(",
+                                 "state.modeOverrides[kind]", "EntryModeConfirmationDialog(",
+                                 "editingModeKey = kind.name", "editingModeKey = GLOBAL_MODE_KEY",
                                  "GlobalModeGroupHeader(", "lc_mode_collapse_group",
                                  "lc_mode_expand_group", "KeyboardArrowUp",
                                  "KeyboardArrowDown"],
     "EntryModeSettingsDialog.kt": ["fun EntryModeSettingsDialog(",
+                                   "fun EntryModeConfirmationDialog(",
                                    "EntryModeChangeDraft(", "SettingsFlatChoiceRow(",
                                    "enabled = draft.hasChanges", "vm.setKindDisplayMode(kind, draft.pending)",
                                    "draft.pending?.let(vm::setDisplayMode)",
@@ -652,6 +654,13 @@ for filename in ("EntryWorkspaceHome.kt", "RootWorkspaceHome.kt"):
         errors.append(f"{filename}: obsolete category-home renderer must not return")
 if "settings_home_columns" in (root / "ListSettings.kt").read_text(encoding="utf-8"):
     errors.append("ListSettings.kt: irrelevant legacy grid control is still visible")
+# Never bypass the explicit Apply confirmation when editing Lists modes.
+lists_code = (root / "SurfaceManagementTab.kt").read_text(encoding="utf-8")
+for immediate_write in ("onSelected = vm::setDisplayMode",
+                        "onSelected = { chosen -> vm.setKindDisplayMode(kind, chosen) }"):
+    if immediate_write in lists_code:
+        errors.append(f"SurfaceManagementTab.kt: bypassed mode confirmation: {immediate_write}")
+
 # The bottom Lists tab is Global Mode only. Stale-rule maintenance is not
 # a child option; it must not be reintroduced into its navigation.
 for obsolete in ("SurfaceManagerPage", "SurfaceManagerGroup", "StaleRuleManagement("):

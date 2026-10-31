@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +51,17 @@ import com.yagay.ListCleaner.domain.kinds
 internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
     var expanded by rememberSaveable(userId) { mutableStateOf<EntryGroup?>(null) }
+    // A single dialog is shared by the global default and every Entry kind.
+    // Holding the target separately ensures no row writes any mode on selection.
+    var editingModeKey by rememberSaveable(userId) { mutableStateOf<String?>(null) }
+    editingModeKey?.let { key ->
+        EntryModeConfirmationDialog(
+            state = state,
+            vm = vm,
+            kind = if (key == GLOBAL_MODE_KEY) null else IntentKind.valueOf(key),
+            onDismiss = { editingModeKey = null },
+        )
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -58,11 +70,10 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
     ) {
         item(key = "global-mode-default") {
             SettingsArea(stringResource(R.string.dashboard_global_mode)) {
-                SettingsChoices(
+                GlobalModeSettingsRow(
                     title = stringResource(R.string.lc_mode_default_title),
-                    value = state.displayMode,
-                    options = DisplayMode.entries.map { it to stringResource(it.titleRes()) },
-                    onSelected = vm::setDisplayMode,
+                    selectedMode = stringResource(state.displayMode.titleRes()),
+                    onClick = { editingModeKey = GLOBAL_MODE_KEY },
                 )
                 SettingsHint(stringResource(R.string.dashboard_global_mode_help))
             }
@@ -108,18 +119,15 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                             .padding(start = 12.dp),
                     ) {
                         kinds.forEach { kind: IntentKind ->
-                            SettingsChoices(
+                            GlobalModeSettingsRow(
                                 title = stringResource(kind.titleRes()),
-                                value = state.modeOverrides[kind],
-                                options = listOf<Pair<DisplayMode?, String>>(
-                                    null to stringResource(
-                                        R.string.lc_mode_follow_global_value,
-                                        stringResource(state.displayMode.titleRes()),
-                                    ),
-                                ) + DisplayMode.entries.map { mode ->
-                                    (mode as DisplayMode?) to stringResource(mode.titleRes())
-                                },
-                                onSelected = { chosen -> vm.setKindDisplayMode(kind, chosen) },
+                                selectedMode = state.modeOverrides[kind]?.let {
+                                    stringResource(it.titleRes())
+                                } ?: stringResource(
+                                    R.string.lc_mode_follow_global_value,
+                                    stringResource(state.displayMode.titleRes()),
+                                ),
+                                onClick = { editingModeKey = kind.name },
                             )
                         }
                     }
@@ -186,5 +194,28 @@ private fun GlobalModeGroupHeader(
                 tint = if (expanded) accent else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/** The shared settings row opens the same staged confirmation dialog as Entry. */
+private const val GLOBAL_MODE_KEY = "GLOBAL"
+
+@Composable
+private fun GlobalModeSettingsRow(
+    title: String,
+    selectedMode: String,
+    onClick: () -> Unit,
+) {
+    MaterialSettingsRow(
+        title = title,
+        supportingText = selectedMode,
+        onClick = onClick,
+    ) {
+        AdaptiveIcon(
+            Icons.Rounded.ChevronRight,
+            title,
+            Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
