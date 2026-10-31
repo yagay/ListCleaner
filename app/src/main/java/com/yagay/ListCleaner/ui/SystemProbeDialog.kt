@@ -53,6 +53,7 @@ import kotlinx.coroutines.withContext
 internal fun SystemProbeDialog(
     request: SystemProbeRequest,
     onDismiss: () -> Unit,
+    previewState: MainState? = null,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -151,7 +152,7 @@ internal fun SystemProbeDialog(
         ?: request.componentKind?.let { stringResource(it.titleRes()) }
         ?: ""
     val value = response
-    val selectedResult = SystemPreviewSelection.select(
+    val authoritativeSelection = SystemPreviewSelection.select(
         request = activeRequest,
         value = value,
         showDiagnostics = false,
@@ -170,6 +171,23 @@ internal fun SystemProbeDialog(
         }.getOrNull(),
     )
     val diagnostic = viewMode == PreviewListMode.CANDIDATES && value != null
+    // Never present a local projection as a verified framework return.
+    // Current only falls back when its actual return is absent/unverified.
+    val predicted = if (previewState != null && value != null && request.entryKind != null) {
+        SystemPreviewProjection.estimate(
+            request.entryKind, previewState.candidates, previewState.selected,
+            previewState.displayMode, previewState.modeOverrides, value,
+        )
+    } else null
+    val selectedResult = when {
+        viewMode == PreviewListMode.ESTIMATED ->
+            predicted ?: PreviewListResult(emptyList(), PreviewListSource.UNAVAILABLE)
+        viewMode == PreviewListMode.CURRENT &&
+            authoritativeSelection.source in setOf(
+                PreviewListSource.API_RETURN, PreviewListSource.UNAVAILABLE,
+            ) && predicted != null -> predicted
+        else -> authoritativeSelection
+    }
     val runtimeAvailable = selectedResult.source in setOf(
         PreviewListSource.HOOK_OBSERVATION, PreviewListSource.HOST_OBSERVATION
     )
@@ -197,6 +215,7 @@ internal fun SystemProbeDialog(
         PreviewListSource.HISTORY -> R.string.preview_source_history
         PreviewListSource.API_RETURN -> R.string.preview_source_api_candidates
         PreviewListSource.DIAGNOSTIC -> R.string.preview_source_diagnostic
+        PreviewListSource.ESTIMATED -> R.string.preview_estimated_source
         PreviewListSource.UNAVAILABLE -> R.string.preview_source_unavailable
     }
     val distinctApps = displayed.map(SystemProbeItem::packageName).distinct().size
@@ -206,6 +225,7 @@ internal fun SystemProbeDialog(
         PreviewListSource.DOCUMENT_ROOTS -> R.string.system_probe_quality_picker
         PreviewListSource.AUTHORITY_ENABLED -> R.string.system_probe_quality_enabled
         PreviewListSource.HISTORY -> R.string.preview_quality_history
+        PreviewListSource.ESTIMATED -> R.string.preview_estimated_title
         PreviewListSource.API_RETURN, PreviewListSource.DIAGNOSTIC ->
             if (value?.evidence == ProbeEvidence.ENABLED)
                 R.string.system_probe_quality_enabled
@@ -296,6 +316,7 @@ internal fun SystemProbeDialog(
                     item(key = "source-tabs") {
                         val modes = buildList {
                             add(PreviewListMode.CURRENT)
+                            if (predicted != null) add(PreviewListMode.ESTIMATED)
                             if (value.diagnosticCandidates.isNotEmpty() ||
                                 value.items.isNotEmpty()) add(PreviewListMode.CANDIDATES)
                             if (value.enabledItems.isNotEmpty() ||
@@ -320,6 +341,7 @@ internal fun SystemProbeDialog(
                                     label = {
                                         AdaptiveText(stringResource(when (mode) {
                                             PreviewListMode.CURRENT -> R.string.preview_tab_current
+                                            PreviewListMode.ESTIMATED -> R.string.preview_tab_estimated
                                             PreviewListMode.CANDIDATES -> R.string.preview_tab_candidates
                                             PreviewListMode.ENABLED -> R.string.preview_tab_enabled
                                             PreviewListMode.HISTORY -> R.string.preview_tab_history
@@ -343,6 +365,13 @@ internal fun SystemProbeDialog(
                             AdaptiveText(stringResource(sourceRes),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (selectedResult.source == PreviewListSource.ESTIMATED) {
+                                AdaptiveText(
+                                    stringResource(R.string.preview_estimated_note),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                             if (value.evidence == ProbeEvidence.PICKER_HOST ||
                                 (nativeRootsRelevant && value.evidence == ProbeEvidence.NOT_PUBLIC)
                             ) {
@@ -483,6 +512,7 @@ internal fun SystemProbeDialog(
                                 PreviewListSource.AUTHORITY_ENABLED ->
                                     R.string.system_probe_count_enabled
                                 PreviewListSource.HISTORY -> R.string.preview_count_history
+                                PreviewListSource.ESTIMATED -> R.string.preview_estimated_count
                                 else -> R.string.system_probe_count_candidate
                             }
                             AdaptiveText(stringResource(countRes, displayed.size, distinctApps),

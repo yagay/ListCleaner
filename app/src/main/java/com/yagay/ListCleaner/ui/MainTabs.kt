@@ -70,7 +70,10 @@ fun RulesTab(
     }
     var systemProbeRequest by remember { mutableStateOf<SystemProbeRequest?>(null) }
     systemProbeRequest?.let { request ->
-        SystemProbeDialog(request, onDismiss = { systemProbeRequest = null })
+        SystemProbeDialog(
+            request, onDismiss = { systemProbeRequest = null },
+            previewState = state,
+        )
     }
     editingTitle?.let { item ->
         ComponentTitleDialog(

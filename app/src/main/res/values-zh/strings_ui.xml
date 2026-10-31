@@ -276,4 +276,9 @@
     <string name="lc_mode_select_for">%1$s · 清理方式</string>
     <string name="lc_mode_confirm_hint">选择模式后点击确认修改；取消不会更改当前规则。</string>
     <string name="lc_mode_confirm_apply">确认修改</string>
+    <string name="preview_tab_estimated">预计结果</string>
+    <string name="preview_estimated_title">预计可见列表 · 未验证</string>
+    <string name="preview_estimated_source">根据已确认规则与已知候选项计算</string>
+    <string name="preview_estimated_note">仅为本地预计结果，并非系统实际返回。系统及厂商过滤、Intent 子类型、快捷方式和未扫描项目可能导致实际显示不同。</string>
+    <string name="preview_estimated_count">预计：%1$d 项，涉及 %2$d 个应用</string>
 </resources>

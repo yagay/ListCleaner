@@ -12,11 +12,11 @@ import com.yagay.ListCleaner.domain.RuntimeInterfaceSnapshot
  */
 internal enum class PreviewListSource {
     HOOK_OBSERVATION, HOST_OBSERVATION, DOCUMENT_ROOTS, AUTHORITY_ENABLED,
-    API_RETURN, DIAGNOSTIC, HISTORY, UNAVAILABLE
+    API_RETURN, DIAGNOSTIC, HISTORY, ESTIMATED, UNAVAILABLE
 }
 
 /** Sources remain distinct: "history" can never silently become a current UI list. */
-internal enum class PreviewListMode { CURRENT, CANDIDATES, ENABLED, HISTORY }
+internal enum class PreviewListMode { CURRENT, ESTIMATED, CANDIDATES, ENABLED, HISTORY }
 
 internal data class PreviewListResult(
     val items: List<SystemProbeItem>,
@@ -76,6 +76,8 @@ internal object SystemPreviewSelection {
                 return PreviewListResult(history, PreviewListSource.HISTORY)
             }
             PreviewListMode.CURRENT -> Unit
+            // Estimates are calculated from the saved rules outside this authority selector.
+            PreviewListMode.ESTIMATED -> return PreviewListResult(emptyList(), PreviewListSource.UNAVAILABLE)
         }
 
         val isDocument = kind in setOf(

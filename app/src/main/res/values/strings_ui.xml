@@ -276,4 +276,9 @@
     <string name="lc_mode_select_for">%1$s · Cleaning mode</string>
     <string name="lc_mode_confirm_hint">Choose a mode, then confirm to apply. Cancel keeps the existing mode.</string>
     <string name="lc_mode_confirm_apply">Confirm change</string>
+    <string name="preview_tab_estimated">Estimated</string>
+    <string name="preview_estimated_title">Estimated visible list · Unverified</string>
+    <string name="preview_estimated_source">Calculated from confirmed rules and known candidates</string>
+    <string name="preview_estimated_note">Local estimate only, not a captured system list. Android/OEM filtering, Intent subtypes, shortcuts and unscanned entries may change the actual result.</string>
+    <string name="preview_estimated_count">Estimated: %1$d entries across %2$d apps</string>
 </resources>
