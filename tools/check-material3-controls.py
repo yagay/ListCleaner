@@ -654,8 +654,15 @@ if "R.string.lc_home_layout_title" in (root / "AppearanceSettings.kt").read_text
 for filename in ("WorkspaceAppRow.kt", "WorkspaceCommon.kt", "RootComponentsScreen.kt", "WorkspaceListParts.kt"):
     if "if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED)" in (root / filename).read_text(encoding="utf-8"):
         errors.append(f"{filename}: legacy Grouped style still changes row rendering")
-if "FlatRowSurface(dividerInset = 0.dp)" not in (root / "SystemProbeDialog.kt").read_text(encoding="utf-8"):
-    errors.append("SystemProbeDialog.kt: runtime candidate rows are not flat list rows")
+preview_source = (root / "SystemProbeDialog.kt").read_text(encoding="utf-8")
+preview_tile = (root / "SystemProbeCompactTile.kt").read_text(encoding="utf-8")
+for token in ("ModalBottomSheet(", "skipPartiallyExpanded = true",
+              "displayed.chunked(gridColumns)", "SystemProbeCompactTile("):
+    if token not in preview_source:
+        errors.append(f"SystemProbeDialog.kt: compact preview contract missing {token}")
+for token in ("getApplicationIcon(", "maxLines = 1", "onInspect"):
+    if token not in preview_tile:
+        errors.append(f"SystemProbeCompactTile.kt: compact preview tile missing {token}")
 
 # Only one editor presentation remains; legacy category landing files are removed.
 for filename in ("EntryWorkspaceHome.kt", "RootWorkspaceHome.kt"):
