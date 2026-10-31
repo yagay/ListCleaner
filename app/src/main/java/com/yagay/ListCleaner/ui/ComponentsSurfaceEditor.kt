@@ -146,7 +146,6 @@ internal fun ComponentsSurfaceEditor(
     }
     var expandedApp by rememberSaveable(userId, surface) { mutableStateOf<String?>(null) }
     var sorting by rememberSaveable(userId, surface) { mutableStateOf(false) }
-    var scanRevision by remember(userId, surface) { mutableIntStateOf(0) }
     val isNotification = surface == ManagedComponentSurface.NOTIFICATIONS
     val currentUser = android.os.Process.myUid() / 100000
 
@@ -170,7 +169,7 @@ internal fun ComponentsSurfaceEditor(
     }
     var scanning by remember(userId, surface) { mutableStateOf(false) }
     var scannedCount by remember(userId, surface) { mutableIntStateOf(0) }
-    LaunchedEffect(userId, surface, notificationPackages, scanRevision, rootScan.observedAt) {
+    LaunchedEffect(userId, surface, notificationPackages, rootScan.observedAt) {
         if (!isNotification) return@LaunchedEffect
         scanning = true
         scannedCount = 0
@@ -266,7 +265,6 @@ internal fun ComponentsSurfaceEditor(
             "__legacy__", category, category, category)
     } else emptyList()
     val allRules = byPackage.values.flatten() + legacyRules
-    val allById = allRules.associateBy { it.id }
     val getEffective: (ManagedComponentRule) -> Boolean = { item ->
         selectionDraft.selected(item.id, managedRuleHidden(saved, item))
     }
@@ -376,8 +374,12 @@ internal fun ComponentsSurfaceEditor(
 
     if (sorting && !isNotification) {
         ComponentsSettingsOrderEditor(
-            vm, userId, saved, packageNames, labels,
-            pendingNavigation, onExit = { sorting = false },
+            vm = vm, userId = userId, saved = saved,
+            candidates = packageNames, labels = labels,
+            pendingNavigation = pendingNavigation,
+            onExit = { sorting = false },
+            onRootKind = onRootKind,
+            onManagedKind = onManagedKind,
         )
         return
     }
