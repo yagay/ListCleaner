@@ -2,11 +2,8 @@ package com.yagay.ListCleaner.ui
 
 import android.content.Context
 import android.content.Intent
-import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
 import android.media.MediaRouter2
-import android.os.UserHandle
-import android.os.UserManager
 import com.yagay.ListCleaner.data.ProfilePackageQuery
 import com.yagay.ListCleaner.domain.SurfaceKind
 import com.yagay.ListCleaner.runtime.ActiveNotificationRow
@@ -14,7 +11,8 @@ import com.yagay.ListCleaner.runtime.ActiveNotificationRow
 /**
  * AOSP platform-owned discovery sources per presentation surface.
  * These are eligible targets, not claims that the currently displayed UI has
- * shown them; ephemeral prediction, recents and media candidates can change.
+ * shown them; media candidates can change. Legacy Launcher3 / Quickstep kinds
+ * remain decodable but are never scanned or offered in the Lists UI.
  */
 internal object SurfaceCandidateDiscovery {
     data class Result(val items: List<Pair<String, String>>, val description: String)
@@ -27,14 +25,6 @@ internal object SurfaceCandidateDiscovery {
         remoteInstalled: Set<String>? = null,
     ): Result {
         val pm = context.packageManager
-        val user = runCatching {
-            context.getSystemService(UserManager::class.java)?.userProfiles
-                ?.firstOrNull { handle ->
-                    runCatching {
-                        (handle.javaClass.getMethod("getIdentifier").invoke(handle) as? Int) == userId
-                    }.getOrDefault(false)
-                }
-        }.getOrNull()
         val ownUser = android.os.Process.myUid() / 100000
         fun appLabel(pkg: String): String = runCatching {
             @Suppress("DEPRECATION")
@@ -50,14 +40,10 @@ internal object SurfaceCandidateDiscovery {
             }
             SurfaceKind.LAUNCHER_DRAWER, SurfaceKind.LAUNCHER_PREDICTIONS,
             SurfaceKind.RECENTS -> {
-                pairs = if (user != null) runCatching {
-                    val launcher = context.getSystemService(LauncherApps::class.java)
-                    launcher?.getActivityList(null, user).orEmpty()
-                        .map { it.componentName.packageName }
-                        .distinct().map { it to appLabel(it) }
-                }.getOrDefault(emptyList()) else emptyList()
-                source = if (user == null) "LauncherApps: selected profile is not accessible"
-                    else "LauncherApps: eligible launchable apps (predictions and recent tasks are transient)"
+                // The old values are reserved in serialized backups only.
+                // Never perform LauncherApps discovery for removed Lists pages.
+                pairs = emptyList()
+                source = "Retired Launcher3 / Quickstep surface: legacy configuration only"
             }
             SurfaceKind.QS_EDITOR -> {
                 pairs = if (userId != ownUser && remoteInstalled != null) runCatching {
