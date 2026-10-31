@@ -124,7 +124,7 @@ internal object SurfaceCandidateDiscovery {
                     pm.getInstalledApplications(PackageManager.GET_META_DATA)
                         .map { it.packageName to it.loadLabel(pm).toString() }
                         .distinctBy { it.first }
-                }.getOrDefault(emptyList()) else emptyList()
+                }.getOrDefault(emptyList())
                 source = if (userId == ownUser)
                     "PackageManager: installed applications; Settings filters may narrow the visible subset"
                     else if (remoteInstalled == null) "Other-user package scan is not yet available"
