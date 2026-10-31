@@ -20,7 +20,17 @@ internal fun rebaseSurfaceDraft(base: SurfaceFilterConfig, local: SurfaceFilterC
             if (desired.isNullOrEmpty()) order.remove(kind) else order[kind] = desired
         }
     }
+    // A Root tile name may be saved while a Lists editor still has a draft.
+    // Keep external changes, while allowing this draft's own label edits.
+    val tileLabels = latest.tileLabels.toMutableMap()
+    (base.tileLabels.keys + local.tileLabels.keys).forEach { component ->
+        if (base.tileLabels[component] != local.tileLabels[component]) {
+            val title = local.tileLabels[component]
+            if (title == null) tileLabels.remove(component) else tileLabels[component] = title
+        }
+    }
     return latest.copy(
+        tileLabels = tileLabels,
         packages = mergeMap(base.packages, local.packages, latest.packages),
         locks = mergeMap(base.locks, local.locks, latest.locks),
         order = order,
