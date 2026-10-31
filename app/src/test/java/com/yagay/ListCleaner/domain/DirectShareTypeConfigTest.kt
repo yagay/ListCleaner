@@ -45,6 +45,26 @@ class DirectShareTypeConfigTest {
         }.isFailure)
     }
 
+    @Test fun onlyVerifiedRecentSharesheetMatchIsCurrent() {
+        val now = 1_500_000L
+        val verified = ObservedEntryRecord(
+            kind = IntentKind.DIRECT_SHARE.name,
+            packageName = person.packageName,
+            syntheticClass = person.className,
+            directShareFamilies = setOf(DirectShareType.IMAGE.name),
+            observedAt = now - 300_000L,
+        )
+        assertTrue(DirectShareTypeRules.isRecentMatch(verified, now))
+        assertFalse(DirectShareTypeRules.isRecentMatch(
+            verified.copy(directShareFamilies = emptySet()), now))
+        assertFalse(DirectShareTypeRules.isRecentMatch(
+            verified.copy(kind = IntentKind.SHORTCUT_ITEM.name), now))
+        assertFalse(DirectShareTypeRules.isRecentMatch(
+            verified.copy(observedAt = now - 600_001L), now))
+        assertFalse(DirectShareTypeRules.isRecentMatch(
+            verified.copy(observedAt = now + 1000L), now))
+    }
+
     @Test fun familyEvidenceOnlyFromMatchedMime() {
         assertEquals(DirectShareType.TEXT, DirectShareType.fromMime("text/plain"))
         assertEquals(DirectShareType.IMAGE, DirectShareType.fromMime("image/jpeg; charset=utf-8"))
