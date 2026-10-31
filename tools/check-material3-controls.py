@@ -72,7 +72,7 @@ required = {
     "MainTabs.kt": ["fun RulesTab(", "fun PriorityTab(", "LazyColumn("],
     "SettingsNavigation.kt": ["fun SettingsTabContent(", "SettingsCenterHome(",
                               "TopAppBar(", "LazyColumn(", "SettingsAppearanceControls(colorMode, onColorModeChange)",
-                              "SettingsListControls()", "SettingsScanControls(vm)",
+                              "SettingsListControls(state, vm)", "SettingsScanControls(vm)",
                               "SettingsSection.APPEARANCE ->", "SettingsSection.LISTS ->",
                               "SettingsSection.SCANNING ->", "SettingsSection.COMPATIBILITY ->",
                               "SettingsSection.BACKUP ->", "SettingsSection.ADVANCED ->",
@@ -100,8 +100,9 @@ required = {
     "AppearanceSettings.kt": ["fun SettingsAppearanceControls(", "R.string.ui_color_mode_title", "UiColorMode.entries.map", "onSelected = onColorModeChange",
                               "fun SettingsLanguageControls()", "settings_icon_size",
                               "lc_layout_spacing"],
-    "ListSettings.kt": ["fun SettingsListControls()",
-                        "settings_remember_filters", "settings_help_expanded"],
+    "ListSettings.kt": ["fun SettingsListControls(state: MainState, vm: MainViewModel)",
+                        "lc_mode_default_title", "lc_mode_category_overrides",
+                        "vm.setKindDisplayMode(kind, chosen)", "EntryGroup.entries"],
     "ScanSettings.kt": ["fun SettingsScanControls(", "settings_scan_mode",
                        "lc_proactive_scan_mode", "lc_scan_all_now"],
     "SettingsReset.kt": ["fun SettingsResetControls("],
@@ -639,6 +640,13 @@ if "FlatRowSurface(dividerInset = 0.dp)" not in (root / "SystemProbeDialog.kt").
 for filename in ("EntryWorkspaceHome.kt", "RootWorkspaceHome.kt"):
     if (root / filename).exists():
         errors.append(f"{filename}: obsolete category-home renderer must not return")
+# Lists now manages runtime Global Mode; obsolete manager-only preference widgets
+# must not accidentally return to that page.
+for obsolete in ("settings_remember_filters", "settings_help_expanded",
+                 "settings_sort", "settings_default_filter", "lc_history_show",
+                 "lc_preview_default", "settings_start_page"):
+    if obsolete in (root / "ListSettings.kt").read_text(encoding="utf-8"):
+        errors.append(f"ListSettings.kt: retired Lists control returned: {obsolete}")
 if "settings_home_columns" in (root / "ListSettings.kt").read_text(encoding="utf-8"):
     errors.append("ListSettings.kt: irrelevant legacy grid control is still visible")
 
