@@ -532,6 +532,8 @@ fun RootComponentsScreen(
                             onUnlock = { vm.setComponentItemLocked(kind, item, false) },
                             onEdit = if (item.kind == CleanupKind.TILE)
                                 ({ renamingSystemTile = item }) else null,
+                            editLabel = if (item.kind == CleanupKind.TILE)
+                                stringResource(R.string.qs_tile_rename_title) else null,
                         )
                     }
                 )
