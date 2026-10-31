@@ -35,6 +35,28 @@ terminating a task, cancelling a notification or deleting a document.
 All hooks check the expected class and method shape, return the original result on
 unsupported signatures, and do not manipulate underlying Android registries.
 
+**Launcher Shortcut Items discovery (read-only):** `LauncherShortcutObserverModule`
+starts in an LSPosed-scoped default HOME process (including
+`com.android.launcher`, `com.android.launcher3`, Pixel Launcher, MIUI
+Home and Samsung One UI Home). It verifies `LauncherApps.hasShortcutHostPermission()`
+before querying all published dynamic, manifest, pinned and cached shortcut
+IDs for each accessible Android profile. Results contain only user ID,
+package, shortcut ID-derived synthetic rule key, activity and short label;
+never shortcut intents/extras or contact payloads. A registered
+`LauncherApps.Callback` handles package/shortcut changes; a periodic
+read-only refresh handles missed callbacks. RemotePreferences publishes
+per-user `SHORTCUT_ITEM` authority snapshots; a valid empty snapshot
+removes obsolete observations for that user, while errors preserve the
+previous snapshot. Manager sync uses existing observed-entry cache and
+unified Shortcut Items interface; Root/shell scanning remains a fallback.
+Fresh launcher snapshots are regarded as current for a bounded interval.
+This observer never installs filtering hooks, changes HOME role, or alters
+the existing shortcut cleanup, locks, or per-user rules. Default scope
+is not a promise of OEM runtime compatibility: a nonstandard launcher
+package must be explicitly scoped and adapted; install/update requires
+restarting the HOME process. Query results are published shortcuts, not
+necessarily all launcher-generated long-press actions.
+
 **Home and Recents retired:** the three previous Lists navigation entries
 (Launcher app drawer, predicted apps, recent task cards) have been removed.
 `AospSurfaceFilterModule` no longer installs
