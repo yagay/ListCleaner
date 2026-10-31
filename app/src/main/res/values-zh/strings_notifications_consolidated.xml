@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notification_cleanup_title">通知清理</string>
+    <string name="notification_cleanup_help">按应用或已注册的通知频道隐藏通知。应用级与频道级规则独立保存，不会关闭应用发送通知的权限。</string>
+    <string name="notification_cleanup_app_toggle">隐藏此应用的所有通知</string>
+    <string name="notification_cleanup_app_selected">已隐藏整个应用的通知</string>
+    <string name="notification_cleanup_app_active">尚未隐藏整个应用，勾选后隐藏</string>
+    <string name="notification_cleanup_app_legacy">已保留应用级隐藏规则，但未发现已注册频道</string>
+    <string name="notification_cleanup_channels_note">频道勾选仅作用于对应频道。整应用隐藏时，频道设置要在恢复应用显示后才会体现。</string>
+    <string name="notification_cleanup_bulk_channels">批量操作仅针对频道；整应用隐藏请使用应用前面的勾选框。</string>
+    <string name="notification_cleanup_channel_status">%1$d 个频道 · 已隐藏 %2$d 个</string>
+    <string name="notification_cleanup_legacy_title">现有的通知类型规则</string>
+    <string name="notification_cleanup_legacy_note">这些全局类型规则由旧版本保存，仍会跨应用隐藏匹配的通知。可在这里取消不再需要的规则。</string>
+    <string name="notification_cleanup_legacy_clear">清除所有类型规则</string>
+    <string name="notification_cleanup_legacy_remove">移除类型规则</string>
+</resources>
