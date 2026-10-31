@@ -11,7 +11,7 @@ import com.yagay.ListCleaner.domain.RuntimeInterfaceSnapshot
  * This class contains no Android services, Compose state or rule simulation.
  */
 internal enum class PreviewListSource {
-    HOOK_OBSERVATION, HOST_OBSERVATION, DOCUMENT_ROOTS, AUTHORITY_ENABLED,
+    HOOK_OBSERVATION, HOST_OBSERVATION, ORDERED_ADAPTER, DOCUMENT_ROOTS, AUTHORITY_ENABLED,
     API_RETURN, DIAGNOSTIC, HISTORY, ESTIMATED, UNAVAILABLE
 }
 
@@ -34,6 +34,8 @@ internal object SystemPreviewSelection {
         launchedAtMillis: Long?,
         currentCallerUid: Int,
         expectedAction: String? = null,
+        expectedMimeType: String? = null,
+        expectedHost: String? = null,
         viewMode: PreviewListMode = PreviewListMode.CURRENT,
     ): PreviewListResult {
         if (value == null) return PreviewListResult(emptyList(), PreviewListSource.UNAVAILABLE)
@@ -99,6 +101,23 @@ internal object SystemPreviewSelection {
             return if (value.historicalItems.isNotEmpty())
                 PreviewListResult(value.historicalItems, PreviewListSource.HISTORY)
             else PreviewListResult(emptyList(), PreviewListSource.UNAVAILABLE)
+        }
+
+        // Exact-match the tested Intent and the launch session. A sorted adapter
+        // list is authoritative for this boundary only, NOT a verified on-screen
+        // ranking (Chooser may add pinned and Direct Share targets afterwards).
+        val ordered = value.orderedReturn
+        if (ordered != null && launchedAtMillis != null && expectedAction != null &&
+            ordered.callerUserId == request.userId &&
+            ordered.source in setOf("CHOOSER_ADAPTER_ORDER", "RESOLVER_RANKED_ORDER") &&
+            nowMillis - ordered.capturedAtMillis in 0L..MAX_AGE_MS &&
+            ordered.capturedAtMillis >= launchedAtMillis &&
+            ordered.requestAction == expectedAction &&
+            ordered.requestMimeType == expectedMimeType.orEmpty() &&
+            ordered.requestHost == expectedHost.orEmpty() &&
+            !ordered.truncated
+        ) {
+            return PreviewListResult(asEntries(ordered, value.items), PreviewListSource.ORDERED_ADAPTER)
         }
 
         val snapshot = value.runtimeReturn
