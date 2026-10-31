@@ -265,4 +265,6 @@
     <string name="lc_mode_expand_group">展开</string>
     <string name="lc_mode_collapse_group">收起</string>
     <string name="lc_mode_inherit_count">%1$d 项全部跟随全局</string>
+    <string name="lc_mode_current_format">当前：%1$s</string>
+    <string name="lc_mode_mixed_categories">按分类</string>
 </resources>

@@ -265,4 +265,6 @@
     <string name="lc_mode_expand_group">Expand</string>
     <string name="lc_mode_collapse_group">Collapse</string>
     <string name="lc_mode_inherit_count">All %1$d kinds follow global</string>
+    <string name="lc_mode_current_format">Mode: %1$s</string>
+    <string name="lc_mode_mixed_categories">By category</string>
 </resources>

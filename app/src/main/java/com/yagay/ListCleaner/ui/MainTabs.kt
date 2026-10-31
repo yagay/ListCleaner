@@ -396,7 +396,7 @@ fun RulesTab(
                 active = ClassicCleanupMode.ENTRIES,
                 onEntries = {},
                 onComponents = { navigate { browseAllComponents = true } },
-                modeLabel = stringResource((state.filter?.let { state.modeOverrides[it] } ?: state.displayMode).titleRes()),
+                modeLabel = entryCurrentModeLabel(state),
                 onModeClick = { showModeSettings = true },
             )
             PageFilterSection {
@@ -689,7 +689,7 @@ private fun SummaryRow(
 ) {
     WorkspaceListSummary(
         title = stringResource(R.string.app_list_count, displayedApps),
-        secondary = stringResource(state.displayMode.titleRes()),
+        secondary = entryCurrentModeLabel(state),
         showSelectionActions = false,
         actions = actions,
         helpExpanded = helpExpanded,
@@ -706,4 +706,17 @@ private fun SummaryRow(
 @Composable
 fun PriorityTab(state: MainState, vm: MainViewModel, pendingNavigation: PendingNavigationGuard? = null) {
     PriorityDialogContent(state, vm, pendingNavigation)
+}
+
+/**
+ * Show the actual effective runtime mode for the active Entry category.
+ * The All view has no single mode when different kinds override Global Mode.
+ * The compact status is reused by the toolbar and the list summary.
+ */
+@Composable
+private fun entryCurrentModeLabel(state: MainState): String {
+    val effective = currentEntryDisplayMode(state.filter, state.displayMode, state.modeOverrides)
+    val label = effective?.let { stringResource(it.titleRes()) }
+        ?: stringResource(R.string.lc_mode_mixed_categories)
+    return stringResource(R.string.lc_mode_current_format, label)
 }
