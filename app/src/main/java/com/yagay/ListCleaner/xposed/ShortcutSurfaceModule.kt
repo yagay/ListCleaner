@@ -73,6 +73,7 @@ class ShortcutSurfaceModule : XposedModule() {
     override fun onSystemServerStarting(param: SystemServerStartingParam) {
         processName = "system"
         policyProvider.start()
+        DirectShareActiveScanBridge.initialize(param.classLoader, preferences, ::record)
         installShortcutHooks(param.classLoader)
         installShareTargetHooks(param.classLoader)
         installObservedDiscoveryHooks(param.classLoader)
