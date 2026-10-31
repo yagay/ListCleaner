@@ -115,7 +115,8 @@ internal fun previewRouteNote(kind: CleanupKind): Int = when (kind) {
 internal object SystemEffectPreview {
     fun launch(
         context: Context, kind: IntentKind, selectedUserId: Int,
-        scenario: SystemProbeScenario = defaultProbeScenario(kind)
+        scenario: SystemProbeScenario = defaultProbeScenario(kind),
+        request: SystemProbeRequest? = null,
     ) {
         if (!checkUser(context, selectedUserId)) return
         val route = systemPreviewRoute(kind)
@@ -145,7 +146,7 @@ internal object SystemEffectPreview {
         )
         val sessionStore = if (tracked) PickerProbeSessionStore(context) else null
         runCatching {
-            val target = buildIntent(context, kind, scenario)
+            val target = buildIntent(context, kind, scenario, request)
             val launch = if (route == SystemPreviewRoute.CHOOSER)
                 Intent.createChooser(target, context.getString(R.string.system_preview_chooser_title))
             else target
@@ -414,6 +415,7 @@ internal object SystemEffectPreview {
     internal fun candidateIntent(
         context: Context, kind: IntentKind,
         scenario: SystemProbeScenario = defaultProbeScenario(kind),
+        request: SystemProbeRequest? = null,
     ): Intent = when (kind) {
         IntentKind.HOME, IntentKind.BROWSER, IntentKind.ASSISTANT ->
             scenarioIntent(context, kind, scenario)
@@ -424,7 +426,7 @@ internal object SystemEffectPreview {
                 context.getString(R.string.system_preview_example_text))
             putExtra(Intent.EXTRA_PROCESS_TEXT_READONLY, true)
         }
-        else -> buildIntent(context, kind, scenario)
+        else -> buildIntent(context, kind, scenario, request)
     }
 
     /**
@@ -484,7 +486,8 @@ internal object SystemEffectPreview {
     internal fun queryIntent(
         context: Context, kind: IntentKind,
         scenario: SystemProbeScenario = defaultProbeScenario(kind),
-    ): Intent = markedQueryIntent(candidateIntent(context, kind, scenario))
+        request: SystemProbeRequest? = null,
+    ): Intent = markedQueryIntent(candidateIntent(context, kind, scenario, request))
 
     /** Only PM read-only queries use the marker; do not attach it to native launches. */
     internal fun markedQueryIntent(intent: Intent): Intent = intent.apply {
@@ -492,18 +495,22 @@ internal object SystemEffectPreview {
     }
 
     private fun buildIntent(
-        context: Context, kind: IntentKind, scenario: SystemProbeScenario
+        context: Context, kind: IntentKind, scenario: SystemProbeScenario,
+        request: SystemProbeRequest? = null,
     ): Intent = when (kind) {
         IntentKind.SHARE, IntentKind.DIRECT_SHARE -> {
-            if (scenario == SystemProbeScenario.TEXT || kind == IntentKind.DIRECT_SHARE) {
+            val type = if (kind == IntentKind.DIRECT_SHARE)
+                request?.directShareType?.mime ?: "text/plain"
+                else scenario.mimeType ?: "text/plain"
+            if (type.startsWith("text/")) {
                 Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
+                    this.type = type
                     putExtra(Intent.EXTRA_TEXT, context.getString(R.string.system_preview_example_text))
                 }
             } else {
                 val uri = sampleFiles(context, scenario).first()
                 Intent(Intent.ACTION_SEND).apply {
-                    type = requireNotNull(scenario.mimeType)
+                    type = type
                     putExtra(Intent.EXTRA_STREAM, uri)
                     clipData = ClipData.newUri(context.contentResolver, "Preview", uri)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -532,15 +539,17 @@ internal object SystemEffectPreview {
                 scenario.mimeType ?: "text/plain")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
         }
-        IntentKind.OPEN -> Intent(Intent.ACTION_VIEW).apply {
+        IntentKind.OPEN -> request?.openPreset?.let(::scopedProbeUri)?.let { uri ->
+            Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+        } ?: Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(sampleFiles(context, scenario).first(),
-                scenario.mimeType ?: "text/plain")
+                request?.customMimeType ?: scenario.mimeType ?: "text/plain")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         IntentKind.DEEP_LINK ->
             Intent(Intent.ACTION_VIEW, Uri.parse(
-                if (scenario == SystemProbeScenario.HTTP) "http://example.com/"
-                else "https://example.com/"
+                (if (scenario == SystemProbeScenario.HTTP) "http://" else "https://") +
+                    (com.yagay.ListCleaner.domain.normalizeBrowserHost(request?.browserHost) ?: "example.com") + "/"
             )).apply { addCategory(Intent.CATEGORY_BROWSABLE) }
         IntentKind.DIAL -> Intent(Intent.ACTION_DIAL, Uri.parse("tel:0000000000"))
         IntentKind.GET_CONTENT -> Intent(Intent.ACTION_GET_CONTENT).apply {
