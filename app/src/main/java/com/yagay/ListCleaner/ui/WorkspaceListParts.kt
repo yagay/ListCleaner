@@ -242,7 +242,8 @@ internal fun WorkspaceDetailActionsMenu(
     onUnlock: () -> Unit,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
-    onEdit: (() -> Unit)? = null
+    onEdit: (() -> Unit)? = null,
+    editLabel: String? = null,
 ) {
     val actions = buildList {
         if (onPreview != null) {
@@ -253,7 +254,7 @@ internal fun WorkspaceDetailActionsMenu(
         }
         if (onEdit != null) {
             add(WorkspaceMenuAction(
-                label = stringResource(R.string.component_edit_display_name),
+                label = editLabel ?: stringResource(R.string.component_edit_display_name),
                 onClick = onEdit
             ))
         }
