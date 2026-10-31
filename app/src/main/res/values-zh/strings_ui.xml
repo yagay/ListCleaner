@@ -254,4 +254,6 @@
     <string name="notification_category_system">系统</string>
     <string name="notification_category_other">其他或未分类</string>
     <string name="notification_group_category_help">按 Android 消息、邮件、通话、闹钟等类别浏览当前通知</string>
+    <string name="lc_mode_follow_global">跟随全局默认</string>
+    <string name="lc_mode_settings_help">可修改全局默认模式，也可为当前入口分类设置独立模式。未指定的分类继续跟随全局。此模式控制系统候选列表，而不是 ListCleaner 内部的过滤按钮。</string>
 </resources>

@@ -254,4 +254,6 @@
     <string name="notification_category_system">System</string>
     <string name="notification_category_other">Other / unspecified</string>
     <string name="notification_group_category_help">Browse current notifications by Android message, email, call, alarm and other categories</string>
+    <string name="lc_mode_follow_global">Follow global default</string>
+    <string name="lc_mode_settings_help">Choose the global default or override the current Entry category. Categories without an override inherit the global mode. These settings affect system candidate visibility, not ListCleaner\u0027s own list filter.</string>
 </resources>
