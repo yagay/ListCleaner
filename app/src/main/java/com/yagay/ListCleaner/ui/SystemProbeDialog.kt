@@ -102,20 +102,12 @@ internal fun SystemProbeDialog(
         } ?: SystemProbeScenario.TEXT)
     }
     var scenarioMenu by remember { mutableStateOf(false) }
-    // AOSP separates actual resolver results, provider registries, enabled
-    // managers and shortcut history. Switching tabs never changes provenance.
-    // Provider registration lists are available through separate service queries,
-    // while their Settings destinations may be a merged OEM management screen.
-    // Show the correctly typed inventory first, not an absent "current picker".
+    // One result by default; technical source modes remain available only in Details.
+    // Autofill exposes a provider inventory rather than a public system picker.
     val providerInventory = request.entryKind == IntentKind.AUTOFILL
-    var viewMode by remember(request) { mutableStateOf(
-        if (providerInventory) PreviewListMode.CANDIDATES else when (UiPreferencesRuntime.current.previewDefault) {
-            UiPreviewDefault.CURRENT -> PreviewListMode.CURRENT
-            UiPreviewDefault.CANDIDATES -> PreviewListMode.CANDIDATES
-            UiPreviewDefault.ENABLED -> PreviewListMode.ENABLED
-            UiPreviewDefault.HISTORY -> PreviewListMode.HISTORY
-        }
-    ) }
+    var viewMode by remember(request) {
+        mutableStateOf(if (providerInventory) PreviewListMode.CANDIDATES else PreviewListMode.CURRENT)
+    }
     var showDetails by remember(request) { mutableStateOf(false) }
     var inspected by remember(request) { mutableStateOf<SystemProbeItem?>(null) }
     val gridColumns = (LocalConfiguration.current.screenWidthDp / 72).coerceIn(4, 8)
@@ -199,9 +191,14 @@ internal fun SystemProbeDialog(
             requestHost = queryHost,
         )
     } else null
-    val selectedResult = if (viewMode == PreviewListMode.ESTIMATED) {
-        predicted ?: PreviewListResult(emptyList(), PreviewListSource.UNAVAILABLE)
-    } else authoritativeSelection
+    val selectedResult = when {
+        viewMode == PreviewListMode.ESTIMATED ->
+            predicted ?: PreviewListResult(emptyList(), PreviewListSource.UNAVAILABLE)
+        viewMode == PreviewListMode.CURRENT &&
+            authoritativeSelection.source in setOf(PreviewListSource.API_RETURN, PreviewListSource.UNAVAILABLE) &&
+            predicted != null -> predicted
+        else -> authoritativeSelection
+    }
     val runtimeAvailable = selectedResult.source in setOf(
         PreviewListSource.HOOK_OBSERVATION, PreviewListSource.HOST_OBSERVATION
     )
@@ -294,7 +291,7 @@ internal fun SystemProbeDialog(
                         }
                     }
                 }
-                item(key = "preview-capability") {
+                if (showDetails) item(key = "preview-capability") {
                     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         AdaptiveText(
                             stringResource(request.entryKind?.let(::previewRouteNote)
@@ -337,46 +334,6 @@ internal fun SystemProbeDialog(
                         )
                     }
                 }
-                if (value != null) {
-                    item(key = "source-tabs") {
-                        val modes = buildList {
-                            add(PreviewListMode.CURRENT)
-                            if (predicted != null) add(PreviewListMode.ESTIMATED)
-                            if (value.diagnosticCandidates.isNotEmpty() ||
-                                value.items.isNotEmpty()) add(PreviewListMode.CANDIDATES)
-                            if (value.enabledItems.isNotEmpty() ||
-                                request.entryKind in setOf(
-                                    IntentKind.INPUT_METHOD, IntentKind.ACCESSIBILITY
-                                )) add(PreviewListMode.ENABLED)
-                            if (value.historicalItems.isNotEmpty() ||
-                                value.matchingRootsSnapshot != null ||
-                                value.observedThirdPartyRoots.isNotEmpty() ||
-                                value.unattributedReturn != null ||
-                                value.hostReturn != null || value.runtimeReturn != null)
-                                add(PreviewListMode.HISTORY)
-                        }
-                        Row(
-                            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            modes.forEach { mode ->
-                                AdaptiveFilterChip(
-                                    selected = viewMode == mode,
-                                    onClick = { viewMode = mode },
-                                    label = {
-                                        AdaptiveText(stringResource(when (mode) {
-                                            PreviewListMode.CURRENT -> R.string.preview_tab_current
-                                            PreviewListMode.ESTIMATED -> R.string.preview_tab_estimated
-                                            PreviewListMode.CANDIDATES -> R.string.preview_tab_candidates
-                                            PreviewListMode.ENABLED -> R.string.preview_tab_enabled
-                                            PreviewListMode.HISTORY -> R.string.preview_tab_history
-                                        }))
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
                 if (value == null) {
                     item(key = "loading") {
                         AdaptiveText(stringResource(R.string.system_probe_loading))
@@ -398,6 +355,13 @@ internal fun SystemProbeDialog(
                         }
                     }
                     if (selectedResult.source != PreviewListSource.UNAVAILABLE) {
+                        item(key = "preview-status") {
+                            AdaptiveText(
+                                stringResource(qualityRes),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                         item(key = "candidate-count") {
                             val countRes = when (selectedResult.source) {
                                 PreviewListSource.HOOK_OBSERVATION,
@@ -480,7 +444,7 @@ internal fun SystemProbeDialog(
                             }
                         }
                     }
-                    item(key = "quality") {
+                    if (showDetails) item(key = "quality") {
                         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             AdaptiveText(stringResource(qualityRes),
                                 fontWeight = FontWeight.SemiBold,
@@ -613,7 +577,11 @@ internal fun SystemProbeDialog(
                         }
                     }
                     item(key = "details-toggle") {
-                        AdaptiveTextButton(onClick = { showDetails = !showDetails }) {
+                        AdaptiveTextButton(onClick = {
+                            showDetails = !showDetails
+                            if (!showDetails) viewMode =
+                                if (providerInventory) PreviewListMode.CANDIDATES else PreviewListMode.CURRENT
+                        }) {
                             AdaptiveText(stringResource(
                                 if (showDetails) R.string.system_probe_details_hide
                                 else R.string.system_probe_details_show))
@@ -628,6 +596,44 @@ internal fun SystemProbeDialog(
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
+                    item(key = "source-tabs") {
+                        val modes = buildList {
+                            add(PreviewListMode.CURRENT)
+                            if (predicted != null) add(PreviewListMode.ESTIMATED)
+                            if (value.diagnosticCandidates.isNotEmpty() ||
+                                value.items.isNotEmpty()) add(PreviewListMode.CANDIDATES)
+                            if (value.enabledItems.isNotEmpty() ||
+                                request.entryKind in setOf(
+                                    IntentKind.INPUT_METHOD, IntentKind.ACCESSIBILITY
+                                )) add(PreviewListMode.ENABLED)
+                            if (value.historicalItems.isNotEmpty() ||
+                                value.matchingRootsSnapshot != null ||
+                                value.observedThirdPartyRoots.isNotEmpty() ||
+                                value.unattributedReturn != null ||
+                                value.hostReturn != null || value.runtimeReturn != null)
+                                add(PreviewListMode.HISTORY)
+                        }
+                        Row(
+                            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            modes.forEach { mode ->
+                                AdaptiveFilterChip(
+                                    selected = viewMode == mode,
+                                    onClick = { viewMode = mode },
+                                    label = {
+                                        AdaptiveText(stringResource(when (mode) {
+                                            PreviewListMode.CURRENT -> R.string.preview_tab_current
+                                            PreviewListMode.ESTIMATED -> R.string.preview_tab_estimated
+                                            PreviewListMode.CANDIDATES -> R.string.preview_tab_candidates
+                                            PreviewListMode.ENABLED -> R.string.preview_tab_enabled
+                                            PreviewListMode.HISTORY -> R.string.preview_tab_history
+                                        }))
+                                    }
+                                )
+                            }
+                        }
+                    }
                     }
                     item(key = "refresh") {
                         AdaptiveTextButton(onClick = { revision++ }) {
