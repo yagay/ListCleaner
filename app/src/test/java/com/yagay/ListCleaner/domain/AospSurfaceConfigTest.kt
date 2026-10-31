@@ -52,6 +52,34 @@ class AospSurfaceConfigTest {
         assertEquals(work, decoded.userSpaces.getValue(10).surfaceFilters)
     }
 
+    @Test fun retiredHomeAndRecentsRulesStayReadableForOldBackups() {
+        val legacyKinds = listOf(
+            SurfaceKind.LAUNCHER_DRAWER,
+            SurfaceKind.LAUNCHER_PREDICTIONS,
+            SurfaceKind.RECENTS,
+        )
+        val old = legacyKinds.fold(SurfaceFilterConfig()) { config, kind ->
+            config.withSelected(kind, setOf("com.example.legacy"))
+                .withLocked(kind, setOf("com.example.legacy"))
+        }.withPriorities(SurfaceKind.LAUNCHER_DRAWER, listOf("com.example.legacy"))
+        val store = ModuleConfig(
+            rules = emptySet(), mode = DisplayMode.HIDE_SELECTED,
+            priorities = PriorityConfig(), diagnostic = false,
+            surfaceFilters = old,
+            userSpaces = mapOf(10 to UserSpaceRules(surfaceFilters = old)),
+        ).validated()
+        val decoded = json.decodeFromString(
+            ModuleConfig.serializer(),
+            json.encodeToString(ModuleConfig.serializer(), store),
+        ).validated()
+        assertEquals(old, decoded.surfaceFilters)
+        assertEquals(old, decoded.userSpaces.getValue(10).surfaceFilters)
+        legacyKinds.forEach { kind ->
+            assertEquals(setOf("com.example.legacy"), decoded.surfaceFilters.selected(kind))
+            assertEquals(setOf("com.example.legacy"), decoded.surfaceFilters.locked(kind))
+        }
+    }
+
     @Test fun channelRulesRemainIndependentFromWholeAppHiding() {
         val config = SurfaceFilterConfig()
             .withChannelHidden("com.example.mail", "promotions", true)
