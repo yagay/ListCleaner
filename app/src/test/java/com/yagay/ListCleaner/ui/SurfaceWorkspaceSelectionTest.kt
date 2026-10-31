@@ -1,6 +1,7 @@
 package com.yagay.ListCleaner.ui
 
 import com.yagay.ListCleaner.runtime.ActiveNotificationRow
+import com.yagay.ListCleaner.runtime.RegisteredChannelRow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -34,6 +35,20 @@ class SurfaceWorkspaceSelectionTest {
     @Test fun allViewKeepsIndividualNotificationKeys() {
         val individual = groupActiveNotifications(rows, ActiveNotificationGrouping.ALL)
         assertEquals(rows.map { it.key }, individual.map { it.key })
+    }
+
+    @Test fun savedUnverifiedChannelsRemainEditableAndBulkSelectable() {
+        val pkg = "com.example.chat"
+        val present = RegisteredChannelRow(pkg, "messages", "Messages", 3)
+        val merged = notificationRuleChannelRows(
+            pkg, listOf(present),
+            hidden = setOf("$pkg|messages", "$pkg|legacy"),
+            locked = setOf("$pkg|legacy", "$pkg|admin"),
+        )
+        assertEquals(listOf("messages", "admin", "legacy"), merged.map { it.channelId })
+        assertEquals(merged.size, merged.map { it.channelId }.distinct().size)
+        assertTrue(notificationRuleChannelRows("com.example.other", emptyList(),
+            setOf("$pkg|legacy"), emptySet()).isEmpty())
     }
 
     @Test fun sharedSurfaceFilterMatchesMainCleanupFiltering() {
