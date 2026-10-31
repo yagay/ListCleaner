@@ -129,7 +129,13 @@ internal fun SurfaceChannelSettings(
             }.getOrDefault(name)
         }
     }
-    val visiblePackages = observedPackages.filter { name ->
+    // Only show apps with discovered channels. During scanning, apps whose
+    // inventories have not arrived remain hidden until a non-empty result is
+    // published. This is the Channels page's default, independent of filters.
+    val packagesWithChannels = observedPackages.filter { name ->
+        packageInventories[name]?.items?.isNotEmpty() == true
+    }
+    val visiblePackages = packagesWithChannels.filter { name ->
         pkg.isBlank() || name.contains(pkg.trim(), ignoreCase = true) ||
             packageLabels[name].orEmpty().contains(pkg.trim(), ignoreCase = true) ||
             packageInventories[name]?.items.orEmpty().any {
@@ -230,12 +236,13 @@ internal fun SurfaceChannelSettings(
         if (displayedPackages.isEmpty() && !scanning) item(key = "empty") {
             WorkspaceEmptyState(
                 message = stringResource(R.string.root_empty_filtered),
-                clearLabel = stringResource(R.string.root_clear_filters),
-                onClear = {
+                clearLabel = if (packagesWithChannels.isNotEmpty())
+                    stringResource(R.string.root_clear_filters) else null,
+                onClear = if (packagesWithChannels.isNotEmpty()) ({
                     uiState.searchQuery = ""
                     uiState.viewFilter = UiFilter.ALL
                     uiState.appTypeFilter = AppTypeFilter.ALL
-                },
+                }) else null,
             )
         }
         items(displayedPackages, key = { it }) { appPackage ->
