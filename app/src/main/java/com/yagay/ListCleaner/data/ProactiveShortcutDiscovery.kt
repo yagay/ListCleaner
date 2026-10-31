@@ -160,7 +160,7 @@ internal class UnifiedShortcutEngine(private val context: Context) {
                             !it.categories.isNullOrEmpty()) }
                     .take(MAX_CANDIDATES)
                     .flatMap { shortcut ->
-                        selectedKinds.asSequence().mapNotNull { kind ->
+                        selectedKinds.asSequence().filter { it == IntentKind.SHORTCUT_ITEM }.mapNotNull { kind ->
                             candidate(shortcut.`package`, shortcut.id,
                                 shortcut.activity?.className,
                                 shortcut.shortLabel?.toString().orEmpty(),
@@ -195,7 +195,7 @@ internal class UnifiedShortcutEngine(private val context: Context) {
                     ComponentName.unflattenFromString(flattened)
                         ?.takeIf { it.packageName == item.packageName }?.className
                 }
-                selectedKinds.mapNotNull { kind ->
+                selectedKinds.filter { it == IntentKind.SHORTCUT_ITEM }.mapNotNull { kind ->
                     candidate(item.packageName, item.shortcutId, activity,
                         item.label, "ROOT_SHELL", userId, kind)
                 }
