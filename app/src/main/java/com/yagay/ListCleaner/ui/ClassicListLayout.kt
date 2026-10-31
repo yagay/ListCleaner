@@ -31,14 +31,12 @@ internal fun ClassicCleanupTabs(
     onModeClick: () -> Unit = {},
     modeExpanded: Boolean = false,
     modeMenu: (@Composable () -> Unit)? = null,
-    previewActions: List<WorkspaceMenuAction> = emptyList(),
 ) {
     Surface(color = MaterialTheme.colorScheme.surface) {
         Column {
             if (active == ClassicCleanupMode.ENTRIES && modeLabel != null) {
-                // One clear Entry header row: "Entry Cleanup   Open · Show selected only".
-                // The trailing eye previews the current OS resolver list. Components
-                // remains available through its separate bottom navigation page.
+                // Keep Entry mode selection on this row. Preview now lives after
+                // Filter in the pinned toolbar, before bulk selection.
                 Row(
                     modifier = Modifier.fillMaxWidth()
                         .padding(horizontal = MaterialUiTokens.pageHorizontal),
@@ -78,11 +76,6 @@ internal fun ClassicCleanupTabs(
                         // not the whole Entry toolbar or a separate dialog window.
                         modeMenu?.invoke()
                     }
-                    WorkspaceCategoryPreviewIcon(
-                        actions = previewActions,
-                        touchSize = 48.dp,
-                        iconSize = 20.dp,
-                    )
                 }
             } else {
                 Row(
