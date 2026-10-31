@@ -109,4 +109,30 @@ class SystemPreviewProjectionTest {
         assertEquals(listOf("com.test.a", "com.test.b"), preview("unrelated.example"))
     }
 
+    @Test fun regularPreviewPreservesVerifiedHookOrder() {
+        val hooked = PreviewListResult(
+            listOf(SystemProbeItem("B", "com.test.b", "b.Main"),
+                SystemProbeItem("A", "com.test.a", "a.Main")),
+            PreviewListSource.HOOK_OBSERVATION,
+        )
+        val projected = PreviewListResult(
+            listOf(hooked.items[1], hooked.items[0]), PreviewListSource.ESTIMATED,
+        )
+        assertEquals(hooked, preferredPreviewResult(PreviewListMode.CURRENT, hooked, projected))
+    }
+
+    @Test fun regularPreviewAutomaticallyUsesEstimateWhenOnlyApiCandidatesAreAvailable() {
+        val api = PreviewListResult(
+            listOf(SystemProbeItem("A", "com.test.a", "a.Main")),
+            PreviewListSource.API_RETURN,
+        )
+        val estimated = PreviewListResult(
+            listOf(SystemProbeItem("B", "com.test.b", "b.Main")),
+            PreviewListSource.ESTIMATED,
+        )
+        assertEquals(estimated, preferredPreviewResult(PreviewListMode.CURRENT, api, estimated))
+        assertEquals(api, preferredPreviewResult(PreviewListMode.CANDIDATES, api, estimated))
+        assertEquals(api, preferredPreviewResult(PreviewListMode.CURRENT, api, null))
+    }
+
 }
