@@ -8,17 +8,14 @@ import org.junit.Test
 
 /** Every operational cleanup has one dedicated leaf; no cleanup remains in Settings. */
 class SurfaceManagementNavigationTest {
-    @Test fun fourGroupsContainAllManagementPages() {
+    @Test fun onlyThreeGroupsRemainAfterHomeRecentsRemoval() {
         assertEquals(
-            listOf(SurfaceManagerGroup.NOTIFICATIONS, SurfaceManagerGroup.LAUNCHER,
+            listOf(SurfaceManagerGroup.NOTIFICATIONS,
                 SurfaceManagerGroup.SYSTEM, SurfaceManagerGroup.MAINTENANCE),
             SurfaceManagerGroup.entries
         )
         assertEquals(1, SurfaceManagerPage.entries.count {
             it.group == SurfaceManagerGroup.NOTIFICATIONS
-        })
-        assertEquals(3, SurfaceManagerPage.entries.count {
-            it.group == SurfaceManagerGroup.LAUNCHER
         })
         assertEquals(4, SurfaceManagerPage.entries.count {
             it.group == SurfaceManagerGroup.SYSTEM
@@ -32,13 +29,17 @@ class SurfaceManagementNavigationTest {
         })
     }
 
-    @Test fun onlyNonConsolidatedAospFiltersHaveDedicatedNavigationEditors() {
+    @Test fun retiredLauncherSurfacesHaveNoNavigationEditors() {
         val mapped = SurfaceManagerPage.entries.mapNotNull { it.kind }
-        assertEquals(7, mapped.size)
-        // NOTIFICATION_SHADE is now edited alongside notification channels,
-        // rather than exposed as a second notification page.
-        assertEquals(SurfaceKind.entries.toSet() - SurfaceKind.NOTIFICATION_SHADE, mapped.toSet())
+        assertEquals(4, mapped.size)
+        val retired = setOf(SurfaceKind.LAUNCHER_DRAWER,
+            SurfaceKind.LAUNCHER_PREDICTIONS, SurfaceKind.RECENTS)
+        val combined = retired + SurfaceKind.NOTIFICATION_SHADE
+        assertEquals(SurfaceKind.entries.toSet() - combined, mapped.toSet())
         assertEquals(mapped.size, mapped.distinct().size)
+        assertFalse(SurfaceManagerPage.entries.any { it.name in setOf(
+            "DRAWER", "PREDICTIONS", "RECENTS"
+        ) })
     }
 
     @Test fun destructiveOperationsAreNotPresentedAsDisplayOnlyFilters() {
