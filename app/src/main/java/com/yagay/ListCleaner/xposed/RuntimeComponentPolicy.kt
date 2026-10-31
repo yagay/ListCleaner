@@ -1,5 +1,6 @@
 package com.yagay.ListCleaner.xposed
 
+import com.yagay.ListCleaner.domain.DirectShareTypeConfig
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
@@ -29,6 +30,7 @@ internal object RuntimePolicyCompiler {
         protectedComponents: Set<String>,
         displayMode: DisplayMode,
         entryRules: Collection<String>,
+        directShareTypes: DirectShareTypeConfig = DirectShareTypeConfig(),
         entryPriorities: Map<IntentKind, List<String>>,
         digest: String,
         authoritative: Boolean = digest.isNotEmpty(),
@@ -36,7 +38,7 @@ internal object RuntimePolicyCompiler {
         val canonical = linkedSetOf<String>()
         val byKind = linkedMapOf<IntentKind, MutableSet<String>>()
         val packagesByKind = linkedMapOf<IntentKind, MutableSet<String>>()
-        entryRules.forEach { id ->
+        (entryRules + directShareTypes.runtimeIds()).forEach { id ->
             val rule = ComponentRule.fromId(id) ?: return@forEach
             canonical += rule.id
             byKind.getOrPut(rule.kind) { linkedSetOf() } += rule.id
