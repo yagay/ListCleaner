@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="component_display_filters">列表显示过滤</string>
+    <string name="component_settings_apps">设置应用列表</string>
+    <string name="component_notifications">通知清理</string>
+    <string name="component_surface_app_rule">整个应用</string>
+    <string name="component_surface_channel_rule">通知频道</string>
+    <string name="component_surface_settings_rule">系统设置应用列表</string>
+    <string name="component_surface_hidden_summary">已隐藏 %1$d / %2$d 项</string>
+    <string name="component_surface_hide_note">选中表示在对应系统列表中隐藏，不会禁用 Android 组件或关闭通知权限。</string>
+    <string name="component_surface_unverified">已保存规则（尚未验证频道注册）</string>
+    <string name="component_surface_legacy_categories">旧通知类型规则</string>
+    <string name="component_surface_legacy_note">旧版全局类型规则仍会生效。取消勾选即可移除。</string>
+    <string name="component_surface_restore_order">恢复系统顺序</string>
+    <string name="component_surface_scanning">正在扫描已注册频道 %1$d / %2$d</string>
+    <string name="component_surface_locked_no_changes">选中项目已锁定或不可用，未应用任何修改。</string>
+</resources>
