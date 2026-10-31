@@ -276,4 +276,61 @@ class SystemPreviewSelectionTest {
         assertEquals(PreviewListSource.DIAGNOSTIC, selected.source)
         assertEquals(raw, selected.items.single())
     }
+    @Test fun chooserAdapterOrderPreservesExactComponentOrderAfterMatchedLaunch() {
+        val capture = RuntimeInterfaceSnapshot(
+            kind = IntentKind.SHARE.name, source = "CHOOSER_ADAPTER_ORDER",
+            callerUserId = 0, callerUid = 1000, callerPackage = "com.android.intentresolver",
+            requestAction = "android.intent.action.SEND", requestMimeType = "text/plain",
+            capturedAtMillis = now - 100L,
+            packages = listOf("com.example.b", "com.example.a"),
+            components = listOf("com.example.b/B", "com.example.a/A"),
+        )
+        val payload = result(raw).copy(orderedReturn = capture)
+        val observed = SystemPreviewSelection.select(
+            request(IntentKind.SHARE), payload, false, now, now - 1_000L, 12345,
+            expectedAction = "android.intent.action.SEND", expectedMimeType = "text/plain",
+        )
+        assertEquals(PreviewListSource.ORDERED_ADAPTER, observed.source)
+        assertEquals(listOf("com.example.b", "com.example.a"),
+            observed.items.map { it.packageName })
+        assertEquals(listOf("B", "A"), observed.items.map { it.className })
+        // No session verification means the capture cannot become the current order.
+        assertEquals(PreviewListSource.API_RETURN, SystemPreviewSelection.select(
+            request(IntentKind.SHARE), payload, false, now, null, 12345,
+            expectedAction = "android.intent.action.SEND", expectedMimeType = "text/plain",
+        ).source)
+    }
+
+    @Test fun sortedSnapshotCannotCrossMimeHostProfileOrSession() {
+        val capture = RuntimeInterfaceSnapshot(
+            kind = IntentKind.OPEN.name, source = "RESOLVER_RANKED_ORDER",
+            callerUserId = 0, callerUid = 1000, callerPackage = "android",
+            requestAction = "android.intent.action.VIEW", requestMimeType = "application/pdf",
+            requestHost = "",
+            capturedAtMillis = now - 100L, packages = listOf("com.example.reader"),
+            components = listOf("com.example.reader/Viewer"),
+        )
+        val payload = result(raw).copy(orderedReturn = capture)
+        fun select(
+            action: String = "android.intent.action.VIEW",
+            mime: String = "application/pdf",
+            host: String? = null,
+            started: Long = now - 500L,
+            candidate: RuntimeInterfaceSnapshot = capture,
+        ) = SystemPreviewSelection.select(
+            request(IntentKind.OPEN), payload.copy(orderedReturn = candidate),
+            false, now, started, 12345,
+            expectedAction = action, expectedMimeType = mime, expectedHost = host,
+        ).source
+        assertEquals(PreviewListSource.ORDERED_ADAPTER, select())
+        assertEquals(PreviewListSource.API_RETURN, select(mime = "image/png"))
+        assertEquals(PreviewListSource.API_RETURN, select(action = "android.intent.action.EDIT"))
+        assertEquals(PreviewListSource.API_RETURN, select(host = "example.com"))
+        assertEquals(PreviewListSource.API_RETURN, select(started = now))
+        assertEquals(PreviewListSource.API_RETURN, select(candidate = capture.copy(callerUserId = 10)))
+        assertEquals(PreviewListSource.API_RETURN, select(candidate = capture.copy(truncated = true)))
+        assertEquals(PreviewListSource.API_RETURN,
+            select(candidate = capture.copy(capturedAtMillis = now - 120_001L)))
+    }
+
 }
