@@ -58,14 +58,11 @@ internal enum class SurfaceManagerPage(
     val icon: ImageVector,
     val kind: SurfaceKind? = null,
 ) {
-    NOTIFICATIONS_CURRENT(SurfaceManagerGroup.NOTIFICATIONS, R.string.surface_notifications,
-        R.string.surface_notifications_help, Icons.Rounded.Notifications),
-    NOTIFICATIONS_TYPES(SurfaceManagerGroup.NOTIFICATIONS, R.string.notification_group_category,
-        R.string.notification_group_category_help, Icons.Rounded.Notifications),
-    NOTIFICATIONS_SHADE(SurfaceManagerGroup.NOTIFICATIONS, R.string.surface_aosp_notifications,
-        R.string.surface_shade_filter_help, Icons.Rounded.Apps, SurfaceKind.NOTIFICATION_SHADE),
-    NOTIFICATIONS_CHANNELS(SurfaceManagerGroup.NOTIFICATIONS, R.string.surface_channels_title,
-        R.string.surface_channels_help, Icons.Rounded.Tune),
+    // One notification entry: app-level hiding and channel-level hiding share
+    // the registered-channel inventory. Old category rules remain recoverable.
+    // Keep the old CHANNELS enum ID for saved navigation state compatibility.
+    NOTIFICATIONS_CHANNELS(SurfaceManagerGroup.NOTIFICATIONS, R.string.notification_cleanup_title,
+        R.string.notification_cleanup_help, Icons.Rounded.Notifications),
     DRAWER(SurfaceManagerGroup.LAUNCHER, R.string.surface_aosp_drawer,
         R.string.surface_drawer_filter_help, Icons.Rounded.Apps, SurfaceKind.LAUNCHER_DRAWER),
     PREDICTIONS(SurfaceManagerGroup.LAUNCHER, R.string.surface_aosp_predictions,
@@ -142,10 +139,6 @@ internal fun SurfaceManagementTab(
                 when (current) {
                     SurfaceManagerPage.NOTIFICATIONS_CHANNELS ->
                         SurfaceChannelSettings(vm, userId, activeNotifications, pendingNavigation, onSearchStateChanged, refreshRegistry)
-                    SurfaceManagerPage.NOTIFICATIONS_CURRENT ->
-                        ActiveNotificationManagement(vm, pendingNavigation, onSearchStateChanged = onSearchStateChanged, refreshRegistry = refreshRegistry)
-                    SurfaceManagerPage.NOTIFICATIONS_TYPES ->
-                        ActiveNotificationManagement(vm, pendingNavigation, ActiveNotificationGrouping.CATEGORY, onSearchStateChanged, refreshRegistry)
                     SurfaceManagerPage.INVALID_RULES ->
                         StaleRuleManagement(state, vm, pendingNavigation, onSearchStateChanged, refreshRegistry)
                     else ->
