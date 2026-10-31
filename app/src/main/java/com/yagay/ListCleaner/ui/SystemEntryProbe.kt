@@ -97,6 +97,8 @@ internal data class SystemProbeResult(
     val pickerProbeStatus: PickerProbeStatus? = null,
     /** Framework Hook post-filter return, distinct from both PM candidates and actual UI. */
     val runtimeReturn: RuntimeInterfaceSnapshot? = null,
+    /** Ordered app targets captured at the Resolver/Chooser adapter boundary; not final pixels. */
+    val orderedReturn: RuntimeInterfaceSnapshot? = null,
     /** Captured in a recognized system settings UID, not proof of its actual rendered rows. */
     val hostReturn: RuntimeInterfaceSnapshot? = null,
     /** Last same-user return from another caller; unverified unless explicitly attributed. */
@@ -126,9 +128,10 @@ internal object SystemEntryProbe {
             request.entryKind?.let { kind ->
                 val scenario = request.scenario ?: defaultProbeScenario(kind)
                 val initial = probeEntry(context, kind, scenario)
-                val (local, host, other) = readRuntimeReturns(context, kind)
+                val (local, host, other, ordered) = readRuntimeReturns(context, kind)
                 val result = initial.copy(
                     runtimeReturn = local,
+                    orderedReturn = ordered,
                     hostReturn = host,
                     unattributedReturn = other,
                 )
@@ -163,13 +166,14 @@ internal object SystemEntryProbe {
         val own: RuntimeInterfaceSnapshot?,
         val host: RuntimeInterfaceSnapshot?,
         val other: RuntimeInterfaceSnapshot?,
+        val ordered: RuntimeInterfaceSnapshot?,
     )
 
     private fun readRuntimeReturns(
         context: Context, kind: IntentKind,
     ): RuntimeObservations = runCatching {
         val app = context.applicationContext as? ListCleanerApp
-            ?: return@runCatching RuntimeObservations(null, null, null)
+            ?: return@runCatching RuntimeObservations(null, null, null, null)
         val prefs = app.currentSession()?.service
             ?.getRemotePreferences(RuleRepository.REMOTE_PREFS)
             ?: return@runCatching RuntimeObservations(null, null, null)
@@ -180,6 +184,11 @@ internal object SystemEntryProbe {
         )?.takeIf { it.callerUserId == ourUser }
         val local = decode(RuntimeInterfaceSnapshotCodec.keyForCaller(kind, ownUid))
         val last = decode(RuntimeInterfaceSnapshotCodec.key(kind))
+        val ordered = decode(RuntimeInterfaceSnapshotCodec.keyForResolverOrder(kind))
+            ?.takeIf {
+                it.source in setOf("CHOOSER_ADAPTER_ORDER", "RESOLVER_RANKED_ORDER") &&
+                    (it.callerPackage.substringBefore(':') in setOf("android", "com.android.intentresolver"))
+            }
         // Do not silently substitute a random application's manager call.
         // A Settings UID observation is separately labeled, even though
         // a shared UID does not prove which Activity was rendered.
@@ -192,6 +201,7 @@ internal object SystemEntryProbe {
                 .maxByOrNull { it.capturedAtMillis },
             host = host,
             other = last?.takeIf { it.callerUid != ownUid && it !== host },
+            ordered = ordered,
         )
     }.getOrDefault(RuntimeObservations(null, null, null))
 
