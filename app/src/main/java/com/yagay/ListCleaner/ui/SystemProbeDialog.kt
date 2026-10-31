@@ -4,6 +4,15 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.weight
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -49,6 +58,7 @@ import kotlinx.coroutines.withContext
  * Source-first system probe. Keep the actionable answer visible without an entire page of
  * legal/technical disclaimers; diagnostics and limitations are explicit secondary disclosures.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SystemProbeDialog(
     request: SystemProbeRequest,
@@ -109,6 +119,8 @@ internal fun SystemProbeDialog(
         }
     ) }
     var showDetails by remember(request) { mutableStateOf(false) }
+    var inspected by remember(request) { mutableStateOf<SystemProbeItem?>(null) }
+    val gridColumns = (LocalConfiguration.current.screenWidthDp / 72).coerceIn(4, 8)
 
     val choices = request.entryKind?.let(::availableProbeScenarios).orEmpty()
     val nativeRoute = request.entryKind?.let(::systemPreviewRoute)
@@ -233,14 +245,25 @@ internal fun SystemProbeDialog(
         PreviewListSource.UNAVAILABLE -> R.string.system_probe_quality_unavailable
     }
 
-    AdaptiveAlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = {
-            AdaptiveText(title, style = MaterialTheme.typography.titleLarge)
-        },
-        text = {
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetMaxWidth = Dp.Unspecified,
+        modifier = Modifier.fillMaxHeight(0.98f),
+    ) {
+        Column(Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AdaptiveText(title, style = MaterialTheme.typography.titleLarge, maxLines = 1)
+                AdaptiveTextButton(onClick = onDismiss) {
+                    AdaptiveText(stringResource(R.string.system_probe_close))
+                }
+            }
             LazyColumn(
-                Modifier.fillMaxWidth().heightIn(max = 430.dp),
+                Modifier.fillMaxWidth().weight(1f).padding(horizontal = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 if (choices.size > 1) {
@@ -357,6 +380,104 @@ internal fun SystemProbeDialog(
                         AdaptiveText(stringResource(R.string.system_probe_loading))
                     }
                 } else {
+                    if (selectedResult.source == PreviewListSource.UNAVAILABLE) {
+                        item(key = "no-confirmed-preview") {
+                            AdaptiveText(
+                                stringResource(when {
+                                    documentPicker -> R.string.system_probe_no_matched_document_roots
+                                    request.entryKind in setOf(
+                                        IntentKind.ACCESSIBILITY, IntentKind.PRINT
+                                    ) -> R.string.system_probe_no_filtered_manager_return
+                                    else -> R.string.preview_no_verified_list
+                                }),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                    if (selectedResult.source != PreviewListSource.UNAVAILABLE) {
+                        item(key = "candidate-count") {
+                            val countRes = when (selectedResult.source) {
+                                PreviewListSource.HOOK_OBSERVATION,
+                                PreviewListSource.HOST_OBSERVATION,
+                                PreviewListSource.AUTHORITY_ENABLED ->
+                                    R.string.system_probe_count_enabled
+                                PreviewListSource.HISTORY -> R.string.preview_count_history
+                                PreviewListSource.ESTIMATED -> R.string.preview_estimated_count
+                                else -> R.string.system_probe_count_candidate
+                            }
+                            AdaptiveText(stringResource(countRes, displayed.size, distinctApps),
+                                style = MaterialTheme.typography.titleSmall)
+                        }
+                        if (request.focusPackage != null) {
+                            item(key = "target") {
+                                val matches = displayed.any(request::matches)
+                                AdaptiveText(stringResource(
+                                    if (matches) R.string.system_probe_target_found
+                                    else R.string.system_probe_target_missing, request.focusPackage),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (matches) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        if (documentPicker && !diagnostic) {
+                            item(key = "document-root-qualification") {
+                                AdaptiveText(
+                                    stringResource(if (documentSnapshot == null)
+                                        R.string.system_probe_no_matched_document_roots
+                                    else R.string.system_probe_document_roots_qualified),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
+                        if (runtimeAvailable && runtimePackages.isEmpty() && runtimeComponents.isEmpty()) {
+                            item(key = "post-filter-empty") {
+                                AdaptiveText(
+                                    "Observed Hook post-filter result is empty (the originating request is not independently verified).",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        } else if (!documentPicker && !runtimeAvailable && !diagnostic &&
+                            selectedResult.source == PreviewListSource.API_RETURN) {
+                            item(key = "post-filter-stale") {
+                                AdaptiveText(
+                                    "API return shown; Hook filtering cannot be independently verified for this request. The API result may already be filtered.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
+                        if (displayed.isEmpty()) {
+                            item(key = "empty") {
+                                AdaptiveText(stringResource(R.string.system_probe_empty))
+                            }
+                        }
+                        // Rows remain lazy while the grid shows considerably more entries
+                        // at once. All components are retained, even if an app repeats.
+                        items(
+                            displayed.chunked(gridColumns),
+                            key = { row -> "grid:" + row.first().component },
+                        ) { row ->
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                row.forEach { entry ->
+                                    SystemProbeCompactTile(
+                                        item = entry,
+                                        focused = request.matches(entry),
+                                        onInspect = { inspected = entry },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
+                                repeat(gridColumns - row.size) {
+                                    Spacer(Modifier.weight(1f))
+                                }
+                            }
+                        }
+                    }
                     item(key = "quality") {
                         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             AdaptiveText(stringResource(qualityRes),
@@ -489,108 +610,6 @@ internal fun SystemProbeDialog(
 
                         }
                     }
-                    if (selectedResult.source == PreviewListSource.UNAVAILABLE) {
-                        item(key = "no-confirmed-preview") {
-                            AdaptiveText(
-                                stringResource(when {
-                                    documentPicker -> R.string.system_probe_no_matched_document_roots
-                                    request.entryKind in setOf(
-                                        IntentKind.ACCESSIBILITY, IntentKind.PRINT
-                                    ) -> R.string.system_probe_no_filtered_manager_return
-                                    else -> R.string.preview_no_verified_list
-                                }),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-                    }
-                    if (selectedResult.source != PreviewListSource.UNAVAILABLE) {
-                        item(key = "candidate-count") {
-                            val countRes = when (selectedResult.source) {
-                                PreviewListSource.HOOK_OBSERVATION,
-                                PreviewListSource.HOST_OBSERVATION,
-                                PreviewListSource.AUTHORITY_ENABLED ->
-                                    R.string.system_probe_count_enabled
-                                PreviewListSource.HISTORY -> R.string.preview_count_history
-                                PreviewListSource.ESTIMATED -> R.string.preview_estimated_count
-                                else -> R.string.system_probe_count_candidate
-                            }
-                            AdaptiveText(stringResource(countRes, displayed.size, distinctApps),
-                                style = MaterialTheme.typography.titleSmall)
-                        }
-                        if (request.focusPackage != null) {
-                            item(key = "target") {
-                                val matches = displayed.any(request::matches)
-                                AdaptiveText(stringResource(
-                                    if (matches) R.string.system_probe_target_found
-                                    else R.string.system_probe_target_missing, request.focusPackage),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (matches) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                        if (documentPicker && !diagnostic) {
-                            item(key = "document-root-qualification") {
-                                AdaptiveText(
-                                    stringResource(if (documentSnapshot == null)
-                                        R.string.system_probe_no_matched_document_roots
-                                    else R.string.system_probe_document_roots_qualified),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                            }
-                        }
-                        if (runtimeAvailable && runtimePackages.isEmpty() && runtimeComponents.isEmpty()) {
-                            item(key = "post-filter-empty") {
-                                AdaptiveText(
-                                    "Observed Hook post-filter result is empty (the originating request is not independently verified).",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                            }
-                        } else if (!documentPicker && !runtimeAvailable && !diagnostic &&
-                            selectedResult.source == PreviewListSource.API_RETURN) {
-                            item(key = "post-filter-stale") {
-                                AdaptiveText(
-                                    "API return shown; Hook filtering cannot be independently verified for this request. The API result may already be filtered.",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                            }
-                        }
-                        if (displayed.isEmpty()) {
-                            item(key = "empty") {
-                                AdaptiveText(stringResource(R.string.system_probe_empty))
-                            }
-                        }
-                        // Show every queried entry immediately. Package-level folding hid the
-                        // requested list behind counts and extra taps.
-                        items(displayed, key = { it.component }) { entry ->
-                            val selected = request.matches(entry)
-                            FlatRowSurface(dividerInset = 0.dp) {
-                            Column(
-                                Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                                verticalArrangement = Arrangement.spacedBy(2.dp),
-                            ) {
-                                AdaptiveText(
-                                    entry.appLabel,
-                                    fontWeight = if (selected) FontWeight.SemiBold
-                                        else FontWeight.Medium,
-                                    color = if (selected) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.onSurface,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
-                                if (entry.label != entry.appLabel) {
-                                    AdaptiveText(entry.label,
-                                        style = MaterialTheme.typography.bodySmall)
-                                }
-                                AdaptiveText(entry.component,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            }
-                        }
-                    }
                     item(key = "details-toggle") {
                         AdaptiveTextButton(onClick = { showDetails = !showDetails }) {
                             AdaptiveText(stringResource(
@@ -615,10 +634,13 @@ internal fun SystemProbeDialog(
                     }
                 }
             }
-        },
-        confirmButton = {
             if (nativeAvailable || scenarioTestAvailable || providerInventory) {
-                Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     if (providerInventory) {
                         // Open AOSP Settings combined picker when exported on this ROM.
                         // The navigator uses public Settings pages if OEM removed it.
@@ -715,18 +737,27 @@ internal fun SystemProbeDialog(
                         }
                     }
                 }
-            } else {
-                AdaptiveTextButton(onClick = onDismiss) {
+            }
+        }
+    }
+
+    inspected?.let { entry ->
+        AdaptiveAlertDialog(
+            onDismissRequest = { inspected = null },
+            title = { AdaptiveText(entry.appLabel, style = MaterialTheme.typography.titleMedium) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    AdaptiveText(entry.label, style = MaterialTheme.typography.bodyMedium)
+                    AdaptiveText(entry.component,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
+            confirmButton = {
+                AdaptiveTextButton(onClick = { inspected = null }) {
                     AdaptiveText(stringResource(R.string.system_probe_close))
                 }
-            }
-        },
-        dismissButton = {
-            if (nativeAvailable || scenarioTestAvailable || providerInventory) {
-                AdaptiveTextButton(onClick = onDismiss) {
-                    AdaptiveText(stringResource(R.string.system_probe_close))
-                }
-            }
-        },
-    )
+            },
+        )
+    }
 }
