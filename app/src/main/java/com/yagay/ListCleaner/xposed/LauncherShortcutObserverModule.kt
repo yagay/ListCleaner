@@ -1,6 +1,5 @@
 package com.yagay.ListCleaner.xposed
 
-import android.app.ActivityThread
 import android.content.Context
 import android.content.pm.LauncherApps
 import android.content.pm.ShortcutInfo
@@ -52,14 +51,14 @@ class LauncherShortcutObserverModule : XposedModule() {
 
     override fun onPackageReady(param: PackageReadyParam) {
         if (param.packageName !in LAUNCHERS ||
-            param.processName.substringBefore(':') != param.packageName
+            processName.substringBefore(':') != param.packageName
         ) return
         // PackageReady timing varies with the LSPosed implementation and OEM
         // Application.attach. Retry obtaining the existing HOME application,
         // rather than hooking every Application in the launcher process.
         fun bootstrap(remaining: Int) {
             if (started) return
-            val context = runCatching { ActivityThread.currentApplication() }.getOrNull()
+            val context = currentApplication()
             if (context == null) {
                 if (remaining > 0) main.postDelayed({ bootstrap(remaining - 1) }, 500L)
                 else record("SCAN_UNAVAILABLE reason=application_not_ready")
@@ -109,7 +108,7 @@ class LauncherShortcutObserverModule : XposedModule() {
         if (!worker.isShutdown) worker.execute {
             // Coalesce frequent callbacks without blocking launcher/UI threads.
             if (System.currentTimeMillis() - lastScan >= MIN_SCAN_INTERVAL_MS) {
-                val context = runCatching { ActivityThread.currentApplication() }.getOrNull()
+                val context = currentApplication()
                 val launcher = context?.getSystemService(LauncherApps::class.java)
                 if (context != null && launcher != null) scan(context, launcher)
             }
@@ -181,6 +180,12 @@ class LauncherShortcutObserverModule : XposedModule() {
         lastScan = System.currentTimeMillis()
         record("SCAN_FINISHED profiles=${profiles.size} shortcuts=$count")
     }
+
+    private fun currentApplication(): Context? = runCatching {
+        Class.forName("android.app.ActivityThread")
+            .getDeclaredMethod("currentApplication")
+            .invoke(null) as? Context
+    }.getOrNull()
 
     private fun record(message: String) {
         val line = "pid=${Process.myPid()} process=$processName $message"
