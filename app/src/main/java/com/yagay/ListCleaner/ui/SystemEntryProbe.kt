@@ -38,6 +38,10 @@ internal data class SystemProbeRequest(
     val componentKind: CleanupKind? = null,
     val userId: Int,
     val scenario: SystemProbeScenario? = null,
+    val openPreset: com.yagay.ListCleaner.domain.OpenPreset? = null,
+    val browserHost: String? = null,
+    val directShareType: com.yagay.ListCleaner.domain.DirectShareType? = null,
+    val customMimeType: String? = null,
     val focusPackage: String? = null,
     val focusClass: String? = null,
 ) {
@@ -127,7 +131,7 @@ internal object SystemEntryProbe {
         return try {
             request.entryKind?.let { kind ->
                 val scenario = request.scenario ?: defaultProbeScenario(kind)
-                val initial = probeEntry(context, kind, scenario)
+                val initial = probeEntry(context, kind, scenario, request)
                 val (local, host, other, ordered) = readRuntimeReturns(context, kind)
                 val result = initial.copy(
                     runtimeReturn = local,
@@ -274,6 +278,7 @@ internal object SystemEntryProbe {
 
     private fun probeEntry(
         context: Context, kind: IntentKind, scenario: SystemProbeScenario,
+        request: SystemProbeRequest,
     ): SystemProbeResult {
         val pm = context.packageManager
         return when (kind.previewAuthority()) {
@@ -294,7 +299,7 @@ internal object SystemEntryProbe {
                         matchingRootsSnapshot = matching,
                     )
                 } else {
-                    val intent = SystemEffectPreview.queryIntent(context, kind, scenario)
+                    val intent = SystemEffectPreview.queryIntent(context, kind, scenario, request)
                     val host = pm.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
                         ?.activityInfo?.let { activity ->
                             SystemProbeItem(
