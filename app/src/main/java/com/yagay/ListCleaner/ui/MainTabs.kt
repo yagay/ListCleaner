@@ -716,7 +716,16 @@ fun PriorityTab(state: MainState, vm: MainViewModel, pendingNavigation: PendingN
 @Composable
 private fun entryCurrentModeLabel(state: MainState): String {
     val effective = currentEntryDisplayMode(state.filter, state.displayMode, state.modeOverrides)
-    val label = effective?.let { stringResource(it.titleRes()) }
-        ?: stringResource(R.string.lc_mode_mixed_categories)
-    return stringResource(R.string.lc_mode_current_format, label)
+    val category = when (state.filter) {
+        IntentKind.OPEN -> stringResource(R.string.lc_mode_open_short)
+        null -> stringResource(R.string.common_all)
+        else -> stringResource(requireNotNull(state.filter).titleRes())
+    }
+    val mode = when (effective) {
+        DisplayMode.HIDE_SELECTED -> stringResource(R.string.lc_mode_header_hide)
+        DisplayMode.SHOW_SELECTED -> stringResource(R.string.lc_mode_header_show)
+        DisplayMode.SHOW_ALL -> stringResource(R.string.lc_mode_header_all)
+        null -> stringResource(R.string.lc_mode_mixed_categories)
+    }
+    return stringResource(R.string.lc_mode_header_category_format, category, mode)
 }

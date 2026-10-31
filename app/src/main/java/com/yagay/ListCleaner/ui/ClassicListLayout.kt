@@ -6,6 +6,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -31,46 +32,83 @@ internal fun ClassicCleanupTabs(
 ) {
     Surface(color = MaterialTheme.colorScheme.surface) {
         Column {
-            Row(
-                modifier = Modifier.fillMaxWidth()
-                    .padding(horizontal = MaterialUiTokens.pageHorizontal),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                FlatCleanupModeTab(
-                    label = stringResource(R.string.lc_cleanup_mode_entry_short),
-                    description = stringResource(R.string.workspace_rule_section),
-                    selected = active == ClassicCleanupMode.ENTRIES,
-                    onClick = onEntries,
-                    modifier = Modifier.weight(1f)
-                )
-                if (active == ClassicCleanupMode.ENTRIES && modeLabel != null) {
+            if (active == ClassicCleanupMode.ENTRIES && modeLabel != null) {
+                // One clear Entry header row: "Entry Cleanup   Open · Show selected only".
+                // Keep a compact Components shortcut rather than shrinking the mode label
+                // between two full-width text tabs (which made it difficult to read).
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(horizontal = MaterialUiTokens.pageHorizontal),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    WorkspaceControlLabel(
+                        stringResource(R.string.lc_entry_cleanup_header),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                     Surface(
                         onClick = onModeClick,
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        shape = RectangleShape,
                         color = MaterialTheme.colorScheme.surface,
-                        modifier = Modifier.heightIn(min = 48.dp),
                     ) {
                         Row(
-                            Modifier.padding(horizontal = 3.dp),
+                            modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.End,
                         ) {
-                            AdaptiveText(
+                            WorkspaceControlLabel(
                                 modeLabel,
-                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.weight(1f),
+                                textAlign = TextAlign.End,
                                 color = MaterialTheme.colorScheme.primary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
                             )
-                            AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(15.dp))
+                            AdaptiveIcon(
+                                Icons.Rounded.ExpandMore,
+                                null,
+                                Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                    Surface(
+                        onClick = onComponents,
+                        modifier = Modifier.size(48.dp).semantics {
+                            contentDescription = stringResource(R.string.lc_cleanup_mode_component_short)
+                        },
+                        shape = RectangleShape,
+                        color = MaterialTheme.colorScheme.surface,
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            AdaptiveIcon(
+                                Icons.Rounded.GridView,
+                                stringResource(R.string.lc_cleanup_mode_component_short),
+                                Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                 }
-                FlatCleanupModeTab(
-                    label = stringResource(R.string.lc_cleanup_mode_component_short),
-                    description = stringResource(R.string.root_screen_title),
-                    selected = active == ClassicCleanupMode.COMPONENTS,
-                    onClick = onComponents,
-                    modifier = Modifier.weight(1f)
-                )
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(horizontal = MaterialUiTokens.pageHorizontal),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    FlatCleanupModeTab(
+                        label = stringResource(R.string.lc_cleanup_mode_entry_short),
+                        description = stringResource(R.string.workspace_rule_section),
+                        selected = active == ClassicCleanupMode.ENTRIES,
+                        onClick = onEntries,
+                        modifier = Modifier.weight(1f),
+                    )
+                    FlatCleanupModeTab(
+                        label = stringResource(R.string.lc_cleanup_mode_component_short),
+                        description = stringResource(R.string.root_screen_title),
+                        selected = active == ClassicCleanupMode.COMPONENTS,
+                        onClick = onComponents,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
             AdaptiveHorizontalDivider(thickness = 0.5.dp)
         }

@@ -267,4 +267,10 @@
     <string name="lc_mode_inherit_count">All %1$d kinds follow global</string>
     <string name="lc_mode_current_format">Mode: %1$s</string>
     <string name="lc_mode_mixed_categories">By category</string>
+    <string name="lc_entry_cleanup_header">Entry Cleanup</string>
+    <string name="lc_mode_open_short">Open</string>
+    <string name="lc_mode_header_hide">Hide selected</string>
+    <string name="lc_mode_header_show">Show selected only</string>
+    <string name="lc_mode_header_all">Show all</string>
+    <string name="lc_mode_header_category_format">%1$s · %2$s</string>
 </resources>

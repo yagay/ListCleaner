@@ -267,4 +267,10 @@
     <string name="lc_mode_inherit_count">%1$d 项全部跟随全局</string>
     <string name="lc_mode_current_format">当前：%1$s</string>
     <string name="lc_mode_mixed_categories">按分类</string>
+    <string name="lc_entry_cleanup_header">入口清理</string>
+    <string name="lc_mode_open_short">Open</string>
+    <string name="lc_mode_header_hide">隐藏已选</string>
+    <string name="lc_mode_header_show">仅显示已选</string>
+    <string name="lc_mode_header_all">显示全部</string>
+    <string name="lc_mode_header_category_format">%1$s · %2$s</string>
 </resources>
