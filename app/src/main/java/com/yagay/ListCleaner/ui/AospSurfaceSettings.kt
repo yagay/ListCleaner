@@ -66,6 +66,7 @@ internal fun AospSurfaceSettings(
     val query = uiState.searchQuery
     val viewFilter = uiState.viewFilter
     val appCategory = uiState.appTypeFilter
+    var sorting by remember(userId, selectedKind) { mutableStateOf(false) }
     var refreshRevision by remember(userId, selectedKind) { mutableStateOf(0) }
     val guardOwner = remember(userId, selectedKind) { Any() }
     RegisterPendingNavigation(
@@ -132,6 +133,9 @@ internal fun AospSurfaceSettings(
                 appTypeFilter = appCategory,
                 onAppTypeFilter = { uiState.appTypeFilter = it; UiPreferencesStore.rememberAppType(context, it, "lists_aosp_${selectedKind.name}") },
                 showAppTypeFilter = applicationBased,
+                sortSupported = selectedKind.supportsSurfaceOrdering(),
+                sorting = sorting,
+                onToggleSort = { sorting = !sorting },
                 actions = listOf(
                     WorkspaceMenuAction(stringResource(R.string.select_all), {
                         val label = context.getString(R.string.select_all)
@@ -210,12 +214,20 @@ internal fun AospSurfaceSettings(
                         if (isLocked) locked - id else locked + id)
                 },
             ))
-            if (selectedKind.supportsSurfaceOrdering()) {
+            if (selectedKind.supportsSurfaceOrdering() && sorting) {
+                fun move(direction: Int) {
+                    val baseOrder = (draft.priorities(selectedKind) +
+                        entries.map { it.first }).distinct().take(2000)
+                    if (id in baseOrder) {
+                        draft = draft.withPriorities(selectedKind, baseOrder)
+                            .movePriority(selectedKind, id, direction)
+                    }
+                }
                 add(WorkspaceMenuAction(context.getString(R.string.surface_move_earlier), {
-                    draft = draft.movePriority(selectedKind, id, -1)
+                    move(-1)
                 }))
                 add(WorkspaceMenuAction(context.getString(R.string.surface_move_later), {
-                    draft = draft.movePriority(selectedKind, id, 1)
+                    move(1)
                 }))
             }
         }
