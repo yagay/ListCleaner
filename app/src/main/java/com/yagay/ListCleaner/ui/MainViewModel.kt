@@ -372,7 +372,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         app.rules.hiddenFromApps,
         app.rules.openTypes,
     ) { displayMode, priorities, diagnosticMode, hiddenFromApps, openTypes ->
-        RuleInputs(displayMode, priorities, diagnosticMode, hiddenFromApps, openTypes)
+        RuleInputs(
+            displayMode = displayMode,
+            priorities = priorities,
+            diagnosticMode = diagnosticMode,
+            hiddenFromApps = hiddenFromApps,
+            openTypes = openTypes,
+        )
     }.combine(app.rules.directShareTypes) { input, types ->
         input.copy(directShareTypes = types)
     }.combine(app.rules.modeOverrides) { input, overrides ->
