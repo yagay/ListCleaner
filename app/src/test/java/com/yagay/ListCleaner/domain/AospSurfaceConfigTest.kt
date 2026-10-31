@@ -90,6 +90,48 @@ class AospSurfaceConfigTest {
             "com.example.other" in after.selected(SurfaceKind.LAUNCHER_DRAWER))
     }
 
+    @Test fun systemTileNamesArePerComponentAndCanRestoreOriginal() {
+        val one = "com.example.tiles/com.example.tiles.FirstTile"
+        val two = "com.example.tiles/com.example.tiles.SecondTile"
+        val policy = SurfaceFilterConfig()
+            .withTileLabel(one, "Office VPN")
+            .withTileLabel(two, "Workspace")
+        assertEquals("Office VPN", policy.tileLabels[one])
+        assertEquals("Workspace", policy.tileLabels[two])
+        val roundTrip = json.decodeFromString(SurfaceFilterConfig.serializer(),
+            json.encodeToString(SurfaceFilterConfig.serializer(), policy)).validated()
+        assertEquals(policy, roundTrip)
+        val restored = roundTrip.withTileLabel(one, null)
+        assertFalse(one in restored.tileLabels)
+        assertEquals("Workspace", restored.tileLabels[two])
+    }
+
+    @Test fun systemTileNamesAreKeptSeparateAcrossAndroidProfiles() {
+        val tile = "com.example.tiles/com.example.tiles.VpnTile"
+        val personal = SurfaceFilterConfig().withTileLabel(tile, "Personal VPN")
+        val work = SurfaceFilterConfig().withTileLabel(tile, "Work VPN")
+        val config = ModuleConfig(
+            rules = emptySet(), mode = DisplayMode.HIDE_SELECTED,
+            priorities = PriorityConfig(), diagnostic = false,
+            surfaceFilters = personal,
+            userSpaces = mapOf(10 to UserSpaceRules(surfaceFilters = work))
+        ).validated()
+        val decoded = json.decodeFromString(ModuleConfig.serializer(),
+            json.encodeToString(ModuleConfig.serializer(), config)).validated()
+        assertEquals("Personal VPN", decoded.surfaceFilters.tileLabels[tile])
+        assertEquals("Work VPN", decoded.userSpaces.getValue(10).surfaceFilters.tileLabels[tile])
+    }
+
+    @Test fun tileNamesRejectInvalidComponentsAndControlCharacters() {
+        assertThrows(IllegalArgumentException::class.java) {
+            SurfaceFilterConfig().withTileLabel("not-a-component", "Test")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            SurfaceFilterConfig().withTileLabel(
+                "com.example.tiles/com.example.tiles.One", "Hello\nworld")
+        }
+    }
+
     @Test fun oldConfigurationWithoutSurfaceRulesStillLoadsSafely() {
         val old = """{"rules":[],"mode":"HIDE_SELECTED","priorities":{},"diagnostic":false}"""
         val config = json.decodeFromString(ModuleConfig.serializer(), old).validated()
