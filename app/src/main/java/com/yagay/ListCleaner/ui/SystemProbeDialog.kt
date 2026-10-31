@@ -62,6 +62,8 @@ internal fun SystemProbeDialog(
     request: SystemProbeRequest,
     onDismiss: () -> Unit,
     previewState: MainState? = null,
+    previewScopedSelection: Set<com.yagay.ListCleaner.domain.ComponentRule>? = null,
+    hasPendingDraft: Boolean = false,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -112,7 +114,8 @@ internal fun SystemProbeDialog(
     var inspected by remember(request) { mutableStateOf<SystemProbeItem?>(null) }
     val gridColumns = (LocalConfiguration.current.screenWidthDp / 72).coerceIn(4, 8)
 
-    val choices = request.entryKind?.let(::availableProbeScenarios).orEmpty()
+    val choices = if (request.openPreset != null || request.directShareType != null)
+        emptyList() else request.entryKind?.let(::availableProbeScenarios).orEmpty()
     val nativeRoute = request.entryKind?.let(::systemPreviewRoute)
         ?: request.componentKind?.let(::systemPreviewRoute)
         ?: SystemPreviewRoute.UNAVAILABLE
@@ -155,7 +158,7 @@ internal fun SystemProbeDialog(
         ?: ""
     val value = response
     val testedIntent = runCatching {
-        request.entryKind?.let { SystemEffectPreview.queryIntent(context, it, scenario) }
+        request.entryKind?.let { SystemEffectPreview.queryIntent(context, it, scenario, activeRequest) }
     }.getOrNull()
     val effectiveIntent = testedIntent?.let { it.selector ?: it }
     val authoritativeSelection = SystemPreviewSelection.select(
@@ -183,10 +186,19 @@ internal fun SystemProbeDialog(
             openTypes = previewState.openTypesExplicit,
             browserLinks = previewState.browserLinks,
             scenario = scenario,
-            requestHost = queryHost,
+            requestHost = request.browserHost ?: queryHost,
+            requestedPreset = request.openPreset,
+            directShareType = request.directShareType,
+            scopeSelected = previewScopedSelection,
+            mimeOverride = request.customMimeType,
         )
     } else null
-    val selectedResult = preferredPreviewResult(viewMode, authoritativeSelection, predicted)
+    val selectedResult = preferredPreviewResult(
+        viewMode, authoritativeSelection, predicted,
+        kind = request.entryKind,
+        hasPendingDraft = hasPendingDraft,
+        directShareType = request.directShareType,
+    )
     val runtimeAvailable = selectedResult.source in setOf(
         PreviewListSource.HOOK_OBSERVATION, PreviewListSource.HOST_OBSERVATION,
         PreviewListSource.ORDERED_ADAPTER,
@@ -349,7 +361,11 @@ internal fun SystemProbeDialog(
                     if (selectedResult.source != PreviewListSource.UNAVAILABLE) {
                         item(key = "preview-status") {
                             AdaptiveText(
-                                stringResource(qualityRes),
+                                stringResource(
+                                    if (hasPendingDraft && selectedResult.source == PreviewListSource.ESTIMATED)
+                                        R.string.preview_includes_pending
+                                    else qualityRes
+                                ),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -717,7 +733,7 @@ internal fun SystemProbeDialog(
                             } else {
                                 previewLaunchedAt = System.currentTimeMillis()
                                 request.entryKind?.let {
-                                    SystemEffectPreview.launch(context, it, request.userId, scenario)
+                                    SystemEffectPreview.launch(context, it, request.userId, scenario, activeRequest)
                                 } ?: request.componentKind?.let {
                                     SystemEffectPreview.launch(context, it, request.userId)
                                 }
