@@ -43,6 +43,7 @@ data class ObservedEntryRecord(
     val activityClass: String? = null,
     val observedAt: Long = 0L,
     val userId: Int = 0,
+    val directShareFamilies: Set<String> = emptySet(),
 ) {
     val key: String get() = "$userId|$kind|$packageName|$syntheticClass"
 
@@ -62,6 +63,9 @@ data class ObservedEntryRecord(
             kind = parsedKind.name,
             label = label.trim().take(MAX_LABEL_CHARS),
             activityClass = normalizedActivity,
+            directShareFamilies = if (parsedKind == IntentKind.DIRECT_SHARE)
+                directShareFamilies.mapNotNull { DirectShareType.fromName(it)?.name }.take(5).toSet()
+            else emptySet(),
             observedAt = observedAt.takeIf { it > 0L } ?: System.currentTimeMillis(),
         )
     }
@@ -106,7 +110,9 @@ object ObservedEntryCacheCodec {
         normalize(incoming).forEach { candidate ->
             val previous = byKey[candidate.key]
             if (previous == null || candidate.observedAt >= previous.observedAt) {
-                byKey[candidate.key] = candidate
+                byKey[candidate.key] = if (previous != null && candidate.kind == IntentKind.DIRECT_SHARE.name)
+                    candidate.copy(directShareFamilies = candidate.directShareFamilies + previous.directShareFamilies)
+                else candidate
             }
         }
         return byKey.values
