@@ -276,7 +276,8 @@ internal object UiPreferencesStore {
 
     /** Last-used values belong to individual pages and never overwrite configured defaults. */
     private fun pageKey(page: String, field: String): String {
-        require(page in setOf("rules", "priority", "components"))
+        require(page in setOf("rules", "priority", "components") ||
+            (page.startsWith("lists_") && page.all { it.isLowerCase() || it.isDigit() || it == '_' }))
         return "last_${field}_$page"
     }
 
