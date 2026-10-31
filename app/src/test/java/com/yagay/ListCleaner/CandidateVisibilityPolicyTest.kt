@@ -57,7 +57,7 @@ class CandidateVisibilityPolicyTest {
             }
     }
 
-    @Test fun historicalDirectShareIsHiddenFromNormalListButPreserved() {
+    @Test fun historicalDirectShareRemainsSearchableButUnavailable() {
         val historical = ComponentCandidate(
             rule = ComponentRule(IntentKind.DIRECT_SHARE, "com.example.chat", "@direct#a"),
             appLabel = "Chat", activityLabel = "Previous conversation",
@@ -66,8 +66,8 @@ class CandidateVisibilityPolicyTest {
         )
         assertTrue(historical.unavailable)
         assertTrue(CandidateVisibilityPolicy.retainAfterRefresh(historical, selected = false))
-        assertFalse(CandidateVisibilityPolicy.visible(historical, selected = false, uiFilter = UiFilter.ALL))
-        assertFalse(CandidateVisibilityPolicy.visible(historical, selected = false, uiFilter = UiFilter.HIDE_SELECTED))
+        assertTrue(CandidateVisibilityPolicy.visible(historical, selected = false, uiFilter = UiFilter.ALL))
+        assertTrue(CandidateVisibilityPolicy.visible(historical, selected = false, uiFilter = UiFilter.HIDE_SELECTED))
         assertTrue(CandidateVisibilityPolicy.visible(historical, selected = false, uiFilter = UiFilter.ALL,
             UiPreferences(candidateSource = UiCandidateSource.HISTORY)))
         assertFalse(CandidateVisibilityPolicy.visible(historical, selected = false, uiFilter = UiFilter.SHOW_SELECTED))
@@ -82,11 +82,11 @@ class CandidateVisibilityPolicyTest {
             unavailable = true,
         )
         val oldTime = 1_000_000L + 40L * 86_400_000L
-        assertFalse(CandidateVisibilityPolicy.visible(historical, false, UiFilter.ALL,
+        assertTrue(CandidateVisibilityPolicy.visible(historical, false, UiFilter.ALL,
             UiPreferences(historyVisibilityDays = 0), oldTime))
         assertFalse(CandidateVisibilityPolicy.visible(historical, false, UiFilter.ALL,
             UiPreferences(historyVisibilityDays = 30), oldTime))
-        assertFalse(CandidateVisibilityPolicy.visible(historical, true, UiFilter.ALL,
+        assertTrue(CandidateVisibilityPolicy.visible(historical, true, UiFilter.ALL,
             UiPreferences(showShortcutHistory = false), oldTime))
         assertTrue(CandidateVisibilityPolicy.visible(historical, true, UiFilter.SHOW_SELECTED,
             UiPreferences(showShortcutHistory = false), oldTime))
@@ -110,18 +110,18 @@ class CandidateVisibilityPolicyTest {
             UiPreferences(candidateSource = UiCandidateSource.OBSERVED)))
     }
 
-    @Test fun selectedUnavailableCandidateKeepsRuleButIsAbsentFromNormalList() {
+    @Test fun selectedUnavailableCandidateRemainsManageableInAllAndSelected() {
         val item = candidate(unavailable = true)
         assertTrue(CandidateVisibilityPolicy.retainAfterRefresh(item, selected = true))
         assertFalse(CandidateVisibilityPolicy.retainAfterRefresh(item, selected = false))
-        assertFalse(CandidateVisibilityPolicy.visible(item, selected = true, uiFilter = UiFilter.ALL))
+        assertTrue(CandidateVisibilityPolicy.visible(item, selected = true, uiFilter = UiFilter.ALL))
         assertTrue(CandidateVisibilityPolicy.visible(item, selected = true, uiFilter = UiFilter.SHOW_SELECTED))
         assertTrue(CandidateVisibilityPolicy.visible(item, selected = true, uiFilter = UiFilter.LOCKED))
         assertFalse(CandidateVisibilityPolicy.visible(item, selected = true, uiFilter = UiFilter.HIDE_SELECTED))
         assertFalse(CandidateVisibilityPolicy.visible(item, selected = false, uiFilter = UiFilter.ALL))
     }
 
-    @Test fun unavailableDirectShareKeepsSavedRuleAndShowsOnlyInSelectedMaintenance() {
+    @Test fun unavailableDirectShareKeepsSavedRuleAndAppearsInAllAndSelected() {
         val stale = ComponentCandidate(
             rule = ComponentRule(IntentKind.DIRECT_SHARE, "com.example.chat",
                 "com.example.chat.Entry#direct#123456789012345678901234"),
@@ -134,7 +134,7 @@ class CandidateVisibilityPolicyTest {
             listOf(stale), rules
         )
         assertTrue(retained.any { it.rule in rules && it.unavailable })
-        assertFalse(CandidateVisibilityPolicy.visible(stale, true, UiFilter.ALL))
+        assertTrue(CandidateVisibilityPolicy.visible(stale, true, UiFilter.ALL))
         assertFalse(CandidateVisibilityPolicy.visible(stale, true, UiFilter.HIDE_SELECTED))
         assertTrue(CandidateVisibilityPolicy.visible(stale, true, UiFilter.SHOW_SELECTED))
         assertFalse(CandidateVisibilityPolicy.visible(stale, false, UiFilter.SHOW_SELECTED))
