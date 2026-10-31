@@ -47,16 +47,17 @@ internal class RuntimeInterfaceCaptureWriter(
             truncated = uniquePackages.size > RuntimeInterfaceSnapshotCodec.MAX_PACKAGES ||
                 uniqueComponents.size > RuntimeInterfaceSnapshotCodec.MAX_PACKAGES,
         )
-        val encoded = RuntimeInterfaceSnapshotCodec.encode(snapshot)
-        if (encoded.isBlank()) {
-            record("RUNTIME_RETURN_CAPTURE_SKIPPED kind=$kind reason=unencodable")
-            return
-        }
-        if (RuntimeInterfaceSnapshotCodec.decode(encoded, kind)?.truncated == true) record(
-            "RUNTIME_RETURN_CAPTURE_PARTIAL kind=$kind packages=${snapshot.totalPackages} components=${snapshot.totalComponents}"
-        )
+        // Never serialize a large list on the Resolver/Chooser UI thread.
         executor.execute {
             runCatching {
+                val encoded = RuntimeInterfaceSnapshotCodec.encode(snapshot)
+                if (encoded.isBlank()) {
+                    record("RUNTIME_RETURN_CAPTURE_SKIPPED kind=$kind reason=unencodable")
+                    return@execute
+                }
+                if (RuntimeInterfaceSnapshotCodec.decode(encoded, kind)?.truncated == true) {
+                    record("RUNTIME_RETURN_CAPTURE_PARTIAL kind=$kind packages=${snapshot.totalPackages} components=${snapshot.totalComponents}")
+                }
                 preferences.edit().apply {
                     if (resolverOrdered) {
                         putString(RuntimeInterfaceSnapshotCodec.keyForResolverOrder(kind), encoded)
