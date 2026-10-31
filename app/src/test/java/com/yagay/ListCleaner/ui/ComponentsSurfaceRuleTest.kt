@@ -55,6 +55,19 @@ class ComponentsSurfaceRuleTest {
         assertTrue(managedRuleHidden(after, settings))
     }
 
+    @Test fun sortingUsesSavedPartialAndFullSelectionNotDraft() {
+        val initial = SurfaceFilterConfig()
+        val partial = initial.withChannelHidden("com.example.chat", "important", true)
+        val full = partial.withSelected(SurfaceKind.NOTIFICATION_SHADE, setOf("com.example.chat"))
+        assertEquals(2, managedGroupSelectionRank(listOf(app, channel), initial))
+        assertEquals(1, managedGroupSelectionRank(listOf(app, channel), partial))
+        assertEquals(0, managedGroupSelectionRank(listOf(app, channel), full))
+        assertEquals(0, managedGroupSelectionRank(listOf(settings),
+            initial.withSelected(SurfaceKind.SETTINGS_APPS, setOf("com.example.chat"))))
+        // Merely staging a new checkbox would not change the saved config.
+        assertEquals(2, managedGroupSelectionRank(listOf(app, channel), initial))
+    }
+
     @Test fun ruleIdentityIsUniqueAcrossAppChannelAndSettingsScopes() {
         assertEquals(4, listOf(app, channel, settings, legacy).map { it.id }.toSet().size)
     }

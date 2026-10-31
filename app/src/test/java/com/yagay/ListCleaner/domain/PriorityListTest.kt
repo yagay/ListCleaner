@@ -87,6 +87,21 @@ class PriorityListTest {
             .map { it.packageName })
     }
 
+    @Test fun pendingPriorityCheckDoesNotReorderUntilConfirmed() {
+        val items = listOf(item("beta", "Beta"), item("alpha", "Alpha"), item("gamma", "Gamma"))
+        val committed = listOf("beta")
+        val pending = listOf("beta", "gamma", "alpha")
+        val before = priorityAppGroups(items, emptySet(), DisplayMode.HIDE_SELECTED,
+            IntentKind.SHARE, committed, "", PriorityListFilter.ALL)
+        assertEquals(listOf("beta", "alpha", "gamma"), before.map { it.packageName })
+        assertEquals(listOf(1, null, null), before.map { it.rank })
+        // Pending checkbox states are shown separately in the editor.
+        val after = priorityAppGroups(items, emptySet(), DisplayMode.HIDE_SELECTED,
+            IntentKind.SHARE, pending, "", PriorityListFilter.ALL)
+        assertEquals(listOf("beta", "gamma", "alpha"), after.map { it.packageName })
+        assertEquals(listOf(1, 2, 3), after.map { it.rank })
+    }
+
     @Test fun selectedFollowsSavedOrderAndUnselectedRemainsAlphabetic() {
         val items = listOf(item("b"), item("a"), item("c"), item("d"))
         val saved = listOf("c", "a")

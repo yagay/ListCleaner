@@ -176,9 +176,11 @@ internal fun ActiveNotificationManagement(
     }
     val groups = groupActiveNotifications(filteredInventoryRows, grouping)
     val displayGroups = if (initialGrouping == ActiveNotificationGrouping.CATEGORY) {
+        // Persisted hidden categories come first only AFTER Apply succeeds.
+        // A pending category checkbox must not reshuffle the category picker.
         notificationCategoryIds.map { id ->
             ActiveNotificationGroup(id, groups.firstOrNull { it.key == id }?.rows.orEmpty())
-        }
+        }.sortedBy { it.key !in savedCategories.hiddenNotificationCategories }
     } else groups
     val shownGroups = displayGroups.filter { group ->
         if (searchQuery.isNotBlank() &&
@@ -194,7 +196,8 @@ internal fun ActiveNotificationManagement(
         val allowed = group.rows.asSequence().filterNot { it.protected }.map { it.key }.toSet()
         val complete = allowed.isNotEmpty() && allowed.all { it in chosen }
         val protected = group.rows.any { it.protected }
-        surfaceFilterAllows(filter, if (categoryMode) group.key in hiddenCategories else complete,
+        surfaceFilterAllows(filter, if (categoryMode)
+            group.key in savedCategories.hiddenNotificationCategories else complete,
             if (categoryMode) false else protected)
     }
     val selectionConfirmation = rememberSelectionConfirmationController()

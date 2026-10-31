@@ -217,15 +217,16 @@ fun PriorityDialogContent(
         UiFilter.HIDE_SELECTED -> PriorityListFilter.UNSELECTED
         UiFilter.SHOW_SELECTED -> PriorityListFilter.SELECTED
     }
-    // Locks are a separate overlay. Changing a lock must not regroup and sort
-    // the full priority catalog; staged priority changes still update its order.
+    // The checkbox shows stagedOrder immediately, but the list position/section
+    // remains in the CONFIRMED Priority order until Apply succeeds. This also
+    // prevents a pending deselection from jumping to Not Priority.
     val baseGroups = remember(
         scopedCandidates, state.selected, scopedExtraSelected, state.displayMode,
-        kind, stagedOrder, state.query, priorityListFilter, appTypeFilter
+        kind, rankedRaw, state.query, priorityListFilter, appTypeFilter
     ) {
         priorityAppGroups(
             scopedCandidates, state.selected, state.displayMode, kind,
-            stagedOrder, state.query, priorityListFilter, scopedExtraSelected, appTypeFilter
+            rankedRaw, state.query, priorityListFilter, scopedExtraSelected, appTypeFilter
         )
     }
     val lockFilteredGroups = remember(baseGroups, viewFilter, bulkLockRevision, lockScope) {
@@ -233,8 +234,8 @@ fun PriorityDialogContent(
             baseGroups.filter { vm.bulkLockState(lockScope, it.packageName, emptyList()) != BulkLockState.NONE }
         } else baseGroups
     }
-    // Only display filtered apps. Each group's rank is its saved relative
-    // position in the complete eligible catalog, including hidden system apps.
+    // Only display filtered apps. Rank and section use saved Priority, including
+    // hidden system apps; pending checkbox changes cannot reorder rows.
     val groups = lockFilteredGroups
     LaunchedEffect(kind, openPreset, browserHost, groups.firstOrNull()?.packageName, UiPreferencesRuntime.current.expandFirstApp) {
         if (UiPreferencesRuntime.current.expandFirstApp && expandedKey == null) {

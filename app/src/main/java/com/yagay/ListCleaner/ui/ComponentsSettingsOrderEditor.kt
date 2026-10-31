@@ -114,8 +114,10 @@ internal fun ComponentsSettingsOrderEditor(
     }
     val known = candidates.distinct()
     val byId = known.toSet()
-    val activeRanks = activePriorityRanks(draft, byId)
-    val ranks = draft.filter { it in byId }
+    // Display the confirmed Priority order until Apply, even if a draft
+    // selects or deselects an app. The checkbox itself still previews the draft.
+    val activeRanks = activePriorityRanks(original, byId)
+    val ranks = original.filter { it in byId }
     val ranked = ranks.toSet()
     val all = ranks + known.filterNot { it in ranked }.sortedWith(compareBy(
         { labels[it].orEmpty().lowercase() }, { it },
@@ -128,12 +130,12 @@ internal fun ComponentsSettingsOrderEditor(
         }
         typeAllowed && when (viewFilter) {
             UiFilter.ALL -> true
-            UiFilter.SHOW_SELECTED -> id in draft
-            UiFilter.HIDE_SELECTED -> id !in draft
+            UiFilter.SHOW_SELECTED -> id in original
+            UiFilter.HIDE_SELECTED -> id !in original
             UiFilter.LOCKED -> id in saved.locked(kind)
         }
     }
-    val moves = visible.filter { it in draft && it !in saved.locked(kind) }
+    val moves = visible.filter { it in original && it in draft && it !in saved.locked(kind) }
     val listState = rememberLazyListState()
     val dragState = remember(listState) { PriorityDragState(listState) }
     val drag = dragState.session
@@ -228,8 +230,8 @@ internal fun ComponentsSettingsOrderEditor(
                 }
             }
             visible.forEachIndexed { index, id ->
-                val prioritized = id in draft
-                if (startsPrioritySection(visible, index) { it in draft }) {
+                val prioritized = id in original
+                if (startsPrioritySection(visible, index) { it in original }) {
                     item(key = "priority-section-${if (prioritized) "pinned" else "available"}") {
                         WorkspacePrioritySectionHeading(prioritized)
                     }
@@ -261,14 +263,14 @@ internal fun ComponentsSettingsOrderEditor(
                             )
                         },
                         details = {
-                            if (id in draft) AdaptiveText(
+                            if (id in draft && id in original) AdaptiveText(
                                 stringResource(R.string.priority_rank, requireNotNull(activeRanks[id])),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.primary,
                             )
                         },
                         trailing = {
-                            if (id in draft && id !in saved.locked(kind)) {
+                            if (id in draft && id in original && id !in saved.locked(kind)) {
                                 WorkspaceToolbarAction(
                                     enabled = position > 0,
                                     onClick = { draft = moveVisiblePriority(draft, moves, id, -1) },

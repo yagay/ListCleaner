@@ -110,10 +110,12 @@ internal fun RootTileOrderEditor(
     }
     val byComponent = known.associateBy { it.component.flattenToString() }
     val availableIds = byComponent.keys
-    val activeRanks = activePriorityRanks(draft, availableIds)
+    // A staged checkbox must not reorder the displayed Tiles before Apply.
+    // Keep the persisted order as the presentation source of truth.
+    val activeRanks = activePriorityRanks(original, availableIds)
     // A vanished TileService can stay in the saved policy until its rule is
     // restored, but never appears as a fabricated draggable component row.
-    val ranked = draft.filter { it in byComponent }
+    val ranked = original.filter { it in byComponent }
     val rankedIds = ranked.toSet()
     val all = ranked.mapNotNull(byComponent::get) +
         known.filterNot { it.component.flattenToString() in rankedIds }
@@ -122,12 +124,14 @@ internal fun RootTileOrderEditor(
     val visible = all.filter { item ->
         appTypeFilter.matches(item.appType) && when (viewFilter) {
             UiFilter.ALL -> true
-            UiFilter.SHOW_SELECTED -> item.component.flattenToString() in draft
-            UiFilter.HIDE_SELECTED -> item.component.flattenToString() !in draft
+            UiFilter.SHOW_SELECTED -> item.component.flattenToString() in original
+            UiFilter.HIDE_SELECTED -> item.component.flattenToString() !in original
             UiFilter.LOCKED -> vm.isComponentBulkProtected(CleanupKind.TILE, item)
         }
     }
-    val moveTargets = visible.map { it.component.flattenToString() }.filter { it in draft }
+    // Only confirmed selected items are movable until pending membership is applied.
+    val moveTargets = visible.map { it.component.flattenToString() }
+        .filter { it in original && it in draft }
 
     fun toggle(id: String) {
         draft = if (id in draft) draft - id else addActivePriority(draft, availableIds, id)
@@ -230,9 +234,9 @@ internal fun RootTileOrderEditor(
             }
             visible.forEachIndexed { index, tile ->
                 val id = tile.component.flattenToString()
-                val prioritized = id in draft
+                val prioritized = id in original
                 if (startsPrioritySection(visible, index) {
-                        it.component.flattenToString() in draft
+                        it.component.flattenToString() in original
                     }) {
                     item(key = "priority-section-${if (prioritized) "pinned" else "available"}") {
                         WorkspacePrioritySectionHeading(prioritized)
@@ -255,7 +259,7 @@ internal fun RootTileOrderEditor(
                             )
                         },
                         details = {
-                            if (id in draft) AdaptiveText(
+                            if (id in draft && id in original) AdaptiveText(
                                 stringResource(R.string.priority_rank,
                                     requireNotNull(activeRanks[id])),
                                 style = MaterialTheme.typography.labelSmall,
@@ -263,7 +267,7 @@ internal fun RootTileOrderEditor(
                             )
                         },
                         trailing = {
-                            if (id in draft) {
+                            if (id in draft && id in original) {
                                 WorkspaceToolbarAction(
                                     enabled = position > 0,
                                     onClick = {

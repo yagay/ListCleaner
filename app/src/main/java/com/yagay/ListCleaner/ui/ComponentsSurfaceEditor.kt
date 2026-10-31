@@ -77,6 +77,23 @@ internal data class ManagedComponentRule(
     val id: String get() = "${type.name}|$packageName|$key"
 }
 
+/** Committed state only: do not use a pending draft to determine sort priority. */
+internal fun managedGroupSelectionRank(
+    rows: List<ManagedComponentRule>,
+    saved: SurfaceFilterConfig,
+): Int {
+    if (rows.isEmpty()) return 2
+    // Selecting the notification app itself hides all its channels at once.
+    if (rows.any { it.type == ManagedComponentRuleType.NOTIFICATION_APP && managedRuleHidden(saved, it) })
+        return 0
+    val selected = rows.count { managedRuleHidden(saved, it) }
+    return when {
+        selected == rows.size -> 0
+        selected > 0 -> 1
+        else -> 2
+    }
+}
+
 internal fun managedRuleHidden(config: SurfaceFilterConfig, item: ManagedComponentRule): Boolean =
     when (item.type) {
         ManagedComponentRuleType.SETTINGS_APP ->
@@ -326,8 +343,10 @@ internal fun ComponentsSurfaceEditor(
                 item.detail.contains(state.query, ignoreCase = true)) &&
                 when (viewFilter) {
                     UiFilter.ALL -> true
-                    UiFilter.SHOW_SELECTED -> getEffective(item)
-                    UiFilter.HIDE_SELECTED -> !getEffective(item)
+                    // View filters, like row ordering, use confirmed state.
+                    // Pending checkbox edits never remove or move rows before Apply.
+                    UiFilter.SHOW_SELECTED -> managedRuleHidden(saved, item)
+                    UiFilter.HIDE_SELECTED -> !managedRuleHidden(saved, item)
                     UiFilter.LOCKED -> managedRuleLocked(saved, item)
                 }
         }
@@ -346,7 +365,7 @@ internal fun ComponentsSurfaceEditor(
             }.thenBy { labels[it.first].orEmpty().lowercase() }
         } else when (UiPreferencesRuntime.current.appSort) {
             UiAppSort.SELECTED_FIRST -> compareBy<Pair<String, List<ManagedComponentRule>>> {
-                it.second.count(getEffective) != it.second.size
+                managedGroupSelectionRank(it.second, saved)
             }.thenBy { labels[it.first].orEmpty().lowercase() }
             UiAppSort.NAME -> compareBy { labels[it.first].orEmpty().lowercase() }
             else -> compareBy { it.first }
@@ -355,8 +374,8 @@ internal fun ComponentsSurfaceEditor(
     val visible = groups.flatMap { it.second } + legacyRules.filter { item ->
         (!hasQuery || item.title.contains(state.query, ignoreCase = true)) &&
             when (viewFilter) {
-                UiFilter.ALL, UiFilter.SHOW_SELECTED -> getEffective(item)
-                UiFilter.HIDE_SELECTED -> !getEffective(item)
+                UiFilter.ALL, UiFilter.SHOW_SELECTED -> managedRuleHidden(saved, item)
+                UiFilter.HIDE_SELECTED -> !managedRuleHidden(saved, item)
                 UiFilter.LOCKED -> false
             }
     }
