@@ -229,7 +229,7 @@ internal fun ActiveNotificationManagement(
 
     ListsEditorScaffold(
         controls = {
-    SurfaceWorkspaceToolbar(
+    ListsV2Controls(
         category = if (initialGrouping == ActiveNotificationGrouping.CATEGORY)
             categorySelection ?: "ALL" else grouping.name,
         options = if (initialGrouping == ActiveNotificationGrouping.CATEGORY) {
@@ -478,7 +478,7 @@ internal fun StaleRuleManagement(
 
     ListsEditorScaffold(
         controls = {
-    SurfaceWorkspaceToolbar(
+    ListsV2Controls(
         category = category, options = categories,
         onCategory = { maintenanceUi.selectedCategory = it },
         filter = viewFilter, onFilter = { maintenanceUi.viewFilter = it; UiPreferencesStore.rememberFilter(context, it, "lists_maintenance") },

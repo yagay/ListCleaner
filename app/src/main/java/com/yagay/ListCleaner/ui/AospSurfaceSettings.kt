@@ -101,7 +101,7 @@ internal fun AospSurfaceSettings(
 
     ListsEditorScaffold(
         controls = {
-            SurfaceWorkspaceToolbar(
+            ListsV2Controls(
                 category = "",
                 options = listOf("" to stringResource(R.string.common_all)),
                 onCategory = {},

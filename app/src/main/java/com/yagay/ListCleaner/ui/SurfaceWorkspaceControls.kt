@@ -23,63 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.AppTypeFilter
 
-/**
- * Reuse Entry/Root's flat picker, selected glyph, overflow and selection menu.
- * No settings switches: checked means a staged cleanup choice, not a preference.
- */
-@Composable
-internal fun SurfaceWorkspaceToolbar(
-    category: String,
-    options: List<Pair<String, String>>,
-    onCategory: (String) -> Unit,
-    filter: UiFilter,
-    onFilter: (UiFilter) -> Unit,
-    actions: List<WorkspaceMenuAction> = emptyList(),
-    appTypeFilter: AppTypeFilter = AppTypeFilter.ALL,
-    onAppTypeFilter: (AppTypeFilter) -> Unit = {},
-    showAppTypeFilter: Boolean = false,
-) {
-    var categoryOpen by remember { mutableStateOf(false) }
-    WorkspaceCategoryFilterRow(
-        category = {
-            Box {
-                WorkspacePickerButton(
-                    label = options.firstOrNull { it.first == category }?.second ?: category,
-                    icon = Icons.Rounded.Layers,
-                    selected = category != options.firstOrNull()?.first,
-                    expanded = categoryOpen,
-                    onClick = { categoryOpen = true },
-                )
-                FlatWorkspaceDropdownMenu(
-                    expanded = categoryOpen,
-                    onDismissRequest = { categoryOpen = false },
-                    menuWidth = 256.dp,
-                ) {
-                    options.forEach { (id, title) ->
-                        WorkspaceFlatMenuRow(
-                            title = title,
-                            selected = category == id,
-                            onClick = { categoryOpen = false; onCategory(id) },
-                        )
-                    }
-                }
-            }
-        },
-        filter = {
-            WorkspaceFilterBar(
-                appTypeFilter = appTypeFilter,
-                onAppTypeFilter = onAppTypeFilter,
-                showAppTypeFilter = showAppTypeFilter,
-                viewFilter = filter,
-                onViewFilter = onFilter,
-            )
-        },
-        afterFilter = {
-            WorkspaceListActions(actions = actions)
-        },
-    )
-}
-
+/** Lists V2 uses ListsV2Controls as its sole toolbar implementation. */
 internal fun surfaceFilterAllows(
     filter: UiFilter, selected: Boolean, locked: Boolean,
 ): Boolean = when (filter) {
@@ -157,24 +101,6 @@ internal fun SurfaceWorkspaceRow(
             )
         },
     )
-}
-
-/** Shared searchable workspace control; data source and filtering stay with each editor. */
-@Composable
-internal fun SurfaceWorkspaceSearchField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    maxLength: Int = 255,
-) {
-    Box(Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal)) {
-        CompactSearchField(
-            query = value,
-            onQueryChange = { onValueChange(it.take(maxLength)) },
-            autoFocus = false,
-            placeholder = label,
-        )
-    }
 }
 
 /** Entry-style bulk selection semantics shared by all Lists editors.
