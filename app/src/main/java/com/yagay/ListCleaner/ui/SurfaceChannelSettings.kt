@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.ensureActive
 import kotlin.coroutines.coroutineContext
 import androidx.compose.runtime.getValue
@@ -48,6 +50,8 @@ internal fun SurfaceChannelSettings(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val saved by vm.surfaceFilters.collectAsStateWithLifecycle()
+    val remoteInstalled by vm.surfaceInstalledPackages.collectAsStateWithLifecycle()
+    val observedRows by NotificationCleanupController.observedRows.collectAsStateWithLifecycle()
     var draft by remember(userId, saved) { mutableStateOf(saved) }
     val uiState = rememberSurfaceWorkspaceUiState(
         userId, "channels",
@@ -64,12 +68,11 @@ internal fun SurfaceChannelSettings(
     var scanRevision by remember(userId) { mutableStateOf(0) }
     RegisterListsRefresh(refreshRegistry, enabled = !scanning) { scanRevision++ }
     val localUserId = android.os.Process.myUid() / 100000
-    val installedPackages = remember(userId) {
-        if (userId == localUserId) {
-            runCatching {
-                context.packageManager.getInstalledApplications(0).map { it.packageName }
-            }.getOrDefault(emptyList())
-        } else emptyList()
+    val installedPackages = remember(userId, remoteInstalled) {
+        if (userId != localUserId) remoteInstalled.orEmpty().toList()
+        else runCatching {
+            context.packageManager.getInstalledApplications(0).map { it.packageName }
+        }.getOrDefault(emptyList())
     }
 
     val guardOwner = remember(userId) { Any() }
@@ -79,10 +82,12 @@ internal fun SurfaceChannelSettings(
         discard = { draft = saved },
     )
 
-    val observedPackages = (installedPackages + observed.filter { it.userId == userId }.map { it.packageName } + NotificationCleanupController.observedRows.value.filter { it.userId == userId }.map { it.packageName }).distinct().sorted()
+    val observedPackages = (installedPackages +
+        observed.filter { it.userId == userId }.map { it.packageName } +
+        observedRows.filter { it.userId == userId }.map { it.packageName }).distinct().sorted()
     // Scan once on entering the page, independent of expansion. Keep one root
     // probe at a time and publish partial results without blocking composition.
-    LaunchedEffect(userId, installedPackages, scanRevision) {
+    LaunchedEffect(userId, observedPackages, scanRevision) {
         scanning = true
         scanProgress = 0
         packageInventories = emptyMap()
@@ -100,6 +105,12 @@ internal fun SurfaceChannelSettings(
             scanning = false
         }
     }
+    var appTypes by remember(userId) { mutableStateOf<Map<String, Boolean?>>(emptyMap()) }
+    LaunchedEffect(userId, observedPackages) {
+        appTypes = withContext(Dispatchers.IO) {
+            SurfaceProfileAppTypes.classify(context, userId, observedPackages)
+        }
+    }
     val packageLabels = remember(userId, observedPackages) {
         observedPackages.associateWith { name ->
             runCatching {
@@ -110,16 +121,17 @@ internal fun SurfaceChannelSettings(
     }
     val visiblePackages = observedPackages.filter { name ->
         pkg.isBlank() || name.contains(pkg.trim(), ignoreCase = true) ||
-            packageLabels[name].orEmpty().contains(pkg.trim(), ignoreCase = true)
+            packageLabels[name].orEmpty().contains(pkg.trim(), ignoreCase = true) ||
+            packageInventories[name]?.items.orEmpty().any {
+                it.channelId.contains(pkg.trim(), ignoreCase = true) ||
+                    it.label.contains(pkg.trim(), ignoreCase = true)
+            }
     }.filter { name ->
         if (appTypeFilter == AppTypeFilter.ALL) true else {
-            val isSystem = runCatching {
-                val info = context.packageManager.getApplicationInfo(name, 0)
-                (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-            }.getOrNull()
+            val isSystem = appTypes[name]
             when (appTypeFilter) {
                 AppTypeFilter.ALL -> true
-                AppTypeFilter.USER -> isSystem == false
+                AppTypeFilter.USER -> isSystem != true
                 AppTypeFilter.SYSTEM -> isSystem == true
             }
         }
@@ -197,6 +209,17 @@ internal fun SurfaceChannelSettings(
                 )
         },
     ) {
+        if (displayedPackages.isEmpty() && !scanning) item(key = "empty") {
+            WorkspaceEmptyState(
+                message = stringResource(R.string.root_empty_filtered),
+                clearLabel = stringResource(R.string.root_clear_filters),
+                onClear = {
+                    uiState.searchQuery = ""
+                    uiState.viewFilter = UiFilter.ALL
+                    uiState.appTypeFilter = AppTypeFilter.ALL
+                },
+            )
+        }
         items(displayedPackages, key = { it }) { appPackage ->
         val appLabel = packageLabels[appPackage] ?: appPackage
         val appIcon = remember(appPackage, userId) {

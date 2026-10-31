@@ -12,6 +12,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import com.yagay.ListCleaner.data.SpacePackageScanState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +47,8 @@ internal fun AospSurfaceSettings(
 ) {
     val context = LocalContext.current
     val saved by vm.surfaceFilters.collectAsStateWithLifecycle()
+    val remoteInstalled by vm.surfaceInstalledPackages.collectAsStateWithLifecycle()
+    val remoteScanStatus by vm.spaceScanState.collectAsStateWithLifecycle()
     var draft by remember(userId, saved) { mutableStateOf(saved) }
     val uiState = rememberSurfaceWorkspaceUiState(
         userId, "aosp_${selectedKind.name}",
@@ -53,7 +60,7 @@ internal fun AospSurfaceSettings(
     val viewFilter = uiState.viewFilter
     val appCategory = uiState.appTypeFilter
     var refreshRevision by remember(userId, selectedKind) { mutableStateOf(0) }
-    RegisterListsRefresh(refreshRegistry) { refreshRevision++ }
+    RegisterListsRefresh(refreshRegistry, enabled = !loading) { refreshRevision++ }
     val guardOwner = remember(userId, selectedKind) { Any() }
     RegisterPendingNavigation(
         pendingNavigation, guardOwner, surfacePendingChangeCount(saved, draft),
@@ -62,8 +69,17 @@ internal fun AospSurfaceSettings(
     )
 
     val active by NotificationCleanupController.rows.collectAsStateWithLifecycle()
-    val catalog = remember(userId, selectedKind, refreshRevision, active) {
-        SurfaceCandidateDiscovery.query(context, selectedKind, userId, active)
+    var catalog by remember(userId, selectedKind) {
+        mutableStateOf(SurfaceCandidateDiscovery.Result(emptyList(), ""))
+    }
+    var loading by remember(userId, selectedKind) { mutableStateOf(true) }
+    LaunchedEffect(userId, selectedKind, refreshRevision, active, remoteInstalled) {
+        loading = true
+        val scanned = withContext(Dispatchers.IO) {
+            SurfaceCandidateDiscovery.query(context, selectedKind, userId, active, remoteInstalled)
+        }
+        catalog = scanned
+        loading = false
     }
     val selected = draft.selected(selectedKind)
     val locked = draft.locked(selectedKind)
@@ -79,14 +95,10 @@ internal fun AospSurfaceSettings(
         SurfaceKind.LAUNCHER_PREDICTIONS, SurfaceKind.RECENTS,
         SurfaceKind.QS_EDITOR, SurfaceKind.SETTINGS_APPS,
     )
-    val types = remember(entries, applicationBased) {
-        if (!applicationBased) emptyMap() else entries.associate { (pkg, _) ->
-            val system = runCatching {
-                @Suppress("DEPRECATION")
-                val app = context.packageManager.getApplicationInfo(pkg, 0)
-                (app.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-            }.getOrNull()
-            pkg to system
+    var types by remember(userId, selectedKind) { mutableStateOf<Map<String, Boolean?>>(emptyMap()) }
+    LaunchedEffect(userId, selectedKind, entries.map { it.first }) {
+        types = if (!applicationBased) emptyMap() else withContext(Dispatchers.IO) {
+            SurfaceProfileAppTypes.classify(context, userId, entries.map { it.first })
         }
     }
     val visible = entries.filter { (id, title) ->
@@ -94,7 +106,7 @@ internal fun AospSurfaceSettings(
             id.contains(query.trim(), ignoreCase = true)) &&
             (!applicationBased || when (appCategory) {
                 AppTypeFilter.ALL -> true
-                AppTypeFilter.USER -> types[id] == false
+                AppTypeFilter.USER -> types[id] != true
                 AppTypeFilter.SYSTEM -> types[id] == true
             }) && surfaceFilterAllows(viewFilter, id in selected, id in locked)
     }
@@ -127,7 +139,7 @@ internal fun AospSurfaceSettings(
         summary = {
             WorkspaceListSummary(
                     title = stringResource(R.string.surface_aosp_selected, selected.size),
-                    secondary = catalog.description,
+                    secondary = if (loading) "Scanning…" else catalog.description,
                 )
         },
         pending = {
@@ -138,6 +150,17 @@ internal fun AospSurfaceSettings(
                 )
         },
     ) {
+        if (visible.isEmpty() && !loading) item(key = "empty") {
+            WorkspaceEmptyState(
+                message = stringResource(R.string.root_empty_filtered),
+                clearLabel = stringResource(R.string.root_clear_filters),
+                onClear = {
+                    uiState.searchQuery = ""
+                    uiState.viewFilter = UiFilter.ALL
+                    uiState.appTypeFilter = AppTypeFilter.ALL
+                },
+            )
+        }
         items(visible, key = { it.first }) { (id, title) ->
         val appIcon = remember(id, userId) {
             if (!applicationBased) null else runCatching {

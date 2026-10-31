@@ -85,6 +85,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val selectedSpace = app.spaces.selected
     val spaceScanState = app.spaces.scanState
     private val installedPackages = app.spaces.installedPackages
+    val surfaceInstalledPackages = app.spaces.installedPackages
 
     fun selectSpace(userId: Int) {
         if (rootComponents.busy.value || !app.spaces.select(userId)) return

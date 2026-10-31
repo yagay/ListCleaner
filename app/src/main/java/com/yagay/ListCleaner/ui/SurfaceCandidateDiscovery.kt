@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.media.MediaRouter2
 import android.os.UserHandle
 import android.os.UserManager
+import com.yagay.ListCleaner.data.ProfilePackageQuery
 import com.yagay.ListCleaner.domain.SurfaceKind
 import com.yagay.ListCleaner.runtime.ActiveNotificationRow
 
@@ -23,6 +24,7 @@ internal object SurfaceCandidateDiscovery {
         kind: SurfaceKind,
         userId: Int,
         currentNotifications: List<ActiveNotificationRow>,
+        remoteInstalled: Set<String>? = null,
     ): Result {
         val pm = context.packageManager
         val user = runCatching {
@@ -58,7 +60,15 @@ internal object SurfaceCandidateDiscovery {
                     else "LauncherApps: eligible launchable apps (predictions and recent tasks are transient)"
             }
             SurfaceKind.QS_EDITOR -> {
-                pairs = if (userId == ownUser) runCatching {
+                pairs = if (userId != ownUser && remoteInstalled != null) runCatching {
+                    ProfilePackageQuery(context, userId)
+                        .query(Intent("android.service.quicksettings.action.QS_TILE"),
+                            PackageManager.GET_META_DATA, "query-services")
+                        .mapNotNull { it.serviceInfo }
+                        .filter { it.exported &&
+                            it.permission == "android.permission.BIND_QUICK_SETTINGS_TILE" }
+                        .map { it.packageName }.distinct().map { it to appLabel(it) }
+                }.getOrDefault(emptyList()) else if (userId == ownUser) runCatching {
                     @Suppress("DEPRECATION")
                     pm.queryIntentServices(
                         Intent("android.service.quicksettings.action.QS_TILE"),
@@ -68,10 +78,22 @@ internal object SurfaceCandidateDiscovery {
                             it.permission == "android.permission.BIND_QUICK_SETTINGS_TILE" }
                         .map { it.packageName }.distinct().map { it to appLabel(it) }
                 }.getOrDefault(emptyList()) else emptyList()
-                source = "PackageManager: registered TileService providers in current user"
+                source = if (userId == ownUser) "PackageManager: registered TileService providers"
+                    else "Root profile query: registered TileService providers when accessible"
             }
             SurfaceKind.DOCUMENT_RECENTS -> {
-                pairs = if (userId == ownUser) runCatching {
+                pairs = if (userId != ownUser && remoteInstalled != null) runCatching {
+                    ProfilePackageQuery(context, userId)
+                        .query(Intent("android.content.action.DOCUMENTS_PROVIDER"),
+                            PackageManager.GET_META_DATA, "query-content-providers")
+                        .mapNotNull { it.providerInfo }
+                        .filter { it.exported &&
+                            it.readPermission == "android.permission.MANAGE_DOCUMENTS" }
+                        .flatMap { info ->
+                            info.authority.orEmpty().split(';').filter { it.isNotBlank() }
+                                .map { it to appLabel(info.packageName) }
+                        }.distinctBy { it.first }
+                }.getOrDefault(emptyList()) else if (userId == ownUser) runCatching {
                     @Suppress("DEPRECATION")
                     pm.queryIntentContentProviders(
                         Intent("android.content.action.DOCUMENTS_PROVIDER"),
@@ -84,7 +106,9 @@ internal object SurfaceCandidateDiscovery {
                                 .map { it to appLabel(info.packageName) }
                         }.distinctBy { it.first }
                 }.getOrDefault(emptyList()) else emptyList()
-                source = "PackageManager: registered DocumentsProvider authorities; recent rows are transient"
+                source = if (userId == ownUser)
+                    "PackageManager: registered DocumentsProvider authorities; recents are transient"
+                    else "Root profile query: DocumentsProvider authorities when accessible; recents are transient"
             }
             SurfaceKind.MEDIA_OUTPUT -> {
                 pairs = if (userId == ownUser) runCatching {
@@ -94,13 +118,17 @@ internal object SurfaceCandidateDiscovery {
                 source = "MediaRouter2: routes visible to ListCleaner, not all SystemUI routes"
             }
             SurfaceKind.SETTINGS_APPS -> {
-                pairs = if (userId == ownUser) runCatching {
+                pairs = if (userId != ownUser) remoteInstalled.orEmpty().map { it to appLabel(it) }
+                else runCatching {
                     @Suppress("DEPRECATION")
                     pm.getInstalledApplications(PackageManager.GET_META_DATA)
                         .map { it.packageName to it.loadLabel(pm).toString() }
                         .distinctBy { it.first }
                 }.getOrDefault(emptyList()) else emptyList()
-                source = "PackageManager: installed applications; Settings filters may narrow the visible subset"
+                source = if (userId == ownUser)
+                    "PackageManager: installed applications; Settings filters may narrow the visible subset"
+                    else if (remoteInstalled == null) "Other-user package scan is not yet available"
+                    else "UserSpaceManager: packages installed for the selected Android user"
             }
         }
         return Result(pairs.distinctBy { it.first }.sortedBy { it.second.lowercase() }, source)
