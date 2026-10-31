@@ -16,15 +16,15 @@ fun priorityAppGroups(
     extraSelected: Set<ComponentRule> = emptySet(),
     appTypeFilter: AppTypeFilter = AppTypeFilter.ALL
 ): List<PriorityAppGroup> {
-    // Exclude hidden application types BEFORE grouping and ranking. This is
-    // a presentation-only filter; saved priority IDs, including system apps,
-    // remain in storage and retain their order when the filter changes.
-    val apps = priorityCandidates(candidates, selected, mode, kind, extraSelected)
-        .filter { appTypeFilter.matches(it.appType) }
+    // Compute rank from the COMPLETE eligible catalog, not just displayed app types.
+    // Filtering out system apps must never promote a user app's priority number
+    // or change the order chosen by the user. Hidden apps retain their slots.
+    val allApps = priorityCandidates(candidates, selected, mode, kind, extraSelected)
         .groupBy { it.rule.packageName }
-    val ranks = saved.filter { it in apps }.mapIndexed { index, pkg -> pkg to index + 1 }.toMap()
+    val ranks = saved.filter { it in allApps }.mapIndexed { index, pkg -> pkg to index + 1 }.toMap()
     val needle = query.trim().lowercase()
-    val groups = apps.mapNotNull { (pkg, components) ->
+    val groups = allApps.mapNotNull { (pkg, components) ->
+        if (!appTypeFilter.matches(components.first().appType)) return@mapNotNull null
         val rank = ranks[pkg]
         if (filter == PriorityListFilter.SELECTED && rank == null ||
             filter == PriorityListFilter.UNSELECTED && rank != null) return@mapNotNull null

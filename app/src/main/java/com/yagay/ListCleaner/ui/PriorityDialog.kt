@@ -233,8 +233,8 @@ fun PriorityDialogContent(
             baseGroups.filter { vm.bulkLockState(lockScope, it.packageName, emptyList()) != BulkLockState.NONE }
         } else baseGroups
     }
-    // App type is already filtered before rank assignment. Do not re-filter
-    // a ranked list: that leaves hidden system apps consuming visible rank slots.
+    // Only display filtered apps. Each group's rank is its saved relative
+    // position in the complete eligible catalog, including hidden system apps.
     val groups = lockFilteredGroups
     LaunchedEffect(kind, openPreset, browserHost, groups.firstOrNull()?.packageName, UiPreferencesRuntime.current.expandFirstApp) {
         if (UiPreferencesRuntime.current.expandFirstApp && expandedKey == null) {

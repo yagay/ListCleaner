@@ -20,7 +20,7 @@ class PriorityListTest {
         assertEquals(listOf(1, 2, null), groups(items, listOf("c", "a")).map { it.rank })
     }
 
-    @Test fun systemFilterIsAppliedBeforeVisibleRanksWithoutChangingSavedOrder() {
+    @Test fun systemFilterPreservesSelectedOrderAndGlobalRanks() {
         val system = item("system", label = "System").copy(appType = AppType.SYSTEM)
         val userA = item("user.a", label = "Alpha").copy(appType = AppType.USER)
         val userB = item("user.b", label = "Beta").copy(appType = AppType.USER)
@@ -31,16 +31,46 @@ class PriorityListTest {
             IntentKind.SHARE, saved, "", PriorityListFilter.ALL,
             appTypeFilter = AppTypeFilter.USER)
         assertEquals(listOf("user.b", "user.a"), visible.map { it.packageName })
-        assertEquals(listOf(1, 2), visible.map { it.rank })
+        assertEquals(listOf(2, 3), visible.map { it.rank })
 
         val moved = moveVisiblePriority(saved, visible.map { it.packageName }, "user.a", -1)
         assertEquals(listOf("system", "user.a", "user.b"), moved)
         assertEquals(listOf("system", "user.b", "user.a"), saved)
+        val userOnlyAfterMove = priorityAppGroups(items, emptySet(), DisplayMode.HIDE_SELECTED,
+            IntentKind.SHARE, moved, "", PriorityListFilter.ALL,
+            appTypeFilter = AppTypeFilter.USER)
+        assertEquals(listOf("user.a", "user.b"), userOnlyAfterMove.map { it.packageName })
+        assertEquals(listOf(2, 3), userOnlyAfterMove.map { it.rank })
         val restored = priorityAppGroups(items, emptySet(), DisplayMode.HIDE_SELECTED,
             IntentKind.SHARE, moved, "", PriorityListFilter.ALL,
             appTypeFilter = AppTypeFilter.ALL)
         assertEquals(listOf("system", "user.a", "user.b"), restored.map { it.packageName })
         assertEquals(listOf(1, 2, 3), restored.map { it.rank })
+        val systemOnly = priorityAppGroups(items, emptySet(), DisplayMode.HIDE_SELECTED,
+            IntentKind.SHARE, moved, "", PriorityListFilter.ALL,
+            appTypeFilter = AppTypeFilter.SYSTEM)
+        assertEquals(listOf("system"), systemOnly.map { it.packageName })
+        assertEquals(listOf(1), systemOnly.map { it.rank })
+    }
+
+    @Test fun filteringNonAdjacentSelectedSystemAppsKeepsOriginalRankGaps() {
+        val firstUser = item("user.first").copy(appType = AppType.USER)
+        val firstSystem = item("sys.first").copy(appType = AppType.SYSTEM)
+        val secondUser = item("user.second").copy(appType = AppType.USER)
+        val secondSystem = item("sys.second").copy(appType = AppType.SYSTEM)
+        val saved = listOf("sys.first", "user.second", "sys.second", "user.first")
+        val rows = listOf(firstUser, firstSystem, secondUser, secondSystem)
+        val users = priorityAppGroups(rows, emptySet(), DisplayMode.HIDE_SELECTED,
+            IntentKind.SHARE, saved, "", PriorityListFilter.SELECTED,
+            appTypeFilter = AppTypeFilter.USER)
+        assertEquals(listOf("user.second", "user.first"), users.map { it.packageName })
+        assertEquals(listOf(2, 4), users.map { it.rank })
+        val systems = priorityAppGroups(rows, emptySet(), DisplayMode.HIDE_SELECTED,
+            IntentKind.SHARE, saved, "", PriorityListFilter.SELECTED,
+            appTypeFilter = AppTypeFilter.SYSTEM)
+        assertEquals(listOf("sys.first", "sys.second"), systems.map { it.packageName })
+        assertEquals(listOf(1, 3), systems.map { it.rank })
+        assertEquals(listOf("sys.first", "user.second", "sys.second", "user.first"), saved)
     }
 
     @Test fun systemOnlyShowsNoUserEntriesAndHidesUnrankedSystemWhenUserOnly() {
