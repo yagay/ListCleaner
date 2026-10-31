@@ -91,6 +91,7 @@ class RuleRepository(context: Context) {
         mutableMode.value = next.mode
         mutablePriorities.value = next.priorities
         mutableOpenTypes.value = next.openTypes
+        mutableDirectShareTypes.value = next.directShareTypes
         mutableBrowserLinks.value = next.browserLinks
         mutableDiagnostic.value = next.diagnostic
         mutableHiddenFromApps.value = next.hiddenFromApps
@@ -107,6 +108,7 @@ class RuleRepository(context: Context) {
     private val mutableMode = MutableStateFlow(initialConfig.mode)
     private val mutablePriorities = MutableStateFlow(initialConfig.priorities)
     private val mutableOpenTypes = MutableStateFlow(initialConfig.openTypes)
+    private val mutableDirectShareTypes = MutableStateFlow(initialConfig.directShareTypes)
     private val mutableBrowserLinks = MutableStateFlow(initialConfig.browserLinks)
     private val mutableDiagnostic = MutableStateFlow(initialConfig.diagnostic)
     private val mutableHiddenFromApps = MutableStateFlow(initialConfig.hiddenFromApps)
@@ -115,6 +117,7 @@ class RuleRepository(context: Context) {
     private val mutableVisibilityFullPackages = MutableStateFlow<Map<VisibilityScope, Set<String>>>(emptyMap())
 
     val openTypes: StateFlow<OpenTypeConfig> = mutableOpenTypes.asStateFlow()
+    val directShareTypes: StateFlow<com.yagay.ListCleaner.domain.DirectShareTypeConfig> = mutableDirectShareTypes.asStateFlow()
     val browserLinks: StateFlow<BrowserLinkConfig> = mutableBrowserLinks.asStateFlow()
     val hiddenFromApps: StateFlow<Set<String>> = mutableHiddenFromApps.asStateFlow()
     val surfaceFilters: StateFlow<com.yagay.ListCleaner.domain.SurfaceFilterConfig> =
@@ -264,6 +267,7 @@ class RuleRepository(context: Context) {
         hiddenFromApps = mutableHiddenFromApps.value.toSet(),
         surfaceFilters = mutableSurfaceFilters.value,
         openTypes = mutableOpenTypes.value,
+        directShareTypes = mutableDirectShareTypes.value,
         browserLinks = mutableBrowserLinks.value,
         visibilityCompat = VisibilityCompatConfig(scopes = mutableVisibilityScopes.value.toSet()),
     ).validated()
@@ -394,6 +398,28 @@ class RuleRepository(context: Context) {
         val next = value.validated()
         if (next == mutableOpenTypes.value) return
         mutableOpenTypes.value = next
+        persistLocalSnapshot()
+        mutableRevision.value++
+    }
+
+    /** Same rules/draft semantics as Open with: per-type selection is separate. */
+    @Synchronized fun setDirectShareTypeSelected(
+        type: com.yagay.ListCleaner.domain.DirectShareType,
+        rules: Collection<ComponentRule>,
+        selected: Boolean,
+    ) {
+        val ids = rules.filter { it.kind == IntentKind.DIRECT_SHARE && it.isValid() }
+            .mapNotNull { ComponentRule.fromId(it.id)?.id }.toSet()
+        if (ids.isEmpty()) return
+        val current = mutableDirectShareTypes.value
+        val map = current.rules.toMutableMap()
+        val updated = map[type].orEmpty().toMutableSet().apply {
+            if (selected) addAll(ids) else removeAll(ids)
+        }
+        if (updated.isEmpty()) map.remove(type) else map[type] = updated
+        val next = current.copy(rules = map).validated()
+        if (next == current) return
+        mutableDirectShareTypes.value = next
         persistLocalSnapshot()
         mutableRevision.value++
     }
@@ -588,7 +614,7 @@ class RuleRepository(context: Context) {
             return json.decodeFromString(MultiSpaceBackup.serializer(), content).validated()
         }
         val old = json.decodeFromString(RuleBackup.serializer(), content)
-        require(old.version in 1..12) {
+        require(old.version in 1..13) {
             appContext.getString(R.string.repo_backup_unsupported_version, old.version)
         }
         if (old.version >= 3) requireNotNull(old.displayMode) {
@@ -604,6 +630,7 @@ class RuleRepository(context: Context) {
             diagnostic = false,
             hiddenFromApps = if (old.version >= 5) old.hiddenFromApps else emptySet(),
             openTypes = if (old.version >= 7) old.openTypes else OpenTypeConfig(),
+            directShareTypes = if (old.version >= 13) old.directShareTypes else com.yagay.ListCleaner.domain.DirectShareTypeConfig(),
             browserLinks = if (old.version >= 10) old.browserLinks else BrowserLinkConfig(),
             surfaceFilters = old.surfaceFilters.validated(),
             visibilityCompat = VisibilityCompatConfig(
@@ -678,6 +705,7 @@ class RuleRepository(context: Context) {
         mutableMode.value = active.mode
         mutablePriorities.value = active.priorities
         mutableOpenTypes.value = active.openTypes
+        mutableDirectShareTypes.value = active.directShareTypes
         mutableBrowserLinks.value = active.browserLinks
         mutableDiagnostic.value = active.diagnostic
         mutableHiddenFromApps.value = active.hiddenFromApps
@@ -690,13 +718,14 @@ class RuleRepository(context: Context) {
     @Synchronized fun exportJson(): String = json.encodeToString(
         RuleBackup.serializer(),
         RuleBackup(
-            version = 12,
+            version = 13,
             blacklist = mutableMode.value != DisplayMode.SHOW_SELECTED,
             rules = mutableRules.value,
             priorities = mutablePriorities.value,
             displayMode = mutableMode.value,
             hiddenFromApps = mutableHiddenFromApps.value,
             openTypes = mutableOpenTypes.value,
+            directShareTypes = mutableDirectShareTypes.value,
             browserLinks = mutableBrowserLinks.value,
             surfaceFilters = mutableSurfaceFilters.value,
             visibilityScopes = mutableVisibilityScopes.value
@@ -706,7 +735,7 @@ class RuleRepository(context: Context) {
     @Synchronized fun previewImportJson(content: String): BackupImportPreview {
         require(content.length <= MAX_BACKUP_CHARS) { appContext.getString(R.string.repo_backup_too_large) }
         val backup = json.decodeFromString(RuleBackup.serializer(), content)
-        require(backup.version in 1..12) {
+        require(backup.version in 1..13) {
             appContext.getString(R.string.repo_backup_unsupported_version, backup.version)
         }
         if (backup.version >= 3) requireNotNull(backup.displayMode) {
@@ -737,6 +766,7 @@ class RuleRepository(context: Context) {
                 diagnostic = mutableDiagnostic.value,
                 hiddenFromApps = if (backup.version >= 5) backup.hiddenFromApps else emptySet(),
                 openTypes = if (backup.version >= 7) backup.openTypes else OpenTypeConfig(),
+                directShareTypes = if (backup.version >= 13) backup.directShareTypes else com.yagay.ListCleaner.domain.DirectShareTypeConfig(),
                 browserLinks = if (backup.version >= 10) backup.browserLinks else BrowserLinkConfig(),
                 surfaceFilters = backup.surfaceFilters.validated(),
                 visibilityCompat = VisibilityCompatConfig(
@@ -757,6 +787,7 @@ class RuleRepository(context: Context) {
             priorities = config.priorities.validated(),
             hiddenFromApps = normalizeHiddenApps(config.hiddenFromApps),
             openTypes = config.openTypes.validated(),
+            directShareTypes = config.directShareTypes.validated(),
             browserLinks = config.browserLinks.validated(),
             visibilityCompat = VisibilityCompatConfig(scopes = config.visibilityCompat.scopes.toSet()),
             managerAppId = -1,
@@ -770,6 +801,7 @@ class RuleRepository(context: Context) {
         mutableMode.value = prepared.mode
         mutablePriorities.value = prepared.priorities
         mutableOpenTypes.value = prepared.openTypes
+        mutableDirectShareTypes.value = prepared.directShareTypes
         mutableBrowserLinks.value = prepared.browserLinks
         mutableDiagnostic.value = prepared.diagnostic
         mutableHiddenFromApps.value = prepared.hiddenFromApps
