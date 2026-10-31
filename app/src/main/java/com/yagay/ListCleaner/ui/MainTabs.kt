@@ -375,18 +375,6 @@ fun RulesTab(
                         onDismiss = { showModeSettings = false },
                     )
                 },
-                previewActions = entryHeaderPreviewKinds(state.filter).map { previewKind ->
-                    WorkspaceMenuAction(
-                        label = stringResource(previewKind.titleRes()),
-                        onClick = {
-                            showModeSettings = false
-                            systemProbeRequest = SystemProbeRequest(
-                                entryKind = previewKind,
-                                userId = vm.selectedSpace.value,
-                            )
-                        },
-                    )
-                },
             )
             PageFilterSection {
                 Column {
@@ -398,6 +386,18 @@ fun RulesTab(
                         onAppTypeFilter = vm::setEntryAppTypeFilter,
                         showEntryGroups = true,
                         selectionActions = selectionActions,
+                        toolbarPreviewActions = entryHeaderPreviewKinds(state.filter).map { previewKind ->
+                            WorkspaceMenuAction(
+                                label = stringResource(previewKind.titleRes()),
+                                onClick = {
+                                    showModeSettings = false
+                                    systemProbeRequest = SystemProbeRequest(
+                                        entryKind = previewKind,
+                                        userId = vm.selectedSpace.value,
+                                    )
+                                },
+                            )
+                        },
                         modeAction = { WorkspaceSortShortcut(state.filter) { navigate { vm.setDestination(Destination.PRIORITY) } } },
                         subtypeTitle = when (state.filter) {
                             IntentKind.OPEN -> openPreset?.let { state.openTypesExplicit.localizedTitle(it) }
