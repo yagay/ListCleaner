@@ -18,6 +18,8 @@ import android.view.accessibility.AccessibilityManager
 import android.view.inputmethod.InputMethodInfo
 import android.view.inputmethod.InputMethodManager
 import androidx.core.graphics.drawable.toBitmap
+import com.yagay.ListCleaner.domain.DirectShareType
+import com.yagay.ListCleaner.domain.DirectShareTypeRules
 import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.IntentKind
@@ -160,6 +162,8 @@ internal class SpecialEntryDiscovery(private val context: Context) {
                 appType = app.listCleanerAppType(),
                 evidence = buildList {
                     add("AUTHORITY_OBSERVED kind=${kind.name} source=${if (live) "recent_runtime" else "cache_history"}")
+                    observed.directShareFamilies.mapNotNull(DirectShareType::fromName)
+                        .forEach { add(DirectShareTypeRules.evidence(it)) }
                     if (recentlyObservedLauncherShortcut && observed.key !in liveKeys)
                         add("SHORTCUT_HOST_SNAPSHOT userId=${observed.userId}")
                     observed.activityClass?.takeIf { it.isNotBlank() }?.let { add("component=$it") }
