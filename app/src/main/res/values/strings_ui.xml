@@ -273,4 +273,7 @@
     <string name="lc_mode_header_show">Show selected only</string>
     <string name="lc_mode_header_all">Show all</string>
     <string name="lc_mode_header_category_format">%1$s · %2$s</string>
+    <string name="lc_mode_select_for">%1$s · Cleaning mode</string>
+    <string name="lc_mode_confirm_hint">Choose a mode, then confirm to apply. Cancel keeps the existing mode.</string>
+    <string name="lc_mode_confirm_apply">Confirm change</string>
 </resources>

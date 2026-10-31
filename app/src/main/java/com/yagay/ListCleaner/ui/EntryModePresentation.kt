@@ -23,3 +23,14 @@ internal fun currentEntryDisplayMode(
         .toList()
     return modes.singleOrNull() ?: if (modes.isEmpty()) globalMode else null
 }
+
+// Popup selection is a local draft; the caller applies it only after
+// explicit confirmation. Dismiss/back discards this value without persisting.
+internal data class EntryModeChangeDraft(
+    val original: DisplayMode?,
+    val pending: DisplayMode? = original,
+) {
+    val hasChanges: Boolean get() = pending != original
+
+    fun select(mode: DisplayMode?): EntryModeChangeDraft = copy(pending = mode)
+}

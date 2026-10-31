@@ -55,6 +55,37 @@ class EntryModePresentationTest {
         )
     }
 
+    @Test fun choosingAnotherModeDoesNotMutateTheSavedSelection() {
+        val initial = EntryModeChangeDraft(DisplayMode.HIDE_SELECTED)
+        val staged = initial.select(DisplayMode.SHOW_SELECTED)
+        assertEquals(DisplayMode.HIDE_SELECTED, staged.original)
+        assertEquals(DisplayMode.SHOW_SELECTED, staged.pending)
+        assertEquals(true, staged.hasChanges)
+        // Closing the dialog discards the staged value, retaining the old mode.
+        assertEquals(DisplayMode.HIDE_SELECTED, initial.pending)
+    }
+
+    @Test fun selectingSameModeDoesNotRequireConfirmation() {
+        val initial = EntryModeChangeDraft(DisplayMode.SHOW_SELECTED)
+        assertEquals(false, initial.hasChanges)
+        assertEquals(false, initial.select(DisplayMode.SHOW_SELECTED).hasChanges)
+    }
+
+    @Test fun choosingInheritGlobalRequiresConfirmationWhenOverrideExists() {
+        val initial = EntryModeChangeDraft(DisplayMode.SHOW_ALL)
+        val staged = initial.select(null)
+        assertEquals(true, staged.hasChanges)
+        assertEquals(null, staged.pending)
+        assertEquals(DisplayMode.SHOW_ALL, staged.original)
+    }
+
+    @Test fun choosingExplicitOverrideFromInheritedModeRequiresConfirmation() {
+        val initial = EntryModeChangeDraft(null)
+        val staged = initial.select(DisplayMode.HIDE_SELECTED)
+        assertEquals(true, staged.hasChanges)
+        assertEquals(null, staged.original)
+    }
+
     @Test fun retiredEntryKindsDoNotForceMixedState() {
         assertEquals(
             DisplayMode.HIDE_SELECTED,

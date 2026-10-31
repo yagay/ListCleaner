@@ -188,7 +188,7 @@ internal fun SettingsFlatDialog(
 }
 
 @Composable
-private fun SettingsFlatChoiceRow(label: String, selected: Boolean, onClick: () -> Unit) {
+internal fun SettingsFlatChoiceRow(label: String, selected: Boolean, onClick: () -> Unit) {
     FlatRowSurface(onClick = onClick, dividerInset = 0.dp) {
         Row(
             Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 8.dp),
