@@ -774,7 +774,29 @@ class ListCleanerModule : XposedModule() {
         val verifiedManagerAppId = verifiedManagerAppIdForProbe(chain, callerUid)
             ?: return original
 
-        if (operation == RuntimeProtocol.OP_CHUNK) {
+        if (operation == RuntimeProtocol.OP_SCAN_DIRECT_SHARE) {
+            // Authorize BEFORE enqueueing background work. A manager UID proven
+            // by PackageManager still needs a matching, applied config digest.
+            val targetUser = intent.getIntExtra(RuntimeProtocol.EXTRA_SCAN_USER_ID, -1)
+            val token = intent.getStringExtra(RuntimeProtocol.EXTRA_SCAN_TOKEN)
+            val current = snapshot
+            val authorized = protocol == RuntimeProtocol.VERSION &&
+                ManagerIdentity.matches(callerUid, current.managerAppId) &&
+                current.digest.isNotEmpty() && current.digest == expectedDigest &&
+                (targetUser == com.yagay.ListCleaner.domain.AndroidUid.userId(callerUid) ||
+                    targetUser in policies.otherUsers.keys) &&
+                RuntimeProtocol.validTransferId(token)
+            if (!authorized) {
+                record("DIRECT_SCAN_REQUEST_REJECT uid=$callerUid user=$targetUser reason=identity_or_config")
+                return original
+            }
+            if (!DirectShareActiveScanBridge.request(targetUser, requireNotNull(token))) {
+                record("DIRECT_SCAN_REQUEST_REJECT uid=$callerUid user=$targetUser reason=unavailable_or_busy")
+                return original
+            }
+            record("DIRECT_SCAN_REQUEST_ACCEPT uid=$callerUid user=$targetUser")
+            // Fall through to the standard Runtime Protocol ACK below.
+        } else         if (operation == RuntimeProtocol.OP_CHUNK) {
             if (protocol != RuntimeProtocol.VERSION) {
                 record("CONFIG_PUSH_REJECT stage=chunk uid=$callerUid reason=protocol protocol=$protocol")
                 return original
@@ -792,6 +814,7 @@ class ListCleanerModule : XposedModule() {
                 }
                 return original
             }
+            RuntimeProtocol.OP_SCAN_DIRECT_SHARE -> Unit
             RuntimeProtocol.OP_COMMIT -> {
                 if (protocol != RuntimeProtocol.VERSION) return original
                 val completed = runtimeTransfers.commit(intent, callerUid, verifiedManagerAppId)
