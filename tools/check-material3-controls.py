@@ -372,17 +372,25 @@ picker_source = selector_source.split("private fun WorkspaceCategoryPicker(", 1)
 if picker_source.count("WorkspaceCategoryPreviewIcon(previewActions)") != 1:
     errors.append("WorkspaceCategorySelector.kt: subtype picker must swap the existing category icon")
 picker_button = selector_source.split("internal fun WorkspacePickerButton(", 1)[-1].split(
-    "private fun WorkspaceCategoryPreviewIcon(", 1
+    "internal fun WorkspaceCategoryPreviewIcon(", 1
 )[0]
 if "WorkspaceCategoryPreviewIcon(previewActions)" not in picker_button:
     errors.append("WorkspaceCategorySelector.kt: standard picker must replace the existing icon")
 if "showLeadingIcon" in selector_source:
     errors.append("WorkspaceCategorySelector.kt: obsolete separate-eye geometry remains")
-eye_source = selector_source.split("private fun WorkspaceCategoryPreviewIcon(", 1)[-1].split(
+eye_source = selector_source.split("internal fun WorkspaceCategoryPreviewIcon(", 1)[-1].split(
     "/**", 1
 )[0]
-if "Modifier.size(18.dp).clickable(" not in eye_source or "AdaptiveIconButton(" in eye_source:
-    errors.append("WorkspaceCategorySelector.kt: eye must fit original icon slot; no added button")
+if ("touchSize: androidx.compose.ui.unit.Dp = 18.dp" not in eye_source or
+        "Modifier.size(touchSize).clickable(" not in eye_source or
+        "AdaptiveIconButton(" in eye_source):
+    errors.append("WorkspaceCategorySelector.kt: preview eye must keep its compact default with a reusable 48dp touch target")
+classic_preview = (root / "ClassicListLayout.kt").read_text(encoding="utf-8")
+if "touchSize = 48.dp" not in classic_preview or "iconSize = 20.dp" not in classic_preview:
+    errors.append("ClassicListLayout.kt: trailing system preview must have a 48dp touch target")
+entry_preview = (root / "MainTabs.kt").read_text(encoding="utf-8")
+if "previewActions = entryHeaderPreviewKinds(state.filter)" not in entry_preview or "browseAllComponents" in entry_preview:
+    errors.append("MainTabs.kt: top preview must follow current Entry and not switch to embedded Components")
 summary_source = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8").split(
     "internal fun WorkspaceListActions(", 1
 )[-1].split("internal fun WorkspaceListSummary(", 1)[0]
