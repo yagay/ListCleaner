@@ -28,7 +28,7 @@ check(signingValues.all { it == null || hasReleaseSigning }) {
 }
 
 // Authority filtering now hooks final Settings/Role/NFC paths and changes system runtime behavior.
-val hookCompatVersionCode = 70
+val hookCompatVersionCode = 72
 
 android {
     namespace = "com.yagay.ListCleaner"
@@ -40,8 +40,8 @@ android {
         applicationId = "com.yagay.ListCleaner"
         minSdk = 31
         targetSdk = 37
-        versionCode = 71
-        versionName = "1.6.46"
+        versionCode = 72
+        versionName = "1.6.47"
         buildConfigField("long", "HOOK_COMPAT_VERSION_CODE", "${hookCompatVersionCode}L")
     }
     buildFeatures { compose = true; buildConfig = true }

@@ -13,6 +13,10 @@ import com.yagay.ListCleaner.domain.AuthorityCandidatePolicy
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.ModuleConfig
 import com.yagay.ListCleaner.domain.OBSERVABLE_ENTRY_KINDS
+import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.ObservedEntrySnapshot
+import com.yagay.ListCleaner.domain.ObservedEntryCacheCodec
+import com.yagay.ListCleaner.domain.DirectShareScanTransfer
 import com.yagay.ListCleaner.domain.PriorityConfig
 import com.yagay.ListCleaner.domain.RuntimeProtocol
 import com.yagay.ListCleaner.domain.deriveFullySelectedPackages
@@ -159,54 +163,92 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
     fun isCurrent(session: ServiceSession?): Boolean = sessionRegistry.isCurrent(session)
 
     /**
-     * Active Direct Share discovery, using the same verified manager Runtime
-     * Protocol as config synchronization. The scan runs asynchronously inside
-     * system_server; wait only on IO for its completion marker before reading
-     * the existing observed-entry cache. Failure leaves all saved rules intact.
+     * Privileged scan stays in system_server memory. Fetch small authenticated pieces
+     * and persist only a completely verified result in the manager process.
      */
     suspend fun requestDirectShareScan(userId: Int): Boolean = withContext(Dispatchers.IO) {
         val session = currentSession() ?: run {
-            Log.w(TAG, "DIRECT_SCAN_UNAVAILABLE user=$userId reason=module_session_missing")
+            Log.w(TAG, "DIRECT_SCAN_UNAVAILABLE user=" + userId + " reason=module_session_missing")
             return@withContext false
         }
         val digest = runtime.value.takeIf { it.ready }?.digest
             ?.takeIf(RuntimeProtocol::validDigest) ?: run {
-                Log.w(TAG, "DIRECT_SCAN_UNAVAILABLE user=$userId reason=runtime_config_not_ready")
+                Log.w(TAG, "DIRECT_SCAN_UNAVAILABLE user=" + userId + " reason=runtime_config_not_ready")
                 return@withContext false
             }
         val token = java.util.UUID.randomUUID().toString()
         val started = runCatching {
             runtimeTransport.requestDirectShareScan(userId, token, digest)
-        }.getOrElse {
-            Log.w(TAG, "Direct Share scan request unavailable", it)
-            false
-        }
+        }.getOrDefault(false)
         if (!started) {
-            Log.w(TAG, "DIRECT_SCAN_UNAVAILABLE user=$userId reason=request_not_accepted")
+            Log.w(TAG, "DIRECT_SCAN_UNAVAILABLE user=" + userId + " reason=request_not_accepted")
             return@withContext false
         }
-        val preferences = runCatching {
-            session.service.getRemotePreferences(RuleRepository.REMOTE_PREFS)
-        }.getOrNull() ?: return@withContext false
-        val key = RuntimeProtocol.DIRECT_SHARE_SCAN_STATUS_PREFIX + userId
         repeat(40) {
             if (!isCurrent(session) || rules.activeUser.value != userId) return@withContext false
-            delay(200)
-            when (val status = preferences.getString(key, null)) {
-                null -> Unit
-                else -> {
-                    if (status.startsWith("ok|$token|")) {
-                        Log.i(TAG, "DIRECT_SCAN_COMPLETED user=$userId targets=${status.split('|').getOrNull(2)}")
-                        return@withContext true
-                    }
-                    if (status.startsWith("failed|$token|")) {
-                        Log.w(TAG, "Direct Share scan failed: $status")
+            val poll = runCatching {
+                runtimeTransport.readDirectShareScan(userId, token, digest, -1)
+            }.getOrNull()
+            when (poll?.status) {
+                "failed" -> {
+                    Log.w(TAG, "DIRECT_SCAN_FAILED user=" + userId + " reason=" + poll.error)
+                    return@withContext false
+                }
+                "ok" -> {
+                    if (poll.chunks !in 1..DirectShareScanTransfer.MAX_CHUNKS ||
+                        poll.records !in 0..ObservedEntryCacheCodec.MAX_ENTRIES) {
+                        Log.w(TAG, "DIRECT_SCAN_INVALID user=" + userId + " reason=invalid_header")
                         return@withContext false
                     }
+                    val parts = ArrayList<String>(poll.chunks)
+                    for (index in 0 until poll.chunks) {
+                        if (!isCurrent(session) || rules.activeUser.value != userId) return@withContext false
+                        val part = runCatching {
+                            runtimeTransport.readDirectShareScan(userId, token, digest, index)
+                        }.getOrNull()
+                        if (part?.status != "ok" || part.chunks != poll.chunks ||
+                            part.records != poll.records || part.payload.isEmpty()) {
+                            Log.w(TAG, "DIRECT_SCAN_INVALID user=" + userId + " reason=missing_chunk index=" + index)
+                            return@withContext false
+                        }
+                        parts.add(part.payload)
+                    }
+                    val encoded = DirectShareScanTransfer.join(parts, poll.chunks)
+                        ?: return@withContext false
+                    val decoded = runCatching {
+                        json.decodeFromString(ObservedEntrySnapshot.serializer(), encoded)
+                    }.getOrNull()
+                    if (decoded == null || decoded.version != 1 ||
+                        decoded.entries.size != poll.records ||
+                        decoded.entries.size > ObservedEntryCacheCodec.MAX_ENTRIES) {
+                        Log.w(TAG, "DIRECT_SCAN_INVALID user=" + userId + " reason=invalid_snapshot")
+                        return@withContext false
+                    }
+                    val verified = decoded.entries.mapNotNull { entry ->
+                        entry.validatedOrNull()?.takeIf {
+                            it.kind == IntentKind.DIRECT_SHARE.name && it.userId == userId
+                        }
+                    }
+                    if (verified.size != decoded.entries.size ||
+                        verified.map { it.key }.toSet().size != verified.size) {
+                        Log.w(TAG, "DIRECT_SCAN_INVALID user=" + userId + " reason=invalid_records")
+                        return@withContext false
+                    }
+                    if (!isCurrent(session) || rules.activeUser.value != userId) return@withContext false
+                    observedEntryCache.merge(verified)
+                    catalog.invalidate()
+                    Log.i(TAG, "DIRECT_SCAN_COMPLETED user=" + userId + " targets=" + verified.size)
+                    return@withContext true
+                }
+                "running", null -> Unit
+                else -> {
+                    Log.w(TAG, "DIRECT_SCAN_INVALID user=" + userId + " reason=unexpected_status")
+                    return@withContext false
                 }
             }
+            delay(200)
         }
-        Log.w(TAG, "Direct Share scan completion timeout user=$userId")
+        Log.w(TAG, "DIRECT_SCAN_TIMEOUT user=" + userId + " reason=result_not_published_or_old_hook")
         false
     }
 

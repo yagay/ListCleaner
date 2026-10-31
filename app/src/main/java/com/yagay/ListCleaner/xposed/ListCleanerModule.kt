@@ -247,7 +247,7 @@ class ListCleanerModule : XposedModule() {
         initializePreferences()
         // The authenticated control endpoint and scanner must share one module
         // classloader and service lifecycle, independent of shortcut Hook order.
-        DirectShareActiveScanBridge.initialize(param.classLoader, preferences, ::record)
+        DirectShareActiveScanBridge.initialize(param.classLoader, ::record)
         installSystemServerQueryHooks(param.classLoader)
     }
 
@@ -777,7 +777,9 @@ class ListCleanerModule : XposedModule() {
         val verifiedManagerAppId = verifiedManagerAppIdForProbe(chain, callerUid)
             ?: return original
 
-        if (operation == RuntimeProtocol.OP_SCAN_DIRECT_SHARE) {
+        var directShareResult: DirectShareActiveScanBridge.ReadResult? = null
+        if (operation == RuntimeProtocol.OP_SCAN_DIRECT_SHARE ||
+            operation == RuntimeProtocol.OP_READ_DIRECT_SHARE) {
             // Authorize BEFORE enqueueing background work. A manager UID proven
             // by PackageManager still needs a matching, applied config digest.
             val targetUser = intent.getIntExtra(RuntimeProtocol.EXTRA_SCAN_USER_ID, -1)
@@ -793,13 +795,20 @@ class ListCleanerModule : XposedModule() {
                 record("DIRECT_SCAN_REQUEST_REJECT uid=$callerUid user=$targetUser reason=identity_or_config")
                 return original
             }
-            if (!DirectShareActiveScanBridge.request(targetUser, requireNotNull(token))) {
-                record("DIRECT_SCAN_REQUEST_REJECT uid=$callerUid user=$targetUser reason=unavailable_or_busy")
-                return original
+            if (operation == RuntimeProtocol.OP_SCAN_DIRECT_SHARE) {
+                if (!DirectShareActiveScanBridge.request(targetUser, requireNotNull(token))) {
+                    record("DIRECT_SCAN_REQUEST_REJECT uid=$callerUid user=$targetUser reason=unavailable_or_busy")
+                    return original
+                }
+                record("DIRECT_SCAN_REQUEST_ACCEPT uid=$callerUid user=$targetUser")
+            } else {
+                directShareResult = DirectShareActiveScanBridge.read(
+                    targetUser, requireNotNull(token),
+                    intent.getIntExtra(RuntimeProtocol.EXTRA_SCAN_CHUNK_INDEX, -1)
+                ) ?: return original
             }
-            record("DIRECT_SCAN_REQUEST_ACCEPT uid=$callerUid user=$targetUser")
             // Fall through to the standard Runtime Protocol ACK below.
-        } else         if (operation == RuntimeProtocol.OP_CHUNK) {
+        } else if (operation == RuntimeProtocol.OP_CHUNK) {
             if (protocol != RuntimeProtocol.VERSION) {
                 record("CONFIG_PUSH_REJECT stage=chunk uid=$callerUid reason=protocol protocol=$protocol")
                 return original
@@ -817,7 +826,7 @@ class ListCleanerModule : XposedModule() {
                 }
                 return original
             }
-            RuntimeProtocol.OP_SCAN_DIRECT_SHARE -> Unit
+            RuntimeProtocol.OP_SCAN_DIRECT_SHARE, RuntimeProtocol.OP_READ_DIRECT_SHARE -> Unit
             RuntimeProtocol.OP_COMMIT -> {
                 if (protocol != RuntimeProtocol.VERSION) return original
                 val completed = runtimeTransfers.commit(intent, callerUid, verifiedManagerAppId)
@@ -863,6 +872,19 @@ class ListCleanerModule : XposedModule() {
                 activityInfo = ActivityInfo().apply {
                     packageName = RuntimeProtocol.PACKAGE
                     name = RuntimeProtocol.COMPONENT
+                    directShareResult?.let { scan ->
+                        metaData = Bundle().apply {
+                            putString(RuntimeProtocol.META_SCAN_STATUS, scan.status)
+                            putString(RuntimeProtocol.META_SCAN_TOKEN,
+                                intent.getStringExtra(RuntimeProtocol.EXTRA_SCAN_TOKEN))
+                            putInt(RuntimeProtocol.META_SCAN_USER_ID,
+                                intent.getIntExtra(RuntimeProtocol.EXTRA_SCAN_USER_ID, -1))
+                            putInt(RuntimeProtocol.META_SCAN_RECORDS, scan.records)
+                            putInt(RuntimeProtocol.META_SCAN_CHUNKS, scan.chunks)
+                            putString(RuntimeProtocol.META_SCAN_PAYLOAD, scan.payload)
+                            putString(RuntimeProtocol.META_SCAN_ERROR, scan.error)
+                        }
+                    }
                     applicationInfo = ApplicationInfo().apply {
                         packageName = RuntimeProtocol.PACKAGE
                         uid = callerUid

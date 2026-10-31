@@ -3,11 +3,12 @@ package com.yagay.ListCleaner.xposed
 import android.content.ComponentName
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.SharedPreferences
 import android.content.pm.ShortcutInfo
 import com.yagay.ListCleaner.domain.DirectShareType
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.ObservedEntryRecord
+import com.yagay.ListCleaner.domain.ObservedEntryCacheCodec
+import com.yagay.ListCleaner.domain.DirectShareScanTransfer
 import com.yagay.ListCleaner.domain.SyntheticEntryKeys
 import java.lang.reflect.Method
 import java.util.concurrent.Executors
@@ -24,23 +25,52 @@ internal object DirectShareActiveScanBridge {
     // AOSP registers this framework class in LocalServices; it is not in com.android.server.pm.
     internal const val SHORTCUT_SERVICE_INTERNAL_CLASS = "android.content.pm.ShortcutServiceInternal"
     private const val MAX_RESULTS_PER_QUERY = 2048
-    private const val MAX_DISTINCT_RECORDS = 4096
+    private const val MAX_DISTINCT_RECORDS = ObservedEntryCacheCodec.MAX_ENTRIES
     private const val STATUS_LIMIT = 200
     private val busy = AtomicBoolean(false)
     private val executor = Executors.newSingleThreadExecutor { task ->
         Thread(task, "LC-ActiveDirectShare").apply { isDaemon = true }
     }
     @Volatile private var loader: ClassLoader? = null
-    @Volatile private var prefs: SharedPreferences? = null
     @Volatile private var logger: ((String) -> Unit)? = null
+
+    /** Immutable, token-scoped result in system_server, never RemotePreferences writes. */
+    private data class ScanState(
+        val userId: Int,
+        val token: String,
+        val status: String,
+        val records: Int = 0,
+        val parts: List<String> = emptyList(),
+        val error: String = "",
+        val startedAt: Long = System.currentTimeMillis(),
+    )
+    data class ReadResult(
+        val status: String,
+        val records: Int,
+        val chunks: Int,
+        val payload: String,
+        val error: String,
+    )
+    @Volatile private var state: ScanState? = null
+
+    /** Read only for the previously authenticated manager UID + digest + token. */
+    fun read(userId: Int, token: String, chunkIndex: Int): ReadResult? {
+        val current = state ?: return null
+        if (current.userId != userId || current.token != token ||
+            System.currentTimeMillis() - current.startedAt !in 0..120_000L ||
+            chunkIndex !in -1 until current.parts.size) return null
+        return ReadResult(
+            current.status, current.records, current.parts.size,
+            if (chunkIndex >= 0) current.parts[chunkIndex] else "",
+            current.error,
+        )
+    }
 
     fun initialize(
         classLoader: ClassLoader,
-        preferences: SharedPreferences,
         record: (String) -> Unit,
     ) {
         loader = classLoader
-        prefs = preferences
         logger = record
         record("DIRECT_SCAN_BRIDGE_READY")
     }
@@ -49,17 +79,18 @@ internal object DirectShareActiveScanBridge {
     fun request(userId: Int, token: String): Boolean {
         if (userId !in 0..21474 || token.length !in 1..64 ||
             token.any { !it.isLetterOrDigit() && it != '-' && it != '_' } ||
-            loader == null || prefs == null || !busy.compareAndSet(false, true)
+            loader == null || !busy.compareAndSet(false, true)
         ) return false
-        writeStatus(userId, "running|$token")
+        state = ScanState(userId, token, "running")
         executor.execute {
             try {
                 scan(userId, token)
             } catch (error: Throwable) {
                 val cause = (error as? java.lang.reflect.InvocationTargetException)?.targetException ?: error
                 val reason = cause.message.orEmpty().take(100).replace('|', '_')
-                log("DIRECT_SCAN_FAILED user=$userId error=${cause.javaClass.simpleName} reason=$reason")
-                writeStatus(userId, "failed|$token|${cause.javaClass.simpleName}|$reason")
+                log("DIRECT_SCAN_FAILED user=" + userId + " error=" + cause.javaClass.simpleName + " reason=" + reason)
+                state = ScanState(userId, token, "failed",
+                    error = cause.javaClass.simpleName + ":" + reason)
             } finally {
                 busy.set(false)
             }
@@ -127,16 +158,13 @@ internal object DirectShareActiveScanBridge {
                 log("DIRECT_SCAN_QUERY_FAILED user=$userId mime=$mime error=${cause.javaClass.simpleName} reason=${cause.message.orEmpty().take(100)}")
             }
         }
-        // No successful queries means the system interface is unavailable, not
-        // an empty inventory. Preserve all old observed entries and cleanup rules.
+        // Failed or zero queries do not invalidate previous observations or cleanup rules.
         if (successes == 0) error("all_queries_failed")
-        val persisted = if (byKey.isNotEmpty()) {
-            RemoteObservedEntryPersistence(prefs ?: error("preferences_missing"), ::log)
-                .merge(byKey.values)
-        } else true
-        if (!persisted) error("observed_cache_write_failed")
-        writeStatus(userId, "ok|$token|${byKey.size}|$successes|$failures")
-        log("DIRECT_SCAN_OK user=$userId targets=${byKey.size} queries=$successes failures=$failures")
+        val encoded = ObservedEntryCacheCodec.encode(byKey.values)
+        val parts = DirectShareScanTransfer.split(encoded)
+        state = ScanState(userId, token, "ok", byKey.size, parts)
+        log("DIRECT_SCAN_OK user=" + userId + " targets=" + byKey.size +
+            " queries=" + successes + " failures=" + failures + " chunks=" + parts.size)
     }
 
     /** Selects the AOSP local service signature, ignoring incompatible OEM overloads. */
@@ -158,12 +186,6 @@ internal object DirectShareActiveScanBridge {
     }.onFailure {
         log("DIRECT_SCAN_SERVICE_UNAVAILABLE error=${it.javaClass.simpleName}")
     }.getOrNull()
-
-    private fun writeStatus(userId: Int, value: String) {
-        runCatching {
-            prefs?.edit()?.putString(STATUS_PREFIX + userId, value.take(STATUS_LIMIT))?.commit()
-        }.onFailure { log("DIRECT_SCAN_STATUS_FAILED error=${it.javaClass.simpleName}") }
-    }
 
     private fun log(value: String) { logger?.invoke(value) }
 

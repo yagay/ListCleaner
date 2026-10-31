@@ -41,6 +41,52 @@ internal class RuntimeConfigTransport(
             digest,
         ) != null
 
+    data class DirectShareScanRead(
+        val status: String,
+        val records: Int,
+        val chunks: Int,
+        val payload: String,
+        val error: String,
+    )
+
+    /** Read from a system_server snapshot only when UID, digest, token and user match. */
+    fun readDirectShareScan(
+        userId: Int, token: String, digest: String, chunkIndex: Int = -1
+    ): DirectShareScanRead? {
+        if (!RuntimeProtocol.validDigest(digest) || !RuntimeProtocol.validTransferId(token) ||
+            userId !in 0..21474 || chunkIndex !in -1..95) return null
+        val results = query(
+            Intent(RuntimeProtocol.ACTION)
+                .setPackage(context.packageName)
+                .putExtra(RuntimeProtocol.EXTRA_PROTOCOL_VERSION, RuntimeProtocol.VERSION)
+                .putExtra(RuntimeProtocol.EXTRA_OPERATION, RuntimeProtocol.OP_READ_DIRECT_SHARE)
+                .putExtra(RuntimeProtocol.EXTRA_SCAN_USER_ID, userId)
+                .putExtra(RuntimeProtocol.EXTRA_SCAN_TOKEN, token)
+                .putExtra(RuntimeProtocol.EXTRA_SCAN_CHUNK_INDEX, chunkIndex)
+                .putExtra(RuntimeProtocol.EXTRA_EXPECTED_DIGEST, digest)
+        )
+        val reply = results.firstOrNull { candidate ->
+            candidate.activityInfo?.packageName == context.packageName &&
+                candidate.activityInfo?.name == RuntimeProtocol.COMPONENT &&
+                RuntimeAckCodec.parse(candidate.nonLocalizedLabel?.toString(),
+                    BuildConfig.HOOK_COMPAT_VERSION_CODE.toLong(), digest) != null
+        } ?: return null
+        val meta = reply.activityInfo?.metaData ?: return null
+        if (meta.getString(RuntimeProtocol.META_SCAN_TOKEN) != token ||
+            meta.getInt(RuntimeProtocol.META_SCAN_USER_ID, -1) != userId) return null
+        val status = meta.getString(RuntimeProtocol.META_SCAN_STATUS)
+            ?.takeIf { it in setOf("running", "ok", "failed") } ?: return null
+        val chunks = meta.getInt(RuntimeProtocol.META_SCAN_CHUNKS, -1)
+        val records = meta.getInt(RuntimeProtocol.META_SCAN_RECORDS, -1)
+        val payload = meta.getString(RuntimeProtocol.META_SCAN_PAYLOAD).orEmpty()
+        val error = meta.getString(RuntimeProtocol.META_SCAN_ERROR).orEmpty()
+        if (chunks !in 0..96 || records !in 0..1024 ||
+            payload.length > 8000 || error.length > 150 ||
+            (chunkIndex == -1 && payload.isNotEmpty()) ||
+            (chunkIndex >= 0 && (status != "ok" || payload.isEmpty()))) return null
+        return DirectShareScanRead(status, records, chunks, payload, error)
+    }
+
     fun pushConfig(encoded: String, digest: String, revision: Long): RuntimeAckCodec.Ack? {
         val chunks = encoded.chunked(RuntimeProtocol.CONFIG_CHUNK_CHARS)
         require(chunks.isNotEmpty() && chunks.size <= RuntimeProtocol.MAX_CONFIG_CHUNKS) {

@@ -54,7 +54,16 @@ public final class RuntimeProtocol {
     public static final String OP_SCAN_DIRECT_SHARE = "scan_direct_share";
     public static final String EXTRA_SCAN_USER_ID = PACKAGE + ".extra.SCAN_USER_ID";
     public static final String EXTRA_SCAN_TOKEN = PACKAGE + ".extra.SCAN_TOKEN";
-    public static final String DIRECT_SHARE_SCAN_STATUS_PREFIX = "direct_share_scan_status_user_";
+    /** The manager polls and reads a token-bound, in-memory scan in small pieces. */
+    public static final String OP_READ_DIRECT_SHARE = "read_direct_share";
+    public static final String EXTRA_SCAN_CHUNK_INDEX = PACKAGE + ".extra.SCAN_CHUNK_INDEX";
+    public static final String META_SCAN_STATUS = PACKAGE + ".meta.SCAN_STATUS";
+    public static final String META_SCAN_USER_ID = PACKAGE + ".meta.SCAN_USER_ID";
+    public static final String META_SCAN_TOKEN = PACKAGE + ".meta.SCAN_TOKEN";
+    public static final String META_SCAN_RECORDS = PACKAGE + ".meta.SCAN_RECORDS";
+    public static final String META_SCAN_CHUNKS = PACKAGE + ".meta.SCAN_CHUNKS";
+    public static final String META_SCAN_PAYLOAD = PACKAGE + ".meta.SCAN_PAYLOAD";
+    public static final String META_SCAN_ERROR = PACKAGE + ".meta.SCAN_ERROR";
 
     /** Private ResolveInfo metadata written by the system hook and consumed by Resolver hooks. */
     public static final String META_POLICY_DIGEST =

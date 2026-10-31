@@ -114,6 +114,10 @@ internal class UnifiedShortcutEngine(private val context: Context) {
     ): Result {
         val selectedKinds = kinds.intersect(setOf(IntentKind.DIRECT_SHARE, IntentKind.SHORTCUT_ITEM))
         if (selectedKinds.isEmpty()) return Result(source = "NONE", status = "disabled")
+        // Root/Launcher shortcut queries cannot verify a Direct Share MIME target.
+        if (IntentKind.SHORTCUT_ITEM !in selectedKinds) {
+            return Result(source = "SYSTEM_SERVER", status = "direct_share_runtime_probe")
+        }
         if (userId !in 0..21474) return Result(source = "NONE", status = "invalid_user")
         // Desktop long-press shortcuts are not restricted to apps that handle SHARE.
         // Enumerate the selected Android user's installed packages instead of
