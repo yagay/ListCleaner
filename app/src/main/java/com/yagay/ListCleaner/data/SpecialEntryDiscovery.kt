@@ -147,10 +147,19 @@ internal class SpecialEntryDiscovery(private val context: Context) {
             // remain current for one observer refresh window even when the
             // system_server synthetic query has not yet returned them.
             // Other observed kinds keep their strict live-runtime semantics.
+            val age = System.currentTimeMillis() - observed.observedAt
             val recentlyObservedLauncherShortcut =
-                kind == IntentKind.SHORTCUT_ITEM &&
-                    System.currentTimeMillis() - observed.observedAt in 0..600_000L
-            val live = observed.key in liveKeys || recentlyObservedLauncherShortcut
+                kind == IntentKind.SHORTCUT_ITEM && age in 0..600_000L
+            // A concrete MIME match in ShortcutService / Chooser proves that
+            // the target was just offered. The one-shot event may already have
+            // ended by the time the manager next reads its observed cache.
+            // Do not promote generic history without verified MIME evidence.
+            val recentlyMatchedDirectShare =
+                kind == IntentKind.DIRECT_SHARE &&
+                    observed.directShareFamilies.isNotEmpty() &&
+                    age in 0..600_000L
+            val live = observed.key in liveKeys ||
+                recentlyObservedLauncherShortcut || recentlyMatchedDirectShare
             ComponentCandidate(
                 rule = rule,
                 appLabel = runCatching { app.loadLabel(pm).toString() }.getOrDefault(observed.packageName),
@@ -166,6 +175,8 @@ internal class SpecialEntryDiscovery(private val context: Context) {
                         .forEach { add(DirectShareTypeRules.evidence(it)) }
                     if (recentlyObservedLauncherShortcut && observed.key !in liveKeys)
                         add("SHORTCUT_HOST_SNAPSHOT userId=${observed.userId}")
+                    if (recentlyMatchedDirectShare && observed.key !in liveKeys)
+                        add("DIRECT_SHARE_MATCHED_RECENT userId=${observed.userId}")
                     observed.activityClass?.takeIf { it.isNotBlank() }?.let { add("component=$it") }
                     add("observedAt=${observed.observedAt}")
                 },
