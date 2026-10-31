@@ -24,6 +24,8 @@ import com.yagay.ListCleaner.domain.CustomOpenDefinition
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.OpenPreset
+import com.yagay.ListCleaner.domain.DirectShareType
+import com.yagay.ListCleaner.domain.DirectShareTypeConfig
 import com.yagay.ListCleaner.domain.OpenTypeConfig
 import com.yagay.ListCleaner.domain.PriorityConfig
 import com.yagay.ListCleaner.domain.matchesOpenPreset
@@ -70,6 +72,7 @@ data class MainState(
     val priorities: PriorityConfig = PriorityConfig(),
     val openTypes: OpenTypeConfig = OpenTypeConfig(),
     val openTypesExplicit: OpenTypeConfig = OpenTypeConfig(),
+    val directShareTypes: DirectShareTypeConfig = DirectShareTypeConfig(),
     val browserLinks: BrowserLinkConfig = BrowserLinkConfig(),
     val browserAvailableHosts: Set<String> = emptySet(),
     val hiddenFromApps: Set<String> = emptySet(),
@@ -296,6 +299,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val diagnosticMode: Boolean,
         val hiddenFromApps: Set<String>,
         val openTypes: OpenTypeConfig,
+        val directShareTypes: DirectShareTypeConfig = DirectShareTypeConfig(),
     )
 
     private data class ShellInputs(
@@ -351,6 +355,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         app.rules.openTypes,
     ) { displayMode, priorities, diagnosticMode, hiddenFromApps, openTypes ->
         RuleInputs(displayMode, priorities, diagnosticMode, hiddenFromApps, openTypes)
+    }.combine(app.rules.directShareTypes) { input, types ->
+        input.copy(directShareTypes = types)
     }
 
     private val shellInputs = combine(
@@ -385,6 +391,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             hiddenFromApps = rules.hiddenFromApps,
             openTypes = effectiveOpenTypes(rules.openTypes, content.selected, rules.priorities),
             openTypesExplicit = rules.openTypes,
+            directShareTypes = rules.directShareTypes,
             browserLinks = shell.browserLinks,
             browserAvailableHosts = availableDeepLinkHosts(
                 shell.browserLinks.hosts,
@@ -555,6 +562,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             SelectionOperation.DESELECT -> app.rules.setBrowserHostSelected(normalized, editable, false)
             SelectionOperation.INVERT -> app.rules.invertBrowserHostSelected(normalized, editable)
         }
+    }
+
+    fun selectDirectShareTypeRules(
+        type: DirectShareType, rules: Collection<ComponentRule>, lockScope: String,
+    ) = mutateDirectShareTypeRules(type, rules, lockScope, true)
+
+    fun deselectDirectShareTypeRules(
+        type: DirectShareType, rules: Collection<ComponentRule>, lockScope: String,
+    ) = mutateDirectShareTypeRules(type, rules, lockScope, false)
+
+    private fun mutateDirectShareTypeRules(
+        type: DirectShareType, rules: Collection<ComponentRule>, scope: String, selected: Boolean,
+    ) {
+        if (!canEdit()) return
+        val generic = app.rules.rules.value.filterTo(hashSetOf()) {
+            it.kind == IntentKind.DIRECT_SHARE
+        }
+        val editable = rules.distinct().filter {
+            it.kind == IntentKind.DIRECT_SHARE &&
+                it !in generic && !bulkLocks.isProtected(scope, it.packageName, it.id)
+        }
+        if (editable.isNotEmpty()) app.rules.setDirectShareTypeSelected(type, editable, selected)
     }
 
     fun selectOpenTypeRules(preset: OpenPreset, rules: Collection<ComponentRule>, lockScope: String) =
