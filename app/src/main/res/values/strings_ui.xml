@@ -278,6 +278,7 @@
     <string name="lc_mode_confirm_apply">Confirm change</string>
     <string name="preview_tab_estimated">Estimated</string>
     <string name="preview_estimated_title">Estimated visible list · Unverified</string>
+    <string name="preview_includes_pending">Estimated list · Includes unconfirmed selections</string>
     <string name="preview_estimated_source">Calculated from confirmed rules and known candidates</string>
     <string name="preview_source_ordered_adapter">Observed ordered app targets in Android Resolver/Chooser; pinned and Direct Share targets may be arranged separately</string>
     <string name="preview_quality_ordered_adapter">System adapter order · Final screen not verified</string>
