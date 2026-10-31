@@ -34,6 +34,8 @@ import com.yagay.ListCleaner.domain.AppType
 import com.yagay.ListCleaner.domain.AppTypeFilter
 import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.ComponentRule
+import com.yagay.ListCleaner.domain.DirectShareType
+import com.yagay.ListCleaner.domain.DirectShareTypeRules
 import com.yagay.ListCleaner.domain.matchesOpenPreset
 import com.yagay.ListCleaner.domain.matchesBrowserHost
 
@@ -125,9 +127,13 @@ fun RulesTab(
 
     val openPreset by vm.ruleOpenPreset.collectAsStateWithLifecycle()
     val browserHost by vm.ruleBrowserHost.collectAsStateWithLifecycle()
+    var directShareTypeName by rememberSaveable(vm.selectedSpace.value) { mutableStateOf<String?>(null) }
+    val directShareType = directShareTypeName?.let(DirectShareType::fromName)
+        .takeIf { state.filter == IntentKind.DIRECT_SHARE }
     LaunchedEffect(state.filter) {
         if (state.filter != IntentKind.OPEN) vm.setRuleOpenPreset(null)
         if (state.filter != IntentKind.DEEP_LINK) vm.setRuleBrowserHost(null)
+        if (state.filter != IntentKind.DIRECT_SHARE) directShareTypeName = null
     }
     LaunchedEffect(state.openTypesExplicit.customDefinitions, openPreset) {
         if (openPreset?.isCustom == true && openPreset !in state.openTypesExplicit.customDefinitions) vm.setRuleOpenPreset(null)
@@ -146,12 +152,22 @@ fun RulesTab(
     val deepLinkSelected = genericDeepLinkSelected + explicitDeepLinkSelected
     val deepLinkScoped = deepLinkHost != null
     val lockScope = deepLinkHost?.let(::browserRuleBulkLockScope) ?: ruleBulkLockScope(state.filter, openPreset)
+    val genericDirectShare = state.selected.filterTo(linkedSetOf()) {
+        it.kind == IntentKind.DIRECT_SHARE && DirectShareTypeRules.family(it) == null
+    }
+    val typedDirectShareSelected = state.selected.filterTo(linkedSetOf()) {
+        DirectShareTypeRules.family(it) == directShareType && directShareType != null
+    }
+    val scopedDirectShareSelected = if (directShareType == null) emptySet() else
+        genericDirectShare.mapTo(linkedSetOf()) { DirectShareTypeRules.typed(it, directShareType) } +
+            typedDirectShareSelected
     val activeSelected = when {
         typedOpenPreset != null -> typedSelected
         deepLinkHost != null -> deepLinkSelected
+        directShareType != null -> scopedDirectShareSelected
         else -> state.selected
     }
-    val selectionDraft = remember(state.filter, typedOpenPreset, deepLinkHost, vm.selectedSpace.value) {
+    val selectionDraft = remember(state.filter, typedOpenPreset, deepLinkHost, directShareType, vm.selectedSpace.value) {
         PendingSelectionDraft<ComponentRule>()
     }
     // Preserve staged choices until repository state confirms each applied rule.
@@ -176,6 +192,8 @@ fun RulesTab(
                 !vm.isBulkProtected(lockScope, rule.packageName, rule.id)
             deepLinkHost != null -> rule !in genericDeepLinkSelected &&
                 !vm.isBulkProtected(lockScope, rule.packageName, rule.id)
+            directShareType != null -> DirectShareTypeRules.base(rule) !in genericDirectShare &&
+                !vm.isRuleBulkProtected(state.filter, openPreset, rule)
             else -> !vm.isRuleBulkProtected(state.filter, openPreset, rule)
         }
     }
@@ -206,7 +224,9 @@ fun RulesTab(
     // filter changes and unrelated runtime updates. Build the expensive app groups
     // once per catalog snapshot, then filter/sort only the visible groups.
     val catalogAppGroups = remember(state.candidates) {
-        baseAppGroups(state.candidates)
+        baseAppGroups(state.candidates.filter {
+            DirectShareTypeRules.family(it.rule) == null
+        })
     }
     val scopedAppGroups = remember(
         catalogAppGroups, typedOpenPreset, deepLinkHost,
