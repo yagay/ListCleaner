@@ -5,4 +5,10 @@
     <string name="component_title_help">仅修改该组件在 %1$s 候选菜单中的显示文字，不会修改应用名、Intent、包名、组件名或实际启动目标。</string>
     <string name="component_title_field">菜单显示名称</string>
     <string name="component_title_support">%1$d/64 · 留空保存恢复原名称 · “全部显示”模式下暂不应用自定义名称</string>
+    <string name="qs_tile_rename_title">重命名系统快捷设置磁贴</string>
+    <string name="qs_tile_rename_original">磁贴原名称：%1$s</string>
+    <string name="qs_tile_rename_help">修改 SystemUI 显示的该磁贴名称，不修改应用名称或磁贴功能。需要 SystemUI Hook 已生效。</string>
+    <string name="qs_tile_rename_field">系统磁贴名称</string>
+    <string name="qs_tile_rename_restore">恢复原名称</string>
+    <string name="qs_tile_rename_count">%1$d/64 · 清空后保存可恢复原名称</string>
 </resources>
