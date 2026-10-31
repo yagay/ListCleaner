@@ -278,6 +278,7 @@
     <string name="lc_mode_confirm_apply">确认修改</string>
     <string name="preview_tab_estimated">预计结果</string>
     <string name="preview_estimated_title">预计可见列表 · 未验证</string>
+    <string name="preview_includes_pending">预计列表 · 已包含尚未确认的选择</string>
     <string name="preview_estimated_source">根据已确认规则与已知候选项计算</string>
     <string name="preview_source_ordered_adapter">来自 Android Resolver/Chooser 的应用目标排序记录；固定项和直接分享目标可能另行排列</string>
     <string name="preview_quality_ordered_adapter">系统适配器排序 · 未验证最终画面</string>
