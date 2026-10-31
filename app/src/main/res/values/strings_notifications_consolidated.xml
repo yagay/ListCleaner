@@ -13,4 +13,5 @@
     <string name="notification_cleanup_legacy_note">These global category rules were saved by an earlier version. They still hide matching notifications across apps; remove rules you no longer want.</string>
     <string name="notification_cleanup_legacy_clear">Clear all type rules</string>
     <string name="notification_cleanup_legacy_remove">Remove type rule</string>
+    <string name="notification_cleanup_retained_channel">Saved channel rule — channel registration could not be verified. It can still be cleared here.</string>
 </resources>
