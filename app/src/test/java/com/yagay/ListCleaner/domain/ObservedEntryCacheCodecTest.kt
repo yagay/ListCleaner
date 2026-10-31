@@ -110,6 +110,43 @@ class ObservedEntryCacheCodecTest {
     }
 
     @Test
+    fun launcherShortcutSnapshotReplacesOnlyItsOwnUsersShortcuts() {
+        val original = ObservedEntryRecord(
+            IntentKind.SHORTCUT_ITEM.name, "com.example.chat",
+            "com.example.chat.Main#shortcut#old", observedAt = 10L
+        )
+        val work = original.copy(userId = 10, observedAt = 20L)
+        val current = original.copy(syntheticClass = "com.example.chat.Main#shortcut#new",
+            observedAt = 30L)
+        val unrelated = original.copy(
+            kind = IntentKind.DIRECT_SHARE.name,
+            syntheticClass = "com.example.chat.Main#direct#friend",
+        )
+        val result = ObservedEntryCacheCodec.reconcileRemote(
+            existing = listOf(original, work, unrelated),
+            remote = listOf(current),
+            snapshotKinds = setOf(IntentKind.SHORTCUT_ITEM),
+            userId = 0,
+        )
+        assertFalse(result.any { it.key == original.key })
+        assertTrue(result.any { it.key == current.key })
+        assertTrue(result.any { it.key == work.key })
+        assertTrue(result.any { it.key == unrelated.key })
+
+        // A successfully scanned but empty HOME response is meaningful:
+        // its user's obsolete published shortcuts must disappear.
+        val emptied = ObservedEntryCacheCodec.reconcileRemote(
+            existing = result,
+            remote = emptyList(),
+            snapshotKinds = setOf(IntentKind.SHORTCUT_ITEM),
+            userId = 10,
+        )
+        assertFalse(emptied.any { it.key == work.key })
+        assertTrue(emptied.any { it.key == current.key })
+        assertTrue(emptied.any { it.key == unrelated.key })
+    }
+
+    @Test
     fun reconcileEmptyRemoteClearsAuthorityRows() {
         val assistant = ObservedEntryRecord(
             IntentKind.ASSISTANT.name,
