@@ -5,6 +5,7 @@ import com.yagay.ListCleaner.domain.AndroidUid
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.RuntimeProtocol
+import com.yagay.ListCleaner.domain.effectiveResolverPriorities
 import com.yagay.ListCleaner.domain.prioritizeApps
 import com.yagay.ListCleaner.domain.webTargetKind
 
@@ -18,14 +19,9 @@ internal class ResolverOrderingEngine(
         browserHost: String?,
         current: RuntimeRuleSnapshot,
     ): List<String> {
-        val typed = if (kind == IntentKind.OPEN && preset != null) {
-            current.openTypes.priorities[preset].orEmpty()
-        } else emptyList()
-        if (typed.isNotEmpty()) return typed
-        val hostPriority = if (kind == IntentKind.DEEP_LINK && browserHost != null) {
-            current.browserLinks.priority(browserHost)
-        } else emptyList()
-        return if (hostPriority.isNotEmpty()) hostPriority else current.priorities.apps[kind].orEmpty()
+        return effectiveResolverPriorities(
+            kind, preset, browserHost, current.priorities, current.openTypes, current.browserLinks,
+        )
     }
 
     fun candidateKind(baseKind: IntentKind, info: ResolveInfo): IntentKind =
