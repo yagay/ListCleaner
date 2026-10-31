@@ -158,6 +158,46 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
     fun currentSession(): ServiceSession? = sessionRegistry.snapshot()
     fun isCurrent(session: ServiceSession?): Boolean = sessionRegistry.isCurrent(session)
 
+    /**
+     * Active Direct Share discovery, using the same verified manager Runtime
+     * Protocol as config synchronization. The scan runs asynchronously inside
+     * system_server; wait only on IO for its completion marker before reading
+     * the existing observed-entry cache. Failure leaves all saved rules intact.
+     */
+    suspend fun requestDirectShareScan(userId: Int): Boolean = withContext(Dispatchers.IO) {
+        val session = currentSession() ?: return@withContext false
+        val digest = runtime.value.takeIf { it.ready }?.digest
+            ?.takeIf(RuntimeProtocol::validDigest) ?: return@withContext false
+        val token = java.util.UUID.randomUUID().toString()
+        val started = runCatching {
+            runtimeTransport.requestDirectShareScan(userId, token, digest)
+        }.getOrElse {
+            Log.w(TAG, "Direct Share scan request unavailable", it)
+            false
+        }
+        if (!started) return@withContext false
+        val preferences = runCatching {
+            session.service.getRemotePreferences(RuleRepository.REMOTE_PREFS)
+        }.getOrNull() ?: return@withContext false
+        val key = RuntimeProtocol.DIRECT_SHARE_SCAN_STATUS_PREFIX + userId
+        repeat(40) {
+            if (!isCurrent(session) || rules.activeUser.value != userId) return@withContext false
+            delay(200)
+            when (val status = preferences.getString(key, null)) {
+                null -> Unit
+                else -> {
+                    if (status.startsWith("ok|$token|")) return@withContext true
+                    if (status.startsWith("failed|$token|")) {
+                        Log.w(TAG, "Direct Share scan failed: $status")
+                        return@withContext false
+                    }
+                }
+            }
+        }
+        Log.w(TAG, "Direct Share scan completion timeout user=$userId")
+        false
+    }
+
     suspend fun synchronizeObservedEntries(userId: Int = rules.activeUser.value): Int = withContext(Dispatchers.IO) {
         val session = currentSession() ?: return@withContext observedEntryCache.snapshot().size
         runCatching {
