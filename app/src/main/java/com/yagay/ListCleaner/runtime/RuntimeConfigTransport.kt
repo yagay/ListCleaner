@@ -23,6 +23,24 @@ internal class RuntimeConfigTransport(
         expectedDigest,
     )
 
+    /**
+     * Request the privileged inventory; the returned ACK only means scheduled.
+     * Completion is read separately from RemotePreferences, never assumed here.
+     */
+    fun requestDirectShareScan(userId: Int, token: String, digest: String): Boolean =
+        parseAck(
+            query(
+                Intent(RuntimeProtocol.ACTION)
+                    .setPackage(context.packageName)
+                    .putExtra(RuntimeProtocol.EXTRA_PROTOCOL_VERSION, RuntimeProtocol.VERSION)
+                    .putExtra(RuntimeProtocol.EXTRA_OPERATION, RuntimeProtocol.OP_SCAN_DIRECT_SHARE)
+                    .putExtra(RuntimeProtocol.EXTRA_SCAN_USER_ID, userId)
+                    .putExtra(RuntimeProtocol.EXTRA_SCAN_TOKEN, token)
+                    .putExtra(RuntimeProtocol.EXTRA_EXPECTED_DIGEST, digest)
+            ),
+            digest,
+        ) != null
+
     fun pushConfig(encoded: String, digest: String, revision: Long): RuntimeAckCodec.Ack? {
         val chunks = encoded.chunked(RuntimeProtocol.CONFIG_CHUNK_CHARS)
         require(chunks.isNotEmpty() && chunks.size <= RuntimeProtocol.MAX_CONFIG_CHUNKS) {
