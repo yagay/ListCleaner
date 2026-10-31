@@ -244,6 +244,7 @@ internal fun WorkspaceDetailActionsMenu(
     onExpandedChange: (Boolean) -> Unit,
     onEdit: (() -> Unit)? = null,
     editLabel: String? = null,
+    extraActions: List<WorkspaceMenuAction> = emptyList(),
 ) {
     val actions = buildList {
         if (onPreview != null) {
@@ -258,6 +259,7 @@ internal fun WorkspaceDetailActionsMenu(
                 onClick = onEdit
             ))
         }
+        addAll(extraActions)
         if (lockToggleEnabled) {
             add(WorkspaceMenuAction(
                 label = stringResource(
