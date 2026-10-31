@@ -16,7 +16,6 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -283,6 +282,25 @@ fun RootComponentsScreen(
                     })
                 )
 
+    // Entry's sort shortcut opens its own editor; Root Tiles now follows the
+    // same navigation/commit pattern instead of changing order in overflow.
+    if (kind == CleanupKind.TILE && sortingTiles) {
+        RootTileOrderEditor(
+            vm = vm,
+            userId = vm.selectedSpace.value,
+            candidates = kindItems,
+            saved = systemTileLabels,
+            pendingNavigation = pendingNavigation,
+            onExit = { sortingTiles = false },
+            onSelectKind = { selected ->
+                kind = selected
+                expandedAppKey = null
+                sortingTiles = false
+            },
+        )
+        return
+    }
+
     Box(Modifier.fillMaxSize()) {
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -327,20 +345,13 @@ fun RootComponentsScreen(
                             }
                         )
                     },
-                    beforeFilter = if (kind == CleanupKind.TILE) ({
-                        WorkspaceToolbarAction(
-                            onClick = { sortingTiles = !sortingTiles },
-                            active = sortingTiles,
-                        ) {
-                            AdaptiveIcon(
-                                Icons.AutoMirrored.Rounded.Sort,
-                                stringResource(R.string.nav_priority),
-                                modifier = Modifier.size(22.dp),
-                                tint = if (sortingTiles) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }) else null,
+                    beforeFilter = {
+                        WorkspaceSortModeAction(
+                            supported = kind == CleanupKind.TILE,
+                            ordering = false,
+                            onOpen = { navigate { sortingTiles = true } },
+                        )
+                    },
                     afterFilter = { WorkspaceListActions(actions = selectionActions) },
                     filter = {
                         WorkspaceFilterBar(
@@ -391,13 +402,6 @@ fun RootComponentsScreen(
                 helpExpanded = detailsExpanded,
                 onHelpToggle = { detailsExpanded = !detailsExpanded }
             )
-            if (kind == CleanupKind.TILE && sortingTiles && systemTileLabels.tileOrder.isNotEmpty()) {
-                AdaptiveTextButton(onClick = {
-                    vm.setSurfaceFilters(systemTileLabels.withTileOrder(emptyList()))
-                }) {
-                    AdaptiveText(stringResource(R.string.qs_tile_sort_restore))
-                }
-            }
             if (detailsExpanded) WorkspaceHelpSection {
                 AdaptiveText(
                     stringResource(R.string.root_filter_help),
@@ -571,32 +575,6 @@ fun RootComponentsScreen(
                                 ({ renamingSystemTile = item }) else null,
                             editLabel = if (item.kind == CleanupKind.TILE)
                                 stringResource(R.string.qs_tile_rename_title) else null,
-                            extraActions = if (item.kind == CleanupKind.TILE && sortingTiles) {
-                                val component = item.component.flattenToString()
-                                val all = (systemTileLabels.tileOrder +
-                                    kindItems.filter { it.kind == CleanupKind.TILE }
-                                        .map { it.component.flattenToString() }).distinct()
-                                val index = all.indexOf(component)
-                                fun move(offset: Int) {
-                                    val destination = (index + offset).coerceIn(0, all.lastIndex)
-                                    if (index >= 0 && destination != index) {
-                                        val reordered = all.toMutableList()
-                                        reordered.removeAt(index)
-                                        reordered.add(destination, component)
-                                        vm.setSurfaceFilters(systemTileLabels.withTileOrder(reordered))
-                                    }
-                                }
-                                listOf(
-                                    WorkspaceMenuAction(
-                                        stringResource(R.string.surface_move_earlier),
-                                        { move(-1) }, index > 0,
-                                    ),
-                                    WorkspaceMenuAction(
-                                        stringResource(R.string.surface_move_later),
-                                        { move(1) }, index >= 0 && index < all.lastIndex,
-                                    ),
-                                )
-                            } else emptyList(),
                         )
                     }
                 )
