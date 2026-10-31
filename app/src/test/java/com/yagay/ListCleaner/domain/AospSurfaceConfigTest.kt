@@ -160,6 +160,48 @@ class AospSurfaceConfigTest {
         assertEquals(listOf(component), decoded.userSpaces.getValue(10).surfaceFilters.tileOrder)
     }
 
+    @Test fun wholeAppHidingAndIndividualChannelHidingStayIndependent() {
+        val pkg = "com.example.chat"
+        val channel = "messages"
+        val initial = SurfaceFilterConfig()
+            .withChannelHidden(pkg, channel, true)
+        val wholeApp = initial.withSelected(SurfaceKind.NOTIFICATION_SHADE, setOf(pkg))
+        assertTrue(pkg in wholeApp.selected(SurfaceKind.NOTIFICATION_SHADE))
+        assertTrue(wholeApp.isChannelHidden(pkg, channel))
+        val restoredApp = wholeApp.withSelected(SurfaceKind.NOTIFICATION_SHADE, emptySet())
+        assertFalse(pkg in restoredApp.selected(SurfaceKind.NOTIFICATION_SHADE))
+        assertTrue("The channel rule must survive toggling whole-app hiding",
+            restoredApp.isChannelHidden(pkg, channel))
+        assertFalse(restoredApp.isChannelHidden(pkg, "calls"))
+    }
+
+    @Test fun oldCategoryRulesSurviveCombinedNotificationChangesAndRoundTrip() {
+        val pkg = "com.example.chat"
+        val initial = SurfaceFilterConfig().withNotificationCategoryHidden("promo", true)
+            .withChannelHidden(pkg, "messages", true)
+        val merged = initial.withSelected(SurfaceKind.NOTIFICATION_SHADE, setOf(pkg))
+        val decoded = json.decodeFromString(SurfaceFilterConfig.serializer(),
+            json.encodeToString(SurfaceFilterConfig.serializer(), merged)).validated()
+        assertEquals(setOf("promo"), decoded.hiddenNotificationCategories)
+        assertEquals(setOf(pkg), decoded.selected(SurfaceKind.NOTIFICATION_SHADE))
+        assertTrue(decoded.isChannelHidden(pkg, "messages"))
+        val removedLegacy = decoded.copy(hiddenNotificationCategories = emptySet()).validated()
+        assertTrue(removedLegacy.hiddenNotificationCategories.isEmpty())
+        assertEquals(setOf(pkg), removedLegacy.selected(SurfaceKind.NOTIFICATION_SHADE))
+        assertTrue(removedLegacy.isChannelHidden(pkg, "messages"))
+    }
+
+    @Test fun lockedApplicationRulesDoNotLockIndividualChannels() {
+        val pkg = "com.example.chat"
+        val locked = SurfaceFilterConfig()
+            .withLocked(SurfaceKind.NOTIFICATION_SHADE, setOf(pkg))
+        assertFalse(pkg in locked.withSelected(
+            SurfaceKind.NOTIFICATION_SHADE, setOf(pkg)
+        ).selected(SurfaceKind.NOTIFICATION_SHADE))
+        assertTrue(locked.withChannelHidden(pkg, "messages", true)
+            .isChannelHidden(pkg, "messages"))
+    }
+
     @Test fun oldConfigurationWithoutSurfaceRulesStillLoadsSafely() {
         val old = """{"rules":[],"mode":"HIDE_SELECTED","priorities":{},"diagnostic":false}"""
         val config = json.decodeFromString(ModuleConfig.serializer(), old).validated()
