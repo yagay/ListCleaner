@@ -191,14 +191,7 @@ internal fun SystemProbeDialog(
             requestHost = queryHost,
         )
     } else null
-    val selectedResult = when {
-        viewMode == PreviewListMode.ESTIMATED ->
-            predicted ?: PreviewListResult(emptyList(), PreviewListSource.UNAVAILABLE)
-        viewMode == PreviewListMode.CURRENT &&
-            authoritativeSelection.source in setOf(PreviewListSource.API_RETURN, PreviewListSource.UNAVAILABLE) &&
-            predicted != null -> predicted
-        else -> authoritativeSelection
-    }
+    val selectedResult = preferredPreviewResult(viewMode, authoritativeSelection, predicted)
     val runtimeAvailable = selectedResult.source in setOf(
         PreviewListSource.HOOK_OBSERVATION, PreviewListSource.HOST_OBSERVATION
     )
