@@ -219,7 +219,7 @@ class PackageManagerEntryFilterModule : XposedModule() {
         val original = chain.proceed()
         val result = listResults.extract(original) ?: return@Hooker original
         var removed = 0
-        val filtered = if (policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) {
+        val filtered = if (policy.modeFor(spec.kind) == DisplayMode.SHOW_ALL || selected.isEmpty()) {
             result.values
         } else {
             result.values.filter { value ->
@@ -233,7 +233,7 @@ class PackageManagerEntryFilterModule : XposedModule() {
                 } else {
                     rule.id in selected
                 }
-                val include = policy.displayMode.includes(selectedMatch, selected.isNotEmpty())
+                val include = policy.modeFor(spec.kind).includes(selectedMatch, selected.isNotEmpty())
                 if (!include) removed++
                 include
             }

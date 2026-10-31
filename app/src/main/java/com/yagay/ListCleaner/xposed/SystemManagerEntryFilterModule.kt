@@ -85,7 +85,7 @@ class SystemManagerEntryFilterModule : XposedModule() {
                 val selected = policy.selected(IntentKind.INPUT_METHOD)
                 val filtered = values.filter { value ->
                     val service = info(value) ?: return@filter true
-                    selected.isEmpty() || policy.displayMode.includes(
+                    selected.isEmpty() || policy.modeFor(IntentKind.INPUT_METHOD).includes(
                         ComponentRule(IntentKind.INPUT_METHOD, service.packageName, service.name).id in selected, true,
                     )
                 }
@@ -259,20 +259,20 @@ class SystemManagerEntryFilterModule : XposedModule() {
 
         val selected = policy.selected(kind)
         val priorities = policy.priorities(kind)
-        if ((policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) && priorities.isEmpty()) {
+        if ((policy.modeFor(kind) == DisplayMode.SHOW_ALL || selected.isEmpty()) && priorities.isEmpty()) {
             record("MANAGER_HIT kind=$kind callerUid=$callerUid count=${result.values.size}")
             return original
         }
 
         var removed = 0
-        val filtered = if (policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) {
+        val filtered = if (policy.modeFor(kind) == DisplayMode.SHOW_ALL || selected.isEmpty()) {
             result.values
         } else {
             result.values.filter { value ->
                 val service = componentOf(value) ?: return@filter true
                 val rule = ComponentRule(kind, service.packageName, service.name)
                 if (!rule.isValid()) return@filter true
-                val include = policy.displayMode.includes(rule.id in selected, selected.isNotEmpty())
+                val include = policy.modeFor(kind).includes(rule.id in selected, selected.isNotEmpty())
                 if (!include) removed++
                 include
             }

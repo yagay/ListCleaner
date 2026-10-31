@@ -96,7 +96,7 @@ class PackageScopedResolverFilterModule : XposedModule() {
 
         val policy = policyProvider.snapshot(com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid()))
         val selected = policy.selectedPackages(kind)
-        if (policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) {
+        if (policy.modeFor(kind) == DisplayMode.SHOW_ALL || selected.isEmpty()) {
             return@Hooker chain.proceed()
         }
 
@@ -109,7 +109,7 @@ class PackageScopedResolverFilterModule : XposedModule() {
             val activity = resolved.activityInfo ?: return@filter true
             val effectiveKind = if (kind == IntentKind.BROWSER) resolved.webTargetKind() else kind
             if (effectiveKind != kind) return@filter true
-            policy.displayMode.includes(activity.packageName in selected, selected.isNotEmpty())
+            policy.modeFor(effectiveKind).includes(activity.packageName in selected, selected.isNotEmpty())
         }
         // Do not restore all hidden activities when an explicit filter yields
         // zero entries. The OS handles the empty-result presentation.
@@ -119,7 +119,7 @@ class PackageScopedResolverFilterModule : XposedModule() {
         }
         record(
             "FILTER kind=$kind before=${result.values.size} after=${filtered.size} " +
-                "selectedPackages=${selected.size} mode=${policy.displayMode}"
+                "selectedPackages=${selected.size} mode=${policy.modeFor(kind)}"
         )
         result.rebuild(filtered)
     }

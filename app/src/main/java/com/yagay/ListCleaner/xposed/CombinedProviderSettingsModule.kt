@@ -95,7 +95,7 @@ class CombinedProviderSettingsModule : XposedModule() {
             val user = providerUser(value) ?: return@filter true
             val policy = policyProvider.snapshot(user)
             val selected = policy.selectedPackages(IntentKind.AUTOFILL)
-            selected.isEmpty() || policy.displayMode.includes(service.packageName in selected, true)
+            selected.isEmpty() || policy.modeFor(IntentKind.AUTOFILL).includes(service.packageName in selected, true)
         })
         val original = chain.proceed(args)
         val values = original as? List<*> ?: return@Hooker original

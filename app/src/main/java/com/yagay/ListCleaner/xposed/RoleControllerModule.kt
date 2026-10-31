@@ -100,7 +100,7 @@ class RoleControllerModule : XposedModule() {
         val policy = policyProvider.snapshot(userId)
         val selectedPackages = policy.selectedPackages(kind)
         val kept = if (selectedPackages.isEmpty()) values else values.filter { value ->
-            value !is String || policy.displayMode.includes(
+            value !is String || policy.modeFor(kind).includes(
                 value in selectedPackages, selectedPackages.isNotEmpty()
             )
         }
