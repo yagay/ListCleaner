@@ -10,12 +10,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.CleaningServices
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.FolderOpen
-import androidx.compose.material.icons.rounded.GridView
-import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Settings
@@ -43,8 +40,6 @@ internal enum class SurfaceManagerGroup(
 ) {
     NOTIFICATIONS(R.string.surface_group_notifications, R.string.surface_group_notifications_help,
         Icons.Rounded.Notifications),
-    LAUNCHER(R.string.surface_group_launcher, R.string.surface_group_launcher_help,
-        Icons.Rounded.Apps),
     SYSTEM(R.string.surface_group_system, R.string.surface_group_system_help,
         Icons.Rounded.Tune),
     MAINTENANCE(R.string.surface_group_maintenance, R.string.surface_group_maintenance_help,
@@ -63,12 +58,6 @@ internal enum class SurfaceManagerPage(
     // Keep the old CHANNELS enum ID for saved navigation state compatibility.
     NOTIFICATIONS_CHANNELS(SurfaceManagerGroup.NOTIFICATIONS, R.string.notification_cleanup_title,
         R.string.notification_cleanup_help, Icons.Rounded.Notifications),
-    DRAWER(SurfaceManagerGroup.LAUNCHER, R.string.surface_aosp_drawer,
-        R.string.surface_drawer_filter_help, Icons.Rounded.Apps, SurfaceKind.LAUNCHER_DRAWER),
-    PREDICTIONS(SurfaceManagerGroup.LAUNCHER, R.string.surface_aosp_predictions,
-        R.string.surface_prediction_filter_help, Icons.Rounded.GridView, SurfaceKind.LAUNCHER_PREDICTIONS),
-    RECENTS(SurfaceManagerGroup.LAUNCHER, R.string.surface_aosp_recents,
-        R.string.surface_recents_filter_help, Icons.Rounded.History, SurfaceKind.RECENTS),
     QS_EDITOR(SurfaceManagerGroup.SYSTEM, R.string.surface_aosp_qs,
         R.string.surface_qs_filter_help, Icons.Rounded.Widgets, SurfaceKind.QS_EDITOR),
     DOCUMENTS(SurfaceManagerGroup.SYSTEM, R.string.surface_aosp_documents,
