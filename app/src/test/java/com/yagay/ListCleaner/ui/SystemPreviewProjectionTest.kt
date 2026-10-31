@@ -4,6 +4,10 @@ import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.OpenPreset
+import com.yagay.ListCleaner.domain.OpenTypeConfig
+import com.yagay.ListCleaner.domain.PriorityConfig
+import com.yagay.ListCleaner.domain.BrowserLinkConfig
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -45,4 +49,64 @@ class SystemPreviewProjectionTest {
         val other = ComponentRule(IntentKind.SHARE, "com.test.a", "com.test.a.Main")
         assertEquals(2, estimate(setOf(other)).items.size)
     }
+    @Test fun estimatedUsesScenarioApiOrderInsteadOfAlphabetizedCatalog() {
+        val queried = SystemProbeResult(
+            sourceRes = 0, explanationRes = 0,
+            items = listOf(
+                SystemProbeItem("B", "com.test.b", "com.test.b.Main"),
+                SystemProbeItem("A", "com.test.a", "com.test.a.Main"),
+            ),
+        )
+        val result = SystemPreviewProjection.estimate(
+            kind, candidates, emptySet(), DisplayMode.SHOW_ALL, emptyMap(), queried,
+        )!!
+        assertEquals(listOf("com.test.b", "com.test.a"),
+            result.items.map { it.packageName })
+    }
+
+    @Test fun estimatedGenericPriorityMatchesStableRuntimePromotion() {
+        val queried = SystemProbeResult(
+            0, 0, items = listOf(
+                SystemProbeItem("B", "com.test.b", "com.test.b.Main"),
+                SystemProbeItem("A", "com.test.a", "com.test.a.Main"),
+            ),
+        )
+        val result = SystemPreviewProjection.estimate(
+            kind, candidates, emptySet(), DisplayMode.SHOW_ALL, emptyMap(), queried,
+            priorities = PriorityConfig(apps = mapOf(kind to listOf("com.test.a"))),
+        )!!
+        assertEquals(listOf("com.test.a", "com.test.b"),
+            result.items.map { it.packageName })
+    }
+
+    @Test fun typedPdfPriorityOverridesGenericAndScenarioTextUsesGeneric() {
+        val scanned = listOf(candidates[1], candidates[0])
+        val generic = PriorityConfig(apps = mapOf(kind to listOf("com.test.a")))
+        val typed = OpenTypeConfig(priorities = mapOf(OpenPreset.PDF to listOf("com.test.b")))
+        fun preview(scenario: SystemProbeScenario) = SystemPreviewProjection.estimate(
+            kind, scanned, emptySet(), DisplayMode.SHOW_ALL, emptyMap(), null,
+            priorities = generic, openTypes = typed, scenario = scenario,
+        )!!.items.map { it.packageName }
+        assertEquals(listOf("com.test.b", "com.test.a"), preview(SystemProbeScenario.PDF))
+        assertEquals(listOf("com.test.a", "com.test.b"), preview(SystemProbeScenario.TEXT))
+    }
+
+    @Test fun deepLinkHostPriorityOnlyAppliesForMatchingRequestHost() {
+        val deep = IntentKind.DEEP_LINK
+        val hostCandidates = listOf(
+            ComponentCandidate(ComponentRule(deep, "com.test.a", "a.Main"), "A", "A"),
+            ComponentCandidate(ComponentRule(deep, "com.test.b", "b.Main"), "B", "B"),
+        )
+        val config = BrowserLinkConfig(
+            hosts = setOf("example.com"),
+            priorities = mapOf("example.com" to listOf("com.test.b")),
+        )
+        fun preview(host: String?) = SystemPreviewProjection.estimate(
+            deep, hostCandidates, emptySet(), DisplayMode.SHOW_ALL, emptyMap(), null,
+            browserLinks = config, requestHost = host,
+        )!!.items.map { it.packageName }
+        assertEquals(listOf("com.test.b", "com.test.a"), preview("example.com"))
+        assertEquals(listOf("com.test.a", "com.test.b"), preview("unrelated.example"))
+    }
+
 }
