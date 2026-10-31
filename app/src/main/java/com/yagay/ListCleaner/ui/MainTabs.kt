@@ -64,9 +64,8 @@ fun RulesTab(
     var showBrowserHosts by rememberSaveable { mutableStateOf(false) }
     val appTypeFilter by vm.entryAppTypeFilter.collectAsStateWithLifecycle()
     var showModeSettings by rememberSaveable { mutableStateOf(false) }
-    if (showModeSettings) {
-        EntryModeSettingsDialog(state, vm) { showModeSettings = false }
-    }
+    // Switching Entry categories closes and discards the previous inline draft.
+    LaunchedEffect(state.filter, vm.selectedSpace.value) { showModeSettings = false }
     var ruleHelpExpanded by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.openHelpByDefault) }
     // One continuous editor; category navigation stays in the pinned selector.
     var browseAllComponents by rememberSaveable { mutableStateOf(false) }
@@ -397,8 +396,15 @@ fun RulesTab(
                 onEntries = {},
                 onComponents = { navigate { browseAllComponents = true } },
                 modeLabel = entryCurrentModeLabel(state),
-                onModeClick = { showModeSettings = true },
+                modeExpanded = showModeSettings,
+                onModeClick = { showModeSettings = !showModeSettings },
             )
+            if (showModeSettings) {
+                InlineEntryModePicker(
+                    state = state, vm = vm, kind = state.filter,
+                    onDismiss = { showModeSettings = false },
+                )
+            }
             PageFilterSection {
                 Column {
                     ListControls(

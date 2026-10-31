@@ -6,6 +6,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.Composable
@@ -29,6 +30,7 @@ internal fun ClassicCleanupTabs(
     onComponents: () -> Unit,
     modeLabel: String? = null,
     onModeClick: () -> Unit = {},
+    modeExpanded: Boolean = false,
 ) {
     Surface(color = MaterialTheme.colorScheme.surface) {
         Column {
@@ -63,7 +65,7 @@ internal fun ClassicCleanupTabs(
                                 color = MaterialTheme.colorScheme.primary,
                             )
                             AdaptiveIcon(
-                                Icons.Rounded.ExpandMore,
+                                if (modeExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                                 null,
                                 Modifier.size(16.dp),
                                 tint = MaterialTheme.colorScheme.primary,

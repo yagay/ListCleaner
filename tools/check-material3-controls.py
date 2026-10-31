@@ -79,13 +79,12 @@ required = {
                               "ScopeDialog(", "SettingsSection.ABOUT -> AboutSettings()"],
     "SurfaceManagementTab.kt": ["fun SurfaceManagementTab(state: MainState, vm: MainViewModel)",
                                  "EntryGroup.entries", "GlobalModeSettingsRow(",
-                                 "state.modeOverrides[kind]", "EntryModeConfirmationDialog(",
+                                 "state.modeOverrides[kind]", "InlineEntryModePicker(",
                                  "editingModeKey = kind.name", "editingModeKey = GLOBAL_MODE_KEY",
                                  "GlobalModeGroupHeader(", "lc_mode_collapse_group",
                                  "lc_mode_expand_group", "KeyboardArrowUp",
                                  "KeyboardArrowDown"],
-    "EntryModeSettingsDialog.kt": ["fun EntryModeSettingsDialog(",
-                                   "fun EntryModeConfirmationDialog(",
+    "InlineEntryModePicker.kt": ["fun InlineEntryModePicker(",
                                    "EntryModeChangeDraft(", "SettingsFlatChoiceRow(",
                                    "enabled = draft.hasChanges", "vm.setKindDisplayMode(kind, draft.pending)",
                                    "draft.pending?.let(vm::setDisplayMode)",
@@ -135,7 +134,7 @@ required = {
     "WorkspaceControlLabel.kt": ["fun WorkspaceControlLabel(", "MaterialTheme.typography.labelLarge"],
     "CompactCategoryButton.kt": ["fun CompactCategoryButton(", "AdaptiveFilterChip(",
                                   "Arrangement.spacedBy(4.dp)"],
-    "ClassicListLayout.kt": ["fun ClassicCleanupTabs(", "WorkspaceControlLabel(",
+    "ClassicListLayout.kt": ["fun ClassicCleanupTabs(", "WorkspaceControlLabel(", "modeExpanded: Boolean",
                              "active == ClassicCleanupMode.ENTRIES", "active == ClassicCleanupMode.COMPONENTS"],
     "ComponentCategoryFilter.kt": ["fun ClassicComponentCategoryFilter(",
                                     "ComponentCategoryPicker("],
@@ -656,6 +655,13 @@ if "settings_home_columns" in (root / "ListSettings.kt").read_text(encoding="utf
     errors.append("ListSettings.kt: irrelevant legacy grid control is still visible")
 # Never bypass the explicit Apply confirmation when editing Lists modes.
 lists_code = (root / "SurfaceManagementTab.kt").read_text(encoding="utf-8")
+entry_code = (root / "MainTabs.kt").read_text(encoding="utf-8")
+if "InlineEntryModePicker(" not in entry_code or "EntryModeSettingsDialog(" in entry_code:
+    errors.append("MainTabs.kt: Entry must use an inline mode editor, not a dialog")
+if "EntryModeConfirmationDialog(" in lists_code:
+    errors.append("SurfaceManagementTab.kt: modal mode editor returned")
+if (root / "EntryModeSettingsDialog.kt").exists():
+    errors.append("EntryModeSettingsDialog.kt: obsolete modal mode editor file must be removed")
 for immediate_write in ("onSelected = vm::setDisplayMode",
                         "onSelected = { chosen -> vm.setKindDisplayMode(kind, chosen) }"):
     if immediate_write in lists_code:

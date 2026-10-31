@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.MaterialTheme
@@ -51,17 +50,9 @@ import com.yagay.ListCleaner.domain.kinds
 internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
     var expanded by rememberSaveable(userId) { mutableStateOf<EntryGroup?>(null) }
-    // A single dialog is shared by the global default and every Entry kind.
-    // Holding the target separately ensures no row writes any mode on selection.
+    // Only one inline mode editor at a time, and no modes are written
+    // until its explicit confirmation button is pressed.
     var editingModeKey by rememberSaveable(userId) { mutableStateOf<String?>(null) }
-    editingModeKey?.let { key ->
-        EntryModeConfirmationDialog(
-            state = state,
-            vm = vm,
-            kind = if (key == GLOBAL_MODE_KEY) null else IntentKind.valueOf(key),
-            onDismiss = { editingModeKey = null },
-        )
-    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -73,8 +64,17 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                 GlobalModeSettingsRow(
                     title = stringResource(R.string.lc_mode_default_title),
                     selectedMode = stringResource(state.displayMode.titleRes()),
-                    onClick = { editingModeKey = GLOBAL_MODE_KEY },
+                    expanded = editingModeKey == GLOBAL_MODE_KEY,
+                    onClick = {
+                        editingModeKey = if (editingModeKey == GLOBAL_MODE_KEY) null else GLOBAL_MODE_KEY
+                    },
                 )
+                if (editingModeKey == GLOBAL_MODE_KEY) {
+                    InlineEntryModePicker(
+                        state = state, vm = vm, kind = null,
+                        onDismiss = { editingModeKey = null },
+                    )
+                }
                 SettingsHint(stringResource(R.string.dashboard_global_mode_help))
             }
         }
@@ -98,7 +98,10 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                         stringResource(R.string.lc_mode_override_count, overridden, kinds.size)
                     },
                     expanded = isExpanded,
-                    onClick = { expanded = if (isExpanded) null else group },
+                    onClick = {
+                        expanded = if (isExpanded) null else group
+                        editingModeKey = null // Closing a group discards any pending mode.
+                    },
                 )
                 if (isExpanded) {
                     // The rail and indented row backgrounds mark these as children
@@ -127,8 +130,17 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                                     R.string.lc_mode_follow_global_value,
                                     stringResource(state.displayMode.titleRes()),
                                 ),
-                                onClick = { editingModeKey = kind.name },
+                                expanded = editingModeKey == kind.name,
+                                onClick = {
+                                    editingModeKey = if (editingModeKey == kind.name) null else kind.name
+                                },
                             )
+                            if (editingModeKey == kind.name) {
+                                InlineEntryModePicker(
+                                    state = state, vm = vm, kind = kind,
+                                    onDismiss = { editingModeKey = null },
+                                )
+                            }
                         }
                     }
                 }
@@ -197,13 +209,14 @@ private fun GlobalModeGroupHeader(
     }
 }
 
-/** The shared settings row opens the same staged confirmation dialog as Entry. */
+/** A mode row expands its options directly beneath the row, with no dialog. */
 private const val GLOBAL_MODE_KEY = "GLOBAL"
 
 @Composable
 private fun GlobalModeSettingsRow(
     title: String,
     selectedMode: String,
+    expanded: Boolean,
     onClick: () -> Unit,
 ) {
     MaterialSettingsRow(
@@ -212,7 +225,7 @@ private fun GlobalModeSettingsRow(
         onClick = onClick,
     ) {
         AdaptiveIcon(
-            Icons.Rounded.ChevronRight,
+            if (expanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
             title,
             Modifier.size(18.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
