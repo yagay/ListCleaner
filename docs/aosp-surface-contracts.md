@@ -11,7 +11,7 @@ terminating a task, cancelling a notification or deleting a document.
 ## UI / persistence
 
 - Bottom navigation: **Entry cleanup | Components | Lists | Settings**
-- **Lists** → Notification Cleanup (single page) / System lists / Rule maintenance
+- **Lists** → Notification Cleanup (single page) / System Lists (Settings Apps only) / Rule maintenance
 - Choose an individual surface or operation, edit its candidates, locks or order,
   then confirm Apply. Navigation and Android user switching are protected by
   the existing staged-change guard; Settings now contains configuration only.
@@ -27,10 +27,9 @@ terminating a task, cancelling a notification or deleting a document.
 | Surface | Concrete Android source boundary | Selection identity |
 | --- | --- | --- |
 | Notification shade | `RenderStageManager.onRenderList(List<ListEntry>)` | Notification package; protected foreground service/call/alarm rows preserved; mixed groups retained |
-| Add Quick Settings tiles | `TileAdapter.onTilesChanged(List<TileInfo>)` | Custom tile component package; active specs retained |
-| DocumentsUI recent files | `RecentsLoader.loadInBackground()` (`DirectoryResult.cursor`) | Recent document authority; cloned bounded Cursor, never mutate document provider |
-| Settings app lists | `ApplicationsState.Session.rebuild(...)` | `AppEntry.info.packageName` |
-| Media output | `MediaOutputController.getMediaDevices()` | `MediaDevice.getId()`; current connected route preserved |
+| Root > Tiles, add-tile candidate order | `TileAdapter.onTilesChanged(List<TileInfo>)` | Custom TileService `ComponentName`; active specs and built-in suggestions stay in their original slots |
+| Root > Tiles, visible label | `CustomTile.handleUpdateState` / `getTileLabel` | Per-user TileService `ComponentName` |
+| Settings app lists | `ManageApplications.ApplicationsAdapter.onRebuildComplete(...)` | `AppEntry.info.packageName` |
 
 All hooks check the expected class and method shape, return the original result on
 unsupported signatures, and do not manipulate underlying Android registries.
@@ -46,6 +45,22 @@ remain deserializable in existing user profiles and JSON backups. They are
 the legacy backup contains selected or ordered apps. This does not delete
 other modules' entry/shortcut functionality. LSPosed processes already running
 an older module may require an app/process restart to lose the old hooks.
+
+**System Lists consolidated:** only **Settings Apps** is a selectable Lists
+editor. The former Lists **Quick Settings Add-Tile**, **Documents Recents**
+and **Media Output** editors and candidate discovery are retired. Their
+package-based QS hide/order, DocumentsUI recent-file hide, and media output
+hide rules are inert, but their `SurfaceKind` identifiers remain readable in
+per-user JSON backups. No legacy rule is silently deleted.
+
+**Root > Tiles stays active:** its `tileOrder` and `tileLabels` fields
+continue to control component-level SystemUI add-tile suggestion ordering
+and CustomTile label presentation. The shared `TileAdapter` hook no longer
+uses legacy `QS_EDITOR` package rules to hide or sort whole apps; only
+`tileOrder` affects the candidate list. This does not remove any existing
+Quick Settings tiles, and it does not change enabled/disabled TileServices.
+`com.android.documentsui` may still be required by independent Entry /
+DocumentsUI modules; retiring *recent-file filtering* does not disable those.
 
 **Notification Cleanup** now combines application-level notification-shade rules
 and registered channel rules on one page. Selecting the app hides all of its
@@ -70,10 +85,11 @@ Root component states rather than a display-only filter.
 
 ## Scope / validation
 
-- AOSP surface process targets: `com.android.systemui`,
-  `com.android.documentsui`, `com.android.settings`.
-  `com.android.launcher3` is no longer a target for this surface module
-  (but may remain in the broader LSPosed scope for independent features).
+- Active AOSP surface process targets: `com.android.systemui` (notification
+  presentation and Root Tiles) and `com.android.settings` (Settings Apps).
+  `com.android.documentsui` and `com.android.launcher3` are no longer
+  targets of this surface module, but may remain in the broader LSPosed
+  scope for independent entry / DocumentsUI functionality.
 - The package must exist in LSPosed scope, and the process must be restarted to
   install a newly enabled Hook. No new package is hidden by default.
 - CI can validate Android APK compilation and JVM unit tests, **not** live
@@ -103,11 +119,11 @@ Root component states rather than a display-only filter.
   Per-channel and per-app hide rules remain separate and apply only to
   notification-shade presentation hooks; neither disables a notification channel.
 - **Surface lock and ordering**: a locked selected item stays hidden and a
-  locked unselected item stays visible during bulk operations. Selected orders
-  are separate per profile and surface, with active order hooks for Settings
-  managed-app rows and the QS edit list. Legacy Launcher drawer / predictions
-  order values are retained for backup compatibility but are no longer applied.
-  The existing active QS tiles and notification safety protections remain.
+  locked unselected item stays visible during bulk operations. Active Lists
+  sorting is limited to Settings Apps. Root Tiles keeps independent per-component
+  ordering. Legacy Lists QS package ordering, Launcher drawer / predictions,
+  and other retired surface rules are retained for backup compatibility but
+  no longer applied. Existing active QS tiles and notification protections remain.
 
 No user-facing option silently deletes accounts, rewrites other packages'
 registered notification-channel importance, or disables an application's
@@ -118,6 +134,5 @@ non-authenticator components.
 - [NotifPipeline / notification render sequence](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/packages/SystemUI/src/com/android/systemui/statusbar/notification/collection/NotifPipeline.kt)
 - [ShadeListBuilder](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/packages/SystemUI/src/com/android/systemui/statusbar/notification/collection/ShadeListBuilder.java)
 - [SystemUI TileQueryHelper](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/packages/SystemUI/src/com/android/systemui/qs/customize/TileQueryHelper.java)
-- [DocumentsUI RecentsLoader](https://android.googlesource.com/platform/packages/apps/DocumentsUI/+/refs/heads/main/src/com/android/documentsui/RecentsLoader.java)
 - [Android Settings](https://android.googlesource.com/platform/packages/apps/Settings/)
 - [NotificationListenerService](https://developer.android.com/reference/android/service/notification/NotificationListenerService)
