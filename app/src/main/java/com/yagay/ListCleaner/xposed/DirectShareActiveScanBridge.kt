@@ -21,6 +21,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 internal object DirectShareActiveScanBridge {
     const val STATUS_PREFIX = "direct_share_scan_status_user_"
+    // AOSP registers this framework class in LocalServices; it is not in com.android.server.pm.
+    internal const val SHORTCUT_SERVICE_INTERNAL_CLASS = "android.content.pm.ShortcutServiceInternal"
     private const val MAX_RESULTS_PER_QUERY = 2048
     private const val MAX_DISTINCT_RECORDS = 4096
     private const val STATUS_LIMIT = 200
@@ -45,7 +47,7 @@ internal object DirectShareActiveScanBridge {
 
     /** Only called after the Runtime Protocol has verified the manager UID. */
     fun request(userId: Int, token: String): Boolean {
-        if (userId !in 0..99999 || token.length !in 1..64 ||
+        if (userId !in 0..21474 || token.length !in 1..64 ||
             token.any { !it.isLetterOrDigit() && it != '-' && it != '_' } ||
             loader == null || prefs == null || !busy.compareAndSet(false, true)
         ) return false
@@ -54,8 +56,10 @@ internal object DirectShareActiveScanBridge {
             try {
                 scan(userId, token)
             } catch (error: Throwable) {
-                log("DIRECT_SCAN_FAILED user=$userId error=${error.javaClass.simpleName}")
-                writeStatus(userId, "failed|$token|${error.javaClass.simpleName}")
+                val cause = (error as? java.lang.reflect.InvocationTargetException)?.targetException ?: error
+                val reason = cause.message.orEmpty().take(100).replace('|', '_')
+                log("DIRECT_SCAN_FAILED user=$userId error=${cause.javaClass.simpleName} reason=$reason")
+                writeStatus(userId, "failed|$token|${cause.javaClass.simpleName}|$reason")
             } finally {
                 busy.set(false)
             }
@@ -66,14 +70,8 @@ internal object DirectShareActiveScanBridge {
     private fun scan(userId: Int, token: String) {
         val classLoader = loader ?: error("classloader_missing")
         val service = obtainService(classLoader) ?: error("shortcut_local_service_unavailable")
-        val method = ReflectionAccess.hierarchyMethods(service.javaClass)
-            .firstOrNull { m ->
-                m.name == "getShareTargets" && m.parameterTypes.size == 3 &&
-                    m.parameterTypes[0] == String::class.java &&
-                    IntentFilter::class.java.isAssignableFrom(m.parameterTypes[1]) &&
-                    m.parameterTypes[2] == Int::class.javaPrimitiveType &&
-                    List::class.java.isAssignableFrom(m.returnType)
-            } ?: error("getShareTargets_signature_unavailable")
+        val method = findGetShareTargets(service.javaClass)
+            ?: error("getShareTargets_signature_unavailable")
         method.isAccessible = true
 
         val byKey = linkedMapOf<String, ObservedEntryRecord>()
@@ -125,7 +123,8 @@ internal object DirectShareActiveScanBridge {
                 }
             } catch (error: Exception) {
                 failures++
-                log("DIRECT_SCAN_QUERY_FAILED user=$userId mime=$mime error=${error.javaClass.simpleName}")
+                val cause = (error as? java.lang.reflect.InvocationTargetException)?.targetException ?: error
+                log("DIRECT_SCAN_QUERY_FAILED user=$userId mime=$mime error=${cause.javaClass.simpleName} reason=${cause.message.orEmpty().take(100)}")
             }
         }
         // No successful queries means the system interface is unavailable, not
@@ -140,9 +139,19 @@ internal object DirectShareActiveScanBridge {
         log("DIRECT_SCAN_OK user=$userId targets=${byKey.size} queries=$successes failures=$failures")
     }
 
+    /** Selects the AOSP local service signature, ignoring incompatible OEM overloads. */
+    internal fun findGetShareTargets(type: Class<*>): Method? =
+        ReflectionAccess.hierarchyMethods(type).firstOrNull { method ->
+            method.name == "getShareTargets" && method.parameterTypes.size == 3 &&
+                method.parameterTypes[0] == String::class.java &&
+                method.parameterTypes[1] == IntentFilter::class.java &&
+                method.parameterTypes[2] == Int::class.javaPrimitiveType &&
+                List::class.java.isAssignableFrom(method.returnType)
+        }
+
     private fun obtainService(classLoader: ClassLoader): Any? = runCatching {
         val local = Class.forName("com.android.server.LocalServices", false, classLoader)
-        val internal = Class.forName("com.android.server.pm.ShortcutServiceInternal", false, classLoader)
+        val internal = Class.forName(SHORTCUT_SERVICE_INTERNAL_CLASS, false, classLoader)
         local.getDeclaredMethod("getService", Class::class.java).apply {
             isAccessible = true
         }.invoke(null, internal)

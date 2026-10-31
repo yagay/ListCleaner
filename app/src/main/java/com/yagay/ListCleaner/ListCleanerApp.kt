@@ -165,9 +165,15 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
      * the existing observed-entry cache. Failure leaves all saved rules intact.
      */
     suspend fun requestDirectShareScan(userId: Int): Boolean = withContext(Dispatchers.IO) {
-        val session = currentSession() ?: return@withContext false
+        val session = currentSession() ?: run {
+            Log.w(TAG, "DIRECT_SCAN_UNAVAILABLE user=$userId reason=module_session_missing")
+            return@withContext false
+        }
         val digest = runtime.value.takeIf { it.ready }?.digest
-            ?.takeIf(RuntimeProtocol::validDigest) ?: return@withContext false
+            ?.takeIf(RuntimeProtocol::validDigest) ?: run {
+                Log.w(TAG, "DIRECT_SCAN_UNAVAILABLE user=$userId reason=runtime_config_not_ready")
+                return@withContext false
+            }
         val token = java.util.UUID.randomUUID().toString()
         val started = runCatching {
             runtimeTransport.requestDirectShareScan(userId, token, digest)
@@ -175,7 +181,10 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
             Log.w(TAG, "Direct Share scan request unavailable", it)
             false
         }
-        if (!started) return@withContext false
+        if (!started) {
+            Log.w(TAG, "DIRECT_SCAN_UNAVAILABLE user=$userId reason=request_not_accepted")
+            return@withContext false
+        }
         val preferences = runCatching {
             session.service.getRemotePreferences(RuleRepository.REMOTE_PREFS)
         }.getOrNull() ?: return@withContext false
@@ -186,7 +195,10 @@ class ListCleanerApp : Application(), XposedServiceHelper.OnServiceListener {
             when (val status = preferences.getString(key, null)) {
                 null -> Unit
                 else -> {
-                    if (status.startsWith("ok|$token|")) return@withContext true
+                    if (status.startsWith("ok|$token|")) {
+                        Log.i(TAG, "DIRECT_SCAN_COMPLETED user=$userId targets=${status.split('|').getOrNull(2)}")
+                        return@withContext true
+                    }
                     if (status.startsWith("failed|$token|")) {
                         Log.w(TAG, "Direct Share scan failed: $status")
                         return@withContext false

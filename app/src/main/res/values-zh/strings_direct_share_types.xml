@@ -6,4 +6,5 @@
     <string name="direct_share_type_videos">视频</string>
     <string name="direct_share_type_audio">音频</string>
     <string name="direct_share_type_files">文件</string>
+    <string name="direct_share_scan_unavailable">Direct Share 扫描不可用；正在显示此前观察到的目标。请检查模块状态与扫描日志。</string>
 </resources>

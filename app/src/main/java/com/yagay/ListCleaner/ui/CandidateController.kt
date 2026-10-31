@@ -103,10 +103,17 @@ internal class CandidateController(
                 // enumerate *unfiltered* Sharing Shortcuts by MIME type. This
                 // does not launch the Sharesheet, start target apps, or modify
                 // existing cleanup rules. Failure falls back to old observations.
-                if (forceCatalog || manualProactive) {
-                    app.requestDirectShareScan(userId)
-                    if (!isCurrent(currentGeneration, userId)) return@launch
+                val scanPreferences = UiPreferencesRuntime.current
+                val requestDirectShare = scanPreferences.proactiveDirectShare && when (scanPreferences.proactiveScanMode) {
+                    UiProactiveScanMode.ON_SCAN -> forceCatalog || manualProactive
+                    UiProactiveScanMode.MANUAL_ONLY -> manualProactive
+                    UiProactiveScanMode.OFF -> false
                 }
+                val directShareWarning = if (requestDirectShare && !app.requestDirectShareScan(userId)) {
+                    Log.w(TAG, "Direct Share active scan unavailable user=$userId; preserving observations")
+                    app.getString(R.string.direct_share_scan_unavailable)
+                } else null
+                if (!isCurrent(currentGeneration, userId)) return@launch
                 // Pull runtime authority observations before catalog discovery. When the observed
                 // cache changes, invalidate the catalog so an old empty special-entry result cannot
                 // mask newly observed Role/Settings/NFC/manager candidates.
@@ -151,7 +158,7 @@ internal class CandidateController(
                 val resolvedBase = completeLogical(baseResult, configuredRules(), userId)
                 if (!isCurrent(currentGeneration, userId)) return@launch
                 mutableCandidates.value = resolvedBase
-                mutableError.value = app.catalog.scanWarning
+                mutableError.value = combinedScanWarning(directShareWarning)
                 mutableLoading.value = false
 
                 // User-requested scans still perform deep link enrichment even when auto discovery is disabled.
@@ -176,7 +183,7 @@ internal class CandidateController(
                             val resolvedEnriched = completeLogical(enriched, configuredRules(), userId)
                             if (!isCurrent(currentGeneration, userId)) return@launch
                             mutableCandidates.value = resolvedEnriched
-                            mutableError.value = app.catalog.scanWarning
+                            mutableError.value = combinedScanWarning(directShareWarning)
                         }
                     } catch (cancelled: CancellationException) {
                         throw cancelled
@@ -194,6 +201,10 @@ internal class CandidateController(
             }
         }
     }
+
+    private fun combinedScanWarning(directShareWarning: String?): String? =
+        listOfNotNull(app.catalog.scanWarning?.takeIf { it.isNotBlank() }, directShareWarning)
+            .joinToString("\n").ifBlank { null }
 
     private suspend fun completeLogical(
         items: List<ComponentCandidate>,

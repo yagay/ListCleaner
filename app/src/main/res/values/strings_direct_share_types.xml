@@ -6,4 +6,5 @@
     <string name="direct_share_type_videos">Videos</string>
     <string name="direct_share_type_audio">Audio</string>
     <string name="direct_share_type_files">Files</string>
+    <string name="direct_share_scan_unavailable">Direct Share scan unavailable; showing previously observed targets. Check module status and scan logs.</string>
 </resources>
