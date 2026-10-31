@@ -28,6 +28,9 @@ internal class RuntimeInterfaceCaptureWriter(
         components: Collection<String> = emptyList(),
         callerUid: Int = -1,
         requestAction: String = "",
+        requestMimeType: String = "",
+        requestHost: String = "",
+        resolverOrdered: Boolean = false,
     ) {
         val uniquePackages = packages.distinct()
         val uniqueComponents = components.distinct()
@@ -35,6 +38,7 @@ internal class RuntimeInterfaceCaptureWriter(
             kind = kind.name, source = source, callerUserId = userId,
             callerPackage = callerPackage,
             callerUid = callerUid, requestAction = requestAction,
+            requestMimeType = requestMimeType, requestHost = requestHost,
             capturedAtMillis = System.currentTimeMillis(),
             packages = uniquePackages.take(RuntimeInterfaceSnapshotCodec.MAX_PACKAGES),
             components = uniqueComponents.take(RuntimeInterfaceSnapshotCodec.MAX_PACKAGES),
@@ -54,9 +58,13 @@ internal class RuntimeInterfaceCaptureWriter(
         executor.execute {
             runCatching {
                 preferences.edit().apply {
-                    putString(RuntimeInterfaceSnapshotCodec.key(kind), encoded)
-                    if (callerUid >= 0) {
-                        putString(RuntimeInterfaceSnapshotCodec.keyForCaller(kind, callerUid), encoded)
+                    if (resolverOrdered) {
+                        putString(RuntimeInterfaceSnapshotCodec.keyForResolverOrder(kind), encoded)
+                    } else {
+                        putString(RuntimeInterfaceSnapshotCodec.key(kind), encoded)
+                        if (callerUid >= 0) {
+                            putString(RuntimeInterfaceSnapshotCodec.keyForCaller(kind, callerUid), encoded)
+                        }
                     }
                 }.commit()
             }.onFailure {
