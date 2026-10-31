@@ -25,6 +25,9 @@ val OBSERVABLE_ENTRY_KINDS: Set<IntentKind> = setOf(
  * Missing rows therefore mean the authority no longer exposes them and must remove stale cache rows.
  */
 val REMOTE_AUTHORITY_SNAPSHOT_KINDS: Set<IntentKind> = setOf(
+    // The active HOME process now publishes a complete per-user Shortcut Host
+    // inventory. Unlike historic runtime observations this is replaceable.
+    IntentKind.SHORTCUT_ITEM,
     IntentKind.ASSISTANT,
     IntentKind.HOME,
     IntentKind.BROWSER,
