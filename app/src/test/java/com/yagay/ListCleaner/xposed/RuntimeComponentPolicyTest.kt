@@ -112,6 +112,49 @@ class RuntimeComponentPolicyTest {
     }
 
     @Test
+    fun eachEntryKindCanOverrideGlobalModeWithoutChangingOtherKinds() {
+        val compiled = RuntimePolicyCompiler.compile(
+            managerAppId = 10715,
+            protectedComponents = emptySet(),
+            displayMode = DisplayMode.HIDE_SELECTED,
+            modeOverrides = mapOf(
+                IntentKind.OPEN to DisplayMode.SHOW_SELECTED,
+                IntentKind.DIRECT_SHARE to DisplayMode.SHOW_ALL,
+            ),
+            entryRules = emptySet(),
+            entryPriorities = emptyMap(),
+            digest = "category-mode-test",
+        )
+        assertEquals(DisplayMode.SHOW_SELECTED, compiled.modeFor(IntentKind.OPEN))
+        assertEquals(DisplayMode.SHOW_ALL, compiled.modeFor(IntentKind.DIRECT_SHARE))
+        assertEquals(DisplayMode.HIDE_SELECTED, compiled.modeFor(IntentKind.SHARE))
+        assertEquals(DisplayMode.SHOW_SELECTED,
+            compiled.copy(displayMode = DisplayMode.SHOW_ALL).modeFor(IntentKind.OPEN))
+        assertEquals(DisplayMode.SHOW_ALL,
+            compiled.copy(displayMode = DisplayMode.SHOW_ALL).modeFor(IntentKind.SHARE))
+        assertEquals(DisplayMode.HIDE_SELECTED,
+            compiled.copy(modeOverrides = emptyMap()).modeFor(IntentKind.OPEN))
+    }
+
+    @Test
+    fun unconfiguredAndroidUserNeverInheritsModeOverrides() {
+        val primary = RuntimePolicyCompiler.compile(
+            managerAppId = 10715,
+            protectedComponents = emptySet(),
+            displayMode = DisplayMode.HIDE_SELECTED,
+            modeOverrides = mapOf(IntentKind.OPEN to DisplayMode.SHOW_SELECTED),
+            entryRules = emptySet(),
+            entryPriorities = emptyMap(),
+            digest = "user-isolation",
+        )
+        RuntimeComponentPolicy.publishForUsers(primary, emptyMap())
+        assertEquals(DisplayMode.SHOW_SELECTED,
+            RuntimeComponentPolicy.snapshot(0).modeFor(IntentKind.OPEN))
+        assertEquals(DisplayMode.SHOW_ALL,
+            RuntimeComponentPolicy.snapshot(10).modeFor(IntentKind.OPEN))
+    }
+
+    @Test
     fun constructingResolverSnapshotHasNoGlobalPolicySideEffect() {
         val baseline = RuntimePolicyCompiler.compile(
             managerAppId = 10001,
