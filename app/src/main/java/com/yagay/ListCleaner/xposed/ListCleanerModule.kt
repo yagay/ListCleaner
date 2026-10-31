@@ -245,6 +245,9 @@ class ListCleanerModule : XposedModule() {
         systemServer = true
         record("SYSTEM_SERVER_STARTING loader=${param.classLoader.javaClass.name}")
         initializePreferences()
+        // The authenticated control endpoint and scanner must share one module
+        // classloader and service lifecycle, independent of shortcut Hook order.
+        DirectShareActiveScanBridge.initialize(param.classLoader, preferences, ::record)
         installSystemServerQueryHooks(param.classLoader)
     }
 
