@@ -860,10 +860,10 @@ flat_footer = popups.split("internal fun FlatPopupFooter(", 1)[-1].split(
 )[0]
 if "heightIn(min = 48.dp)" not in flat_footer or "verticalAlignment = Alignment.CenterVertically" not in flat_footer:
     errors.append("AdaptivePopups.kt: common footer lacks vertically centered 48dp row")
-footer_action = sheet.split("private fun WorkspaceFilterFooterAction(", 1)[-1].split(
+footer_action = sheet.split("internal fun WorkspaceFilterFooterAction(", 1)[-1].split(
     "/** Filter selections are single-column", 1
 )[0]
-for expected in ("heightIn(min = 48.dp)", "clickable(role = Role.Button",
+for expected in ("heightIn(min = 48.dp)", "clickable(enabled = enabled, role = Role.Button",
                  "contentAlignment = Alignment.Center"):
     if expected not in footer_action:
         errors.append(f"WorkspaceCommon.kt: footer touch target missing {expected}")
