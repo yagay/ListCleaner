@@ -113,6 +113,7 @@ data class RuleBackup(
     val displayMode: DisplayMode? = null,
     val hiddenFromApps: Set<String> = emptySet(),
     val openTypes: OpenTypeConfig = OpenTypeConfig(),
+    val directShareTypes: DirectShareTypeConfig = DirectShareTypeConfig(),
     /** User choice only; derived full-package targets are rebuilt from current catalog/rules. */
     val visibilityScopes: Set<VisibilityScope> = emptySet(),
     val browserLinks: BrowserLinkConfig = BrowserLinkConfig(),
