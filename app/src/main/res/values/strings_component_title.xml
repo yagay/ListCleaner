@@ -5,4 +5,10 @@
     <string name="component_title_help">Only changes the display text of this component in the %1$s candidate menu. It does not change the app name, Intent, package name, component name, or actual launch target.</string>
     <string name="component_title_field">Menu display name</string>
     <string name="component_title_support">%1$d/64 · Leave empty to restore the original name · Custom names are temporarily not applied in Show all mode</string>
+    <string name="qs_tile_rename_title">Rename system Quick Settings tile</string>
+    <string name="qs_tile_rename_original">Original tile name: %1$s</string>
+    <string name="qs_tile_rename_help">Overrides the name shown by SystemUI for this TileService. Does not rename the app or change how the tile works. Requires an active SystemUI hook.</string>
+    <string name="qs_tile_rename_field">System tile name</string>
+    <string name="qs_tile_rename_restore">Restore original</string>
+    <string name="qs_tile_rename_count">%1$d/64 · Clear to restore the original</string>
 </resources>
