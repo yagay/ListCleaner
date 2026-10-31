@@ -72,9 +72,7 @@ internal fun ClassicCleanupTabs(
                     }
                     Surface(
                         onClick = onComponents,
-                        modifier = Modifier.size(48.dp).semantics {
-                            contentDescription = stringResource(R.string.lc_cleanup_mode_component_short)
-                        },
+                        modifier = Modifier.size(48.dp),
                         shape = RectangleShape,
                         color = MaterialTheme.colorScheme.surface,
                     ) {
