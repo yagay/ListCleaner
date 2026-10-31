@@ -181,23 +181,27 @@ internal fun SystemProbeDialog(
         }.getOrNull(),
     )
     val diagnostic = viewMode == PreviewListMode.CANDIDATES && value != null
-    // Never present a local projection as a verified framework return.
-    // Current only falls back when its actual return is absent/unverified.
+    // A captured post-filter return has its own order; never re-rank it or silently
+    // replace Current with an alphabetically sorted estimate.
     val predicted = if (previewState != null && value != null && request.entryKind != null) {
+        val queryHost = if (request.entryKind == IntentKind.DEEP_LINK) {
+            runCatching {
+                SystemEffectPreview.queryIntent(context, request.entryKind, scenario).data?.host
+            }.getOrNull()
+        } else null
         SystemPreviewProjection.estimate(
             request.entryKind, previewState.candidates, previewState.selected,
             previewState.displayMode, previewState.modeOverrides, value,
+            priorities = previewState.priorities,
+            openTypes = previewState.openTypesExplicit,
+            browserLinks = previewState.browserLinks,
+            scenario = scenario,
+            requestHost = queryHost,
         )
     } else null
-    val selectedResult = when {
-        viewMode == PreviewListMode.ESTIMATED ->
-            predicted ?: PreviewListResult(emptyList(), PreviewListSource.UNAVAILABLE)
-        viewMode == PreviewListMode.CURRENT &&
-            authoritativeSelection.source in setOf(
-                PreviewListSource.API_RETURN, PreviewListSource.UNAVAILABLE,
-            ) && predicted != null -> predicted
-        else -> authoritativeSelection
-    }
+    val selectedResult = if (viewMode == PreviewListMode.ESTIMATED) {
+        predicted ?: PreviewListResult(emptyList(), PreviewListSource.UNAVAILABLE)
+    } else authoritativeSelection
     val runtimeAvailable = selectedResult.source in setOf(
         PreviewListSource.HOOK_OBSERVATION, PreviewListSource.HOST_OBSERVATION
     )
