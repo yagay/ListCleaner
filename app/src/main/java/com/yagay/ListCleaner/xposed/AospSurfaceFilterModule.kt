@@ -100,7 +100,10 @@ class AospSurfaceFilterModule : XposedModule() {
                     val selected = policy.selected(SurfaceKind.QS_EDITOR)
                     val rank = policy.priorities(SurfaceKind.QS_EDITOR).withIndex()
                         .associate { it.value to it.index }
-                    if (selected.isEmpty() && rank.isEmpty()) return@install proceedOriginal(chain)
+                    val componentRank = policy.tileOrder.withIndex()
+                        .associate { it.value to it.index }
+                    if (selected.isEmpty() && rank.isEmpty() && componentRank.isEmpty())
+                        return@install proceedOriginal(chain)
                     val activeSpecs = (ReflectionAccess.readField(chain.thisObject,
                         "mCurrentSpecs") as? Collection<*>)?.filterIsInstance<String>()
                         ?: return@install proceedOriginal(chain)
@@ -115,10 +118,16 @@ class AospSurfaceFilterModule : XposedModule() {
                         spec !in activeSpecs
                     }
                     val arranged = filtered.toMutableList()
-                    val ranked = positions.map { filtered[it] }.sortedWith(compareBy { item ->
-                        val spec = ReflectionAccess.readField(item, "spec") as? String
-                        rank[tilePackage(spec)] ?: Int.MAX_VALUE
-                    })
+                    val ranked = positions.map { filtered[it] }.sortedWith(compareBy(
+                        { item ->
+                            val spec = ReflectionAccess.readField(item, "spec") as? String
+                            componentRank[tileComponent(spec)?.flattenToString()] ?: Int.MAX_VALUE
+                        },
+                        { item ->
+                            val spec = ReflectionAccess.readField(item, "spec") as? String
+                            rank[tilePackage(spec)] ?: Int.MAX_VALUE
+                        },
+                    ))
                     positions.forEachIndexed { i, index -> arranged[index] = ranked[i] }
                     if (arranged == items) proceedOriginal(chain)
                     else {
@@ -436,11 +445,13 @@ class AospSurfaceFilterModule : XposedModule() {
         return policy(user).tileLabels[component.flattenToString()]
     }
 
-    private fun tilePackage(spec: String?): String? {
+    private fun tileComponent(spec: String?): ComponentName? {
         val component = spec?.takeIf { it.startsWith("custom(") && it.endsWith(")") }
             ?.removePrefix("custom(")?.removeSuffix(")") ?: return null
-        return ComponentName.unflattenFromString(component)?.packageName
+        return ComponentName.unflattenFromString(component)
     }
+
+    private fun tilePackage(spec: String?): String? = tileComponent(spec)?.packageName
 
     private fun appInfoPackage(value: Any?): String? {
         val component = (ReflectionAccess.readField(value, "componentName") as? ComponentName)
