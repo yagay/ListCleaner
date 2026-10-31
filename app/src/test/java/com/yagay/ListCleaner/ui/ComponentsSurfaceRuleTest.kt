@@ -68,6 +68,57 @@ class ComponentsSurfaceRuleTest {
         assertEquals(2, managedGroupSelectionRank(listOf(app, channel), initial))
     }
 
+    @Test fun settingsAppsCommitMovesSelectedFirstWithoutOverwritingPriorityOrder() {
+        val a = ManagedComponentRule(ManagedComponentRuleType.SETTINGS_APP,
+            "com.example.alpha", "com.example.alpha", "Alpha", "Alpha")
+        val z = ManagedComponentRule(ManagedComponentRuleType.SETTINGS_APP,
+            "com.example.zulu", "com.example.zulu", "Zulu", "Zulu")
+        val rows = listOf(a.packageName to listOf(a), z.packageName to listOf(z))
+        val labels = mapOf(a.packageName to "Alpha", z.packageName to "Zulu")
+        // Priority belongs to the separate ordering page, and must never
+        // suppress a confirmed cleanup selection on the Settings Apps page.
+        val before = SurfaceFilterConfig().withPriorities(
+            SurfaceKind.SETTINGS_APPS, listOf(a.packageName, z.packageName))
+        assertEquals(listOf(a.packageName, z.packageName),
+            sortManagedSurfaceAppGroups(rows, labels, before, UiAppSort.SELECTED_FIRST)
+                .map { it.first })
+        val committed = applyManagedComponentDraft(before, listOf(a, z), mapOf(z.id to true))
+        assertEquals(listOf(z.packageName, a.packageName),
+            sortManagedSurfaceAppGroups(rows, labels, committed, UiAppSort.SELECTED_FIRST)
+                .map { it.first })
+        assertEquals(before.priorities(SurfaceKind.SETTINGS_APPS),
+            committed.priorities(SurfaceKind.SETTINGS_APPS))
+        // No draft is passed to the sorter; checkbox staging alone cannot
+        // change the list order before the Apply operation commits the rule.
+        assertEquals(listOf(a.packageName, z.packageName),
+            sortManagedSurfaceAppGroups(rows, labels, before, UiAppSort.SELECTED_FIRST)
+                .map { it.first })
+        assertEquals(listOf(a.packageName, z.packageName),
+            sortManagedSurfaceAppGroups(rows, labels, committed, UiAppSort.NAME)
+                .map { it.first })
+    }
+
+    @Test fun managedSurfaceSelectionSortsFullPartialAndUnselectedOnlyAfterCommit() {
+        val pkgA = "com.example.alpha"
+        val pkgB = "com.example.beta"
+        val pkgC = "com.example.charlie"
+        val appA = app.copy(packageName = pkgA, key = pkgA)
+        val chA = channel.copy(packageName = pkgA)
+        val appB = app.copy(packageName = pkgB, key = pkgB)
+        val chB = channel.copy(packageName = pkgB)
+        val appC = app.copy(packageName = pkgC, key = pkgC)
+        val rows = listOf(pkgA to listOf(appA, chA),
+            pkgB to listOf(appB, chB), pkgC to listOf(appC, chB.copy(packageName = pkgC)))
+        val labels = mapOf(pkgA to "Alpha", pkgB to "Beta", pkgC to "Charlie")
+        val before = SurfaceFilterConfig()
+        val after = before.withChannelHidden(pkgB, chB.key, true)
+            .withSelected(SurfaceKind.NOTIFICATION_SHADE, setOf(pkgC))
+        assertEquals(listOf(pkgA, pkgB, pkgC),
+            sortManagedSurfaceAppGroups(rows, labels, before, UiAppSort.SELECTED_FIRST).map { it.first })
+        assertEquals(listOf(pkgC, pkgB, pkgA),
+            sortManagedSurfaceAppGroups(rows, labels, after, UiAppSort.SELECTED_FIRST).map { it.first })
+    }
+
     @Test fun ruleIdentityIsUniqueAcrossAppChannelAndSettingsScopes() {
         assertEquals(4, listOf(app, channel, settings, legacy).map { it.id }.toSet().size)
     }

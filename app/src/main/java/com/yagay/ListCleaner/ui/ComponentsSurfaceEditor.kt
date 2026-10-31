@@ -94,6 +94,31 @@ internal fun managedGroupSelectionRank(
     }
 }
 
+/**
+ * Cleanup list order belongs to cleanup selections, not the independent
+ * Settings Apps Priority editor. Use only saved selections here: toggling a
+ * checkbox must never move a row until Apply successfully persists the rule.
+ */
+internal fun sortManagedSurfaceAppGroups(
+    groups: List<Pair<String, List<ManagedComponentRule>>>,
+    labels: Map<String, String>,
+    saved: SurfaceFilterConfig,
+    mode: UiAppSort,
+): List<Pair<String, List<ManagedComponentRule>>> = groups.sortedWith(
+    when (mode) {
+        UiAppSort.SELECTED_FIRST ->
+            compareBy<Pair<String, List<ManagedComponentRule>>> {
+                managedGroupSelectionRank(it.second, saved)
+            }.thenBy { labels[it.first].orEmpty().lowercase() }.thenBy { it.first }
+        UiAppSort.NAME ->
+            compareBy<Pair<String, List<ManagedComponentRule>>> {
+                labels[it.first].orEmpty().lowercase()
+            }.thenBy { it.first }
+        UiAppSort.PACKAGE ->
+            compareBy<Pair<String, List<ManagedComponentRule>>> { it.first }
+    }
+)
+
 internal fun managedRuleHidden(config: SurfaceFilterConfig, item: ManagedComponentRule): Boolean =
     when (item.type) {
         ManagedComponentRuleType.SETTINGS_APP ->
@@ -356,21 +381,11 @@ internal fun ComponentsSurfaceEditor(
                 AppTypeFilter.SYSTEM -> systemApps[pkg] == true
             }) null
         else pkg to visibleRows
-    }.sortedWith(
-        if (!isNotification && saved.priorities(SurfaceKind.SETTINGS_APPS).isNotEmpty()) {
-            val rank = saved.priorities(SurfaceKind.SETTINGS_APPS).withIndex()
-                .associate { it.value to it.index }
-            compareBy<Pair<String, List<ManagedComponentRule>>> {
-                rank[it.first] ?: Int.MAX_VALUE
-            }.thenBy { labels[it.first].orEmpty().lowercase() }
-        } else when (UiPreferencesRuntime.current.appSort) {
-            UiAppSort.SELECTED_FIRST -> compareBy<Pair<String, List<ManagedComponentRule>>> {
-                managedGroupSelectionRank(it.second, saved)
-            }.thenBy { labels[it.first].orEmpty().lowercase() }
-            UiAppSort.NAME -> compareBy { labels[it.first].orEmpty().lowercase() }
-            else -> compareBy { it.first }
-        },
-    )
+    }.let { unsorted ->
+        // The Priority editor's saved order MUST NOT override cleanup
+        // selection ranking on this page, including Settings Apps.
+        sortManagedSurfaceAppGroups(unsorted, labels, saved, UiPreferencesRuntime.current.appSort)
+    }
     val visible = groups.flatMap { it.second } + legacyRules.filter { item ->
         (!hasQuery || item.title.contains(state.query, ignoreCase = true)) &&
             when (viewFilter) {
