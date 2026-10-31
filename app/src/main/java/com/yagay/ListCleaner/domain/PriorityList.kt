@@ -13,9 +13,15 @@ data class PriorityAppGroup(
 fun priorityAppGroups(
     candidates: List<ComponentCandidate>, selected: Set<ComponentRule>, mode: DisplayMode,
     kind: IntentKind, saved: List<String>, query: String, filter: PriorityListFilter,
-    extraSelected: Set<ComponentRule> = emptySet()
+    extraSelected: Set<ComponentRule> = emptySet(),
+    appTypeFilter: AppTypeFilter = AppTypeFilter.ALL
 ): List<PriorityAppGroup> {
-    val apps = priorityCandidates(candidates, selected, mode, kind, extraSelected).groupBy { it.rule.packageName }
+    // Exclude hidden application types BEFORE grouping and ranking. This is
+    // a presentation-only filter; saved priority IDs, including system apps,
+    // remain in storage and retain their order when the filter changes.
+    val apps = priorityCandidates(candidates, selected, mode, kind, extraSelected)
+        .filter { appTypeFilter.matches(it.appType) }
+        .groupBy { it.rule.packageName }
     val ranks = saved.filter { it in apps }.mapIndexed { index, pkg -> pkg to index + 1 }.toMap()
     val needle = query.trim().lowercase()
     val groups = apps.mapNotNull { (pkg, components) ->

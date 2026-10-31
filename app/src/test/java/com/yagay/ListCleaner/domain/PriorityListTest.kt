@@ -20,6 +20,43 @@ class PriorityListTest {
         assertEquals(listOf(1, 2, null), groups(items, listOf("c", "a")).map { it.rank })
     }
 
+    @Test fun systemFilterIsAppliedBeforeVisibleRanksWithoutChangingSavedOrder() {
+        val system = item("system", label = "System").copy(appType = AppType.SYSTEM)
+        val userA = item("user.a", label = "Alpha").copy(appType = AppType.USER)
+        val userB = item("user.b", label = "Beta").copy(appType = AppType.USER)
+        val saved = listOf("system", "user.b", "user.a")
+        val items = listOf(system, userA, userB)
+
+        val visible = priorityAppGroups(items, emptySet(), DisplayMode.HIDE_SELECTED,
+            IntentKind.SHARE, saved, "", PriorityListFilter.ALL,
+            appTypeFilter = AppTypeFilter.USER)
+        assertEquals(listOf("user.b", "user.a"), visible.map { it.packageName })
+        assertEquals(listOf(1, 2), visible.map { it.rank })
+
+        val moved = moveVisiblePriority(saved, visible.map { it.packageName }, "user.a", -1)
+        assertEquals(listOf("system", "user.a", "user.b"), moved)
+        assertEquals(listOf("system", "user.b", "user.a"), saved)
+        val restored = priorityAppGroups(items, emptySet(), DisplayMode.HIDE_SELECTED,
+            IntentKind.SHARE, moved, "", PriorityListFilter.ALL,
+            appTypeFilter = AppTypeFilter.ALL)
+        assertEquals(listOf("system", "user.a", "user.b"), restored.map { it.packageName })
+        assertEquals(listOf(1, 2, 3), restored.map { it.rank })
+    }
+
+    @Test fun systemOnlyShowsNoUserEntriesAndHidesUnrankedSystemWhenUserOnly() {
+        val system = item("system").copy(appType = AppType.SYSTEM)
+        val user = item("user").copy(appType = AppType.USER)
+        val rows = listOf(system, user)
+        assertEquals(listOf("system"), priorityAppGroups(rows, emptySet(),
+            DisplayMode.HIDE_SELECTED, IntentKind.SHARE, listOf("user"), "",
+            PriorityListFilter.ALL, appTypeFilter = AppTypeFilter.SYSTEM)
+            .map { it.packageName })
+        assertEquals(listOf("user"), priorityAppGroups(rows, emptySet(),
+            DisplayMode.HIDE_SELECTED, IntentKind.SHARE, listOf("user"), "",
+            PriorityListFilter.ALL, appTypeFilter = AppTypeFilter.USER)
+            .map { it.packageName })
+    }
+
     @Test fun selectedFollowsSavedOrderAndUnselectedRemainsAlphabetic() {
         val items = listOf(item("b"), item("a"), item("c"), item("d"))
         val saved = listOf("c", "a")

@@ -22,6 +22,13 @@ class UiPreferencesTest {
         assertEquals(UiListStyle.ORIGINAL, UiPreferences().normalized().listStyle)
     }
 
+    @Test fun entryCleanupAndPriorityShareOneAppTypePreferenceScope() {
+        assertEquals("rules", UiPreferencesStore.appTypePreferencePage("rules"))
+        assertEquals("rules", UiPreferencesStore.appTypePreferencePage("priority"))
+        assertEquals("components", UiPreferencesStore.appTypePreferencePage("components"))
+        assertEquals("lists_browser", UiPreferencesStore.appTypePreferencePage("lists_browser"))
+    }
+
     @Test fun geometryIsBoundedBeforePersistence() {
         val preferences = UiPreferences(
             cardRadius = -4, buttonHeight = 4, appIconSize = 999,

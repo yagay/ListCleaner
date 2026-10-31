@@ -17,6 +17,7 @@ import com.yagay.ListCleaner.RuntimeStatus
 import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.data.RootComponent
 import com.yagay.ListCleaner.data.RuleRepository
+import com.yagay.ListCleaner.domain.AppTypeFilter
 import com.yagay.ListCleaner.domain.BrowserLinkConfig
 import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.ComponentRule
@@ -89,6 +90,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val spaceScanState = app.spaces.scanState
     private val installedPackages = app.spaces.installedPackages
     val surfaceInstalledPackages = app.spaces.installedPackages
+
+    /**
+     * Entry Cleanup and Entry Priority are two views of the same app catalog.
+     * Keep their application-type filter in a single ViewModel-owned flow even
+     * when "remember filters" is disabled. Root components remain independent.
+     */
+    private val mutableEntryAppTypeFilter =
+        MutableStateFlow(UiPreferencesStore.initialAppType(app, "rules"))
+    val entryAppTypeFilter: StateFlow<AppTypeFilter> = mutableEntryAppTypeFilter
+
+    fun setEntryAppTypeFilter(filter: AppTypeFilter) {
+        if (mutableEntryAppTypeFilter.value == filter) return
+        mutableEntryAppTypeFilter.value = filter
+        UiPreferencesStore.rememberAppType(app, filter, "rules")
+    }
 
     fun selectSpace(userId: Int) {
         if (rootComponents.busy.value || !app.spaces.select(userId)) return

@@ -110,7 +110,7 @@ fun PriorityDialogContent(
     SelectionConfirmationDialog(confirmation)
     var sortHelpExpanded by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.openHelpByDefault) }
     var viewFilter by rememberSaveable { mutableStateOf(UiPreferencesStore.initialFilter(prefsContext, "priority")) }
-    var appTypeFilter by rememberSaveable { mutableStateOf(UiPreferencesStore.initialAppType(prefsContext, "priority")) }
+    val appTypeFilter by vm.entryAppTypeFilter.collectAsStateWithLifecycle()
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
     var expandedKey by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(kind) {
@@ -221,11 +221,11 @@ fun PriorityDialogContent(
     // the full priority catalog; staged priority changes still update its order.
     val baseGroups = remember(
         scopedCandidates, state.selected, scopedExtraSelected, state.displayMode,
-        kind, stagedOrder, state.query, priorityListFilter
+        kind, stagedOrder, state.query, priorityListFilter, appTypeFilter
     ) {
         priorityAppGroups(
             scopedCandidates, state.selected, state.displayMode, kind,
-            stagedOrder, state.query, priorityListFilter, scopedExtraSelected
+            stagedOrder, state.query, priorityListFilter, scopedExtraSelected, appTypeFilter
         )
     }
     val lockFilteredGroups = remember(baseGroups, viewFilter, bulkLockRevision, lockScope) {
@@ -233,9 +233,9 @@ fun PriorityDialogContent(
             baseGroups.filter { vm.bulkLockState(lockScope, it.packageName, emptyList()) != BulkLockState.NONE }
         } else baseGroups
     }
-    val groups = remember(lockFilteredGroups, appTypeFilter) {
-        lockFilteredGroups.filter { appTypeFilter.matches(it.appType) }
-    }
+    // App type is already filtered before rank assignment. Do not re-filter
+    // a ranked list: that leaves hidden system apps consuming visible rank slots.
+    val groups = lockFilteredGroups
     LaunchedEffect(kind, openPreset, browserHost, groups.firstOrNull()?.packageName, UiPreferencesRuntime.current.expandFirstApp) {
         if (UiPreferencesRuntime.current.expandFirstApp && expandedKey == null) {
             groups.firstOrNull()?.let { group ->
@@ -333,10 +333,7 @@ fun PriorityDialogContent(
                                 UiPreferencesStore.rememberFilter(prefsContext, it, "priority")
                             },
                             appTypeFilter = appTypeFilter,
-                            onAppTypeFilter = {
-                                appTypeFilter = it
-                                UiPreferencesStore.rememberAppType(prefsContext, it, "priority")
-                            },
+                            onAppTypeFilter = vm::setEntryAppTypeFilter,
                             includeAllKinds = false,
                             showEntryGroups = true,
                             availableEntryKinds = priorityKinds,

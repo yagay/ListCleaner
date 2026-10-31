@@ -62,7 +62,7 @@ fun RulesTab(
     var editingTitle by remember { mutableStateOf<com.yagay.ListCleaner.domain.ComponentCandidate?>(null) }
     var showCustomTypes by rememberSaveable { mutableStateOf(false) }
     var showBrowserHosts by rememberSaveable { mutableStateOf(false) }
-    var appTypeFilter by rememberSaveable { mutableStateOf(UiPreferencesStore.initialAppType(prefsContext, "rules")) }
+    val appTypeFilter by vm.entryAppTypeFilter.collectAsStateWithLifecycle()
     var ruleHelpExpanded by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.openHelpByDefault) }
     // One continuous editor; category navigation stays in the pinned selector.
     var browseAllComponents by rememberSaveable { mutableStateOf(false) }
@@ -395,10 +395,7 @@ fun RulesTab(
                         { filter -> navigate { vm.setFilter(filter) } },
                         vm::setUiFilter,
                         appTypeFilter = appTypeFilter,
-                        onAppTypeFilter = {
-                            appTypeFilter = it
-                            UiPreferencesStore.rememberAppType(prefsContext, it, "rules")
-                        },
+                        onAppTypeFilter = vm::setEntryAppTypeFilter,
                         showEntryGroups = true,
                         selectionActions = selectionActions,
                         modeAction = { WorkspaceSortShortcut(state.filter) { navigate { vm.setDestination(Destination.PRIORITY) } } },
@@ -655,7 +652,7 @@ fun RulesTab(
                         {
                             vm.setQuery("")
                             vm.setUiFilter(UiFilter.ALL)
-                            appTypeFilter = AppTypeFilter.ALL
+                            vm.setEntryAppTypeFilter(AppTypeFilter.ALL)
                         }
                     } else null
                 )

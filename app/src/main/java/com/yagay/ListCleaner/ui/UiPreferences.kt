@@ -288,11 +288,21 @@ internal object UiPreferencesStore {
             .getString(pageKey(page, "filter"), null), UiFilter.entries.toTypedArray(), current.defaultFilter)
     }
 
+    /**
+     * Entry cleanup and ordering share one persisted app-type filter. Older
+     * priority-page values are intentionally not used: they caused separate
+     * system/user visibility when navigating between the two Entry screens.
+     * The components page keeps its own app-type filter.
+     */
+    internal fun appTypePreferencePage(page: String): String =
+        if (page == "priority") "rules" else page
+
     fun initialAppType(context: Context, page: String): AppTypeFilter {
         val current = UiPreferencesRuntime.current
         if (!current.rememberFilters) return current.defaultAppType
         return stored(context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
-            .getString(pageKey(page, "app_type"), null), AppTypeFilter.entries.toTypedArray(), current.defaultAppType)
+            .getString(pageKey(appTypePreferencePage(page), "app_type"), null),
+            AppTypeFilter.entries.toTypedArray(), current.defaultAppType)
     }
 
     fun rememberFilter(context: Context, filter: UiFilter, page: String = "rules") {
@@ -305,7 +315,8 @@ internal object UiPreferencesStore {
     fun rememberAppType(context: Context, appType: AppTypeFilter, page: String = "rules") {
         if (UiPreferencesRuntime.current.rememberFilters) {
             context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
-                .putString(pageKey(page, "app_type"), appType.name).apply()
+                .putString(pageKey(appTypePreferencePage(page), "app_type"), appType.name)
+                .apply()
         }
     }
 
