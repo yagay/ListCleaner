@@ -31,6 +31,16 @@ class SurfaceDraftRebaseTest {
         assertTrue("msg" in merged.hiddenNotificationCategories)
         assertTrue(merged.isChannelHidden("com.example.chat", "inbox"))
     }
+    @Test fun concurrentTileOrdersUseLatestUnlessLocallyChanged() {
+        val a = "com.example.tiles/com.example.tiles.One"
+        val b = "com.example.tiles/com.example.tiles.Two"
+        val base = SurfaceFilterConfig()
+        val latest = base.withTileOrder(listOf(a, b))
+        assertEquals(listOf(a, b), rebaseSurfaceDraft(base, base, latest).tileOrder)
+        val local = base.withTileOrder(listOf(b, a))
+        assertEquals(listOf(b, a), rebaseSurfaceDraft(base, local, latest).tileOrder)
+    }
+
     @Test fun noChangesFollowLatest() {
         val base = SurfaceFilterConfig()
         val latest = base.withSelected(SurfaceKind.LAUNCHER_DRAWER, setOf("com.example.updated"))
