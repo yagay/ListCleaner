@@ -127,7 +127,7 @@ class EmbeddedDirectShareModule : XposedModule() {
         val selected = policy.selected(IntentKind.DIRECT_SHARE)
         val priorities = policy.priorities(IntentKind.DIRECT_SHARE)
         val filteringActive =
-            (policy.displayMode != DisplayMode.SHOW_ALL && selected.isNotEmpty()) || priorities.isNotEmpty()
+            (policy.modeFor(IntentKind.DIRECT_SHARE) != DisplayMode.SHOW_ALL && selected.isNotEmpty()) || priorities.isNotEmpty()
         if (!filteringActive) {
             updateEmptySurface(profile, adapter, empty = false)
             return@Hooker original
@@ -163,7 +163,7 @@ class EmbeddedDirectShareModule : XposedModule() {
                 ruleIds = parsed.map { it.rule?.id },
                 visibleSharePackages = targetPackages.filterNotNull().toSet(),
                 selectedRuleIds = selected,
-                displayMode = policy.displayMode,
+                displayMode = policy.modeFor(IntentKind.DIRECT_SHARE),
                 priorities = priorities,
             )
             afterCount += keptIndices.size

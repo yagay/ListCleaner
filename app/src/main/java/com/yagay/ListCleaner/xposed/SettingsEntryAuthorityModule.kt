@@ -143,7 +143,7 @@ class SettingsEntryAuthorityModule : XposedModule() {
             val packageName = vpnPackageName(value) ?: return@filter true
             val policy = policyProvider.snapshot(userId)
             val selected = policy.selectedPackages(IntentKind.VPN)
-            selected.isEmpty() || policy.displayMode.includes(packageName in selected, true)
+            selected.isEmpty() || policy.modeFor(IntentKind.VPN).includes(packageName in selected, true)
         }.toMutableList()
         filtered.indices.groupBy { vpnUserId(filtered[it]) }.forEach { (userId, positions) ->
             if (userId == null) return@forEach
@@ -174,13 +174,13 @@ class SettingsEntryAuthorityModule : XposedModule() {
         val policy = policyProvider.snapshot(userId)
         val selectedPackages = policy.selectedPackages(IntentKind.AUTOFILL)
         record(
-            "AUTOFILL_LEGACY_QUERY before=${values.size} selectedPackages=${selectedPackages.size} mode=${policy.displayMode}"
+            "AUTOFILL_LEGACY_QUERY before=${values.size} selectedPackages=${selectedPackages.size} mode=${policy.modeFor(IntentKind.AUTOFILL)}"
         )
 
 
         val filtered = values.filter { value ->
             val packageName = autofillPackageName(value) ?: return@filter true
-            policy.displayMode.includes(packageName in selectedPackages, selectedPackages.isNotEmpty())
+            policy.modeFor(IntentKind.AUTOFILL).includes(packageName in selectedPackages, selectedPackages.isNotEmpty())
         }
         val ordered = com.yagay.ListCleaner.domain.prioritizeApps(
             filtered, policy.priorities(IntentKind.AUTOFILL),

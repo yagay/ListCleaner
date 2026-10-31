@@ -174,7 +174,7 @@ class DirectShareConsistencyModule : XposedModule() {
             ruleIds = parsed.map { it.rule?.id },
             visibleSharePackages = visibleSharePackages,
             selectedRuleIds = effectiveSelection,
-            displayMode = policy.displayMode,
+            displayMode = policy.modeFor(IntentKind.DIRECT_SHARE),
             priorities = priorities,
         )
         collapseEmptyDirectShare = targets.isNotEmpty() && keptIndices.isEmpty()

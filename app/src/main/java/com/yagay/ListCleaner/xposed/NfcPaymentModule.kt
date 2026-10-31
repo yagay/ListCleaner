@@ -127,13 +127,13 @@ class NfcPaymentModule : XposedModule() {
         }
         val selected = policy.selected(IntentKind.NFC_HCE)
         val priorities = policy.priorities(IntentKind.NFC_HCE)
-        if ((policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) && priorities.isEmpty()) return@Hooker original
+        if ((policy.modeFor(IntentKind.NFC_HCE) == DisplayMode.SHOW_ALL || selected.isEmpty()) && priorities.isEmpty()) return@Hooker original
 
         val kept = values.filter { value ->
             val component = componentOf(value) ?: return@filter true
             val rule = ComponentRule(IntentKind.NFC_HCE, component.packageName, component.className)
-            policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty() ||
-                policy.displayMode.includes(rule.id in selected, selected.isNotEmpty())
+            policy.modeFor(IntentKind.NFC_HCE) == DisplayMode.SHOW_ALL || selected.isEmpty() ||
+                policy.modeFor(IntentKind.NFC_HCE).includes(rule.id in selected, selected.isNotEmpty())
         }
         val filtered = com.yagay.ListCleaner.domain.prioritizeApps(
             kept, priorities, { componentOf(it)?.packageName ?: "" }, { userId },

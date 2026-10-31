@@ -160,7 +160,7 @@ class DocumentsUiRootsModule : XposedModule() {
                         val user = sidebarUser(item) ?: return@filter true
                         val settings = policy.snapshot(user)
                         val selected = kind?.let(settings::selected).orEmpty()
-                        selected.isEmpty() || settings.displayMode.includes(
+                        selected.isEmpty() || settings.modeFor(IntentKind.DOCUMENT_ROOT).includes(
                             ComponentRule(kind ?: return@filter true, info.packageName, info.name).id in selected, true,
                         )
                     }.toMutableList()
@@ -290,7 +290,7 @@ class DocumentsUiRootsModule : XposedModule() {
                 val user = rootUserId(item) ?: processUserId
                 val settings = policy.snapshot(user)
                 val selected = settings.selected(IntentKind.DOCUMENT_ROOT)
-                selected.isEmpty() || settings.displayMode.includes(entry.rule.id in selected, true)
+                selected.isEmpty() || settings.modeFor(IntentKind.DOCUMENT_ROOT).includes(entry.rule.id in selected, true)
             }.toMutableList()
             filtered.indices.filter { filtered[it]?.let(available::containsKey) == true }
                 .groupBy { filtered[it]?.let(::rootUserId) ?: processUserId }.forEach { (user, positions) ->
