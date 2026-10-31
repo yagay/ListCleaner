@@ -4,6 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,6 +26,8 @@ internal fun ClassicCleanupTabs(
     active: ClassicCleanupMode,
     onEntries: () -> Unit,
     onComponents: () -> Unit,
+    modeLabel: String? = null,
+    onModeClick: () -> Unit = {},
 ) {
     Surface(color = MaterialTheme.colorScheme.surface) {
         Column {
@@ -38,6 +43,27 @@ internal fun ClassicCleanupTabs(
                     onClick = onEntries,
                     modifier = Modifier.weight(1f)
                 )
+                if (active == ClassicCleanupMode.ENTRIES && modeLabel != null) {
+                    Surface(
+                        onClick = onModeClick,
+                        color = MaterialTheme.colorScheme.surface,
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    ) {
+                        Row(
+                            Modifier.padding(horizontal = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            AdaptiveText(
+                                modeLabel,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            AdaptiveIcon(Icons.Rounded.ExpandMore, null, Modifier.size(15.dp))
+                        }
+                    }
+                }
                 FlatCleanupModeTab(
                     label = stringResource(R.string.lc_cleanup_mode_component_short),
                     description = stringResource(R.string.root_screen_title),

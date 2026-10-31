@@ -63,6 +63,10 @@ fun RulesTab(
     var showCustomTypes by rememberSaveable { mutableStateOf(false) }
     var showBrowserHosts by rememberSaveable { mutableStateOf(false) }
     val appTypeFilter by vm.entryAppTypeFilter.collectAsStateWithLifecycle()
+    var showModeSettings by rememberSaveable { mutableStateOf(false) }
+    if (showModeSettings) {
+        EntryModeSettingsDialog(state, vm) { showModeSettings = false }
+    }
     var ruleHelpExpanded by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.openHelpByDefault) }
     // One continuous editor; category navigation stays in the pinned selector.
     var browseAllComponents by rememberSaveable { mutableStateOf(false) }
@@ -388,6 +392,13 @@ fun RulesTab(
         contentPadding = PaddingValues(bottom = if (selectionDraft.count > 0) 90.dp else 16.dp)
     ) {
         stickyHeader(key = "workspace-header") {
+            ClassicCleanupTabs(
+                active = ClassicCleanupMode.ENTRIES,
+                onEntries = {},
+                onComponents = { navigate { browseAllComponents = true } },
+                modeLabel = stringResource((state.filter?.let { state.modeOverrides[it] } ?: state.displayMode).titleRes()),
+                onModeClick = { showModeSettings = true },
+            )
             PageFilterSection {
                 Column {
                     ListControls(

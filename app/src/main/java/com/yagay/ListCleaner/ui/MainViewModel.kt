@@ -66,6 +66,7 @@ data class MainState(
     val candidates: List<ComponentCandidate> = emptyList(),
     val selected: Set<ComponentRule> = emptySet(),
     val displayMode: DisplayMode = DisplayMode.HIDE_SELECTED,
+    val modeOverrides: Map<IntentKind, DisplayMode> = emptyMap(),
     val filter: IntentKind? = null,
     val query: String = "",
     val uiFilter: UiFilter = UiFilter.ALL,
@@ -311,6 +312,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private data class RuleInputs(
         val displayMode: DisplayMode,
+        val modeOverrides: Map<IntentKind, DisplayMode> = emptyMap(),
         val priorities: PriorityConfig,
         val diagnosticMode: Boolean,
         val hiddenFromApps: Set<String>,
@@ -373,6 +375,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         RuleInputs(displayMode, priorities, diagnosticMode, hiddenFromApps, openTypes)
     }.combine(app.rules.directShareTypes) { input, types ->
         input.copy(directShareTypes = types)
+    }.combine(app.rules.modeOverrides) { input, overrides ->
+        input.copy(modeOverrides = overrides)
     }
 
     private val shellInputs = combine(
@@ -396,6 +400,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             selected = content.selected,
             runtime = runtime.runtime,
             displayMode = rules.displayMode,
+            modeOverrides = rules.modeOverrides,
             filter = content.filter,
             query = queryText,
             priorities = rules.priorities,
@@ -775,6 +780,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     internal fun toggleBulkItemLock(scope: String, itemId: String) = bulkLocks.toggleItem(scope, itemId)
 
     fun setDisplayMode(value: DisplayMode) { if (canEdit()) app.rules.setDisplayMode(value) }
+    fun setKindDisplayMode(kind: IntentKind, value: DisplayMode?) {
+        if (canEdit()) app.rules.setKindDisplayMode(kind, value)
+    }
     fun setFilter(value: IntentKind?) { entryContext.update { it.withKind(value) } }
     fun setRuleOpenPreset(value: OpenPreset?) { entryContext.update { it.copy(openPreset = value) } }
     fun setRuleBrowserHost(value: String?) { entryContext.update { it.copy(browserHost = value) } }
