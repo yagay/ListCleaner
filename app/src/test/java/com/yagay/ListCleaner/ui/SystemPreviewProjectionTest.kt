@@ -72,7 +72,7 @@ class SystemPreviewProjectionTest {
             ),
         )
         val result = SystemPreviewProjection.estimate(
-            kind, candidates, emptySet(), DisplayMode.SHOW_ALL, emptyMap(), queried,
+            kind, candidates, emptySet(), DisplayMode.HIDE_SELECTED, emptyMap(), queried,
             priorities = PriorityConfig(apps = mapOf(kind to listOf("com.test.a"))),
         )!!
         assertEquals(listOf("com.test.a", "com.test.b"),
@@ -84,7 +84,7 @@ class SystemPreviewProjectionTest {
         val generic = PriorityConfig(apps = mapOf(kind to listOf("com.test.a")))
         val typed = OpenTypeConfig(priorities = mapOf(OpenPreset.PDF to listOf("com.test.b")))
         fun preview(scenario: SystemProbeScenario) = SystemPreviewProjection.estimate(
-            kind, scanned, emptySet(), DisplayMode.SHOW_ALL, emptyMap(), null,
+            kind, scanned, emptySet(), DisplayMode.HIDE_SELECTED, emptyMap(), null,
             priorities = generic, openTypes = typed, scenario = scenario,
         )!!.items.map { it.packageName }
         assertEquals(listOf("com.test.b", "com.test.a"), preview(SystemProbeScenario.PDF))
@@ -102,7 +102,7 @@ class SystemPreviewProjectionTest {
             priorities = mapOf("example.com" to listOf("com.test.b")),
         )
         fun preview(host: String?) = SystemPreviewProjection.estimate(
-            deep, hostCandidates, emptySet(), DisplayMode.SHOW_ALL, emptyMap(), null,
+            deep, hostCandidates, emptySet(), DisplayMode.HIDE_SELECTED, emptyMap(), null,
             browserLinks = config, requestHost = host,
         )!!.items.map { it.packageName }
         assertEquals(listOf("com.test.b", "com.test.a"), preview("example.com"))
@@ -133,6 +133,20 @@ class SystemPreviewProjectionTest {
         assertEquals(estimated, preferredPreviewResult(PreviewListMode.CURRENT, api, estimated))
         assertEquals(api, preferredPreviewResult(PreviewListMode.CANDIDATES, api, estimated))
         assertEquals(api, preferredPreviewResult(PreviewListMode.CURRENT, api, null))
+    }
+
+    @Test fun showAllKeepsSystemCandidateOrderEvenWithPriorities() {
+        val original = SystemProbeResult(
+            0, 0, items = listOf(
+                SystemProbeItem("B", "com.test.b", "com.test.b.Main"),
+                SystemProbeItem("A", "com.test.a", "com.test.a.Main"),
+            ),
+        )
+        val result = SystemPreviewProjection.estimate(
+            kind, candidates, emptySet(), DisplayMode.SHOW_ALL, emptyMap(), original,
+            priorities = PriorityConfig(apps = mapOf(kind to listOf("com.test.a"))),
+        )!!
+        assertEquals(listOf("com.test.b", "com.test.a"), result.items.map { it.packageName })
     }
 
 }
