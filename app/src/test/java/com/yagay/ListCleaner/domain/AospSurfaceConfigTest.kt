@@ -80,6 +80,36 @@ class AospSurfaceConfigTest {
         }
     }
 
+    @Test fun retiredSystemListRulesRemainDeserializableWithoutOverwritingRootTiles() {
+        val tileOne = "com.example.tiles/com.example.tiles.FirstTile"
+        val tileTwo = "com.example.tiles/com.example.tiles.SecondTile"
+        val config = SurfaceFilterConfig()
+            .withSelected(SurfaceKind.QS_EDITOR, setOf("com.example.tiles"))
+            .withLocked(SurfaceKind.QS_EDITOR, setOf("com.example.tiles"))
+            .withPriorities(SurfaceKind.QS_EDITOR, listOf("com.example.tiles"))
+            .withSelected(SurfaceKind.DOCUMENT_RECENTS, setOf("com.example.documents"))
+            .withSelected(SurfaceKind.MEDIA_OUTPUT, setOf("route:bluetooth:42"))
+            .withSelected(SurfaceKind.SETTINGS_APPS, setOf("com.example.hidden"))
+            .withTileOrder(listOf(tileTwo, tileOne))
+            .withTileLabel(tileOne, "Home VPN")
+        val store = ModuleConfig(
+            rules = emptySet(), mode = DisplayMode.HIDE_SELECTED,
+            priorities = PriorityConfig(), diagnostic = false,
+            surfaceFilters = config,
+            userSpaces = mapOf(10 to UserSpaceRules(surfaceFilters = config)),
+        ).validated()
+        val restored = json.decodeFromString(
+            ModuleConfig.serializer(),
+            json.encodeToString(ModuleConfig.serializer(), store),
+        ).validated()
+        assertEquals(config, restored.surfaceFilters)
+        assertEquals(config, restored.userSpaces.getValue(10).surfaceFilters)
+        assertEquals(listOf(tileTwo, tileOne), restored.surfaceFilters.tileOrder)
+        assertEquals("Home VPN", restored.surfaceFilters.tileLabels[tileOne])
+        assertEquals(setOf("com.example.hidden"),
+            restored.surfaceFilters.selected(SurfaceKind.SETTINGS_APPS))
+    }
+
     @Test fun channelRulesRemainIndependentFromWholeAppHiding() {
         val config = SurfaceFilterConfig()
             .withChannelHidden("com.example.mail", "promotions", true)
