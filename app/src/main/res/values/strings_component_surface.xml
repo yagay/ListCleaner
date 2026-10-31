@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="component_display_filters">Display filtering</string>
+    <string name="component_settings_apps">Settings Apps</string>
+    <string name="component_notifications">Notification Cleanup</string>
+    <string name="component_surface_app_rule">Entire application</string>
+    <string name="component_surface_channel_rule">Notification channel</string>
+    <string name="component_surface_settings_rule">Settings application visibility</string>
+    <string name="component_surface_hidden_summary">%1$d of %2$d hidden</string>
+    <string name="component_surface_hide_note">Selected = hidden from the corresponding system list. This does not disable an Android component or notifications.</string>
+    <string name="component_surface_unverified">Saved rule (channel registration not verified)</string>
+    <string name="component_surface_legacy_categories">Existing category-wide notification rules</string>
+    <string name="component_surface_legacy_note">Old notification category rules still apply globally. Uncheck to remove.</string>
+    <string name="component_surface_restore_order">Restore system order</string>
+    <string name="component_surface_scanning">Scanning registered channels %1$d / %2$d</string>
+    <string name="component_surface_locked_no_changes">No changes applied: the selected items are locked or unavailable.</string>
+</resources>
