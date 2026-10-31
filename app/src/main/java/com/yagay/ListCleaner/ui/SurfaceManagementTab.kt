@@ -24,6 +24,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import com.yagay.ListCleaner.R
+import com.yagay.ListCleaner.domain.SurfaceKind
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 /** Actual cleanup workflows, kept separate from application appearance/configuration settings. */
 internal enum class SurfaceManagerGroup(
