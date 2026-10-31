@@ -220,7 +220,14 @@ internal fun ComponentsSettingsOrderEditor(
                     AdaptiveText(stringResource(R.string.component_surface_restore_order))
                 }
             }
-            items(visible, key = { "settings-rank|$it" }) { id ->
+            visible.forEachIndexed { index, id ->
+                val prioritized = id in draft
+                if (startsPrioritySection(visible, index) { it in draft }) {
+                    item(key = "priority-section-${if (prioritized) "pinned" else "available"}") {
+                        WorkspacePrioritySectionHeading(prioritized)
+                    }
+                }
+                item(key = "settings-rank|$id", contentType = "settings-app") {
                 val position = moves.indexOf(id)
                 ContinuousApplicationSurface(expanded = false) {
                     MaterialAppRowBody(
@@ -305,6 +312,7 @@ internal fun ComponentsSettingsOrderEditor(
                             }
                         },
                     )
+                }
                 }
             }
         }
