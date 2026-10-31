@@ -2,7 +2,6 @@ package com.yagay.ListCleaner.xposed
 
 import android.app.Notification
 import android.content.ComponentName
-import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.ServiceInfo
 import android.database.Cursor
@@ -152,63 +151,9 @@ class AospSurfaceFilterModule : XposedModule() {
                     if (filtered.size == items.size) original else ArrayList(filtered)
                 }
             }
-            "com.android.launcher3" -> {
-                initRules()
-                install(param.classLoader, "com.android.launcher3.allapps.AllAppsStore",
-                    "getApps", 0, "drawer") { chain ->
-                    val original = proceedOriginal(chain)
-                    val array = original as? Array<*> ?: return@install original
-                    val filtered = array.filter { value ->
-                        val packageName = appInfoPackage(value)
-                        val user = itemUser(value)
-                        packageName == null || user == null ||
-                            packageName !in selected(SurfaceKind.LAUNCHER_DRAWER, user)
-                    }
-                    val ordered = prioritizedByProfile(
-                        SurfaceKind.LAUNCHER_DRAWER, filtered, ::appInfoPackage, ::itemUser)
-                    if (ordered == array.toList()) original
-                    else {
-                        val componentType = original.javaClass.componentType
-                            ?: return@install original
-                        java.lang.reflect.Array.newInstance(
-                            componentType, ordered.size).also { output ->
-                        ordered.forEachIndexed { index, entry ->
-                            java.lang.reflect.Array.set(output, index, entry)
-                        }
-                    }
-                    }
-                }
-                install(param.classLoader, "com.android.launcher3.allapps.AlphabeticalAppsList",
-                    "getPredictedApps", 0, "predictions") { chain ->
-                    filterListResult(chain, SurfaceKind.LAUNCHER_PREDICTIONS, ::appInfoPackage)
-                }
-                install(param.classLoader, "com.android.quickstep.views.RecentsView",
-                    "applyLoadPlan", 1, "recents") { chain ->
-                    val args = chain.args.toTypedArray()
-                    val groups = args[0] as? List<*> ?: return@install proceedOriginal(chain)
-                    if (profiles.values.all { it.selected(SurfaceKind.RECENTS).isEmpty() })
-                        return@install proceedOriginal(chain)
-                    val filtered = groups.filter { group ->
-                        val tasks = listOf(
-                            ReflectionAccess.readField(group, "task1", "mTask1"),
-                            ReflectionAccess.readField(group, "task2", "mTask2"),
-                        ).filterNotNull()
-                        // A split group must remain intact if any task is unselected.
-                        tasks.isEmpty() || tasks.any { task ->
-                            val pkg = taskPackage(task)
-                            val key = ReflectionAccess.readField(task, "key", "mKey")
-                            val user = (ReflectionAccess.readField(key, "userId") as? Number)?.toInt()
-                                ?: return@any true
-                            pkg == null || pkg !in selected(SurfaceKind.RECENTS, user)
-                        }
-                    }
-                    if (filtered.size == groups.size) proceedOriginal(chain)
-                    else {
-                        args[0] = ArrayList(filtered)
-                        proceedOriginal(chain, args)
-                    }
-                }
-            }
+            // Launcher3 and Quickstep presentation filtering was retired.
+            // Legacy LAUNCHER_DRAWER / LAUNCHER_PREDICTIONS / RECENTS rules stay
+            // serialized for old backups, but no runtime hooks consume them.
             "com.android.settings" -> {
                 initRules()
                 // AOSP ManageApplications.ApplicationsAdapter receives both
@@ -341,25 +286,6 @@ class AospSurfaceFilterModule : XposedModule() {
     private fun selected(kind: SurfaceKind, userId: Int): Set<String> =
         policy(userId).selected(kind)
 
-    private fun filterListResult(
-        chain: XposedInterface.Chain,
-        kind: SurfaceKind,
-        pkgOf: (Any?) -> String?,
-    ): Any? {
-        val original = proceedOriginal(chain)
-        val list = original as? List<*> ?: return original
-        if (profiles.values.all {
-                it.selected(kind).isEmpty() && it.priorities(kind).isEmpty()
-            }) return original
-        val filtered = list.filter { entry ->
-            val pkg = pkgOf(entry)
-            val user = itemUser(entry)
-            pkg == null || user == null || pkg !in selected(kind, user)
-        }
-        val ordered = prioritizedByProfile(kind, filtered, pkgOf, ::itemUser)
-        return if (ordered == list) original else ArrayList(ordered)
-    }
-
     /** Stable per-profile ordering without moving items into another Android user slot. */
     private fun prioritizedByProfile(
         kind: SurfaceKind, items: List<*>,
@@ -452,23 +378,6 @@ class AospSurfaceFilterModule : XposedModule() {
     }
 
     private fun tilePackage(spec: String?): String? = tileComponent(spec)?.packageName
-
-    private fun appInfoPackage(value: Any?): String? {
-        val component = (ReflectionAccess.readField(value, "componentName") as? ComponentName)
-            ?: (ReflectionAccess.readField(value, "intent") as? Intent)?.component
-        return component?.packageName
-    }
-
-    private fun itemUser(value: Any?): Int? =
-        (ReflectionAccess.readField(value, "user") as? UserHandle)?.let {
-            ReflectionAccess.invokeNoArg(it, "getIdentifier") as? Int
-        }
-
-    private fun taskPackage(value: Any?): String? {
-        val key = ReflectionAccess.readField(value, "key", "mKey") ?: return null
-        val intent = ReflectionAccess.readField(key, "baseIntent", "mBaseIntent") as? Intent
-        return intent?.component?.packageName
-    }
 
     private data class CompletedOriginal(val value: Any?)
     private val lastOriginal = ThreadLocal<CompletedOriginal?>()
