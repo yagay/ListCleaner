@@ -17,9 +17,11 @@ class SurfaceManagementNavigationTest {
         assertEquals(1, SurfaceManagerPage.entries.count {
             it.group == SurfaceManagerGroup.NOTIFICATIONS
         })
-        assertEquals(4, SurfaceManagerPage.entries.count {
+        assertEquals(1, SurfaceManagerPage.entries.count {
             it.group == SurfaceManagerGroup.SYSTEM
         })
+        assertEquals(listOf(SurfaceManagerPage.SETTINGS_APPS),
+            SurfaceManagerPage.entries.filter { it.group == SurfaceManagerGroup.SYSTEM })
         assertEquals(1, SurfaceManagerPage.entries.count {
             it.group == SurfaceManagerGroup.MAINTENANCE
         })
@@ -29,17 +31,17 @@ class SurfaceManagementNavigationTest {
         })
     }
 
-    @Test fun retiredLauncherSurfacesHaveNoNavigationEditors() {
+    @Test fun onlySettingsAppsRetainsItsOwnSystemListEditor() {
         val mapped = SurfaceManagerPage.entries.mapNotNull { it.kind }
-        assertEquals(4, mapped.size)
+        assertEquals(listOf(SurfaceKind.SETTINGS_APPS), mapped)
+        // Keep retired enum values in SurfaceKind for saved JSON compatibility,
+        // but never offer their editors in Lists navigation.
         val retired = setOf(SurfaceKind.LAUNCHER_DRAWER,
-            SurfaceKind.LAUNCHER_PREDICTIONS, SurfaceKind.RECENTS)
-        val combined = retired + SurfaceKind.NOTIFICATION_SHADE
-        assertEquals(SurfaceKind.entries.toSet() - combined, mapped.toSet())
+            SurfaceKind.LAUNCHER_PREDICTIONS, SurfaceKind.RECENTS,
+            SurfaceKind.QS_EDITOR, SurfaceKind.DOCUMENT_RECENTS,
+            SurfaceKind.MEDIA_OUTPUT)
+        assertFalse(SurfaceManagerPage.entries.any { it.kind in retired })
         assertEquals(mapped.size, mapped.distinct().size)
-        assertFalse(SurfaceManagerPage.entries.any { it.name in setOf(
-            "DRAWER", "PREDICTIONS", "RECENTS"
-        ) })
     }
 
     @Test fun destructiveOperationsAreNotPresentedAsDisplayOnlyFilters() {
