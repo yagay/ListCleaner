@@ -99,9 +99,8 @@ internal fun AospSurfaceSettings(
     val visibleIds = visible.map { it.first }
     val editableIds = visibleIds.filter { it !in locked }
 
-    Column(Modifier.fillMaxSize()) {
-        Column {
-
+    ListsEditorScaffold(
+        controls = {
             SurfaceWorkspaceToolbar(
                 category = "",
                 options = listOf("" to stringResource(R.string.common_all)),
@@ -122,13 +121,21 @@ internal fun AospSurfaceSettings(
                     }, editableIds.any { it in selected }),
                 ),
             )
+        },
+        summary = {
             WorkspaceListSummary(
-                title = stringResource(R.string.surface_aosp_selected, selected.size),
-                secondary = catalog.description,
-            )
-        
-        }
-        LazyColumn(modifier = Modifier.weight(1f)) {
+                    title = stringResource(R.string.surface_aosp_selected, selected.size),
+                    secondary = catalog.description,
+                )
+        },
+        pending = {
+            if (draft != saved) PendingChangesBar(
+                   count = surfacePendingChangeCount(saved, draft),
+                   onDiscard = { draft = saved },
+                   onApply = { vm.setSurfaceFilters(draft) },
+                )
+        },
+    ) {
         items(visible, key = { it.first }) { (id, title) ->
         val appIcon = remember(id, userId) {
             if (!applicationBased) null else runCatching {
@@ -188,18 +195,10 @@ internal fun AospSurfaceSettings(
             },
         )
     }
-        item(key = "footer") {
-            Column {
+        item(key = "refresh") {
             WorkspaceListActions(actions = listOf(
-                WorkspaceMenuAction(stringResource(R.string.surface_scan_refresh), {
-                    refreshRevision++
-                }),
-            ))
-            if (draft != saved) PendingChangesBar(
-                count = surfacePendingChangeCount(saved, draft), onDiscard = { draft = saved },
-                onApply = { vm.setSurfaceFilters(draft) },
-            )            }
+                    WorkspaceMenuAction(stringResource(R.string.surface_scan_refresh), { refreshRevision++ }),
+                ))
         }
-    }
     }
 }

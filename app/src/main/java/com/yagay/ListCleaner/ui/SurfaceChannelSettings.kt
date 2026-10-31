@@ -157,9 +157,8 @@ internal fun SurfaceChannelSettings(
         }
     }
 
-    Column(Modifier.fillMaxSize()) {
-        Column {
-
+    ListsEditorScaffold(
+        controls = {
             SurfaceWorkspaceToolbar(
                 category = "",
                 options = listOf("" to stringResource(R.string.common_all)),
@@ -180,18 +179,25 @@ internal fun SurfaceChannelSettings(
                     }, !scanning && selectedChannelIds.isNotEmpty()),
                 ),
             )
+        },
+        summary = {
             WorkspaceListSummary(
-                title = stringResource(R.string.surface_channels_title),
-                secondary = if (scanning) "$scanProgress / ${observedPackages.size}"
-                    else stringResource(R.string.surface_channels_help),
-            )
-            SettingsActionButton(enabled = !scanning, onClick = { scanRevision++ }) {
-                AdaptiveText(stringResource(R.string.surface_scan_refresh))
-            }
-        
-
-        }
-        LazyColumn(modifier = Modifier.weight(1f)) {
+                    title = stringResource(R.string.surface_channels_title),
+                    secondary = if (scanning) "$scanProgress / ${observedPackages.size}"
+                        else stringResource(R.string.surface_channels_help),
+                )
+                SettingsActionButton(enabled = !scanning, onClick = { scanRevision++ }) {
+                    AdaptiveText(stringResource(R.string.surface_scan_refresh))
+                }
+        },
+        pending = {
+            if (draft != saved) PendingChangesBar(
+                   count = surfacePendingChangeCount(saved, draft),
+                   onDiscard = { draft = saved },
+                   onApply = { vm.setSurfaceFilters(draft) },
+                )
+        },
+    ) {
         items(displayedPackages, key = { it }) { appPackage ->
         val appLabel = packageLabels[appPackage] ?: appPackage
         val appIcon = remember(appPackage, userId) {
@@ -329,13 +335,6 @@ internal fun SurfaceChannelSettings(
                 }
             },
         )
-    }
-        item(key = "footer") {
-    if (draft != saved) PendingChangesBar(
-        count = surfacePendingChangeCount(saved, draft), onDiscard = { draft = saved },
-        onApply = { vm.setSurfaceFilters(draft) },
-    )
-        }
     }
     }
 }
