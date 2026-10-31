@@ -563,7 +563,7 @@ internal fun ComponentsSurfaceEditor(
                 items(legacyRules, key = { it.id }) { item ->
                     WorkspaceDetailRow(
                         position = ListRowPosition.SINGLE,
-                        checked = getEffective(item),
+                        checked = getEffective(item), locked = false,
                         onToggle = {
                             selectionDraft.set(item.id, managedRuleHidden(saved, item), !getEffective(item))
                         },
