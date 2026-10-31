@@ -83,6 +83,15 @@ object DirectShareTypeRules {
             id in selected || (family != null && (id + MARKER + family.name) in selected)
         }
 
+    /**
+     * Only a recent real Sharesheet MIME match promotes cached Direct Share
+     * entries to active candidates. A stale observation must remain history.
+     */
+    fun isRecentMatch(observed: ObservedEntryRecord, nowMillis: Long): Boolean =
+        observed.kind == IntentKind.DIRECT_SHARE.name &&
+            observed.directShareFamilies.any { DirectShareType.fromName(it) != null } &&
+            nowMillis - observed.observedAt in 0..600_000L
+
     fun evidence(type: DirectShareType): String = "DIRECT_SHARE_MATCHED_MIME=${type.name}"
     fun observed(evidence: List<String>): Set<DirectShareType> =
         evidence.asSequence().filter { it.startsWith("DIRECT_SHARE_MATCHED_MIME=") }
