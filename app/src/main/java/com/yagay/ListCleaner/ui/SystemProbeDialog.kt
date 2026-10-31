@@ -154,6 +154,10 @@ internal fun SystemProbeDialog(
         ?: request.componentKind?.let { stringResource(it.titleRes()) }
         ?: ""
     val value = response
+    val testedIntent = runCatching {
+        request.entryKind?.let { SystemEffectPreview.queryIntent(context, it, scenario) }
+    }.getOrNull()
+    val effectiveIntent = testedIntent?.let { it.selector ?: it }
     val authoritativeSelection = SystemPreviewSelection.select(
         request = activeRequest,
         value = value,
@@ -162,25 +166,16 @@ internal fun SystemProbeDialog(
         nowMillis = System.currentTimeMillis(),
         launchedAtMillis = previewLaunchedAt,
         currentCallerUid = android.os.Process.myUid(),
-        expectedAction = runCatching {
-            if (value?.runtimeReturn?.source == "PACKAGE_MANAGER_FILTERED_RETURN")
-                request.entryKind?.let { kind ->
-                    SystemEffectPreview.queryIntent(context, kind, scenario).let { intent ->
-                        (intent.selector ?: intent).action
-                    }
-                }
-            else null
-        }.getOrNull(),
+        expectedAction = effectiveIntent?.action,
+        expectedMimeType = effectiveIntent?.type,
+        expectedHost = com.yagay.ListCleaner.domain.normalizeBrowserHost(effectiveIntent?.data?.host),
     )
     val diagnostic = viewMode == PreviewListMode.CANDIDATES && value != null
     // A captured post-filter return has its own order; never re-rank it or silently
     // replace Current with an alphabetically sorted estimate.
     val predicted = if (previewState != null && value != null && request.entryKind != null) {
-        val queryHost = if (request.entryKind == IntentKind.DEEP_LINK) {
-            runCatching {
-                SystemEffectPreview.queryIntent(context, request.entryKind, scenario).data?.host
-            }.getOrNull()
-        } else null
+        val queryHost = if (request.entryKind == IntentKind.DEEP_LINK)
+            effectiveIntent?.data?.host else null
         SystemPreviewProjection.estimate(
             request.entryKind, previewState.candidates, previewState.selected,
             previewState.displayMode, previewState.modeOverrides, value,
@@ -193,11 +188,13 @@ internal fun SystemProbeDialog(
     } else null
     val selectedResult = preferredPreviewResult(viewMode, authoritativeSelection, predicted)
     val runtimeAvailable = selectedResult.source in setOf(
-        PreviewListSource.HOOK_OBSERVATION, PreviewListSource.HOST_OBSERVATION
+        PreviewListSource.HOOK_OBSERVATION, PreviewListSource.HOST_OBSERVATION,
+        PreviewListSource.ORDERED_ADAPTER,
     )
     val runtimeSnapshot = when (selectedResult.source) {
         PreviewListSource.HOST_OBSERVATION -> value?.hostReturn
         PreviewListSource.HOOK_OBSERVATION -> value?.runtimeReturn
+        PreviewListSource.ORDERED_ADAPTER -> value?.orderedReturn
         PreviewListSource.HISTORY -> if (request.entryKind in setOf(
             IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT,
             IntentKind.CREATE_DOCUMENT, IntentKind.DOCUMENT_ROOT
@@ -213,6 +210,7 @@ internal fun SystemProbeDialog(
     val displayed = selectedResult.items
     val sourceRes = when (selectedResult.source) {
         PreviewListSource.HOOK_OBSERVATION -> R.string.preview_source_hook_observed
+        PreviewListSource.ORDERED_ADAPTER -> R.string.preview_source_ordered_adapter
         PreviewListSource.HOST_OBSERVATION -> R.string.preview_source_host_observed
         PreviewListSource.DOCUMENT_ROOTS -> R.string.preview_source_root_return
         PreviewListSource.AUTHORITY_ENABLED -> R.string.preview_source_enabled
@@ -226,6 +224,7 @@ internal fun SystemProbeDialog(
     val qualityRes = when (selectedResult.source) {
         PreviewListSource.HOOK_OBSERVATION, PreviewListSource.HOST_OBSERVATION ->
             R.string.system_probe_quality_candidate
+        PreviewListSource.ORDERED_ADAPTER -> R.string.preview_quality_ordered_adapter
         PreviewListSource.DOCUMENT_ROOTS -> R.string.system_probe_quality_picker
         PreviewListSource.AUTHORITY_ENABLED -> R.string.system_probe_quality_enabled
         PreviewListSource.HISTORY -> R.string.preview_quality_history
