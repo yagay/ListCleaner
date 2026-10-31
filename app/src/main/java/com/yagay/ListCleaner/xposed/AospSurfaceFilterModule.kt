@@ -4,8 +4,6 @@ import android.app.Notification
 import android.content.ComponentName
 import android.content.pm.ApplicationInfo
 import android.content.pm.ServiceInfo
-import android.database.Cursor
-import android.database.AbstractCursor
 import android.os.Process
 import android.os.UserHandle
 import android.util.Log
@@ -96,37 +94,28 @@ class AospSurfaceFilterModule : XposedModule() {
                     val items = args[0] as? List<*> ?: return@install proceedOriginal(chain)
                     val user = Process.myUid() / 100000
                     val policy = policy(user)
-                    val selected = policy.selected(SurfaceKind.QS_EDITOR)
-                    val rank = policy.priorities(SurfaceKind.QS_EDITOR).withIndex()
-                        .associate { it.value to it.index }
+                    // Root > Tiles owns component-level candidate sorting.
+                    // Ignore retired Lists QS_EDITOR package hide/order policies,
+                    // while keeping their values readable in old backup files.
                     val componentRank = policy.tileOrder.withIndex()
                         .associate { it.value to it.index }
-                    if (selected.isEmpty() && rank.isEmpty() && componentRank.isEmpty())
-                        return@install proceedOriginal(chain)
+                    if (componentRank.isEmpty()) return@install proceedOriginal(chain)
                     val activeSpecs = (ReflectionAccess.readField(chain.thisObject,
                         "mCurrentSpecs") as? Collection<*>)?.filterIsInstance<String>()
                         ?: return@install proceedOriginal(chain)
-                    val filtered = items.filter { item ->
-                        val spec = ReflectionAccess.readField(item, "spec") as? String
-                        val pkg = tilePackage(spec)
-                        pkg == null || pkg !in selected || spec in activeSpecs
+                    // Existing tiles and built-in suggestions are never moved.
+                    // Preserve the original positions of those entries.
+                    val positions = items.indices.filter { index ->
+                        val spec = ReflectionAccess.readField(items[index], "spec") as? String
+                        spec !in activeSpecs && tileComponent(spec) != null
                     }
-                    // Reorder editor suggestions only; never move already added tiles.
-                    val positions = filtered.indices.filter { index ->
-                        val spec = ReflectionAccess.readField(filtered[index], "spec") as? String
-                        spec !in activeSpecs
-                    }
-                    val arranged = filtered.toMutableList()
-                    val ranked = positions.map { filtered[it] }.sortedWith(compareBy(
-                        { item ->
+                    val arranged = items.toMutableList()
+                    val ranked = positions.map { items[it] }.sortedWith(
+                        compareBy { item ->
                             val spec = ReflectionAccess.readField(item, "spec") as? String
                             componentRank[tileComponent(spec)?.flattenToString()] ?: Int.MAX_VALUE
                         },
-                        { item ->
-                            val spec = ReflectionAccess.readField(item, "spec") as? String
-                            rank[tilePackage(spec)] ?: Int.MAX_VALUE
-                        },
-                    ))
+                    )
                     positions.forEachIndexed { i, index -> arranged[index] = ranked[i] }
                     if (arranged == items) proceedOriginal(chain)
                     else {
@@ -134,22 +123,7 @@ class AospSurfaceFilterModule : XposedModule() {
                         proceedOriginal(chain, args)
                     }
                 }
-                install(param.classLoader, "com.android.systemui.media.dialog.MediaOutputController",
-                    "getMediaDevices", 0, "media") { chain ->
-                    val original = proceedOriginal(chain)
-                    val items = original as? Collection<*> ?: return@install original
-                    val selected = policy().selected(SurfaceKind.MEDIA_OUTPUT)
-                    if (selected.isEmpty()) return@install original
-                    val current = ReflectionAccess.invokeNoArg(chain.thisObject,
-                        "getCurrentConnectedMediaDevice")
-                    val currentId = ReflectionAccess.readString(current, "getId")
-                    val filtered = items.filter { device ->
-                        if (device == null || device === current) return@filter true
-                        val routeId = ReflectionAccess.readString(device, "getId")
-                        routeId == null || routeId == currentId || routeId !in selected
-                    }
-                    if (filtered.size == items.size) original else ArrayList(filtered)
-                }
+
             }
             // Launcher3 and Quickstep presentation filtering was retired.
             // Legacy LAUNCHER_DRAWER / LAUNCHER_PREDICTIONS / RECENTS rules stay
@@ -191,72 +165,7 @@ class AospSurfaceFilterModule : XposedModule() {
                     }
                 }
             }
-            "com.android.documentsui" -> {
-                initRules()
-                install(param.classLoader, "com.android.documentsui.RecentsLoader",
-                    "loadInBackground", 0, "recents-files") { chain ->
-                    val result = proceedOriginal(chain) ?: return@install null
-                    val loaderUser = ReflectionAccess.readField(chain.thisObject, "mUserId")
-                    val userId = (ReflectionAccess.invokeNoArg(loaderUser, "getIdentifier") as? Number)
-                        ?.toInt() ?: (loaderUser as? Number)?.toInt()
-                    val actualUser = userId ?: if (loaderUser == null) Process.myUid() / 100000 else null
-                    if (actualUser == null) return@install result
-                    val selected = selected(SurfaceKind.DOCUMENT_RECENTS, actualUser)
-                    if (selected.isEmpty()) return@install result
-                    val original = ReflectionAccess.readField(result, "cursor") as? Cursor
-                        ?: return@install result
-                    // Clone only a bounded, cursor-backed recents result. Preserve its
-                    // column types and extras; no changes are made to the document provider.
-                    if (original.count > 1024) return@install result
-                    val authorityIndex = original.getColumnIndex("android:authority")
-                    if (authorityIndex < 0) return@install result
-                    val positions = ArrayList<Int>(original.count)
-                    try {
-                        for (position in 0 until original.count) {
-                            if (!original.moveToPosition(position)) return@install result
-                            val authority = original.getString(authorityIndex) ?: ""
-                            if (authority !in selected) positions.add(position)
-                        }
-                        if (positions.size == original.count) return@install result
-                        // The loader now owns the wrapper; it closes the underlying
-                        // merged cursor at its normal lifecycle boundary.
-                        val replacement = RecentPresentationCursor(original, positions.toIntArray())
-                        if (!ReflectionAccess.writeField(result, replacement, "cursor")) {
-                            // Do not close the original result's live cursor on failure.
-                            return@install result
-                        }
-                        diagnostic("FILTER docs-recents total=${original.count} hidden=${original.count - positions.size}")
-                        result
-                    } catch (failure: Exception) {
-                        diagnostic("SKIP docs-recents reason=${failure.javaClass.simpleName}")
-                        result
-                    }
-                }
-            }
-        }
-    }
 
-    private class RecentPresentationCursor(
-        private val original: Cursor,
-        private val positions: IntArray,
-    ) : AbstractCursor() {
-        override fun getCount(): Int = positions.size
-        override fun getColumnNames(): Array<String> = original.columnNames
-        override fun onMove(oldPosition: Int, newPosition: Int): Boolean =
-            original.moveToPosition(positions[newPosition])
-        override fun getString(column: Int): String? = original.getString(column)
-        override fun getShort(column: Int): Short = original.getShort(column)
-        override fun getInt(column: Int): Int = original.getInt(column)
-        override fun getLong(column: Int): Long = original.getLong(column)
-        override fun getFloat(column: Int): Float = original.getFloat(column)
-        override fun getDouble(column: Int): Double = original.getDouble(column)
-        override fun isNull(column: Int): Boolean = original.isNull(column)
-        override fun getType(column: Int): Int = original.getType(column)
-        override fun getBlob(column: Int): ByteArray? = original.getBlob(column)
-        override fun getExtras(): android.os.Bundle = original.extras
-        override fun close() {
-            super.close()
-            original.close()
         }
     }
 
@@ -376,8 +285,6 @@ class AospSurfaceFilterModule : XposedModule() {
             ?.removePrefix("custom(")?.removeSuffix(")") ?: return null
         return ComponentName.unflattenFromString(component)
     }
-
-    private fun tilePackage(spec: String?): String? = tileComponent(spec)?.packageName
 
     private data class CompletedOriginal(val value: Any?)
     private val lastOriginal = ThreadLocal<CompletedOriginal?>()
