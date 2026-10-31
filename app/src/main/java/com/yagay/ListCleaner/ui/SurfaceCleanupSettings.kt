@@ -71,7 +71,7 @@ internal fun groupActiveNotifications(
 }
 
 @Composable
-private fun notificationCategoryLabel(value: String?): String = when (value) {
+internal fun notificationCategoryLabel(value: String?): String = when (value) {
     Notification.CATEGORY_MESSAGE -> stringResource(R.string.notification_category_message)
     Notification.CATEGORY_EMAIL -> stringResource(R.string.notification_category_email)
     Notification.CATEGORY_CALL -> stringResource(R.string.notification_category_call)
