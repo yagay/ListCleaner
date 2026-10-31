@@ -121,9 +121,7 @@ class MainActivity : ComponentActivity() {
         PendingNavigationDialog(pendingNavigation)
         LaunchedEffect(componentBusy) { pendingNavigation.observeRootBusy(componentBusy) }
         var searchExpanded by rememberSaveable { mutableStateOf(false) }
-        val surfaceSearchState = remember { mutableStateOf<SurfaceWorkspaceUiState?>(null) }
         val listsRefresh = remember { ListsRefreshRegistry() }
-        val onSurfaceSearchChanged: (SurfaceWorkspaceUiState?) -> Unit = remember { { surfaceSearchState.value = it } }
         // The merged cleanup tab hosts both rule and Root component editors.
         var componentModeActive by remember { mutableStateOf(false) }
         var openModuleStatus by remember { mutableStateOf(false) }
@@ -196,7 +194,6 @@ class MainActivity : ComponentActivity() {
         val keyboard = LocalSoftwareKeyboardController.current
         val closeSearch: () -> Unit = {
             vm.setQuery("")
-            surfaceSearchState.value?.searchQuery = ""
             searchExpanded = false
             keyboard?.hide()
         }
@@ -218,12 +215,6 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(state.destination) {
             if (state.destination == Destination.SETTINGS || state.destination == Destination.SURFACES)
                 closeSearch()
-        }
-        // Only actual Lists editors have search; category navigation never shows a dead search box.
-        LaunchedEffect(state.destination, surfaceSearchState.value) {
-            if (state.destination == Destination.SURFACES && surfaceSearchState.value == null &&
-                searchExpanded
-            ) closeSearch()
         }
         LifecycleResumeEffect(vm) {
             vm.refreshModuleStatus()
@@ -293,7 +284,7 @@ class MainActivity : ComponentActivity() {
                 }
                 Destination.PRIORITY -> vm.refresh(forceCatalog = true)
                 Destination.TILES -> if (listsRefresh.available) listsRefresh.refresh() else vm.refreshComponents()
-                Destination.SURFACES -> listsRefresh.refresh()
+                Destination.SURFACES -> vm.refreshModuleStatus()
                 Destination.SETTINGS -> vm.refreshModuleStatus()
             }
         }
@@ -312,7 +303,7 @@ class MainActivity : ComponentActivity() {
                     )
                     Destination.PRIORITY -> PriorityTab(state, vm, pendingNavigation)
                     Destination.TILES -> RootComponentsScreen(state, vm, pendingNavigation = pendingNavigation, refreshRegistry = listsRefresh)
-                    Destination.SURFACES -> SurfaceManagementTab(state, vm, pendingNavigation, onSurfaceSearchChanged, listsRefresh)
+                    Destination.SURFACES -> SurfaceManagementTab(state, vm)
                     Destination.SETTINGS -> SettingsTabContent(
                         state,
                         vm,
@@ -339,21 +330,17 @@ class MainActivity : ComponentActivity() {
             snackbarHost = { AdaptiveSnackbarHost(backupSnackbar) },
             topBar = {
                 if (state.destination != Destination.SETTINGS) MainToolbar(
-                    if (state.destination == Destination.SURFACES) surfaceSearchState.value?.searchQuery.orEmpty() else state.query,
+                    state.query,
                     searchExpanded,
-                    { query ->
-                        if (state.destination == Destination.SURFACES) surfaceSearchState.value?.searchQuery = query
-                        else vm.setQuery(query)
-                    },
+                    vm::setQuery,
                     { searchExpanded = true },
                     closeSearch,
                     onRefresh,
                     { restore.launch(arrayOf("application/json", "text/plain")) },
                     { showExportDialog = true },
-                    showSearch = state.destination != Destination.SETTINGS &&
-                        (state.destination != Destination.SURFACES || surfaceSearchState.value != null),
-                    showRefresh = state.destination != Destination.SURFACES || listsRefresh.available,
-                    refreshEnabled = state.destination != Destination.SURFACES || listsRefresh.enabled,
+                    showSearch = state.destination != Destination.SETTINGS && state.destination != Destination.SURFACES,
+                    showRefresh = state.destination != Destination.SURFACES,
+                    refreshEnabled = true,
                     titleRes = R.string.app_name,
                     spaces = spaces,
                     selectedSpace = selectedSpace,

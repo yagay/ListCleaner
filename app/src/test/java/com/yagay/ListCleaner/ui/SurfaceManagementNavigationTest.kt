@@ -1,45 +1,33 @@
 package com.yagay.ListCleaner.ui
 
-import com.yagay.ListCleaner.domain.SurfaceKind
+import com.yagay.ListCleaner.domain.EntryGroup
+import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.kinds
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Every operational cleanup has one dedicated leaf; no cleanup remains in Settings. */
+/** The bottom Lists destination now manages Entry Global Mode, not AOSP surfaces. */
 class SurfaceManagementNavigationTest {
-    @Test fun onlyThreeGroupsRemainAfterHomeRecentsRemoval() {
-        assertEquals(
-            listOf(SurfaceManagerGroup.MAINTENANCE),
-            SurfaceManagerGroup.entries
-        )
-        assertEquals(1, SurfaceManagerPage.entries.count {
-            it.group == SurfaceManagerGroup.MAINTENANCE
-        })
-        assertTrue(SurfaceManagerPage.entries.all { page ->
-            page.group in SurfaceManagerGroup.entries && page.title != 0 &&
-                page.description != 0
-        })
-    }
-
-    @Test fun movedSystemListsAndNotificationsAreNotInListsNavigation() {
-        assertTrue(SurfaceManagerPage.entries.mapNotNull { it.kind }.isEmpty())
-        assertEquals(listOf(SurfaceManagerPage.INVALID_RULES), SurfaceManagerPage.entries)
-        assertEquals(
-            listOf(ManagedComponentSurface.SETTINGS_APPS,
-                ManagedComponentSurface.NOTIFICATIONS),
-            ManagedComponentSurface.entries,
-        )
-        assertEquals(
-            listOf("SETTINGS_APPS", "NOTIFICATIONS"),
-            ManagedComponentSurface.entries.map { it.name },
-        )
-    }
-
-    @Test fun destructiveOperationsAreNotPresentedAsDisplayOnlyFilters() {
-        assertEquals(null, SurfaceManagerPage.INVALID_RULES.kind)
+    @Test fun listsDestinationKeepsItsNavigationIdentity() {
+        assertEquals(Destination.SURFACES, UiStartPage.SURFACES.destination())
         assertFalse(SettingsSection.entries.any { it.name == "SURFACES" })
-        assertEquals(com.yagay.ListCleaner.ui.Destination.SURFACES,
-            UiStartPage.SURFACES.destination())
+        assertEquals(7, EntryGroup.entries.size)
+    }
+
+    @Test fun listsGlobalModePresentsEverySelectableEntryKindExactlyOnce() {
+        val kinds = EntryGroup.entries.flatMap { it.kinds() }
+        assertEquals(kinds.size, kinds.distinct().size)
+        assertTrue(IntentKind.OPEN in kinds)
+        assertTrue(IntentKind.SHARE in kinds)
+        assertTrue(IntentKind.DIRECT_SHARE in kinds)
+        assertFalse(IntentKind.CREDENTIAL_PROVIDER in kinds)
+        assertFalse(IntentKind.LAUNCHER_SHORTCUT in kinds)
+    }
+
+    @Test fun settingsStillOwnIndependentListPresentationPreferences() {
+        assertTrue(SettingsSection.LISTS in SettingsSection.entries)
+        assertTrue(SettingsSection.COMPATIBILITY in SettingsSection.entries)
     }
 }

@@ -87,7 +87,7 @@ internal fun SettingsTabContent(
                                     SettingsAppearanceControls(colorMode, onColorModeChange)
                                     SettingsLanguageControls()
                                 }
-                                SettingsSection.LISTS -> SettingsListControls(state, vm)
+                                SettingsSection.LISTS -> SettingsListControls()
                                 SettingsSection.SCANNING -> SettingsScanControls(vm)
                                 SettingsSection.COMPATIBILITY -> CompatibilitySettings(
                                     state, vm,
