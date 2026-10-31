@@ -51,7 +51,7 @@ private fun componentAppSelectionRank(items: List<RootComponent>): Int {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun RootComponentsScreen(
+internal fun RootComponentsScreen(
     state: MainState,
     vm: MainViewModel,
     initialKind: CleanupKind? = null,
