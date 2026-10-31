@@ -1,14 +1,21 @@
 package com.yagay.ListCleaner.ui
 
+import com.yagay.ListCleaner.domain.BrowserLinkConfig
 import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.OpenTypeConfig
+import com.yagay.ListCleaner.domain.PriorityConfig
+import com.yagay.ListCleaner.domain.effectiveResolverPriorities
 import com.yagay.ListCleaner.domain.isPackageScopedEntry
+import com.yagay.ListCleaner.domain.matchOpenPreset
+import com.yagay.ListCleaner.domain.prioritizeApps
 
 /**
- * Preview-only local estimation. Does not mutate rules or claim to represent
- * the framework's true post-filter result. Applies confirmed selections only.
+ * Local, read-only approximation: filter with confirmed rules, then apply precisely the same
+ * stable priority promotion used in the Resolver hook. Never claim to capture final OS UI rank,
+ * usage predictions, pinned resolver targets, or unobserved sharesheet targets.
  */
 internal object SystemPreviewProjection {
     fun estimate(
@@ -18,19 +25,24 @@ internal object SystemPreviewProjection {
         globalMode: DisplayMode,
         overrides: Map<IntentKind, DisplayMode>,
         probe: SystemProbeResult?,
+        priorities: PriorityConfig = PriorityConfig(),
+        openTypes: OpenTypeConfig = OpenTypeConfig(),
+        browserLinks: BrowserLinkConfig = BrowserLinkConfig(),
+        scenario: SystemProbeScenario = defaultProbeScenario(kind),
+        requestHost: String? = null,
     ): PreviewListResult? {
         val catalog = scanned.asSequence()
             .filter { it.rule.kind == kind && it.isCatalogCandidate }
-            .map {
-                SystemProbeItem(it.activityLabel, it.rule.packageName,
-                    it.rule.className, it.appLabel)
-            }
-            .distinctBy { it.component }.toList()
-        // Some system APIs only expose a filtered inventory; this fallback
-        // may be incomplete and is always explicitly marked as estimated.
-        val known = catalog.ifEmpty {
-            probe?.diagnosticCandidates?.ifEmpty { probe.items }.orEmpty()
-        }
+            .map { SystemProbeItem(it.activityLabel, it.rule.packageName, it.rule.className, it.appLabel) }
+            .distinctBy { it.component }
+            .toList()
+
+        // Prefer the order returned for THIS probe Intent, before priority promotion.
+        // The full discovery cache is alphabetized and includes unrelated MIME scenarios.
+        // PM data may already have been filtered by the Hook: this remains an estimate.
+        val queried = probe?.diagnosticCandidates?.takeIf { it.isNotEmpty() }
+            ?: probe?.items?.takeIf { it.isNotEmpty() }
+        val known = queried ?: catalog
         if (known.isEmpty()) return null
 
         val kindRules = saved.filter { it.kind == kind }
@@ -43,6 +55,16 @@ internal object SystemPreviewProjection {
                 else ComponentRule(kind, item.packageName, item.className).id in selectedIds
             mode.includes(selected, kindRules.isNotEmpty())
         }
-        return PreviewListResult(visible, PreviewListSource.ESTIMATED)
+
+        val preset = if (kind == IntentKind.OPEN) {
+            matchOpenPreset(kind, scenario.mimeType, null, customDefinitions = openTypes.customDefinitions)
+        } else null
+        val configured = effectiveResolverPriorities(
+            kind, preset, requestHost, priorities, openTypes, browserLinks,
+        )
+        // SystemEntryProbe rejects foreign profiles; the preview candidates here all
+        // belong to that one requesting user. Keep other profile slots untouched at runtime.
+        val ordered = prioritizeApps(visible, configured, SystemProbeItem::packageName) { 0 }
+        return PreviewListResult(ordered, PreviewListSource.ESTIMATED)
     }
 }
