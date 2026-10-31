@@ -68,3 +68,22 @@ internal object SystemPreviewProjection {
         return PreviewListResult(ordered, PreviewListSource.ESTIMATED)
     }
 }
+
+/**
+ * The regular preview always shows one best-effort result.
+ * A verified/authority-backed result must keep its captured order unchanged.
+ * API-only or unavailable sources may use the clearly-labelled local estimate.
+ * Diagnostic tabs (inside Details) still retain their independent provenance.
+ */
+internal fun preferredPreviewResult(
+    mode: PreviewListMode,
+    observed: PreviewListResult,
+    estimated: PreviewListResult?,
+): PreviewListResult = when {
+    mode == PreviewListMode.ESTIMATED ->
+        estimated ?: PreviewListResult(emptyList(), PreviewListSource.UNAVAILABLE)
+    mode == PreviewListMode.CURRENT &&
+        observed.source in setOf(PreviewListSource.API_RETURN, PreviewListSource.UNAVAILABLE) &&
+        estimated != null -> estimated
+    else -> observed
+}
