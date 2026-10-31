@@ -35,6 +35,7 @@ internal object SurfaceProfileAppTypes {
 
     internal fun parsePackageOutput(output: String): Set<String> =
         output.lineSequence().map { it.trim() }.filter { it.startsWith("package:") }
-            .map { it.removePrefix("package:").substringBefore(" ") }
+            .map { it.removePrefix("package:").trim() }
+            .filter { it.isNotEmpty() && it.none(Char::isWhitespace) }
             .filter(PackageIdentity::valid).toSet()
 }
