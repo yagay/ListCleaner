@@ -577,7 +577,7 @@ class ListCleanerModule : XposedModule() {
             } else {
                 pollPreferences()
                 val current = snapshotForUser(com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid()))
-                if (current.displayMode == DisplayMode.SHOW_ALL) {
+                if (current.modeFor(kind) == DisplayMode.SHOW_ALL) {
                     diagnostic("ORDER_SKIP reason=show_all")
                     return@runCatching null
                 }
@@ -635,7 +635,7 @@ class ListCleanerModule : XposedModule() {
             } else {
                 pollPreferences()
                 val localSnapshot = snapshotForUser(com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid()))
-                if (localSnapshot.displayMode == DisplayMode.SHOW_ALL) {
+                if (localSnapshot.modeFor(kind) == DisplayMode.SHOW_ALL) {
                     diagnostic("ORDER_SKIP stage=alpha reason=show_all")
                     return@runCatching
                 }
@@ -954,11 +954,10 @@ class ListCleanerModule : XposedModule() {
                 ?: return@map ResolverPolicy(true, Int.MAX_VALUE, null)
             val activity = info.activityInfo
                 ?: return@map ResolverPolicy(true, Int.MAX_VALUE, null)
-            if (current.displayMode == DisplayMode.SHOW_ALL) {
+            val effectiveKind = orderingEngine.candidateKind(kind, info)
+            if (current.modeFor(effectiveKind) == DisplayMode.SHOW_ALL) {
                 return@map ResolverPolicy(true, Int.MAX_VALUE, null)
             }
-
-            val effectiveKind = orderingEngine.candidateKind(kind, info)
             val scopedTypedIds = if (effectiveKind == IntentKind.OPEN) typedIds else emptySet()
             val scopedDeepIds = if (effectiveKind == IntentKind.DEEP_LINK) deepLinkIds else emptySet()
             val hasSelection = current.hasSelection(effectiveKind) ||
@@ -973,7 +972,7 @@ class ListCleanerModule : XposedModule() {
             val selected = candidateId in current.configured ||
                 candidateId in scopedTypedIds ||
                 candidateId in scopedDeepIds
-            val include = current.displayMode.includes(selected, hasSelection)
+            val include = current.modeFor(effectiveKind).includes(selected, hasSelection)
 
             val priorities = orderingEngine.effectivePriorities(
                 effectiveKind,
@@ -1137,7 +1136,7 @@ class ListCleanerModule : XposedModule() {
                 val scopedTextQuery = kind == IntentKind.PROCESS_TEXT &&
                     callerUser == activeQueryUserContext.get()?.targetUserId && callerUser > 0 && callerUser in policies.otherUsers &&
                     snapshot.configured.any { it.startsWith("PROCESS_TEXT|") } &&
-                    snapshot.displayMode != DisplayMode.SHOW_ALL
+                    snapshot.modeFor(IntentKind.PROCESS_TEXT) != DisplayMode.SHOW_ALL
                 if (scopedTextQuery) {
                     val filtered = transform(kind, extracted.values, layer, callerUid,
                         resolvedType, openUri?.scheme, openPath, data?.host)
@@ -1217,10 +1216,8 @@ class ListCleanerModule : XposedModule() {
             return null
         }
         val current = snapshot
-        if (current.displayMode == DisplayMode.SHOW_ALL) {
-            diagnostic("NO_CHANGE $layer $kind size=${values.size} reason=show_all")
-            return null
-        }
+        // A resolver query can contain different effective Entry kinds.
+        // Resolve each candidate's mode instead of skipping the whole list.
 
         var changed = false
         var anySelection = false
@@ -1248,7 +1245,7 @@ class ListCleanerModule : XposedModule() {
             val hasSelection = current.hasSelection(effectiveKind) ||
                 scopedTypedIds.isNotEmpty() || scopedDeepIds.isNotEmpty()
             anySelection = anySelection || hasSelection
-            if (!hasSelection && current.displayMode != DisplayMode.SHOW_SELECTED) return@filter true
+            if (!hasSelection && current.modeFor(effectiveKind) != DisplayMode.SHOW_SELECTED) return@filter true
 
             val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
                 activity.packageName, activity.name, activity.targetActivity
@@ -1262,7 +1259,7 @@ class ListCleanerModule : XposedModule() {
                     "canonical=$canonicalClass selected=$selected",
                 detail = true
             )
-            current.displayMode.includes(selected, hasSelection).also {
+            current.modeFor(effectiveKind).includes(selected, hasSelection).also {
                 if (!it) changed = true
             }
         }

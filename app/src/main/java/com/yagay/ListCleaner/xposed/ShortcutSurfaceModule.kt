@@ -120,21 +120,21 @@ class ShortcutSurfaceModule : XposedModule() {
         val selected = policy.selected(IntentKind.SHORTCUT_ITEM)
         val priorities = policy.priorities(IntentKind.SHORTCUT_ITEM)
         if (selected.isEmpty() && priorities.isEmpty()) {
-            record("SHORTCUT_QUERY caller=${call.callingPackage} user=$userId candidates=${values.size} selected=0 mode=${policy.displayMode}")
+            record("SHORTCUT_QUERY caller=${call.callingPackage} user=$userId candidates=${values.size} selected=0 mode=${policy.modeFor(IntentKind.SHORTCUT_ITEM)}")
             return@Hooker original
         }
 
-        val filtered = if (policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) values else values.filter { value ->
+        val filtered = if (policy.modeFor(IntentKind.SHORTCUT_ITEM) == DisplayMode.SHOW_ALL || selected.isEmpty()) values else values.filter { value ->
             val shortcut = value as? ShortcutInfo ?: return@filter true
             val rule = shortcutRule(shortcut, shortcut.activity) ?: return@filter true
-            policy.displayMode.includes(rule.id in selected, selected.isNotEmpty())
+            policy.modeFor(IntentKind.SHORTCUT_ITEM).includes(rule.id in selected, selected.isNotEmpty())
         }
         val ordered = if (priorities.isEmpty() || filtered.size < 2) filtered else prioritizeApps(
             filtered, priorities,
             { (it as? ShortcutInfo)?.`package` ?: "" },
             { ReflectionAccess.userId((it as? ShortcutInfo)?.userHandle) ?: userId },
         )
-        record("SHORTCUT_POLICY caller=${call.callingPackage} user=$userId mode=${policy.displayMode} " +
+        record("SHORTCUT_POLICY caller=${call.callingPackage} user=$userId mode=${policy.modeFor(IntentKind.SHORTCUT_ITEM)} " +
             "candidates=${values.size} parsed=${values.count { it is ShortcutInfo }} " +
             "selected=${selected.size} matched=${values.count { item -> (item as? ShortcutInfo)?.let { shortcutRule(it, it.activity)?.id in selected } == true }} " +
             "removed=${values.size - filtered.size} ordered=${ordered != values}")
@@ -222,13 +222,13 @@ class ShortcutSurfaceModule : XposedModule() {
             pair?.let { (shortcut, target) -> directShareRule(shortcut, target)?.id }
         }
         val effectiveSelection = DirectShareTypeRules.selectedFor(selected, ruleIds, matchedFamily)
-        val indices = if ((policy.displayMode == DisplayMode.SHOW_ALL || effectiveSelection.isEmpty()) &&
+        val indices = if ((policy.modeFor(IntentKind.DIRECT_SHARE) == DisplayMode.SHOW_ALL || effectiveSelection.isEmpty()) &&
             priorities.isEmpty()) values.indices.toList() else directShareFilteredIndices(
             targetPackages = targetPackages,
             ruleIds = ruleIds,
             visibleSharePackages = targetPackages.filterNotNull().toSet(),
             selectedRuleIds = effectiveSelection,
-            displayMode = policy.displayMode,
+            displayMode = policy.modeFor(IntentKind.DIRECT_SHARE),
             priorities = priorities,
         )
         // Store only target package names, not shortcut IDs, contact names or labels.
