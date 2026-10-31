@@ -15,7 +15,6 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -44,9 +43,7 @@ import com.yagay.ListCleaner.domain.matchesBrowserHost
 fun RulesTab(
     state: MainState,
     vm: MainViewModel,
-    searchExpanded: Boolean = false,
     pendingNavigation: PendingNavigationGuard? = null,
-    onComponentModeChanged: (Boolean) -> Unit = {},
     onOpenModuleStatus: () -> Unit = {}
 ) {
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
@@ -67,12 +64,6 @@ fun RulesTab(
     // Switching Entry categories closes and discards the previous inline draft.
     LaunchedEffect(state.filter, vm.selectedSpace.value) { showModeSettings = false }
     var ruleHelpExpanded by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.openHelpByDefault) }
-    // One continuous editor; category navigation stays in the pinned selector.
-    var browseAllComponents by rememberSaveable { mutableStateOf(false) }
-    var savedRuleQuery by rememberSaveable { mutableStateOf("") }
-    var savedRuleKind by rememberSaveable { mutableStateOf<IntentKind?>(null) }
-    var savedComponentQuery by rememberSaveable { mutableStateOf("") }
-    val workspaceStateHolder = rememberSaveableStateHolder()
     var overviewPackage by remember { mutableStateOf<String?>(null) }
     overviewPackage?.let { packageName ->
         ApplicationOverviewDialog(packageName, state, componentScan, vm.selectedSpace.value, onDismiss = { overviewPackage = null })
@@ -80,30 +71,6 @@ fun RulesTab(
     var systemProbeRequest by remember { mutableStateOf<SystemProbeRequest?>(null) }
     systemProbeRequest?.let { request ->
         SystemProbeDialog(request, onDismiss = { systemProbeRequest = null })
-    }
-    val showingComponents = browseAllComponents
-    DisposableEffect(showingComponents) {
-        onComponentModeChanged(showingComponents)
-        onDispose { if (showingComponents) onComponentModeChanged(false) }
-    }
-    if (showingComponents) {
-        workspaceStateHolder.SaveableStateProvider(key = "root-component-workspace") {
-            RootComponentsScreen(
-            state = state,
-            vm = vm,
-            initialKind = null,
-            embedded = true,
-            backEnabled = !searchExpanded,
-            pendingNavigation = pendingNavigation,
-            onExit = {
-                browseAllComponents = false
-                savedComponentQuery = state.query
-                vm.setQuery(savedRuleQuery)
-                vm.setFilter(savedRuleKind)
-            }
-            )
-        }
-        return
     }
     editingTitle?.let { item ->
         ComponentTitleDialog(
@@ -394,7 +361,7 @@ fun RulesTab(
             ClassicCleanupTabs(
                 active = ClassicCleanupMode.ENTRIES,
                 onEntries = {},
-                onComponents = { navigate { browseAllComponents = true } },
+                onComponents = {}, // Entry header no longer switches to embedded Components.
                 modeLabel = entryCurrentModeLabel(state),
                 modeExpanded = showModeSettings,
                 onModeClick = { showModeSettings = !showModeSettings },
@@ -403,6 +370,18 @@ fun RulesTab(
                         state = state, vm = vm, kind = state.filter,
                         expanded = showModeSettings,
                         onDismiss = { showModeSettings = false },
+                    )
+                },
+                previewActions = entryHeaderPreviewKinds(state.filter).map { previewKind ->
+                    WorkspaceMenuAction(
+                        label = stringResource(previewKind.titleRes()),
+                        onClick = {
+                            showModeSettings = false
+                            systemProbeRequest = SystemProbeRequest(
+                                entryKind = previewKind,
+                                userId = vm.selectedSpace.value,
+                            )
+                        },
                     )
                 },
             )
@@ -417,18 +396,6 @@ fun RulesTab(
                         showEntryGroups = true,
                         selectionActions = selectionActions,
                         modeAction = { WorkspaceSortShortcut(state.filter) { navigate { vm.setDestination(Destination.PRIORITY) } } },
-                        previewActions = (if (state.filter == null) IntentKind.entries.filter { it.isSelectableEntryKind() }
-                            else listOf(requireNotNull(state.filter))).map { previewKind ->
-                            WorkspaceMenuAction(
-                                label = stringResource(previewKind.titleRes()),
-                                onClick = {
-                                    systemProbeRequest = SystemProbeRequest(
-                                        entryKind = previewKind,
-                                        userId = vm.selectedSpace.value
-                                    )
-                                }
-                            )
-                        },
                         subtypeTitle = when (state.filter) {
                             IntentKind.OPEN -> openPreset?.let { state.openTypesExplicit.localizedTitle(it) }
                             IntentKind.DEEP_LINK -> browserHost

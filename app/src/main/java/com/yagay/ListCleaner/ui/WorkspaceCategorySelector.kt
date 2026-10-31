@@ -149,22 +149,27 @@ internal fun WorkspacePickerButton(
  * the eye opens a flat list of previewable kinds; on one kind it opens directly.
  */
 @Composable
-private fun WorkspaceCategoryPreviewIcon(actions: List<WorkspaceMenuAction>) {
+internal fun WorkspaceCategoryPreviewIcon(
+    actions: List<WorkspaceMenuAction>,
+    touchSize: androidx.compose.ui.unit.Dp = 18.dp,
+    iconSize: androidx.compose.ui.unit.Dp = 18.dp,
+) {
     var expanded by remember { mutableStateOf(false) }
     Box(
-        Modifier.size(18.dp).clickable(
+        modifier = Modifier.size(touchSize).clickable(
             enabled = actions.any { it.enabled },
             role = Role.Button,
             onClick = {
                 if (actions.size == 1) actions.single().onClick()
                 else expanded = true
             }
-        )
+        ),
+        contentAlignment = Alignment.Center,
     ) {
         AdaptiveIcon(
             Icons.Rounded.Visibility,
             stringResource(R.string.system_preview_action),
-            Modifier.size(18.dp),
+            Modifier.size(iconSize),
             tint = MaterialTheme.colorScheme.primary
         )
         if (actions.size > 1) {

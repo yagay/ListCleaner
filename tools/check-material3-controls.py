@@ -136,7 +136,7 @@ required = {
     "WorkspaceControlLabel.kt": ["fun WorkspaceControlLabel(", "MaterialTheme.typography.labelLarge"],
     "CompactCategoryButton.kt": ["fun CompactCategoryButton(", "AdaptiveFilterChip(",
                                   "Arrangement.spacedBy(4.dp)"],
-    "ClassicListLayout.kt": ["fun ClassicCleanupTabs(", "WorkspaceControlLabel(", "modeExpanded: Boolean",
+    "ClassicListLayout.kt": ["fun ClassicCleanupTabs(", "WorkspaceControlLabel(", "modeExpanded: Boolean", "WorkspaceCategoryPreviewIcon(",
                              "active == ClassicCleanupMode.ENTRIES", "active == ClassicCleanupMode.COMPONENTS"],
     "ComponentCategoryFilter.kt": ["fun ClassicComponentCategoryFilter(",
                                     "ComponentCategoryPicker("],

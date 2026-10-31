@@ -122,8 +122,6 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(componentBusy) { pendingNavigation.observeRootBusy(componentBusy) }
         var searchExpanded by rememberSaveable { mutableStateOf(false) }
         val listsRefresh = remember { ListsRefreshRegistry() }
-        // The merged cleanup tab hosts both rule and Root component editors.
-        var componentModeActive by remember { mutableStateOf(false) }
         var openModuleStatus by remember { mutableStateOf(false) }
         var restartPromptDismissed by rememberSaveable { mutableStateOf(false) }
         var pendingImport by remember { mutableStateOf<Pair<String, SpaceBackupInspection>?>(null) }
@@ -278,10 +276,7 @@ class MainActivity : ComponentActivity() {
 
         val onRefresh: () -> Unit = {
             when (state.destination) {
-                Destination.RULES -> {
-                    if (componentModeActive) vm.refreshComponents()
-                    else vm.refresh(forceCatalog = true)
-                }
+                Destination.RULES -> vm.refresh(forceCatalog = true)
                 Destination.PRIORITY -> vm.refresh(forceCatalog = true)
                 Destination.TILES -> if (listsRefresh.available) listsRefresh.refresh() else vm.refreshComponents()
                 Destination.SURFACES -> vm.refreshModuleStatus()
@@ -293,9 +288,7 @@ class MainActivity : ComponentActivity() {
                 when (state.destination) {
                     Destination.RULES -> RulesTab(
                         state, vm,
-                        searchExpanded = searchExpanded,
                         pendingNavigation = pendingNavigation,
-                        onComponentModeChanged = { componentModeActive = it },
                         onOpenModuleStatus = {
                             openModuleStatus = true
                             pendingNavigation.request { vm.setDestination(Destination.SETTINGS) }
@@ -347,7 +340,6 @@ class MainActivity : ComponentActivity() {
                     onSpaceSelected = { target ->
                         if (!componentBusy) pendingNavigation.request {
                             closeSearch()
-                            componentModeActive = false
                             vm.selectSpace(target)
                         }
                     }
@@ -376,7 +368,7 @@ class MainActivity : ComponentActivity() {
                             NavigationBarItem(
                                 selected = selected,
                                 onClick = {
-                                    if (!componentBusy || state.destination != Destination.TILES && !componentModeActive) {
+                                    if (!componentBusy || state.destination != Destination.TILES) {
                                         pendingNavigation.request { vm.setDestination(dest) }
                                     }
                                 },

@@ -7,7 +7,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -32,13 +31,14 @@ internal fun ClassicCleanupTabs(
     onModeClick: () -> Unit = {},
     modeExpanded: Boolean = false,
     modeMenu: (@Composable () -> Unit)? = null,
+    previewActions: List<WorkspaceMenuAction> = emptyList(),
 ) {
     Surface(color = MaterialTheme.colorScheme.surface) {
         Column {
             if (active == ClassicCleanupMode.ENTRIES && modeLabel != null) {
                 // One clear Entry header row: "Entry Cleanup   Open · Show selected only".
-                // Keep a compact Components shortcut rather than shrinking the mode label
-                // between two full-width text tabs (which made it difficult to read).
+                // The trailing eye previews the current OS resolver list. Components
+                // remains available through its separate bottom navigation page.
                 Row(
                     modifier = Modifier.fillMaxWidth()
                         .padding(horizontal = MaterialUiTokens.pageHorizontal),
@@ -78,21 +78,11 @@ internal fun ClassicCleanupTabs(
                         // not the whole Entry toolbar or a separate dialog window.
                         modeMenu?.invoke()
                     }
-                    Surface(
-                        onClick = onComponents,
-                        modifier = Modifier.size(48.dp),
-                        shape = RectangleShape,
-                        color = MaterialTheme.colorScheme.surface,
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            AdaptiveIcon(
-                                Icons.Rounded.GridView,
-                                stringResource(R.string.lc_cleanup_mode_component_short),
-                                Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
+                    WorkspaceCategoryPreviewIcon(
+                        actions = previewActions,
+                        touchSize = 48.dp,
+                        iconSize = 20.dp,
+                    )
                 }
             } else {
                 Row(
