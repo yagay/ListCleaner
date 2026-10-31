@@ -155,9 +155,7 @@ internal class SpecialEntryDiscovery(private val context: Context) {
             // ended by the time the manager next reads its observed cache.
             // Do not promote generic history without verified MIME evidence.
             val recentlyMatchedDirectShare =
-                kind == IntentKind.DIRECT_SHARE &&
-                    observed.directShareFamilies.isNotEmpty() &&
-                    age in 0..600_000L
+                DirectShareTypeRules.isRecentMatch(observed, System.currentTimeMillis())
             val live = observed.key in liveKeys ||
                 recentlyObservedLauncherShortcut || recentlyMatchedDirectShare
             ComponentCandidate(
