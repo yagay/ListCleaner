@@ -13,4 +13,5 @@
     <string name="notification_cleanup_legacy_note">这些全局类型规则由旧版本保存，仍会跨应用隐藏匹配的通知。可在这里取消不再需要的规则。</string>
     <string name="notification_cleanup_legacy_clear">清除所有类型规则</string>
     <string name="notification_cleanup_legacy_remove">移除类型规则</string>
+    <string name="notification_cleanup_retained_channel">部分已保存的频道规则无法从系统注册表确认，仍可在此解除。</string>
 </resources>
