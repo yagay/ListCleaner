@@ -31,6 +31,7 @@ internal fun rebaseSurfaceDraft(base: SurfaceFilterConfig, local: SurfaceFilterC
     }
     return latest.copy(
         tileLabels = tileLabels,
+        tileOrder = if (base.tileOrder != local.tileOrder) local.tileOrder else latest.tileOrder,
         packages = mergeMap(base.packages, local.packages, latest.packages),
         locks = mergeMap(base.locks, local.locks, latest.locks),
         order = order,
