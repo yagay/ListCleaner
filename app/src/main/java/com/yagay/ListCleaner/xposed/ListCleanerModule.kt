@@ -122,6 +122,7 @@ class ListCleanerModule : XposedModule() {
     private val listResults = SafeListResultExtractor(::record)
     private val runtimeTransfers = RuntimeConfigTransferStore(::record)
     private val orderingEngine = ResolverOrderingEngine(::diagnostic)
+    private val recentResolverOrders = ConcurrentHashMap<String, Pair<String, Long>>()
     private val resolverOrderCapture by lazy(LazyThreadSafetyMode.PUBLICATION) {
         RuntimeInterfaceCaptureWriter(preferences, ::record)
     }
@@ -678,6 +679,15 @@ class ListCleanerModule : XposedModule() {
         // Do not misrepresent Direct Share contacts as application ResolveInfo rows.
         val components = orderingEngine.orderedComponentIds(items, stage) ?: return
         if (components.isEmpty()) return
+        val dedupKey = "${System.identityHashCode(receiver)}@$stage"
+        val signature = "${kind.name}/${effective.action}/${effective.type}/${effective.data?.host}/" +
+            components.joinToString("|")
+        val now = SystemClock.elapsedRealtime()
+        val previous = recentResolverOrders[dedupKey]
+        if (previous != null && previous.first == signature &&
+            now - previous.second in 0L..1500L) return
+        if (recentResolverOrders.size > 128) recentResolverOrders.clear()
+        recentResolverOrders[dedupKey] = signature to now
         val requestType = effective.type ?: runCatching {
             val context = OrderingAccess.field(receiver, "mContext") as? Context
             context?.let { effective.resolveTypeIfNeeded(it.contentResolver) }
