@@ -51,7 +51,12 @@ data class SurfaceFilterConfig(
             PackageIdentity.valid(pkg) &&
                 component.count { it == '/' } == 1 &&
                 clazz.length in 3..240 && clazz.contains('.') &&
-                clazz.all { it.isLetterOrDigit() || it == '_' || it == '.' || it == '        require(hiddenNotificationCategories.all { it.length in 1..64 && it.none(Char::isISOControl) })
+                clazz.all { it.isLetterOrDigit() || it == '_' || it == '.' || it == '$' } &&
+                label.length in 1..64 && label == label.trim() &&
+                label.none(Char::isISOControl)
+        })
+        require(hiddenNotificationCategories.size <= 32)
+        require(hiddenNotificationCategories.all { it.length in 1..64 && it.none(Char::isISOControl) })
         require(hiddenNotificationChannels.all { key ->
             val pkg = key.substringBefore('|', "")
             val channelId = key.substringAfter('|', "")
