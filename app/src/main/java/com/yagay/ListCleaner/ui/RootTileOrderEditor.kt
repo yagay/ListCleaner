@@ -50,6 +50,7 @@ internal fun RootTileOrderEditor(
     pendingNavigation: PendingNavigationGuard?,
     onExit: () -> Unit,
     onSelectKind: (CleanupKind?) -> Unit,
+    onManagedKind: (ManagedComponentSurface) -> Unit = {},
 ) {
     val context = LocalContext.current
     val original = saved.tileOrder
@@ -154,6 +155,9 @@ internal fun RootTileOrderEditor(
                                         if (newKind != CleanupKind.TILE) {
                                             requestExit { onSelectKind(newKind) }
                                         }
+                                    },
+                                    onManagedSurface = { managed ->
+                                        requestExit { onManagedKind(managed) }
                                     },
                                 )
                             },
