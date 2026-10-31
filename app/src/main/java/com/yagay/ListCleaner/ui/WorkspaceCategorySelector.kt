@@ -77,7 +77,13 @@ internal fun WorkspaceCategoryFilterRow(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (showCategory) Box(Modifier.weight(1f)) { category() }
+        if (showCategory) {
+            Box(Modifier.weight(1f)) { category() }
+        } else {
+            // Fixed-kind Lists screens have no category picker, but must still
+            // reserve the leading space to keep actions trailing-aligned.
+            Spacer(Modifier.weight(1f))
+        }
         WorkspaceToolbarActions(beforeFilter, filter, afterFilter)
     }
 }
