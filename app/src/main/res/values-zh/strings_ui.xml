@@ -262,4 +262,7 @@
     <string name="lc_mode_all_inherit">全部跟随全局</string>
     <string name="lc_mode_override_count">已独立配置 %1$d / %2$d 项</string>
     <string name="lc_mode_follow_global_value">跟随全局（%1$s）</string>
+    <string name="lc_mode_expand_group">展开</string>
+    <string name="lc_mode_collapse_group">收起</string>
+    <string name="lc_mode_inherit_count">%1$d 项全部跟随全局</string>
 </resources>

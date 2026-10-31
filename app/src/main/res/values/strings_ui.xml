@@ -262,4 +262,7 @@
     <string name="lc_mode_all_inherit">All follow global mode</string>
     <string name="lc_mode_override_count">%1$d of %2$d independently configured</string>
     <string name="lc_mode_follow_global_value">Follow global (%1$s)</string>
+    <string name="lc_mode_expand_group">Expand</string>
+    <string name="lc_mode_collapse_group">Collapse</string>
+    <string name="lc_mode_inherit_count">All %1$d kinds follow global</string>
 </resources>
