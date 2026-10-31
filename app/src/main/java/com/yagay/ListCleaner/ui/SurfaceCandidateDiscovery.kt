@@ -1,10 +1,7 @@
 package com.yagay.ListCleaner.ui
 
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.media.MediaRouter2
-import com.yagay.ListCleaner.data.ProfilePackageQuery
 import com.yagay.ListCleaner.domain.SurfaceKind
 import com.yagay.ListCleaner.runtime.ActiveNotificationRow
 
@@ -45,63 +42,13 @@ internal object SurfaceCandidateDiscovery {
                 pairs = emptyList()
                 source = "Retired Launcher3 / Quickstep surface: legacy configuration only"
             }
-            SurfaceKind.QS_EDITOR -> {
-                pairs = if (userId != ownUser && remoteInstalled != null) runCatching {
-                    ProfilePackageQuery(context, userId)
-                        .query(Intent("android.service.quicksettings.action.QS_TILE"),
-                            PackageManager.GET_META_DATA, "query-services")
-                        .mapNotNull { it.serviceInfo }
-                        .filter { it.exported &&
-                            it.permission == "android.permission.BIND_QUICK_SETTINGS_TILE" }
-                        .map { it.packageName }.distinct().map { it to appLabel(it) }
-                }.getOrDefault(emptyList()) else if (userId == ownUser) runCatching {
-                    @Suppress("DEPRECATION")
-                    pm.queryIntentServices(
-                        Intent("android.service.quicksettings.action.QS_TILE"),
-                        PackageManager.GET_META_DATA
-                    ).mapNotNull { it.serviceInfo }
-                        .filter { it.exported &&
-                            it.permission == "android.permission.BIND_QUICK_SETTINGS_TILE" }
-                        .map { it.packageName }.distinct().map { it to appLabel(it) }
-                }.getOrDefault(emptyList()) else emptyList()
-                source = if (userId == ownUser) "PackageManager: registered TileService providers"
-                    else "Root profile query: registered TileService providers when accessible"
-            }
-            SurfaceKind.DOCUMENT_RECENTS -> {
-                pairs = if (userId != ownUser && remoteInstalled != null) runCatching {
-                    ProfilePackageQuery(context, userId)
-                        .query(Intent("android.content.action.DOCUMENTS_PROVIDER"),
-                            PackageManager.GET_META_DATA, "query-content-providers")
-                        .mapNotNull { it.providerInfo }
-                        .filter { it.exported &&
-                            it.readPermission == "android.permission.MANAGE_DOCUMENTS" }
-                        .flatMap { info ->
-                            info.authority.orEmpty().split(';').filter { it.isNotBlank() }
-                                .map { it to appLabel(info.packageName) }
-                        }.distinctBy { it.first }
-                }.getOrDefault(emptyList()) else if (userId == ownUser) runCatching {
-                    @Suppress("DEPRECATION")
-                    pm.queryIntentContentProviders(
-                        Intent("android.content.action.DOCUMENTS_PROVIDER"),
-                        PackageManager.GET_META_DATA
-                    ).mapNotNull { it.providerInfo }
-                        .filter { it.exported &&
-                            it.readPermission == "android.permission.MANAGE_DOCUMENTS" }
-                        .flatMap { info ->
-                            info.authority.orEmpty().split(';').filter { it.isNotBlank() }
-                                .map { it to appLabel(info.packageName) }
-                        }.distinctBy { it.first }
-                }.getOrDefault(emptyList()) else emptyList()
-                source = if (userId == ownUser)
-                    "PackageManager: registered DocumentsProvider authorities; recents are transient"
-                    else "Root profile query: DocumentsProvider authorities when accessible; recents are transient"
-            }
+            SurfaceKind.QS_EDITOR, SurfaceKind.DOCUMENT_RECENTS,
             SurfaceKind.MEDIA_OUTPUT -> {
-                pairs = if (userId == ownUser) runCatching {
-                    MediaRouter2.getInstance(context).routes
-                        .map { it.id to it.name.toString() }.distinctBy { it.first }
-                }.getOrDefault(emptyList()) else emptyList()
-                source = "MediaRouter2: routes visible to ListCleaner, not all SystemUI routes"
+                // Retired Lists pages: keep old config IDs decodable, but do
+                // not scan unused candidates or alter their system surfaces.
+                // Root > Tiles uses RootComponentCatalog instead.
+                pairs = emptyList()
+                source = "Retired Lists surface: legacy configuration only"
             }
             SurfaceKind.SETTINGS_APPS -> {
                 pairs = if (userId != ownUser) remoteInstalled.orEmpty().map { it to appLabel(it) }
