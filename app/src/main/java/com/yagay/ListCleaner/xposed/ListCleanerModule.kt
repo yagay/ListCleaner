@@ -122,6 +122,9 @@ class ListCleanerModule : XposedModule() {
     private val listResults = SafeListResultExtractor(::record)
     private val runtimeTransfers = RuntimeConfigTransferStore(::record)
     private val orderingEngine = ResolverOrderingEngine(::diagnostic)
+    private val resolverOrderCapture by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        RuntimeInterfaceCaptureWriter(preferences, ::record)
+    }
     private val configJson = Json { ignoreUnknownKeys = true }
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
@@ -606,6 +609,14 @@ class ListCleanerModule : XposedModule() {
             orderingHits.incrementAndGet()
             diagnostic("ORDER_DELIVERED stage=ranked")
         }
+        // processSortedList receives the ranked Resolver/Chooser targets. This stage
+        // is closer to the visible order than PackageManager, but is not proof
+        // of the final pixels (OEMs may rearrange pinned/dynamic targets later).
+        val receiver = chain.thisObject
+        if (receiver != null) runCatching {
+            val items = (replacement?.get(0) ?: chain.args[0]) as? List<*>
+            captureAdapterOrder(receiver, items, "ranked")
+        }.onFailure { diagnostic("ORDER_CAPTURE_FAILED stage=ranked error=${it.javaClass.name}") }
         result
     }
 
@@ -649,7 +660,42 @@ class ListCleanerModule : XposedModule() {
                 diagnostic("ORDER_DELIVERED stage=alpha kind=$kind")
             }
         }.onFailure { diagnostic("ORDER_FAILED stage=alpha error=${it.javaClass.name}") }
-        chain.proceed()
+        val result = chain.proceed()
+        // Chooser's mSortedList after notifyDataSetChanged is a later app-target
+        // boundary. This still deliberately excludes dynamic/direct-share targets.
+        if (receiver != null && OrderingAccess.isChooser(receiver)) runCatching {
+            val items = OrderingAccess.field(receiver, "mSortedList") as? List<*>
+            captureAdapterOrder(receiver, items, "alpha")
+        }.onFailure { diagnostic("ORDER_CAPTURE_FAILED stage=alpha error=${it.javaClass.name}") }
+        result
+    }
+
+    private fun captureAdapterOrder(receiver: Any, items: List<*>?, stage: String) {
+        if (items.isNullOrEmpty()) return
+        val intent = (OrderingAccess.targetIntent(receiver) as? Intent) ?: return
+        val effective = intent.selector ?: intent
+        val kind = adapterKind(receiver) ?: return
+        // Do not misrepresent Direct Share contacts as application ResolveInfo rows.
+        val components = orderingEngine.orderedComponentIds(items, stage) ?: return
+        if (components.isEmpty()) return
+        val requestType = effective.type ?: runCatching {
+            val context = OrderingAccess.field(receiver, "mContext") as? Context
+            context?.let { effective.resolveTypeIfNeeded(it.contentResolver) }
+        }.getOrNull()
+        resolverOrderCapture.publish(
+            kind = kind,
+            source = if (stage == "alpha") "CHOOSER_ADAPTER_ORDER" else "RESOLVER_RANKED_ORDER",
+            userId = AndroidUid.userId(Process.myUid()),
+            callerPackage = processName,
+            callerUid = Process.myUid(),
+            packages = components.map { it.substringBefore('/') },
+            components = components,
+            requestAction = effective.action.orEmpty(),
+            requestMimeType = requestType.orEmpty(),
+            requestHost = normalizeBrowserHost(effective.data?.host).orEmpty(),
+            resolverOrdered = true,
+        )
+        diagnostic("ORDER_CAPTURED kind=$kind stage=$stage count=${components.size} uiVerified=false")
     }
 
     private fun installHook(method: Method, layer: Layer): Boolean {
