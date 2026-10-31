@@ -1,6 +1,7 @@
 package com.yagay.ListCleaner.xposed
 
 import android.content.ComponentName
+import android.content.Intent
 import android.content.pm.ResolveInfo
 import android.content.pm.ShortcutInfo
 import android.os.Process
@@ -8,6 +9,8 @@ import android.util.Log
 import android.view.View
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.ComponentRule
+import com.yagay.ListCleaner.domain.DirectShareType
+import com.yagay.ListCleaner.domain.DirectShareTypeRules
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.ObservedEntryRecord
 import com.yagay.ListCleaner.domain.SyntheticEntryKeys
@@ -144,7 +147,13 @@ class DirectShareConsistencyModule : XposedModule() {
         }
 
         val parsed = targets.map(::parseDirectShareTarget)
-        val observed = parsed.mapNotNull(ParsedTarget::observed)
+        // The resolver activity may carry the original ACTION_SEND in
+        // EXTRA_INTENT. Unknown MIME types do not activate scoped rules.
+        val family = chooserMimeFamily(chain.thisObject)
+        val observed = parsed.mapNotNull(ParsedTarget::observed).map { record ->
+            if (family != null) record.copy(directShareFamilies = setOf(family.name))
+            else record
+        }
         val persisted = observedPersistence.merge(observed)
         record(
             "DELIVERY_HIT count=${targets.size} parsed=${parsed.count { it.rule != null }} " +
@@ -158,11 +167,13 @@ class DirectShareConsistencyModule : XposedModule() {
         val policy = policyProvider.snapshot(com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid()))
         val selected = policy.selected(IntentKind.DIRECT_SHARE)
         val priorities = policy.priorities(IntentKind.DIRECT_SHARE)
+        val effectiveSelection = DirectShareTypeRules.selectedFor(
+            selected, parsed.map { it.rule?.id }, family)
         val keptIndices = directShareFilteredIndices(
             targetPackages = parsed.map { it.packageName },
             ruleIds = parsed.map { it.rule?.id },
             visibleSharePackages = visibleSharePackages,
-            selectedRuleIds = selected,
+            selectedRuleIds = effectiveSelection,
             displayMode = policy.displayMode,
             priorities = priorities,
         )
@@ -220,6 +231,14 @@ class DirectShareConsistencyModule : XposedModule() {
         view.visibility = state.visibility
         view.requestLayout()
         return true
+    }
+
+    private fun chooserMimeFamily(receiver: Any?): DirectShareType? {
+        val chooser = ReflectionAccess.invokeNoArg(receiver, "getIntent") as? Intent
+            ?: return null
+        @Suppress("DEPRECATION")
+        val actual = (chooser.getParcelableExtra<Intent>(Intent.EXTRA_INTENT) ?: chooser)
+        return DirectShareType.fromMime(actual.type)
     }
 
     private fun parseDirectShareTarget(value: Any?): ParsedTarget {
