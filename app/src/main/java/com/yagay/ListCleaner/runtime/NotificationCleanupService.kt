@@ -180,11 +180,17 @@ object NotificationCleanupController {
         return uids[pkg]
     }
 
-    suspend fun channelsForPackages(packages: List<String>, userId: Int): Map<String, ChannelInventory> =
+    suspend fun channelsForPackages(
+        packages: List<String>,
+        userId: Int,
+        appContext: Context? = null,
+    ): Map<String, ChannelInventory> =
         withContext(Dispatchers.IO) {
             val result = mutableMapOf<String, ChannelInventory>()
-            val context = listener?.applicationContext
-            val apk = context?.applicationInfo?.sourceDir
+            // A root channel inventory must NOT depend on notification listener
+            // access. The UI provides its own application context; the listener
+            // is only an optional fallback for callers without a context.
+            val apk = (appContext ?: listener?.applicationContext)?.applicationInfo?.sourceDir
             val valid = packages.distinct().filter {
                 it.matches(Regex("[A-Za-z0-9_]+([.][A-Za-z0-9_]+)+"))
             }
