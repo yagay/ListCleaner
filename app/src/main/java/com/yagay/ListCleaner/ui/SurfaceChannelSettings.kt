@@ -228,6 +228,11 @@ internal fun SurfaceChannelSettings(
                     secondary = if (scanning) "$scanProgress / ${observedPackages.size}"
                         else stringResource(R.string.notification_cleanup_help),
                 )
+                AdaptiveText(
+                    stringResource(R.string.notification_cleanup_bulk_channels),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
         },
         pending = {
             if (draft != saved) PendingChangesBar(
@@ -393,6 +398,48 @@ internal fun SurfaceChannelSettings(
                 }
             },
         )
+    }
+    // Older versions stored global notification-category hide rules. Removing
+    // their navigation page must never leave permanent, invisible filters.
+    // Expose only existing rules for recovery; don't add new category rules here.
+    val legacyCategories = draft.hiddenNotificationCategories.sorted()
+    if (legacyCategories.isNotEmpty()) {
+        item(key = "legacy-category-heading") {
+            Column(Modifier.fillMaxWidth().padding(
+                horizontal = MaterialUiTokens.pageHorizontal,
+                vertical = 8.dp,
+            )) {
+                PageSectionTitle(stringResource(R.string.notification_cleanup_legacy_title))
+                AdaptiveText(
+                    stringResource(R.string.notification_cleanup_legacy_note),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                AdaptiveTextButton(onClick = {
+                    draft = draft.copy(hiddenNotificationCategories = emptySet()).validated()
+                }) {
+                    AdaptiveText(stringResource(R.string.notification_cleanup_legacy_clear))
+                }
+            }
+        }
+        items(legacyCategories, key = { "legacy-category-$it" }) { category ->
+            SurfaceWorkspaceRow(
+                title = notificationCategoryLabel(category.takeUnless { it == "(other)" }),
+                subtitle = category,
+                selected = true,
+                onToggle = {
+                    draft = draft.copy(
+                        hiddenNotificationCategories = draft.hiddenNotificationCategories - category,
+                    ).validated()
+                },
+                actions = listOf(WorkspaceMenuAction(
+                    stringResource(R.string.notification_cleanup_legacy_remove),
+                    { draft = draft.copy(
+                        hiddenNotificationCategories = draft.hiddenNotificationCategories - category,
+                    ).validated() },
+                )),
+            )
+        }
     }
     }
 }
