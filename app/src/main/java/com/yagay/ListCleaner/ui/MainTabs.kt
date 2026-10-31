@@ -398,13 +398,14 @@ fun RulesTab(
                 modeLabel = entryCurrentModeLabel(state),
                 modeExpanded = showModeSettings,
                 onModeClick = { showModeSettings = !showModeSettings },
+                modeMenu = {
+                    EntryModeFilterMenu(
+                        state = state, vm = vm, kind = state.filter,
+                        expanded = showModeSettings,
+                        onDismiss = { showModeSettings = false },
+                    )
+                },
             )
-            if (showModeSettings) {
-                InlineEntryModePicker(
-                    state = state, vm = vm, kind = state.filter,
-                    onDismiss = { showModeSettings = false },
-                )
-            }
             PageFilterSection {
                 Column {
                     ListControls(

@@ -68,13 +68,14 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                     onClick = {
                         editingModeKey = if (editingModeKey == GLOBAL_MODE_KEY) null else GLOBAL_MODE_KEY
                     },
+                    modeMenu = {
+                        EntryModeFilterMenu(
+                            state = state, vm = vm, kind = null,
+                            expanded = editingModeKey == GLOBAL_MODE_KEY,
+                            onDismiss = { editingModeKey = null },
+                        )
+                    },
                 )
-                if (editingModeKey == GLOBAL_MODE_KEY) {
-                    InlineEntryModePicker(
-                        state = state, vm = vm, kind = null,
-                        onDismiss = { editingModeKey = null },
-                    )
-                }
                 SettingsHint(stringResource(R.string.dashboard_global_mode_help))
             }
         }
@@ -134,13 +135,14 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                                 onClick = {
                                     editingModeKey = if (editingModeKey == kind.name) null else kind.name
                                 },
+                                modeMenu = {
+                                    EntryModeFilterMenu(
+                                        state = state, vm = vm, kind = kind,
+                                        expanded = editingModeKey == kind.name,
+                                        onDismiss = { editingModeKey = null },
+                                    )
+                                },
                             )
-                            if (editingModeKey == kind.name) {
-                                InlineEntryModePicker(
-                                    state = state, vm = vm, kind = kind,
-                                    onDismiss = { editingModeKey = null },
-                                )
-                            }
                         }
                     }
                 }
@@ -209,7 +211,7 @@ private fun GlobalModeGroupHeader(
     }
 }
 
-/** A mode row expands its options directly beneath the row, with no dialog. */
+/** The same anchored Filter-style menu opens from each Lists mode row. */
 private const val GLOBAL_MODE_KEY = "GLOBAL"
 
 @Composable
@@ -218,17 +220,22 @@ private fun GlobalModeSettingsRow(
     selectedMode: String,
     expanded: Boolean,
     onClick: () -> Unit,
+    modeMenu: @Composable () -> Unit,
 ) {
-    MaterialSettingsRow(
-        title = title,
-        supportingText = selectedMode,
-        onClick = onClick,
-    ) {
-        AdaptiveIcon(
-            if (expanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
-            title,
-            Modifier.size(18.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth()) {
+        MaterialSettingsRow(
+            title = title,
+            supportingText = selectedMode,
+            onClick = onClick,
+        ) {
+            AdaptiveIcon(
+                if (expanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+                title,
+                Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        // The popup is anchored to this particular row, not a full-screen dialog.
+        modeMenu()
     }
 }

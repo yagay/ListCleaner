@@ -31,6 +31,7 @@ internal fun ClassicCleanupTabs(
     modeLabel: String? = null,
     onModeClick: () -> Unit = {},
     modeExpanded: Boolean = false,
+    modeMenu: (@Composable () -> Unit)? = null,
 ) {
     Surface(color = MaterialTheme.colorScheme.surface) {
         Column {
@@ -47,30 +48,35 @@ internal fun ClassicCleanupTabs(
                         stringResource(R.string.lc_entry_cleanup_header),
                         color = MaterialTheme.colorScheme.primary,
                     )
-                    Surface(
-                        onClick = onModeClick,
-                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                        shape = RectangleShape,
-                        color = MaterialTheme.colorScheme.surface,
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.End,
+                    Box(Modifier.weight(1f)) {
+                        Surface(
+                            onClick = onModeClick,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                            shape = RectangleShape,
+                            color = MaterialTheme.colorScheme.surface,
                         ) {
-                            WorkspaceControlLabel(
-                                modeLabel,
-                                modifier = Modifier.weight(1f),
-                                textAlign = TextAlign.End,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                            AdaptiveIcon(
-                                if (modeExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                                null,
-                                Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.End,
+                            ) {
+                                WorkspaceControlLabel(
+                                    modeLabel,
+                                    modifier = Modifier.weight(1f),
+                                    textAlign = TextAlign.End,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                AdaptiveIcon(
+                                    if (modeExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                                    null,
+                                    Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            }
                         }
+                        // Anchor the Filter-style popup to this exact mode trigger,
+                        // not the whole Entry toolbar or a separate dialog window.
+                        modeMenu?.invoke()
                     }
                     Surface(
                         onClick = onComponents,

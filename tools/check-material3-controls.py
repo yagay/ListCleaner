@@ -79,14 +79,16 @@ required = {
                               "ScopeDialog(", "SettingsSection.ABOUT -> AboutSettings()"],
     "SurfaceManagementTab.kt": ["fun SurfaceManagementTab(state: MainState, vm: MainViewModel)",
                                  "EntryGroup.entries", "GlobalModeSettingsRow(",
-                                 "state.modeOverrides[kind]", "InlineEntryModePicker(",
+                                 "state.modeOverrides[kind]", "EntryModeFilterMenu(",
                                  "editingModeKey == kind.name", "editingModeKey == GLOBAL_MODE_KEY",
                                  "GlobalModeGroupHeader(", "lc_mode_collapse_group",
                                  "lc_mode_expand_group", "KeyboardArrowUp",
                                  "KeyboardArrowDown"],
-    "InlineEntryModePicker.kt": ["fun InlineEntryModePicker(",
-                                   "EntryModeChangeDraft(", "SettingsFlatChoiceRow(",
-                                   "enabled = draft.hasChanges", "vm.setKindDisplayMode(kind, draft.pending)",
+    "EntryModeFilterMenu.kt": ["fun EntryModeFilterMenu(",
+                                   "EntryModeChangeDraft(", "FlatWorkspaceDropdownMenu(",
+                                   "WorkspaceFlatMenuRow(", "FlatPopupFooter {",
+                                   "WorkspaceFilterFooterAction(", "enabled = draft.hasChanges",
+                                   "vm.setKindDisplayMode(kind, draft.pending)",
                                    "draft.pending?.let(vm::setDisplayMode)",
                                    "lc_mode_confirm_apply"],
     "SettingsCenterHome.kt": ["enum class SettingsSection(",
@@ -656,12 +658,15 @@ if "settings_home_columns" in (root / "ListSettings.kt").read_text(encoding="utf
 # Never bypass the explicit Apply confirmation when editing Lists modes.
 lists_code = (root / "SurfaceManagementTab.kt").read_text(encoding="utf-8")
 entry_code = (root / "MainTabs.kt").read_text(encoding="utf-8")
-if "InlineEntryModePicker(" not in entry_code or "EntryModeSettingsDialog(" in entry_code:
-    errors.append("MainTabs.kt: Entry must use an inline mode editor, not a dialog")
-if "EntryModeConfirmationDialog(" in lists_code:
-    errors.append("SurfaceManagementTab.kt: modal mode editor returned")
-if (root / "EntryModeSettingsDialog.kt").exists():
-    errors.append("EntryModeSettingsDialog.kt: obsolete modal mode editor file must be removed")
+if "EntryModeFilterMenu(" not in entry_code or "InlineEntryModePicker(" in entry_code:
+    errors.append("MainTabs.kt: Entry must use the anchored Filter-style mode menu")
+if "InlineEntryModePicker(" in lists_code or "EntryModeConfirmationDialog(" in lists_code:
+    errors.append("SurfaceManagementTab.kt: old inline or modal mode editor returned")
+for obsolete in ("InlineEntryModePicker.kt", "EntryModeSettingsDialog.kt"):
+    if (root / obsolete).exists():
+        errors.append(f"{obsolete}: obsolete mode picker should not return")
+if "FlatWorkspaceDropdownMenu(" not in (root / "EntryModeFilterMenu.kt").read_text(encoding="utf-8"):
+    errors.append("EntryModeFilterMenu.kt: use the shared Filter popup")
 for immediate_write in ("onSelected = vm::setDisplayMode",
                         "onSelected = { chosen -> vm.setKindDisplayMode(kind, chosen) }"):
     if immediate_write in lists_code:

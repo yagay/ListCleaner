@@ -217,22 +217,24 @@ internal fun WorkspaceFilterBar(
 
 /** One accessible text action inside the shared footer's centered 48dp row. */
 @Composable
-private fun WorkspaceFilterFooterAction(
+internal fun WorkspaceFilterFooterAction(
     label: String,
     primary: Boolean = false,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     Box(
         modifier = Modifier
             .heightIn(min = 48.dp)
-            .clickable(role = Role.Button, onClick = onClick)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(horizontal = 12.dp),
         contentAlignment = Alignment.Center
     ) {
         AdaptiveText(
             label,
             style = MaterialTheme.typography.labelLarge,
-            color = if (primary) MaterialTheme.colorScheme.primary
+            color = if (!enabled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                else if (primary) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1
         )
