@@ -3,6 +3,7 @@ package com.yagay.ListCleaner.ui
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import com.yagay.ListCleaner.domain.AppTypeFilter
+import com.yagay.ListCleaner.domain.SurfaceKind
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.provider.Settings
@@ -94,7 +95,9 @@ internal fun SurfaceChannelSettings(
 
     val observedPackages = (installedPackages +
         observed.filter { it.userId == userId }.map { it.packageName } +
-        observedRows.filter { it.userId == userId }.map { it.packageName }).distinct().sorted()
+        observedRows.filter { it.userId == userId }.map { it.packageName } +
+        saved.selected(SurfaceKind.NOTIFICATION_SHADE) +
+        saved.locked(SurfaceKind.NOTIFICATION_SHADE)).distinct().sorted()
     // Scan once on entering the page, independent of expansion. Keep one root
     // probe at a time and publish partial results without blocking composition.
     LaunchedEffect(userId, observedPackages, scanRevision) {
@@ -129,11 +132,12 @@ internal fun SurfaceChannelSettings(
             }.getOrDefault(name)
         }
     }
-    // Only show apps with discovered channels. During scanning, apps whose
-    // inventories have not arrived remain hidden until a non-empty result is
-    // published. This is the Channels page's default, independent of filters.
+    // Keep existing whole-app rules visible even when no channels can be read.
+    val appHidden = draft.selected(SurfaceKind.NOTIFICATION_SHADE)
+    val appLocks = draft.locked(SurfaceKind.NOTIFICATION_SHADE)
     val packagesWithChannels = observedPackages.filter { name ->
-        packageInventories[name]?.items?.isNotEmpty() == true
+        packageInventories[name]?.items?.isNotEmpty() == true ||
+            name in appHidden || name in appLocks
     }
     val visiblePackages = packagesWithChannels.filter { name ->
         pkg.isBlank() || name.contains(pkg.trim(), ignoreCase = true) ||
@@ -158,12 +162,12 @@ internal fun SurfaceChannelSettings(
         val channels = packageInventories[appPackage]?.items.orEmpty()
         when (viewFilter) {
             UiFilter.ALL -> true
-            UiFilter.HIDE_SELECTED -> channels.isNotEmpty() &&
-                channels.any { !draft.isChannelHidden(appPackage, it.channelId) }
-            UiFilter.SHOW_SELECTED -> channels.any {
+            UiFilter.HIDE_SELECTED -> appPackage !in appHidden &&
+                channels.none { draft.isChannelHidden(appPackage, it.channelId) }
+            UiFilter.SHOW_SELECTED -> appPackage in appHidden || channels.any {
                 draft.isChannelHidden(appPackage, it.channelId)
             }
-            UiFilter.LOCKED -> channels.any {
+            UiFilter.LOCKED -> appPackage in appLocks || channels.any {
                 draft.isChannelLocked(appPackage, it.channelId)
             }
         }
@@ -220,9 +224,9 @@ internal fun SurfaceChannelSettings(
         },
         summary = {
             WorkspaceListSummary(
-                    title = stringResource(R.string.surface_channels_title),
+                    title = stringResource(R.string.notification_cleanup_title),
                     secondary = if (scanning) "$scanProgress / ${observedPackages.size}"
-                        else stringResource(R.string.surface_channels_help),
+                        else stringResource(R.string.notification_cleanup_help),
                 )
         },
         pending = {
@@ -259,11 +263,9 @@ internal fun SurfaceChannelSettings(
         }
         val found = packageInventories[appPackage]
         val channels = found?.items.orEmpty()
-        val selected = channels.isNotEmpty() && channels.all { draft.isChannelHidden(appPackage, it.channelId) }
-        val appLocked = channels.isNotEmpty() && channels.all { draft.isChannelLocked(appPackage, it.channelId) }
-        val editableChannels = channels.filterNot { draft.isChannelLocked(appPackage, it.channelId) }
-        val allEditableSelected = editableChannels.isNotEmpty() &&
-            editableChannels.all { draft.isChannelHidden(appPackage, it.channelId) }
+        val selected = appPackage in appHidden
+        val appLocked = appPackage in appLocks
+        val hiddenChannelCount = channels.count { draft.isChannelHidden(appPackage, it.channelId) }
         val expandApp: () -> Unit = {
             uiState.toggleExpanded(appPackage)
 
@@ -272,39 +274,39 @@ internal fun SurfaceChannelSettings(
             icon = appIcon,
             title = appLabel,
             subtitle = if (found == null || found.status != ChannelInventoryStatus.COMPLETE)
-                appPackage else stringResource(R.string.surface_channels_count, channels.size),
+                appPackage else stringResource(R.string.notification_cleanup_channel_status,
+                    channels.size, hiddenChannelCount),
             packageName = appPackage,
             expanded = uiState.expandedKey == appPackage,
-            lockState = if (appLocked) BulkLockState.FULL else if (channels.any { draft.isChannelLocked(appPackage, it.channelId) }) BulkLockState.PARTIAL else BulkLockState.NONE,
+            lockState = if (appLocked) BulkLockState.FULL else BulkLockState.NONE,
             onExpand = expandApp,
-            onLock = { channels.forEach { draft = draft.withChannelLocked(appPackage, it.channelId, true) } },
-            onUnlock = { channels.forEach { draft = draft.withChannelLocked(appPackage, it.channelId, false) } },
+            onLock = {
+                draft = draft.withLocked(SurfaceKind.NOTIFICATION_SHADE, appLocks + appPackage)
+            },
+            onUnlock = {
+                draft = draft.withLocked(SurfaceKind.NOTIFICATION_SHADE, appLocks - appPackage)
+            },
             selection = {
                 WorkspaceAppSelectionCheckbox(
-                    state = when {
-                        selected -> ToggleableState.On
-                        channels.any { draft.isChannelHidden(appPackage, it.channelId) } ->
-                            ToggleableState.Indeterminate
-                        else -> ToggleableState.Off
-                    },
-                    enabled = editableChannels.isNotEmpty() && !scanning,
+                    // App-level hiding is separate from the per-channel checkboxes.
+                    state = if (selected) ToggleableState.On else ToggleableState.Off,
+                    enabled = !appLocked,
                     onClick = {
-                        editableChannels.forEach {
-                            draft = draft.withChannelHidden(appPackage, it.channelId, !allEditableSelected)
-                        }
+                        draft = draft.withSelected(SurfaceKind.NOTIFICATION_SHADE,
+                            if (selected) appHidden - appPackage else appHidden + appPackage)
                     },
                 )
             },
             menuActions = listOf(
                 WorkspaceMenuAction(
                     stringResource(R.string.surface_lock_target),
-                    { channels.forEach { draft = draft.withChannelLocked(appPackage, it.channelId, true) } },
-                    !scanning && channels.isNotEmpty() && !appLocked,
+                    { draft = draft.withLocked(SurfaceKind.NOTIFICATION_SHADE, appLocks + appPackage) },
+                    !appLocked,
                 ),
                 WorkspaceMenuAction(
                     stringResource(R.string.surface_unlock_item),
-                    { channels.forEach { draft = draft.withChannelLocked(appPackage, it.channelId, false) } },
-                    !scanning && channels.any { draft.isChannelLocked(appPackage, it.channelId) },
+                    { draft = draft.withLocked(SurfaceKind.NOTIFICATION_SHADE, appLocks - appPackage) },
+                    appLocked,
                 ),
             ) + if (userId == android.os.Process.myUid() / 100000) listOf(
                 WorkspaceMenuAction(stringResource(R.string.surface_channel_settings), {
@@ -315,14 +317,23 @@ internal fun SurfaceChannelSettings(
                 }),
             ) else emptyList(),
             expandedContent = {
-                if (found != null) {
-                    Column(Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal)) {
-                    WorkspaceAppNote(stringResource(when (found.status) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal)) {
+                    WorkspaceAppNote(stringResource(
+                        if (selected) R.string.notification_cleanup_app_selected
+                        else R.string.notification_cleanup_app_active))
+                    if (selected) WorkspaceAppNote(
+                        stringResource(R.string.notification_cleanup_channels_note),
+                        informational = true)
+                    if (channels.isEmpty() && selected) WorkspaceAppNote(
+                        stringResource(R.string.notification_cleanup_app_legacy),
+                        informational = true)
+                    if (found != null) WorkspaceAppNote(stringResource(when (found.status) {
                         ChannelInventoryStatus.COMPLETE -> R.string.surface_channels_full
                         ChannelInventoryStatus.OBSERVED_ONLY -> R.string.surface_channels_restricted
                         ChannelInventoryStatus.DISCONNECTED -> R.string.surface_wait_for_listener
                     }))
-                    }
+                }
+                if (found != null) {
                     channels.groupBy { channel ->
                         channel.groupId.orEmpty()
                     }.toSortedMap().forEach { (_, groupChannels) ->
