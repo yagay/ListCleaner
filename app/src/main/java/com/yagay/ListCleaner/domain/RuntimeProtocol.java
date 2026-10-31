@@ -50,6 +50,11 @@ public final class RuntimeProtocol {
     public static final String OP_BEGIN = "begin";
     public static final String OP_CHUNK = "chunk";
     public static final String OP_COMMIT = "commit";
+    /** Authorized, asynchronous, read-only system_server Direct Share inventory. */
+    public static final String OP_SCAN_DIRECT_SHARE = "scan_direct_share";
+    public static final String EXTRA_SCAN_USER_ID = PACKAGE + ".extra.SCAN_USER_ID";
+    public static final String EXTRA_SCAN_TOKEN = PACKAGE + ".extra.SCAN_TOKEN";
+    public static final String DIRECT_SHARE_SCAN_STATUS_PREFIX = "direct_share_scan_status_user_";
 
     /** Private ResolveInfo metadata written by the system hook and consumed by Resolver hooks. */
     public static final String META_POLICY_DIGEST =
