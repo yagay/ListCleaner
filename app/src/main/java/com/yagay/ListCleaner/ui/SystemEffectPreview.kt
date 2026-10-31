@@ -510,7 +510,7 @@ internal object SystemEffectPreview {
             } else {
                 val uri = sampleFiles(context, scenario).first()
                 Intent(Intent.ACTION_SEND).apply {
-                    type = type
+                    this.type = type
                     putExtra(Intent.EXTRA_STREAM, uri)
                     clipData = ClipData.newUri(context.contentResolver, "Preview", uri)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
