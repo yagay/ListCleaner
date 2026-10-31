@@ -292,7 +292,7 @@ class MainActivity : ComponentActivity() {
                     else vm.refresh(forceCatalog = true)
                 }
                 Destination.PRIORITY -> vm.refresh(forceCatalog = true)
-                Destination.TILES -> vm.refreshComponents()
+                Destination.TILES -> if (listsRefresh.available) listsRefresh.refresh() else vm.refreshComponents()
                 Destination.SURFACES -> listsRefresh.refresh()
                 Destination.SETTINGS -> vm.refreshModuleStatus()
             }
@@ -311,7 +311,7 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                     Destination.PRIORITY -> PriorityTab(state, vm, pendingNavigation)
-                    Destination.TILES -> RootComponentsScreen(state, vm, pendingNavigation = pendingNavigation)
+                    Destination.TILES -> RootComponentsScreen(state, vm, pendingNavigation = pendingNavigation, refreshRegistry = listsRefresh)
                     Destination.SURFACES -> SurfaceManagementTab(state, vm, pendingNavigation, onSurfaceSearchChanged, listsRefresh)
                     Destination.SETTINGS -> SettingsTabContent(
                         state,
