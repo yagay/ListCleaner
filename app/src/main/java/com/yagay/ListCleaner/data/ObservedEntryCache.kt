@@ -50,7 +50,10 @@ internal class ObservedEntryCache(context: Context) {
         segmentedEncoded.forEach { (kind, encoded) ->
             val remote = ObservedEntryCacheCodec.decode(encoded)
                 .filter { it.kind == kind.name && it.userId == userId }
-            reconciled = if (kind in REMOTE_AUTHORITY_SNAPSHOT_KINDS) {
+            // Launcher process owns a complete Shortcut Host inventory, while
+            // older legacy aggregate observations stay delta-based.
+            reconciled = if (kind in REMOTE_AUTHORITY_SNAPSHOT_KINDS ||
+                kind == IntentKind.SHORTCUT_ITEM) {
                 ObservedEntryCacheCodec.reconcileRemote(reconciled, remote, setOf(kind), userId)
             } else {
                 ObservedEntryCacheCodec.merge(reconciled, remote)
