@@ -49,7 +49,14 @@ internal fun AospSurfaceSettings(
     val saved by vm.surfaceFilters.collectAsStateWithLifecycle()
     val remoteInstalled by vm.surfaceInstalledPackages.collectAsStateWithLifecycle()
     val remoteScanStatus by vm.spaceScanState.collectAsStateWithLifecycle()
-    var draft by remember(userId, saved) { mutableStateOf(saved) }
+    var draftBase by remember(userId) { mutableStateOf(saved) }
+    var draft by remember(userId) { mutableStateOf(saved) }
+    LaunchedEffect(userId, saved) {
+        if (draftBase != saved) {
+            draft = rebaseSurfaceDraft(draftBase, draft, saved)
+            draftBase = saved
+        }
+    }
     val uiState = rememberSurfaceWorkspaceUiState(
         userId, "aosp_${selectedKind.name}",
         UiPreferencesStore.initialFilter(context, "lists_aosp_${selectedKind.name}"),
@@ -64,8 +71,8 @@ internal fun AospSurfaceSettings(
     val guardOwner = remember(userId, selectedKind) { Any() }
     RegisterPendingNavigation(
         pendingNavigation, guardOwner, surfacePendingChangeCount(saved, draft),
-        apply = { vm.setSurfaceFilters(draft) },
-        discard = { draft = saved },
+        apply = { vm.setSurfaceFilters(rebaseSurfaceDraft(draftBase, draft, saved)) },
+        discard = { draft = saved; draftBase = saved },
     )
 
     val active by NotificationCleanupController.rows.collectAsStateWithLifecycle()
@@ -145,8 +152,8 @@ internal fun AospSurfaceSettings(
         pending = {
             if (draft != saved) PendingChangesBar(
                    count = surfacePendingChangeCount(saved, draft),
-                   onDiscard = { draft = saved },
-                   onApply = { vm.setSurfaceFilters(draft) },
+                   onDiscard = { draft = saved; draftBase = saved },
+                   onApply = { vm.setSurfaceFilters(rebaseSurfaceDraft(draftBase, draft, saved)) },
                 )
         },
     ) {

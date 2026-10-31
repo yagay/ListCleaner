@@ -184,14 +184,18 @@ internal fun ActiveNotificationManagement(
     RegisterPendingNavigation(
         pendingNavigation, guardOwner, if (categoryMode) {
             categoryChanges + channelChanges
-        } else chosen.size,
+        } else selectedKeys.size,
         apply = {
             if (categoryMode) {
                 applyCategoryChanges()
             } else {
-                dismissalCount = NotificationCleanupController.dismiss(chosen)
-                selectedKeys = emptySet()
-                true
+                if (chosen.isEmpty() || chosen.size != selectedKeys.size) false else {
+                    dismissalCount = NotificationCleanupController.dismiss(chosen)
+                    if (dismissalCount == chosen.size) {
+                        selectedKeys = emptySet()
+                        true
+                    } else false
+                }
             }
         },
         discard = {
@@ -303,12 +307,14 @@ if (categoryMode && categoryChanges + channelChanges > 0) PendingChangesBar(
     onDiscard = { draftCategories = null; draftChannels = null },
     onApply = { applyCategoryChanges(); },
 )
-if (!categoryMode && chosen.isNotEmpty()) PendingChangesBar(
-    count = chosen.size,
+if (!categoryMode && selectedKeys.isNotEmpty()) PendingChangesBar(
+    count = selectedKeys.size,
     onDiscard = { selectedKeys = emptySet() },
     onApply = {
-        dismissalCount = NotificationCleanupController.dismiss(chosen)
-        selectedKeys = emptySet()
+        if (chosen.isNotEmpty() && chosen.size == selectedKeys.size) {
+            dismissalCount = NotificationCleanupController.dismiss(chosen)
+            if (dismissalCount == chosen.size) selectedKeys = emptySet()
+        }
     },
 )
         },
@@ -469,10 +475,12 @@ internal fun StaleRuleManagement(
         pendingNavigation, guardOwner, selectedRules.size,
         apply = {
             if (!completed || !state.error.isNullOrBlank() || selected.size != selectedRules.size) false else {
-                vm.deselectRules(selected, null, null)
-                selectedRules = emptySet()
-                refreshed = false
-                true
+                val accepted = vm.removeStaleRules(selected)
+                if (accepted) {
+                    selectedRules = emptySet()
+                    refreshed = false
+                }
+                accepted
             }
         },
         discard = { selectedRules = emptySet() },
@@ -518,9 +526,10 @@ internal fun StaleRuleManagement(
             if (completed && state.error.isNullOrBlank() &&
                 selected.isNotEmpty() && selected.size == selectedRules.size
             ) {
-                vm.deselectRules(selected, null, null)
-                selectedRules = emptySet()
-                refreshed = false
+                if (vm.removeStaleRules(selected)) {
+                    selectedRules = emptySet()
+                    refreshed = false
+                }
             }
         },
     )

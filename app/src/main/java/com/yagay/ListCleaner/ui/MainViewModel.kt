@@ -590,6 +590,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun deselectRules(rules: Collection<ComponentRule>, filter: IntentKind?, preset: OpenPreset?) =
         mutateRules(rules, filter, preset, SelectionOperation.DESELECT)
 
+    /** Only acknowledge stale-rule cleanup after repository state confirms it. */
+    fun removeStaleRules(rules: Collection<ComponentRule>): Boolean {
+        if (!canEdit() || rules.isEmpty() ||
+            rules.any { isRuleBulkProtected(null, null, it) }) return false
+        return runCatching {
+            app.rules.setSelected(rules, false)
+            rules.none { it in app.rules.rules.value }
+        }.getOrDefault(false)
+    }
+
     fun invertRules(rules: Collection<ComponentRule>, filter: IntentKind?, preset: OpenPreset?) =
         mutateRules(rules, filter, preset, SelectionOperation.INVERT)
 
