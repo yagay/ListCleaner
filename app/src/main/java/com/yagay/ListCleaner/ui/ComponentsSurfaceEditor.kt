@@ -127,6 +127,7 @@ internal fun ComponentsSurfaceEditor(
     vm: MainViewModel,
     surface: ManagedComponentSurface,
     pendingNavigation: PendingNavigationGuard?,
+    refreshRegistry: ListsRefreshRegistry?,
     onRootKind: (CleanupKind?) -> Unit,
     onManagedKind: (ManagedComponentSurface) -> Unit,
 ) {
@@ -134,7 +135,6 @@ internal fun ComponentsSurfaceEditor(
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
     val saved by vm.surfaceFilters.collectAsStateWithLifecycle()
     val remoteInstalled by vm.surfaceInstalledPackages.collectAsStateWithLifecycle()
-    val rootScan by vm.componentScan.collectAsStateWithLifecycle()
     val active by NotificationCleanupController.rows.collectAsStateWithLifecycle()
     val observed by NotificationCleanupController.observedRows.collectAsStateWithLifecycle()
     val selectionDraft = remember(userId, surface) { PendingSelectionDraft<String>() }
@@ -146,6 +146,8 @@ internal fun ComponentsSurfaceEditor(
     }
     var expandedApp by rememberSaveable(userId, surface) { mutableStateOf<String?>(null) }
     var sorting by rememberSaveable(userId, surface) { mutableStateOf(false) }
+    var scanRevision by remember(userId, surface) { mutableIntStateOf(0) }
+    RegisterListsRefresh(refreshRegistry) { scanRevision++ }
     val isNotification = surface == ManagedComponentSurface.NOTIFICATIONS
     val currentUser = android.os.Process.myUid() / 100000
 
@@ -169,7 +171,7 @@ internal fun ComponentsSurfaceEditor(
     }
     var scanning by remember(userId, surface) { mutableStateOf(false) }
     var scannedCount by remember(userId, surface) { mutableIntStateOf(0) }
-    LaunchedEffect(userId, surface, notificationPackages, rootScan.observedAt) {
+    LaunchedEffect(userId, surface, notificationPackages, scanRevision) {
         if (!isNotification) return@LaunchedEffect
         scanning = true
         scannedCount = 0
@@ -193,7 +195,7 @@ internal fun ComponentsSurfaceEditor(
         mutableStateOf(SurfaceCandidateDiscovery.Result(emptyList(), ""))
     }
     var settingsLoading by remember(userId) { mutableStateOf(false) }
-    LaunchedEffect(userId, surface, remoteInstalled, rootScan.observedAt) {
+    LaunchedEffect(userId, surface, remoteInstalled, scanRevision) {
         if (isNotification) return@LaunchedEffect
         settingsLoading = true
         try {
