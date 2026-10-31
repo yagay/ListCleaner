@@ -176,7 +176,7 @@ internal object SystemEntryProbe {
             ?: return@runCatching RuntimeObservations(null, null, null, null)
         val prefs = app.currentSession()?.service
             ?.getRemotePreferences(RuleRepository.REMOTE_PREFS)
-            ?: return@runCatching RuntimeObservations(null, null, null)
+            ?: return@runCatching RuntimeObservations(null, null, null, null)
         val ownUid = Process.myUid()
         val ourUser = AndroidUid.userId(ownUid)
         fun decode(key: String) = RuntimeInterfaceSnapshotCodec.decode(
@@ -203,7 +203,7 @@ internal object SystemEntryProbe {
             other = last?.takeIf { it.callerUid != ownUid && it !== host },
             ordered = ordered,
         )
-    }.getOrDefault(RuntimeObservations(null, null, null))
+    }.getOrDefault(RuntimeObservations(null, null, null, null))
 
     @Suppress("DEPRECATION")
     private fun isRecognizedSettingsUid(context: Context, uid: Int): Boolean {
