@@ -19,7 +19,11 @@ internal fun ClassicComponentCategoryFilter(
     selected: CleanupKind?,
     onSelected: (CleanupKind?) -> Unit,
     modifier: Modifier = Modifier,
-    previewActions: List<WorkspaceMenuAction> = emptyList()
+    previewActions: List<WorkspaceMenuAction> = emptyList(),
+    onManagedSurface: (ManagedComponentSurface) -> Unit = {},
 ) {
-    ComponentCategoryPicker(selected, onSelected, modifier, previewActions)
+    ComponentCategoryPicker(
+        selected, onSelected, modifier, previewActions,
+        onManagedSurface = onManagedSurface,
+    )
 }
