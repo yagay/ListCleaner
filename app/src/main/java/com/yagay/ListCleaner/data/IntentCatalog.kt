@@ -43,6 +43,7 @@ class IntentCatalog(private val context: Context) {
     val revision: StateFlow<Long> = mutableRevision.asStateFlow()
     private val specialEntryDiscovery = SpecialEntryDiscovery(context)
     private val proactiveShortcuts = UnifiedShortcutEngine.get(context)
+    private val observedShortcutCache = ObservedEntryCache(context)
     suspend fun completeConfigured(
         items: List<ComponentCandidate>,
         selected: Set<ComponentRule>,
@@ -299,6 +300,37 @@ class IntentCatalog(private val context: Context) {
                 "mode=${proactiveOptions.trigger} kinds=${activeKinds.joinToString(",")}")
         }
         currentCoroutineContext().ensureActive()
+        // A Launcher Shortcut Host snapshot is an observation, not an opt-in
+        // proactive Root scan. Also consume it for a selected work/secondary
+        // profile: SpecialEntryDiscovery runs only for the current process user.
+        val now = System.currentTimeMillis()
+        val launcherShortcuts = observedShortcutCache.snapshot().asSequence()
+            .filter { it.userId == userId &&
+                it.kind == IntentKind.SHORTCUT_ITEM.name &&
+                now - it.observedAt in 0..600_000L }
+            .mapNotNull { record ->
+                val rule = ComponentRule(
+                    IntentKind.SHORTCUT_ITEM, record.packageName, record.syntheticClass)
+                    if (!rule.isValid()) return@mapNotNull null
+                val app = if (profile == null) runCatching {
+                    context.packageManager.getApplicationInfo(record.packageName, 0)
+                }.getOrNull() else null
+                val owner = app?.let { runCatching {
+                    it.loadLabel(context.packageManager).toString()
+                }.getOrNull() } ?: record.packageName
+                ComponentCandidate(
+                    rule = rule,
+                    appLabel = owner,
+                    activityLabel = record.label.ifBlank { owner },
+                    appType = app?.listCleanerAppType() ?: AppType.USER,
+                    evidence = listOf(
+                        "ACTIVE_SHORTCUT_CANDIDATE source=LAUNCHER_HOST userId=$userId",
+                        "publishedShortcut=true launcherPopupVisibility=unverified",
+                    ),
+                )
+            }.distinctBy { it.rule.id }.toList()
+        if (launcherShortcuts.isNotEmpty()) found += launcherShortcuts
+        report.appendLine("launcherShortcutHost userId=$userId current=${launcherShortcuts.size}")
         val result = merge(found)
         report.insert(0, "scanTiming userId=$userId specialMs=$specialMillis batchMs=$batchMillis " +
             "intentQueriesMs=$intentQueryMillis shortcutsMs=${(System.nanoTime() - shortcutStartNanos) / 1_000_000} " +
