@@ -80,7 +80,7 @@ required = {
     "SurfaceManagementTab.kt": ["fun SurfaceManagementTab(state: MainState, vm: MainViewModel)",
                                  "EntryGroup.entries", "GlobalModeSettingsRow(",
                                  "state.modeOverrides[kind]", "InlineEntryModePicker(",
-                                 "editingModeKey = kind.name", "editingModeKey = GLOBAL_MODE_KEY",
+                                 "editingModeKey == kind.name", "editingModeKey == GLOBAL_MODE_KEY",
                                  "GlobalModeGroupHeader(", "lc_mode_collapse_group",
                                  "lc_mode_expand_group", "KeyboardArrowUp",
                                  "KeyboardArrowDown"],
