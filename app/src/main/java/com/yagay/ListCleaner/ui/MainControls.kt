@@ -174,6 +174,7 @@ internal fun ListControls(
     subtypeTitle: String? = null,
     subtypeAvailable: Boolean = true,
     previewActions: List<WorkspaceMenuAction> = emptyList(),
+    toolbarPreviewActions: List<WorkspaceMenuAction> = emptyList(),
     modeAction: (@Composable () -> Unit)? = null,
     selectionActions: List<WorkspaceMenuAction> = emptyList(),
 ) {
@@ -195,7 +196,18 @@ internal fun ListControls(
                 )
             },
             beforeFilter = modeAction,
-            afterFilter = { WorkspaceListActions(actions = selectionActions) },
+            afterFilter = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (toolbarPreviewActions.isNotEmpty()) {
+                        WorkspaceCategoryPreviewIcon(
+                            actions = toolbarPreviewActions,
+                            touchSize = WorkspaceToolbarMetrics.actionSize,
+                            iconSize = 20.dp,
+                        )
+                    }
+                    WorkspaceListActions(actions = selectionActions)
+                }
+            },
             filter = {
                 WorkspaceFilterBar(
                     appTypeFilter = appTypeFilter,
