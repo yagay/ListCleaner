@@ -185,7 +185,9 @@ internal fun ListControls(
                     previewActions = previewActions,
                     subtypeSelector = if (
                         subtypeAvailable &&
-                        (state.filter == IntentKind.OPEN || state.filter == IntentKind.DEEP_LINK)
+                        (state.filter == IntentKind.OPEN ||
+                            state.filter == IntentKind.DEEP_LINK ||
+                            state.filter == IntentKind.DIRECT_SHARE)
                     ) extraFilter else null
                 )
             },
