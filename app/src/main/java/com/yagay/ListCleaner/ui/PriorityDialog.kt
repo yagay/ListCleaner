@@ -510,16 +510,10 @@ fun PriorityDialogContent(
             }
 
             groups.forEachIndexed { index, group ->
-                if (index == 0 || (groups[index - 1].rank == null) != (group.rank == null)) {
-                    item(key = "priority-section-${if (group.rank == null) "available" else "pinned"}") {
-                        Box(Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.groupHorizontal)) {
-                            PageSectionTitle(
-                                stringResource(
-                                    if (group.rank != null) R.string.priority_selected
-                                    else R.string.priority_unselected
-                                )
-                            )
-                        }
+                val prioritized = group.rank != null
+                if (startsPrioritySection(groups, index) { it.rank != null }) {
+                    item(key = "priority-section-${if (prioritized) "pinned" else "available"}") {
+                        WorkspacePrioritySectionHeading(prioritized)
                     }
                 }
                 val packageName = group.packageName
