@@ -27,6 +27,8 @@ data class SurfaceFilterConfig(
     val hiddenNotificationCategories: Set<String> = emptySet(),
     /** Actual SystemUI CustomTile labels, scoped to this Android user. */
     val tileLabels: Map<String, String> = emptyMap(),
+    /** Preferred order in the add-tile chooser; never changes already-added QS tiles. */
+    val tileOrder: List<String> = emptyList(),
 ) {
     private fun allowed(kind: SurfaceKind, value: String): Boolean =
         if (kind == SurfaceKind.MEDIA_OUTPUT) value.length in 1..256 &&
@@ -44,16 +46,13 @@ data class SurfaceFilterConfig(
             val id = key.substringAfter('|', "")
             PackageIdentity.valid(pkg) && id.isNotEmpty() && id.length <= 512 && id.none(Char::isISOControl)
         })
+        require(tileOrder.size <= 2000)
+        require(tileOrder.size == tileOrder.distinct().size)
+        require(tileOrder.all(::validTileComponent))
         require(tileLabels.size <= 2000)
         require(tileLabels.all { (component, label) ->
-            val pkg = component.substringBefore('/', "")
-            val clazz = component.substringAfter('/', "")
-            PackageIdentity.valid(pkg) &&
-                component.count { it == '/' } == 1 &&
-                clazz.length in 3..240 && clazz.contains('.') &&
-                clazz.all { it.isLetterOrDigit() || it == '_' || it == '.' || it == '$' } &&
-                label.length in 1..64 && label == label.trim() &&
-                label.none(Char::isISOControl)
+            validTileComponent(component) && label.length in 1..64 &&
+                label == label.trim() && label.none(Char::isISOControl)
         })
         require(hiddenNotificationCategories.size <= 32)
         require(hiddenNotificationCategories.all { it.length in 1..64 && it.none(Char::isISOControl) })
@@ -84,7 +83,12 @@ data class SurfaceFilterConfig(
         )
     }
 
-    /** Null or blank restores the service's original SystemUI name. */
+    private fun validTileComponent(component: String): Boolean {
+        val pkg = component.substringBefore('/', "")
+        val clazz = component.substringAfter('/', "")
+        return PackageIdentity.valid(pkg) && component.count { it == '/' } == 1 &&
+            clazz.length in 3..240 && clazz.contains('.') &&
+            clazz.all { it.isLetterOrDigit() || it == '_' || it == '.' || it == '
     fun withTileLabel(component: String, label: String?): SurfaceFilterConfig {
         val next = label?.trim().orEmpty()
         val updated = if (next.isEmpty()) tileLabels - component
@@ -148,37 +152,19 @@ data class SurfaceFilterConfig(
         return withPriorities(kind, original)
     }
 }
- } &&
-                label.length in 1..64 && label == label.trim() &&
-                label.none(Char::isISOControl)
-        })
-        require(hiddenNotificationCategories.size <= 32)
-        require(hiddenNotificationCategories.all { it.length in 1..64 && it.none(Char::isISOControl) })
-        require(hiddenNotificationChannels.all { key ->
-            val pkg = key.substringBefore('|', "")
-            val channelId = key.substringAfter('|', "")
-            PackageIdentity.valid(pkg) && channelId.isNotEmpty() &&
-                channelId.length <= 512 && channelId.none(Char::isISOControl)
-        })
-        require(packages.all { (kind, ids) -> ids.size <= 2000 && ids.all { allowed(kind, it) } })
-        require(locks.all { (kind, ids) ->
-            ids.size <= 2000 && ids.all { allowed(kind, it) }
-        })
-        require(order.all { (kind, values) ->
-            kind.supportsSurfaceOrdering() && values.size <= 2000 &&
-                values.size == values.distinct().size &&
-                values.all { allowed(kind, it) }
-        })
-        val compactPackages = packages.filterValues { it.isNotEmpty() }
-            .mapValues { (_, values) -> values.toSet() }
-        val compactLocks = locks.filterValues { it.isNotEmpty() }
-            .mapValues { (_, values) -> values.toSet() }
-        val compactOrder = order.filterValues { it.isNotEmpty() }
-            .mapValues { (_, values) -> values.toList() }
-        return if (compactPackages == packages && compactLocks == locks &&
-            compactOrder == order) this else copy(
-            packages = compactPackages, locks = compactLocks, order = compactOrder,
-        )
+ }
+    }
+
+    /** Saves an explicit component-level order; empty means AOSP's original order. */
+    fun withTileOrder(components: List<String>): SurfaceFilterConfig =
+        copy(tileOrder = components.distinct()).validated()
+
+    /** Null or blank restores the service's original SystemUI name. */
+    fun withTileLabel(component: String, label: String?): SurfaceFilterConfig {
+        val next = label?.trim().orEmpty()
+        val updated = if (next.isEmpty()) tileLabels - component
+            else tileLabels + (component to next)
+        return copy(tileLabels = updated).validated()
     }
 
     fun selected(kind: SurfaceKind): Set<String> = packages[kind].orEmpty()
