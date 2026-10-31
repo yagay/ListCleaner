@@ -132,6 +132,34 @@ class AospSurfaceConfigTest {
         }
     }
 
+    @Test fun tileCandidateOrderIsPerServiceAndRestorable() {
+        val a = "com.example.tiles/com.example.tiles.One"
+        val b = "com.example.tiles/com.example.tiles.Two"
+        val policy = SurfaceFilterConfig().withTileOrder(listOf(b, a))
+        assertEquals(listOf(b, a), policy.tileOrder)
+        val decoded = json.decodeFromString(SurfaceFilterConfig.serializer(),
+            json.encodeToString(SurfaceFilterConfig.serializer(), policy))
+        assertEquals(listOf(b, a), decoded.validated().tileOrder)
+        assertTrue(decoded.withTileOrder(emptyList()).tileOrder.isEmpty())
+        assertThrows(IllegalArgumentException::class.java) {
+            SurfaceFilterConfig().withTileOrder(listOf("invalid"))
+        }
+    }
+
+    @Test fun tileCandidateOrderDoesNotAffectAnotherAndroidUser() {
+        val component = "com.example.tiles/com.example.tiles.One"
+        val work = SurfaceFilterConfig().withTileOrder(listOf(component))
+        val stored = ModuleConfig(
+            rules = emptySet(), mode = DisplayMode.HIDE_SELECTED,
+            priorities = PriorityConfig(), diagnostic = false,
+            userSpaces = mapOf(10 to UserSpaceRules(surfaceFilters = work))
+        ).validated()
+        val decoded = json.decodeFromString(ModuleConfig.serializer(),
+            json.encodeToString(ModuleConfig.serializer(), stored))
+        assertTrue(decoded.surfaceFilters.tileOrder.isEmpty())
+        assertEquals(listOf(component), decoded.userSpaces.getValue(10).surfaceFilters.tileOrder)
+    }
+
     @Test fun oldConfigurationWithoutSurfaceRulesStillLoadsSafely() {
         val old = """{"rules":[],"mode":"HIDE_SELECTED","priorities":{},"diagnostic":false}"""
         val config = json.decodeFromString(ModuleConfig.serializer(), old).validated()
