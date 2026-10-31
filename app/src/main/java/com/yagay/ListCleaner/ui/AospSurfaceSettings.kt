@@ -67,7 +67,6 @@ internal fun AospSurfaceSettings(
     val viewFilter = uiState.viewFilter
     val appCategory = uiState.appTypeFilter
     var refreshRevision by remember(userId, selectedKind) { mutableStateOf(0) }
-    RegisterListsRefresh(refreshRegistry, enabled = !loading) { refreshRevision++ }
     val guardOwner = remember(userId, selectedKind) { Any() }
     RegisterPendingNavigation(
         pendingNavigation, guardOwner, surfacePendingChangeCount(saved, draft),
@@ -80,6 +79,7 @@ internal fun AospSurfaceSettings(
         mutableStateOf(SurfaceCandidateDiscovery.Result(emptyList(), ""))
     }
     var loading by remember(userId, selectedKind) { mutableStateOf(true) }
+    RegisterListsRefresh(refreshRegistry, enabled = !loading) { refreshRevision++ }
     LaunchedEffect(userId, selectedKind, refreshRevision, active, remoteInstalled) {
         loading = true
         val scanned = withContext(Dispatchers.IO) {
