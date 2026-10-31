@@ -125,6 +125,7 @@ internal object SystemPreviewProjection {
         val ordered = prioritizeApps(visible, configured, SystemProbeItem::packageName) { 0 }
         return PreviewListResult(ordered, PreviewListSource.ESTIMATED)
     }
+}
 
 /**
  * The regular preview always shows one best-effort result.
