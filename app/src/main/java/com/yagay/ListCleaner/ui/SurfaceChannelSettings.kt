@@ -137,11 +137,14 @@ internal fun SurfaceChannelSettings(
     // Keep existing whole-app rules visible even when no channels can be read.
     val appHidden = draft.selected(SurfaceKind.NOTIFICATION_SHADE)
     val appLocks = draft.locked(SurfaceKind.NOTIFICATION_SHADE)
+    val hiddenChannelPackages = draft.hiddenNotificationChannels
+        .mapTo(hashSetOf()) { it.substringBefore('|') }
+    val lockedChannelPackages = draft.lockedNotificationChannels
+        .mapTo(hashSetOf()) { it.substringBefore('|') }
     val packagesWithChannels = observedPackages.filter { name ->
         packageInventories[name]?.items?.isNotEmpty() == true ||
             name in appHidden || name in appLocks ||
-            (draft.hiddenNotificationChannels + draft.lockedNotificationChannels)
-                .any { it.substringBefore('|') == name }
+            name in hiddenChannelPackages || name in lockedChannelPackages
     }
     val visiblePackages = packagesWithChannels.filter { name ->
         pkg.isBlank() || name.contains(pkg.trim(), ignoreCase = true) ||
@@ -167,13 +170,11 @@ internal fun SurfaceChannelSettings(
         when (viewFilter) {
             UiFilter.ALL -> true
             UiFilter.HIDE_SELECTED -> appPackage !in appHidden &&
-                channels.none { draft.isChannelHidden(appPackage, it.channelId) }
-            UiFilter.SHOW_SELECTED -> appPackage in appHidden || channels.any {
-                draft.isChannelHidden(appPackage, it.channelId)
-            } || draft.hiddenNotificationChannels.any { it.substringBefore('|') == appPackage }
-            UiFilter.LOCKED -> appPackage in appLocks || channels.any {
-                draft.isChannelLocked(appPackage, it.channelId)
-            } || draft.lockedNotificationChannels.any { it.substringBefore('|') == appPackage }
+                appPackage !in hiddenChannelPackages
+            UiFilter.SHOW_SELECTED -> appPackage in appHidden ||
+                appPackage in hiddenChannelPackages
+            UiFilter.LOCKED -> appPackage in appLocks ||
+                appPackage in lockedChannelPackages
         }
     }
     val displayedPackages = filteredPackages
