@@ -2,6 +2,7 @@ package com.yagay.ListCleaner.xposed
 
 import android.content.ComponentName
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
 import android.content.pm.LauncherApps
@@ -14,6 +15,9 @@ import android.util.Log
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.DisplayMode
+import com.yagay.ListCleaner.domain.DirectShareType
+import com.yagay.ListCleaner.domain.DirectShareTypeRules
+import com.yagay.ListCleaner.domain.ObservedEntryRecord
 import com.yagay.ListCleaner.domain.ENTRY_RUNTIME_DEFINITIONS
 import com.yagay.ListCleaner.domain.EntryRuntimePath
 import com.yagay.ListCleaner.domain.FilterPolicy
@@ -31,12 +35,19 @@ import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
 
 /** Observes launcher ShortcutInfo/Direct Share in system_server and filters only launcher-facing queries. */
 class ShortcutSurfaceModule : XposedModule() {
     @Volatile private var processName = ""
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
     private val listResults = SafeListResultExtractor(::record)
+    private val observationWorker = Executors.newSingleThreadExecutor { task ->
+        Thread(task, "LC-DirectShareObservation").apply { isDaemon = true }
+    }
+    private val observationWriter by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        RemoteObservedEntryPersistence(preferences, ::record)
+    }
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
@@ -170,6 +181,34 @@ class ShortcutSurfaceModule : XposedModule() {
         parsed.filterNotNull().forEach { (shortcut, target) ->
             RuntimeObservedEntryStore.observeDirectShare(shortcut, target)
         }
+        // The ShortcutService shares matching *only* for a concrete IntentFilter.
+        // Store actual MIME-family matches; never infer a Direct Share target
+        // from a normal launcher shortcut's categories or ID alone.
+        val filter = chain.args.firstOrNull { it is IntentFilter } as? IntentFilter
+        val requestedFamilies = filter?.let { mime ->
+            (0 until mime.countDataTypes()).mapNotNull {
+                DirectShareType.fromMime(mime.getDataType(it))
+            }.distinct()
+        }.orEmpty()
+        val matchedFamily = requestedFamilies.singleOrNull()
+        if (matchedFamily != null) {
+            val observedAt = System.currentTimeMillis()
+            val captured = parsed.mapNotNull { item ->
+                val (shortcut, target) = item ?: return@mapNotNull null
+                val rule = directShareRule(shortcut, target) ?: return@mapNotNull null
+                ObservedEntryRecord(
+                    kind = IntentKind.DIRECT_SHARE.name, packageName = rule.packageName,
+                    syntheticClass = rule.className,
+                    label = shortcut.shortLabel?.toString().orEmpty(),
+                    activityClass = target?.className ?: shortcut.activity?.className,
+                    observedAt = observedAt, userId = userId,
+                    directShareFamilies = setOf(matchedFamily.name),
+                ).validatedOrNull()
+            }
+            if (captured.isNotEmpty()) observationWorker.execute {
+                observationWriter.merge(captured)
+            }
+        }
         val selected = policy.selected(IntentKind.DIRECT_SHARE)
         val priorities = policy.priorities(IntentKind.DIRECT_SHARE)
         val targetPackages = parsed.map { pair ->
@@ -178,12 +217,13 @@ class ShortcutSurfaceModule : XposedModule() {
         val ruleIds = parsed.map { pair ->
             pair?.let { (shortcut, target) -> directShareRule(shortcut, target)?.id }
         }
-        val indices = if ((policy.displayMode == DisplayMode.SHOW_ALL || selected.isEmpty()) &&
+        val effectiveSelection = DirectShareTypeRules.selectedFor(selected, ruleIds, matchedFamily)
+        val indices = if ((policy.displayMode == DisplayMode.SHOW_ALL || effectiveSelection.isEmpty()) &&
             priorities.isEmpty()) values.indices.toList() else directShareFilteredIndices(
             targetPackages = targetPackages,
             ruleIds = ruleIds,
             visibleSharePackages = targetPackages.filterNotNull().toSet(),
-            selectedRuleIds = selected,
+            selectedRuleIds = effectiveSelection,
             displayMode = policy.displayMode,
             priorities = priorities,
         )
