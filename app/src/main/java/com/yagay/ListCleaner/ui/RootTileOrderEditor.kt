@@ -223,8 +223,17 @@ internal fun RootTileOrderEditor(
                     }
                 }
             }
-            items(visible, key = { "app|TILE|" + it.component.flattenToString() }) { tile ->
+            visible.forEachIndexed { index, tile ->
                 val id = tile.component.flattenToString()
+                val prioritized = id in draft
+                if (startsPrioritySection(visible, index) {
+                        it.component.flattenToString() in draft
+                    }) {
+                    item(key = "priority-section-${if (prioritized) "pinned" else "available"}") {
+                        WorkspacePrioritySectionHeading(prioritized)
+                    }
+                }
+                item(key = "app|TILE|" + id, contentType = "tile") {
                 val position = moveTargets.indexOf(id)
                 ContinuousApplicationSurface(expanded = false) {
                     MaterialAppRowBody(
@@ -298,6 +307,7 @@ internal fun RootTileOrderEditor(
                             }
                         },
                     )
+                }
                 }
             }
             if (visible.isEmpty()) {
