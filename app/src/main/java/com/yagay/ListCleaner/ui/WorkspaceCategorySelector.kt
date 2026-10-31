@@ -488,7 +488,9 @@ internal fun ComponentCategoryPicker(
     selected: CleanupKind?,
     onSelected: (CleanupKind?) -> Unit,
     modifier: Modifier = Modifier,
-    previewActions: List<WorkspaceMenuAction> = emptyList()
+    previewActions: List<WorkspaceMenuAction> = emptyList(),
+    managedSurface: ManagedComponentSurface? = null,
+    onManagedSurface: (ManagedComponentSurface) -> Unit = {},
 ) {
     val context = LocalContext.current
     val preferences = UiPreferencesRuntime.current
@@ -500,7 +502,9 @@ internal fun ComponentCategoryPicker(
         onDismiss = { managePins = false }
     )
     WorkspaceCategoryPicker(
-        selectedTitle = if (selected == null) stringResource(R.string.common_all) else stringResource(selected.titleRes()),
+        selectedTitle = if (managedSurface != null) stringResource(managedSurface.titleRes)
+            else if (selected == null) stringResource(R.string.common_all)
+            else stringResource(selected.titleRes()),
         menuTitle = stringResource(R.string.lc_category_picker_component_title),
         modifier = modifier, previewActions = previewActions
     ) { dismiss ->
@@ -515,9 +519,17 @@ internal fun ComponentCategoryPicker(
             { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedRootKinds = UiPreferencesRuntime.current.pinnedRootKinds - kind)) })
         }
         ComponentCategoryFilterPolicy.choices.filterNotNull().filter { it !in pinned }.forEach { kind ->
-            WorkspaceFavoriteChoice(stringResource(kind.titleRes()), selected == kind, false, kind.hierarchyIcon(),
+            WorkspaceFavoriteChoice(stringResource(kind.titleRes()), managedSurface == null && selected == kind, false, kind.hierarchyIcon(),
                 { dismiss(); onSelected(kind) },
                 { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedRootKinds = UiPreferencesRuntime.current.pinnedRootKinds + kind)) })
+        }
+        FlatPopupHeader(stringResource(R.string.component_display_filters))
+        ManagedComponentSurface.entries.forEach { surface ->
+            WorkspaceMenuChoice(
+                stringResource(surface.titleRes),
+                managedSurface == surface,
+                { dismiss(); onManagedSurface(surface) },
+            )
         }
     }
 }
