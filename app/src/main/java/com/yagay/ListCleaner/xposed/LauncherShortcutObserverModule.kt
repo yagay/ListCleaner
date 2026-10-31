@@ -134,9 +134,8 @@ class LauncherShortcutObserverModule : XposedModule() {
                 LauncherApps.ShortcutQuery.FLAG_MATCH_CACHED
         )
         var count = 0
-        profiles.distinctBy { it.identifier }.forEach { user ->
-            val userId = user.identifier
-            if (userId !in 0..21474) return@forEach
+        profiles.distinctBy { it }.forEach { user ->
+            val userId = ReflectionAccess.userId(user) ?: return@forEach
             val shortcuts = try {
                 launcher.getShortcuts(query, user)
             } catch (error: Exception) {
