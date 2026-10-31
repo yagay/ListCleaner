@@ -32,8 +32,8 @@ internal fun WorkspaceAppRow(
     expanded: Boolean,
     lockState: BulkLockState,
     onExpand: () -> Unit,
-    onLock: () -> Unit,
-    onUnlock: () -> Unit,
+    onLock: (() -> Unit)? = null,
+    onUnlock: (() -> Unit)? = null,
     onOverview: (() -> Unit)? = null,
     selection: @Composable () -> Unit,
     packageName: String? = null,
@@ -68,16 +68,16 @@ internal fun WorkspaceAppRow(
                 WorkspaceFlatOverflowMenu(
                     actions = menuActions ?: listOfNotNull(
                         onOverview?.let { WorkspaceMenuAction(label = stringResource(R.string.app_overview_title), onClick = it) },
-                        WorkspaceMenuAction(
+                        onLock?.let { WorkspaceMenuAction(
                             label = stringResource(R.string.bulk_lock_action_lock),
-                            onClick = onLock,
+                            onClick = it,
                             enabled = lockState != BulkLockState.FULL
-                        ),
-                        WorkspaceMenuAction(
+                        ) },
+                        onUnlock?.let { WorkspaceMenuAction(
                             label = stringResource(R.string.bulk_lock_action_unlock),
-                            onClick = onUnlock,
+                            onClick = it,
                             enabled = lockState != BulkLockState.NONE
-                        )
+                        ) }
                     ),
                     expanded = menuExpanded,
                     onExpandedChange = { menuExpanded = it },

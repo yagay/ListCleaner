@@ -67,6 +67,7 @@ internal fun WorkspaceCategoryFilterRow(
     filter: @Composable () -> Unit,
     beforeFilter: (@Composable () -> Unit)? = null,
     afterFilter: (@Composable () -> Unit)? = null,
+    showCategory: Boolean = true,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(
@@ -76,7 +77,7 @@ internal fun WorkspaceCategoryFilterRow(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(Modifier.weight(1f)) { category() }
+        if (showCategory) Box(Modifier.weight(1f)) { category() }
         WorkspaceToolbarActions(beforeFilter, filter, afterFilter)
     }
 }

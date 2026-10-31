@@ -168,6 +168,8 @@ internal fun SurfaceChannelSettings(
     val selectedChannelIds = editableChannels.filter {
         draft.isChannelHidden(it.packageName, it.channelId)
     }.map { it.packageName to it.channelId }.toSet()
+    val selectionConfirmation = rememberSelectionConfirmationController()
+    SelectionConfirmationDialog(selectionConfirmation)
     val applyBulkChannels: (SurfaceBulkOperation) -> Unit = { operation ->
         val updated = applySurfaceBulkSelection(selectedChannelIds, visibleChannelIds, operation)
         editableChannels.forEach { channel ->
@@ -190,13 +192,19 @@ internal fun SurfaceChannelSettings(
                 showAppTypeFilter = true,
                 actions = listOf(
                     WorkspaceMenuAction(stringResource(R.string.select_all), {
-                        applyBulkChannels(SurfaceBulkOperation.ALL)
+                        selectionConfirmation.request(context.getString(R.string.select_all)) {
+                            applyBulkChannels(SurfaceBulkOperation.ALL)
+                        }
                     }, !scanning && visibleChannelIds.any { it !in selectedChannelIds }),
                     WorkspaceMenuAction(stringResource(R.string.surface_invert_selected), {
-                        applyBulkChannels(SurfaceBulkOperation.INVERT)
+                        selectionConfirmation.request(context.getString(R.string.surface_invert_selected)) {
+                            applyBulkChannels(SurfaceBulkOperation.INVERT)
+                        }
                     }, !scanning && visibleChannelIds.isNotEmpty()),
                     WorkspaceMenuAction(stringResource(R.string.select_none), {
-                        applyBulkChannels(SurfaceBulkOperation.NONE)
+                        selectionConfirmation.request(context.getString(R.string.select_none)) {
+                            applyBulkChannels(SurfaceBulkOperation.NONE)
+                        }
                     }, !scanning && selectedChannelIds.isNotEmpty()),
                 ),
             )

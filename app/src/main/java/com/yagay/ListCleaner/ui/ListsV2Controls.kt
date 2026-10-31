@@ -30,6 +30,7 @@ internal fun ListsV2Controls(
 ) {
     var categoryExpanded by remember { mutableStateOf(false) }
     WorkspaceCategoryFilterRow(
+        showCategory = options.size > 1,
         category = {
             if (options.size > 1) {
                 Box {

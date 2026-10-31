@@ -177,6 +177,8 @@ internal fun ActiveNotificationManagement(
         surfaceFilterAllows(filter, if (categoryMode) group.key in hiddenCategories else complete,
             if (categoryMode) false else protected)
     }
+    val selectionConfirmation = rememberSelectionConfirmationController()
+    SelectionConfirmationDialog(selectionConfirmation)
     val shownKeys = shownGroups.flatMap { group ->
         group.rows.filterNot { it.protected }.map { it.key }
     }.toSet()
@@ -262,19 +264,25 @@ internal fun ActiveNotificationManagement(
         showAppTypeFilter = true,
         actions = listOf(
             WorkspaceMenuAction(stringResource(R.string.select_all), {
-                if (categoryMode) draftCategories = applySurfaceBulkSelection(
-                    hiddenCategories, shownGroups.map { it.key }, SurfaceBulkOperation.ALL)
-                else selectedKeys = applySurfaceBulkSelection(chosen, shownKeys, SurfaceBulkOperation.ALL)
+                selectionConfirmation.request(context.getString(R.string.select_all)) {
+                    if (categoryMode) draftCategories = applySurfaceBulkSelection(
+                        hiddenCategories, shownGroups.map { it.key }, SurfaceBulkOperation.ALL)
+                    else selectedKeys = applySurfaceBulkSelection(chosen, shownKeys, SurfaceBulkOperation.ALL)
+                }
             }, if (categoryMode) shownGroups.any { it.key !in hiddenCategories } else shownKeys.any { it !in chosen }),
             WorkspaceMenuAction(stringResource(R.string.surface_invert_selected), {
-                if (categoryMode) draftCategories = applySurfaceBulkSelection(
-                    hiddenCategories, shownGroups.map { it.key }, SurfaceBulkOperation.INVERT)
-                else selectedKeys = applySurfaceBulkSelection(chosen, shownKeys, SurfaceBulkOperation.INVERT)
+                selectionConfirmation.request(context.getString(R.string.surface_invert_selected)) {
+                    if (categoryMode) draftCategories = applySurfaceBulkSelection(
+                        hiddenCategories, shownGroups.map { it.key }, SurfaceBulkOperation.INVERT)
+                    else selectedKeys = applySurfaceBulkSelection(chosen, shownKeys, SurfaceBulkOperation.INVERT)
+                }
             }, if (categoryMode) shownGroups.isNotEmpty() else shownKeys.isNotEmpty()),
             WorkspaceMenuAction(stringResource(R.string.select_none), {
-                if (categoryMode) draftCategories = applySurfaceBulkSelection(
-                    hiddenCategories, shownGroups.map { it.key }, SurfaceBulkOperation.NONE)
-                else selectedKeys = applySurfaceBulkSelection(chosen, shownKeys, SurfaceBulkOperation.NONE)
+                selectionConfirmation.request(context.getString(R.string.select_none)) {
+                    if (categoryMode) draftCategories = applySurfaceBulkSelection(
+                        hiddenCategories, shownGroups.map { it.key }, SurfaceBulkOperation.NONE)
+                    else selectedKeys = applySurfaceBulkSelection(chosen, shownKeys, SurfaceBulkOperation.NONE)
+                }
             }, if (categoryMode) shownGroups.any { it.key in hiddenCategories } else shownKeys.any { it in chosen }),
         ),
     )
@@ -319,6 +327,18 @@ if (!categoryMode && selectedKeys.isNotEmpty()) PendingChangesBar(
 )
         },
     ) {
+            if (shownGroups.isEmpty()) item(key = "empty") {
+                WorkspaceEmptyState(
+                    message = stringResource(R.string.root_empty_filtered),
+                    clearLabel = stringResource(R.string.root_clear_filters),
+                    onClear = {
+                        uiState.searchQuery = ""
+                        uiState.viewFilter = UiFilter.ALL
+                        uiState.appTypeFilter = AppTypeFilter.ALL
+                        categorySelection = null
+                    },
+                )
+            }
             items(shownGroups, key = { it.key }) { group ->
         val allowedKeys = group.rows.filterNot { it.protected }.map { it.key }.toSet()
         val complete = allowedKeys.isNotEmpty() && allowedKeys.all { it in chosen }
@@ -535,6 +555,17 @@ internal fun StaleRuleManagement(
     )
         },
     ) {
+            if (completed && state.error.isNullOrBlank() && visible.isEmpty()) item(key = "empty") {
+                WorkspaceEmptyState(
+                    message = stringResource(R.string.root_empty_filtered),
+                    clearLabel = stringResource(R.string.root_clear_filters),
+                    onClear = {
+                        maintenanceUi.searchQuery = ""
+                        maintenanceUi.selectedCategory = "ALL"
+                        maintenanceUi.viewFilter = UiFilter.ALL
+                    },
+                )
+            }
             if (completed && state.error.isNullOrBlank()) items(visible, key = { it.packageName + "|" + it.kind.name + "|" + it.className }) { rule ->
         SurfaceWorkspaceRow(
             title = rule.packageName,

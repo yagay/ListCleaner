@@ -119,6 +119,8 @@ internal fun AospSurfaceSettings(
     }
     val visibleIds = visible.map { it.first }
     val editableIds = visibleIds.filter { it !in locked }
+    val selectionConfirmation = rememberSelectionConfirmationController()
+    SelectionConfirmationDialog(selectionConfirmation)
 
     ListsEditorScaffold(
         controls = {
@@ -132,13 +134,31 @@ internal fun AospSurfaceSettings(
                 showAppTypeFilter = applicationBased,
                 actions = listOf(
                     WorkspaceMenuAction(stringResource(R.string.select_all), {
-                        draft = draft.withSelected(selectedKind, applySurfaceBulkSelection(selected, editableIds, SurfaceBulkOperation.ALL))
+                        val label = context.getString(R.string.select_all)
+                        selectionConfirmation.request(
+                            label,
+                            editableIds.count { it !in selected && types[it] != false },
+                            SystemSelectionRisk.ENTRY,
+                        ) {
+                            draft = draft.withSelected(selectedKind,
+                                applySurfaceBulkSelection(selected, editableIds, SurfaceBulkOperation.ALL))
+                        }
                     }, editableIds.any { it !in selected }),
                     WorkspaceMenuAction(stringResource(R.string.surface_invert_selected), {
-                        draft = draft.withSelected(selectedKind, applySurfaceBulkSelection(selected, editableIds, SurfaceBulkOperation.INVERT))
+                        selectionConfirmation.request(
+                            context.getString(R.string.surface_invert_selected),
+                            editableIds.count { it !in selected && types[it] != false },
+                            SystemSelectionRisk.ENTRY,
+                        ) {
+                            draft = draft.withSelected(selectedKind,
+                                applySurfaceBulkSelection(selected, editableIds, SurfaceBulkOperation.INVERT))
+                        }
                     }, editableIds.isNotEmpty()),
                     WorkspaceMenuAction(stringResource(R.string.select_none), {
-                        draft = draft.withSelected(selectedKind, applySurfaceBulkSelection(selected, editableIds, SurfaceBulkOperation.NONE))
+                        selectionConfirmation.request(context.getString(R.string.select_none)) {
+                            draft = draft.withSelected(selectedKind,
+                                applySurfaceBulkSelection(selected, editableIds, SurfaceBulkOperation.NONE))
+                        }
                     }, editableIds.any { it in selected }),
                 ),
             )
