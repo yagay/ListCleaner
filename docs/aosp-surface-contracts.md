@@ -11,7 +11,8 @@ terminating a task, cancelling a notification or deleting a document.
 ## UI / persistence
 
 - Bottom navigation: **Entry cleanup | Components | Lists | Settings**
-- **Lists** → Notification Cleanup (single page) / System Lists (Settings Apps only) / Rule maintenance
+- **Components** → Root components plus **Settings Apps** and **Notification Cleanup** under the same category picker; both added categories use the Components grouped application and detail rows, lock/selection filters, bulk action confirmation and staged Apply.
+- **Lists** → Rule maintenance only (no duplicate notification or Settings Apps editors).
 - Choose an individual surface or operation, edit its candidates, locks or order,
   then confirm Apply. Navigation and Android user switching are protected by
   the existing staged-change guard; Settings now contains configuration only.
@@ -46,8 +47,7 @@ the legacy backup contains selected or ordered apps. This does not delete
 other modules' entry/shortcut functionality. LSPosed processes already running
 an older module may require an app/process restart to lose the old hooks.
 
-**System Lists consolidated:** only **Settings Apps** is a selectable Lists
-editor. The former Lists **Quick Settings Add-Tile**, **Documents Recents**
+**System Lists integrated:** **Settings Apps** is no longer a Lists editor: it is a category inside Components, backed by the existing Settings ApplicationsAdapter presentation hook. The former Lists **Quick Settings Add-Tile**, **Documents Recents**
 and **Media Output** editors and candidate discovery are retired. Their
 package-based QS hide/order, DocumentsUI recent-file hide, and media output
 hide rules are inert, but their `SurfaceKind` identifiers remain readable in
@@ -62,8 +62,8 @@ Quick Settings tiles, and it does not change enabled/disabled TileServices.
 `com.android.documentsui` may still be required by independent Entry /
 DocumentsUI modules; retiring *recent-file filtering* does not disable those.
 
-**Notification Cleanup** now combines application-level notification-shade rules
-and registered channel rules on one page. Selecting the app hides all of its
+**Notification Cleanup** now lives in the Components category picker and combines application-level notification-shade rules
+and registered channel rules under grouped app / detail rows. Selecting the app hides all of its
 unprotected shade notifications; selecting an expanded channel hides only
 notifications from that channel. The two rule sets have separate locks and are
 saved independently per Android user. Bulk actions target only the visible,
@@ -72,8 +72,8 @@ one batched, read-only root `app_process` probe (with listener/observed fallback
 apps with no discovered channels are omitted unless a saved app-level rule
 exists. Scan failures must not be described as an empty channel registry.
 
-The previous separate Current Notifications, Types, and Notification Shade
-navigation entries are not exposed. Existing global category rules remain
+The previous separate Current Notifications, Types, Notification Shade and
+Notification Channels navigation entries are not exposed. Existing global category rules remain
 active for backward compatibility and are visible/removable in a legacy-rule
 section of Notification Cleanup. Backup schemas and SystemUI presentation-hook
 identity are unchanged. The notification listener still observes current
@@ -87,6 +87,8 @@ Root component states rather than a display-only filter.
 
 - Active AOSP surface process targets: `com.android.systemui` (notification
   presentation and Root Tiles) and `com.android.settings` (Settings Apps).
+  Moving these editors into Components does not route any presentation-only
+  change through Root's PackageManager component enable/disable service.
   `com.android.documentsui` and `com.android.launcher3` are no longer
   targets of this surface module, but may remain in the broader LSPosed
   scope for independent entry / DocumentsUI functionality.
@@ -119,9 +121,9 @@ Root component states rather than a display-only filter.
   Per-channel and per-app hide rules remain separate and apply only to
   notification-shade presentation hooks; neither disables a notification channel.
 - **Surface lock and ordering**: a locked selected item stays hidden and a
-  locked unselected item stays visible during bulk operations. Active Lists
-  sorting is limited to Settings Apps. Root Tiles keeps independent per-component
-  ordering. Legacy Lists QS package ordering, Launcher drawer / predictions,
+  locked unselected item stays visible during bulk operations. Components now
+  offers Settings Apps ordering with a separate drag/confirm editor and retains
+  Root Tiles' independent per-component ordering. Legacy Lists QS package ordering, Launcher drawer / predictions,
   and other retired surface rules are retained for backup compatibility but
   no longer applied. Existing active QS tiles and notification protections remain.
 
