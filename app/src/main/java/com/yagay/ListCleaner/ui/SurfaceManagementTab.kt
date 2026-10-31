@@ -90,6 +90,7 @@ internal fun SurfaceManagementTab(
     state: MainState,
     vm: MainViewModel,
     pendingNavigation: PendingNavigationGuard? = null,
+    onSearchStateChanged: ((SurfaceWorkspaceUiState?) -> Unit)? = null,
 ) {
     var group by rememberSaveable { mutableStateOf<SurfaceManagerGroup?>(null) }
     var page by rememberSaveable { mutableStateOf<SurfaceManagerPage?>(null) }
@@ -119,13 +120,13 @@ internal fun SurfaceManagementTab(
                 editorStateHolder.SaveableStateProvider("lists-${userId}-${current.name}") {
                     when (current) {
                     SurfaceManagerPage.NOTIFICATIONS_CHANNELS ->
-                        SurfaceChannelSettings(vm, userId, activeNotifications, pendingNavigation)
+                        SurfaceChannelSettings(vm, userId, activeNotifications, pendingNavigation, onSearchStateChanged)
                     SurfaceManagerPage.NOTIFICATIONS_CURRENT ->
-                        ActiveNotificationManagement(vm, pendingNavigation)
+                        ActiveNotificationManagement(vm, pendingNavigation, onSearchStateChanged = onSearchStateChanged)
                     SurfaceManagerPage.NOTIFICATIONS_TYPES ->
-                        ActiveNotificationManagement(vm, pendingNavigation, ActiveNotificationGrouping.CATEGORY)
-                    SurfaceManagerPage.INVALID_RULES -> StaleRuleManagement(state, vm, pendingNavigation)
-                    else -> AospSurfaceSettings(vm, userId, requireNotNull(current.kind), pendingNavigation)
+                        ActiveNotificationManagement(vm, pendingNavigation, ActiveNotificationGrouping.CATEGORY, onSearchStateChanged)
+                    SurfaceManagerPage.INVALID_RULES -> StaleRuleManagement(state, vm, pendingNavigation, onSearchStateChanged)
+                    else -> AospSurfaceSettings(vm, userId, requireNotNull(current.kind), pendingNavigation, onSearchStateChanged)
                     }
                 }
             }

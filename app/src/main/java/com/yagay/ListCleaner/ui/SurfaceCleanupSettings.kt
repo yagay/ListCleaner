@@ -90,6 +90,7 @@ internal fun ActiveNotificationManagement(
     vm: MainViewModel,
     pendingNavigation: PendingNavigationGuard? = null,
     initialGrouping: ActiveNotificationGrouping = ActiveNotificationGrouping.APPLICATION,
+    onSearchStateChanged: ((SurfaceWorkspaceUiState?) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val rows by NotificationCleanupController.rows.collectAsStateWithLifecycle()
@@ -127,6 +128,8 @@ internal fun ActiveNotificationManagement(
         UiPreferencesStore.initialFilter(context, "lists_notifications_${initialGrouping.name}"),
         UiPreferencesStore.initialAppType(context, "lists_notifications_${initialGrouping.name}"),
     )
+    RegisterSurfaceWorkspaceSearch(uiState, onSearchStateChanged)
+    val searchQuery = uiState.searchQuery.trim()
     val filter = uiState.viewFilter
     val appTypeFilter = uiState.appTypeFilter
     var selectedKeys by remember(userId) { mutableStateOf(emptySet<String>()) }
@@ -156,6 +159,14 @@ internal fun ActiveNotificationManagement(
         }
     } else groups
     val shownGroups = displayGroups.filter { group ->
+        if (searchQuery.isNotBlank() &&
+            !group.key.contains(searchQuery, ignoreCase = true) &&
+            group.rows.none { row ->
+                row.packageName.contains(searchQuery, ignoreCase = true) ||
+                    row.channelId.contains(searchQuery, ignoreCase = true) ||
+                    row.category.orEmpty().contains(searchQuery, ignoreCase = true)
+            }
+        ) return@filter false
         if (initialGrouping == ActiveNotificationGrouping.CATEGORY &&
             categorySelection != null && group.key != categorySelection) return@filter false
         val allowed = group.rows.asSequence().filterNot { it.protected }.map { it.key }.toSet()
@@ -409,6 +420,7 @@ internal fun StaleRuleManagement(
     state: MainState,
     vm: MainViewModel,
     pendingNavigation: PendingNavigationGuard? = null,
+    onSearchStateChanged: ((SurfaceWorkspaceUiState?) -> Unit)? = null,
 ) {
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -425,6 +437,8 @@ internal fun StaleRuleManagement(
         UiPreferencesStore.initialAppType(context, "lists_maintenance"),
     )
     val category = maintenanceUi.selectedCategory
+    RegisterSurfaceWorkspaceSearch(maintenanceUi, onSearchStateChanged)
+    val searchQuery = maintenanceUi.searchQuery.trim()
     val viewFilter = maintenanceUi.viewFilter
     val stale = if (completed && state.error.isNullOrBlank()) {
         val returned = state.candidates.mapTo(hashSetOf()) { it.rule }
@@ -435,6 +449,10 @@ internal fun StaleRuleManagement(
     val selected = selectedRules.intersect(stale)
     val visible = stale.asSequence().filter {
         (category == "ALL" || it.kind.name == category) &&
+            (searchQuery.isBlank() ||
+                it.packageName.contains(searchQuery, ignoreCase = true) ||
+                it.className.contains(searchQuery, ignoreCase = true) ||
+                it.kind.name.contains(searchQuery, ignoreCase = true)) &&
             surfaceFilterAllows(viewFilter, it in selected, false)
     }.sortedWith(compareBy({ it.packageName }, { it.kind.name }, { it.className })).toList()
     val guardOwner = remember(userId) { Any() }

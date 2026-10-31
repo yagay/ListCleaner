@@ -37,6 +37,7 @@ internal fun AospSurfaceSettings(
     userId: Int,
     selectedKind: SurfaceKind,
     pendingNavigation: PendingNavigationGuard? = null,
+    onSearchStateChanged: ((SurfaceWorkspaceUiState?) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val saved by vm.surfaceFilters.collectAsStateWithLifecycle()
@@ -46,6 +47,7 @@ internal fun AospSurfaceSettings(
         UiPreferencesStore.initialFilter(context, "lists_aosp_${selectedKind.name}"),
         UiPreferencesStore.initialAppType(context, "lists_aosp_${selectedKind.name}"),
     )
+    RegisterSurfaceWorkspaceSearch(uiState, onSearchStateChanged)
     val query = uiState.searchQuery
     val viewFilter = uiState.viewFilter
     val appCategory = uiState.appTypeFilter
@@ -123,12 +125,6 @@ internal fun AospSurfaceSettings(
             WorkspaceListSummary(
                 title = stringResource(R.string.surface_aosp_selected, selected.size),
                 secondary = catalog.description,
-            )
-            SurfaceWorkspaceSearchField(
-                value = query,
-                onValueChange = { uiState.searchQuery = it },
-                label = stringResource(R.string.surface_aosp_search),
-                maxLength = 80,
             )
         
         }

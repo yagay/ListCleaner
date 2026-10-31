@@ -42,6 +42,7 @@ internal fun SurfaceChannelSettings(
     userId: Int,
     observed: List<ActiveNotificationRow>,
     pendingNavigation: PendingNavigationGuard? = null,
+    onSearchStateChanged: ((SurfaceWorkspaceUiState?) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -52,6 +53,7 @@ internal fun SurfaceChannelSettings(
         UiPreferencesStore.initialFilter(context, "lists_channels"),
         UiPreferencesStore.initialAppType(context, "lists_channels"),
     )
+    RegisterSurfaceWorkspaceSearch(uiState, onSearchStateChanged)
     val pkg = uiState.searchQuery
     val viewFilter = uiState.viewFilter
     val appTypeFilter = uiState.appTypeFilter
@@ -186,11 +188,6 @@ internal fun SurfaceChannelSettings(
             SettingsActionButton(enabled = !scanning, onClick = { scanRevision++ }) {
                 AdaptiveText(stringResource(R.string.surface_scan_refresh))
             }
-            SurfaceWorkspaceSearchField(
-                value = pkg,
-                onValueChange = { uiState.searchQuery = it },
-                label = stringResource(R.string.surface_channels_package),
-            )
         
 
         }

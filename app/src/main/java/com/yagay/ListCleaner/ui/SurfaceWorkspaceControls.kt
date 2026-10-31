@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -256,4 +257,16 @@ internal fun rememberSurfaceWorkspaceUiState(
     initialAppType: AppTypeFilter,
 ): SurfaceWorkspaceUiState = rememberSaveable(userId, pageKey, saver = SurfaceWorkspaceUiSaver) {
     SurfaceWorkspaceUiState(initialFilter, initialAppType)
+}
+
+/** Binds an editor's saved search state to Entry/Root's top search bar. */
+@Composable
+internal fun RegisterSurfaceWorkspaceSearch(
+    state: SurfaceWorkspaceUiState,
+    onChanged: ((SurfaceWorkspaceUiState?) -> Unit)?,
+) {
+    DisposableEffect(state, onChanged) {
+        onChanged?.invoke(state)
+        onDispose { onChanged?.invoke(null) }
+    }
 }
