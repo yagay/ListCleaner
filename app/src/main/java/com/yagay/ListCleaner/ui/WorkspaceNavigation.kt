@@ -19,11 +19,24 @@ import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.IntentKind
 
-/** An Entry-only shortcut; leaves the main branch's existing priority page intact. */
+/** Entry and Root use the exact same icon and mode-switch interaction.
+ * Each screen still owns its separate ordering backend.
+ */
 @Composable
-internal fun WorkspaceSortShortcut(kind: IntentKind?, ordering: Boolean = false, onOpen: () -> Unit) {
+internal fun WorkspaceSortShortcut(kind: IntentKind?, ordering: Boolean = false, onOpen: () -> Unit) =
+    WorkspaceSortModeAction(
+        supported = ordering || (kind != null && kind in HomeLayoutPolicy.sortableKinds),
+        ordering = ordering,
+        onOpen = onOpen,
+    )
+
+@Composable
+internal fun WorkspaceSortModeAction(
+    supported: Boolean,
+    ordering: Boolean = false,
+    onOpen: () -> Unit,
+) {
     val context = LocalContext.current
-    val supported = ordering || (kind != null && kind in HomeLayoutPolicy.sortableKinds)
     WorkspaceToolbarAction(
         onClick = {
             if (supported) onOpen()
