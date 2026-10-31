@@ -59,9 +59,12 @@ internal object SystemPreviewProjection {
         val preset = if (kind == IntentKind.OPEN) {
             matchOpenPreset(kind, scenario.mimeType, null, customDefinitions = openTypes.customDefinitions)
         } else null
-        val configured = effectiveResolverPriorities(
-            kind, preset, requestHost, priorities, openTypes, browserLinks,
-        )
+        // The final AOSP adapter Hook deliberately leaves SHOW_ALL unranked.
+        // Match that behavior rather than claiming a Priority order the Hook skips.
+        val configured = if (mode == DisplayMode.SHOW_ALL) emptyList() else
+            effectiveResolverPriorities(
+                kind, preset, requestHost, priorities, openTypes, browserLinks,
+            )
         // SystemEntryProbe rejects foreign profiles; the preview candidates here all
         // belong to that one requesting user. Keep other profile slots untouched at runtime.
         val ordered = prioritizeApps(visible, configured, SystemProbeItem::packageName) { 0 }
