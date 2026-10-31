@@ -391,6 +391,13 @@ fun RootComponentsScreen(
                 helpExpanded = detailsExpanded,
                 onHelpToggle = { detailsExpanded = !detailsExpanded }
             )
+            if (kind == CleanupKind.TILE && sortingTiles && systemTileLabels.tileOrder.isNotEmpty()) {
+                AdaptiveTextButton(onClick = {
+                    vm.setSurfaceFilters(systemTileLabels.withTileOrder(emptyList()))
+                }) {
+                    AdaptiveText(stringResource(R.string.qs_tile_sort_restore))
+                }
+            }
             if (detailsExpanded) WorkspaceHelpSection {
                 AdaptiveText(
                     stringResource(R.string.root_filter_help),
