@@ -12,6 +12,7 @@ import com.yagay.ListCleaner.domain.selectedKinds
 internal data class RuntimeRuleSnapshot(
     val configured: Set<String>,
     val displayMode: DisplayMode,
+    val modeOverrides: Map<IntentKind, DisplayMode> = emptyMap(),
     val priorities: PriorityConfig,
     val openTypes: OpenTypeConfig,
     val browserLinks: BrowserLinkConfig,
@@ -24,5 +25,6 @@ internal data class RuntimeRuleSnapshot(
     private val selectedKinds: Set<IntentKind> = selectedKinds(configured)
     val allSelectedPackages: Set<String> = visibilityCompat.activePackages()
 
+    fun modeFor(kind: IntentKind): DisplayMode = modeOverrides[kind] ?: displayMode
     fun hasSelection(kind: IntentKind): Boolean = kind in selectedKinds
 }

@@ -17,6 +17,7 @@ internal class RemoteEntryPolicyFallback(
     data class Snapshot(
         val managerAppId: Int = -1,
         val displayMode: DisplayMode = DisplayMode.HIDE_SELECTED,
+        val modeOverrides: Map<IntentKind, DisplayMode> = emptyMap(),
         val rules: Set<String> = emptySet(),
         val priorities: Map<IntentKind, List<String>> = emptyMap(),
     )
@@ -57,6 +58,7 @@ internal class RemoteEntryPolicyFallback(
             fun compile(single: ModuleConfig): Snapshot = Snapshot(
                 managerAppId = config.managerAppId,
                 displayMode = single.mode,
+                modeOverrides = single.modeOverrides,
                 rules = selectRules(single).toSet(),
                 priorities = selectPriorities(single).mapValues { (_, packages) -> packages.toList() },
             )

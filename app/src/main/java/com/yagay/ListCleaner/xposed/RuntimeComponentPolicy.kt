@@ -12,12 +12,14 @@ internal data class RuntimeComponentPolicySnapshot(
     val managerAppId: Int = -1,
     val protectedComponents: Set<String> = emptySet(),
     val displayMode: DisplayMode = DisplayMode.HIDE_SELECTED,
+    val modeOverrides: Map<IntentKind, DisplayMode> = emptyMap(),
     val entryRules: Set<String> = emptySet(),
     val entryRulesByKind: Map<IntentKind, Set<String>> = emptyMap(),
     val selectedPackagesByKind: Map<IntentKind, Set<String>> = emptyMap(),
     val entryPriorities: Map<IntentKind, List<String>> = emptyMap(),
     val digest: String = "",
 ) {
+    fun modeFor(kind: IntentKind): DisplayMode = modeOverrides[kind] ?: displayMode
     fun selected(kind: IntentKind): Set<String> = entryRulesByKind[kind].orEmpty()
     fun selectedPackages(kind: IntentKind): Set<String> = selectedPackagesByKind[kind].orEmpty()
     fun priorities(kind: IntentKind): List<String> = entryPriorities[kind].orEmpty()
@@ -29,6 +31,7 @@ internal object RuntimePolicyCompiler {
         managerAppId: Int,
         protectedComponents: Set<String>,
         displayMode: DisplayMode,
+        modeOverrides: Map<IntentKind, DisplayMode> = emptyMap(),
         entryRules: Collection<String>,
         directShareTypes: DirectShareTypeConfig = DirectShareTypeConfig(),
         entryPriorities: Map<IntentKind, List<String>>,
@@ -52,6 +55,7 @@ internal object RuntimePolicyCompiler {
             managerAppId = managerAppId,
             protectedComponents = protectedComponents.toSet(),
             displayMode = displayMode,
+            modeOverrides = modeOverrides.toMap(),
             entryRules = canonical,
             entryRulesByKind = byKind.mapValues { (_, rules) -> rules.toSet() },
             selectedPackagesByKind = packagesByKind.mapValues { (_, packages) -> packages.toSet() },
@@ -89,6 +93,7 @@ internal object RuntimeComponentPolicy {
         if (userId == 0) return current.primary
         return current.otherUsers[userId] ?: current.primary.copy(
             displayMode = DisplayMode.SHOW_ALL,
+            modeOverrides = emptyMap(),
             entryRules = emptySet(),
             entryRulesByKind = emptyMap(),
             selectedPackagesByKind = emptyMap(),
@@ -102,10 +107,12 @@ internal fun fallbackRuntimePolicy(
     displayMode: DisplayMode,
     entryRules: Set<String>,
     entryPriorities: Map<IntentKind, List<String>>,
+    modeOverrides: Map<IntentKind, DisplayMode> = emptyMap(),
 ): RuntimeComponentPolicySnapshot = RuntimePolicyCompiler.compile(
     managerAppId = managerAppId,
     protectedComponents = emptySet(),
     displayMode = displayMode,
+    modeOverrides = modeOverrides,
     entryRules = entryRules,
     entryPriorities = entryPriorities,
     digest = "",

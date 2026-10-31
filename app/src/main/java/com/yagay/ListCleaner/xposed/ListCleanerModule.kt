@@ -89,6 +89,7 @@ class ListCleanerModule : XposedModule() {
         return generation.otherUsers[userId] ?: generation.primary.copy(
             configured = emptySet(),
             displayMode = DisplayMode.SHOW_ALL,
+            modeOverrides = emptyMap(),
             priorities = PriorityConfig(),
             openTypes = OpenTypeConfig(),
             browserLinks = BrowserLinkConfig(),
@@ -1370,6 +1371,7 @@ class ListCleanerModule : XposedModule() {
         val nextSnapshot = RuntimeRuleSnapshot(
             configured = config.rules.map { it.id }.toSet(),
             displayMode = config.mode,
+            modeOverrides = config.modeOverrides,
             priorities = config.priorities,
             openTypes = config.openTypes,
             browserLinks = config.browserLinks,
@@ -1383,6 +1385,7 @@ class ListCleanerModule : XposedModule() {
             RuntimeRuleSnapshot(
                 configured = space.rules.map { it.id }.toSet(),
                 displayMode = space.mode,
+                modeOverrides = space.modeOverrides,
                 priorities = space.priorities,
                 openTypes = space.openTypes,
                 browserLinks = space.browserLinks,
@@ -1400,6 +1403,7 @@ class ListCleanerModule : XposedModule() {
             managerAppId = config.managerAppId,
             protectedComponents = protected,
             displayMode = config.mode,
+            modeOverrides = config.modeOverrides,
             entryRules = nextSnapshot.configured,
             directShareTypes = config.directShareTypes,
             entryPriorities = config.priorities.apps,
@@ -1413,6 +1417,7 @@ class ListCleanerModule : XposedModule() {
                     managerAppId = config.managerAppId,
                     protectedComponents = protected,
                     displayMode = space.mode,
+                modeOverrides = space.modeOverrides,
                     entryRules = space.rules.map { it.id },
                     directShareTypes = space.directShareTypes,
                     entryPriorities = space.priorities.apps,

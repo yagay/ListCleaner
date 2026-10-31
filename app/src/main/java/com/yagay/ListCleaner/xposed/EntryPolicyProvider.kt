@@ -55,6 +55,7 @@ internal class EntryPolicyProvider(
         return fallbackRuntimePolicy(
             managerAppId = local.managerAppId,
             displayMode = local.displayMode,
+            modeOverrides = local.modeOverrides,
             entryRules = local.rules,
             entryPriorities = local.priorities,
         )
