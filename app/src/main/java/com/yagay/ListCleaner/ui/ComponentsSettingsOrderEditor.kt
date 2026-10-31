@@ -29,6 +29,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.domain.AppTypeFilter
+import com.yagay.ListCleaner.domain.activePriorityRanks
+import com.yagay.ListCleaner.domain.addActivePriority
 import com.yagay.ListCleaner.domain.SurfaceFilterConfig
 import com.yagay.ListCleaner.domain.SurfaceKind
 import com.yagay.ListCleaner.domain.moveVisiblePriority
@@ -112,6 +114,7 @@ internal fun ComponentsSettingsOrderEditor(
     }
     val known = candidates.distinct()
     val byId = known.toSet()
+    val activeRanks = activePriorityRanks(draft, byId)
     val ranks = draft.filter { it in byId }
     val ranked = ranks.toSet()
     val all = ranks + known.filterNot { it in ranked }.sortedWith(compareBy(
@@ -141,7 +144,7 @@ internal fun ComponentsSettingsOrderEditor(
     DisposableEffect(dragState) { onDispose { dragState.cancel() } }
     val toggle: (String) -> Unit = { id ->
         if (id !in saved.locked(kind)) {
-            draft = if (id in draft) draft - id else (draft + id).distinct().take(2000)
+            draft = if (id in draft) draft - id else addActivePriority(draft, byId, id)
         }
     }
 
@@ -192,9 +195,10 @@ internal fun ComponentsSettingsOrderEditor(
                             },
                             afterFilter = { WorkspaceListActions(actions = listOf(
                                 WorkspaceMenuAction(stringResource(R.string.select_all), {
-                                    draft = (draft + visible.filterNot {
-                                        it in saved.locked(kind)
-                                    }).distinct().take(2000)
+                                    draft = visible.filterNot { it in saved.locked(kind) }
+                                        .fold(draft) { order, id ->
+                                            addActivePriority(order, byId, id)
+                                        }
                                 }, visible.any { it !in draft && it !in saved.locked(kind) }),
                                 WorkspaceMenuAction(stringResource(R.string.select_none), {
                                     val ids = visible.filterNot { it in saved.locked(kind) }.toSet()
@@ -202,8 +206,11 @@ internal fun ComponentsSettingsOrderEditor(
                                 }, visible.any { it in draft && it !in saved.locked(kind) }),
                                 WorkspaceMenuAction(stringResource(R.string.invert_selection), {
                                     val unlocked = visible.filterNot { it in saved.locked(kind) }
-                                    draft = (draft.filterNot { it in unlocked } +
-                                        unlocked.filterNot { it in draft }).distinct().take(2000)
+                                    val retained = draft.filterNot { it in unlocked }
+                                    draft = unlocked.filterNot { it in draft }
+                                        .fold(retained) { order, id ->
+                                            addActivePriority(order, byId, id)
+                                        }
                                 }, visible.any { it !in saved.locked(kind) }),
                             )) },
                         )
@@ -227,7 +234,7 @@ internal fun ComponentsSettingsOrderEditor(
                         WorkspacePrioritySectionHeading(prioritized)
                     }
                 }
-                item(key = "settings-rank|$id", contentType = "settings-app") {
+                item(key = "app|SETTINGS_APPS|$id", contentType = "settings-app") {
                 val position = moves.indexOf(id)
                 ContinuousApplicationSurface(expanded = false) {
                     MaterialAppRowBody(
@@ -255,7 +262,7 @@ internal fun ComponentsSettingsOrderEditor(
                         },
                         details = {
                             if (id in draft) AdaptiveText(
-                                stringResource(R.string.priority_rank, draft.indexOf(id) + 1),
+                                stringResource(R.string.priority_rank, requireNotNull(activeRanks[id])),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.primary,
                             )
@@ -281,7 +288,7 @@ internal fun ComponentsSettingsOrderEditor(
                                         detectDragGesturesAfterLongPress(
                                             onDragStart = { touch ->
                                                 val row = listState.layoutInfo.visibleItemsInfo
-                                                    .firstOrNull { it.key == "settings-rank|$id" }
+                                                    .firstOrNull { it.key == "app|SETTINGS_APPS|$id" }
                                                 val y = row?.let {
                                                     it.offset + (it.size - handlePx) / 2f + touch.y
                                                 }
