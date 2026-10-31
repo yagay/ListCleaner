@@ -25,6 +25,15 @@ class SurfaceManagementNavigationTest {
     @Test fun movedSystemListsAndNotificationsAreNotInListsNavigation() {
         assertTrue(SurfaceManagerPage.entries.mapNotNull { it.kind }.isEmpty())
         assertEquals(listOf(SurfaceManagerPage.INVALID_RULES), SurfaceManagerPage.entries)
+        assertEquals(
+            listOf(ManagedComponentSurface.SETTINGS_APPS,
+                ManagedComponentSurface.NOTIFICATIONS),
+            ManagedComponentSurface.entries,
+        )
+        assertEquals(
+            listOf("SETTINGS_APPS", "NOTIFICATIONS"),
+            ManagedComponentSurface.entries.map { it.name },
+        )
     }
 
     @Test fun destructiveOperationsAreNotPresentedAsDisplayOnlyFilters() {
