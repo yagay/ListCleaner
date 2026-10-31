@@ -100,15 +100,6 @@ internal fun SettingsListControls() {
             )
         ) { UiPreferencesStore.write(context, current.copy(componentStart = it)) }
         SettingsChoices(
-            stringResource(R.string.lc_preview_default), current.previewDefault,
-            listOf(
-                UiPreviewDefault.CURRENT to stringResource(R.string.lc_preview_current),
-                UiPreviewDefault.CANDIDATES to stringResource(R.string.lc_preview_candidates),
-                UiPreviewDefault.ENABLED to stringResource(R.string.lc_preview_enabled),
-                UiPreviewDefault.HISTORY to stringResource(R.string.lc_preview_history)
-            )
-        ) { UiPreferencesStore.write(context, current.copy(previewDefault = it)) }
-        SettingsChoices(
             stringResource(R.string.lc_preview_scenario), current.probeDefaultScenario,
             listOf(
                 UiProbeDefaultScenario.SYSTEM to stringResource(R.string.lc_scenario_system),
