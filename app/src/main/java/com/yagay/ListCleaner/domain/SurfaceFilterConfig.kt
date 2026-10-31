@@ -88,78 +88,14 @@ data class SurfaceFilterConfig(
         val clazz = component.substringAfter('/', "")
         return PackageIdentity.valid(pkg) && component.count { it == '/' } == 1 &&
             clazz.length in 3..240 && clazz.contains('.') &&
-            clazz.all { it.isLetterOrDigit() || it == '_' || it == '.' || it == '
-    fun withTileLabel(component: String, label: String?): SurfaceFilterConfig {
-        val next = label?.trim().orEmpty()
-        val updated = if (next.isEmpty()) tileLabels - component
-            else tileLabels + (component to next)
-        return copy(tileLabels = updated).validated()
+            clazz.all { it.isLetterOrDigit() || it == '_' || it == '.' || it == '$' }
     }
 
-    fun selected(kind: SurfaceKind): Set<String> = packages[kind].orEmpty()
-
-    fun withNotificationCategoryHidden(category: String, hidden: Boolean): SurfaceFilterConfig =
-        copy(hiddenNotificationCategories = if (hidden) hiddenNotificationCategories + category
-            else hiddenNotificationCategories - category).validated()
-
-    fun isChannelLocked(pkg: String, id: String): Boolean = "$pkg|$id" in lockedNotificationChannels
-
-    fun withChannelLocked(pkg: String, id: String, locked: Boolean): SurfaceFilterConfig {
-        val key = "$pkg|$id"
-        return copy(lockedNotificationChannels = if (locked)
-            lockedNotificationChannels + key else lockedNotificationChannels - key).validated()
-    }
-
-    fun isChannelHidden(pkg: String, id: String): Boolean =
-        "$pkg|$id" in hiddenNotificationChannels
-
-    fun withChannelHidden(pkg: String, id: String, hide: Boolean): SurfaceFilterConfig {
-        val key = "$pkg|$id"
-        if (key in lockedNotificationChannels) return this
-        return copy(hiddenNotificationChannels = if (hide)
-            hiddenNotificationChannels + key else hiddenNotificationChannels - key).validated()
-    }
-    fun locked(kind: SurfaceKind): Set<String> = locks[kind].orEmpty()
-    fun priorities(kind: SurfaceKind): List<String> = order[kind].orEmpty()
-
-    fun withSelected(kind: SurfaceKind, apps: Set<String>): SurfaceFilterConfig {
-        val keep = locked(kind)
-        val selected = (apps - (keep - selected(kind))) + (keep intersect selected(kind))
-        return copy(packages = if (selected.isEmpty()) packages - kind
-            else packages + (kind to selected)).validated()
-    }
-
-    fun withLocked(kind: SurfaceKind, apps: Set<String>): SurfaceFilterConfig =
-        copy(locks = if (apps.isEmpty()) locks - kind else locks + (kind to apps))
-            .validated()
-
-    fun withPriorities(kind: SurfaceKind, apps: List<String>): SurfaceFilterConfig {
-        require(kind.supportsSurfaceOrdering())
-        return copy(order = if (apps.isEmpty()) order - kind
-            else order + (kind to apps.distinct())).validated()
-    }
-
-    fun movePriority(kind: SurfaceKind, item: String, direction: Int): SurfaceFilterConfig {
-        require(kind.supportsSurfaceOrdering())
-        val original = priorities(kind).toMutableList()
-        if (item !in original) original.add(item)
-        val index = original.indexOf(item)
-        val destination = (index + direction).coerceIn(0, original.lastIndex)
-        if (index != destination) {
-            original.removeAt(index)
-            original.add(destination, item)
-        }
-        return withPriorities(kind, original)
-    }
-}
- }
-    }
-
-    /** Saves an explicit component-level order; empty means AOSP's original order. */
+    /** Saves explicit component-level order for SystemUI add-tile suggestions. */
     fun withTileOrder(components: List<String>): SurfaceFilterConfig =
         copy(tileOrder = components.distinct()).validated()
 
-    /** Null or blank restores the service's original SystemUI name. */
+    /** Null or blank restores original SystemUI label. */
     fun withTileLabel(component: String, label: String?): SurfaceFilterConfig {
         val next = label?.trim().orEmpty()
         val updated = if (next.isEmpty()) tileLabels - component
