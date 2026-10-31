@@ -22,7 +22,9 @@ internal class EntryPolicyProvider(
         selectRules = { config ->
             config.rules.asSequence()
                 .filter { it.kind in ownedKinds }
-                .mapTo(linkedSetOf()) { it.id }
+                .mapTo(linkedSetOf()) { it.id }.apply {
+                    if (IntentKind.DIRECT_SHARE in ownedKinds) addAll(config.directShareTypes.runtimeIds())
+                }
         },
         selectPriorities = { config ->
             if (includePriorities) config.priorities.apps.filterKeys { it in ownedKinds }
