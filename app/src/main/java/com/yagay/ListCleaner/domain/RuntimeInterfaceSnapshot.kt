@@ -13,6 +13,9 @@ data class RuntimeInterfaceSnapshot(
     val callerPackage: String = "",
     val callerUid: Int = -1,
     val requestAction: String = "",
+    /** MIME and host are required to match a resolver capture to the tested Intent. */
+    val requestMimeType: String = "",
+    val requestHost: String = "",
     val capturedAtMillis: Long,
     val packages: List<String>,
     /** Exact flattened ComponentName identifiers, when the captured API exposes them. */
@@ -31,6 +34,8 @@ object RuntimeInterfaceSnapshotCodec {
 
     fun key(kind: IntentKind): String = PREFIX + kind.name
     fun keyForCaller(kind: IntentKind, uid: Int): String = key(kind) + "_uid_" + uid
+    /** Separate namespace: PackageManager observations must never overwrite adapter order. */
+    fun keyForResolverOrder(kind: IntentKind): String = "resolver_adapter_order_v1_" + kind.name
 
     fun encode(snapshot: RuntimeInterfaceSnapshot): String {
         val originalPackages = snapshot.totalPackages.takeIf { it > 0 } ?: snapshot.packages.size
@@ -77,6 +82,8 @@ object RuntimeInterfaceSnapshotCodec {
         source = snapshot.source.take(64),
         callerPackage = snapshot.callerPackage.take(240),
         requestAction = snapshot.requestAction.take(240),
+        requestMimeType = snapshot.requestMimeType.take(127),
+        requestHost = snapshot.requestHost.take(253),
         packages = snapshot.packages.asSequence()
             .filter { PackageIdentity.valid(it) }
             .distinct()
