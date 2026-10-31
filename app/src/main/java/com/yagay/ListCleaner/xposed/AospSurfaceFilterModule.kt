@@ -425,7 +425,7 @@ class AospSurfaceFilterModule : XposedModule() {
                 val flattened = spec?.takeIf { it.startsWith("custom(") && it.endsWith(")") }
                     ?.removePrefix("custom(")?.removeSuffix(")")
                 ComponentName.unflattenFromString(flattened ?: return null)
-            }
+            } ?: return null
         val rawUser = ReflectionAccess.invokeNoArg(receiver, "getUser")
             ?: ReflectionAccess.readField(receiver, "mUser", "mUserId")
         val user = when (rawUser) {
