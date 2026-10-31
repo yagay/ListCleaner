@@ -12,12 +12,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CleaningServices
 import androidx.compose.material.icons.rounded.Description
-import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Notifications
-import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -58,14 +55,8 @@ internal enum class SurfaceManagerPage(
     // Keep the old CHANNELS enum ID for saved navigation state compatibility.
     NOTIFICATIONS_CHANNELS(SurfaceManagerGroup.NOTIFICATIONS, R.string.notification_cleanup_title,
         R.string.notification_cleanup_help, Icons.Rounded.Notifications),
-    QS_EDITOR(SurfaceManagerGroup.SYSTEM, R.string.surface_aosp_qs,
-        R.string.surface_qs_filter_help, Icons.Rounded.Widgets, SurfaceKind.QS_EDITOR),
-    DOCUMENTS(SurfaceManagerGroup.SYSTEM, R.string.surface_aosp_documents,
-        R.string.surface_documents_filter_help, Icons.Rounded.FolderOpen, SurfaceKind.DOCUMENT_RECENTS),
     SETTINGS_APPS(SurfaceManagerGroup.SYSTEM, R.string.surface_aosp_settings,
         R.string.surface_settings_filter_help, Icons.Rounded.Settings, SurfaceKind.SETTINGS_APPS),
-    MEDIA_OUTPUT(SurfaceManagerGroup.SYSTEM, R.string.surface_aosp_media,
-        R.string.surface_media_filter_help, Icons.Rounded.Security, SurfaceKind.MEDIA_OUTPUT),
     INVALID_RULES(SurfaceManagerGroup.MAINTENANCE, R.string.surface_rules,
         R.string.surface_rules_help, Icons.Rounded.Description),
 }
