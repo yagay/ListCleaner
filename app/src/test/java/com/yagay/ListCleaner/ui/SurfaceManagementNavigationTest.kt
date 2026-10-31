@@ -14,7 +14,7 @@ class SurfaceManagementNavigationTest {
                 SurfaceManagerGroup.SYSTEM, SurfaceManagerGroup.MAINTENANCE),
             SurfaceManagerGroup.entries
         )
-        assertEquals(4, SurfaceManagerPage.entries.count {
+        assertEquals(1, SurfaceManagerPage.entries.count {
             it.group == SurfaceManagerGroup.NOTIFICATIONS
         })
         assertEquals(3, SurfaceManagerPage.entries.count {
@@ -32,17 +32,20 @@ class SurfaceManagementNavigationTest {
         })
     }
 
-    @Test fun allEightAospFiltersHaveExactlyOneDetailEditor() {
+    @Test fun onlyNonConsolidatedAospFiltersHaveDedicatedNavigationEditors() {
         val mapped = SurfaceManagerPage.entries.mapNotNull { it.kind }
-        assertEquals(8, mapped.size)
-        assertEquals(SurfaceKind.entries.toSet(), mapped.toSet())
+        assertEquals(7, mapped.size)
+        // NOTIFICATION_SHADE is now edited alongside notification channels,
+        // rather than exposed as a second notification page.
+        assertEquals(SurfaceKind.entries.toSet() - SurfaceKind.NOTIFICATION_SHADE, mapped.toSet())
         assertEquals(mapped.size, mapped.distinct().size)
     }
 
     @Test fun destructiveOperationsAreNotPresentedAsDisplayOnlyFilters() {
-        assertEquals(null, SurfaceManagerPage.NOTIFICATIONS_CURRENT.kind)
         assertEquals(null, SurfaceManagerPage.NOTIFICATIONS_CHANNELS.kind)
         assertEquals(null, SurfaceManagerPage.INVALID_RULES.kind)
+        assertEquals(listOf(SurfaceManagerPage.NOTIFICATIONS_CHANNELS),
+            SurfaceManagerPage.entries.filter { it.group == SurfaceManagerGroup.NOTIFICATIONS })
         assertFalse(SettingsSection.entries.any { it.name == "SURFACES" })
         assertEquals(com.yagay.ListCleaner.ui.Destination.SURFACES,
             UiStartPage.SURFACES.destination())
