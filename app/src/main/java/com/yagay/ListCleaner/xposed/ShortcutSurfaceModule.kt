@@ -166,6 +166,10 @@ class ShortcutSurfaceModule : XposedModule() {
     /** OEM resolvers can render Direct Share straight from ShortcutService. */
     private fun directShareHooker() = XposedInterface.Hooker { chain ->
         val original = chain.proceed()
+        // The active reader invokes the same local ShortcutService method.
+        // It must consume the raw results, before our normal Chooser filtering.
+        // This is our dedicated system_server worker, never an app Binder call.
+        if (Thread.currentThread().name == "LC-ActiveDirectShare") return@Hooker original
         val result = listResults.extract(original) ?: return@Hooker original
         val values = result.values
 
