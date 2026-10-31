@@ -153,6 +153,11 @@ internal fun MainToolbar(
     )
 }
 
+/** Every Entry kind with a secondary type picker must share this contract. */
+internal fun hasEntrySubtypeSelector(kind: IntentKind?): Boolean = kind in setOf(
+    IntentKind.OPEN, IntentKind.DEEP_LINK, IntentKind.DIRECT_SHARE
+)
+
 /** The category choice is now a single full-width Material 3 picker. */
 @Composable
 internal fun ListControls(
@@ -185,9 +190,7 @@ internal fun ListControls(
                     previewActions = previewActions,
                     subtypeSelector = if (
                         subtypeAvailable &&
-                        (state.filter == IntentKind.OPEN ||
-                            state.filter == IntentKind.DEEP_LINK ||
-                            state.filter == IntentKind.DIRECT_SHARE)
+                        hasEntrySubtypeSelector(state.filter)
                     ) extraFilter else null
                 )
             },
