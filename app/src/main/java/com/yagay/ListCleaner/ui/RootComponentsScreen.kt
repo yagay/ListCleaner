@@ -16,6 +16,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -143,6 +144,7 @@ fun RootComponentsScreen(
     var appTypeFilter by rememberSaveable(vm.selectedSpace.value) { mutableStateOf(UiPreferencesStore.initialAppType(prefsContext, "components")) }
     var expandedAppKey by rememberSaveable(vm.selectedSpace.value) { mutableStateOf<String?>(null) }
     var detailsExpanded by rememberSaveable(vm.selectedSpace.value) { mutableStateOf(false) }
+    var sortingTiles by rememberSaveable(vm.selectedSpace.value) { mutableStateOf(false) }
     var pendingBatch by remember { mutableStateOf<PendingRootBatch?>(null) }
     pendingBatch?.let { batch ->
         val eligible = batch.targets.filter { item ->
@@ -209,7 +211,9 @@ fun RootComponentsScreen(
         kindItems.groupBy(::componentBulkLockAppId)
     }
     val appSort = UiPreferencesRuntime.current.appSort
-    val groups = remember(kindItems, appTypeFilter, viewFilter, state.query, bulkLockRevision, appSort) {
+    val tileRanks = systemTileLabels.tileOrder.withIndex()
+        .associate { it.value to it.index }
+    val groups = remember(kindItems, appTypeFilter, viewFilter, state.query, bulkLockRevision, appSort, tileRanks) {
         kindItems.asSequence()
             .filter { appTypeFilter.matches(it.appType) }
             .filter { item ->
@@ -225,12 +229,18 @@ fun RootComponentsScreen(
             .filter { viewFilter != UiFilter.LOCKED || vm.isComponentBulkProtected(kind, it) }
             .groupBy { "${it.user}|${it.component.packageName}" }
             .entries
-            .sortedWith(when (appSort) {
-                UiAppSort.SELECTED_FIRST -> compareBy<Map.Entry<String, List<RootComponent>>> { componentAppSelectionRank(it.value) }
+            .sortedWith(when {
+                kind == CleanupKind.TILE && tileRanks.isNotEmpty() ->
+                    compareBy<Map.Entry<String, List<RootComponent>>> { group ->
+                        group.value.minOfOrNull {
+                            tileRanks[it.component.flattenToString()] ?: Int.MAX_VALUE
+                        } ?: Int.MAX_VALUE
+                    }.thenBy { it.value.first().owner.lowercase() }.thenBy { it.key }
+                appSort == UiAppSort.SELECTED_FIRST -> compareBy<Map.Entry<String, List<RootComponent>>> { componentAppSelectionRank(it.value) }
                     .thenBy { it.value.first().owner.lowercase() }.thenBy { it.key }
-                UiAppSort.NAME -> compareBy<Map.Entry<String, List<RootComponent>>> { it.value.first().owner.lowercase() }
+                appSort == UiAppSort.NAME -> compareBy<Map.Entry<String, List<RootComponent>>> { it.value.first().owner.lowercase() }
                     .thenBy { it.key }
-                UiAppSort.PACKAGE -> compareBy<Map.Entry<String, List<RootComponent>>> { it.value.first().component.packageName.lowercase() }
+                else -> compareBy<Map.Entry<String, List<RootComponent>>> { it.value.first().component.packageName.lowercase() }
                     .thenBy { it.key }
             })
             .map { it.key to it.value }
@@ -242,9 +252,15 @@ fun RootComponentsScreen(
             }
         }
     }
-    val sortedGroups = remember(groups) {
+    val sortedGroups = remember(groups, tileRanks, kind) {
         groups.map { (appKey, items) ->
-            appKey to items.sortedWith(compareBy({ it.kind.ordinal }, { it.label.lowercase() }, { it.id }))
+            appKey to items.sortedWith(
+                if (kind == CleanupKind.TILE && tileRanks.isNotEmpty())
+                    compareBy<RootComponent> {
+                        tileRanks[it.component.flattenToString()] ?: Int.MAX_VALUE
+                    }.thenBy { it.label.lowercase() }
+                else compareBy({ it.kind.ordinal }, { it.label.lowercase() }, { it.id })
+            )
         }
     }
     val visible = remember(groups) { groups.flatMap { it.second } }
@@ -311,6 +327,20 @@ fun RootComponentsScreen(
                             }
                         )
                     },
+                    beforeFilter = if (kind == CleanupKind.TILE) ({
+                        WorkspaceToolbarAction(
+                            onClick = { sortingTiles = !sortingTiles },
+                            active = sortingTiles,
+                        ) {
+                            AdaptiveIcon(
+                                Icons.AutoMirrored.Rounded.Sort,
+                                stringResource(R.string.nav_priority),
+                                modifier = Modifier.size(22.dp),
+                                tint = if (sortingTiles) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }) else null,
                     afterFilter = { WorkspaceListActions(actions = selectionActions) },
                     filter = {
                         WorkspaceFilterBar(
@@ -534,6 +564,32 @@ fun RootComponentsScreen(
                                 ({ renamingSystemTile = item }) else null,
                             editLabel = if (item.kind == CleanupKind.TILE)
                                 stringResource(R.string.qs_tile_rename_title) else null,
+                            extraActions = if (item.kind == CleanupKind.TILE && sortingTiles) {
+                                val component = item.component.flattenToString()
+                                val all = (systemTileLabels.tileOrder +
+                                    kindItems.filter { it.kind == CleanupKind.TILE }
+                                        .map { it.component.flattenToString() }).distinct()
+                                val index = all.indexOf(component)
+                                fun move(offset: Int) {
+                                    val destination = (index + offset).coerceIn(0, all.lastIndex)
+                                    if (index >= 0 && destination != index) {
+                                        val reordered = all.toMutableList()
+                                        reordered.removeAt(index)
+                                        reordered.add(destination, component)
+                                        vm.setSurfaceFilters(systemTileLabels.withTileOrder(reordered))
+                                    }
+                                }
+                                listOf(
+                                    WorkspaceMenuAction(
+                                        stringResource(R.string.surface_move_earlier),
+                                        { move(-1) }, index > 0,
+                                    ),
+                                    WorkspaceMenuAction(
+                                        stringResource(R.string.surface_move_later),
+                                        { move(1) }, index >= 0 && index < all.lastIndex,
+                                    ),
+                                )
+                            } else emptyList(),
                         )
                     }
                 )
