@@ -130,6 +130,22 @@ internal class ResolverOrderingEngine(
         return if (changed) positions.map { items[it] } else items
     }
 
+    /**
+     * Read component identities in the exact adapter order. No contact shortcuts, labels or
+     * private target payloads are captured. Reject incomplete reflection instead of returning
+     * a misleading partial order.
+     */
+    fun orderedComponentIds(items: List<*>, stage: String): List<String>? {
+        if (items.isEmpty()) return emptyList()
+        return runCatching {
+            items.map { item ->
+                val activity = requireNotNull(resolveInfoForOrder(item, stage).activityInfo)
+                require(activity.packageName.isNotBlank() && activity.name.isNotBlank())
+                "${activity.packageName}/${activity.name}"
+            }
+        }.getOrNull()
+    }
+
     private fun resolveInfoForOrder(item: Any?, stage: String): ResolveInfo {
         requireNotNull(item)
         return if (item is ResolveInfo) item else if (stage == "alpha") {
