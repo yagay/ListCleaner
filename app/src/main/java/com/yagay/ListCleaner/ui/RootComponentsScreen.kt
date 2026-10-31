@@ -62,6 +62,19 @@ fun RootComponentsScreen(
 ) {
     val scan by vm.componentScan.collectAsStateWithLifecycle()
     val busy by vm.componentBusy.collectAsStateWithLifecycle()
+    val systemTileLabels by vm.surfaceFilters.collectAsStateWithLifecycle()
+    var renamingSystemTile by remember(vm.selectedSpace.value) { mutableStateOf<RootComponent?>(null) }
+    renamingSystemTile?.let { tile ->
+        SystemTileRenameDialog(
+            item = tile,
+            currentName = systemTileLabels.tileLabels[tile.component.flattenToString()],
+            onSave = { name ->
+                val updated = systemTileLabels.withTileLabel(tile.component.flattenToString(), name)
+                if (vm.setSurfaceFilters(updated)) renamingSystemTile = null
+            },
+            onDismiss = { renamingSystemTile = null },
+        )
+    }
     val prefsContext = LocalContext.current
     val navigate: (() -> Unit) -> Unit = { action ->
         if (!busy) {
@@ -516,7 +529,9 @@ fun RootComponentsScreen(
                             locked = itemLocked,
                             lockToggleEnabled = lockToggleEnabled,
                             onLock = { vm.setComponentItemLocked(kind, item, true) },
-                            onUnlock = { vm.setComponentItemLocked(kind, item, false) }
+                            onUnlock = { vm.setComponentItemLocked(kind, item, false) },
+                            onEdit = if (item.kind == CleanupKind.TILE)
+                                ({ renamingSystemTile = item }) else null,
                         )
                     }
                 )
