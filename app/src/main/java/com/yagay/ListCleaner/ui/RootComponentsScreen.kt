@@ -317,6 +317,12 @@ internal fun RootComponentsScreen(
                 expandedAppKey = null
                 sortingTiles = false
             },
+            onManagedKind = { selected ->
+                managedSurface = selected
+                kind = null
+                expandedAppKey = null
+                sortingTiles = false
+            },
         )
         return
     }
