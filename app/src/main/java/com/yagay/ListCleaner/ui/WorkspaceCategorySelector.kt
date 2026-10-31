@@ -508,13 +508,13 @@ internal fun ComponentCategoryPicker(
         menuTitle = stringResource(R.string.lc_category_picker_component_title),
         modifier = modifier, previewActions = previewActions
     ) { dismiss ->
-        WorkspaceMenuChoice(stringResource(R.string.common_all), selected == null, { dismiss(); onSelected(null) })
+        WorkspaceMenuChoice(stringResource(R.string.common_all), selected == null && managedSurface == null, { dismiss(); onSelected(null) })
         if (pinned.isNotEmpty()) {
             WorkspaceMenuChoice(stringResource(R.string.category_manage_pins), false, { dismiss(); managePins = true })
             FlatPopupHeader(stringResource(R.string.category_favorites))
         }
         pinned.forEach { kind -> WorkspaceFavoriteChoice(
-            stringResource(kind.titleRes()), selected == kind, true, kind.hierarchyIcon(),
+            stringResource(kind.titleRes()), managedSurface == null && selected == kind, true, kind.hierarchyIcon(),
             { dismiss(); onSelected(kind) },
             { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedRootKinds = UiPreferencesRuntime.current.pinnedRootKinds - kind)) })
         }
