@@ -16,6 +16,7 @@ data class ModuleConfig(
     // They do NOT need to be added to the LSPosed module scope.
     val hiddenFromApps: Set<String> = emptySet(),
     val openTypes: OpenTypeConfig = OpenTypeConfig(),
+    val directShareTypes: DirectShareTypeConfig = DirectShareTypeConfig(),
     /** Empty by default. Only explicitly selected categories contribute fully-selected package targets. */
     val visibilityCompat: VisibilityCompatConfig = VisibilityCompatConfig(),
     val browserLinks: BrowserLinkConfig = BrowserLinkConfig(),
@@ -80,6 +81,7 @@ data class ModuleConfig(
         val migratedPriorities = if (migratedTitles == cleanPriorities.titles) cleanPriorities
         else cleanPriorities.copy(titles = migratedTitles).validated()
 
+        val cleanDirectShareTypes = directShareTypes.validated()
         val cleanOpenTypes = openTypes.validated()
         val cleanBrowserLinks = browserLinks.validated()
         val cleanSurfaceFilters = surfaceFilters.validated()
@@ -88,6 +90,7 @@ data class ModuleConfig(
             cleanRules == rules &&
             migratedPriorities == priorities &&
             cleanOpenTypes == openTypes &&
+            cleanDirectShareTypes == directShareTypes &&
             cleanBrowserLinks == browserLinks &&
             cleanSurfaceFilters == surfaceFilters &&
             cleanVisibilityCompat == visibilityCompat &&
@@ -96,6 +99,7 @@ data class ModuleConfig(
             rules = cleanRules,
             priorities = migratedPriorities,
             openTypes = cleanOpenTypes,
+            directShareTypes = cleanDirectShareTypes,
             browserLinks = cleanBrowserLinks,
             surfaceFilters = cleanSurfaceFilters,
             visibilityCompat = cleanVisibilityCompat,
