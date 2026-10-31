@@ -69,11 +69,11 @@ class LauncherShortcutObserverModule : XposedModule() {
                 record("SCAN_UNAVAILABLE reason=no_launcher_service")
                 return
             }
+            // A HOME role may be granted only after user unlock or launcher
+            // selection. Start the observer now, but the scan itself will not
+            // query without host permission. Periodic retries handle that case.
             val host = runCatching { launcher.hasShortcutHostPermission() }.getOrDefault(false)
-            if (!host) {
-                record("SCAN_UNAVAILABLE reason=not_default_shortcut_host")
-                return
-            }
+            if (!host) record("OBSERVER_DEFERRED reason=shortcut_host_permission_missing")
             started = true
             start(context.applicationContext, launcher)
         }
