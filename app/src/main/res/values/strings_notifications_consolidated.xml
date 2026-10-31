@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notification_cleanup_title">Notification Cleanup</string>
+    <string name="notification_cleanup_help">Hide notifications by app or by registered channel. App-level and channel-level rules are independent. Does not disable notification delivery.</string>
+    <string name="notification_cleanup_app_toggle">Hide all notifications from this app</string>
+    <string name="notification_cleanup_app_selected">Entire app hidden from notification shade</string>
+    <string name="notification_cleanup_app_active">App-level rule off · select to hide the entire app</string>
+    <string name="notification_cleanup_app_legacy">App-level rule retained without any registered channels</string>
+    <string name="notification_cleanup_channels_note">Channel checkboxes affect only that channel. While the whole app is hidden, individual channel rules have no visible effect until app hiding is removed.</string>
+    <string name="notification_cleanup_bulk_channels">Bulk selection applies to channels only; app-level hiding is controlled by the application checkbox.</string>
+    <string name="notification_cleanup_channel_status">%1$d channels · %2$d hidden</string>
+    <string name="notification_cleanup_legacy_title">Existing notification-type rules</string>
+    <string name="notification_cleanup_legacy_note">These global category rules were saved by an earlier version. They still hide matching notifications across apps; remove rules you no longer want.</string>
+    <string name="notification_cleanup_legacy_clear">Clear all type rules</string>
+    <string name="notification_cleanup_legacy_remove">Remove type rule</string>
+</resources>
