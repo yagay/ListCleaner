@@ -35,8 +35,30 @@ import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.runtime.ActiveNotificationRow
 import com.yagay.ListCleaner.runtime.ChannelInventory
 import com.yagay.ListCleaner.runtime.ChannelInventoryStatus
+import com.yagay.ListCleaner.runtime.RegisteredChannelRow
 import com.yagay.ListCleaner.runtime.NotificationCleanupController
 import kotlinx.coroutines.launch
+
+/**
+ * One candidate source for both channel rows and bulk actions. Saved rules
+ * whose channels were not returned by a restricted/failed scan remain editable.
+ */
+internal fun notificationRuleChannelRows(
+    packageName: String,
+    discovered: List<RegisteredChannelRow>,
+    hidden: Set<String>,
+    locked: Set<String>,
+): List<RegisteredChannelRow> {
+    val observedIds = discovered.map { it.channelId }.toSet()
+    val retainedIds = (hidden + locked).mapNotNull { key ->
+        key.substringAfter('|').takeIf {
+            key.substringBefore('|') == packageName && it.isNotBlank()
+        }
+    }.toSet()
+    return discovered + (retainedIds - observedIds).sorted().map { id ->
+        RegisteredChannelRow(packageName, id, id, -1)
+    }
+}
 
 /** The same flat list and category/filter controls as Entry/Root cleanup. */
 @Composable
@@ -178,7 +200,10 @@ internal fun SurfaceChannelSettings(
         }
     }
     val displayedPackages = filteredPackages
-    val visibleChannels = displayedPackages.flatMap { packageInventories[it]?.items.orEmpty() }
+    val visibleChannels = displayedPackages.flatMap { pkg ->
+        notificationRuleChannelRows(pkg, packageInventories[pkg]?.items.orEmpty(),
+            draft.hiddenNotificationChannels, draft.lockedNotificationChannels)
+    }
     val editableChannels = visibleChannels.filterNot {
         draft.isChannelLocked(it.packageName, it.channelId)
     }
@@ -275,17 +300,10 @@ internal fun SurfaceChannelSettings(
         // A scan may be incomplete. Do not strand old hidden/locked channel
         // rules just because the channel has not been rediscovered.
         val discoveredChannels = found?.items.orEmpty()
-        val retainedChannelIds = (draft.hiddenNotificationChannels +
-            draft.lockedNotificationChannels).mapNotNull { key ->
-            if (key.substringBefore('|') == appPackage) key.substringAfter('|')
-            else null
-        }.filter { it.isNotBlank() }.toSet()
-        val missingChannelIds = retainedChannelIds -
+        val channels = notificationRuleChannelRows(appPackage, discoveredChannels,
+            draft.hiddenNotificationChannels, draft.lockedNotificationChannels)
+        val missingChannelIds = channels.map { it.channelId }.toSet() -
             discoveredChannels.map { it.channelId }.toSet()
-        val channels = discoveredChannels + missingChannelIds.sorted().map { id ->
-            com.yagay.ListCleaner.runtime.RegisteredChannelRow(
-                appPackage, id, id, -1)
-        }
         val selected = appPackage in appHidden
         val appLocked = appPackage in appLocks
         val hiddenChannelCount = channels.count { draft.isChannelHidden(appPackage, it.channelId) }
