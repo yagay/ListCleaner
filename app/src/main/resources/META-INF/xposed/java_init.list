@@ -13,3 +13,4 @@ com.yagay.ListCleaner.xposed.PackageScopedResolverFilterModule
 com.yagay.ListCleaner.xposed.ShortcutSurfaceModule
 com.yagay.ListCleaner.xposed.DocumentsUiRootsModule
 com.yagay.ListCleaner.xposed.AospSurfaceFilterModule
+com.yagay.ListCleaner.xposed.LauncherShortcutObserverModule
