@@ -46,6 +46,30 @@ class AospSurfaceFilterModule : XposedModule() {
         when (param.packageName) {
             "com.android.systemui" -> {
                 initRules()
+                // The Root Tiles editor writes the actual per-component SystemUI
+                // label override. Intercept the presented CustomTile state, not
+                // the TileService's APK resources or stored Tile registry.
+                install(param.classLoader,
+                    "com.android.systemui.qs.external.CustomTile",
+                    "handleUpdateState", 2, "qs-system-label-state") { chain ->
+                    val result = proceedOriginal(chain)
+                    val renamed = customTileLabel(chain.thisObject) ?: return@install result
+                    val state = chain.args.firstOrNull() ?: return@install result
+                    val oldLabel = ReflectionAccess.readField(state, "label")
+                    if (ReflectionAccess.writeField(state, renamed, "label")) {
+                        val description = ReflectionAccess.readField(state, "contentDescription")
+                        if (description == null || description == oldLabel) {
+                            ReflectionAccess.writeField(state, renamed, "contentDescription")
+                        }
+                    }
+                    result
+                }
+                install(param.classLoader,
+                    "com.android.systemui.qs.external.CustomTile",
+                    "getTileLabel", 0, "qs-system-label-editor") { chain ->
+                    val original = proceedOriginal(chain)
+                    customTileLabel(chain.thisObject) ?: original
+                }
                 // RenderStageManager is the AOSP hand-off to the view renderer:
                 // filter its presentation argument, not the notification collection.
                 install(param.classLoader,
@@ -388,6 +412,28 @@ class AospSurfaceFilterModule : XposedModule() {
             notification.flags and (Notification.FLAG_NO_CLEAR or
                 Notification.FLAG_FOREGROUND_SERVICE or Notification.FLAG_ONGOING_EVENT) != 0) return null
         return sbn.packageName
+    }
+
+    /** CustomTile uses an independent component and Android user, unlike package-only QS filtering. */
+    private fun customTileLabel(tile: Any?): String? {
+        val receiver = tile ?: return null
+        val component = (ReflectionAccess.invokeNoArg(receiver, "getComponent") as? ComponentName)
+            ?: (ReflectionAccess.readField(receiver, "mComponent") as? ComponentName)
+            ?: run {
+                val spec = (ReflectionAccess.invokeNoArg(receiver, "getTileSpec") as? String)
+                    ?: (ReflectionAccess.readField(receiver, "mSpec") as? String)
+                val flattened = spec?.takeIf { it.startsWith("custom(") && it.endsWith(")") }
+                    ?.removePrefix("custom(")?.removeSuffix(")")
+                ComponentName.unflattenFromString(flattened ?: return null)
+            }
+        val rawUser = ReflectionAccess.invokeNoArg(receiver, "getUser")
+            ?: ReflectionAccess.readField(receiver, "mUser", "mUserId")
+        val user = when (rawUser) {
+            is Number -> rawUser.toInt()
+            is UserHandle -> ReflectionAccess.userId(rawUser)
+            else -> null
+        } ?: Process.myUid() / 100000
+        return policy(user).tileLabels[component.flattenToString()]
     }
 
     private fun tilePackage(spec: String?): String? {
