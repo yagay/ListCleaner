@@ -136,7 +136,7 @@ required = {
     "WorkspaceControlLabel.kt": ["fun WorkspaceControlLabel(", "MaterialTheme.typography.labelLarge"],
     "CompactCategoryButton.kt": ["fun CompactCategoryButton(", "AdaptiveFilterChip(",
                                   "Arrangement.spacedBy(4.dp)"],
-    "ClassicListLayout.kt": ["fun ClassicCleanupTabs(", "WorkspaceControlLabel(", "modeExpanded: Boolean", "WorkspaceCategoryPreviewIcon(",
+    "ClassicListLayout.kt": ["fun ClassicCleanupTabs(", "WorkspaceControlLabel(", "modeExpanded: Boolean",
                              "active == ClassicCleanupMode.ENTRIES", "active == ClassicCleanupMode.COMPONENTS"],
     "ComponentCategoryFilter.kt": ["fun ClassicComponentCategoryFilter(",
                                     "ComponentCategoryPicker("],
@@ -359,7 +359,8 @@ toolbar_source = (root / "MainActivity.kt").read_text(encoding="utf-8")
 if "titleRes = R.string.app_name" not in toolbar_source:
     errors.append("MainActivity.kt: Top toolbar must consistently use the List Cleaner app name")
 
-# Eye preview is the independent leading Category control, never next to Help.
+# Entry's eye preview follows Filter and precedes bulk selection in the pinned row.
+# Root/Priority category eyes retain their existing location.
 # Individual Entry/Root items retain their precise preview in overflow.
 selector_source = (root / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
 for needle in ("fun WorkspaceCategoryPreviewIcon(", "Icons.Rounded.Visibility",
@@ -386,11 +387,21 @@ if ("touchSize: androidx.compose.ui.unit.Dp = 18.dp" not in eye_source or
         "AdaptiveIconButton(" in eye_source):
     errors.append("WorkspaceCategorySelector.kt: preview eye must keep its compact default with a reusable 48dp touch target")
 classic_preview = (root / "ClassicListLayout.kt").read_text(encoding="utf-8")
-if "touchSize = 48.dp" not in classic_preview or "iconSize = 20.dp" not in classic_preview:
-    errors.append("ClassicListLayout.kt: trailing system preview must have a 48dp touch target")
+if "WorkspaceCategoryPreviewIcon(" in classic_preview or "previewActions:" in classic_preview:
+    errors.append("ClassicListLayout.kt: duplicate eye remained on Entry mode title row")
 entry_preview = (root / "MainTabs.kt").read_text(encoding="utf-8")
-if "previewActions = entryHeaderPreviewKinds(state.filter)" not in entry_preview or "browseAllComponents" in entry_preview:
-    errors.append("MainTabs.kt: top preview must follow current Entry and not switch to embedded Components")
+entry_controls = (root / "MainControls.kt").read_text(encoding="utf-8")
+if "toolbarPreviewActions = entryHeaderPreviewKinds(state.filter)" not in entry_preview or "browseAllComponents" in entry_preview:
+    errors.append("MainTabs.kt: toolbar preview must follow current Entry category")
+if "toolbarPreviewActions: List<WorkspaceMenuAction>" not in entry_controls or (
+        "if (toolbarPreviewActions.isNotEmpty())" not in entry_controls or
+        "WorkspaceListActions(actions = selectionActions)" not in entry_controls):
+    errors.append("MainControls.kt: preview must be after Filter and before bulk actions")
+preview_row = entry_controls.split("afterFilter = {", 1)[-1].split("filter = {", 1)[0]
+if preview_row.find("WorkspaceCategoryPreviewIcon(") < 0 or (
+        preview_row.find("WorkspaceCategoryPreviewIcon(") >=
+        preview_row.find("WorkspaceListActions(actions = selectionActions)")):
+    errors.append("MainControls.kt: toolbar eye placement order is incorrect")
 summary_source = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8").split(
     "internal fun WorkspaceListActions(", 1
 )[-1].split("internal fun WorkspaceListSummary(", 1)[0]
@@ -399,8 +410,9 @@ if "Icons.Rounded.Visibility" in summary_source or "previewActions" in summary_s
 for filename, target in (("MainTabs.kt", "entryKind = previewKind"),
                          ("RootComponentsScreen.kt", "componentKind = previewKind")):
     code = (root / filename).read_text(encoding="utf-8")
-    if "previewActions =" not in code or target not in code:
-        errors.append(f"{filename}: header category eye not wired to preview")
+    preview_binding = "toolbarPreviewActions =" if filename == "MainTabs.kt" else "previewActions ="
+    if preview_binding not in code or target not in code:
+        errors.append(f"{filename}: system preview eye is not wired to the proper toolbar")
 if "onPreview = onPreview" not in (root / "AppListRows.kt").read_text(encoding="utf-8"):
     errors.append("AppListRows.kt: item-specific preview must remain in overflow")
 
