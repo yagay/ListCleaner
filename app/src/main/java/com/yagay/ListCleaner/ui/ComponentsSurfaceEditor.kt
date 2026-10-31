@@ -26,11 +26,33 @@ import com.yagay.ListCleaner.domain.SurfaceFilterConfig
 import com.yagay.ListCleaner.domain.SurfaceKind
 import com.yagay.ListCleaner.runtime.ChannelInventory
 import com.yagay.ListCleaner.runtime.ChannelInventoryStatus
+import com.yagay.ListCleaner.runtime.RegisteredChannelRow
 import com.yagay.ListCleaner.runtime.NotificationCleanupController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.coroutineContext
+
+/**
+ * One candidate source for both channel rows and bulk actions. Saved rules
+ * whose channels were not returned by a restricted/failed scan remain editable.
+ */
+internal fun notificationRuleChannelRows(
+    packageName: String,
+    discovered: List<RegisteredChannelRow>,
+    hidden: Set<String>,
+    locked: Set<String>,
+): List<RegisteredChannelRow> {
+    val observedIds = discovered.map { it.channelId }.toSet()
+    val retainedIds = (hidden + locked).mapNotNull { key ->
+        key.substringAfter('|').takeIf {
+            key.substringBefore('|') == packageName && it.isNotBlank()
+        }
+    }.toSet()
+    return discovered + (retainedIds - observedIds).sorted().map { id ->
+        RegisteredChannelRow(packageName, id, id, -1)
+    }
+}
 
 /**
  * Presentation-only rule categories attached to Components. They are NOT
