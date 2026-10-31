@@ -63,14 +63,15 @@ internal object CandidateVisibilityPolicy {
             // Restricted discoveries stay isolated from ALL/Unselected even if configured.
             item.restricted -> selected &&
                 (uiFilter == UiFilter.SHOW_SELECTED || uiFilter == UiFilter.LOCKED)
-            // A configured rule may temporarily disappear from runtime discovery after refresh.
-            // Keep it manageable in ALL/Selected/Locked, but never in Unselected.
-            // Historical Direct Share rows remain searchable, but retain unavailable=true
-            // and never claim a current system Chooser result.
-            item.unavailable && isObservedShortcutHistory(item) ->
-                uiFilter == UiFilter.ALL || uiFilter == UiFilter.HIDE_SELECTED ||
-                    (selected && uiFilter == UiFilter.SHOW_SELECTED)
-            item.unavailable -> selected && uiFilter != UiFilter.HIDE_SELECTED
+            // Keep stale / unobserved entries in the catalog so stored rules,
+            // locks and priorities survive. The normal All / Unselected lists
+            // must never represent them as current results. Only explicit
+            // HISTORY source browsing or selected-rule maintenance may show them.
+            item.unavailable -> when (uiFilter) {
+                UiFilter.ALL, UiFilter.HIDE_SELECTED ->
+                    historical && preferences.candidateSource == UiCandidateSource.HISTORY
+                UiFilter.SHOW_SELECTED, UiFilter.LOCKED -> selected
+            }
             else -> false
         }
     }
