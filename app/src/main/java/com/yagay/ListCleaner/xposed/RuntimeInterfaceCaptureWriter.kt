@@ -61,7 +61,19 @@ internal class RuntimeInterfaceCaptureWriter(
                     return@execute
                 }
                 val key = "$kind/$source/$userId/$callerUid/$requestAction/$requestMimeType/$requestHost"
-                val digest = snapshot.components.joinToString("|")
+                // RoleController/ShortcutService return package-only lists.
+                // Component-only deduplication incorrectly drops a changed package list.
+                val digest = buildString {
+                    append(snapshot.packages.size)
+                    append(':')
+                    snapshot.packages.forEach {
+                        append(it.length).append(':').append(it)
+                    }
+                    append('|').append(snapshot.components.size).append(':')
+                    snapshot.components.forEach {
+                        append(it.length).append(':').append(it)
+                    }
+                }
                 val now = System.currentTimeMillis()
                 if (key == lastKey && digest == lastContent && now - lastMillis in 0L..1200L) {
                     return@execute
