@@ -37,8 +37,8 @@ import com.yagay.ListCleaner.domain.DirectShareType
 import com.yagay.ListCleaner.domain.DirectShareTypeRules
 import com.yagay.ListCleaner.domain.matchesOpenPreset
 import com.yagay.ListCleaner.domain.matchesBrowserHost
-import com.yagay.ListCleaner.domain.observedShareMimeTypes
-import com.yagay.ListCleaner.domain.matchesShareMimeType
+import com.yagay.ListCleaner.domain.observedShareTypeOptions
+import com.yagay.ListCleaner.domain.matchesShareTypeOption
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -102,11 +102,17 @@ internal fun RulesTab(
         .takeIf { state.filter == IntentKind.DIRECT_SHARE }
     // ACTION_SEND and ACTION_SEND_MULTIPLE are distinct Android lists.
     // Offer only MIME types actually returned by each kind's resolver probes.
-    val observedShareTypes = remember(state.candidates, state.filter) {
-        state.filter?.let { observedShareMimeTypes(state.candidates, it) }.orEmpty()
+    val observedShareTypes = remember(
+        state.candidates, state.filter, state.openTypesExplicit.customDefinitions
+    ) {
+        state.filter?.let {
+            observedShareTypeOptions(
+                state.candidates, it, state.openTypesExplicit.customDefinitions
+            )
+        }.orEmpty()
     }
     var shareMimeName by rememberSaveable(vm.selectedSpace.value, state.filter) { mutableStateOf<String?>(null) }
-    val selectedShareMime = shareMimeName?.takeIf { it in observedShareTypes }
+    val selectedShareMime = observedShareTypes.firstOrNull { it.key == shareMimeName }
     LaunchedEffect(state.filter) {
         if (state.filter != IntentKind.OPEN) vm.setRuleOpenPreset(null)
         if (state.filter != IntentKind.DEEP_LINK) vm.setRuleBrowserHost(null)
@@ -201,7 +207,7 @@ internal fun RulesTab(
                     directShareType in DirectShareTypeRules.observed(it.evidence)
             }
             selectedShareMime != null -> state.candidates.filter {
-                it.rule.kind == state.filter && it.matchesShareMimeType(selectedShareMime)
+                it.rule.kind == state.filter && it.matchesShareTypeOption(selectedShareMime)
             }
             else -> state.candidates.filter { state.filter == null || it.rule.kind == state.filter }
         }
@@ -235,7 +241,7 @@ internal fun RulesTab(
                     directShareType in DirectShareTypeRules.observed(item.evidence)
             }
             selectedShareMime != null -> { item ->
-                item.rule.kind == state.filter && item.matchesShareMimeType(selectedShareMime)
+                item.rule.kind == state.filter && item.matchesShareTypeOption(selectedShareMime)
             }
             else -> { _ -> true }
         }
@@ -405,7 +411,11 @@ internal fun RulesTab(
                             IntentKind.OPEN -> openPreset?.let { state.openTypesExplicit.localizedTitle(it) }
                             IntentKind.DEEP_LINK -> browserHost
                             IntentKind.DIRECT_SHARE -> directShareType?.let { stringResource(it.titleRes()) }
-                            IntentKind.SHARE, IntentKind.SHARE_MULTIPLE -> selectedShareMime
+                            IntentKind.SHARE, IntentKind.SHARE_MULTIPLE -> selectedShareMime?.let { option ->
+                                if (option.key == "universal") prefsContext.getString(R.string.open_type_universal)
+                                else option.preset?.let(state.openTypesExplicit::localizedTitle)
+                                    ?: option.mimeTypes.first()
+                            }
                             else -> null
                         },
                         subtypeAvailable = when (state.filter) {
@@ -432,7 +442,8 @@ internal fun RulesTab(
                                 IntentKind.SHARE, IntentKind.SHARE_MULTIPLE -> ShareMimeFilterMenu(
                                     selected = selectedShareMime,
                                     supported = observedShareTypes,
-                                    onSelected = { type -> navigate { shareMimeName = type } },
+                                    config = state.openTypesExplicit,
+                                    onSelected = { type -> navigate { shareMimeName = type?.key } },
                                 )
                                 IntentKind.DEEP_LINK -> BrowserHostFilterMenu(
                                     selected = browserHost,
@@ -480,7 +491,7 @@ previewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds,
                                         directShareType = directShareType.takeIf { previewKind == IntentKind.DIRECT_SHARE },
                                         customMimeType = scopedProbeMime(typedOpenPreset, state.openTypesExplicit.customDefinitions)
                                             .takeIf { previewKind == IntentKind.OPEN },
-                                        shareMimeType = selectedShareMime.takeIf { previewKind == state.filter },
+                                        shareMimeType = selectedShareMime?.probeMime.takeIf { previewKind == state.filter },
                                     )
                                 },
                             )
@@ -655,7 +666,7 @@ previewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds,
                                 directShareType = directShareType.takeIf { component.rule.kind == IntentKind.DIRECT_SHARE },
                                 customMimeType = scopedProbeMime(typedOpenPreset, state.openTypesExplicit.customDefinitions)
                                     .takeIf { component.rule.kind == IntentKind.OPEN },
-                                shareMimeType = selectedShareMime.takeIf { component.rule.kind == state.filter },
+                                shareMimeType = selectedShareMime?.probeMime.takeIf { component.rule.kind == state.filter },
                                 focusPackage = component.rule.packageName,
                                 focusClass = component.rule.className,
                             )

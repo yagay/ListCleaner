@@ -57,3 +57,50 @@ fun ComponentCandidate.matchesShareMimeType(selected: String): Boolean {
         ))
     }
 }
+
+// Share uses the same familiar file-type names as Open With. One type may
+// contain several MIME probes, but only types observed for this Intent action
+// are offered. Unknown MIME values remain independently selectable.
+data class ShareTypeOption(
+    val key: String,
+    val preset: OpenPreset? = null,
+    val mimeTypes: List<String>,
+) {
+    val probeMime: String get() = mimeTypes.first()
+}
+
+fun observedShareTypeOptions(
+    candidates: Collection<ComponentCandidate>,
+    kind: IntentKind,
+    customDefinitions: Map<OpenPreset, CustomOpenDefinition> = emptyMap(),
+): List<ShareTypeOption> {
+    val mimeTypes = observedShareMimeTypes(candidates, kind)
+    val grouped = linkedMapOf<String, MutableList<String>>()
+    for (mime in mimeTypes) {
+        val preset = if (mime == "*/*") null
+            else matchOpenPreset(IntentKind.OPEN, mime, null, customDefinitions = customDefinitions)
+        val key = when {
+            mime == "*/*" -> "universal"
+            preset != null -> "preset:${preset.name}"
+            else -> "mime:$mime"
+        }
+        grouped.getOrPut(key) { mutableListOf() }.add(mime)
+    }
+    return grouped.map { (key, mimes) ->
+        ShareTypeOption(
+            key = key,
+            preset = key.removePrefix("preset:").takeIf { key.startsWith("preset:") }
+                ?.let(OpenPreset::valueOf),
+            mimeTypes = mimes,
+        )
+    }.sortedWith(compareBy<ShareTypeOption> {
+        when {
+            it.key == "universal" -> -1
+            it.preset != null -> it.preset.ordinal
+            else -> OpenPreset.entries.size
+        }
+    }.thenBy { it.key })
+}
+
+fun ComponentCandidate.matchesShareTypeOption(option: ShareTypeOption): Boolean =
+    option.mimeTypes.any(::matchesShareMimeType)

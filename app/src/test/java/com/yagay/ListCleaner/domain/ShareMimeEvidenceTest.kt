@@ -41,6 +41,28 @@ class ShareMimeEvidenceTest {
         assertFalse(images.matchesShareMimeType("*/*"))
     }
 
+    @Test fun sameOpenPresetsGroupShareMimesWithoutMixingMultipleAction() {
+        val share = candidate(IntentKind.SHARE,
+            "SEND mime=application/pdf",
+            "SEND mime=image/jpeg",
+            "SEND mime=image/png",
+            "SEND mime=application/zip",
+            "SEND mime=application/x-unknown-file")
+        val multiple = candidate(IntentKind.SHARE_MULTIPLE, "SEND_MULTIPLE mime=video/mp4")
+        val all = listOf(share, multiple)
+        val options = observedShareTypeOptions(all, IntentKind.SHARE)
+        assertTrue(options.any { it.preset == OpenPreset.PDF })
+        assertTrue(options.any { it.preset == OpenPreset.IMAGE &&
+            it.mimeTypes == listOf("image/jpeg", "image/png") })
+        assertTrue(options.any { it.preset == OpenPreset.ARCHIVE })
+        assertTrue(options.any { it.key == "mime:application/x-unknown-file" })
+        assertFalse(options.any { it.preset == OpenPreset.VIDEO })
+        assertEquals(listOf(OpenPreset.VIDEO),
+            observedShareTypeOptions(all, IntentKind.SHARE_MULTIPLE).mapNotNull { it.preset })
+        assertTrue(share.matchesShareTypeOption(options.first { it.preset == OpenPreset.IMAGE }))
+        assertFalse(multiple.matchesShareTypeOption(options.first { it.preset == OpenPreset.IMAGE }))
+    }
+
     @Test fun unknownAndUnavailableCandidatesDoNotAdvertiseTypes() {
         val unavailable = candidate(IntentKind.SHARE, "SEND mime=text/plain", unavailable = true)
         val unknown = candidate(IntentKind.SHARE, "OTHER_SOURCE mime=image/png",
@@ -49,3 +71,4 @@ class ShareMimeEvidenceTest {
         assertFalse(unknown.matchesShareMimeType("image/png"))
     }
 }
+
