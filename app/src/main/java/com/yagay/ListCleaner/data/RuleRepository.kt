@@ -107,6 +107,7 @@ class RuleRepository(context: Context) {
         mutableMode.value = next.mode
         mutableModeOverrides.value = next.modeOverrides
         mutableDisabledEntryGroups.value = next.disabledEntryGroups
+        mutableDisabledEntryKinds.value = next.disabledEntryKinds
         mutablePriorities.value = next.priorities
         mutableOpenTypes.value = next.openTypes
         mutableDirectShareTypes.value = next.directShareTypes
@@ -126,6 +127,7 @@ class RuleRepository(context: Context) {
     private val mutableMode = MutableStateFlow(initialConfig.mode)
     private val mutableModeOverrides = MutableStateFlow(initialConfig.modeOverrides)
     private val mutableDisabledEntryGroups = MutableStateFlow(initialConfig.disabledEntryGroups)
+    private val mutableDisabledEntryKinds = MutableStateFlow(initialConfig.disabledEntryKinds)
     private val mutablePriorities = MutableStateFlow(initialConfig.priorities)
     private val mutableOpenTypes = MutableStateFlow(initialConfig.openTypes)
     private val mutableDirectShareTypes = MutableStateFlow(initialConfig.directShareTypes)
@@ -148,6 +150,7 @@ class RuleRepository(context: Context) {
     val displayMode: StateFlow<DisplayMode> = mutableMode.asStateFlow()
     val modeOverrides: StateFlow<Map<IntentKind, DisplayMode>> = mutableModeOverrides.asStateFlow()
     val disabledEntryGroups: StateFlow<Set<EntryGroup>> = mutableDisabledEntryGroups.asStateFlow()
+    val disabledEntryKinds: StateFlow<Set<IntentKind>> = mutableDisabledEntryKinds.asStateFlow()
     val priorities: StateFlow<PriorityConfig> = mutablePriorities.asStateFlow()
     val diagnosticMode: StateFlow<Boolean> = mutableDiagnostic.asStateFlow()
     private val mutableRevision = MutableStateFlow(0L)
@@ -286,6 +289,7 @@ class RuleRepository(context: Context) {
         mode = mutableMode.value,
         modeOverrides = mutableModeOverrides.value,
         disabledEntryGroups = mutableDisabledEntryGroups.value,
+        disabledEntryKinds = mutableDisabledEntryKinds.value,
         priorities = mutablePriorities.value,
         diagnostic = mutableDiagnostic.value,
         hiddenFromApps = mutableHiddenFromApps.value.toSet(),
@@ -570,6 +574,15 @@ class RuleRepository(context: Context) {
         }.toSet())
     }
 
+    @Synchronized fun setDisabledEntryKinds(kinds: Set<IntentKind>) {
+        require(kinds.all { it.isSelectableEntryKind() })
+        if (kinds == mutableDisabledEntryKinds.value && mutableDisabledEntryGroups.value.isEmpty()) return
+        mutableDisabledEntryKinds.value = kinds.toSet()
+        mutableDisabledEntryGroups.value = emptySet() // migrate legacy grouped disablement
+        persistLocalSnapshot()
+        mutableRevision.value++
+    }
+
     @Synchronized fun setDisabledEntryGroups(groups: Set<EntryGroup>) {
         if (groups == mutableDisabledEntryGroups.value) return
         mutableDisabledEntryGroups.value = groups.toSet()
@@ -748,6 +761,7 @@ class RuleRepository(context: Context) {
         mutableMode.value = active.mode
         mutableModeOverrides.value = active.modeOverrides
         mutableDisabledEntryGroups.value = active.disabledEntryGroups
+        mutableDisabledEntryKinds.value = active.disabledEntryKinds
         mutablePriorities.value = active.priorities
         mutableOpenTypes.value = active.openTypes
         mutableDirectShareTypes.value = active.directShareTypes
@@ -848,6 +862,7 @@ class RuleRepository(context: Context) {
         mutableMode.value = prepared.mode
         mutableModeOverrides.value = prepared.modeOverrides
         mutableDisabledEntryGroups.value = prepared.disabledEntryGroups
+        mutableDisabledEntryKinds.value = prepared.disabledEntryKinds
         mutablePriorities.value = prepared.priorities
         mutableOpenTypes.value = prepared.openTypes
         mutableDirectShareTypes.value = prepared.directShareTypes
