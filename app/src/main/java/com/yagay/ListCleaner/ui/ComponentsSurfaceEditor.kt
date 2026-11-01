@@ -456,44 +456,23 @@ internal fun ComponentsSurfaceEditor(
             stickyHeader(key = "controls") {
                 PageFilterSection {
                     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
-                        WorkspaceCategoryFilterRow(
-                            category = {
-                                EntryCategoryPicker(
-                                    selected = null, managedSurface = surface,
-                                    onSelected = { request { onRootKind(null) } },
-                                    onManagedSurface = { next -> request { onManagedKind(next) } },
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
+                        EntryManagedSurfaceToolbar(
+                            surface = surface,
+                            appTypeFilter = appTypeFilter,
+                            onAppTypeFilter = {
+                                appTypeFilter = it
+                                UiPreferencesStore.rememberAppType(context, it, "rules")
                             },
-                            beforeFilter = {
-                                WorkspaceSortModeAction(
-                                    supported = !isNotification,
-                                    onOpen = { request { sorting = true } },
-                                )
+                            viewFilter = viewFilter,
+                            onViewFilter = {
+                                viewFilter = it
+                                UiPreferencesStore.rememberFilter(context, it, "rules")
                             },
-                            filter = {
-                                WorkspaceFilterBar(
-                                    appTypeFilter = appTypeFilter,
-                                    onAppTypeFilter = {
-                                        appTypeFilter = it
-                                        UiPreferencesStore.rememberAppType(context, it, "rules")
-                                    },
-                                    viewFilter = viewFilter,
-                                    onViewFilter = {
-                                        viewFilter = it
-                                        UiPreferencesStore.rememberFilter(context, it, "rules")
-                                    },
-                                    viewTitle = {
-                                        stringResource(when (it) {
-                                            UiFilter.ALL -> R.string.common_all
-                                            UiFilter.SHOW_SELECTED -> R.string.root_filter_disabled
-                                            UiFilter.HIDE_SELECTED -> R.string.root_filter_enabled
-                                            UiFilter.LOCKED -> R.string.filter_locked
-                                        })
-                                    },
-                                )
-                            },
-                            afterFilter = { WorkspaceListActions(actions = listOf(
+                            onEntry = { request { onRootKind(null) } },
+                            onManagedSurface = { next -> request { onManagedKind(next) } },
+                            canSort = !isNotification,
+                            onOpenSort = { request { sorting = true } },
+                            actions = listOf(
                                 WorkspaceMenuAction(stringResource(R.string.select_all), {
                                     pendingBulk = SurfaceBulkOperation.ALL
                                 }, editable.any { !getEffective(it) }),
@@ -503,7 +482,7 @@ internal fun ComponentsSurfaceEditor(
                                 WorkspaceMenuAction(stringResource(R.string.invert_selection), {
                                     pendingBulk = SurfaceBulkOperation.INVERT
                                 }, editable.isNotEmpty()),
-                            )) },
+                            )
                         )
                         AdaptiveHorizontalDivider()
                     }
