@@ -102,19 +102,23 @@ class NfcPaymentModule : XposedModule() {
         return discovered.toList()
     }
 
+    // AOSP: getServices(int userId, String category). Some wrappers reverse order.
     private fun isPaymentServicesMethod(method: Method): Boolean =
         method.name == "getServices" &&
             List::class.java.isAssignableFrom(method.returnType) &&
-            method.parameterTypes.any { it == String::class.java }
+            method.parameterTypes.size == 2 &&
+            method.parameterTypes.count { it == String::class.java } == 1 &&
+            method.parameterTypes.count { it == Int::class.javaPrimitiveType } == 1
 
     private fun paymentServicesHooker() = XposedInterface.Hooker { chain ->
         val category = chain.args.firstOrNull { it is String } as? String
             ?: return@Hooker chain.proceed()
         if (category != PAYMENT_CATEGORY) return@Hooker chain.proceed()
 
-        // AOSP's getServices(String category, int userId) starts with a String.
-        // The old firstOrNull() cast to Int silently skipped this normal signature.
-        val userId = chain.args.filterIsInstance<Int>().firstOrNull()
+        // Match the actual integer argument, independent of OEM parameter order.
+        val method = chain.executable as? Method ?: return@Hooker chain.proceed()
+        val userIndex = method.parameterTypes.indexOfFirst { it == Int::class.javaPrimitiveType }
+        val userId = (chain.args.getOrNull(userIndex) as? Int)
             ?.takeIf { it in 0..21474 } ?: return@Hooker chain.proceed()
         val original = chain.proceed()
         val values = original as? List<*> ?: return@Hooker original
