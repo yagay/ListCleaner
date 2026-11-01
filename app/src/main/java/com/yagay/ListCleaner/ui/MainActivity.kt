@@ -288,16 +288,24 @@ class MainActivity : ComponentActivity() {
             Box(Modifier.padding(padding).consumeWindowInsets(padding).fillMaxSize()) {
                 when (state.destination) {
                     Destination.RULES -> if (managedEntrySurface != null) {
-                        ComponentsSurfaceEditor(
-                            state = state,
-                            vm = vm,
-                            surface = requireNotNull(managedEntrySurface),
-                            pendingNavigation = pendingNavigation,
-                            refreshRegistry = listsRefresh,
-                            onRootKind = { managedEntrySurface = null },
-                            onManagedKind = { managedEntrySurface = it },
-                            onOpenRoot = { managedEntrySurface = null; vm.setDestination(Destination.TILES) },
-                        )
+                        val editor = requireNotNull(managedEntrySurface)
+                        val backToEntry = { managedEntrySurface = null }
+                        val chooseHookCategory: (ManagedComponentSurface) -> Unit = { managedEntrySurface = it }
+                        val openRoot = {
+                            managedEntrySurface = null
+                            vm.setDestination(Destination.TILES)
+                        }
+                        if (editor == ManagedComponentSurface.SETTINGS_APPS) {
+                            SettingsAppsEntryScreen(
+                                state, vm, pendingNavigation, listsRefresh,
+                                backToEntry, chooseHookCategory, openRoot,
+                            )
+                        } else {
+                            NotificationCleanupEntryScreen(
+                                state, vm, pendingNavigation, listsRefresh,
+                                backToEntry, chooseHookCategory, openRoot,
+                            )
+                        }
                     } else {
                         RulesTab(
                             state, vm,
