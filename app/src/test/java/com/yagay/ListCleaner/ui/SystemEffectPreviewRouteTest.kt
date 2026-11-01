@@ -9,7 +9,7 @@ import org.junit.Test
 
 class SystemEffectPreviewRouteTest {
     @Test fun intentionalSharesAreTheOnlyForcedChoosers() {
-        listOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE, IntentKind.DIRECT_SHARE)
+        listOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE, IntentKind.DIRECT_SHARE, IntentKind.BROWSER)
             .forEach { assertEquals(it.name, SystemPreviewRoute.CHOOSER, systemPreviewRoute(it)) }
     }
 
@@ -33,7 +33,7 @@ class SystemEffectPreviewRouteTest {
     }
 
     @Test fun roleDefaultsOpenSettingsInsteadOfFakedDefaultAppChoosers() {
-        listOf(IntentKind.BROWSER, IntentKind.HOME, IntentKind.ASSISTANT,
+        listOf(IntentKind.HOME, IntentKind.ASSISTANT,
             IntentKind.CALL_SCREENING)
             .forEach { assertEquals(it.name, SystemPreviewRoute.SETTINGS, systemPreviewRoute(it)) }
         // These roles always open their real system settings/role picker.
