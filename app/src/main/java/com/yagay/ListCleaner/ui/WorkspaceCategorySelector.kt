@@ -533,18 +533,30 @@ internal fun ComponentCategoryPicker(
             { dismiss(); onSelected(kind) },
             { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedRootKinds = UiPreferencesRuntime.current.pinnedRootKinds - kind)) })
         }
-        sortedRootKinds.filter { it !in pinned }.forEach { kind ->
-            WorkspaceFavoriteChoice(stringResource(kind.titleRes()), managedSurface == null && selected == kind, false, kind.hierarchyIcon(),
-                { dismiss(); onSelected(kind) },
-                { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedRootKinds = UiPreferencesRuntime.current.pinnedRootKinds + kind)) })
-        }
-        FlatPopupHeader(stringResource(R.string.component_display_filters))
-        ManagedComponentSurface.entries.forEach { surface ->
-            WorkspaceMenuChoice(
-                stringResource(surface.titleRes),
-                managedSurface == surface,
-                { dismiss(); onManagedSurface(surface) },
-            )
+        // Root component categories and managed rule surfaces share one
+        // alphabetical category list. Their underlying engines remain distinct.
+        val regular = sortedRootKinds.filter { it !in pinned }
+        val merged = (regular.map { it to null } +
+            ManagedComponentSurface.entries.map { null to it })
+            .sortedWith { a, b ->
+                nameOrder.compare(
+                    context.getString(a.first?.titleRes() ?: requireNotNull(a.second).titleRes),
+                    context.getString(b.first?.titleRes() ?: requireNotNull(b.second).titleRes)
+                )
+            }
+        merged.forEach { (kind, surface) ->
+            if (kind != null) {
+                WorkspaceFavoriteChoice(stringResource(kind.titleRes()), managedSurface == null && selected == kind,
+                    false, kind.hierarchyIcon(),
+                    { dismiss(); onSelected(kind) },
+                    { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedRootKinds = UiPreferencesRuntime.current.pinnedRootKinds + kind)) })
+            } else if (surface != null) {
+                WorkspaceMenuChoice(
+                    stringResource(surface.titleRes),
+                    managedSurface == surface,
+                    { dismiss(); onManagedSurface(surface) },
+                )
+            }
         }
     }
 }
