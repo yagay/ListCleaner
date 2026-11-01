@@ -414,7 +414,8 @@ internal object SystemEntryProbe {
                 )
             }
             PreviewAdapter.ENABLED_MANAGER -> enabledManager(context, kind)
-            PreviewAdapter.SYSTEM_SERVICES -> registeredServices(context, kind)
+            PreviewAdapter.SYSTEM_SERVICES, PreviewAdapter.NFC_PAYMENT ->
+                registeredServices(context, kind)
             PreviewAdapter.PROVIDER_REGISTRY -> registeredProviders(context, kind)
             PreviewAdapter.HOST_PRIVATE -> {
                 // Direct Share and dynamic shortcut targets are owned by
