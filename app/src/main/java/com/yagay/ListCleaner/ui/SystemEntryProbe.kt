@@ -479,7 +479,8 @@ internal object SystemEntryProbe {
                 )
             }
         }.getOrDefault(emptyList())
-        return unique(activities + voiceServices)
+        // RoleController selects one package per role, not one item per activity/service.
+        return unique(activities + voiceServices).distinctBy(SystemProbeItem::packageName)
     }
 
     private fun enabledManager(context: Context, kind: IntentKind): SystemProbeResult {
