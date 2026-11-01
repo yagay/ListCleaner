@@ -5,6 +5,82 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ModuleConfigTest {
+    @Test fun upgradingTypedMimeRulesUnifiesHideAndPriorityForEachActionAndUser() {
+        val openPdf = ComponentRule(IntentKind.OPEN, "com.example.pdf", "com.example.pdf.Reader")
+        val openImage = ComponentRule(IntentKind.OPEN, "com.example.image", "com.example.image.Viewer")
+        val shareImage = ComponentRule(IntentKind.SHARE, "com.example.share", "com.example.share.Receive")
+        val sharePdf = ComponentRule(IntentKind.SHARE, "com.example.pdf", "com.example.pdf.Receive")
+        val multiple = ComponentRule(IntentKind.SHARE_MULTIPLE, "com.example.multi", "com.example.multi.Receive")
+        val typed = OpenTypeConfig(
+            rules = mapOf(
+                OpenPreset.PDF to setOf(openPdf.id),
+                OpenPreset.IMAGE to setOf(openImage.id),
+            ),
+            priorities = mapOf(
+                OpenPreset.PDF to listOf("com.example.pdf"),
+                OpenPreset.IMAGE to listOf("com.example.image"),
+            ),
+            shareRules = mapOf(
+                IntentKind.SHARE to mapOf(
+                    "preset:IMAGE" to setOf(shareImage.id),
+                    "preset:PDF" to setOf(sharePdf.id),
+                ),
+                IntentKind.SHARE_MULTIPLE to mapOf(
+                    "preset:IMAGE" to setOf(multiple.id),
+                )
+            ),
+            sharePriorities = mapOf(
+                IntentKind.SHARE to mapOf("preset:IMAGE" to listOf("com.example.share"))
+            ),
+        )
+        val work = UserSpaceRules(openTypes = typed)
+        val old = ModuleConfig(
+            rules = emptySet(),
+            mode = DisplayMode.HIDE_SELECTED,
+            priorities = PriorityConfig(
+                apps = mapOf(
+                    IntentKind.OPEN to listOf("com.example.already"),
+                    IntentKind.SHARE to listOf("com.example.existing"),
+                )
+            ),
+            diagnostic = false,
+            openTypes = typed,
+            userSpaces = mapOf(10 to work),
+        )
+        val migrated = old.validated()
+        assertEquals(setOf(openPdf, openImage, shareImage, sharePdf, multiple), migrated.rules)
+        assertEquals(listOf("com.example.already", "com.example.pdf", "com.example.image"),
+            migrated.priorities.apps[IntentKind.OPEN])
+        assertEquals(listOf("com.example.existing", "com.example.share"),
+            migrated.priorities.apps[IntentKind.SHARE])
+        assertEquals(setOf(multiple), migrated.userSpaces.getValue(10).rules.minus(emptySet()))
+        assertTrue(migrated.openTypes.rules.isEmpty())
+        assertTrue(migrated.openTypes.priorities.isEmpty())
+        assertTrue(migrated.openTypes.shareRules.isEmpty())
+        assertTrue(migrated.openTypes.sharePriorities.isEmpty())
+        assertTrue(migrated.userSpaces.getValue(10).openTypes.shareRules.isEmpty())
+        assertEquals(migrated, migrated.validated())
+        val restored = Json.decodeFromString(ModuleConfig.serializer(),
+            Json.encodeToString(ModuleConfig.serializer(), migrated)).validated()
+        assertEquals(migrated, restored)
+    }
+
+    @Test fun legacyTypedSelectionHidesReceiverAcrossDifferentMimeEvidence() {
+        val share = ComponentRule(IntentKind.SHARE, "com.example.receiver", "com.example.receiver.Receive")
+        val migrated = ModuleConfig(
+            rules = emptySet(), mode = DisplayMode.HIDE_SELECTED,
+            priorities = PriorityConfig(), diagnostic = false,
+            openTypes = OpenTypeConfig(shareRules = mapOf(
+                IntentKind.SHARE to mapOf("preset:IMAGE" to setOf(share.id))
+            ))
+        ).validated()
+        val candidate = ComponentCandidate(share, "Receiver", "Receive",
+            evidence = listOf("SEND mime=image/jpeg", "SEND mime=application/pdf"))
+        assertTrue(priorityCandidates(listOf(candidate), migrated.rules,
+            migrated.mode, IntentKind.SHARE).isEmpty())
+    }
+
+
     @Test fun distinctAndroidUsersSurviveSerializationWithoutChangingPrimaryRules() {
         val personal = ComponentRule(IntentKind.OPEN, "com.example.personal", "com.example.personal.Main")
         val work = ComponentRule(IntentKind.OPEN, "com.example.work", "com.example.work.Main")

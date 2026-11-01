@@ -7,13 +7,13 @@ import org.junit.Test
 
 /** Prevent secondary Entry selectors disappearing when new surfaces are added. */
 class EntrySubtypeSelectorTest {
-    @Test fun shareAndMultiShareUseSameSubtypePickerAsOtherTypedEntries() {
+    @Test fun mimeEntriesUseOneListWhileActualOtherSubtypesRemain() {
         assertTrue(hasEntrySubtypeSelector(IntentKind.DIRECT_SHARE))
-        assertTrue(hasEntrySubtypeSelector(IntentKind.OPEN))
+        assertFalse(hasEntrySubtypeSelector(IntentKind.OPEN))
         assertTrue(hasEntrySubtypeSelector(IntentKind.DEEP_LINK))
         assertFalse(hasEntrySubtypeSelector(IntentKind.SHORTCUT_ITEM))
-        assertTrue(hasEntrySubtypeSelector(IntentKind.SHARE))
-        assertTrue(hasEntrySubtypeSelector(IntentKind.SHARE_MULTIPLE))
+        assertFalse(hasEntrySubtypeSelector(IntentKind.SHARE))
+        assertFalse(hasEntrySubtypeSelector(IntentKind.SHARE_MULTIPLE))
         assertFalse(hasEntrySubtypeSelector(null))
     }
 }

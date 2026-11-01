@@ -60,6 +60,34 @@ class PriorityVisibilityTest {
         assertEquals(saved, moveVisiblePriority(saved, listOf("com.example.b"), "com.example.b", -1))
     }
 
+    @Test fun unifiedPriorityPromotesPresentTargetsAcrossMimeSpecificListsOnly() {
+        val globalOpenOrder = listOf("com.example.favorite", "com.example.second")
+        val globalShareOrder = listOf("com.example.favorite")
+        val globalMultiOrder = listOf("com.example.multi")
+
+        fun order(kind: IntentKind, packages: List<String>, preference: List<String>): List<String> {
+            val candidates = packages.map { item(kind, pkg = it) }
+            return priorityAppGroups(candidates, emptySet(), DisplayMode.HIDE_SELECTED,
+                kind, preference, "", PriorityListFilter.ALL).map { it.packageName }
+        }
+        for (mimeMembers in listOf(
+            listOf("com.example.other", "com.example.favorite", "com.example.second"),
+            listOf("com.example.another", "com.example.favorite"),
+        )) {
+            val actual = order(IntentKind.OPEN, mimeMembers, globalOpenOrder)
+            assertEquals("com.example.favorite", actual.first())
+            assertEquals(mimeMembers.toSet(), actual.toSet())
+        }
+        assertEquals(listOf("com.example.other"), order(IntentKind.OPEN,
+            listOf("com.example.other"), globalOpenOrder))
+        assertEquals(listOf("com.example.favorite", "com.example.other"),
+            order(IntentKind.SHARE, listOf("com.example.other", "com.example.favorite"), globalShareOrder))
+        assertEquals(listOf("com.example.multi", "com.example.other"),
+            order(IntentKind.SHARE_MULTIPLE, listOf("com.example.other", "com.example.multi"), globalMultiOrder))
+        assertEquals(listOf("com.example.other"), order(IntentKind.SHARE_MULTIPLE,
+            listOf("com.example.other"), globalMultiOrder))
+    }
+
     @Test fun partiallyCleanedAppKeepsOnlySurvivingComponents() {
         val a = item(IntentKind.OPEN, cls = "A")
         val b = item(IntentKind.OPEN, cls = "B")
