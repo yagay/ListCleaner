@@ -21,6 +21,8 @@ import android.util.Log
 import com.yagay.ListCleaner.data.PersistentComponentState
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.DisplayMode
+import com.yagay.ListCleaner.domain.entryGroup
+import com.yagay.ListCleaner.domain.EntryGroup
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.PriorityConfig
 import com.yagay.ListCleaner.domain.OpenTypeConfig
@@ -1423,10 +1425,10 @@ class ListCleanerModule : XposedModule() {
         }
 
         val nextSnapshot = RuntimeRuleSnapshot(
-            configured = config.rules.map { it.id }.toSet(),
+            configured = config.rules.filter { it.kind.entryGroup() !in config.disabledEntryGroups }.map { it.id }.toSet(),
             displayMode = config.mode,
             modeOverrides = config.modeOverrides,
-            priorities = config.priorities,
+            priorities = config.priorities.copy(apps = config.priorities.apps.filterKeys { it.entryGroup() !in config.disabledEntryGroups }),
             openTypes = config.openTypes,
             browserLinks = config.browserLinks,
             diagnostic = config.diagnostic,
@@ -1437,10 +1439,10 @@ class ListCleanerModule : XposedModule() {
         )
         val scopeSnapshots = config.userSpaces.mapValues { (_, space) ->
             RuntimeRuleSnapshot(
-                configured = space.rules.map { it.id }.toSet(),
+                configured = space.rules.filter { it.kind.entryGroup() !in space.disabledEntryGroups }.map { it.id }.toSet(),
                 displayMode = space.mode,
                 modeOverrides = space.modeOverrides,
-                priorities = space.priorities,
+                priorities = space.priorities.copy(apps = space.priorities.apps.filterKeys { it.entryGroup() !in space.disabledEntryGroups }),
                 openTypes = space.openTypes,
                 browserLinks = space.browserLinks,
                 diagnostic = space.diagnostic,
@@ -1459,8 +1461,8 @@ class ListCleanerModule : XposedModule() {
             displayMode = config.mode,
             modeOverrides = config.modeOverrides,
             entryRules = nextSnapshot.configured,
-            directShareTypes = config.directShareTypes,
-            entryPriorities = config.priorities.apps,
+            directShareTypes = if (EntryGroup.SHARE in config.disabledEntryGroups) DirectShareTypeConfig() else config.directShareTypes,
+            entryPriorities = config.priorities.apps.filterKeys { it.entryGroup() !in config.disabledEntryGroups },
             digest = digest,
         )
         policies = UserPolicyGeneration(nextSnapshot, scopeSnapshots)
@@ -1472,9 +1474,9 @@ class ListCleanerModule : XposedModule() {
                     protectedComponents = protected,
                     displayMode = space.mode,
                 modeOverrides = space.modeOverrides,
-                    entryRules = space.rules.map { it.id },
-                    directShareTypes = space.directShareTypes,
-                    entryPriorities = space.priorities.apps,
+                    entryRules = space.rules.filter { it.kind.entryGroup() !in space.disabledEntryGroups }.map { it.id },
+                    directShareTypes = if (EntryGroup.SHARE in space.disabledEntryGroups) DirectShareTypeConfig() else space.directShareTypes,
+                    entryPriorities = space.priorities.apps.filterKeys { it.entryGroup() !in space.disabledEntryGroups },
                     digest = digest,
                 )
             }
