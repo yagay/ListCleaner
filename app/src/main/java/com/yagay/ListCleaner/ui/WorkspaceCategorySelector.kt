@@ -52,6 +52,7 @@ import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.domain.EntryGroup
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.isSelectableEntryKind
 import com.yagay.ListCleaner.domain.entryGroup
 import com.yagay.ListCleaner.domain.kinds
 
