@@ -126,6 +126,26 @@ internal object UiPreferencesRuntime {
 /** Persist user-facing UI defaults independently from data rules and module config. */
 internal object UiPreferencesStore {
     private const val FILE = "ui_preferences_v1"
+    private const val LEGACY_MANAGED_MIGRATED = "managed_disable_runtime_migrated_v1"
+
+    /** Read old UI-only switches once, without affecting other Android user spaces. */
+    fun legacyManagedDisableMigration(context: Context): Set<com.yagay.ListCleaner.domain.SurfaceKind> {
+        val prefs = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+        if (prefs.getBoolean(LEGACY_MANAGED_MIGRATED, false)) return emptySet()
+        return prefs.getString("disabled_managed_surfaces", null).orEmpty().split(',')
+            .mapNotNull { name -> when (name) {
+                "SETTINGS_APPS" -> com.yagay.ListCleaner.domain.SurfaceKind.SETTINGS_APPS
+                "NOTIFICATIONS" -> com.yagay.ListCleaner.domain.SurfaceKind.NOTIFICATION_SHADE
+                else -> null
+            } }.toSet()
+    }
+
+    /** Called only after the new synchronized policy accepts the migrated values. */
+    fun finishManagedDisableMigration(context: Context) {
+        context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
+            .putBoolean(LEGACY_MANAGED_MIGRATED, true).apply()
+    }
+
     private fun <T : Enum<T>> stored(name: String?, values: Array<T>, fallback: T): T =
         values.firstOrNull { it.name == name } ?: fallback
 
