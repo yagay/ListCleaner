@@ -38,12 +38,18 @@ class RuntimeCaptureProvider : ContentProvider() {
         if (!validCapture(snapshot, callingUid)) return null
         val ordered = snapshot.source in ORDERED_SOURCES
         if (extras.getBoolean(RuntimeCaptureContract.KEY_ORDERED, false) != ordered) return null
-        val key = if (ordered) RuntimeInterfaceSnapshotCodec.keyForResolverOrder(kind)
-            else RuntimeInterfaceSnapshotCodec.key(kind)
+        // RoleController's qualifying package list is NOT a resolver/PM return. Keep
+        // it in its own slot so subsequent ACTION_ASSIST queries cannot overwrite it.
+        val isRoleEligibility = snapshot.source == "ROLE_CONTROLLER_RETURN"
+        val key = when {
+            ordered -> RuntimeInterfaceSnapshotCodec.keyForResolverOrder(kind)
+            isRoleEligibility -> RuntimeInterfaceSnapshotCodec.keyForRoleEligibility(kind)
+            else -> RuntimeInterfaceSnapshotCodec.key(kind)
+        }
         ctx.getSharedPreferences(RuntimeCaptureContract.PREFS, android.content.Context.MODE_PRIVATE)
             .edit().apply {
                 putString(key, encoded)
-                if (!ordered && snapshot.callerUid >= 0) {
+                if (!ordered && !isRoleEligibility && snapshot.callerUid >= 0) {
                     putString(RuntimeInterfaceSnapshotCodec.keyForCaller(kind, snapshot.callerUid), encoded)
                 }
             }.apply()
@@ -70,6 +76,12 @@ class RuntimeCaptureProvider : ContentProvider() {
         if (value.source !in ORDERED_SOURCES && value.source !in RETURN_SOURCES) return false
         if (ordered && value.callerPackage.substringBefore(':') !in
             setOf("android", "system", "com.android.intentresolver")) return false
+        if (value.source == "ROLE_CONTROLLER_RETURN") {
+            if (value.requestAction != "android.app.role." + value.kind ||
+                value.callerPackage.substringBefore(':') !in setOf(
+                    "com.android.permissioncontroller", "com.google.android.permissioncontroller"
+                )) return false
+        }
         // system_server may report calls originating in a different profile.
         if (callingUid != Process.SYSTEM_UID &&
             value.callerUserId != AndroidUid.userId(callingUid)) return false
