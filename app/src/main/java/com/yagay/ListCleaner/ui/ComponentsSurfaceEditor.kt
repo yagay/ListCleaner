@@ -408,8 +408,8 @@ internal fun EntryManagedSurfaceEditor(
         })
         AdaptiveAlertDialog(
             onDismissRequest = { pendingBulk = null },
-            title = { AdaptiveText(stringResource(R.string.root_batch_confirm_title)) },
-            text = { AdaptiveText(stringResource(R.string.root_batch_confirmation_text, action)) },
+            title = { AdaptiveText(stringResource(R.string.lc_hook_batch_confirm_title)) },
+            text = { AdaptiveText(stringResource(R.string.lc_hook_batch_confirm_text, action)) },
             confirmButton = {
                 AdaptiveTextButton(onClick = {
                     val targets = editable
@@ -621,8 +621,8 @@ internal fun EntryManagedSurfaceEditor(
             if (groups.isEmpty() && legacyRules.isEmpty() && !scanning && !settingsLoading) {
                 item(key = "empty") {
                     WorkspaceEmptyState(
-                        message = stringResource(R.string.root_empty_filtered),
-                        clearLabel = stringResource(R.string.root_clear_filters),
+                        message = stringResource(R.string.lc_hook_empty_filtered),
+                        clearLabel = stringResource(R.string.lc_hook_clear_filters),
                         onClear = {
                             viewFilter = UiFilter.ALL
                             appTypeFilter = AppTypeFilter.ALL
