@@ -87,6 +87,7 @@
     <string name="root_batch_enabled_plain">Verified: components enabled; reopen the target surface</string>
     <string name="root_batch_disabled_plain">Verified: components disabled; reopen the target surface</string>
     <string name="root_batch_inverted_plain">Verified: component states updated; reopen the target surface</string>
+    <string name="root_batch_skipped_modes">Completed %1$d/%2$d; skipped %3$d because their Root category was disabled in Modes.</string>
     <string name="root_batch_stopped_plain">Operation stopped: %1$s. Completed changes are retained; remaining entries were not processed.</string>
     <string name="root_invert_stopped_plain">Inversion stopped: %1$s. Completed changes are retained.</string>
     <string name="root_batch_cancelled_plain">Stopped remaining operations. An in-flight component command may still finish.</string>
