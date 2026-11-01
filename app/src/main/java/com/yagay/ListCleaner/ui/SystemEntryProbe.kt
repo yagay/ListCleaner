@@ -48,6 +48,8 @@ internal data class SystemProbeRequest(
     val shareMimeType: String? = null,
     val focusPackage: String? = null,
     val focusClass: String? = null,
+    /** Explicit eye-menu MIME: launch that scenario without a second picker. */
+    val directLaunch: Boolean = false,
 ) {
     init { require((entryKind == null) != (componentKind == null)) }
 

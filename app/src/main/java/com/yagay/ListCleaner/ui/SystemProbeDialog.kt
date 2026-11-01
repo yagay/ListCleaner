@@ -58,9 +58,45 @@ internal fun SystemProbeDialog(
     }
     // When Share has a selected MIME filter, preview that exact scenario
     // instead of asking for a different preset in a second popup.
-    val choices = if (request.shareMimeType != null) emptyList()
-        else request.entryKind?.let(::availableProbeScenarios).orEmpty()
-    if (choices.size > 1) {
+    val typedKind = request.entryKind?.takeIf {
+        it in setOf(com.yagay.ListCleaner.domain.IntentKind.OPEN,
+            com.yagay.ListCleaner.domain.IntentKind.SHARE,
+            com.yagay.ListCleaner.domain.IntentKind.SHARE_MULTIPLE)
+    }
+    val typedOptions = if (!request.directLaunch && typedKind != null && previewState != null)
+        previewMimeOptions(typedKind, previewState.candidates, previewState.openTypesExplicit)
+    else emptyList()
+    val choices = if (request.directLaunch || request.shareMimeType != null || typedOptions.isNotEmpty())
+        emptyList() else request.entryKind?.let(::availableProbeScenarios).orEmpty()
+    if (typedOptions.isNotEmpty()) {
+        SettingsFlatDialog(
+            onDismissRequest = onDismiss,
+            title = { AdaptiveText(stringResource(typedKind!!.titleRes())) },
+            text = {
+                Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                    typedOptions.forEach { option ->
+                        SettingsFlatChoiceRow(
+                            label = previewMimeLabel(option, previewState!!.openTypesExplicit),
+                            selected = false,
+                            onClick = {
+                                SystemEffectPreview.launch(
+                                    context, typedKind!!, request.userId, option.scenario,
+                                    previewMimeRequest(
+                                        typedKind, request.userId, option,
+                                        request.focusPackage, request.focusClass
+                                    ),
+                                )
+                                onDismiss()
+                            },
+                        )
+                    }
+                }
+            },
+            confirmButton = { AdaptiveTextButton(onClick = onDismiss) {
+                AdaptiveText(stringResource(R.string.common_cancel))
+            } },
+        )
+    } else if (choices.size > 1) {
         SettingsFlatDialog(
             onDismissRequest = onDismiss,
             title = { AdaptiveText(stringResource(request.entryKind!!.titleRes())) },
@@ -91,7 +127,7 @@ internal fun SystemProbeDialog(
         )
     }
     LaunchedEffect(request) {
-        if (choices.size > 1) return@LaunchedEffect
+        if (choices.size > 1 || typedOptions.isNotEmpty()) return@LaunchedEffect
         try {
             val kind = request.entryKind
             val component = request.componentKind

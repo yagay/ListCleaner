@@ -20,6 +20,14 @@ class SystemProbeScenarioTest {
         assertEquals("application/pdf", SystemProbeScenario.PDF.mimeType)
     }
 
+    @Test fun eyeMimeScenariosCoverSpecificAndWildcardFiles() {
+        assertEquals(SystemProbeScenario.IMAGE, previewScenarioForMime("image/webp"))
+        assertEquals(SystemProbeScenario.PDF, previewScenarioForMime("application/pdf"))
+        assertEquals(SystemProbeScenario.AUDIO, previewScenarioForMime("audio/flac"))
+        assertEquals(SystemProbeScenario.TEXT, previewScenarioForMime("application/zip"))
+        assertEquals(SystemProbeScenario.ANY, previewScenarioForMime("*/*"))
+    }
+
     @Test fun fileAndSendToTestTypesAreNotAllTheSame() {
         val pickerTypes = availableProbeScenarios(IntentKind.GET_CONTENT)
         assertTrue(SystemProbeScenario.VIDEO in pickerTypes)

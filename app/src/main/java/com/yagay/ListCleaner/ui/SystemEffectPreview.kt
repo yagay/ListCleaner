@@ -156,7 +156,8 @@ internal object SystemEffectPreview {
         val sessionStore = if (tracked) PickerProbeSessionStore(context) else null
         runCatching {
             val target = buildIntent(context, kind, scenario, request)
-            val launch = if (route == SystemPreviewRoute.CHOOSER)
+            val launch = if (route == SystemPreviewRoute.CHOOSER ||
+                (kind == IntentKind.OPEN && request?.directLaunch == true))
                 Intent.createChooser(target, context.getString(R.string.system_preview_chooser_title))
             else target
             // Record before launch so a fast DocumentsUI hook cannot race the marker.

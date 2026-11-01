@@ -472,23 +472,34 @@ previewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds,
                                     prefsContext.getString(a.titleRes()),
                                     prefsContext.getString(b.titleRes())
                                 )
-                            }.map { previewKind ->
-                            WorkspaceMenuAction(
+                            }.flatMap { previewKind ->
+                            val baseAction = WorkspaceMenuAction(
                                 label = stringResource(previewKind.titleRes()),
                                 onClick = {
                                     systemProbeRequest = SystemProbeRequest(
                                         entryKind = previewKind,
                                         userId = vm.selectedSpace.value,
                                         scenario = scopedProbeScenario(previewKind, typedOpenPreset, directShareType),
-                                        openPreset = typedOpenPreset.takeIf { previewKind == IntentKind.OPEN },
                                         browserHost = deepLinkHost.takeIf { previewKind == IntentKind.DEEP_LINK },
                                         directShareType = directShareType.takeIf { previewKind == IntentKind.DIRECT_SHARE },
-                                        customMimeType = scopedProbeMime(typedOpenPreset, state.openTypesExplicit.customDefinitions)
-                                            .takeIf { previewKind == IntentKind.OPEN },
-                                        shareMimeType = selectedShareMime?.probeMime.takeIf { previewKind == state.filter },
                                     )
                                 },
                             )
+                            // Only expand the selected Open / Share / Multi Share
+                            // category. The All-categories eye stays concise.
+                            if (state.filter != previewKind) listOf(baseAction)
+                            else listOf(baseAction) + previewMimeOptions(
+                                previewKind, state.candidates, state.openTypesExplicit
+                            ).map { option ->
+                                WorkspaceMenuAction(
+                                    label = previewMimeLabel(option, state.openTypesExplicit),
+                                    onClick = {
+                                        systemProbeRequest = previewMimeRequest(
+                                            previewKind, vm.selectedSpace.value, option
+                                        )
+                                    },
+                                )
+                            }
                         },
                                 onHelpToggle = { ruleHelpExpanded = !ruleHelpExpanded }
             )
