@@ -16,8 +16,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -272,30 +273,29 @@ internal fun SystemProbeDialog(
                 }
             }
 
-            LazyColumn(Modifier.fillMaxWidth().weight(1f, fill = false)) {
-                if (response == null) {
-                    item { Text(stringResource(R.string.preview_v2_loading),
-                        Modifier.padding(16.dp)) }
-                } else if (result.items.isEmpty()) {
-                    item { Text(stringResource(R.string.preview_v2_empty),
-                        Modifier.padding(16.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                } else {
+            if (response == null) {
+                Text(stringResource(R.string.preview_v2_loading),
+                    Modifier.padding(16.dp))
+            } else if (result.items.isEmpty()) {
+                Text(stringResource(R.string.preview_v2_empty),
+                    Modifier.padding(16.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 78.dp),
+                    modifier = Modifier.fillMaxWidth().weight(1f, fill = false),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
                     itemsIndexed(result.items, key = { index, item ->
                         "${index}_${item.component}"
                     }) { _, item ->
-                        Row(Modifier.fillMaxWidth().clickable { inspected = item }
-                            .padding(horizontal = 16.dp, vertical = 9.dp)) {
-                            Column {
-                                Text(item.appLabel, style = MaterialTheme.typography.bodyMedium)
-                                if (item.label != item.appLabel) {
-                                    Text(item.label, style = MaterialTheme.typography.bodySmall)
-                                }
-                                Text(item.packageName,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
+                        SystemPreviewGridTile(
+                            item = item,
+                            focused = request.matches(item),
+                            onInspect = { inspected = item },
+                        )
                     }
                 }
             }
