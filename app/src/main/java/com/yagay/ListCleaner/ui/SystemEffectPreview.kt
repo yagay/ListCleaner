@@ -515,7 +515,7 @@ internal object SystemEffectPreview {
                     putExtra(Intent.EXTRA_TEXT, context.getString(R.string.system_preview_example_text))
                 }
             } else {
-                val uri = sampleFiles(context, scenario).first()
+                val uri = sampleFiles(context, scenario, type).first()
                 Intent(Intent.ACTION_SEND).apply {
                     this.type = type
                     putExtra(Intent.EXTRA_STREAM, uri)
@@ -524,9 +524,11 @@ internal object SystemEffectPreview {
                 }
             }
         }
-        IntentKind.SHARE_MULTIPLE -> sampleFiles(context, scenario).let { uris ->
+        IntentKind.SHARE_MULTIPLE -> {
+            val type = request?.shareMimeType ?: scenario.mimeType ?: "text/plain"
+            val uris = sampleFiles(context, scenario, type)
             Intent(Intent.ACTION_SEND_MULTIPLE).apply {
-                type = request?.shareMimeType ?: scenario.mimeType ?: "text/plain"
+                this.type = type
                 putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 clipData = ClipData.newUri(context.contentResolver,
@@ -549,8 +551,8 @@ internal object SystemEffectPreview {
         IntentKind.OPEN -> request?.openPreset?.let(::scopedProbeUri)?.let { uri ->
             Intent(Intent.ACTION_VIEW, Uri.parse(uri))
         } ?: Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(sampleFiles(context, scenario).first(),
-                request?.customMimeType ?: scenario.mimeType ?: "text/plain")
+            val type = request?.customMimeType ?: scenario.mimeType ?: "text/plain"
+            setDataAndType(sampleFiles(context, scenario, type).first(), type)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         IntentKind.DEEP_LINK ->
@@ -613,24 +615,60 @@ internal object SystemEffectPreview {
         else -> error("No scenario test")
     }
 
-    /** Small valid files so matching MIME types correspond to real, safe test inputs. */
-    private fun sampleFiles(context: Context, scenario: SystemProbeScenario): List<Uri> {
+    /**
+     * Use the selected MIME to name the test attachment, instead of handing
+     * Android a .txt for Word, EPUB, ZIP or JPEG previews. PDF/PNG/JPEG have
+     * valid minimal content; all other formats are harmless placeholders and
+     * must not be mistaken for a complete document inside a third-party app.
+     */
+    private fun sampleFiles(
+        context: Context, scenario: SystemProbeScenario, selectedMime: String? = null,
+    ): List<Uri> {
+        val mime = selectedMime?.substringBefore(';')?.lowercase()
+            ?: scenario.mimeType ?: "text/plain"
         val folder = File(context.cacheDir, "system-preview").apply { mkdirs() }
+        val extension = when (mime) {
+            "application/pdf" -> "pdf"
+            "image/jpeg" -> "jpg"
+            "image/png" -> "png"
+            "image/gif" -> "gif"
+            "image/svg+xml" -> "svg"
+            "application/zip", "application/x-zip-compressed" -> "zip"
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document" -> "docx"
+            "application/msword" -> "doc"
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" -> "xlsx"
+            "application/vnd.ms-excel" -> "xls"
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation" -> "pptx"
+            "application/vnd.ms-powerpoint" -> "ppt"
+            "application/epub+zip" -> "epub"
+            "application/vnd.android.package-archive" -> "apk"
+            "application/x-bittorrent" -> "torrent"
+            "application/json" -> "json"
+            "text/markdown" -> "md"
+            "text/csv" -> "csv"
+            "application/xml", "text/xml" -> "xml"
+            "video/mp4" -> "mp4"
+            "audio/mpeg" -> "mp3"
+            else -> android.webkit.MimeTypeMap.getSingleton()
+                .getExtensionFromMimeType(mime)
+                ?.takeIf { it.length in 1..8 && it.all(Char::isLetterOrDigit) }
+                ?: "txt"
+        }
         return (1..2).map { index ->
-            val extension = when (scenario) {
-                SystemProbeScenario.IMAGE -> "png"
-                SystemProbeScenario.PDF -> "pdf"
-                else -> "txt"
-            }
-            val file = File(folder, "list-cleaner-demo-"+index+"."+extension)
-            when (scenario) {
-                SystemProbeScenario.IMAGE -> {
+            val file = File(folder, "list-cleaner-demo-$index.$extension")
+            when (mime) {
+                "image/png", "image/jpeg" -> {
                     val bitmap = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888)
                     try {
-                        file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                        file.outputStream().use {
+                            bitmap.compress(
+                                if (mime == "image/jpeg") Bitmap.CompressFormat.JPEG
+                                else Bitmap.CompressFormat.PNG, 100, it
+                            )
+                        }
                     } finally { bitmap.recycle() }
                 }
-                SystemProbeScenario.PDF -> {
+                "application/pdf" -> {
                     val document = PdfDocument()
                     try {
                         val page = document.startPage(
