@@ -58,6 +58,8 @@ internal fun RulesTab(
     }
     val confirmation = rememberSelectionConfirmationController()
     SelectionConfirmationDialog(confirmation)
+    var showSortEditor by rememberSaveable(vm.selectedSpace.value, state.filter) { mutableStateOf(false) }
+    val sortNavigation = remember { PendingNavigationGuard() }
     var editingTitle by remember { mutableStateOf<com.yagay.ListCleaner.domain.ComponentCandidate?>(null) }
     var showCustomTypes by rememberSaveable { mutableStateOf(false) }
     var showBrowserHosts by rememberSaveable { mutableStateOf(false) }
@@ -381,7 +383,9 @@ internal fun RulesTab(
                         showEntryGroups = true,
                         selectionActions = selectionActions,
                         onManagedSurface = { surface -> navigate { onManagedSurface(surface) } },
-                        modeAction = { WorkspaceSortShortcut(state.filter) { navigate { vm.setDestination(Destination.PRIORITY) } } },
+                        modeAction = { WorkspaceSortShortcut(state.filter) {
+                            navigate { showSortEditor = true }
+                        } },
                         subtypeTitle = when (state.filter) {
                             IntentKind.OPEN -> openPreset?.let { state.openTypesExplicit.localizedTitle(it) }
                             IntentKind.DEEP_LINK -> browserHost
@@ -661,6 +665,20 @@ previewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds,
                     } else null
                 )
             }
+        }
+    }
+    // Keep the Cleanup LazyColumn mounted and untouched while ordering is edited.
+    if (showSortEditor) {
+        WorkspaceSortEditorOverlay(
+            guard = sortNavigation,
+            onDismiss = { showSortEditor = false },
+        ) {
+            PriorityDialogContent(
+                state = state,
+                vm = vm,
+                pendingNavigation = sortNavigation,
+                onExit = { showSortEditor = false },
+            )
         }
     }
 }
