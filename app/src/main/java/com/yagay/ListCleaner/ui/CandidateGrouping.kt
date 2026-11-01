@@ -144,17 +144,14 @@ internal fun filterAppGroups(
     val selectionRanks = if (sortMode == UiAppSort.SELECTED_FIRST) {
         filtered.associate { it.packageName to appSelectionRank(it, selected) }
     } else emptyMap()
-    return filtered.sortedWith(
-        when (sortMode) {
-            UiAppSort.SELECTED_FIRST -> compareBy<AppGroup> { selectionRanks.getValue(it.packageName) }
-                .thenBy { it.components.firstOrNull()?.normalizedAppLabel ?: it.appLabel.lowercase() }
-                .thenBy { it.packageName }
-            UiAppSort.NAME -> compareBy<AppGroup> {
-                it.components.firstOrNull()?.normalizedAppLabel ?: it.appLabel.lowercase()
-            }.thenBy { it.packageName }
-            UiAppSort.PACKAGE -> compareBy<AppGroup> { it.packageName.lowercase() }
-        }
-    )
+    return orderCleanupAppGroups(filtered, sortMode) { group ->
+        CleanupGroupOrderKey(
+            stableId = group.packageName,
+            displayName = group.components.firstOrNull()?.normalizedAppLabel ?: group.appLabel,
+            packageName = group.packageName,
+            selectionRank = selectionRanks[group.packageName] ?: 2,
+        )
+    }
 }
 
 internal fun groupCandidates(
