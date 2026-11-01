@@ -284,4 +284,15 @@
     <string name="preview_quality_ordered_adapter">System adapter order · Final screen not verified</string>
     <string name="preview_estimated_note">Local estimate only, not a captured system list. Android/OEM filtering, Intent subtypes, shortcuts and unscanned entries may change the actual result.</string>
     <string name="preview_estimated_count">Estimated: %1$d entries across %2$d apps</string>
+    <string name="preview_v2_adapter">Captured system adapter order (not final rendered screen)</string>
+    <string name="preview_v2_filtered">Captured filtered PackageManager return (not final UI)</string>
+    <string name="preview_v2_documents">Verified DocumentsUI roots / sidebar response</string>
+    <string name="preview_v2_enabled">Enabled items returned by Android manager</string>
+    <string name="preview_v2_candidates">Candidates for this Intent · final system UI not verified</string>
+    <string name="preview_v2_draft">Simulation with unconfirmed selections · not applied to Android</string>
+    <string name="preview_v2_history">Previously observed entries · not a live system list</string>
+    <string name="preview_v2_unavailable">No verified current list is available for this entry</string>
+    <string name="preview_v2_loading">Querying the current Android interface…</string>
+    <string name="preview_v2_empty">No entries returned for this request. This does not imply the category is empty.</string>
+    <string name="preview_v2_disclaimer">This list never combines broad scan results with the system response. Android may additionally sort, pin or hide targets after the captured stage.</string>
 </resources>
