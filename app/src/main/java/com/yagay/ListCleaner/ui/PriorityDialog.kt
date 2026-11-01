@@ -61,7 +61,8 @@ import com.yagay.ListCleaner.domain.moveVisiblePriorityTo
 @Composable
 fun PriorityDialogContent(
     state: MainState, vm: MainViewModel,
-    pendingNavigation: PendingNavigationGuard? = null
+    pendingNavigation: PendingNavigationGuard? = null,
+    onExit: (() -> Unit)? = null,
 ) {
     val navigate: (() -> Unit) -> Unit = { action ->
         if (pendingNavigation != null) pendingNavigation.request(action) else action()
@@ -99,7 +100,7 @@ fun PriorityDialogContent(
     val priorityKinds = HomeLayoutPolicy.sortableKinds
     val kind = HomeLayoutPolicy.priorityKind(state.filter)
     if (kind == null) {
-        LaunchedEffect(state.filter) { vm.setDestination(Destination.RULES) }
+        LaunchedEffect(state.filter) { if (onExit != null) onExit() else vm.setDestination(Destination.RULES) }
         return
     }
     val openPreset by vm.ruleOpenPreset.collectAsStateWithLifecycle()
@@ -339,7 +340,9 @@ fun PriorityDialogContent(
                             showEntryGroups = true,
                             availableEntryKinds = priorityKinds,
                             selectionActions = selectionActions,
-                            modeAction = { WorkspaceSortShortcut(kind, ordering = true) { navigate { vm.setDestination(Destination.RULES) } } },
+                            modeAction = { WorkspaceSortShortcut(kind, ordering = true) {
+                                navigate { if (onExit != null) onExit() else vm.setDestination(Destination.RULES) }
+                            } },
                             previewActions = listOf(
                                 WorkspaceMenuAction(
                                     label = stringResource(kind.titleRes()),
