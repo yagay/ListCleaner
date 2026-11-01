@@ -53,7 +53,8 @@ class ModuleConfigTest {
             migrated.priorities.apps[IntentKind.OPEN])
         assertEquals(listOf("com.example.existing", "com.example.share"),
             migrated.priorities.apps[IntentKind.SHARE])
-        assertEquals(setOf(multiple), migrated.userSpaces.getValue(10).rules.minus(emptySet()))
+        assertEquals(setOf(openPdf, openImage, shareImage, sharePdf, multiple),
+            migrated.userSpaces.getValue(10).rules)
         assertTrue(migrated.openTypes.rules.isEmpty())
         assertTrue(migrated.openTypes.priorities.isEmpty())
         assertTrue(migrated.openTypes.shareRules.isEmpty())
