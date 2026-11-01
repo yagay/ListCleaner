@@ -24,7 +24,7 @@ import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.entryGroup
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.EntryGroup
-import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.DirectShareTypeConfig
 import com.yagay.ListCleaner.domain.PriorityConfig
 import com.yagay.ListCleaner.domain.OpenTypeConfig
 import com.yagay.ListCleaner.domain.OpenPreset
