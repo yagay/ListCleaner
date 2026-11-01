@@ -50,8 +50,8 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
     val rootSorted = CleanupKind.entries.sortedWith { a, b ->
         nameOrder.compare(context.getString(a.titleRes()), context.getString(b.titleRes()))
     }
-    val savedRootHidden = UiPreferencesRuntime.current.hiddenRootKinds
-    var draftRootHidden by remember(userId, savedRootHidden) { mutableStateOf(savedRootHidden) }
+    val savedRootDisabled = UiPreferencesRuntime.current.disabledRootKinds
+    var draftRootDisabled by remember(userId, savedRootDisabled) { mutableStateOf(savedRootDisabled) }
     // Only one inline mode editor at a time, and no modes are written
     // until its explicit confirmation button is pressed.
     var editingModeKey by rememberSaveable(userId) { mutableStateOf<String?>(null) }
@@ -60,7 +60,7 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
         state.disabledEntryKinds + state.disabledEntryGroups.flatMap { it.kinds() }
     }
     var draftDisabled by remember(userId, savedDisabled) { mutableStateOf(savedDisabled) }
-    val hasPendingChanges = draftDisabled != savedDisabled || draftRootHidden != savedRootHidden
+    val hasPendingChanges = draftDisabled != savedDisabled || draftRootDisabled != savedRootDisabled
 
     Scaffold(
         bottomBar = {
@@ -70,7 +70,7 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    AdaptiveTextButton(onClick = { draftDisabled = savedDisabled; draftRootHidden = savedRootHidden }) {
+                    AdaptiveTextButton(onClick = { draftDisabled = savedDisabled; draftRootDisabled = savedRootDisabled }) {
                         AdaptiveText(stringResource(R.string.common_cancel))
                     }
                     AdaptiveButton(onClick = {
@@ -78,7 +78,7 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                         // enabling one member cannot be overridden by its old group flag.
                         vm.setDisabledEntryKinds(draftDisabled)
                         if (state.disabledEntryGroups.isNotEmpty()) vm.setDisabledEntryGroups(emptySet())
-                        if (draftRootHidden != savedRootHidden) UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(hiddenRootKinds = draftRootHidden))
+                        if (draftRootDisabled != savedRootDisabled) UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(disabledRootKinds = draftRootDisabled))
                     }) {
                         AdaptiveText(stringResource(R.string.lc_mode_confirm_apply))
                     }
@@ -148,18 +148,18 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
         item(key = "modes-root-heading") { FlatPopupHeader(stringResource(R.string.lc_mode_root_heading)) }
         rootSorted.forEach { kind ->
             item(key = "modes-root-${kind.name}") {
-                val hidden = kind in draftRootHidden
+                val disabled = kind in draftRootDisabled
                 GlobalModeSettingsRow(
                     title = stringResource(kind.titleRes()),
                     leadingIcon = kind.hierarchyIcon(),
-                    description = stringResource(R.string.lc_mode_root_visibility_description),
-                    selectedMode = stringResource(if (hidden) R.string.lc_mode_root_hidden else R.string.lc_mode_root_visible),
+                    description = stringResource(kind.rootModeDescriptionRes()),
+                    selectedMode = stringResource(if (disabled) R.string.lc_mode_disabled else R.string.lc_mode_enabled),
                     expanded = false,
                     onClick = {},
                     modeMenu = {},
-                    enabled = !hidden,
-                    onEnabledChange = { visible ->
-                        draftRootHidden = if (visible) draftRootHidden - kind else draftRootHidden + kind
+                    enabled = !disabled,
+                    onEnabledChange = { enabled ->
+                        draftRootDisabled = if (enabled) draftRootDisabled - kind else draftRootDisabled + kind
                     },
                 )
             }
@@ -244,4 +244,14 @@ private fun IntentKind.modeDescriptionRes(): Int = when (this) {
     IntentKind.CALL_SCREENING -> R.string.lc_mode_desc_call_screening
     IntentKind.WALLPAPER -> R.string.lc_mode_desc_wallpaper
     IntentKind.DREAM -> R.string.lc_mode_desc_dream
+}
+
+/** These descriptions explain what each Root category manages, not visibility. */
+private fun CleanupKind.rootModeDescriptionRes(): Int = when (this) {
+    CleanupKind.LAUNCHER -> R.string.lc_mode_root_desc_launcher
+    CleanupKind.SHORTCUT -> R.string.lc_mode_root_desc_shortcut
+    CleanupKind.WIDGET -> R.string.lc_mode_root_desc_widget
+    CleanupKind.TILE -> R.string.lc_mode_root_desc_tile
+    CleanupKind.CONTROLS -> R.string.lc_mode_root_desc_controls
+    CleanupKind.AUTHENTICATOR -> R.string.lc_mode_root_desc_authenticator
 }
