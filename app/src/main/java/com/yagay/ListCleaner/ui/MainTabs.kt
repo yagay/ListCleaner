@@ -370,7 +370,7 @@ fun RulesTab(
                         onAppTypeFilter = vm::setEntryAppTypeFilter,
                         showEntryGroups = true,
                         selectionActions = selectionActions,
-                        toolbarPreviewActions = entryHeaderPreviewKinds(state.filter).map { previewKind ->
+                        toolbarPreviewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds, state.disabledEntryGroups).map { previewKind ->
                             WorkspaceMenuAction(
                                 label = stringResource(previewKind.titleRes()),
                                 onClick = {
