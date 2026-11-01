@@ -16,7 +16,8 @@ internal enum class PreviewV2Source {
     ADAPTER_OBSERVED, FILTERED_OBSERVED, DOCUMENT_ROOTS,
     ENABLED, INTENT_CANDIDATES, ROLE_ELIGIBILITY, ROLE_POLICY_PROJECTED,
     ROLE_CANDIDATES, ROLE_HOLDER, DRAFT_SIMULATION, HISTORY, ROOT_STATE,
-    ROOT_DRAFT_SIMULATION, POLICY_PROJECTED, UNAVAILABLE
+    ROOT_DRAFT_SIMULATION, POLICY_PROJECTED, NFC_PAYMENT_CAPTURED,
+    NFC_CAPTURE_REQUIRED, UNAVAILABLE
 }
 
 internal data class PreviewV2Result(
@@ -79,6 +80,58 @@ internal object SystemPreviewV2 {
                     PreviewV2Source.ENABLED, PreviewV2Source.DOCUMENT_ROOTS,
                 ) -> PreviewV2Source.POLICY_PROJECTED
                 else -> source
+            })
+        }
+
+        if (adapter == PreviewAdapter.NFC_PAYMENT) {
+            // Registered HCE services are NOT the actual CATEGORY_PAYMENT list.
+            // Only trust the NFC service's post-filter returns, one per Android user.
+            val captures = probe.nfcPaymentReturns.filter {
+                it.source == "NFC_PAYMENT_FILTERED_RETURN" &&
+                    it.kind == kind.name &&
+                    it.callerPackage.substringBefore(':') == "com.android.nfc" &&
+                    it.requestAction == "android.nfc.cardemulation.payment" &&
+                    !it.truncated &&
+                    atMillis - it.capturedAtMillis in 0L..MAX_AGE_MS
+            }.distinctBy { it.callerUserId }
+            if (captures.isEmpty()) {
+                return PreviewV2Result(emptyList(), PreviewV2Source.NFC_CAPTURE_REQUIRED)
+            }
+            val candidates = probe.items.associateBy(SystemProbeItem::component)
+            val byPackage = probe.items.associateBy(SystemProbeItem::packageName)
+            val all = captures.flatMap { snapshot ->
+                // Keep user identity separate. The same PayPal component can appear
+                // in both personal and work, and neither entry is a duplicate.
+                snapshot.components.map { identifier ->
+                    val name = identifier.substringBefore('/')
+                    val clazz = identifier.substringAfter('/')
+                    val registered = candidates[identifier]
+                    val label = snapshot.componentLabels[identifier]
+                        ?.takeIf(String::isNotBlank)
+                        ?: registered?.label ?: byPackage[name]?.appLabel ?: name
+                    SystemProbeItem(
+                        label = label,
+                        packageName = name,
+                        className = clazz,
+                        appLabel = registered?.appLabel ?: byPackage[name]?.appLabel ?: label,
+                        userId = snapshot.callerUserId,
+                    )
+                }
+            }.distinctBy(SystemProbeItem::displayIdentity)
+            // This manager can only apply its current selected user's rules.
+            // Other profiles' returns have already been filtered by the NFC Hook
+            // using their OWN policy; never apply personal rules to work entries.
+            val local = EffectivePreviewPolicy.visible(
+                kind, all.filter { it.userId == request.userId },
+                selected, globalMode, overrides,
+            ).mapTo(hashSetOf()) { it.displayIdentity }
+            val visible = all.filter {
+                it.userId != request.userId || it.displayIdentity in local
+            }
+            return PreviewV2Result(visible, when {
+                pendingDraft -> PreviewV2Source.DRAFT_SIMULATION
+                visible != all -> PreviewV2Source.POLICY_PROJECTED
+                else -> PreviewV2Source.NFC_PAYMENT_CAPTURED
             })
         }
 
