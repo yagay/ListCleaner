@@ -22,6 +22,7 @@ import com.yagay.ListCleaner.data.PersistentComponentState
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.entryGroup
+import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.EntryGroup
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.PriorityConfig
@@ -1427,7 +1428,7 @@ class ListCleanerModule : XposedModule() {
         val nextSnapshot = RuntimeRuleSnapshot(
             configured = config.rules.filter { it.kind.entryGroup() !in config.disabledEntryGroups }.map { it.id }.toSet(),
             displayMode = config.mode,
-            modeOverrides = config.modeOverrides,
+            modeOverrides = config.modeOverrides + IntentKind.entries.filter { it.entryGroup() in config.disabledEntryGroups }.associateWith { DisplayMode.SHOW_ALL },
             priorities = config.priorities.copy(apps = config.priorities.apps.filterKeys { it.entryGroup() !in config.disabledEntryGroups }),
             openTypes = config.openTypes,
             browserLinks = config.browserLinks,
@@ -1441,7 +1442,7 @@ class ListCleanerModule : XposedModule() {
             RuntimeRuleSnapshot(
                 configured = space.rules.filter { it.kind.entryGroup() !in space.disabledEntryGroups }.map { it.id }.toSet(),
                 displayMode = space.mode,
-                modeOverrides = space.modeOverrides,
+                modeOverrides = space.modeOverrides + IntentKind.entries.filter { it.entryGroup() in space.disabledEntryGroups }.associateWith { DisplayMode.SHOW_ALL },
                 priorities = space.priorities.copy(apps = space.priorities.apps.filterKeys { it.entryGroup() !in space.disabledEntryGroups }),
                 openTypes = space.openTypes,
                 browserLinks = space.browserLinks,
@@ -1459,7 +1460,7 @@ class ListCleanerModule : XposedModule() {
             managerAppId = config.managerAppId,
             protectedComponents = protected,
             displayMode = config.mode,
-            modeOverrides = config.modeOverrides,
+            modeOverrides = config.modeOverrides + IntentKind.entries.filter { it.entryGroup() in config.disabledEntryGroups }.associateWith { DisplayMode.SHOW_ALL },
             entryRules = nextSnapshot.configured,
             directShareTypes = if (EntryGroup.SHARE in config.disabledEntryGroups) DirectShareTypeConfig() else config.directShareTypes,
             entryPriorities = config.priorities.apps.filterKeys { it.entryGroup() !in config.disabledEntryGroups },
@@ -1473,7 +1474,7 @@ class ListCleanerModule : XposedModule() {
                     managerAppId = config.managerAppId,
                     protectedComponents = protected,
                     displayMode = space.mode,
-                modeOverrides = space.modeOverrides,
+                modeOverrides = space.modeOverrides + IntentKind.entries.filter { it.entryGroup() in space.disabledEntryGroups }.associateWith { DisplayMode.SHOW_ALL },
                     entryRules = space.rules.filter { it.kind.entryGroup() !in space.disabledEntryGroups }.map { it.id },
                     directShareTypes = if (EntryGroup.SHARE in space.disabledEntryGroups) DirectShareTypeConfig() else space.directShareTypes,
                     entryPriorities = space.priorities.apps.filterKeys { it.entryGroup() !in space.disabledEntryGroups },
