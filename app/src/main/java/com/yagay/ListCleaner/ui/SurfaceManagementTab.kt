@@ -38,6 +38,7 @@ import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.EntryGroup
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.kinds
+import com.yagay.ListCleaner.domain.entryGroup
 
 /**
  * Bottom-navigation Lists tab: Global Mode management only.
