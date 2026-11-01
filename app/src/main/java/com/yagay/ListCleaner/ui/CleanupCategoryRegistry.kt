@@ -26,12 +26,12 @@ internal fun CleanupCategoryId.titleResource(): Int = when (this) {
 }
 
 internal object CleanupCategoryRegistry {
-    fun entries(): List<CleanupCategoryId.Entry> =
-        IntentKind.entries.filter { it.isSelectableEntryKind() }.map { CleanupCategoryId.Entry(it) }
+    fun entries(): List<CleanupCategoryId> =
+        IntentKind.entries.filter { it.isSelectableEntryKind() }.map { CleanupCategoryId.Entry(it) } +
+            ManagedComponentSurface.entries.map { CleanupCategoryId.Managed(it) }
 
     fun rootCategories(): List<CleanupCategoryId> =
-        CleanupKind.entries.map { CleanupCategoryId.Root(it) } +
-            ManagedComponentSurface.entries.map { CleanupCategoryId.Managed(it) }
+        CleanupKind.entries.map { CleanupCategoryId.Root(it) }
 
     fun <T : CleanupCategoryId> sorted(context: Context, categories: List<T>): List<T> {
         val comparator = displayNameComparator()
