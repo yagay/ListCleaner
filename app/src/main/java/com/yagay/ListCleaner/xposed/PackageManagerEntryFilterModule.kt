@@ -132,7 +132,7 @@ class PackageManagerEntryFilterModule : XposedModule() {
             )
         }
         if (action == DocumentsContract.PROVIDER_INTERFACE && "ContentProvider" in method.name) {
-            return QuerySpec(IntentKind.DOCUMENT_PROVIDER, { it.providerInfo })
+            return QuerySpec(IntentKind.DOCUMENT_PROVIDER, { it.providerInfo }, matchByPackage = true)
         }
         if (action == CLOUD_MEDIA_PROVIDER_INTERFACE && "ContentProvider" in method.name) {
             return QuerySpec(

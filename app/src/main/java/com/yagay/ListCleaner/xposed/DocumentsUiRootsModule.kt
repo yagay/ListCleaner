@@ -156,12 +156,12 @@ class DocumentsUiRootsModule : XposedModule() {
                     val request = detectRequestAction(chain.args)
                     val kind = runCatching { IntentKind.valueOf(request.kind) }.getOrNull()
                     val kept = items.filter { item ->
-                        val info = sidebarApp(item) ?: return@filter true
+                        val pkg = sidebarPackage(item, context) ?: return@filter true
                         val user = sidebarUser(item) ?: return@filter true
                         val settings = policy.snapshot(user)
-                        val selected = kind?.let(settings::selected).orEmpty()
-                        selected.isEmpty() || settings.modeFor(IntentKind.DOCUMENT_ROOT).includes(
-                            ComponentRule(kind ?: return@filter true, info.packageName, info.name).id in selected, true,
+                        val selectedPackages = settings.selectedPackages(IntentKind.DOCUMENT_PROVIDER)
+                        selectedPackages.isEmpty() || settings.modeFor(IntentKind.DOCUMENT_PROVIDER).includes(
+                            pkg in selectedPackages, true,
                         )
                     }.toMutableList()
                     // Preserve system rows, separators and profile slots. Promote only recognized rows.
@@ -169,8 +169,7 @@ class DocumentsUiRootsModule : XposedModule() {
                         .groupBy { sidebarUser(kept[it]) }.forEach { (user, positions) ->
                             if (user == null) return@forEach
                             val settings = policy.snapshot(user)
-                            val ranks = (settings.priorities(IntentKind.DOCUMENT_ROOT) +
-                                kind?.let(settings::priorities).orEmpty()).distinct().withIndex()
+                            val ranks = settings.priorities(IntentKind.DOCUMENT_PROVIDER).withIndex()
                                 .associate { it.value to it.index }
                             val ordered = positions.map { kept[it] }.sortedBy {
                                 ranks[sidebarPackage(it, context)] ?: Int.MAX_VALUE
@@ -289,12 +288,14 @@ class DocumentsUiRootsModule : XposedModule() {
                 val entry = item?.let { available[it] } ?: return@filter true
                 val user = rootUserId(item) ?: processUserId
                 val settings = policy.snapshot(user)
-                val selected = settings.selected(IntentKind.DOCUMENT_ROOT)
-                selected.isEmpty() || settings.modeFor(IntentKind.DOCUMENT_ROOT).includes(entry.rule.id in selected, true)
+                val selectedPackages = settings.selectedPackages(IntentKind.DOCUMENT_PROVIDER)
+                selectedPackages.isEmpty() || settings.modeFor(IntentKind.DOCUMENT_PROVIDER).includes(
+                    entry.rule.packageName in selectedPackages, true
+                )
             }.toMutableList()
             filtered.indices.filter { filtered[it]?.let(available::containsKey) == true }
                 .groupBy { filtered[it]?.let(::rootUserId) ?: processUserId }.forEach { (user, positions) ->
-                    val ranks = policy.snapshot(user).priorities(IntentKind.DOCUMENT_ROOT)
+                    val ranks = policy.snapshot(user).priorities(IntentKind.DOCUMENT_PROVIDER)
                         .withIndex().associate { it.value to it.index }
                     val promoted = positions.map { filtered[it] }.sortedBy {
                         ranks[available[it]?.rule?.packageName] ?: Int.MAX_VALUE

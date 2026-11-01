@@ -24,6 +24,11 @@ internal data class RuntimeRuleSnapshot(
 ) {
     private val selectedKinds: Set<IntentKind> = selectedKinds(configured)
     val allSelectedPackages: Set<String> = visibilityCompat.activePackages()
+    /** Pre-index once per generation, rather than inspecting rule IDs inside hot resolver hooks. */
+    val documentUiPackages: Set<String> = configured.asSequence()
+        .mapNotNull(com.yagay.ListCleaner.domain.ComponentRule::fromId)
+        .filter { it.kind == IntentKind.DOCUMENT_PROVIDER }
+        .mapTo(linkedSetOf()) { it.packageName }
 
     fun modeFor(kind: IntentKind): DisplayMode = modeOverrides[kind] ?: displayMode
     fun hasSelection(kind: IntentKind): Boolean = kind in selectedKinds

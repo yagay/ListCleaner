@@ -1036,13 +1036,15 @@ class ListCleanerModule : XposedModule() {
             val activity = info.activityInfo
                 ?: return@map ResolverPolicy(true, Int.MAX_VALUE, null)
             val effectiveKind = orderingEngine.candidateKind(kind, info)
-            if (current.modeFor(effectiveKind) == DisplayMode.SHOW_ALL) {
+            val policyKind = if (effectiveKind in com.yagay.ListCleaner.domain.DOCUMENTS_UI_SOURCE_KINDS)
+                IntentKind.DOCUMENT_PROVIDER else effectiveKind
+            if (current.modeFor(policyKind) == DisplayMode.SHOW_ALL) {
                 return@map ResolverPolicy(true, Int.MAX_VALUE, null)
             }
             val scopedTypedIds = if (effectiveKind == IntentKind.OPEN) typedIds else emptySet()
             val scopedDeepIds = if (effectiveKind == IntentKind.DEEP_LINK) deepLinkIds else emptySet()
             val scopedShareIds = if (effectiveKind == kind) shareIds else emptySet()
-            val hasSelection = current.hasSelection(effectiveKind) ||
+            val hasSelection = current.hasSelection(policyKind) ||
                 scopedTypedIds.isNotEmpty() ||
                 scopedDeepIds.isNotEmpty() || scopedShareIds.isNotEmpty()
             val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
@@ -1052,10 +1054,12 @@ class ListCleanerModule : XposedModule() {
             )
             val candidateId = "${effectiveKind.name}|${activity.packageName}|$canonicalClass"
             val selected = candidateId in current.configured ||
+                (policyKind == IntentKind.DOCUMENT_PROVIDER &&
+                    activity.packageName in current.documentUiPackages) ||
                 candidateId in scopedTypedIds ||
                 candidateId in scopedDeepIds ||
                 candidateId in scopedShareIds
-            val include = current.modeFor(effectiveKind).includes(selected, hasSelection)
+            val include = current.modeFor(policyKind).includes(selected, hasSelection)
 
             val priorities = orderingEngine.effectivePriorities(
                 effectiveKind,
@@ -1319,6 +1323,8 @@ class ListCleanerModule : XposedModule() {
             val info = value as? ResolveInfo ?: return@filter true
             val activity = info.activityInfo ?: return@filter true
             val effectiveKind = orderingEngine.candidateKind(kind, info)
+            val policyKind = if (effectiveKind in com.yagay.ListCleaner.domain.DOCUMENTS_UI_SOURCE_KINDS)
+                IntentKind.DOCUMENT_PROVIDER else effectiveKind
             if (FilterPolicy.sameCaller(callerUid, activity.applicationInfo?.uid ?: -1)) {
                 diagnostic(
                     "KEEP_SAME_APP $layer $effectiveKind ${activity.packageName}/${activity.name} callerUid=$callerUid",
@@ -1330,17 +1336,19 @@ class ListCleanerModule : XposedModule() {
             val scopedTypedIds = if (effectiveKind == IntentKind.OPEN) typedIds else emptySet()
             val scopedDeepIds = if (effectiveKind == IntentKind.DEEP_LINK) deepLinkIds else emptySet()
             val scopedShareIds = if (effectiveKind == kind) shareIds else emptySet()
-            val hasSelection = current.hasSelection(effectiveKind) ||
+            val hasSelection = current.hasSelection(policyKind) ||
                 scopedTypedIds.isNotEmpty() || scopedDeepIds.isNotEmpty() ||
                 scopedShareIds.isNotEmpty()
             anySelection = anySelection || hasSelection
-            if (!hasSelection && current.modeFor(effectiveKind) != DisplayMode.SHOW_SELECTED) return@filter true
+            if (!hasSelection && current.modeFor(policyKind) != DisplayMode.SHOW_SELECTED) return@filter true
 
             val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
                 activity.packageName, activity.name, activity.targetActivity
             )
             val candidateId = "${effectiveKind.name}|${activity.packageName}|$canonicalClass"
             val selected = candidateId in current.configured ||
+                (policyKind == IntentKind.DOCUMENT_PROVIDER &&
+                    activity.packageName in current.documentUiPackages) ||
                 candidateId in scopedTypedIds || candidateId in scopedDeepIds ||
                 candidateId in scopedShareIds
             diagnostic(
@@ -1349,7 +1357,7 @@ class ListCleanerModule : XposedModule() {
                     "canonical=$canonicalClass selected=$selected",
                 detail = true
             )
-            current.modeFor(effectiveKind).includes(selected, hasSelection).also {
+            current.modeFor(policyKind).includes(selected, hasSelection).also {
                 if (!it) changed = true
             }
         }
