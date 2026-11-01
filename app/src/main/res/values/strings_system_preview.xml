@@ -11,4 +11,5 @@
     <string name="system_preview_no_handler">No accessible system interface or handler is available on this device.</string>
     <string name="system_preview_failed">The system interface could not be opened.</string>
     <string name="system_preview_explanation">Preview uses accessible Android APIs for the selected entry and distinguishes enabled services, API candidates and Hook observations. Not every category exposes the final rendered list. Open a native system surface for comparison when supported. Calling app, content type, OEM behavior and user space can all affect the result.</string>
+    <string name="preview_capture_not_observed">No matching Hook observation was received after opening the system screen. Check the LSPosed scope for the system host, then retry. This is not proof that the system list is empty.</string>
 </resources>
