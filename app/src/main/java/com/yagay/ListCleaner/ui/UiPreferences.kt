@@ -49,7 +49,7 @@ internal data class UiPreferences(
     val defaultAppType: AppTypeFilter = AppTypeFilter.USER,
     val pinnedEntryKinds: List<IntentKind> = emptyList(),
     val pinnedRootKinds: List<CleanupKind> = emptyList(),
-    val hiddenRootKinds: Set<CleanupKind> = emptySet(),
+    val disabledRootKinds: Set<CleanupKind> = emptySet(),
     val rememberFilters: Boolean = false,
     val openHelpByDefault: Boolean = false,
     val homeColumns: Int = 2,
@@ -86,7 +86,7 @@ internal data class UiPreferences(
         listStyle = UiListStyle.ORIGINAL,
         pinnedEntryKinds = pinnedEntryKinds.filter { it.isSelectableEntryKind() }.distinct().take(16),
         pinnedRootKinds = pinnedRootKinds.distinct().take(CleanupKind.entries.size),
-        hiddenRootKinds = hiddenRootKinds.intersect(CleanupKind.entries.toSet()),
+        disabledRootKinds = disabledRootKinds.intersect(CleanupKind.entries.toSet()),
         homeLayout = UiHomeLayout.CLASSIC_LIST,
         colorOverrides = colorOverrides.filter { (key, hex) -> (key in UiColorRoles.keys || (key.startsWith("dark_") && key.removePrefix("dark_") in UiColorRoles.keys)) && hex.matches(Regex("#[0-9a-fA-F]{6}")) },
         customAccentHex = customAccentHex.takeIf { it.matches(Regex("#[0-9a-fA-F]{6}")) } ?: "#2859AB",
@@ -173,7 +173,7 @@ internal object UiPreferencesStore {
             defaultAppType = stored(p.getString("default_app_type", null), AppTypeFilter.entries.toTypedArray(), defaults.defaultAppType),
             pinnedEntryKinds = storedKinds(p.getString("pinned_entry_kinds", null), IntentKind.entries.toTypedArray()),
             pinnedRootKinds = storedKinds(p.getString("pinned_root_kinds", null), CleanupKind.entries.toTypedArray()),
-            hiddenRootKinds = storedKinds(p.getString("hidden_root_kinds", null), CleanupKind.entries.toTypedArray()).toSet(),
+            disabledRootKinds = storedKinds(p.getString("disabled_root_kinds", null), CleanupKind.entries.toTypedArray()).toSet(),
             rememberFilters = p.getBoolean("remember_filters", defaults.rememberFilters),
             openHelpByDefault = p.getBoolean("help_default", defaults.openHelpByDefault),
             homeColumns = p.getInt("home_columns", defaults.homeColumns),
@@ -225,7 +225,7 @@ internal object UiPreferencesStore {
             .putString("default_app_type", safe.defaultAppType.name)
             .putString("pinned_entry_kinds", safe.pinnedEntryKinds.joinToString(",") { it.name })
             .putString("pinned_root_kinds", safe.pinnedRootKinds.joinToString(",") { it.name })
-            .putString("hidden_root_kinds", safe.hiddenRootKinds.joinToString(",") { it.name })
+            .putString("disabled_root_kinds", safe.disabledRootKinds.joinToString(",") { it.name })
             .putBoolean("remember_filters", safe.rememberFilters)
             .putBoolean("help_default", safe.openHelpByDefault)
             .putInt("home_columns", safe.homeColumns)
@@ -325,7 +325,7 @@ internal object UiPreferencesStore {
     }
 
     private val backupTextKeys = setOf("density", "accent", "home_layout", "start_page", "app_sort", "default_filter",
-        "pinned_entry_kinds", "pinned_root_kinds", "hidden_root_kinds",
+        "pinned_entry_kinds", "pinned_root_kinds", "disabled_root_kinds",
         "default_app_type", "scan_mode", "proactive_scan_mode",
         "candidate_source", "component_start", "preview_default", "probe_default_scenario",
         "diagnostics_level", "component_refresh", "last_probe_scenario", "last_filter_rules", "last_filter_priority", "last_filter_components",
@@ -350,7 +350,7 @@ internal object UiPreferencesStore {
         snapshot.put("default_app_type", v.defaultAppType.name)
         snapshot.put("pinned_entry_kinds", v.pinnedEntryKinds.joinToString(",") { it.name })
         snapshot.put("pinned_root_kinds", v.pinnedRootKinds.joinToString(",") { it.name })
-        snapshot.put("hidden_root_kinds", v.hiddenRootKinds.joinToString(",") { it.name })
+        snapshot.put("disabled_root_kinds", v.disabledRootKinds.joinToString(",") { it.name })
         snapshot.put("scan_mode", v.scanMode.name)
         snapshot.put("proactive_scan_mode", v.proactiveScanMode.name)
         snapshot.put("proactive_direct_share", v.proactiveDirectShare)
