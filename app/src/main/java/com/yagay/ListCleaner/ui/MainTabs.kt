@@ -40,7 +40,7 @@ import com.yagay.ListCleaner.domain.matchesBrowserHost
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun RulesTab(
+internal fun RulesTab(
     state: MainState,
     vm: MainViewModel,
     pendingNavigation: PendingNavigationGuard? = null,
