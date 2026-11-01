@@ -675,13 +675,13 @@ class ListCleanerModule : XposedModule() {
     }
 
     private fun captureAdapterOrder(receiver: Any, items: List<*>?, stage: String) {
-        if (items.isNullOrEmpty()) return
+        if (items == null) return
         val intent = (OrderingAccess.targetIntent(receiver) as? Intent) ?: return
         val effective = intent.selector ?: intent
         val kind = adapterKind(receiver) ?: return
         // Do not misrepresent Direct Share contacts as application ResolveInfo rows.
         val components = orderingEngine.orderedComponentIds(items, stage) ?: return
-        if (components.isEmpty()) return
+        // Preserve a genuinely empty adapter return rather than showing stale captures.
         val dedupKey = "${System.identityHashCode(receiver)}@$stage"
         val signature = "${kind.name}/${effective.action}/${effective.type}/${effective.data?.host}/" +
             components.joinToString("|")
