@@ -95,6 +95,14 @@
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE"/>
 
+        <!-- Write-only IPC from trusted system/Resolver UIDs; the provider checks Binder UID,
+             source and payload. There is no exported query/read endpoint. -->
+        <provider
+            android:name=".runtime.RuntimeCaptureProvider"
+            android:authorities="${applicationId}.runtime-capture"
+            android:exported="true"
+            android:grantUriPermissions="false" />
+
         <!-- Read-only demo data for the actual system share/open preview. -->
         <provider
             android:name="androidx.core.content.FileProvider"
