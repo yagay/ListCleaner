@@ -333,7 +333,7 @@ internal fun EntryManagedSurfaceEditor(
         !managedRuleLocked(saved, item)
     }
     val applyChanges: () -> Boolean = {
-        if (surface.name in UiPreferencesRuntime.current.disabledManagedSurfaces) {
+        if ((if (surface == ManagedComponentSurface.SETTINGS_APPS) SurfaceKind.SETTINGS_APPS else SurfaceKind.NOTIFICATION_SHADE) in saved.disabledCleanupSurfaces) {
             false
         } else {
         val latest = vm.surfaceFilters.value
