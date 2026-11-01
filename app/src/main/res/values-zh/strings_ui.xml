@@ -215,7 +215,7 @@
     <string name="surface_channels_count">找到 %1$d 个通知渠道</string>
     <string name="surface_channels_confirm">确定应用通知渠道过滤？</string>
     <string name="surface_channels_confirm_help">只过滤通知栏显示，不修改通知重要性，也不删除已保存的通知。</string>
-    <string name="nav_surface_management">列表清理</string>
+    <string name="nav_surface_management">模式</string>
     <string name="surface_group_notifications">通知清理</string>
     <string name="surface_group_notifications_help">当前通知、通知栏隐藏及通知渠道</string>
     <string name="surface_group_launcher">桌面与最近任务</string>
