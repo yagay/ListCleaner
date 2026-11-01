@@ -17,9 +17,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Button
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -74,7 +71,7 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    TextButton(onClick = { draftDisabled = savedDisabled }) {
+                    AdaptiveTextAdaptiveButton(onClick = { draftDisabled = savedDisabled }) {
                         AdaptiveText(stringResource(R.string.common_cancel))
                     }
                     Button(onClick = {
@@ -268,7 +265,7 @@ private fun GlobalModeSettingsRow(
             onClick = onClick,
         ) {
             if (enabled != null && onEnabledChange != null) {
-                Switch(checked = enabled, onCheckedChange = onEnabledChange)
+                AdaptiveSwitch(checked = enabled, onCheckedChange = onEnabledChange)
             } else {
                 AdaptiveIcon(
                     if (expanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
