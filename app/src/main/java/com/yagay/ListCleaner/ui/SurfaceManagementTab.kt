@@ -17,9 +17,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -55,42 +60,59 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
     // until its explicit confirmation button is pressed.
     var editingModeKey by rememberSaveable(userId) { mutableStateOf<String?>(null) }
 
+    val savedDisabled = remember(state.disabledEntryKinds, state.disabledEntryGroups) {
+        state.disabledEntryKinds + state.disabledEntryGroups.flatMap { it.kinds() }
+    }
+    var draftDisabled by remember(userId, savedDisabled) { mutableStateOf(savedDisabled) }
+    val hasPendingChanges = draftDisabled != savedDisabled
+
+    Scaffold(
+        bottomBar = {
+            if (hasPendingChanges) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(onClick = { draftDisabled = savedDisabled }) {
+                        AdaptiveText(stringResource(R.string.common_cancel))
+                    }
+                    Button(onClick = {
+                        vm.setDisabledEntryKinds(draftDisabled)
+                    }) {
+                        AdaptiveText(stringResource(R.string.lc_mode_confirm_apply))
+                    }
+                }
+            }
+        },
+    ) { scaffoldPadding ->
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().padding(scaffoldPadding),
         contentPadding = PaddingValues(vertical = MaterialUiTokens.pageVertical),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
         item(key = "global-mode-default") {
-            SettingsArea(stringResource(R.string.dashboard_global_mode)) {
-                GlobalModeSettingsRow(
-                    title = stringResource(R.string.lc_mode_default_title),
-                    selectedMode = stringResource(state.displayMode.titleRes()),
-                    expanded = editingModeKey == GLOBAL_MODE_KEY,
-                    onClick = {
-                        editingModeKey = if (editingModeKey == GLOBAL_MODE_KEY) null else GLOBAL_MODE_KEY
-                    },
-                    modeMenu = {
-                        EntryModeFilterMenu(
-                            state = state, vm = vm, kind = null,
-                            expanded = editingModeKey == GLOBAL_MODE_KEY,
-                            onDismiss = { editingModeKey = null },
-                        )
-                    },
-                )
-                SettingsHint(stringResource(R.string.dashboard_global_mode_help))
-            }
-        }
-
-        item(key = "global-mode-overrides-explanation") {
-            SettingsArea(stringResource(R.string.lc_mode_category_overrides)) {
-                SettingsHint(stringResource(R.string.lc_mode_category_overrides_help))
-            }
+            GlobalModeSettingsRow(
+                title = stringResource(R.string.lc_mode_default_title),
+                selectedMode = stringResource(state.displayMode.titleRes()),
+                expanded = editingModeKey == GLOBAL_MODE_KEY,
+                onClick = {
+                    editingModeKey = if (editingModeKey == GLOBAL_MODE_KEY) null else GLOBAL_MODE_KEY
+                },
+                modeMenu = {
+                    EntryModeFilterMenu(
+                        state = state, vm = vm, kind = null,
+                        expanded = editingModeKey == GLOBAL_MODE_KEY,
+                        onDismiss = { editingModeKey = null },
+                    )
+                },
+            )
         }
 
         EntryGroup.entries.forEach { group ->
             item(key = "global-mode-group-${group.name}") {
                 val kinds = group.kinds()
-                val overridden = kinds.count { it in state.modeOverrides || it in state.disabledEntryKinds || it.entryGroup() in state.disabledEntryGroups }
+                val overridden = kinds.count { it in state.modeOverrides || it in draftDisabled }
                 val isExpanded = expanded == group
                 GlobalModeGroupHeader(
                     title = stringResource(group.titleRes()),
@@ -124,16 +146,17 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                             .padding(start = 12.dp),
                     ) {
                         kinds.forEach { kind: IntentKind ->
+                            val isDisabled = kind in draftDisabled
                             GlobalModeSettingsRow(
                                 title = stringResource(kind.titleRes()),
-                                selectedMode = if (kind in state.disabledEntryKinds || group in state.disabledEntryGroups) {
-                                    stringResource(R.string.lc_mode_disabled)
-                                } else state.modeOverrides[kind]?.let {
+                                selectedMode = stringResource(
+                                    if (isDisabled) R.string.lc_mode_disabled else R.string.lc_mode_enabled
+                                ) + " · " + (state.modeOverrides[kind]?.let {
                                     stringResource(it.titleRes())
                                 } ?: stringResource(
                                     R.string.lc_mode_follow_global_value,
                                     stringResource(state.displayMode.titleRes()),
-                                ),
+                                )),
                                 expanded = editingModeKey == kind.name,
                                 onClick = {
                                     editingModeKey = if (editingModeKey == kind.name) null else kind.name
@@ -145,6 +168,10 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                                         onDismiss = { editingModeKey = null },
                                     )
                                 },
+                                enabled = !isDisabled,
+                                onEnabledChange = { enabled ->
+                                    draftDisabled = if (enabled) draftDisabled - kind else draftDisabled + kind
+                                },
                             )
                         }
                     }
@@ -152,6 +179,8 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
             }
         }
     }
+    }
+
 }
 
 /**
@@ -224,6 +253,8 @@ private fun GlobalModeSettingsRow(
     expanded: Boolean,
     onClick: () -> Unit,
     modeMenu: @Composable () -> Unit,
+    enabled: Boolean? = null,
+    onEnabledChange: ((Boolean) -> Unit)? = null,
 ) {
     androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth()) {
         MaterialSettingsRow(
@@ -231,12 +262,16 @@ private fun GlobalModeSettingsRow(
             supportingText = selectedMode,
             onClick = onClick,
         ) {
-            AdaptiveIcon(
-                if (expanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
-                title,
-                Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (enabled != null && onEnabledChange != null) {
+                Switch(checked = enabled, onCheckedChange = onEnabledChange)
+            } else {
+                AdaptiveIcon(
+                    if (expanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+                    title,
+                    Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         // The popup is anchored to this particular row, not a full-screen dialog.
         modeMenu()
