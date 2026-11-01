@@ -498,7 +498,7 @@ internal object SystemEffectPreview {
     ): Intent = when (kind) {
         IntentKind.SHARE, IntentKind.DIRECT_SHARE -> {
             val type = if (kind == IntentKind.DIRECT_SHARE)
-                request?.directShareType?.mime ?: "text/plain"
+                request?.directShareType?.mime ?: scenario.mimeType ?: "text/plain"
                 else scenario.mimeType ?: "text/plain"
             if (type.startsWith("text/")) {
                 Intent(Intent.ACTION_SEND).apply {
