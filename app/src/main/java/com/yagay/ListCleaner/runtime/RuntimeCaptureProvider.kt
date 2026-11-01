@@ -59,6 +59,7 @@ class RuntimeCaptureProvider : ContentProvider() {
                     putString(RuntimeInterfaceSnapshotCodec.keyForCaller(kind, snapshot.callerUid), encoded)
                 }
             }.apply()
+        PreviewCaptureSessionStore.recordIfMatching(ctx, snapshot, encoded)
         return Bundle().apply { putBoolean("accepted", true) }
     }
 
