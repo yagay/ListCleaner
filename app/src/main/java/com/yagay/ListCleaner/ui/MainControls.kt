@@ -187,6 +187,7 @@ internal fun ListControls(
                     modifier = Modifier.fillMaxWidth(),
                     includeAllKinds = includeAllKinds,
                     availableKinds = availableEntryKinds,
+                    disabledGroups = state.disabledEntryGroups,
                     subtypeTitle = subtypeTitle,
                     previewActions = previewActions,
                     subtypeSelector = if (
