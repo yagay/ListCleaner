@@ -9,6 +9,13 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -49,7 +56,35 @@ internal fun SystemProbeDialog(
             if (widgetId >= 0) runCatching { widgetHost.deleteAppWidgetId(widgetId) }
         }
     }
+    val choices = request.entryKind?.let(::availableProbeScenarios).orEmpty()
+    if (choices.size > 1) {
+        SettingsFlatDialog(
+            onDismissRequest = onDismiss,
+            title = { AdaptiveText(stringResource(request.entryKind!!.titleRes())) },
+            text = {
+                Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                    choices.forEach { choice ->
+                        SettingsFlatChoiceRow(
+                            label = stringResource(choice.titleRes),
+                            selected = choice == request.scenario,
+                            onClick = {
+                                val kind = requireNotNull(request.entryKind)
+                                SystemEffectPreview.launch(context, kind, request.userId,
+                                    choice, request.copy(scenario = choice,
+                                        customMimeType = if (choice == request.scenario) request.customMimeType else null))
+                                onDismiss()
+                            },
+                        )
+                    }
+                }
+            },
+            confirmButton = { AdaptiveTextButton(onClick = onDismiss) {
+                AdaptiveText(stringResource(R.string.common_cancel))
+            } },
+        )
+    }
     LaunchedEffect(request) {
+        if (choices.size > 1) return@LaunchedEffect
         try {
             val kind = request.entryKind
             val component = request.componentKind
