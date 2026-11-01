@@ -52,7 +52,7 @@ class ShortcutSurfaceModule : XposedModule() {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
     }
     private val runtimeCapture by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        RuntimeInterfaceCaptureWriter(preferences, ::record)
+        RuntimeInterfaceCaptureWriter(::record)
     }
     private val policyProvider by lazy(LazyThreadSafetyMode.PUBLICATION) {
         EntryPolicyProvider(
