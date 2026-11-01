@@ -384,6 +384,9 @@ class IntentCatalog(private val context: Context) {
             specialUnavailable.isNotEmpty() -> context.getString(R.string.catalog_profile_sources_unavailable, specialUnavailable.size)
             else -> null
         }
+        // A cancelled scan from a previous refresh/profile must not publish an
+        // outdated catalog snapshot after a newer request has begun.
+        currentCoroutineContext().ensureActive()
         mutableCandidates.value = result
         mutableSnapshot.value = Snapshot(userId, result, CandidateScanEvidence(
             userId = userId,
