@@ -87,7 +87,7 @@ required = {
     "EntryModeFilterMenu.kt": ["fun EntryModeFilterMenu(",
                                    "EntryModeChangeDraft(", "FlatWorkspaceDropdownMenu(",
                                    "WorkspaceFlatMenuRow(", "FlatPopupFooter {",
-                                   "WorkspaceFilterFooterAction(", "enabled = draft.hasChanges",
+                                   "WorkspaceFilterFooterAction(", "enabled = changed",
                                    "vm.setKindDisplayMode(kind, draft.pending)",
                                    "draft.pending?.let(vm::setDisplayMode)",
                                    "lc_mode_confirm_apply"],
