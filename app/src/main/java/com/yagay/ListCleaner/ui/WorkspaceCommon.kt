@@ -331,6 +331,7 @@ internal fun WorkspaceListSummary(
     helpExpanded: Boolean = false,
     onHelpToggle: (() -> Unit)? = null,
     showSelectionActions: Boolean = true,
+    previewActions: List<WorkspaceMenuAction> = emptyList(),
 ) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal, vertical = 2.dp),
@@ -343,6 +344,9 @@ internal fun WorkspaceListSummary(
                 secondary, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelSmall, maxLines = secondaryMaxLines
             )
+        }
+        if (previewActions.isNotEmpty()) {
+            WorkspaceCategoryPreviewIcon(previewActions, touchSize = 36.dp, iconSize = 20.dp)
         }
         WorkspaceListActions(if (showSelectionActions) actions else emptyList(), helpExpanded, onHelpToggle)
     }
