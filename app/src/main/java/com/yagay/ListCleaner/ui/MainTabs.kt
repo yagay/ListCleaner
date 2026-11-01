@@ -44,6 +44,7 @@ fun RulesTab(
     state: MainState,
     vm: MainViewModel,
     pendingNavigation: PendingNavigationGuard? = null,
+    onManagedSurface: (ManagedComponentSurface) -> Unit = {},
     onOpenModuleStatus: () -> Unit = {}
 ) {
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
@@ -379,6 +380,7 @@ fun RulesTab(
                         onAppTypeFilter = vm::setEntryAppTypeFilter,
                         showEntryGroups = true,
                         selectionActions = selectionActions,
+                        onManagedSurface = { surface -> navigate { onManagedSurface(surface) } },
                         modeAction = { WorkspaceSortShortcut(state.filter) { navigate { vm.setDestination(Destination.PRIORITY) } } },
                         subtypeTitle = when (state.filter) {
                             IntentKind.OPEN -> openPreset?.let { state.openTypesExplicit.localizedTitle(it) }
