@@ -124,8 +124,10 @@ internal fun WorkspaceSortEditorOverlay(
         val viewportPx = with(density) { maxHeight.toPx() }
         // The old 23% offset left a conspicuous empty strip above the sheet.
         // Keep a small, fixed peek gap instead, regardless of screen height.
-        val partialOffset = with(density) { 48.dp.toPx() }
-            .coerceAtMost(viewportPx * 0.10f)
+        val partialOffset = sortSheetTopInsetPx(
+            viewportPx = viewportPx,
+            preferredInsetPx = with(density) { 48.dp.toPx() },
+        )
         val threshold = (partialOffset * 0.55f)
             .coerceAtMost(with(density) { 32.dp.toPx() })
         var expanded by remember(partialOffset) { mutableStateOf(false) }
