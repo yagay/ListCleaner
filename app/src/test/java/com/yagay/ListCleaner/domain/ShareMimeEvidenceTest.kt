@@ -63,6 +63,52 @@ class ShareMimeEvidenceTest {
         assertFalse(multiple.matchesShareTypeOption(options.first { it.preset == OpenPreset.IMAGE }))
     }
 
+    @Test fun shareTypePolicyIsIndependentAcrossActionsAndFormats() {
+        val single = ComponentRule(IntentKind.SHARE, "com.example.receiver", "com.example.receiver.Receive")
+        val multiple = single.copy(kind = IntentKind.SHARE_MULTIPLE)
+        val config = OpenTypeConfig(
+            shareRules = mapOf(
+                IntentKind.SHARE to mapOf(
+                    "preset:IMAGE" to setOf(single.id),
+                    "preset:PDF" to setOf(single.id),
+                ),
+                IntentKind.SHARE_MULTIPLE to mapOf(
+                    "preset:IMAGE" to setOf(multiple.id),
+                ),
+            ),
+            sharePriorities = mapOf(
+                IntentKind.SHARE to mapOf("preset:IMAGE" to listOf("com.example.receiver")),
+            ),
+        ).validated()
+        assertEquals(setOf(single), config.selectedShareRules(IntentKind.SHARE, "preset:IMAGE"))
+        assertEquals(setOf(multiple), config.selectedShareRules(IntentKind.SHARE_MULTIPLE, "preset:IMAGE"))
+        assertTrue(config.selectedShareRules(IntentKind.SHARE_MULTIPLE, "preset:PDF").isEmpty())
+        assertTrue(config.selectedRules(OpenPreset.IMAGE).isEmpty())
+        assertEquals(listOf("com.example.receiver"), config.sharePriority(IntentKind.SHARE, "preset:IMAGE"))
+        assertTrue(config.sharePriority(IntentKind.SHARE_MULTIPLE, "preset:IMAGE").isEmpty())
+        assertEquals("preset:IMAGE", shareTypeKeyForMime("image/png"))
+        assertEquals("preset:IMAGE", shareTypeKeyForMime("image/jpeg"))
+        assertEquals("preset:PDF", shareTypeKeyForMime("application/pdf"))
+        assertEquals("mime:application/x-unknown-file", shareTypeKeyForMime("application/x-unknown-file"))
+        assertEquals("universal", shareTypeKeyForMime("*/*"))
+        assertEquals(null, shareTypeKeyForMime(null))
+    }
+
+    @Test fun shareTypeRulesRejectMixedKindAndInvalidScope() {
+        val share = ComponentRule(IntentKind.SHARE, "com.example.receiver", "com.example.receiver.Receive")
+        val invalid = OpenTypeConfig(
+            shareRules = mapOf(IntentKind.SHARE_MULTIPLE to mapOf("preset:IMAGE" to setOf(share.id)))
+        )
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            invalid.validated()
+        }
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            OpenTypeConfig(shareRules = mapOf(
+                IntentKind.SHARE to mapOf("preset:BROWSER" to setOf(share.id))
+            )).validated()
+        }
+    }
+
     @Test fun unknownAndUnavailableCandidatesDoNotAdvertiseTypes() {
         val unavailable = candidate(IntentKind.SHARE, "SEND mime=text/plain", unavailable = true)
         val unknown = candidate(IntentKind.SHARE, "OTHER_SOURCE mime=image/png",
