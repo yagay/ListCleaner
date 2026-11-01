@@ -12,6 +12,17 @@ class AospSurfaceConfigTest {
         SurfaceKind.entries.forEach { assertTrue(config.selected(it).isEmpty()) }
     }
 
+    @Test fun modesSwitchesRoundTripWithoutDeletingRules() {
+        val saved = SurfaceFilterConfig()
+            .withSelected(SurfaceKind.SETTINGS_APPS, setOf("com.example.one"))
+            .copy(disabledCleanupSurfaces = setOf(SurfaceKind.SETTINGS_APPS, SurfaceKind.NOTIFICATION_SHADE))
+        val restored = json.decodeFromString(SurfaceFilterConfig.serializer(),
+            json.encodeToString(SurfaceFilterConfig.serializer(), saved))
+        assertEquals(saved.disabledCleanupSurfaces, restored.disabledCleanupSurfaces)
+        assertEquals(setOf("com.example.one"), restored.selected(SurfaceKind.SETTINGS_APPS))
+        assertTrue(restored.copy(disabledCleanupSurfaces = emptySet()).selected(SurfaceKind.SETTINGS_APPS).isNotEmpty())
+    }
+
     @Test fun rulesDoNotBleedAcrossSurfaces() {
         val config = SurfaceFilterConfig()
             .withSelected(SurfaceKind.LAUNCHER_DRAWER, setOf("com.example.one"))
