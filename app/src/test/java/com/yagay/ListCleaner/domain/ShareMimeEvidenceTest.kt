@@ -91,6 +91,15 @@ class ShareMimeEvidenceTest {
         assertEquals("preset:PDF", shareTypeKeyForMime("application/pdf"))
         assertEquals("mime:application/x-unknown-file", shareTypeKeyForMime("application/x-unknown-file"))
         assertEquals("universal", shareTypeKeyForMime("*/*"))
+        val custom = mapOf(OpenPreset.CUSTOM_1 to CustomOpenDefinition(
+            "Special", mimeTypes = setOf("application/vnd.example.special")
+        ).validated())
+        assertEquals("preset:CUSTOM_1", shareTypeKeyForMime(
+            "application/vnd.example.special", custom
+        ))
+        assertEquals("mime:application/vnd.example.special", shareTypeKeyForMime(
+            "application/vnd.example.special", emptyMap()
+        ))
         assertEquals(null, shareTypeKeyForMime(null))
     }
 

@@ -565,7 +565,9 @@ class ListCleanerModule : XposedModule() {
         return matchOpenPreset(kind, mime, data?.scheme, data?.lastPathSegment ?: data?.path)
     }
 
-    private fun adapterShareTypeKey(receiver: Any, kind: IntentKind): String? {
+    private fun adapterShareTypeKey(
+        receiver: Any, kind: IntentKind, current: RuntimeRuleSnapshot,
+    ): String? {
         if (kind !in setOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE)) return null
         val intent = OrderingAccess.targetIntent(receiver) as? Intent ?: return null
         val effective = intent.selector ?: intent
@@ -573,7 +575,7 @@ class ListCleanerModule : XposedModule() {
         val mime = effective.type ?: runCatching {
             context?.let { effective.resolveTypeIfNeeded(it.contentResolver) }
         }.getOrNull()
-        return shareTypeKeyForMime(mime)
+        return shareTypeKeyForMime(mime, current.openTypes.customDefinitions)
     }
 
     private fun adapterBrowserHost(receiver: Any, kind: IntentKind): String? {
@@ -603,7 +605,7 @@ class ListCleanerModule : XposedModule() {
                 }
                 val preset = adapterOpenPreset(receiver, kind)
                 val browserHost = adapterBrowserHost(receiver, kind)
-                val shareTypeKey = adapterShareTypeKey(receiver, kind)
+                val shareTypeKey = adapterShareTypeKey(receiver, kind, current)
                 if (!orderingEngine.hasEffectivePriorities(kind, preset, browserHost, current, shareTypeKey)) {
                     diagnostic("ORDER_SKIP kind=$kind reason=no_priorities")
                     return@runCatching null
@@ -1021,7 +1023,7 @@ class ListCleanerModule : XposedModule() {
             emptySet()
         }
         val shareKey = if (kind in setOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE))
-            shareTypeKeyForMime(mimeType) else null
+            shareTypeKeyForMime(mimeType, current.openTypes.customDefinitions) else null
         val shareIds = shareKey?.let { current.openTypes.shareRuleIds(kind, it) }.orEmpty()
         val normalizedHost = if (kind == IntentKind.BROWSER) {
             normalizeBrowserHost(browserHost)
@@ -1312,7 +1314,7 @@ class ListCleanerModule : XposedModule() {
             current.openTypes.rules[preset].orEmpty()
         } else emptySet()
         val shareKey = if (kind in setOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE))
-            shareTypeKeyForMime(mimeType) else null
+            shareTypeKeyForMime(mimeType, current.openTypes.customDefinitions) else null
         val shareIds = shareKey?.let { current.openTypes.shareRuleIds(kind, it) }.orEmpty()
         val normalizedHost = if (kind == IntentKind.BROWSER) normalizeBrowserHost(browserHost) else null
         val deepLinkIds = normalizedHost?.let { current.browserLinks.rules[it].orEmpty() }.orEmpty()

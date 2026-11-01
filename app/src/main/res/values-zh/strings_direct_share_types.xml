@@ -8,5 +8,5 @@
     <string name="direct_share_type_files">文件</string>
     <string name="direct_share_scan_unavailable">Direct Share 扫描不可用；正在显示此前观察到的目标。请检查模块状态与扫描日志。</string>
     <string name="share_mime_filter_title">已检测的 MIME 类型</string>
-    <string name="share_mime_scope_note">这里仅筛选扫描到的分享目标；Share 和 Multi Share 的清理规则仍作用于该接收项支持的所有类型。</string>
+    <string name="share_mime_scope_note">已检测到的格式沿用“打开方式”的类型分类。全部分类继承通用清理规则；每种 Share 或 Multi Share 类型可以独立清理和排序。</string>
 </resources>
