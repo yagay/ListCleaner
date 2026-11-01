@@ -307,4 +307,5 @@
     <string name="preview_v4_nfc_captured">按 Android 空间捕获的 NFC 支付服务列表（已经过 Hook 过滤）；厂商界面仍可能进一步筛选或合并。</string>
     <string name="preview_v4_nfc_required">尚未捕获 NFC 管理器的有效支付服务结果。已安装的 HCE 服务不等于系统默认支付应用列表。</string>
     <string name="preview_v4_nfc_open_hint">先打开系统 NFC 页面，再返回刷新。这里仅展示 NFC 管理器实际返回的支付服务。</string>
+    <string name="preview_v4_nfc_profile_label">用户空间 %1$d</string>
 </resources>
