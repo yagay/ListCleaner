@@ -442,6 +442,7 @@ internal fun EntryCategoryPicker(
     subtypeSelector: (@Composable () -> Unit)? = null,
     previewActions: List<WorkspaceMenuAction> = emptyList(),
     onManagedSurface: (ManagedComponentSurface) -> Unit = {},
+    managedSurface: ManagedComponentSurface? = null,
 ) {
     val context = LocalContext.current
     val preferences = UiPreferencesRuntime.current
@@ -459,7 +460,8 @@ internal fun EntryCategoryPicker(
         context, kinds.map { CleanupCategoryId.Entry(it) } + ManagedComponentSurface.entries.map { CleanupCategoryId.Managed(it) }
     )
     val sortedKinds = entryCategories.filterIsInstance<CleanupCategoryId.Entry>().map { it.kind }
-    val currentTitle = if (selected == null) stringResource(R.string.common_all)
+    val currentTitle = if (managedSurface != null) stringResource(managedSurface.titleRes)
+        else if (selected == null) stringResource(R.string.common_all)
         else stringResource(selected.titleRes())
     var managePins by remember { mutableStateOf(false) }
     if (managePins) CategoryPinnedManagerDialog(
@@ -474,7 +476,7 @@ internal fun EntryCategoryPicker(
         modifier = modifier, trailingSelector = subtypeSelector, previewActions = previewActions,
     ) { dismiss ->
         if (includeAllKinds) WorkspaceMenuChoice(
-            title = stringResource(R.string.common_all), selected = selected == null,
+            title = stringResource(R.string.common_all), selected = selected == null && managedSurface == null,
             onClick = { dismiss(); onSelected(null) }
         )
         if (preferences.pinnedEntryKinds.isNotEmpty() || pinnedManaged.isNotEmpty()) WorkspaceMenuChoice(
@@ -483,13 +485,13 @@ internal fun EntryCategoryPicker(
         )
         if (pinned.isNotEmpty() || pinnedManaged.isNotEmpty()) FlatPopupHeader(stringResource(R.string.category_favorites))
         pinned.forEach { kind ->
-            WorkspaceFavoriteChoice(stringResource(kind.titleRes()), selected == kind, true,
+            WorkspaceFavoriteChoice(stringResource(kind.titleRes()), managedSurface == null && selected == kind, true,
                 CleanupCategoryId.Entry(kind).icon(), { dismiss(); onSelected(kind) },
                 { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedEntryKinds = UiPreferencesRuntime.current.pinnedEntryKinds - kind)) })
         }
         pinnedManaged.forEach { surface ->
             WorkspaceFavoriteChoice(
-                stringResource(surface.titleRes), false, true, CleanupCategoryId.Managed(surface).icon(),
+                stringResource(surface.titleRes), managedSurface == surface, true, CleanupCategoryId.Managed(surface).icon(),
                 { dismiss(); onManagedSurface(surface) },
                 { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(
                     pinnedManagedSurfaces = UiPreferencesRuntime.current.pinnedManagedSurfaces - surface.name
@@ -498,7 +500,7 @@ internal fun EntryCategoryPicker(
         }
         sortedKinds.filter { it !in pinned }.forEach { kind ->
             WorkspaceFavoriteChoice(
-                stringResource(kind.titleRes()), selected == kind, false,
+                stringResource(kind.titleRes()), managedSurface == null && selected == kind, false,
                 CleanupCategoryId.Entry(kind).icon(), { dismiss(); onSelected(kind) },
                 { UiPreferencesStore.write(context,
                     UiPreferencesRuntime.current.copy(
@@ -508,7 +510,7 @@ internal fun EntryCategoryPicker(
         }
         ManagedComponentSurface.entries.filter { it !in pinnedManaged }.forEach { surface ->
             WorkspaceFavoriteChoice(
-                stringResource(surface.titleRes), false, false, CleanupCategoryId.Managed(surface).icon(),
+                stringResource(surface.titleRes), managedSurface == surface, false, CleanupCategoryId.Managed(surface).icon(),
                 { dismiss(); onManagedSurface(surface) },
                 { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(
                     pinnedManagedSurfaces = UiPreferencesRuntime.current.pinnedManagedSurfaces + surface.name
