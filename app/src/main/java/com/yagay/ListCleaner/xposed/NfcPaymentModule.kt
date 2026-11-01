@@ -157,7 +157,7 @@ class NfcPaymentModule : XposedModule() {
         // Always publish external CATEGORY_PAYMENT results, even without any selected
         // rule or when the returned list is empty. One snapshot per queried user
         // allows a personal PayPal and a managed-profile PayPal to coexist.
-        if (!localInternalCall) {
+        if (!localInternalCall && !managerQuery) {
             val returnedComponents = filtered.mapNotNull(::componentOf)
             runtimeCapture.publish(
                 kind = IntentKind.NFC_HCE,
