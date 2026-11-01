@@ -193,7 +193,7 @@ class AospSurfaceFilterModule : XposedModule() {
     private fun policy(userId: Int = Process.myUid() / 100000): SurfaceFilterConfig =
         profiles[userId] ?: SurfaceFilterConfig()
     private fun selected(kind: SurfaceKind, userId: Int): Set<String> =
-        policy(userId).selected(kind)
+        policy(userId).takeUnless { kind in it.disabledCleanupSurfaces }?.selected(kind).orEmpty()
 
     /** Stable per-profile ordering without moving items into another Android user slot. */
     private fun prioritizedByProfile(
@@ -204,6 +204,7 @@ class AospSurfaceFilterModule : XposedModule() {
         val result = items.toMutableList()
         items.indices.groupBy { userOf(items[it]) }.forEach { (user, positions) ->
             if (user == null) return@forEach
+            if (kind in policy(user).disabledCleanupSurfaces) return@forEach
             val ranks = policy(user).priorities(kind).withIndex()
                 .associate { it.value to it.index }
             if (ranks.isEmpty()) return@forEach
@@ -231,6 +232,7 @@ class AospSurfaceFilterModule : XposedModule() {
             as? android.service.notification.StatusBarNotification ?: return false
         if (notificationPackage(entry) == null) return false
         val policy = policy(sbn.userId)
+        if (SurfaceKind.NOTIFICATION_SHADE in policy.disabledCleanupSurfaces) return false
         val category = sbn.notification.category
         val categoryKey = category?.takeIf { it in setOf(
             Notification.CATEGORY_PROMO, Notification.CATEGORY_MESSAGE,
