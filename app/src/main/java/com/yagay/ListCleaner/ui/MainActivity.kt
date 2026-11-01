@@ -296,6 +296,7 @@ class MainActivity : ComponentActivity() {
                             refreshRegistry = listsRefresh,
                             onRootKind = { managedEntrySurface = null },
                             onManagedKind = { managedEntrySurface = it },
+                            onOpenRoot = { managedEntrySurface = null; vm.setDestination(Destination.TILES) },
                         )
                     } else {
                         RulesTab(
