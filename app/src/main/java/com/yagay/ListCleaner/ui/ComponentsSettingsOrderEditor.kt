@@ -160,9 +160,9 @@ internal fun ComponentsSettingsOrderEditor(
                     Column(Modifier.background(MaterialTheme.colorScheme.surface)) {
                         WorkspaceCategoryFilterRow(
                             category = {
-                                ComponentCategoryPicker(
+                                EntryCategoryPicker(
                                     selected = null,
-                                    onSelected = { selected -> requestExit { onRootKind(selected) } },
+                                    onSelected = { requestExit { onRootKind(null) } },
                                     managedSurface = ManagedComponentSurface.SETTINGS_APPS,
                                     onManagedSurface = { next ->
                                         requestExit {
