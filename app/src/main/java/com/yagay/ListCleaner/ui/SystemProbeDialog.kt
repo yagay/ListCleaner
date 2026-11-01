@@ -42,6 +42,7 @@ internal fun SystemProbeDialog(
             runCatching { widgetHost.deleteAppWidgetId(widgetId) }
             widgetId = -1
         }
+        onDismiss()
     }
     DisposableEffect(widgetHost) {
         onDispose {
@@ -80,7 +81,7 @@ internal fun SystemProbeDialog(
                 component != null -> SystemEffectPreview.launch(context, component, request.userId)
             }
         } finally {
-            onDismiss()
+            if (request.componentKind != CleanupKind.WIDGET || widgetId < 0) onDismiss()
         }
     }
 }
