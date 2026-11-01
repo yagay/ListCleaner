@@ -175,6 +175,7 @@ internal fun ListControls(
     subtypeAvailable: Boolean = true,
     previewActions: List<WorkspaceMenuAction> = emptyList(),
     toolbarPreviewActions: List<WorkspaceMenuAction> = emptyList(),
+    onManagedSurface: (ManagedComponentSurface) -> Unit = {},
     modeAction: (@Composable () -> Unit)? = null,
     selectionActions: List<WorkspaceMenuAction> = emptyList(),
 ) {
@@ -194,6 +195,7 @@ internal fun ListControls(
                     disabledKinds = state.disabledEntryKinds,
                     subtypeTitle = subtypeTitle,
                     previewActions = previewActions,
+                    onManagedSurface = onManagedSurface,
                     subtypeSelector = if (
                         subtypeAvailable &&
                         hasEntrySubtypeSelector(state.filter)
