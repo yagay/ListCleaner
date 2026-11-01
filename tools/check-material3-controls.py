@@ -389,7 +389,7 @@ if "WorkspaceCategoryPreviewIcon(" in classic_preview or "previewActions:" in cl
     errors.append("ClassicListLayout.kt: duplicate eye remained on Entry mode title row")
 entry_preview = (root / "MainTabs.kt").read_text(encoding="utf-8")
 entry_controls = (root / "MainControls.kt").read_text(encoding="utf-8")
-if "toolbarPreviewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds, state.disabledEntryGroups)" not in entry_preview or "browseAllComponents" in entry_preview:
+if "previewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds, state.disabledEntryGroups)" not in entry_preview or "browseAllComponents" in entry_preview:
     errors.append("MainTabs.kt: toolbar preview must follow current Entry category")
 if "toolbarPreviewActions: List<WorkspaceMenuAction>" not in entry_controls or (
         "if (toolbarPreviewActions.isNotEmpty())" not in entry_controls or
@@ -408,9 +408,13 @@ if "Icons.Rounded.Visibility" in summary_source or "previewActions" in summary_s
 for filename, target in (("MainTabs.kt", "entryKind = previewKind"),
                          ("RootComponentsScreen.kt", "componentKind = previewKind")):
     code = (root / filename).read_text(encoding="utf-8")
-    preview_binding = "toolbarPreviewActions =" if filename == "MainTabs.kt" else "previewActions ="
+    preview_binding = "previewActions ="
     if preview_binding not in code or target not in code:
         errors.append(f"{filename}: system preview eye is not wired to the proper toolbar")
+if "previewActions = previewActions" not in entry_preview:
+    errors.append("MainTabs.kt: summary row must receive Entry preview actions")
+if "WorkspaceCategoryPreviewIcon(previewActions" not in (root / "WorkspaceCommon.kt").read_text(encoding="utf-8"):
+    errors.append("WorkspaceCommon.kt: App List summary must render preview before info")
 if "onPreview = onPreview" not in (root / "AppListRows.kt").read_text(encoding="utf-8"):
     errors.append("AppListRows.kt: item-specific preview must remain in overflow")
 
