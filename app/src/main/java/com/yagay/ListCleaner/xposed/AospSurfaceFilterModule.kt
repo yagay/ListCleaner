@@ -291,12 +291,14 @@ class AospSurfaceFilterModule : XposedModule() {
 
     private data class CompletedOriginal(val value: Any?)
     private val lastOriginal = ThreadLocal<CompletedOriginal?>()
+    private val originalAttempted = ThreadLocal<Boolean>()
 
-    /** Always keep the last successful AOSP call for fail-open recovery, including null. */
+    /** Track original invocations so framework exceptions never invoke the method twice. */
     private fun proceedOriginal(
         chain: XposedInterface.Chain,
         args: Array<Any?>? = null,
     ): Any? {
+        originalAttempted.set(true)
         val result = if (args == null) chain.proceed() else chain.proceed(args)
         lastOriginal.set(CompletedOriginal(result))
         return result
@@ -323,16 +325,27 @@ class AospSurfaceFilterModule : XposedModule() {
             if (!installed.add(key)) return@forEach
             runCatching {
                 method.isAccessible = true
+                val circuit = HookFailureCircuit()
                 hook(method).setId("lc-aosp-$id").intercept(
                     XposedInterface.Hooker { chain ->
+                        if (circuit.isDisabled()) return@Hooker chain.proceed()
                         lastOriginal.remove()
-                        try { callback(chain) }
-                        catch (t: Throwable) {
+                        originalAttempted.remove()
+                        try {
+                            callback(chain).also { circuit.recordSuccess() }
+                        } catch (t: Throwable) {
+                            // Never re-invoke a framework method that already threw:
+                            // callbacks usually call proceedOriginal() before filtering.
+                            if (originalAttempted.get() == true && lastOriginal.get() == null) throw t
+                            if (circuit.recordFailure()) {
+                                diagnostic("HOOK_DISABLED id=$id method=$key reason=adapter_failures")
+                            }
                             Log.w("ListCleaner.AospSurface", "Fail-open surface $id", t)
-                            lastOriginal.get()?.value ?: if (lastOriginal.get() != null) null
-                                else chain.proceed()
+                            val completed = lastOriginal.get()
+                            if (completed != null) completed.value else chain.proceed()
                         } finally {
                             lastOriginal.remove()
+                            originalAttempted.remove()
                         }
                     }
                 )
