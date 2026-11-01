@@ -69,6 +69,7 @@ internal object SystemPreviewV2 {
         }
         if (!probe.supported) return unavailable()
         val apiItems = probe.items.distinctBy(SystemProbeItem::component)
+        val adapter = PreviewContracts.forEntry(kind).adapter
         fun projected(items: List<SystemProbeItem>, source: PreviewV2Source): PreviewV2Result {
             val visible = EffectivePreviewPolicy.visible(kind, items, selected, globalMode, overrides)
             return PreviewV2Result(visible, when {
@@ -81,7 +82,7 @@ internal object SystemPreviewV2 {
             })
         }
 
-        if (kind.previewAuthority() == PreviewAuthority.ROLE_CANDIDATES) {
+        if (adapter == PreviewAdapter.ROLE_CONTROLLER) {
             // RoleController's getQualifyingPackagesAsUser() (after ListCleaner Hook
             // filtering) supplies the actual eligibility decision. Its snapshot has
             // a separate storage key and is NEVER an ACTION_ASSIST resolver return.
@@ -193,10 +194,11 @@ internal object SystemPreviewV2 {
 
         // Candidate lists may still differ from the actual Resolver/Chooser UI.
         // This distinction is visible and is NEVER called a verified screen.
-        if (kind.previewAuthority() in setOf(
-                PreviewAuthority.RESOLVER_CANDIDATES, PreviewAuthority.ROLE_CANDIDATES,
-                PreviewAuthority.SERVICE_CANDIDATES, PreviewAuthority.PROVIDER_CANDIDATES,
-            )
+        if (adapter in setOf(
+                PreviewAdapter.RESOLVER, PreviewAdapter.SYSTEM_SERVICES,
+                PreviewAdapter.PROVIDER_REGISTRY,
+            ) || (adapter == PreviewAdapter.DOCUMENTS_UI &&
+                kind != IntentKind.DOCUMENT_ROOT && probe.diagnosticCandidates.isNotEmpty())
         ) return projected(
             (probe.diagnosticCandidates.takeIf { it.isNotEmpty() } ?: apiItems)
                 .distinctBy(SystemProbeItem::component),
