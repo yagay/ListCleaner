@@ -323,6 +323,45 @@ class RuleRepository(context: Context) {
 
     private fun persistLocalSnapshot() = persistPrepared(localSnapshot())
 
+    /**
+     * Apply all Modes changes for one user in a single local snapshot.
+     * Null means unchanged, never "clear". Keeping the user check inside the
+     * synchronized repository lock prevents a space switch between validation
+     * and the write. Existing surface selections and priorities are preserved.
+     */
+    @Synchronized fun applyModesForSpace(
+        userId: Int,
+        disabledKinds: Set<IntentKind>?,
+        disabledSurfaces: Set<com.yagay.ListCleaner.domain.SurfaceKind>?,
+    ): Boolean {
+        if (userId != activeUserId) return false
+        if (disabledKinds != null) require(disabledKinds.all { it.isSelectableEntryKind() })
+        val current = localSnapshot()
+        val next = current.copy(
+            disabledEntryKinds = disabledKinds?.toSet() ?: current.disabledEntryKinds,
+            disabledEntryGroups = if (disabledKinds != null) emptySet() else current.disabledEntryGroups,
+            surfaceFilters = if (disabledSurfaces == null) current.surfaceFilters
+                else current.surfaceFilters.copy(disabledCleanupSurfaces = disabledSurfaces.toSet()),
+        ).validated()
+        if (next == current) return true
+        persistPrepared(next)
+        mutableDisabledEntryKinds.value = next.disabledEntryKinds
+        mutableDisabledEntryGroups.value = next.disabledEntryGroups
+        mutableSurfaceFilters.value = next.surfaceFilters
+        mutableRevision.value++
+        return true
+    }
+
+    /** Space-checked replacement for asynchronous UI edits of surface policies. */
+    @Synchronized fun setSurfaceFiltersForSpace(
+        userId: Int,
+        value: com.yagay.ListCleaner.domain.SurfaceFilterConfig,
+    ): Boolean {
+        if (userId != activeUserId) return false
+        setSurfaceFilters(value)
+        return true
+    }
+
     @Synchronized fun setSurfaceFilters(value: com.yagay.ListCleaner.domain.SurfaceFilterConfig) {
         val validated = value.validated()
         if (validated == mutableSurfaceFilters.value) return
