@@ -15,7 +15,8 @@ import com.yagay.ListCleaner.domain.isPackageScopedEntry
  */
 internal enum class PreviewV2Source {
     ADAPTER_OBSERVED, FILTERED_OBSERVED, DOCUMENT_ROOTS,
-    ENABLED, INTENT_CANDIDATES, DRAFT_SIMULATION, HISTORY, UNAVAILABLE
+    ENABLED, INTENT_CANDIDATES, ROLE_ELIGIBILITY, ROLE_CANDIDATES, ROLE_HOLDER,
+    DRAFT_SIMULATION, HISTORY, UNAVAILABLE
 }
 
 internal data class PreviewV2Result(
@@ -61,6 +62,43 @@ internal object SystemPreviewV2 {
             val history = probe.historicalItems.distinctBy(SystemProbeItem::component)
             return if (history.isEmpty()) unavailable() else
                 PreviewV2Result(history, PreviewV2Source.HISTORY)
+        }
+
+        if (kind == IntentKind.ASSISTANT) {
+            // RoleController's getQualifyingPackagesAsUser() (after ListCleaner Hook
+            // filtering) supplies the actual eligibility decision. Its snapshot has
+            // a separate storage key and is NEVER an ACTION_ASSIST resolver return.
+            val eligible = probe.roleEligibilityReturn?.takeIf { capture ->
+                capture.source == "ROLE_CONTROLLER_RETURN" &&
+                    capture.kind == kind.name &&
+                    capture.requestAction == "android.app.role.ASSISTANT" &&
+                    capture.callerPackage.substringBefore(':') in setOf(
+                        "com.android.permissioncontroller", "com.google.android.permissioncontroller"
+                    ) &&
+                    capture.callerUserId == request.userId &&
+                    !capture.truncated &&
+                    atMillis - capture.capturedAtMillis in 0L..MAX_AGE_MS
+            }
+            val candidates = eligible?.let { toItems(it, probe.diagnosticCandidates) }
+                ?: probe.diagnosticCandidates.distinctBy(SystemProbeItem::packageName)
+            if (pendingDraft) {
+                return PreviewV2Result(
+                    simulate(kind, candidates, selected, overrides[kind] ?: globalMode),
+                    PreviewV2Source.DRAFT_SIMULATION,
+                )
+            }
+            if (eligible != null) {
+                return PreviewV2Result(candidates, PreviewV2Source.ROLE_ELIGIBILITY)
+            }
+            if (candidates.isNotEmpty()) {
+                // A union of possible registration paths is NOT system role eligibility.
+                return PreviewV2Result(candidates, PreviewV2Source.ROLE_CANDIDATES)
+            }
+            // A RoleManager holder is only the current default, not eligible apps.
+            val holders = probe.enabledItems.ifEmpty { apiItems }
+            return if (holders.isNotEmpty()) {
+                PreviewV2Result(holders, PreviewV2Source.ROLE_HOLDER)
+            } else unavailable()
         }
 
         // An uncommitted selection is NOT active in Android. Project it only over the
