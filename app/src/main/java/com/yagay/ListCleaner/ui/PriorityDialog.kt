@@ -54,6 +54,7 @@ import com.yagay.ListCleaner.domain.PriorityListFilter
 import com.yagay.ListCleaner.domain.matchesOpenPreset
 import com.yagay.ListCleaner.domain.matchesBrowserHost
 import com.yagay.ListCleaner.domain.matchesShareTypeOption
+import com.yagay.ListCleaner.domain.observedShareTypeOptions
 import com.yagay.ListCleaner.domain.ShareTypeOption
 import com.yagay.ListCleaner.domain.priorityAppGroups
 import com.yagay.ListCleaner.domain.moveVisiblePriority
@@ -147,6 +148,15 @@ fun PriorityDialogContent(
 
     val typedOpenPreset = openPreset.takeIf { kind == IntentKind.OPEN }
     val deepLinkHost = browserHost.takeIf { kind == IntentKind.DEEP_LINK }
+    // Sorting has its own local type picker; changing it must not update the
+    // filter or draft of the Cleanup list beneath the sheet.
+    var localShareTypeKey by rememberSaveable(vm.selectedSpace.value, kind) {
+        mutableStateOf(shareMimeType?.key)
+    }
+    val shareTypeOptions = remember(state.candidates, kind, state.openTypesExplicit.customDefinitions) {
+        observedShareTypeOptions(state.candidates, kind, state.openTypesExplicit.customDefinitions)
+    }
+    val activeShareType = shareTypeOptions.firstOrNull { it.key == localShareTypeKey }
 
     val typedSelected = typedOpenPreset?.let { state.openTypes.selectedRules(it) }.orEmpty()
     val explicitDeepLinkSelected = deepLinkHost?.let { state.browserLinks.selectedRules(it) }.orEmpty()
@@ -154,7 +164,7 @@ fun PriorityDialogContent(
     val deepLinkSelected = genericDeepLinkSelected + explicitDeepLinkSelected
     val deepLinkScoped = deepLinkHost != null
     val scopedCandidates = remember(
-        state.candidates, typedOpenPreset, deepLinkHost, shareMimeType,
+        state.candidates, typedOpenPreset, deepLinkHost, activeShareType,
         state.openTypesExplicit.customDefinitions, deepLinkSelected
     ) {
         when {
@@ -164,8 +174,8 @@ fun PriorityDialogContent(
                 it.rule.kind == IntentKind.DEEP_LINK &&
                     (it.matchesBrowserHost(deepLinkHost) || it.rule in deepLinkSelected)
             }
-            shareMimeType != null && kind in setOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE) ->
-                state.candidates.filter { it.rule.kind == kind && it.matchesShareTypeOption(shareMimeType) }
+            activeShareType != null && kind in setOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE) ->
+                state.candidates.filter { it.rule.kind == kind && it.matchesShareTypeOption(activeShareType) }
             else -> state.candidates
         }
     }
@@ -177,20 +187,36 @@ fun PriorityDialogContent(
     val genericDeepLinkPriority = state.priorities.apps[IntentKind.DEEP_LINK].orEmpty()
     val inheritsDeepLinkPriority = deepLinkScoped && explicitDeepLinkPriority.isEmpty() && genericDeepLinkPriority.isNotEmpty()
     val hasExplicitDeepLinkPriority = deepLinkHost != null && explicitDeepLinkPriority.isNotEmpty()
+    val shareTypedSelected = activeShareType?.let {
+        state.openTypesExplicit.selectedShareRules(kind, it.key)
+    }.orEmpty()
+    val shareExplicitPriority = activeShareType?.let {
+        state.openTypesExplicit.sharePriority(kind, it.key)
+    }.orEmpty()
+    val genericSharePriority = state.priorities.apps[kind].orEmpty()
+    val sharePriorityInherited = activeShareType != null &&
+        shareExplicitPriority.isEmpty() && genericSharePriority.isNotEmpty()
     val rankedRaw = when {
+        activeShareType != null ->
+            shareExplicitPriority.takeIf { it.isNotEmpty() } ?: genericSharePriority
         typedOpenPreset != null -> state.openTypes.priorities[typedOpenPreset].orEmpty()
         deepLinkHost != null && explicitDeepLinkPriority.isNotEmpty() -> explicitDeepLinkPriority
         deepLinkHost != null -> genericDeepLinkPriority
         else -> state.priorities.apps[kind].orEmpty()
     }
-    val lockScope = deepLinkHost?.let(::browserPriorityBulkLockScope) ?: priorityBulkLockScope(kind, openPreset)
-    val orderDraft = remember(kind, typedOpenPreset, deepLinkHost, vm.selectedSpace.value) {
+    val lockScope = when {
+        deepLinkHost != null -> browserPriorityBulkLockScope(deepLinkHost)
+        activeShareType != null -> "priority:${kind.name}:MIME:${activeShareType.key}"
+        else -> priorityBulkLockScope(kind, openPreset)
+    }
+    val orderDraft = remember(kind, typedOpenPreset, deepLinkHost, activeShareType?.key, vm.selectedSpace.value) {
         PendingPriorityOrder()
     }
     val stagedOrder = orderDraft.effective(rankedRaw)
     var priorityApplyConflict by remember { mutableStateOf(false) }
     val applyOrder: () -> Boolean = {
         val ok = when {
+            activeShareType != null -> vm.applyShareTypePriorityDraft(kind, activeShareType.key, rankedRaw, stagedOrder, lockScope)
             typedOpenPreset != null -> vm.applyOpenTypePriorityDraft(typedOpenPreset, rankedRaw, stagedOrder, lockScope)
             deepLinkHost != null -> vm.applyBrowserHostPriorityDraft(deepLinkHost, rankedRaw, stagedOrder, lockScope)
             else -> vm.applyPriorityDraft(kind, rankedRaw, stagedOrder, lockScope)
@@ -229,7 +255,11 @@ fun PriorityDialogContent(
             }
         )
     }
-    val scopedExtraSelected = if (deepLinkScoped) explicitDeepLinkSelected else typedSelected
+    val scopedExtraSelected = when {
+        activeShareType != null -> shareTypedSelected
+        deepLinkScoped -> explicitDeepLinkSelected
+        else -> typedSelected
+    }
     RegisterPendingNavigation(
         pendingNavigation, orderDraft,
         if (orderDraft.hasChanges()) 1 else 0,
@@ -405,12 +435,16 @@ fun PriorityDialogContent(
                             subtypeTitle = when (kind) {
                                 IntentKind.OPEN -> openPreset?.let { state.openTypesExplicit.localizedTitle(it) }
                                 IntentKind.DEEP_LINK -> browserHost
+                                IntentKind.SHARE, IntentKind.SHARE_MULTIPLE ->
+                                    activeShareType?.preset?.let { state.openTypesExplicit.localizedTitle(it) }
+                                        ?: activeShareType?.mimeTypes?.firstOrNull()
                                 else -> null
                             },
                             subtypeAvailable = when (kind) {
                                 IntentKind.OPEN -> state.openTypesExplicit.configuredPresets().isNotEmpty()
                                 IntentKind.DEEP_LINK -> state.browserAvailableHosts.isNotEmpty() ||
                                     state.browserLinks.hosts.isNotEmpty() || browserHost != null
+                                IntentKind.SHARE, IntentKind.SHARE_MULTIPLE -> shareTypeOptions.isNotEmpty()
                                 else -> false
                             },
                             extraFilter = {
@@ -424,6 +458,12 @@ fun PriorityDialogContent(
                                         },
                                         onManageCustom = { showCustomTypes = true },
                                         iconOnly = true
+                                    )
+                                    IntentKind.SHARE, IntentKind.SHARE_MULTIPLE -> ShareMimeFilterMenu(
+                                        selected = activeShareType,
+                                        supported = shareTypeOptions,
+                                        config = state.openTypesExplicit,
+                                        onSelected = { localShareTypeKey = it?.key },
                                     )
                                     IntentKind.DEEP_LINK -> BrowserHostFilterMenu(
                                         selected = browserHost,
@@ -446,6 +486,9 @@ fun PriorityDialogContent(
             item(key = "summary") {
                 Column(Modifier.padding(vertical = 6.dp)) {
                     val presetTitle = when {
+                        activeShareType != null -> activeShareType.preset?.let {
+                            state.openTypesExplicit.localizedTitle(it)
+                        } ?: activeShareType.mimeTypes.first()
                         typedOpenPreset != null -> state.openTypes.localizedTitle(typedOpenPreset)
                         deepLinkHost != null -> deepLinkHost
                         else -> null
@@ -562,7 +605,7 @@ fun PriorityDialogContent(
                     }
                 }
                 val packageName = group.packageName
-                val key = "${kind.name}|${openPreset?.name ?: browserHost ?: "ALL"}|$packageName"
+                val key = "${kind.name}|${activeShareType?.key ?: openPreset?.name ?: browserHost ?: "ALL"}|$packageName"
                 val expanded = expandedKey == key
                 val onExpand = { expandedKey = if (expanded) null else key }
                 val first = group.components.first()
@@ -571,7 +614,7 @@ fun PriorityDialogContent(
                     val lockState = vm.bulkLockState(lockScope, packageName, emptyList())
                     val rankText = group.rank?.let {
                         stringResource(
-                            if (inheritsOpenPriority || inheritsDeepLinkPriority)
+                            if (inheritsOpenPriority || inheritsDeepLinkPriority || sharePriorityInherited)
                                 R.string.priority_rank_inherited else R.string.priority_rank,
                             it
                         )

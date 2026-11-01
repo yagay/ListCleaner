@@ -38,6 +38,18 @@ internal class PriorityEditorController(
         )
     }
 
+    private fun shareTarget(kind: IntentKind, key: String): PriorityTarget? {
+        if (kind !in setOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE)) return null
+        return PriorityTarget(
+            read = {
+                rules.openTypes.value.sharePriority(kind, key)
+                    .takeIf { it.isNotEmpty() }
+                    ?: rules.priorities.value.apps[kind].orEmpty()
+            },
+            write = { rules.setShareTypePriority(kind, key, it) },
+        )
+    }
+
     private fun openTarget(preset: OpenPreset) = PriorityTarget(
         read = {
             rules.openTypes.value.priorities[preset]
@@ -136,6 +148,10 @@ internal class PriorityEditorController(
         if (next != current) target.write(next)
         return true
     }
+
+    fun applyShareTypeDraft(
+        kind: IntentKind, key: String, expected: List<String>, desired: List<String>, scope: String,
+    ): Boolean = applyDraft(shareTarget(kind, key), expected, desired, scope)
 
     fun applyKindDraft(kind: IntentKind, expected: List<String>, desired: List<String>, scope: String): Boolean =
         applyDraft(kindTarget(kind), expected, desired, scope)

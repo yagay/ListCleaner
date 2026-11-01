@@ -134,7 +134,12 @@ internal fun RulesTab(
     val genericDeepLinkSelected = state.selected.filterTo(linkedSetOf()) { it.kind == IntentKind.DEEP_LINK }
     val deepLinkSelected = genericDeepLinkSelected + explicitDeepLinkSelected
     val deepLinkScoped = deepLinkHost != null
-    val lockScope = deepLinkHost?.let(::browserRuleBulkLockScope) ?: ruleBulkLockScope(state.filter, openPreset)
+    val lockScope = when {
+        deepLinkHost != null -> browserRuleBulkLockScope(deepLinkHost)
+        selectedShareMime != null && state.filter != null ->
+            "rules:${state.filter.name}:MIME:${selectedShareMime.key}"
+        else -> ruleBulkLockScope(state.filter, openPreset)
+    }
     val genericDirectShare = state.selected.filterTo(linkedSetOf()) {
         it.kind == IntentKind.DIRECT_SHARE
     }
@@ -142,10 +147,18 @@ internal fun RulesTab(
         state.directShareTypes.selectedRules(it)
     }.orEmpty()
     val scopedDirectShareSelected = genericDirectShare + typedDirectShareSelected
+    val genericShareSelected = state.selected.filterTo(linkedSetOf()) {
+        it.kind == state.filter && it.kind in setOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE)
+    }
+    val typedShareSelected = if (selectedShareMime != null && state.filter != null)
+        state.openTypesExplicit.selectedShareRules(state.filter, selectedShareMime.key)
+    else emptySet()
+    val scopedShareSelected = genericShareSelected + typedShareSelected
     val activeSelected = when {
         typedOpenPreset != null -> typedSelected
         deepLinkHost != null -> deepLinkSelected
         directShareType != null -> scopedDirectShareSelected
+        selectedShareMime != null -> scopedShareSelected
         else -> state.selected
     }
     val selectionDraft = remember(state.filter, typedOpenPreset, deepLinkHost, directShareType, selectedShareMime, vm.selectedSpace.value) {
@@ -182,6 +195,9 @@ internal fun RulesTab(
             deepLinkHost != null -> rule !in genericDeepLinkSelected &&
                 !vm.isBulkProtected(lockScope, rule.packageName, rule.id)
             directShareType != null -> rule !in genericDirectShare &&
+                !vm.isRuleBulkProtected(state.filter, openPreset, rule)
+            selectedShareMime != null -> rule !in genericShareSelected &&
+                !vm.isBulkProtected(lockScope, rule.packageName, rule.id) &&
                 !vm.isRuleBulkProtected(state.filter, openPreset, rule)
             else -> !vm.isRuleBulkProtected(state.filter, openPreset, rule)
         }
@@ -329,6 +345,10 @@ internal fun RulesTab(
                 directShareType != null -> {
                     vm.selectDirectShareTypeRules(directShareType, add, lockScope)
                     vm.deselectDirectShareTypeRules(directShareType, remove, lockScope)
+                }
+                selectedShareMime != null && state.filter != null -> {
+                    vm.selectShareTypeRules(state.filter, selectedShareMime.key, add, lockScope)
+                    vm.deselectShareTypeRules(state.filter, selectedShareMime.key, remove, lockScope)
                 }
                 else -> {
                     vm.selectRules(add, state.filter, openPreset)
@@ -604,6 +624,15 @@ previewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds,
                                 R.string.rules_dedicated_rule,
                                 state.openTypes.localizedTitle(typedOpenPreset)
                             )
+                            else -> null
+                        }
+                        selectedShareMime != null && component.rule in displayedSelected -> when {
+                            component.rule in genericShareSelected ->
+                                stringResource(R.string.rules_inherited_from_all)
+                            component.rule in typedShareSelected ->
+                                stringResource(R.string.rules_dedicated_rule,
+                                    selectedShareMime.preset?.let { state.openTypesExplicit.localizedTitle(it) }
+                                        ?: selectedShareMime.mimeTypes.first())
                             else -> null
                         }
                         directShareType != null && component.rule in displayedSelected -> when {

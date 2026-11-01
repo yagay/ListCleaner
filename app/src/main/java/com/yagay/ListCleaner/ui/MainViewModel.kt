@@ -651,6 +651,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (editable.isNotEmpty()) app.rules.setDirectShareTypeSelected(type, editable, selected)
     }
 
+    fun selectShareTypeRules(
+        kind: IntentKind, key: String, rules: Collection<ComponentRule>, scope: String,
+    ) = mutateShareTypeRules(kind, key, rules, scope, true)
+
+    fun deselectShareTypeRules(
+        kind: IntentKind, key: String, rules: Collection<ComponentRule>, scope: String,
+    ) = mutateShareTypeRules(kind, key, rules, scope, false)
+
+    private fun mutateShareTypeRules(
+        kind: IntentKind, key: String, rules: Collection<ComponentRule>, scope: String,
+        selected: Boolean,
+    ) {
+        if (!canEdit() || kind !in setOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE)) return
+        val generic = app.rules.rules.value.filterTo(hashSetOf()) { it.kind == kind }
+        val editable = rules.distinct().filter {
+            it.kind == kind && it !in generic &&
+                !bulkLocks.isProtected(scope, it.packageName, it.id)
+        }
+        if (editable.isNotEmpty()) app.rules.setShareTypeSelected(kind, key, editable, selected)
+    }
+
     fun selectOpenTypeRules(preset: OpenPreset, rules: Collection<ComponentRule>, lockScope: String) =
         mutateOpenTypeRules(preset, rules, lockScope, SelectionOperation.SELECT)
 
@@ -964,6 +985,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun applyPriorityDraft(kind: IntentKind, expected: List<String>, desired: List<String>, lockScope: String): Boolean =
         priorityEditor.applyKindDraft(kind, expected, desired, lockScope)
+
+    fun applyShareTypePriorityDraft(
+        kind: IntentKind, key: String, expected: List<String>, desired: List<String>, lockScope: String,
+    ): Boolean = priorityEditor.applyShareTypeDraft(kind, key, expected, desired, lockScope)
 
     fun applyOpenTypePriorityDraft(preset: OpenPreset, expected: List<String>, desired: List<String>, lockScope: String): Boolean =
         priorityEditor.applyOpenTypeDraft(preset, expected, desired, lockScope)
