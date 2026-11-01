@@ -176,11 +176,12 @@ internal object SystemEntryProbe {
     private fun readRuntimeReturns(
         context: Context, kind: IntentKind,
     ): RuntimeObservations = runCatching {
-        val app = context.applicationContext as? ListCleanerApp
-            ?: return@runCatching RuntimeObservations(null, null, null, null)
-        val prefs = app.currentSession()?.service
-            ?.getRemotePreferences(RuleRepository.REMOTE_PREFS)
-            ?: return@runCatching RuntimeObservations(null, null, null, null)
+        // Capture storage belongs to this manager process. Hook RemotePreferences is
+        // deliberately not used: its edit() path is unsupported on some LSPosed builds.
+        val prefs = context.getSharedPreferences(
+            com.yagay.ListCleaner.domain.RuntimeCaptureContract.PREFS,
+            Context.MODE_PRIVATE,
+        )
         val ownUid = Process.myUid()
         val ourUser = AndroidUid.userId(ownUid)
         fun decode(key: String) = RuntimeInterfaceSnapshotCodec.decode(
@@ -327,7 +328,7 @@ internal object SystemEntryProbe {
                     roleHolders(context, kind) else null
                 if (roleResult != null) return roleResult
                 if (kind == IntentKind.CALL_SCREENING) return registeredServices(context, kind)
-                val intent = SystemEffectPreview.queryIntent(context, kind, scenario)
+                val intent = SystemEffectPreview.queryIntent(context, kind, scenario, request)
                 val flags = if (kind in setOf(IntentKind.PROCESS_TEXT, IntentKind.HOME, IntentKind.ASSISTANT))
                     0 else PackageManager.MATCH_DEFAULT_ONLY
                 val registrations = pm.queryIntentActivities(intent, flags).mapNotNull { resolve ->
