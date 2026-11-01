@@ -31,6 +31,7 @@ internal class RuntimeInterfaceCaptureWriter(
         packages: Collection<String>,
         callerPackage: String = "",
         components: Collection<String> = emptyList(),
+        componentLabels: Map<String, String> = emptyMap(),
         callerUid: Int = -1,
         requestAction: String = "",
         requestMimeType: String = "",
@@ -48,6 +49,9 @@ internal class RuntimeInterfaceCaptureWriter(
             capturedAtMillis = System.currentTimeMillis(),
             packages = uniquePackages.take(RuntimeInterfaceSnapshotCodec.MAX_PACKAGES),
             components = uniqueComponents.take(RuntimeInterfaceSnapshotCodec.MAX_PACKAGES),
+            componentLabels = componentLabels.filterKeys {
+                it in uniqueComponents.take(RuntimeInterfaceSnapshotCodec.MAX_PACKAGES)
+            },
             totalPackages = uniquePackages.size, totalComponents = uniqueComponents.size,
             truncated = uniquePackages.size > RuntimeInterfaceSnapshotCodec.MAX_PACKAGES ||
                 uniqueComponents.size > RuntimeInterfaceSnapshotCodec.MAX_PACKAGES,
@@ -72,6 +76,9 @@ internal class RuntimeInterfaceCaptureWriter(
                     append('|').append(snapshot.components.size).append(':')
                     snapshot.components.forEach {
                         append(it.length).append(':').append(it)
+                        snapshot.componentLabels[it]?.let { label ->
+                            append('@').append(label.length).append(':').append(label)
+                        }
                     }
                 }
                 val now = System.currentTimeMillis()
