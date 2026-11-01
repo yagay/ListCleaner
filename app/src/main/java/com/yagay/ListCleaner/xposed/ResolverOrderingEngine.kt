@@ -18,7 +18,12 @@ internal class ResolverOrderingEngine(
         preset: OpenPreset?,
         browserHost: String?,
         current: RuntimeRuleSnapshot,
+        shareTypeKey: String? = null,
     ): List<String> {
+        if (shareTypeKey != null && kind in setOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE)) {
+            current.openTypes.sharePriority(kind, shareTypeKey)
+                .takeIf { it.isNotEmpty() }?.let { return it }
+        }
         return effectiveResolverPriorities(
             kind, preset, browserHost, current.priorities, current.openTypes, current.browserLinks,
         )

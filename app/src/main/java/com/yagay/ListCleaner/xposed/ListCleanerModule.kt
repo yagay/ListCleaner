@@ -27,6 +27,7 @@ import com.yagay.ListCleaner.domain.EntryGroup
 import com.yagay.ListCleaner.domain.DirectShareTypeConfig
 import com.yagay.ListCleaner.domain.PriorityConfig
 import com.yagay.ListCleaner.domain.OpenTypeConfig
+import com.yagay.ListCleaner.domain.shareTypeKeyForMime
 import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.BrowserLinkConfig
 import com.yagay.ListCleaner.domain.normalizeBrowserHost
@@ -1006,6 +1007,9 @@ class ListCleanerModule : XposedModule() {
         } else {
             emptySet()
         }
+        val shareKey = if (kind in setOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE))
+            shareTypeKeyForMime(mimeType) else null
+        val shareIds = shareKey?.let { current.openTypes.shareRuleIds(kind, it) }.orEmpty()
         val normalizedHost = if (kind == IntentKind.BROWSER) {
             normalizeBrowserHost(browserHost)
         } else {
@@ -1026,9 +1030,10 @@ class ListCleanerModule : XposedModule() {
             }
             val scopedTypedIds = if (effectiveKind == IntentKind.OPEN) typedIds else emptySet()
             val scopedDeepIds = if (effectiveKind == IntentKind.DEEP_LINK) deepLinkIds else emptySet()
+            val scopedShareIds = if (effectiveKind == kind) shareIds else emptySet()
             val hasSelection = current.hasSelection(effectiveKind) ||
                 scopedTypedIds.isNotEmpty() ||
-                scopedDeepIds.isNotEmpty()
+                scopedDeepIds.isNotEmpty() || scopedShareIds.isNotEmpty()
             val canonicalClass = com.yagay.ListCleaner.domain.ComponentIdentity.canonicalClassName(
                 activity.packageName,
                 activity.name,
@@ -1037,7 +1042,8 @@ class ListCleanerModule : XposedModule() {
             val candidateId = "${effectiveKind.name}|${activity.packageName}|$canonicalClass"
             val selected = candidateId in current.configured ||
                 candidateId in scopedTypedIds ||
-                candidateId in scopedDeepIds
+                candidateId in scopedDeepIds ||
+                candidateId in scopedShareIds
             val include = current.modeFor(effectiveKind).includes(selected, hasSelection)
 
             val priorities = orderingEngine.effectivePriorities(
@@ -1045,6 +1051,7 @@ class ListCleanerModule : XposedModule() {
                 if (effectiveKind == IntentKind.OPEN) preset else null,
                 if (effectiveKind == IntentKind.DEEP_LINK) normalizedHost else null,
                 current,
+                shareTypeKey = shareKey,
             )
             val priorityIndex = priorities.indexOf(activity.packageName)
             val title = current.priorities.titles[candidateId]
@@ -1291,6 +1298,9 @@ class ListCleanerModule : XposedModule() {
         val typedIds = if (kind == IntentKind.OPEN && preset != null) {
             current.openTypes.rules[preset].orEmpty()
         } else emptySet()
+        val shareKey = if (kind in setOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE))
+            shareTypeKeyForMime(mimeType) else null
+        val shareIds = shareKey?.let { current.openTypes.shareRuleIds(kind, it) }.orEmpty()
         val normalizedHost = if (kind == IntentKind.BROWSER) normalizeBrowserHost(browserHost) else null
         val deepLinkIds = normalizedHost?.let { current.browserLinks.rules[it].orEmpty() }.orEmpty()
 
@@ -1308,8 +1318,10 @@ class ListCleanerModule : XposedModule() {
 
             val scopedTypedIds = if (effectiveKind == IntentKind.OPEN) typedIds else emptySet()
             val scopedDeepIds = if (effectiveKind == IntentKind.DEEP_LINK) deepLinkIds else emptySet()
+            val scopedShareIds = if (effectiveKind == kind) shareIds else emptySet()
             val hasSelection = current.hasSelection(effectiveKind) ||
-                scopedTypedIds.isNotEmpty() || scopedDeepIds.isNotEmpty()
+                scopedTypedIds.isNotEmpty() || scopedDeepIds.isNotEmpty() ||
+                scopedShareIds.isNotEmpty()
             anySelection = anySelection || hasSelection
             if (!hasSelection && current.modeFor(effectiveKind) != DisplayMode.SHOW_SELECTED) return@filter true
 
@@ -1318,7 +1330,8 @@ class ListCleanerModule : XposedModule() {
             )
             val candidateId = "${effectiveKind.name}|${activity.packageName}|$canonicalClass"
             val selected = candidateId in current.configured ||
-                candidateId in scopedTypedIds || candidateId in scopedDeepIds
+                candidateId in scopedTypedIds || candidateId in scopedDeepIds ||
+                candidateId in scopedShareIds
             diagnostic(
                 "CANDIDATE $layer $effectiveKind preset=$preset host=$normalizedHost " +
                     "${activity.packageName}/${activity.name} target=${activity.targetActivity} " +
