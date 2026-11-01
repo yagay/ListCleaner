@@ -58,8 +58,14 @@ internal fun SystemPreviewGridTile(
             value = withContext(Dispatchers.IO) {
                 systemPreviewGridIconCache.get(cacheKey) ?: runCatching {
                     val pm = context.packageManager
+                    val component = ComponentName(item.packageName, item.className)
+                    // Payment, IME, Print, Accessibility etc. are services, not
+                    // Activities. Match their service icon before falling back.
                     val drawable = runCatching {
-                        pm.getActivityIcon(ComponentName(item.packageName, item.className))
+                        @Suppress("DEPRECATION")
+                        pm.getServiceInfo(component, 0).loadIcon(pm)
+                    }.getOrNull() ?: runCatching {
+                        pm.getActivityIcon(component)
                     }.getOrNull() ?: pm.getApplicationIcon(item.packageName)
                     val drawableForUser = item.userId?.takeIf {
                         it != AndroidUid.userId(Process.myUid())
