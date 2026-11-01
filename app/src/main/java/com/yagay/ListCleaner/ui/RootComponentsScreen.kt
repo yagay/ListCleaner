@@ -375,8 +375,8 @@ internal fun RootComponentsScreen(
                         ClassicComponentCategoryFilter(
                             selected = kind,
                             modifier = Modifier.fillMaxWidth(),
-                            previewActions = (if (kind == null) CleanupKind.entries.toList()
-                                else listOf(requireNotNull(kind))).map { previewKind ->
+                            previewActions = (if (kind == null) CleanupKind.entries.filter { it !in UiPreferencesRuntime.current.hiddenRootKinds }
+                                else listOf(requireNotNull(kind)).filter { it !in UiPreferencesRuntime.current.hiddenRootKinds }).map { previewKind ->
                                 WorkspaceMenuAction(
                                     label = stringResource(previewKind.titleRes()),
                                     onClick = {
