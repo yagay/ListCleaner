@@ -447,21 +447,35 @@ internal fun EntryCategoryPicker(
 ) {
     val context = LocalContext.current
     val preferences = UiPreferencesRuntime.current
-    val pinnedManaged = preferences.pinnedManagedSurfaces.mapNotNull { name ->
-        ManagedComponentSurface.entries.firstOrNull { it.name == name }
+    val pinnedManaged = remember(preferences.pinnedManagedSurfaces) {
+        preferences.pinnedManagedSurfaces.mapNotNull { name ->
+            ManagedComponentSurface.entries.firstOrNull { it.name == name }
+        }
     }
-    val pinned = preferences.pinnedEntryKinds.filter { (availableKinds == null || it in availableKinds) && it.entryGroup() !in disabledGroups && it !in disabledKinds }
-    val kinds = IntentKind.entries.filter {
-        it.isSelectableEntryKind() &&
-            (availableKinds == null || it in availableKinds) &&
-            it.entryGroup() !in disabledGroups &&
-            it !in disabledKinds &&
-            (includeAllKinds || it.entryGroup() != EntryGroup.DESKTOP)
+    val pinned = remember(preferences.pinnedEntryKinds, availableKinds, disabledGroups, disabledKinds) {
+        preferences.pinnedEntryKinds.filter {
+            it.isSelectableEntryKind() &&
+                (availableKinds == null || it in availableKinds) &&
+                it.entryGroup() !in disabledGroups && it !in disabledKinds
+        }
     }
-    val entryCategories = CleanupCategoryRegistry.sorted(
-        context, kinds.map { CleanupCategoryId.Entry(it) } + ManagedComponentSurface.entries.map { CleanupCategoryId.Managed(it) }
-    )
-    val sortedKinds = entryCategories.filterIsInstance<CleanupCategoryId.Entry>().map { it.kind }
+    val kinds = remember(availableKinds, disabledGroups, disabledKinds, includeAllKinds) {
+        IntentKind.entries.filter {
+            it.isSelectableEntryKind() &&
+                (availableKinds == null || it in availableKinds) &&
+                it.entryGroup() !in disabledGroups &&
+                it !in disabledKinds &&
+                (includeAllKinds || it.entryGroup() != EntryGroup.DESKTOP)
+        }
+    }
+    // Category names and their locale-aware order must not be recalculated
+    // on every checkbox, scrolling or preview state recomposition.
+    val entryCategories = remember(context, kinds) {
+        CleanupCategoryRegistry.sorted(
+            context, kinds.map { CleanupCategoryId.Entry(it) } +
+                ManagedComponentSurface.entries.map { CleanupCategoryId.Managed(it) }
+        )
+    }
     val currentTitle = if (managedSurface != null) stringResource(managedSurface.titleRes)
         else if (selected == null) stringResource(R.string.common_all)
         else stringResource(selected.titleRes())
@@ -544,10 +558,11 @@ internal fun ComponentCategoryPicker(
     val context = LocalContext.current
     val preferences = UiPreferencesRuntime.current
     val pinned = preferences.pinnedRootKinds
-    val nameOrder = remember { displayNameComparator() }
-    val sortedRootKinds = CleanupCategoryRegistry.sorted(
-        context, ComponentCategoryFilterPolicy.choices.filterNotNull().map { CleanupCategoryId.Root(it) }
-    ).map { it.kind }
+    val sortedRootKinds = remember(context) {
+        CleanupCategoryRegistry.sorted(
+            context, ComponentCategoryFilterPolicy.choices.filterNotNull().map { CleanupCategoryId.Root(it) }
+        ).map { it.kind }
+    }
     var managePins by remember { mutableStateOf(false) }
     if (managePins) CategoryPinnedManagerDialog(
         items = pinned, label = { kind -> stringResource(kind.titleRes()) },
