@@ -63,6 +63,26 @@ class RuntimeInterfaceSnapshotCodecTest {
         assertNull(RuntimeInterfaceSnapshotCodec.decode(null, IntentKind.BROWSER))
     }
 
+    @Test fun decoderMarksDroppedIdentifiersAsIncompleteEvidence() {
+        val raw = RuntimeInterfaceSnapshot(
+            kind = IntentKind.SHARE.name,
+            source = "PACKAGE_MANAGER_FILTERED_RETURN",
+            callerUserId = 0,
+            capturedAtMillis = 123L,
+            packages = listOf("com.example.valid", "not a valid package!"),
+            components = listOf("com.example.valid/.Share", "malformed"),
+            truncated = false,
+        )
+        // Deliberately bypass encoder sanitation: remote data can be malformed.
+        val encoded = kotlinx.serialization.json.Json.encodeToString(
+            RuntimeInterfaceSnapshot.serializer(), raw
+        )
+        val decoded = RuntimeInterfaceSnapshotCodec.decode(encoded, IntentKind.SHARE)!!
+        assertTrue(decoded.truncated)
+        assertEquals(listOf("com.example.valid"), decoded.packages)
+        assertEquals(listOf("com.example.valid/.Share"), decoded.components)
+    }
+
     @Test fun unboundedOrCorruptedInputCannotEnterUi() {
         val value = RuntimeInterfaceSnapshot(
             kind = IntentKind.PRINT.name, source = "SYSTEM_MANAGER_RETURN",
