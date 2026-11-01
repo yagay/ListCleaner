@@ -70,8 +70,12 @@ internal fun SystemProbeDialog(
                             onClick = {
                                 val kind = requireNotNull(request.entryKind)
                                 SystemEffectPreview.launch(context, kind, request.userId,
-                                    choice, request.copy(scenario = choice,
-                                        customMimeType = if (choice == request.scenario) request.customMimeType else null))
+                                    choice, request.copy(
+                                        scenario = choice,
+                                        openPreset = request.openPreset.takeIf { choice == request.scenario },
+                                        directShareType = request.directShareType.takeIf { choice == request.scenario },
+                                        customMimeType = request.customMimeType.takeIf { choice == request.scenario },
+                                    ))
                                 onDismiss()
                             },
                         )
