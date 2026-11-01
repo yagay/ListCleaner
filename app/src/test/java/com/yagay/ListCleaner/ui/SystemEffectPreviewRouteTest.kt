@@ -22,9 +22,16 @@ class SystemEffectPreviewRouteTest {
 
     @Test fun documentAndPhotoEntriesKeepActualSystemPickers() {
         listOf(IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT,
-            IntentKind.CREATE_DOCUMENT, IntentKind.DOCUMENT_PROVIDER,
-            IntentKind.DOCUMENT_ROOT, IntentKind.PHOTO_SOURCE)
+            IntentKind.CREATE_DOCUMENT, IntentKind.DOCUMENT_ROOT,
+            IntentKind.PHOTO_SOURCE)
             .forEach { assertEquals(it.name, SystemPreviewRoute.PICKER, systemPreviewRoute(it)) }
+    }
+
+    @Test fun documentProviderRegistryDoesNotOpenAnUnrelatedDocumentPicker() {
+        assertEquals(SystemPreviewRoute.UNAVAILABLE,
+            systemPreviewRoute(IntentKind.DOCUMENT_PROVIDER))
+        assertEquals(PreviewNativeAction.NONE,
+            PreviewContracts.forEntry(IntentKind.DOCUMENT_PROVIDER).nativeAction)
     }
 
     @Test fun roleDefaultsOpenSettingsInsteadOfFakedDefaultAppChoosers() {
