@@ -29,6 +29,7 @@ import com.yagay.ListCleaner.domain.TileServiceEligibility
 import com.yagay.ListCleaner.domain.ControlsProviderEligibility
 import com.yagay.ListCleaner.domain.RuntimeInterfaceSnapshot
 import com.yagay.ListCleaner.domain.RuntimeInterfaceSnapshotCodec
+import com.yagay.ListCleaner.runtime.PreviewCaptureSessionStore
 import com.yagay.ListCleaner.domain.SystemServiceEntryDefinition
 import com.yagay.ListCleaner.domain.isPackageScopedEntry
 import com.yagay.ListCleaner.domain.webTargetKind
@@ -129,7 +130,7 @@ internal data class SystemProbeResult(
  * represented by the personal user's API response.
  */
 internal object SystemEntryProbe {
-    fun query(context: Context, request: SystemProbeRequest): SystemProbeResult {
+    fun query(context: Context, request: SystemProbeRequest, captureSessionId: String? = null): SystemProbeResult {
         if (request.userId != AndroidUid.userId(Process.myUid()) &&
             !(request.entryKind == IntentKind.NFC_HCE &&
                 request.userId in accessibleNfcUsers(context))) {
@@ -143,7 +144,7 @@ internal object SystemEntryProbe {
                 val scenario = request.scenario ?: defaultProbeScenario(kind)
                 val initial = probeEntry(context, kind, scenario, request)
                 val (local, host, other, ordered, roleEligibility) =
-                    readRuntimeReturns(context, kind)
+                    readRuntimeReturns(context, kind, captureSessionId)
                 val result = initial.copy(
                     runtimeReturn = local,
                     orderedReturn = ordered,
@@ -189,7 +190,7 @@ internal object SystemEntryProbe {
     )
 
     private fun readRuntimeReturns(
-        context: Context, kind: IntentKind,
+        context: Context, kind: IntentKind, captureSessionId: String?,
     ): RuntimeObservations = runCatching {
         // Capture storage belongs to this manager process. Hook RemotePreferences is
         // deliberately not used: its edit() path is unsupported on some LSPosed builds.
@@ -215,7 +216,9 @@ internal object SystemEntryProbe {
                         )
                 }
         } else null
-        val ordered = decode(RuntimeInterfaceSnapshotCodec.keyForResolverOrder(kind))
+        val session = PreviewCaptureSessionStore.read(context, captureSessionId, kind)
+        val ordered = (session?.takeIf { it.source in setOf("CHOOSER_ADAPTER_ORDER", "RESOLVER_RANKED_ORDER") }
+            ?: decode(RuntimeInterfaceSnapshotCodec.keyForResolverOrder(kind)))
             ?.takeIf {
                 it.source in setOf("CHOOSER_ADAPTER_ORDER", "RESOLVER_RANKED_ORDER") &&
                     (it.callerPackage.substringBefore(':') in setOf("android", "system", "com.android.intentresolver"))
