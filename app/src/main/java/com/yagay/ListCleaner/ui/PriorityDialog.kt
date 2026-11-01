@@ -413,19 +413,29 @@ fun PriorityDialogContent(
                             modeAction = { WorkspaceSortShortcut(kind, ordering = true) {
                                 navigate { if (onExit != null) onExit() else vm.setDestination(Destination.RULES) }
                             } },
-                            previewActions = (if (kind == IntentKind.DOCUMENT_PROVIDER)
-                                DOCUMENTS_UI_PREVIEW_KINDS else listOf(kind)).map { previewKind ->
+                            previewActions = listOf(
                                 WorkspaceMenuAction(
-                                    label = stringResource(previewKind.titleRes()),
+                                    label = stringResource(kind.titleRes()),
                                     onClick = {
                                         systemProbeRequest = SystemProbeRequest(
-                                            entryKind = previewKind,
+                                            entryKind = kind,
                                             userId = vm.selectedSpace.value,
-                                            directLaunch = previewKind == IntentKind.DOCUMENT_PROVIDER,
+                                            directLaunch = kind == IntentKind.DOCUMENT_PROVIDER,
                                         )
                                     }
                                 )
-                            } + previewMimeOptions(
+                            ) + (if (kind == IntentKind.DOCUMENT_PROVIDER)
+                                DOCUMENTS_UI_PREVIEW_KINDS.filter { it != IntentKind.DOCUMENT_PROVIDER }.map { previewKind ->
+                                    WorkspaceMenuAction(
+                                        label = stringResource(previewKind.titleRes()),
+                                        onClick = {
+                                            systemProbeRequest = SystemProbeRequest(
+                                                entryKind = previewKind,
+                                                userId = vm.selectedSpace.value,
+                                            )
+                                        }
+                                    )
+                                } else emptyList()) + previewMimeOptions(
                                 kind, state.candidates, state.openTypesExplicit
                             ).map { option ->
                                 WorkspaceMenuAction(
