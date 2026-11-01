@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import com.yagay.ListCleaner.data.RuleRepository
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.entryGroup
 import com.yagay.ListCleaner.domain.ModuleConfig
 import kotlinx.serialization.json.Json
 
@@ -58,7 +59,7 @@ internal class RemoteEntryPolicyFallback(
             fun compile(single: ModuleConfig): Snapshot = Snapshot(
                 managerAppId = config.managerAppId,
                 displayMode = single.mode,
-                modeOverrides = single.modeOverrides,
+                modeOverrides = single.modeOverrides + IntentKind.entries.filter { it.entryGroup() in single.disabledEntryGroups }.associateWith { DisplayMode.SHOW_ALL },
                 rules = selectRules(single).toSet(),
                 priorities = selectPriorities(single).mapValues { (_, packages) -> packages.toList() },
             )
