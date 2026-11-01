@@ -79,7 +79,7 @@ required = {
                               "SettingsSection.BACKUP ->", "SettingsSection.ADVANCED ->",
                               "ScopeDialog(", "SettingsSection.ABOUT -> AboutSettings()"],
     "SurfaceManagementTab.kt": ["fun SurfaceManagementTab(state: MainState, vm: MainViewModel)",
-                                 "sortedKinds.forEach", "GlobalModeSettingsRow(",
+                                 "entryModeItems.forEach", "GlobalModeSettingsRow(",
                                  "state.modeOverrides[kind]", "EntryModeFilterMenu(",
                                  "editingModeKey == kind.name", "editingModeKey == GLOBAL_MODE_KEY",
                                  "AdaptiveSwitch(", "lc_mode_confirm_apply"],
