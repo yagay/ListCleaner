@@ -673,4 +673,3 @@ internal fun RootComponentsScreen(
         }
     }
 }
-}
