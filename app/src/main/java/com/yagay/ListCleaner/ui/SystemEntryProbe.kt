@@ -192,7 +192,7 @@ internal object SystemEntryProbe {
         val ordered = decode(RuntimeInterfaceSnapshotCodec.keyForResolverOrder(kind))
             ?.takeIf {
                 it.source in setOf("CHOOSER_ADAPTER_ORDER", "RESOLVER_RANKED_ORDER") &&
-                    (it.callerPackage.substringBefore(':') in setOf("android", "com.android.intentresolver"))
+                    (it.callerPackage.substringBefore(':') in setOf("android", "system", "com.android.intentresolver"))
             }
         // Do not silently substitute a random application's manager call.
         // A Settings UID observation is separately labeled, even though
