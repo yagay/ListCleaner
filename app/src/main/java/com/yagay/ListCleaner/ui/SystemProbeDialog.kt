@@ -1,33 +1,31 @@
 package com.yagay.ListCleaner.ui
 
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.ui.unit.Dp
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.MaterialTheme
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.ui.viewinterop.AndroidView
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
 import android.content.Intent
 import android.os.Process
-import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -39,22 +37,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.yagay.ListCleaner.ListCleanerApp
 import com.yagay.ListCleaner.R
+import com.yagay.ListCleaner.data.CleanupKind
+import com.yagay.ListCleaner.domain.AndroidUid
+import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.IntentKind
-import java.text.DateFormat
-import java.util.Date
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Source-first system probe. Keep the actionable answer visible without an entire page of
- * legal/technical disclaimers; diagnostics and limitations are explicit secondary disclosures.
+ * Preview v2: one list, one provenance, one request. An OS return, a PM candidate
+ * inventory, and an uncommitted rule simulation can never be silently blended.
+ * This is deliberately independent of the previous multi-mode preview implementation.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,718 +60,248 @@ internal fun SystemProbeDialog(
     request: SystemProbeRequest,
     onDismiss: () -> Unit,
     previewState: MainState? = null,
-    previewScopedSelection: Set<com.yagay.ListCleaner.domain.ComponentRule>? = null,
+    previewScopedSelection: Set<ComponentRule>? = null,
     hasPendingDraft: Boolean = false,
 ) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
-    var revision by remember { mutableIntStateOf(0) }
-    // A dedicated temporary host id is used only while testing the OS widget
-    // picker. Never leave the chosen widget bound or modify the launcher.
-    val widgetHost = remember(context) {
-        AppWidgetHost(context.applicationContext, 0x4C4301).also { host ->
-            // Isolated testing-only host ID. Reclaim abandoned allocations from
-            // a previous process crash or a killed picker before using it again.
-            runCatching { host.deleteHost() }
+    val lifecycle = LocalLifecycleOwner.current
+    val kind = request.entryKind
+    val route = kind?.let(::systemPreviewRoute)
+        ?: request.componentKind?.let(::systemPreviewRoute)
+        ?: SystemPreviewRoute.UNAVAILABLE
+    val fixedSubtype = request.openPreset != null || request.directShareType != null ||
+        request.customMimeType != null
+    val scenarios = kind?.let(::availableProbeScenarios).orEmpty()
+        .takeUnless { fixedSubtype }.orEmpty()
+    var scenario by remember(request) {
+        mutableStateOf(request.scenario ?: kind?.let(::defaultProbeScenario)
+            ?: SystemProbeScenario.TEXT)
+    }
+    val actualRequest = request.copy(scenario = scenario)
+    var response by remember(request) { mutableStateOf<SystemProbeResult?>(null) }
+    var queryStartedAt by remember(request) { mutableStateOf<Long?>(null) }
+    var systemLaunchedAt by remember(request) { mutableStateOf<Long?>(null) }
+    var revision by remember(request) { mutableIntStateOf(0) }
+    var history by remember(request) { mutableStateOf(false) }
+    var inspected by remember(request) { mutableStateOf<SystemProbeItem?>(null) }
+
+    // This is a query-start marker, not a claim that the resulting system screen
+    // rendered anything. Capture is matched separately inside SystemPreviewV2.
+    LaunchedEffect(actualRequest, revision) {
+        response = null
+        queryStartedAt = System.currentTimeMillis()
+        response = withContext(Dispatchers.IO) {
+            SystemEntryProbe.query(context.applicationContext, actualRequest)
         }
     }
-    var pendingWidgetId by remember(request) { mutableIntStateOf(-1) }
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) revision++
+        }
+        lifecycle.lifecycle.addObserver(observer)
+        onDispose { lifecycle.lifecycle.removeObserver(observer) }
+    }
+
+    val identity = remember(actualRequest) {
+        runCatching { kind?.let {
+            SystemEffectPreview.queryIntent(context, it, scenario, actualRequest)
+        } }.getOrNull()?.let { intent ->
+            val effective = intent.selector ?: intent
+            Triple(effective.action, effective.type,
+                com.yagay.ListCleaner.domain.normalizeBrowserHost(effective.data?.host))
+        }
+    }
+    val result = SystemPreviewV2.resolve(
+        request = actualRequest, probe = response,
+        atMillis = System.currentTimeMillis(),
+        queryStartedAt = queryStartedAt,
+        systemLaunchedAt = systemLaunchedAt,
+        managerUid = Process.myUid(),
+        expectedAction = identity?.first,
+        expectedMime = identity?.second,
+        expectedHost = identity?.third,
+        pendingDraft = hasPendingDraft && !history,
+        selected = (previewState?.selected.orEmpty() + previewScopedSelection.orEmpty()),
+        globalMode = previewState?.displayMode ?: com.yagay.ListCleaner.domain.DisplayMode.HIDE_SELECTED,
+        overrides = previewState?.modeOverrides.orEmpty(),
+        historyRequested = history,
+    )
+
+    val widgetHost = remember(context) {
+        AppWidgetHost(context.applicationContext, 0x4C4301).also {
+            runCatching { it.deleteHost() }
+        }
+    }
+    var widgetId by remember(request) { mutableIntStateOf(-1) }
     val widgetPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
-        if (pendingWidgetId >= 0) {
-            runCatching { widgetHost.deleteAppWidgetId(pendingWidgetId) }
-            pendingWidgetId = -1
+        if (widgetId >= 0) {
+            runCatching { widgetHost.deleteAppWidgetId(widgetId) }
+            widgetId = -1
         }
         revision++
     }
     DisposableEffect(widgetHost) {
         onDispose {
-            if (pendingWidgetId >= 0) {
-                runCatching { widgetHost.deleteAppWidgetId(pendingWidgetId) }
-                pendingWidgetId = -1
-            }
-        }
-    }
-    // Only a return captured after this dialog launched a system preview can be
-    // attributed to the current verification attempt.
-    var previewLaunchedAt by remember(request) { mutableStateOf<Long?>(null) }
-    var scenario by remember(request) {
-        mutableStateOf(request.scenario ?: request.entryKind?.let {
-            UiPreferencesStore.initialProbeScenario(context, it)
-        } ?: SystemProbeScenario.TEXT)
-    }
-    var scenarioMenu by remember { mutableStateOf(false) }
-    // One result by default; technical source modes remain available only in Details.
-    // Autofill exposes a provider inventory rather than a public system picker.
-    val providerInventory = request.entryKind == IntentKind.AUTOFILL
-    var viewMode by remember(request) {
-        mutableStateOf(if (providerInventory) PreviewListMode.CANDIDATES else PreviewListMode.CURRENT)
-    }
-    var showDetails by remember(request) { mutableStateOf(false) }
-    var inspected by remember(request) { mutableStateOf<SystemProbeItem?>(null) }
-    val gridColumns = (LocalConfiguration.current.screenWidthDp / 72).coerceIn(4, 8)
-
-    val choices = if (request.openPreset != null || request.directShareType != null)
-        emptyList() else request.entryKind?.let(::availableProbeScenarios).orEmpty()
-    val nativeRoute = request.entryKind?.let(::systemPreviewRoute)
-        ?: request.componentKind?.let(::systemPreviewRoute)
-        ?: SystemPreviewRoute.UNAVAILABLE
-    // Provider inventories have independent data, but OEM Settings may merge their UI.
-    // Never present that shared Settings page as a verified provider picker.
-    val nativeAvailable = !providerInventory && nativeRoute in setOf(
-        SystemPreviewRoute.CHOOSER, SystemPreviewRoute.DIRECT,
-        SystemPreviewRoute.PICKER, SystemPreviewRoute.SETTINGS,
-        SystemPreviewRoute.WIDGET_PICKER, SystemPreviewRoute.INPUT_METHOD_PICKER
-    )
-    val scenarioTestAvailable = request.entryKind?.let(::supportsScenarioTest) == true
-    val nativeRootsRelevant = request.entryKind in setOf(
-        IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT,
-        IntentKind.CREATE_DOCUMENT, IntentKind.DOCUMENT_ROOT,
-    )
-    val activeRequest = request.copy(scenario = scenario)
-    var response by remember(request) { mutableStateOf<SystemProbeResult?>(null) }
-
-    // After the user exits DocumentsUI and returns, synchronize the real Hook observations
-    // before querying. It does not infer any visibility from PackageManager registrations.
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) revision++
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-    LaunchedEffect(activeRequest, revision) {
-        response = null
-        response = withContext(Dispatchers.IO) {
-            if (nativeRootsRelevant) {
-                (context.applicationContext as? ListCleanerApp)?.synchronizeObservedEntries()
-            }
-            SystemEntryProbe.query(context.applicationContext, activeRequest)
+            if (widgetId >= 0) runCatching { widgetHost.deleteAppWidgetId(widgetId) }
         }
     }
 
-    val title = request.entryKind?.let { stringResource(it.titleRes()) }
-        ?: request.componentKind?.let { stringResource(it.titleRes()) }
-        ?: ""
-    val value = response
-    val testedIntent = runCatching {
-        request.entryKind?.let { SystemEffectPreview.queryIntent(context, it, scenario, activeRequest) }
-    }.getOrNull()
-    val effectiveIntent = testedIntent?.let { it.selector ?: it }
-    val authoritativeSelection = SystemPreviewSelection.select(
-        request = activeRequest,
-        value = value,
-        showDiagnostics = false,
-        viewMode = viewMode,
-        nowMillis = System.currentTimeMillis(),
-        launchedAtMillis = previewLaunchedAt,
-        currentCallerUid = android.os.Process.myUid(),
-        expectedAction = effectiveIntent?.action,
-        expectedMimeType = effectiveIntent?.type,
-        expectedHost = com.yagay.ListCleaner.domain.normalizeBrowserHost(effectiveIntent?.data?.host),
-    )
-    val diagnostic = viewMode == PreviewListMode.CANDIDATES && value != null
-    // A captured post-filter return has its own order; never re-rank it or silently
-    // replace Current with an alphabetically sorted estimate.
-    val predicted = if (previewState != null && value != null && request.entryKind != null) {
-        val queryHost = if (request.entryKind == IntentKind.DEEP_LINK)
-            effectiveIntent?.data?.host else null
-        SystemPreviewProjection.estimate(
-            request.entryKind, previewState.candidates, previewState.selected,
-            previewState.displayMode, previewState.modeOverrides, value,
-            priorities = previewState.priorities,
-            openTypes = previewState.openTypesExplicit,
-            browserLinks = previewState.browserLinks,
-            scenario = scenario,
-            requestHost = request.browserHost ?: queryHost,
-            requestedPreset = request.openPreset,
-            directShareType = request.directShareType,
-            scopeSelected = previewScopedSelection,
-            mimeOverride = request.customMimeType,
+    inspected?.let { item ->
+        AlertDialog(
+            onDismissRequest = { inspected = null },
+            title = { Text(item.appLabel) },
+            text = {
+                Text(item.label + "\n" + item.packageName + "\n" + item.className)
+            },
+            confirmButton = {
+                TextButton(onClick = { inspected = null }) {
+                    Text(stringResource(R.string.common_ok))
+                }
+            },
         )
-    } else null
-    val selectedResult = preferredPreviewResult(
-        viewMode, authoritativeSelection, predicted,
-        kind = request.entryKind,
-        hasPendingDraft = hasPendingDraft,
-        directShareType = request.directShareType,
-    )
-    val runtimeAvailable = selectedResult.source in setOf(
-        PreviewListSource.HOOK_OBSERVATION, PreviewListSource.HOST_OBSERVATION,
-        PreviewListSource.ORDERED_ADAPTER,
-    )
-    val runtimeSnapshot = when (selectedResult.source) {
-        PreviewListSource.HOST_OBSERVATION -> value?.hostReturn
-        PreviewListSource.HOOK_OBSERVATION -> value?.runtimeReturn
-        PreviewListSource.ORDERED_ADAPTER -> value?.orderedReturn
-        PreviewListSource.HISTORY -> if (request.entryKind in setOf(
-            IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT,
-            IntentKind.CREATE_DOCUMENT, IntentKind.DOCUMENT_ROOT
-        )) null else value?.unattributedReturn ?: value?.hostReturn ?: value?.runtimeReturn
-        else -> null
-    }
-    val runtimePackages = runtimeSnapshot?.packages.orEmpty()
-    val runtimeComponents = runtimeSnapshot?.components.orEmpty()
-    val documentPicker = request.entryKind == IntentKind.OPEN_DOCUMENT ||
-        request.entryKind == IntentKind.CREATE_DOCUMENT
-    val documentSnapshot = if (selectedResult.source == PreviewListSource.DOCUMENT_ROOTS)
-        value?.matchingRootsSnapshot else null
-    val displayed = selectedResult.items
-    val sourceRes = when (selectedResult.source) {
-        PreviewListSource.HOOK_OBSERVATION -> R.string.preview_source_hook_observed
-        PreviewListSource.ORDERED_ADAPTER -> R.string.preview_source_ordered_adapter
-        PreviewListSource.HOST_OBSERVATION -> R.string.preview_source_host_observed
-        PreviewListSource.DOCUMENT_ROOTS -> R.string.preview_source_root_return
-        PreviewListSource.AUTHORITY_ENABLED -> R.string.preview_source_enabled
-        PreviewListSource.HISTORY -> R.string.preview_source_history
-        PreviewListSource.API_RETURN -> R.string.preview_source_api_candidates
-        PreviewListSource.DIAGNOSTIC -> R.string.preview_source_diagnostic
-        PreviewListSource.ESTIMATED -> R.string.preview_estimated_source
-        PreviewListSource.UNAVAILABLE -> R.string.preview_source_unavailable
-    }
-    val distinctApps = displayed.map(SystemProbeItem::packageName).distinct().size
-    val qualityRes = when (selectedResult.source) {
-        PreviewListSource.HOOK_OBSERVATION, PreviewListSource.HOST_OBSERVATION ->
-            R.string.system_probe_quality_candidate
-        PreviewListSource.ORDERED_ADAPTER -> R.string.preview_quality_ordered_adapter
-        PreviewListSource.DOCUMENT_ROOTS -> R.string.system_probe_quality_picker
-        PreviewListSource.AUTHORITY_ENABLED -> R.string.system_probe_quality_enabled
-        PreviewListSource.HISTORY -> R.string.preview_quality_history
-        PreviewListSource.ESTIMATED -> R.string.preview_estimated_title
-        PreviewListSource.API_RETURN, PreviewListSource.DIAGNOSTIC ->
-            if (value?.evidence == ProbeEvidence.ENABLED)
-                R.string.system_probe_quality_enabled
-            else R.string.system_probe_quality_candidate
-        PreviewListSource.UNAVAILABLE -> R.string.system_probe_quality_unavailable
     }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        sheetMaxWidth = Dp.Unspecified,
-        modifier = Modifier.fillMaxHeight(0.98f),
+        modifier = Modifier.fillMaxHeight(0.94f),
     ) {
-        Column(Modifier.fillMaxSize()) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                AdaptiveText(title, style = MaterialTheme.typography.titleLarge, maxLines = 1)
-                AdaptiveTextButton(onClick = onDismiss) {
-                    AdaptiveText(stringResource(R.string.system_probe_close))
-                }
-            }
-            LazyColumn(
-                Modifier.fillMaxWidth().weight(1f).padding(horizontal = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                if (choices.size > 1) {
-                    item(key = "test-scenario") {
-                        Box {
-                            AdaptiveTextButton(onClick = { scenarioMenu = true }) {
-                                AdaptiveText(stringResource(R.string.system_probe_scenario_label,
-                                    stringResource(scenario.titleRes)))
-                            }
-                            FlatWorkspaceDropdownMenu(
-                                expanded = scenarioMenu,
-                                onDismissRequest = { scenarioMenu = false },
-                            ) {
-                                choices.forEach { choice ->
-                                    WorkspaceFlatMenuRow(
-                                        title = stringResource(choice.titleRes),
-                                        selected = choice == scenario,
-                                        onClick = {
-                                            scenarioMenu = false
-                                            scenario = choice
-                                            UiPreferencesStore.recordProbeScenario(context, choice)
-                                        },
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                if (showDetails) item(key = "preview-capability") {
-                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        AdaptiveText(
-                            stringResource(request.entryKind?.let(::previewRouteNote)
-                                ?: request.componentKind?.let(::previewRouteNote)
-                                ?: R.string.preview_no_public_system_entry),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        if (request.userId != com.yagay.ListCleaner.domain.AndroidUid.userId(
-                                Process.myUid()
-                            )) {
-                            AdaptiveText(
-                                stringResource(R.string.preview_other_user_unavailable),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-                if (request.entryKind == IntentKind.PROCESS_TEXT) {
-                    item(key = "native-text-selection") {
-                        AndroidView(
-                            modifier = Modifier.fillMaxWidth(),
-                            factory = { ctx ->
-                                TextView(ctx).apply {
-                                    text = ctx.getString(R.string.system_preview_example_text)
-                                    setTextIsSelectable(true)
-                                    setPadding(12, 12, 12, 12)
-                                }
-                            },
-                        )
-                    }
-                }
-                if (providerInventory) {
-                    item(key = "provider-inventory-explanation") {
-                        AdaptiveText(
-                            stringResource(R.string.preview_autofill_navigation),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-                if (value == null) {
-                    item(key = "loading") {
-                        AdaptiveText(stringResource(R.string.system_probe_loading))
-                    }
-                } else {
-                    if (selectedResult.source == PreviewListSource.UNAVAILABLE) {
-                        item(key = "no-confirmed-preview") {
-                            AdaptiveText(
-                                stringResource(when {
-                                    documentPicker -> R.string.system_probe_no_matched_document_roots
-                                    request.entryKind in setOf(
-                                        IntentKind.ACCESSIBILITY, IntentKind.PRINT
-                                    ) -> R.string.system_probe_no_filtered_manager_return
-                                    else -> R.string.preview_no_verified_list
-                                }),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-                    }
-                    if (selectedResult.source != PreviewListSource.UNAVAILABLE) {
-                        item(key = "preview-status") {
-                            AdaptiveText(
-                                stringResource(
-                                    if (hasPendingDraft && selectedResult.source == PreviewListSource.ESTIMATED)
-                                        R.string.preview_includes_pending
-                                    else qualityRes
-                                ),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        item(key = "candidate-count") {
-                            val countRes = when (selectedResult.source) {
-                                PreviewListSource.HOOK_OBSERVATION,
-                                PreviewListSource.HOST_OBSERVATION,
-                                PreviewListSource.AUTHORITY_ENABLED ->
-                                    R.string.system_probe_count_enabled
-                                PreviewListSource.HISTORY -> R.string.preview_count_history
-                                PreviewListSource.ESTIMATED -> R.string.preview_estimated_count
-                                else -> R.string.system_probe_count_candidate
-                            }
-                            AdaptiveText(stringResource(countRes, displayed.size, distinctApps),
-                                style = MaterialTheme.typography.titleSmall)
-                        }
-                        if (request.focusPackage != null) {
-                            item(key = "target") {
-                                val matches = displayed.any(request::matches)
-                                AdaptiveText(stringResource(
-                                    if (matches) R.string.system_probe_target_found
-                                    else R.string.system_probe_target_missing, request.focusPackage),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (matches) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                        if (documentPicker && !diagnostic) {
-                            item(key = "document-root-qualification") {
-                                AdaptiveText(
-                                    stringResource(if (documentSnapshot == null)
-                                        R.string.system_probe_no_matched_document_roots
-                                    else R.string.system_probe_document_roots_qualified),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                            }
-                        }
-                        if (runtimeAvailable && runtimePackages.isEmpty() && runtimeComponents.isEmpty()) {
-                            item(key = "post-filter-empty") {
-                                AdaptiveText(
-                                    "Observed Hook post-filter result is empty (the originating request is not independently verified).",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                            }
-                        } else if (!documentPicker && !runtimeAvailable && !diagnostic &&
-                            selectedResult.source == PreviewListSource.API_RETURN) {
-                            item(key = "post-filter-stale") {
-                                AdaptiveText(
-                                    "API return shown; Hook filtering cannot be independently verified for this request. The API result may already be filtered.",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                            }
-                        }
-                        if (displayed.isEmpty()) {
-                            item(key = "empty") {
-                                AdaptiveText(stringResource(R.string.system_probe_empty))
-                            }
-                        }
-                        // Rows remain lazy while the grid shows considerably more entries
-                        // at once. All components are retained, even if an app repeats.
-                        items(
-                            displayed.chunked(gridColumns),
-                            key = { row -> "grid:" + row.first().component },
-                        ) { row ->
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                            ) {
-                                row.forEach { entry ->
-                                    SystemProbeCompactTile(
-                                        item = entry,
-                                        focused = request.matches(entry),
-                                        onInspect = { inspected = entry },
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                }
-                                repeat(gridColumns - row.size) {
-                                    Spacer(Modifier.weight(1f))
-                                }
-                            }
-                        }
-                    }
-                    if (showDetails) item(key = "quality") {
-                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            AdaptiveText(stringResource(qualityRes),
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.primary)
-                            AdaptiveText(stringResource(sourceRes),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            if (selectedResult.source == PreviewListSource.ESTIMATED) {
-                                AdaptiveText(
-                                    stringResource(R.string.preview_estimated_note),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            if (value.evidence == ProbeEvidence.PICKER_HOST ||
-                                (nativeRootsRelevant && value.evidence == ProbeEvidence.NOT_PUBLIC)
-                            ) {
-                                AdaptiveText(stringResource(R.string.system_probe_picker_compact),
-                                    style = MaterialTheme.typography.bodySmall)
-                            } else {
-                                AdaptiveText(stringResource(value.sourceRes),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
-                    value.pickerHost?.let { host ->
-                        item(key = "picker-host") {
-                            AdaptiveText(stringResource(R.string.system_probe_picker_host_short,
-                                host.appLabel),
-                                style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                    if (nativeRootsRelevant) {
-                        val observedThisTest = request.entryKind !=
-                            IntentKind.DOCUMENT_PROVIDER && value.pickerProbeStatus ==
-                            PickerProbeStatus.OBSERVED_AFTER_TEST
-                        val matching = value.matchingRootsSnapshot
-                        if (matching?.truncated == true) {
-                            item(key = "picker-partial-capture") {
-                                AdaptiveText(
-                                    stringResource(R.string.preview_partial_capture,
-                                        matching.totalRoots, matching.roots.size),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                            }
-                        }
-                        item(key = "picker-verification") {
-                            AdaptiveText(
-                                stringResource(when (value.pickerProbeStatus) {
-                                    PickerProbeStatus.OBSERVED_AFTER_TEST ->
-                                        R.string.system_probe_test_capture
-                                    PickerProbeStatus.AWAITING_HOOK ->
-                                        R.string.system_probe_test_waiting
-                                    PickerProbeStatus.HISTORY_ONLY ->
-                                        R.string.system_probe_test_history
-                                    else -> R.string.system_probe_test_no_hook
-                                }),
-                                fontWeight = FontWeight.SemiBold,
-                                style = MaterialTheme.typography.titleSmall,
-                            )
-                            if (observedThisTest && matching != null) {
-                                AdaptiveText(
-                                    stringResource(R.string.system_probe_test_root_count,
-                                        matching.roots.size),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
-                                AdaptiveText(
-                                    stringResource(R.string.system_probe_test_captured_at,
-                                        DateFormat.getDateTimeInstance(
-                                            DateFormat.SHORT, DateFormat.SHORT
-                                        ).format(Date(matching.capturedAt))),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                        // AOSP getMatchingRootsBlocking(State) is already the
-                        // authority-scoped result. Do not repeat the same roots as a
-                        // second list or merge older observations into this test.
-                        if (viewMode == PreviewListMode.CURRENT && !observedThisTest &&
-                            matching != null) {
-                            item(key = "previous-matching-note") {
-                                AdaptiveText(
-                                    stringResource(R.string.preview_older_roots_separate),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    }
-                    runtimeSnapshot?.let { returned ->
-                        // Capture details stay visible, but don't duplicate the same package
-                        // list below the primary results or imply a rendered UI snapshot.
-                        run {
-                            item(key = "runtime-return-source") {
-                                AdaptiveText(
-                                    stringResource(
-                                        R.string.system_probe_runtime_historical,
-                                        returned.packages.size
-                                    ),
-                                    fontWeight = FontWeight.SemiBold,
-                                    style = MaterialTheme.typography.titleSmall,
-                                )
-                                AdaptiveText(stringResource(R.string.system_probe_runtime_scope,
-                                    returned.source),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                if (returned.truncated) {
-                                    AdaptiveText(
-                                        stringResource(R.string.preview_partial_capture,
-                                            maxOf(returned.totalPackages, returned.totalComponents),
-                                            maxOf(returned.packages.size, returned.components.size)
-                                        ),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                                AdaptiveText(
-                                    stringResource(R.string.preview_captured_at,
-                                        DateFormat.getDateTimeInstance(
-                                            DateFormat.SHORT, DateFormat.MEDIUM
-                                        ).format(Date(returned.capturedAtMillis))),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-
-                        }
-                    }
-                    item(key = "details-toggle") {
-                        AdaptiveTextButton(onClick = {
-                            showDetails = !showDetails
-                            if (!showDetails) viewMode =
-                                if (providerInventory) PreviewListMode.CANDIDATES else PreviewListMode.CURRENT
-                        }) {
-                            AdaptiveText(stringResource(
-                                if (showDetails) R.string.system_probe_details_hide
-                                else R.string.system_probe_details_show))
-                        }
-                    }
-                    if (showDetails) {
-                        item(key = "details") {
-                            AdaptiveText(stringResource(value.explanationRes),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            AdaptiveText(stringResource(R.string.system_probe_scope_contract),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    item(key = "source-tabs") {
-                        val modes = buildList {
-                            add(PreviewListMode.CURRENT)
-                            if (predicted != null) add(PreviewListMode.ESTIMATED)
-                            if (value.diagnosticCandidates.isNotEmpty() ||
-                                value.items.isNotEmpty()) add(PreviewListMode.CANDIDATES)
-                            if (value.enabledItems.isNotEmpty() ||
-                                request.entryKind in setOf(
-                                    IntentKind.INPUT_METHOD, IntentKind.ACCESSIBILITY
-                                )) add(PreviewListMode.ENABLED)
-                            if (value.historicalItems.isNotEmpty() ||
-                                value.matchingRootsSnapshot != null ||
-                                value.observedThirdPartyRoots.isNotEmpty() ||
-                                value.unattributedReturn != null ||
-                                value.hostReturn != null || value.runtimeReturn != null)
-                                add(PreviewListMode.HISTORY)
-                        }
-                        Row(
-                            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            modes.forEach { mode ->
-                                AdaptiveFilterChip(
-                                    selected = viewMode == mode,
-                                    onClick = { viewMode = mode },
-                                    label = {
-                                        AdaptiveText(stringResource(when (mode) {
-                                            PreviewListMode.CURRENT -> R.string.preview_tab_current
-                                            PreviewListMode.ESTIMATED -> R.string.preview_tab_estimated
-                                            PreviewListMode.CANDIDATES -> R.string.preview_tab_candidates
-                                            PreviewListMode.ENABLED -> R.string.preview_tab_enabled
-                                            PreviewListMode.HISTORY -> R.string.preview_tab_history
-                                        }))
-                                    }
-                                )
-                            }
-                        }
-                    }
-                    }
-                    item(key = "refresh") {
-                        AdaptiveTextButton(onClick = { revision++ }) {
-                            AdaptiveText(stringResource(R.string.system_probe_refresh))
-                        }
-                    }
-                }
-            }
-            if (nativeAvailable || scenarioTestAvailable || providerInventory) {
+        val heading = kind?.let { stringResource(it.titleRes()) }
+            ?: request.componentKind?.let { stringResource(it.titleRes()) }.orEmpty()
+        Column(Modifier.fillMaxWidth()) {
+            Text(heading, Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.titleMedium)
+            if (scenarios.size > 1) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp, vertical = 2.dp),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    if (providerInventory) {
-                        // Open AOSP Settings combined picker when exported on this ROM.
-                        // The navigator uses public Settings pages if OEM removed it.
-                        AdaptiveTextButton(onClick = {
-                            request.entryKind?.let {
-                                SystemEffectPreview.launchProviderSettings(
-                                    context, it, request.userId
-                                )
-                            }
-                        }) {
-                            AdaptiveText(stringResource(R.string.preview_open_provider_system_picker))
-                        }
+                    scenarios.forEach { option ->
+                        FilterChip(
+                            selected = scenario == option,
+                            onClick = { scenario = option; systemLaunchedAt = null },
+                            label = { Text(stringResource(option.titleRes)) },
+                        )
                     }
-                    if (request.entryKind == IntentKind.INPUT_METHOD) {
-                        AdaptiveTextButton(onClick = {
-                            SystemEffectPreview.launchSettings(
-                                context, IntentKind.INPUT_METHOD, request.userId
-                            )
-                        }) {
-                            AdaptiveText(stringResource(R.string.preview_open_keyboard_settings))
-                        }
+                }
+            }
+            val sourceText = when (result.source) {
+                PreviewV2Source.ADAPTER_OBSERVED -> R.string.preview_v2_adapter
+                PreviewV2Source.FILTERED_OBSERVED -> R.string.preview_v2_filtered
+                PreviewV2Source.DOCUMENT_ROOTS -> R.string.preview_v2_documents
+                PreviewV2Source.ENABLED -> R.string.preview_v2_enabled
+                PreviewV2Source.INTENT_CANDIDATES -> R.string.preview_v2_candidates
+                PreviewV2Source.DRAFT_SIMULATION -> R.string.preview_v2_draft
+                PreviewV2Source.HISTORY -> R.string.preview_v2_history
+                PreviewV2Source.UNAVAILABLE -> R.string.preview_v2_unavailable
+            }
+            Text(
+                stringResource(sourceText),
+                Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                TextButton(onClick = { revision++ }) {
+                    Text(stringResource(R.string.system_probe_refresh))
+                }
+                if (!history && response?.historicalItems?.isNotEmpty() == true) {
+                    TextButton(onClick = { history = true }) {
+                        Text(stringResource(R.string.preview_tab_history))
                     }
-                    if (request.entryKind == IntentKind.ASSISTANT) {
-                        AdaptiveTextButton(onClick = {
-                            SystemEffectPreview.launchAssistantSettings(
-                                context, request.userId
-                            )
-                        }) {
-                            AdaptiveText(stringResource(R.string.preview_open_assistant_settings))
-                        }
+                } else if (history) {
+                    TextButton(onClick = { history = false }) {
+                        Text(stringResource(R.string.preview_tab_current))
                     }
-                    if (scenarioTestAvailable) {
-                        AdaptiveTextButton(onClick = {
-                            request.entryKind?.let { kind ->
-                                previewLaunchedAt = System.currentTimeMillis()
-                                SystemEffectPreview.launchScenario(
-                                    context, kind, request.userId, scenario
-                                )
-                            }
-                        }) {
-                            AdaptiveText(stringResource(R.string.preview_test_intent))
-                        }
-                    }
-                    if (nativeAvailable) {
-                        AdaptiveTextButton(onClick = {
-                            if (nativeRoute == SystemPreviewRoute.WIDGET_PICKER) {
-                                if (request.userId != com.yagay.ListCleaner.domain.AndroidUid.userId(
-                                        Process.myUid()
-                                    )) {
-                                    android.widget.Toast.makeText(
-                                        context, R.string.system_preview_other_space,
-                                        android.widget.Toast.LENGTH_LONG
-                                    ).show()
-                                } else if (pendingWidgetId < 0) {
-                                    runCatching {
-                                        val id = widgetHost.allocateAppWidgetId()
-                                        pendingWidgetId = id
-                                        widgetPicker.launch(
-                                            Intent(AppWidgetManager.ACTION_APPWIDGET_PICK).putExtra(
-                                                AppWidgetManager.EXTRA_APPWIDGET_ID, id
-                                            )
+                }
+                if (route !in setOf(
+                        SystemPreviewRoute.UNAVAILABLE, SystemPreviewRoute.CONTEXT_MENU,
+                    )
+                ) {
+                    TextButton(onClick = {
+                        if (route == SystemPreviewRoute.WIDGET_PICKER) {
+                            if (request.userId != AndroidUid.userId(Process.myUid())) {
+                                Toast.makeText(context, R.string.system_preview_other_space,
+                                    Toast.LENGTH_LONG).show()
+                            } else if (widgetId < 0) {
+                                runCatching {
+                                    val allocated = widgetHost.allocateAppWidgetId()
+                                    widgetId = allocated
+                                    widgetPicker.launch(
+                                        Intent(AppWidgetManager.ACTION_APPWIDGET_PICK).putExtra(
+                                            AppWidgetManager.EXTRA_APPWIDGET_ID, allocated,
                                         )
-                                    }.onFailure {
-                                        if (pendingWidgetId >= 0) {
-                                            runCatching { widgetHost.deleteAppWidgetId(pendingWidgetId) }
-                                            pendingWidgetId = -1
-                                        }
-                                        android.widget.Toast.makeText(
-                                            context, R.string.preview_widget_picker_unavailable,
-                                            android.widget.Toast.LENGTH_LONG
-                                        ).show()
+                                    )
+                                }.onFailure {
+                                    if (widgetId >= 0) {
+                                        runCatching { widgetHost.deleteAppWidgetId(widgetId) }
+                                        widgetId = -1
                                     }
-                                }
-                            } else {
-                                previewLaunchedAt = System.currentTimeMillis()
-                                request.entryKind?.let {
-                                    SystemEffectPreview.launch(context, it, request.userId, scenario, activeRequest)
-                                } ?: request.componentKind?.let {
-                                    SystemEffectPreview.launch(context, it, request.userId)
+                                    Toast.makeText(context, R.string.preview_widget_picker_unavailable,
+                                        Toast.LENGTH_LONG).show()
                                 }
                             }
-                        }) {
-                            AdaptiveText(stringResource(when (nativeRoute) {
-                                SystemPreviewRoute.PICKER, SystemPreviewRoute.WIDGET_PICKER,
-                                SystemPreviewRoute.INPUT_METHOD_PICKER ->
-                                    R.string.system_probe_open_picker
-                                SystemPreviewRoute.SETTINGS -> when (request.entryKind) {
-                                    IntentKind.ASSISTANT ->
-                                        R.string.preview_open_assistant_picker
-                                    else -> R.string.preview_open_related_settings
+                        } else {
+                            systemLaunchedAt = System.currentTimeMillis()
+                            kind?.let {
+                                SystemEffectPreview.launch(context, it, request.userId,
+                                    scenario, actualRequest)
+                            } ?: request.componentKind?.let {
+                                SystemEffectPreview.launch(context, it, request.userId)
+                            }
+                        }
+                    }) {
+                        Text(stringResource(R.string.system_probe_open_system))
+                    }
+                }
+                if (kind != null && supportsScenarioTest(kind)) {
+                    TextButton(onClick = {
+                        systemLaunchedAt = System.currentTimeMillis()
+                        SystemEffectPreview.launchScenario(context, kind, request.userId, scenario)
+                    }) {
+                        Text(stringResource(R.string.preview_test_intent))
+                    }
+                }
+            }
+
+            LazyColumn(Modifier.fillMaxWidth().weight(1f, fill = false)) {
+                if (response == null) {
+                    item { Text(stringResource(R.string.preview_v2_loading),
+                        Modifier.padding(16.dp)) }
+                } else if (result.items.isEmpty()) {
+                    item { Text(stringResource(R.string.preview_v2_empty),
+                        Modifier.padding(16.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                } else {
+                    itemsIndexed(result.items, key = { index, item ->
+                        "${index}_${item.component}"
+                    }) { _, item ->
+                        Row(Modifier.fillMaxWidth().clickable { inspected = item }
+                            .padding(horizontal = 16.dp, vertical = 9.dp)) {
+                            Column {
+                                Text(item.appLabel, style = MaterialTheme.typography.bodyMedium)
+                                if (item.label != item.appLabel) {
+                                    Text(item.label, style = MaterialTheme.typography.bodySmall)
                                 }
-                                else -> R.string.system_probe_open_system
-                            }))
+                                Text(item.packageName,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
                 }
             }
+            Text(stringResource(R.string.preview_v2_disclaimer),
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall)
         }
-    }
-
-    inspected?.let { entry ->
-        AdaptiveAlertDialog(
-            onDismissRequest = { inspected = null },
-            title = { AdaptiveText(entry.appLabel, style = MaterialTheme.typography.titleMedium) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    AdaptiveText(entry.label, style = MaterialTheme.typography.bodyMedium)
-                    AdaptiveText(entry.component,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            },
-            confirmButton = {
-                AdaptiveTextButton(onClick = { inspected = null }) {
-                    AdaptiveText(stringResource(R.string.system_probe_close))
-                }
-            },
-        )
     }
 }
