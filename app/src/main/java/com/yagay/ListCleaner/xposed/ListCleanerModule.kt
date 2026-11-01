@@ -124,7 +124,7 @@ class ListCleanerModule : XposedModule() {
     private val orderingEngine = ResolverOrderingEngine(::diagnostic)
     private val recentResolverOrders = ConcurrentHashMap<String, Pair<String, Long>>()
     private val resolverOrderCapture by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        RuntimeInterfaceCaptureWriter(preferences, ::record)
+        RuntimeInterfaceCaptureWriter(::record)
     }
     private val configJson = Json { ignoreUnknownKeys = true }
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
@@ -704,6 +704,7 @@ class ListCleanerModule : XposedModule() {
             requestMimeType = requestType.orEmpty(),
             requestHost = normalizeBrowserHost(effective.data?.host).orEmpty(),
             resolverOrdered = true,
+            context = (OrderingAccess.field(receiver, "mContext") as? Context),
         )
         diagnostic("ORDER_CAPTURED kind=$kind stage=$stage count=${components.size} uiVerified=false")
     }
