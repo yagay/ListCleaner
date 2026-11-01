@@ -197,10 +197,10 @@ internal fun ComponentsSurfaceEditor(
     val observed by NotificationCleanupController.observedRows.collectAsStateWithLifecycle()
     val selectionDraft = remember(userId, surface) { PendingSelectionDraft<String>() }
     var viewFilter by rememberSaveable(userId, surface) {
-        mutableStateOf(UiPreferencesStore.initialFilter(context, "components"))
+        mutableStateOf(UiPreferencesStore.initialFilter(context, "rules"))
     }
     var appTypeFilter by rememberSaveable(userId, surface) {
-        mutableStateOf(UiPreferencesStore.initialAppType(context, "components"))
+        mutableStateOf(UiPreferencesStore.initialAppType(context, "rules"))
     }
     var expandedApp by rememberSaveable(userId, surface) { mutableStateOf<String?>(null) }
     var sorting by rememberSaveable(userId, surface) { mutableStateOf(false) }
@@ -450,9 +450,9 @@ internal fun ComponentsSurfaceEditor(
                     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
                         WorkspaceCategoryFilterRow(
                             category = {
-                                ComponentCategoryPicker(
+                                EntryCategoryPicker(
                                     selected = null, managedSurface = surface,
-                                    onSelected = { newKind -> request { onRootKind(newKind) } },
+                                    onSelected = { request { onRootKind(null) } },
                                     onManagedSurface = { next -> request { onManagedKind(next) } },
                                     modifier = Modifier.fillMaxWidth(),
                                 )
@@ -468,12 +468,12 @@ internal fun ComponentsSurfaceEditor(
                                     appTypeFilter = appTypeFilter,
                                     onAppTypeFilter = {
                                         appTypeFilter = it
-                                        UiPreferencesStore.rememberAppType(context, it, "components")
+                                        UiPreferencesStore.rememberAppType(context, it, "rules")
                                     },
                                     viewFilter = viewFilter,
                                     onViewFilter = {
                                         viewFilter = it
-                                        UiPreferencesStore.rememberFilter(context, it, "components")
+                                        UiPreferencesStore.rememberFilter(context, it, "rules")
                                     },
                                     viewTitle = {
                                         stringResource(when (it) {
