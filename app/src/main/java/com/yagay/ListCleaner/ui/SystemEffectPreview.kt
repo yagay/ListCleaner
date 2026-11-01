@@ -417,8 +417,9 @@ internal object SystemEffectPreview {
                     // Match AOSP Settings: dispatch the role-specific management
                     // activity to PermissionController, not a generic settings handler.
                     if (kind == IntentKind.BROWSER) {
-                        context.packageManager.permissionControllerPackageName
-                            ?.takeIf { it.isNotBlank() }?.let(::setPackage)
+                        // The public SDK does not expose PackageManager's
+                        // permission-controller package accessor. Let Android
+                        // resolve this role-specific management intent.
                     }
                     putExtra(EXTRA_ROLE_NAME,
                         when (kind) {
