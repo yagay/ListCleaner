@@ -155,25 +155,25 @@ internal fun WorkspaceSortEditorOverlay(
         }
 
         fun settleSheet(velocity: Float) {
-            val position = sheetPosition
-            val dismiss = !expanded &&
-                (position > partialOffset + threshold || velocity > flingThreshold && position >= partialOffset)
-            val expand = if (expanded) {
-                !(position > threshold || velocity > flingThreshold)
-            } else {
-                position < partialOffset - threshold || velocity < -flingThreshold
-            }
+            val target = sortSheetRelease(
+                wasExpanded = expanded,
+                positionPx = sheetPosition,
+                partialOffsetPx = partialOffset,
+                thresholdPx = threshold,
+                releaseVelocityPx = velocity,
+                flingThresholdPx = flingThreshold,
+            )
             dragging = false
-            when {
-                dismiss -> {
+            when (target) {
+                SortSheetRelease.DISMISS -> {
                     sheetPosition = partialOffset
                     guard.request(currentDismiss)
                 }
-                expand -> {
+                SortSheetRelease.EXPANDED -> {
                     expanded = true
                     sheetPosition = 0f
                 }
-                else -> {
+                SortSheetRelease.PARTIAL -> {
                     expanded = false
                     sheetPosition = partialOffset
                 }
