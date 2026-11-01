@@ -9,6 +9,7 @@ import android.content.pm.LauncherApps
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
+import android.content.pm.ServiceInfo
 import android.os.Process
 import android.os.UserManager
 import android.provider.DocumentsContract
@@ -24,6 +25,7 @@ import com.yagay.ListCleaner.data.ObservedEntryCache
 import com.yagay.ListCleaner.domain.AndroidUid
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.SYSTEM_SERVICE_ENTRY_DEFINITIONS
+import com.yagay.ListCleaner.domain.SystemServiceEntryDefinition
 import com.yagay.ListCleaner.domain.TileServiceEligibility
 import com.yagay.ListCleaner.domain.ControlsProviderEligibility
 import com.yagay.ListCleaner.domain.RuntimeInterfaceSnapshot
@@ -31,6 +33,7 @@ import com.yagay.ListCleaner.domain.RuntimeInterfaceSnapshotCodec
 import com.yagay.ListCleaner.runtime.PreviewCaptureSessionStore
 import com.yagay.ListCleaner.domain.isPackageScopedEntry
 import com.yagay.ListCleaner.domain.webTargetKind
+import org.xmlpull.v1.XmlPullParser
 
 internal data class SystemProbeRequest(
     val entryKind: IntentKind? = null,
@@ -634,6 +637,9 @@ internal object SystemEntryProbe {
     @Suppress("DEPRECATION")
     private fun registeredServices(context: Context, kind: IntentKind): SystemProbeResult {
         val pm = context.packageManager
+        val paymentComponents = if (kind == IntentKind.NFC_HCE) {
+            readNfcPaymentReturns(context).flatMap { it.components }.toSet()
+        } else emptySet()
         val definitions = SYSTEM_SERVICE_ENTRY_DEFINITIONS.filter { it.kind == kind }
         val entries = definitions.flatMap { definition ->
             pm.queryIntentServices(
@@ -644,11 +650,13 @@ internal object SystemEntryProbe {
                 if (!service.enabled || service.applicationInfo?.enabled != true ||
                     !definition.acceptsPermission(service.permission)
                 ) return@mapNotNull null
-                // NFC's RegisteredServicesCache may include dynamically registered
-                // payment AID groups absent from the service's static XML. A local
-                // PackageManager scan is registration evidence, not the authoritative
-                // payment list: never discard a valid HCE service solely because
-                // its static XML contains no payment aid-group.
+                // Preserve only static payment services or NFC Hook-confirmed
+                // dynamic payment registrations; generic HCE is not payment.
+                if (kind == IntentKind.NFC_HCE &&
+                    !hasStaticPaymentAidGroup(pm, service, definition) &&
+                    android.content.ComponentName(service.packageName, service.name)
+                        .flattenToString() !in paymentComponents
+                ) return@mapNotNull null
                 SystemProbeItem(
                     resolved.loadLabel(pm)?.toString().orEmpty().ifBlank { service.name },
                     service.packageName, service.name,
@@ -663,6 +671,28 @@ internal object SystemEntryProbe {
             entries,
         )
     }
+
+    private fun hasStaticPaymentAidGroup(
+        pm: PackageManager, service: ServiceInfo, definition: SystemServiceEntryDefinition,
+    ): Boolean = runCatching {
+        val metadataKey = if (definition.action ==
+            "android.nfc.cardemulation.action.HOST_APDU_SERVICE")
+            "android.nfc.cardemulation.host_apdu_service"
+        else "android.nfc.cardemulation.off_host_apdu_service"
+        service.loadXmlMetaData(pm, metadataKey)?.use { parser ->
+            while (parser.eventType != XmlPullParser.END_DOCUMENT) {
+                if (parser.eventType == XmlPullParser.START_TAG &&
+                    parser.name == "aid-group") {
+                    val category = parser.getAttributeValue(
+                        "http://schemas.android.com/apk/res/android", "category"
+                    ) ?: parser.getAttributeValue(null, "category")
+                    if (category == "payment") return@use true
+                }
+                parser.next()
+            }
+            false
+        } ?: false
+    }.getOrDefault(false)
 
     @Suppress("DEPRECATION")
     private fun probeComponent(context: Context, kind: CleanupKind): SystemProbeResult {
