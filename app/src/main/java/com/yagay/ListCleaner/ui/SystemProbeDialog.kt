@@ -270,15 +270,10 @@ internal fun SystemProbeDialog(
                             }
                         }
                     }) {
-                        Text(stringResource(R.string.system_probe_open_system))
-                    }
-                }
-                if (kind != null && supportsScenarioTest(kind)) {
-                    AdaptiveTextButton(onClick = {
-                        systemLaunchedAt = System.currentTimeMillis()
-                        SystemEffectPreview.launchScenario(context, kind, request.userId, scenario)
-                    }) {
-                        Text(stringResource(R.string.preview_test_intent))
+                        Text(stringResource(
+                            if (kind == IntentKind.ASSISTANT) R.string.preview_open_assistant_picker
+                            else R.string.system_probe_open_system
+                        ))
                     }
                 }
             }
