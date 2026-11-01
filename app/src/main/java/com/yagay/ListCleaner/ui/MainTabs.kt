@@ -134,6 +134,8 @@ internal fun RulesTab(
     val genericDeepLinkSelected = state.selected.filterTo(linkedSetOf()) { it.kind == IntentKind.DEEP_LINK }
     val deepLinkSelected = genericDeepLinkSelected + explicitDeepLinkSelected
     val deepLinkScoped = deepLinkHost != null
+    // Type-specific Share and Multi Share locks never modify locks for All.
+    val scopedBulkLocks = deepLinkScoped || selectedShareMime != null
     val lockScope = when {
         deepLinkHost != null -> browserRuleBulkLockScope(deepLinkHost)
         selectedShareMime != null && state.filter != null ->
@@ -293,12 +295,12 @@ internal fun RulesTab(
     }
     val lockFilteredGroups = remember(
         baseShownGroups, state.uiFilter, bulkLockRevision,
-        state.filter, openPreset, deepLinkScoped, lockScope, selectedShareMime
+        state.filter, openPreset, scopedBulkLocks, lockScope, selectedShareMime
     ) {
         if (state.uiFilter == UiFilter.LOCKED) {
             baseShownGroups.mapNotNull { group ->
                 val locked = group.components.filter { item ->
-                    if (deepLinkScoped) vm.isBulkProtected(lockScope, item.rule.packageName, item.rule.id)
+                    if (scopedBulkLocks) vm.isBulkProtected(lockScope, item.rule.packageName, item.rule.id)
                     else vm.isRuleBulkProtected(state.filter, openPreset, item.rule)
                 }
                 if (locked.isEmpty()) null else group.copy(components = locked)
@@ -312,7 +314,7 @@ internal fun RulesTab(
         UiPreferencesRuntime.current.expandFirstApp) {
         if (UiPreferencesRuntime.current.expandFirstApp && state.expandedAppKey == null) {
             shownGroups.firstOrNull()?.let { group ->
-                vm.toggleExpandedApp("${state.filter?.name ?: "ALL"}|${openPreset?.name ?: browserHost ?: "ALL"}|${group.packageName}")
+                vm.toggleExpandedApp("${state.filter?.name ?: "ALL"}|${selectedShareMime?.key ?: openPreset?.name ?: browserHost ?: "ALL"}|${group.packageName}")
             }
         }
     }
@@ -552,14 +554,14 @@ previewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds,
 
         }
         shownGroups.forEach { group ->
-            val key = "${state.filter?.name ?: "ALL"}|${directShareType?.name ?: openPreset?.name ?: browserHost ?: "ALL"}|${group.packageName}"
+            val key = "${state.filter?.name ?: "ALL"}|${directShareType?.name ?: selectedShareMime?.key ?: openPreset?.name ?: browserHost ?: "ALL"}|${group.packageName}"
             val expanded = state.expandedAppKey == key
             item(key = "app|${group.packageName}", contentType = "app") {
                 AppRow(
                     group,
                     displayedSelected,
                     expanded,
-                    if (deepLinkScoped) vm.bulkLockState(
+                    if (scopedBulkLocks) vm.bulkLockState(
                         lockScope,
                         group.packageName,
                         lockRulesByPackage[group.packageName].orEmpty().map { it.id }
@@ -583,7 +585,7 @@ previewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds,
                         }
                     },
                     {
-                        if (deepLinkScoped) vm.setBulkAppLocked(
+                        if (scopedBulkLocks) vm.setBulkAppLocked(
                             lockScope,
                             group.packageName,
                             lockRulesByPackage[group.packageName].orEmpty().map { it.id },
@@ -597,7 +599,7 @@ previewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds,
                         )
                     },
                     {
-                        if (deepLinkScoped) vm.setBulkAppLocked(
+                        if (scopedBulkLocks) vm.setBulkAppLocked(
                             lockScope,
                             group.packageName,
                             lockRulesByPackage[group.packageName].orEmpty().map { it.id },
@@ -659,10 +661,10 @@ previewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds,
                         state.priorities.titles[component.rule.id],
                         selectionNote = sourceNote,
                         position = if (componentIndex == group.components.lastIndex) ListRowPosition.LAST else ListRowPosition.MIDDLE,
-                        locked = if (deepLinkScoped) vm.isBulkProtected(
+                        locked = if (scopedBulkLocks) vm.isBulkProtected(
                             lockScope, component.rule.packageName, component.rule.id
                         ) else vm.isRuleBulkProtected(state.filter, openPreset, component.rule),
-                        lockToggleEnabled = if (deepLinkScoped) {
+                        lockToggleEnabled = if (scopedBulkLocks) {
                             !vm.isBulkAppLocked(lockScope, component.rule.packageName)
                         } else !vm.isRuleAppLockedForRule(state.filter, openPreset, component.rule),
                         onToggle = {
@@ -678,11 +680,11 @@ previewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds,
                             }
                         },
                         onLock = {
-                            if (deepLinkScoped) vm.setBulkItemLocked(lockScope, component.rule.id, true)
+                            if (scopedBulkLocks) vm.setBulkItemLocked(lockScope, component.rule.id, true)
                             else vm.setRuleItemLocked(state.filter, openPreset, component.rule, true)
                         },
                         onUnlock = {
-                            if (deepLinkScoped) vm.setBulkItemLocked(lockScope, component.rule.id, false)
+                            if (scopedBulkLocks) vm.setBulkItemLocked(lockScope, component.rule.id, false)
                             else vm.setRuleItemLocked(state.filter, openPreset, component.rule, false)
                         },
                         onEditTitle = { editingTitle = component },

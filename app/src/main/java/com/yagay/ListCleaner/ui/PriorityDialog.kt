@@ -196,6 +196,7 @@ fun PriorityDialogContent(
     val genericSharePriority = state.priorities.apps[kind].orEmpty()
     val sharePriorityInherited = activeShareType != null &&
         shareExplicitPriority.isEmpty() && genericSharePriority.isNotEmpty()
+    val hasExplicitSharePriority = activeShareType != null && shareExplicitPriority.isNotEmpty()
     val rankedRaw = when {
         activeShareType != null ->
             shareExplicitPriority.takeIf { it.isNotEmpty() } ?: genericSharePriority
@@ -535,6 +536,32 @@ fun PriorityDialogContent(
                             stringResource(R.string.priority_inheritance_help),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else if (activeShareType != null) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            AdaptiveText(
+                                when {
+                                    sharePriorityInherited -> stringResource(R.string.priority_source_inherited)
+                                    hasExplicitSharePriority -> stringResource(
+                                        R.string.priority_source_dedicated, presetTitle.orEmpty()
+                                    )
+                                    else -> stringResource(R.string.priority_source_none)
+                                },
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (sharePriorityInherited) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (hasExplicitSharePriority) {
+                                AdaptiveTextButton(onClick = { confirmPriorityReset = true }) {
+                                    AdaptiveText(stringResource(R.string.priority_restore_inheritance))
+                                }
+                            }
+                        }
+                        if (sortHelpExpanded) AdaptiveText(
+                            stringResource(R.string.priority_inheritance_help),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     } else if (deepLinkHost != null) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
