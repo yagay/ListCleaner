@@ -452,9 +452,8 @@ internal fun EntryCategoryPicker(
             (includeAllKinds || it.entryGroup() != EntryGroup.DESKTOP)
     }
     val nameOrder = remember { displayNameComparator() }
-    val sortedKinds = kinds.sortedWith { a, b ->
-        nameOrder.compare(context.getString(a.titleRes()), context.getString(b.titleRes()))
-    }
+    val sortedKinds = CleanupCategoryRegistry.sorted(context, kinds.map { CleanupCategoryId.Entry(it) })
+        .map { it.kind }
     val currentTitle = if (selected == null) stringResource(R.string.common_all)
         else stringResource(selected.titleRes())
     var managePins by remember { mutableStateOf(false) }
@@ -512,9 +511,9 @@ internal fun ComponentCategoryPicker(
         ManagedComponentSurface.entries.firstOrNull { it.name == name }
     }
     val nameOrder = remember { displayNameComparator() }
-    val sortedRootKinds = ComponentCategoryFilterPolicy.choices.filterNotNull().sortedWith { a, b ->
-        nameOrder.compare(context.getString(a.titleRes()), context.getString(b.titleRes()))
-    }
+    val sortedRootKinds = CleanupCategoryRegistry.sorted(
+        context, ComponentCategoryFilterPolicy.choices.filterNotNull().map { CleanupCategoryId.Root(it) }
+    ).map { it.kind }
     var managePins by remember { mutableStateOf(false) }
     if (managePins) CategoryPinnedManagerDialog(
         items = pinned, label = { kind -> stringResource(kind.titleRes()) },
