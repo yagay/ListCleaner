@@ -51,7 +51,7 @@ internal object CandidateCachePolicy {
 }
 
 /** A scan with zero entries is only a verified empty list when every source completed. */
-internal data class CandidateScanEvidence(
+data class CandidateScanEvidence(
     val userId: Int,
     val observedAtMillis: Long = 0L,
     val candidateCount: Int = 0,
