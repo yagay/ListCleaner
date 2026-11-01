@@ -668,6 +668,14 @@ for filename in ("WorkspaceAppRow.kt", "WorkspaceCommon.kt", "RootComponentsScre
         errors.append(f"{filename}: legacy Grouped style still changes row rendering")
 preview_source = (root / "SystemProbeDialog.kt").read_text(encoding="utf-8")
 preview_engine = (root / "SystemPreviewV2.kt").read_text(encoding="utf-8")
+preview_route = (root / "SystemEffectPreview.kt").read_text(encoding="utf-8")
+# Role/default-app testing must never launch an unrelated Personal/Work Intent chooser.
+if "preview_test_intent" in preview_source or "launchScenario(" in preview_source:
+    errors.append("SystemProbeDialog.kt: old role Intent tester returned")
+if "fun launchScenario(" in preview_route or "supportsScenarioTest(" in preview_route:
+    errors.append("SystemEffectPreview.kt: obsolete default-role Intent chooser returned")
+if "R.string.preview_open_assistant_picker" not in preview_source:
+    errors.append("SystemProbeDialog.kt: Assistant must explicitly open its system role chooser")
 for token in ("ModalBottomSheet(", "skipPartiallyExpanded = true",
               "SystemPreviewV2.resolve(", "LazyVerticalGrid(", "GridCells.Adaptive(",
               "SystemPreviewGridTile(", "onDismissRequest = onDismiss",
