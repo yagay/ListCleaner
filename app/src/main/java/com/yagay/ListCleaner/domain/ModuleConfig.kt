@@ -55,7 +55,57 @@ data class ModuleConfig(
 
     fun modeFor(kind: IntentKind): DisplayMode = modeOverrides[kind] ?: mode
 
+    /**
+     * Upgrade legacy MIME-specific entries to one decision per component and
+     * entry action. OPEN, SEND and SEND_MULTIPLE remain distinct, but a selected
+     * receiver is hidden for every MIME it supports in that action.
+     *
+     * Keep custom MIME definitions for discovery. Old typed priorities are
+     * merged deterministically into the generic order only when no generic
+     * ordering exists. Repeated validation must be a no-op.
+     */
+    fun unifiedMimeManagement(): ModuleConfig {
+        val typedOpen = openTypes
+        if (typedOpen.rules.isEmpty() && typedOpen.priorities.isEmpty() &&
+            typedOpen.shareRules.isEmpty() && typedOpen.sharePriorities.isEmpty()) return this
+
+        val migratedRules = linkedSetOf<ComponentRule>().apply {
+            addAll(rules)
+            typedOpen.rules.values.forEach { ids ->
+                ids.mapNotNullTo(this, ComponentRule::fromId)
+            }
+            typedOpen.shareRules.values.forEach { groups ->
+                groups.values.forEach { ids -> ids.mapNotNullTo(this, ComponentRule::fromId) }
+            }
+        }
+        val mergedOrder = priorities.apps.toMutableMap()
+        val oldOpenOrder = typedOpen.priorities.entries
+            .sortedBy { it.key.ordinal }.flatMap { it.value }.distinct().take(200)
+        if (mergedOrder[IntentKind.OPEN].isNullOrEmpty() && oldOpenOrder.isNotEmpty()) {
+            mergedOrder[IntentKind.OPEN] = oldOpenOrder
+        }
+        for (kind in listOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE)) {
+            if (mergedOrder[kind].isNullOrEmpty()) {
+                val oldOrder = typedOpen.sharePriorities[kind].orEmpty().toSortedMap()
+                    .values.flatMap { it }.distinct().take(200)
+                if (oldOrder.isNotEmpty()) mergedOrder[kind] = oldOrder
+            }
+        }
+        return copy(
+            rules = migratedRules,
+            priorities = priorities.copy(apps = mergedOrder),
+            openTypes = typedOpen.copy(
+                rules = emptyMap(),
+                priorities = emptyMap(),
+                shareRules = emptyMap(),
+                sharePriorities = emptyMap(),
+            )
+        )
+    }
+
     fun validated(): ModuleConfig {
+        val unified = unifiedMimeManagement()
+        if (unified != this) return unified.validated()
         require(rules.size <= 20_000 && rules.all(ComponentRule::isValid))
         require(userSpaces.size <= 16 && userSpaces.keys.all { it in 1..99999 })
         require(disabledEntryGroups.size <= EntryGroup.entries.size)
