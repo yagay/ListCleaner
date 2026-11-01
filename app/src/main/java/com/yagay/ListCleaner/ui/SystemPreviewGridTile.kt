@@ -111,7 +111,7 @@ internal fun SystemPreviewGridTile(
         )
         if (item.userId != null && item.userId != AndroidUid.userId(Process.myUid())) {
             Text(
-                "User ${item.userId}",
+                androidx.compose.ui.res.stringResource(R.string.preview_v4_nfc_profile_label, item.userId),
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.labelSmall,
