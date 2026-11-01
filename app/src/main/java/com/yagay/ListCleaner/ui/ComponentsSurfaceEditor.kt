@@ -486,8 +486,8 @@ internal fun ComponentsSurfaceEditor(
                                     viewTitle = {
                                         stringResource(when (it) {
                                             UiFilter.ALL -> R.string.common_all
-                                            UiFilter.SHOW_SELECTED -> R.string.filter_selected
-                                            UiFilter.HIDE_SELECTED -> R.string.filter_unselected
+                                            UiFilter.SHOW_SELECTED -> R.string.root_filter_disabled
+                                            UiFilter.HIDE_SELECTED -> R.string.root_filter_enabled
                                             UiFilter.LOCKED -> R.string.filter_locked
                                         })
                                     },
