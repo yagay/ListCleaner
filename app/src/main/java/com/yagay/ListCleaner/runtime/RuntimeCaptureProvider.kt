@@ -43,15 +43,19 @@ class RuntimeCaptureProvider : ContentProvider() {
         val isRoleEligibility = snapshot.source == "ROLE_CONTROLLER_RETURN" &&
             kind in setOf(IntentKind.ASSISTANT, IntentKind.HOME,
                 IntentKind.BROWSER, IntentKind.CALL_SCREENING)
+        val isNfcPayment = snapshot.source == "NFC_PAYMENT_FILTERED_RETURN" &&
+            kind == IntentKind.NFC_HCE
         val key = when {
             ordered -> RuntimeInterfaceSnapshotCodec.keyForResolverOrder(kind)
             isRoleEligibility -> RuntimeInterfaceSnapshotCodec.keyForRoleEligibility(kind)
+            isNfcPayment -> RuntimeInterfaceSnapshotCodec.keyForNfcPayment(snapshot.callerUserId)
             else -> RuntimeInterfaceSnapshotCodec.key(kind)
         }
         ctx.getSharedPreferences(RuntimeCaptureContract.PREFS, android.content.Context.MODE_PRIVATE)
             .edit().apply {
                 putString(key, encoded)
-                if (!ordered && !isRoleEligibility && snapshot.callerUid >= 0) {
+                if (!ordered && !isRoleEligibility && !isNfcPayment &&
+                    snapshot.callerUid >= 0) {
                     putString(RuntimeInterfaceSnapshotCodec.keyForCaller(kind, snapshot.callerUid), encoded)
                 }
             }.apply()
@@ -84,8 +88,15 @@ class RuntimeCaptureProvider : ContentProvider() {
                     "com.android.permissioncontroller", "com.google.android.permissioncontroller"
                 )) return false
         }
+        val isNfcPayment = value.source == "NFC_PAYMENT_FILTERED_RETURN"
+        if (isNfcPayment && (value.kind != IntentKind.NFC_HCE.name ||
+                value.callerPackage.substringBefore(':') != "com.android.nfc" ||
+                value.requestAction != "android.nfc.cardemulation.payment" ||
+                value.callerUserId !in 0..21474)) return false
         // system_server may report calls originating in a different profile.
-        if (callingUid != Process.SYSTEM_UID &&
+        // NFC runs as one trusted service process but queries distinct personal and
+        // managed-profile userIds. Never force the queried profile to equal its process UID.
+        if (!isNfcPayment && callingUid != Process.SYSTEM_UID &&
             value.callerUserId != AndroidUid.userId(callingUid)) return false
         return !value.truncated || !ordered // partial observations must not claim final order
     }
