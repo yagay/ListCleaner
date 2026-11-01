@@ -350,4 +350,9 @@
     <string name="lc_mode_desc_call_screening">来电筛选服务</string>
     <string name="lc_mode_desc_wallpaper">设置壁纸的应用</string>
     <string name="lc_mode_desc_dream">系统屏幕保护程序</string>
+    <string name="lc_mode_entry_heading">Entry 清理</string>
+    <string name="lc_mode_root_heading">Root 分类</string>
+    <string name="lc_mode_root_visibility_description">仅控制在 Root 页面显示，不修改系统组件状态</string>
+    <string name="lc_mode_root_hidden">已隐藏分类</string>
+    <string name="lc_mode_root_visible">已显示分类</string>
 </resources>
