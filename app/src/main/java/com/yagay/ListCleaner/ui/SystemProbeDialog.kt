@@ -48,6 +48,7 @@ import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.domain.AndroidUid
 import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.runtime.PreviewCaptureSessionStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -85,6 +86,7 @@ internal fun SystemProbeDialog(
     var response by remember(request) { mutableStateOf<SystemProbeResult?>(null) }
     var queryStartedAt by remember(request) { mutableStateOf<Long?>(null) }
     var systemLaunchedAt by remember(request) { mutableStateOf<Long?>(null) }
+    var captureSessionId by remember(request) { mutableStateOf<String?>(null) }
     var revision by remember(request) { mutableIntStateOf(0) }
     var history by remember(request) { mutableStateOf(false) }
     var inspected by remember(request) { mutableStateOf<SystemProbeItem?>(null) }
@@ -95,7 +97,7 @@ internal fun SystemProbeDialog(
         response = null
         queryStartedAt = System.currentTimeMillis()
         response = withContext(Dispatchers.IO) {
-            SystemEntryProbe.query(context.applicationContext, actualRequest)
+            SystemEntryProbe.query(context.applicationContext, actualRequest, captureSessionId)
         }
     }
     DisposableEffect(lifecycle) {
@@ -190,7 +192,7 @@ internal fun SystemProbeDialog(
                     scenarios.forEach { option ->
                         AdaptiveFilterChip(
                             selected = scenario == option,
-                            onClick = { scenario = option; systemLaunchedAt = null },
+                            onClick = { scenario = option; systemLaunchedAt = null; captureSessionId = null },
                             label = { Text(stringResource(option.titleRes)) },
                         )
                     }
@@ -265,7 +267,14 @@ internal fun SystemProbeDialog(
                                 }
                             }
                         } else {
-                            systemLaunchedAt = System.currentTimeMillis()
+                            val startedAt = System.currentTimeMillis()
+                            systemLaunchedAt = startedAt
+                            captureSessionId = kind?.let { entryKind ->
+                                PreviewCaptureSessionStore.begin(
+                                    context.applicationContext, entryKind, request.userId,
+                                    identity?.first, identity?.second, identity?.third, startedAt
+                                )
+                            }
                             kind?.let {
                                 SystemEffectPreview.launch(context, it, request.userId,
                                     scenario, actualRequest)
