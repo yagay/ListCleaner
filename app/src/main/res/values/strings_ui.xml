@@ -298,4 +298,10 @@
     <string name="preview_v2_role_candidates">Possible assistant apps · filtered with saved cleanup rules, not a verified system picker.</string>
     <string name="preview_v2_role_holder">Current default assistant only · eligible alternatives not yet captured.</string>
     <string name="preview_v2_role_policy_projected">RoleController or role-holder result filtered using current cleanup rules; the system display has not been reverified.</string>
+    <string name="preview_v3_policy_projected">Previously captured system result adjusted by current cleanup rules. Final visible system UI not reverified.</string>
+    <string name="preview_v3_root_state">Enabled Root components from this user space scan; the launcher/SystemUI may apply additional rules.</string>
+    <string name="preview_v3_root_draft">Preview of Root components after unconfirmed changes; no system components have been changed yet.</string>
+    <string name="preview_v3_test_intent">Test sample Intent</string>
+    <string name="preview_v3_test_chooser">Test sample chooser</string>
+    <string name="preview_v3_open_picker">Open test picker</string>
 </resources>
