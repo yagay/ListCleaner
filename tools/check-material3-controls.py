@@ -703,7 +703,7 @@ if "settings_home_columns" in (root / "ListSettings.kt").read_text(encoding="utf
 # Never bypass the explicit Apply confirmation when editing Lists modes.
 lists_code = (root / "SurfaceManagementTab.kt").read_text(encoding="utf-8")
 entry_code = (root / "MainTabs.kt").read_text(encoding="utf-8")
-if "ClassicCleanupTabs(" in entry_code or "InlineEntryModePicker(" in entry_code:
+if "InlineEntryModePicker(" in entry_code or "modeLabel =" in entry_code:
     errors.append("MainTabs.kt: deleted Entry mode-header row must not return")
 if "EntryModeFilterMenu(" not in lists_code:
     errors.append("SurfaceManagementTab.kt: mode editing must retain anchored menu")
