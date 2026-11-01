@@ -188,6 +188,7 @@ internal fun ComponentsSurfaceEditor(
     refreshRegistry: ListsRefreshRegistry?,
     onRootKind: (CleanupKind?) -> Unit,
     onManagedKind: (ManagedComponentSurface) -> Unit,
+    onOpenRoot: () -> Unit = {},
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
@@ -445,6 +446,13 @@ internal fun ComponentsSurfaceEditor(
         onDiscard = selectionDraft::discard,
         onApply = { applyChanges() },
     ) {
+            stickyHeader(key = "unified-cleanup-modes") {
+                ClassicCleanupTabs(
+                    active = ClassicCleanupMode.ENTRIES,
+                    onEntries = { request { onRootKind(null) } },
+                    onComponents = { request { onOpenRoot() } },
+                )
+            }
             stickyHeader(key = "controls") {
                 PageFilterSection {
                     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
@@ -478,8 +486,8 @@ internal fun ComponentsSurfaceEditor(
                                     viewTitle = {
                                         stringResource(when (it) {
                                             UiFilter.ALL -> R.string.common_all
-                                            UiFilter.SHOW_SELECTED -> R.string.root_filter_disabled
-                                            UiFilter.HIDE_SELECTED -> R.string.root_filter_enabled
+                                            UiFilter.SHOW_SELECTED -> R.string.filter_selected
+                                            UiFilter.HIDE_SELECTED -> R.string.filter_unselected
                                             UiFilter.LOCKED -> R.string.filter_locked
                                         })
                                     },
