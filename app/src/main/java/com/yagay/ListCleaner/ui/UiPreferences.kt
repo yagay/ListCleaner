@@ -178,7 +178,7 @@ internal object UiPreferencesStore {
             pinnedEntryKinds = storedKinds(p.getString("pinned_entry_kinds", null), IntentKind.entries.toTypedArray()),
             pinnedRootKinds = storedKinds(p.getString("pinned_root_kinds", null), CleanupKind.entries.toTypedArray()),
             pinnedManagedSurfaces = p.getString("pinned_managed_surfaces", null).orEmpty().split(',').filter { it in setOf("SETTINGS_APPS", "NOTIFICATIONS") }.distinct(),
-            disabledRootKinds = storedKinds(p.getString("disabled_root_kinds", "disabled_managed_surfaces", null), CleanupKind.entries.toTypedArray()).toSet(),
+            disabledRootKinds = storedKinds(p.getString("disabled_root_kinds", null), CleanupKind.entries.toTypedArray()).toSet(),
             disabledManagedSurfaces = p.getString("disabled_managed_surfaces", null).orEmpty().split(',').filter { it in setOf("SETTINGS_APPS", "NOTIFICATIONS") }.toSet(),
             rememberFilters = p.getBoolean("remember_filters", defaults.rememberFilters),
             openHelpByDefault = p.getBoolean("help_default", defaults.openHelpByDefault),
