@@ -365,4 +365,8 @@
     <string name="lc_mode_managed_notifications_desc">控制是否允许修改通知应用和通知渠道清理；已保存规则保留</string>
     <string name="lc_hook_filter_selected">仅显示已选</string>
     <string name="lc_hook_filter_unselected">仅显示未选</string>
+    <string name="lc_hook_batch_confirm_title">确认清理选择</string>
+    <string name="lc_hook_batch_confirm_text">执行批量选择：%1$s？仍需点击“应用”才会保存规则。</string>
+    <string name="lc_hook_empty_filtered">没有符合条件的应用或通知渠道</string>
+    <string name="lc_hook_clear_filters">清除过滤条件</string>
 </resources>
