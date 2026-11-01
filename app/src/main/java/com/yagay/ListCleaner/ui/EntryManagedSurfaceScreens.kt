@@ -1,6 +1,7 @@
 package com.yagay.ListCleaner.ui
 
 import androidx.compose.runtime.Composable
+import com.yagay.ListCleaner.domain.IntentKind
 
 /**
  * Two Hook-backed Entry categories with one Entry interaction contract.
@@ -13,7 +14,7 @@ internal fun SettingsAppsEntryScreen(
     vm: MainViewModel,
     pendingNavigation: PendingNavigationGuard?,
     refreshRegistry: ListsRefreshRegistry?,
-    onEntry: () -> Unit,
+    onEntry: (IntentKind?) -> Unit,
     onManagedSurface: (ManagedComponentSurface) -> Unit,
     onOpenRoot: () -> Unit,
 ) = EntryManagedSurfaceEditor(
@@ -28,7 +29,7 @@ internal fun NotificationCleanupEntryScreen(
     vm: MainViewModel,
     pendingNavigation: PendingNavigationGuard?,
     refreshRegistry: ListsRefreshRegistry?,
-    onEntry: () -> Unit,
+    onEntry: (IntentKind?) -> Unit,
     onManagedSurface: (ManagedComponentSurface) -> Unit,
     onOpenRoot: () -> Unit,
 ) = EntryManagedSurfaceEditor(
