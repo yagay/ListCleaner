@@ -88,9 +88,6 @@ internal fun RootComponentsScreen(
     val batchProgress by vm.componentBatchProgress.collectAsStateWithLifecycle()
     val rootNotice by vm.componentRootNotice.collectAsStateWithLifecycle()
     var systemProbeRequest by remember { mutableStateOf<SystemProbeRequest?>(null) }
-    systemProbeRequest?.let { request ->
-        SystemProbeDialog(request, onDismiss = { systemProbeRequest = null })
-    }
     rootNotice?.let { notice ->
         AdaptiveAlertDialog(
             onDismissRequest = vm::dismissComponentRootNotice,
@@ -128,6 +125,31 @@ internal fun RootComponentsScreen(
     }
     // Draft is scoped to the current user space and component category.
     val selectionDraft = remember(kind, vm.selectedSpace.value) { PendingSelectionDraft<String>() }
+    systemProbeRequest?.let { request ->
+        // Reuse the exact Root scan and staged enable/disable status used on this
+        // screen. Re-querying PackageManager here would resurrect disabled targets.
+        val rootSnapshot = RootPreviewSnapshot(
+            userId = request.userId,
+            pendingDraft = selectionDraft.changes.isNotEmpty(),
+            items = scan.items.asSequence().filter { it.user == request.userId }.map { item ->
+                val effectiveEnabled = item.enabled?.let {
+                    !selectionDraft.selected(item.id, !it)
+                }
+                RootPreviewTarget(
+                    kind = item.kind, userId = item.user,
+                    item = SystemProbeItem(
+                        item.label, item.component.packageName,
+                        item.component.className, item.owner,
+                    ),
+                    enabled = effectiveEnabled,
+                )
+            }.toList(),
+        )
+        SystemProbeDialog(
+            request = request, onDismiss = { systemProbeRequest = null },
+            rootSnapshot = rootSnapshot,
+        )
+    }
     BackHandler(enabled = backEnabled && (embedded || kind != null)) {
         navigate {
             if (embedded) {
