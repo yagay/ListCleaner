@@ -23,6 +23,16 @@ class AospSurfaceConfigTest {
         assertTrue(restored.copy(disabledCleanupSurfaces = emptySet()).selected(SurfaceKind.SETTINGS_APPS).isNotEmpty())
     }
 
+    @Test fun onlyManagedLsposedSurfacesCanBeDisabled() {
+        assertEquals(SurfaceFilterConfig(), SurfaceFilterConfig().validated())
+        assertThrows(IllegalArgumentException::class.java) {
+            SurfaceFilterConfig(disabledCleanupSurfaces = setOf(SurfaceKind.RECENTS)).validated()
+        }
+        SurfaceFilterConfig(disabledCleanupSurfaces = setOf(
+            SurfaceKind.SETTINGS_APPS, SurfaceKind.NOTIFICATION_SHADE
+        )).validated()
+    }
+
     @Test fun rulesDoNotBleedAcrossSurfaces() {
         val config = SurfaceFilterConfig()
             .withSelected(SurfaceKind.LAUNCHER_DRAWER, setOf("com.example.one"))
