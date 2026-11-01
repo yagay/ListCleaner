@@ -19,7 +19,8 @@ data class UserSpaceRules(
     val visibilityCompat: VisibilityCompatConfig = VisibilityCompatConfig(),
     val surfaceFilters: SurfaceFilterConfig = SurfaceFilterConfig(),
     val modeOverrides: Map<IntentKind, DisplayMode> = emptyMap(),
-    val disabledEntryGroups: Set<EntryGroup> = emptySet()
+    val disabledEntryGroups: Set<EntryGroup> = emptySet(),
+    val disabledEntryKinds: Set<IntentKind> = emptySet()
 ) {
     fun validated(): UserSpaceRules {
         val validated = toModuleConfig().validated()
@@ -38,7 +39,8 @@ data class UserSpaceRules(
         visibilityCompat = visibilityCompat,
         surfaceFilters = surfaceFilters,
         modeOverrides = modeOverrides,
-        disabledEntryGroups = disabledEntryGroups
+        disabledEntryGroups = disabledEntryGroups,
+        disabledEntryKinds = disabledEntryKinds
     )
 }
 
@@ -49,4 +51,5 @@ fun ModuleConfig.toSpaceRules(): UserSpaceRules = UserSpaceRules(
     surfaceFilters = surfaceFilters,
     modeOverrides = modeOverrides,
     disabledEntryGroups = disabledEntryGroups,
+        disabledEntryKinds = disabledEntryKinds,
 )
