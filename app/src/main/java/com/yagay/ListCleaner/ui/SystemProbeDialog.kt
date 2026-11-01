@@ -123,7 +123,13 @@ internal fun SystemProbeDialog(
         expectedMime = identity?.second,
         expectedHost = identity?.third,
         pendingDraft = hasPendingDraft && !history,
-        selected = (previewState?.selected.orEmpty() + previewScopedSelection.orEmpty()),
+        selected = if (kind == IntentKind.ASSISTANT && previewScopedSelection != null) {
+            // The scoped set is the committed selection with pending adds AND removals.
+            // Unioning it with saved state would re-add an item unselected in the draft.
+            previewState?.selected.orEmpty().filterTo(linkedSetOf()) {
+                it.kind != IntentKind.ASSISTANT
+            } + previewScopedSelection.filter { it.kind == IntentKind.ASSISTANT }
+        } else previewState?.selected.orEmpty() + previewScopedSelection.orEmpty(),
         globalMode = previewState?.displayMode ?: com.yagay.ListCleaner.domain.DisplayMode.HIDE_SELECTED,
         overrides = previewState?.modeOverrides.orEmpty(),
         historyRequested = history,
@@ -197,6 +203,7 @@ internal fun SystemProbeDialog(
                 PreviewV2Source.ENABLED -> R.string.preview_v2_enabled
                 PreviewV2Source.INTENT_CANDIDATES -> R.string.preview_v2_candidates
                 PreviewV2Source.ROLE_ELIGIBILITY -> R.string.preview_v2_role_eligibility
+                PreviewV2Source.ROLE_POLICY_PROJECTED -> R.string.preview_v2_role_policy_projected
                 PreviewV2Source.ROLE_CANDIDATES -> R.string.preview_v2_role_candidates
                 PreviewV2Source.ROLE_HOLDER -> R.string.preview_v2_role_holder
                 PreviewV2Source.DRAFT_SIMULATION -> R.string.preview_v2_draft
