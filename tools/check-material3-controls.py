@@ -622,9 +622,9 @@ for symbol in ("WorkspaceReadOnlyDetailRow(", "WorkspaceDetailRow(",
     if symbol not in details:
         errors.append(f"WorkspaceCommon.kt: expanded detail surface contract missing {symbol}")
 
-# Preview tabs, result list and choice dialogs share Material3 list affordances.
-if "AdaptiveFilterChip(" not in (root / "SystemProbeDialog.kt").read_text(encoding="utf-8"):
-    errors.append("SystemProbeDialog.kt: preview filter tabs lack visible selected state")
+# The rebuilt preview uses one flat list and scoped MIME chips (no legacy mode tabs).
+if "FilterChip(" not in (root / "SystemProbeDialog.kt").read_text(encoding="utf-8"):
+    errors.append("SystemProbeDialog.kt: scoped MIME choices lack visible selected state")
 if "SettingsFlatDialog(" not in (root / "AppearanceSettings.kt").read_text(encoding="utf-8"):
     errors.append("AppearanceSettings.kt: custom color editor bypassed shared flat dialog")
 
@@ -667,14 +667,20 @@ for filename in ("WorkspaceAppRow.kt", "WorkspaceCommon.kt", "RootComponentsScre
     if "if (UiPreferencesRuntime.current.listStyle == UiListStyle.GROUPED)" in (root / filename).read_text(encoding="utf-8"):
         errors.append(f"{filename}: legacy Grouped style still changes row rendering")
 preview_source = (root / "SystemProbeDialog.kt").read_text(encoding="utf-8")
-preview_tile = (root / "SystemProbeCompactTile.kt").read_text(encoding="utf-8")
+preview_engine = (root / "SystemPreviewV2.kt").read_text(encoding="utf-8")
 for token in ("ModalBottomSheet(", "skipPartiallyExpanded = true",
-              "displayed.chunked(gridColumns)", "SystemProbeCompactTile("):
+              "SystemPreviewV2.resolve(", "itemsIndexed(result.items", "onDismissRequest = onDismiss",
+              "PreviewV2Source.DRAFT_SIMULATION", "systemLaunchedAt ="):
     if token not in preview_source:
-        errors.append(f"SystemProbeDialog.kt: compact preview contract missing {token}")
-for token in ("getApplicationIcon(", "maxLines = 1", "onInspect"):
-    if token not in preview_tile:
-        errors.append(f"SystemProbeCompactTile.kt: compact preview tile missing {token}")
+        errors.append(f"SystemProbeDialog.kt: rebuilt flat preview contract missing {token}")
+for token in ("internal object SystemPreviewV2", "exactCapture(", "queryStartedAt",
+              "systemLaunchedAt", "pendingDraft", "historyRequested"):
+    if token not in preview_engine:
+        errors.append(f"SystemPreviewV2.kt: strict provenance contract missing {token}")
+for obsolete in ("SystemProbeCompactTile.kt", "SystemPreviewSelection.kt",
+                 "SystemPreviewProjection.kt"):
+    if (root / obsolete).exists():
+        errors.append(f"{obsolete}: legacy parallel preview implementation returned")
 
 # Only one editor presentation remains; legacy category landing files are removed.
 for filename in ("EntryWorkspaceHome.kt", "RootWorkspaceHome.kt"):
