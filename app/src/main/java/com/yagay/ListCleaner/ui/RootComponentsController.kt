@@ -322,7 +322,7 @@ internal class RootComponentsController(
                         }
                     }
                     mutableMessage.value = if (skippedDisabled > 0) {
-                        "${completedTargets.size}/${targets.size} completed; $skippedDisabled disabled by Modes"
+                        "${completedTargets.size}/${targets.size} completed; $skippedDisabled skipped (disabled by Modes)"
                     } else successMessage(completedTargets.size, lastResult)
                 } catch (cancelled: CancellationException) {
                     Log.i(TAG, "Root component $operationName cancelled after ${completedTargets.size}/${targets.size}")
