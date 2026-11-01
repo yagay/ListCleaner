@@ -313,4 +313,6 @@
     <string name="lc_category_apply">Confirm changes</string>
     <string name="lc_mode_disabled">Disabled</string>
     <string name="lc_mode_enabled">Enabled</string>
+    <string name="lc_mode_pending_enable">Pending enable</string>
+    <string name="lc_mode_pending_disable">Pending disable</string>
 </resources>
