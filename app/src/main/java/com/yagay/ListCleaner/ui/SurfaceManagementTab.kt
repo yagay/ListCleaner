@@ -45,7 +45,7 @@ import androidx.compose.material3.MaterialTheme
 internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val entryModeItems = CleanupCategoryRegistry.sorted(context, CleanupCategoryRegistry.entries())
+    val entryModeItems = CleanupCategoryRegistry.sorted(context, CleanupCategoryRegistry.lsposedCategories())
     val rootModeItems = CleanupCategoryRegistry.sorted(context, CleanupCategoryRegistry.rootCategories())
     val savedManagedDisabled = UiPreferencesRuntime.current.disabledManagedSurfaces
     var draftManagedDisabled by remember(userId, savedManagedDisabled) { mutableStateOf(savedManagedDisabled) }
@@ -169,7 +169,7 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
             }
         }
         item(key = "modes-root-heading") { FlatPopupHeader(stringResource(R.string.lc_mode_root_heading)) }
-        // Root component and managed-rule categories remain independent engines but share one Modes list.
+        // Root section lists only Root component kinds. Hook-backed managed surfaces stay in LSPosed.
         rootModeItems.filterIsInstance<CleanupCategoryId.Root>().forEach { rootCategory ->
             val kind = rootCategory.kind
 
