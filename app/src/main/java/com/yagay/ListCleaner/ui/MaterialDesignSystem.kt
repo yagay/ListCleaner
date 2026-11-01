@@ -23,6 +23,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -112,6 +114,7 @@ internal fun MaterialSectionCard(
 internal fun MaterialSettingsRow(
     title: String,
     supportingText: String? = null,
+    leadingIcon: ImageVector? = null,
     onClick: (() -> Unit)? = null,
     trailing: @Composable RowScope.() -> Unit = {}
 ) {
@@ -129,6 +132,14 @@ internal fun MaterialSettingsRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(MaterialUiTokens.settingsRowGap)
     ) {
+        if (leadingIcon != null) {
+            AdaptiveIcon(
+                leadingIcon,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp)
