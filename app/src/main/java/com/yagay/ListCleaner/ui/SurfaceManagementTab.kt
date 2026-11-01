@@ -15,6 +15,7 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,6 +50,20 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
     val entryModeItems = CleanupCategoryRegistry.sorted(context, CleanupCategoryRegistry.lsposedCategories())
     val rootModeItems = CleanupCategoryRegistry.sorted(context, CleanupCategoryRegistry.rootCategories())
     val surfacePolicy by vm.surfaceFilters.collectAsStateWithLifecycle()
+    // Migrate legacy device-wide UI switches only into the primary Android user's
+    // synchronized policy. Never copy them into work profiles or overwrite new rules.
+    LaunchedEffect(userId, surfacePolicy.disabledCleanupSurfaces) {
+        if (userId == 0) {
+            val legacy = UiPreferencesStore.legacyManagedDisableMigration(context)
+            if (legacy.isNotEmpty()) {
+                val merged = surfacePolicy.disabledCleanupSurfaces + legacy
+                if (merged == surfacePolicy.disabledCleanupSurfaces ||
+                    vm.setSurfaceFilters(surfacePolicy.copy(disabledCleanupSurfaces = merged))) {
+                    UiPreferencesStore.finishManagedDisableMigration(context)
+                }
+            }
+        }
+    }
     val savedManagedDisabled = surfacePolicy.disabledCleanupSurfaces
     var draftManagedDisabled by remember(userId, savedManagedDisabled) { mutableStateOf(savedManagedDisabled) }
     val savedRootDisabled = UiPreferencesRuntime.current.disabledRootKinds
