@@ -57,7 +57,7 @@ class PriorityVisibilityTest {
             IntentKind.SHARE, saved, "", PriorityListFilter.ALL,
         )
         assertEquals(listOf("com.example.b"), visibleGroups.map { it.packageName })
-        assertEquals(saved, saved)
+        assertEquals(saved, moveVisiblePriority(saved, listOf("com.example.b"), "com.example.b", -1))
     }
 
     @Test fun partiallyCleanedAppKeepsOnlySurvivingComponents() {
