@@ -141,11 +141,12 @@ internal fun RootComponentsScreen(
         }
     }
     val applyChanges: () -> Boolean = {
-        if (busy) false else {
+        val disabledKinds = UiPreferencesRuntime.current.disabledRootKinds
+        if (busy || (kind != null && kind in disabledKinds)) false else {
             val currentItems = scan.items.associateBy { it.id }
             val desired = selectionDraft.changes.mapNotNull { (id, disabled) ->
                 currentItems[id]
-                    ?.takeIf { it.blocked == null && it.enabled != null &&
+                    ?.takeIf { it.kind !in disabledKinds && it.blocked == null && it.enabled != null &&
                         !vm.isComponentBulkProtected(kind, it) && it.enabled != !disabled }
                     ?.let { it to !disabled }
             }.toMap()
