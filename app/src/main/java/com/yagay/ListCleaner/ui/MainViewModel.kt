@@ -67,6 +67,7 @@ data class MainState(
     val selected: Set<ComponentRule> = emptySet(),
     val displayMode: DisplayMode = DisplayMode.HIDE_SELECTED,
     val modeOverrides: Map<IntentKind, DisplayMode> = emptyMap(),
+    val disabledEntryGroups: Set<com.yagay.ListCleaner.domain.EntryGroup> = emptySet(),
     val filter: IntentKind? = null,
     val query: String = "",
     val uiFilter: UiFilter = UiFilter.ALL,
@@ -314,6 +315,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val displayMode: DisplayMode,
         val modeOverrides: Map<IntentKind, DisplayMode> = emptyMap(),
         val priorities: PriorityConfig,
+        val disabledEntryGroups: Set<com.yagay.ListCleaner.domain.EntryGroup> = emptySet(),
         val diagnosticMode: Boolean,
         val hiddenFromApps: Set<String>,
         val openTypes: OpenTypeConfig,
@@ -383,6 +385,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         input.copy(directShareTypes = types)
     }.combine(app.rules.modeOverrides) { input, overrides ->
         input.copy(modeOverrides = overrides)
+    }.combine(app.rules.disabledEntryGroups) { input, disabled ->
+        input.copy(disabledEntryGroups = disabled)
     }
 
     private val shellInputs = combine(
@@ -407,6 +411,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             runtime = runtime.runtime,
             displayMode = rules.displayMode,
             modeOverrides = rules.modeOverrides,
+            disabledEntryGroups = rules.disabledEntryGroups,
             filter = content.filter,
             query = queryText,
             priorities = rules.priorities,
@@ -785,6 +790,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         bulkLocks.toggleApp(scope, appId, itemIds)
     internal fun toggleBulkItemLock(scope: String, itemId: String) = bulkLocks.toggleItem(scope, itemId)
 
+    fun setDisabledEntryGroups(groups: Set<com.yagay.ListCleaner.domain.EntryGroup>) {
+        if (canEdit()) app.rules.setDisabledEntryGroups(groups)
+    }
     fun setDisplayMode(value: DisplayMode) { if (canEdit()) app.rules.setDisplayMode(value) }
     fun setKindDisplayMode(kind: IntentKind, value: DisplayMode?) {
         if (canEdit()) app.rules.setKindDisplayMode(kind, value)
