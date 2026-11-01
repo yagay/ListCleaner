@@ -479,13 +479,13 @@ internal fun EntryCategoryPicker(
         if (pinned.isNotEmpty()) FlatPopupHeader(stringResource(R.string.category_favorites))
         pinned.forEach { kind ->
             WorkspaceFavoriteChoice(stringResource(kind.titleRes()), selected == kind, true,
-                kind.hierarchyIcon(), { dismiss(); onSelected(kind) },
+                CleanupCategoryId.Entry(kind).icon(), { dismiss(); onSelected(kind) },
                 { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedEntryKinds = UiPreferencesRuntime.current.pinnedEntryKinds - kind)) })
         }
         sortedKinds.filter { it !in pinned }.forEach { kind ->
             WorkspaceFavoriteChoice(
                 stringResource(kind.titleRes()), selected == kind, false,
-                kind.hierarchyIcon(), { dismiss(); onSelected(kind) },
+                CleanupCategoryId.Entry(kind).icon(), { dismiss(); onSelected(kind) },
                 { UiPreferencesStore.write(context,
                     UiPreferencesRuntime.current.copy(
                         pinnedEntryKinds = UiPreferencesRuntime.current.pinnedEntryKinds + kind
@@ -533,14 +533,14 @@ internal fun ComponentCategoryPicker(
             FlatPopupHeader(stringResource(R.string.category_favorites))
         }
         pinned.forEach { kind -> WorkspaceFavoriteChoice(
-            stringResource(kind.titleRes()), managedSurface == null && selected == kind, true, kind.hierarchyIcon(),
+            stringResource(kind.titleRes()), managedSurface == null && selected == kind, true, CleanupCategoryId.Root(kind).icon(),
             { dismiss(); onSelected(kind) },
             { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedRootKinds = UiPreferencesRuntime.current.pinnedRootKinds - kind)) })
         }
         pinnedManaged.forEach { surface ->
             WorkspaceFavoriteChoice(
                 stringResource(surface.titleRes), managedSurface == surface, true,
-                if (surface == ManagedComponentSurface.SETTINGS_APPS) Icons.Rounded.Settings else Icons.Rounded.Notifications,
+                CleanupCategoryId.Managed(surface).icon(),
                 { dismiss(); onManagedSurface(surface) },
                 { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(
                     pinnedManagedSurfaces = UiPreferencesRuntime.current.pinnedManagedSurfaces - surface.name
@@ -561,13 +561,13 @@ internal fun ComponentCategoryPicker(
         merged.forEach { (kind, surface) ->
             if (kind != null) {
                 WorkspaceFavoriteChoice(stringResource(kind.titleRes()), managedSurface == null && selected == kind,
-                    false, kind.hierarchyIcon(),
+                    false, CleanupCategoryId.Root(kind).icon(),
                     { dismiss(); onSelected(kind) },
                     { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedRootKinds = UiPreferencesRuntime.current.pinnedRootKinds + kind)) })
             } else if (surface != null) {
                 WorkspaceFavoriteChoice(
                     stringResource(surface.titleRes), managedSurface == surface, false,
-                    if (surface == ManagedComponentSurface.SETTINGS_APPS) Icons.Rounded.Settings else Icons.Rounded.Notifications,
+                    CleanupCategoryId.Managed(surface).icon(),
                     { dismiss(); onManagedSurface(surface) },
                     { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(
                         pinnedManagedSurfaces = UiPreferencesRuntime.current.pinnedManagedSurfaces + surface.name
