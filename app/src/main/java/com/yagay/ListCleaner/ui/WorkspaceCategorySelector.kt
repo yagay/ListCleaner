@@ -28,6 +28,8 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.MaterialTheme
@@ -555,6 +557,7 @@ internal fun ComponentCategoryPicker(
                     stringResource(surface.titleRes),
                     managedSurface == surface,
                     { dismiss(); onManagedSurface(surface) },
+                    icon = if (surface == ManagedComponentSurface.SETTINGS_APPS) Icons.Rounded.Settings else Icons.Rounded.Notifications,
                 )
             }
         }
