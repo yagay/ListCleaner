@@ -90,7 +90,7 @@ internal fun previewRouteNote(kind: IntentKind): Int = when (kind) {
         R.string.preview_shortcut_observation
     IntentKind.DOCUMENT_PROVIDER, IntentKind.DOCUMENT_ROOT,
     IntentKind.PHOTO_SOURCE -> R.string.preview_provider_picker_not_inventory
-    IntentKind.INPUT_METHOD, IntentKind.ACCESSIBILITY, IntentKind.PRINT,
+    IntentKind.ACCESSIBILITY, IntentKind.PRINT,
     IntentKind.VPN, IntentKind.NFC_HCE, IntentKind.NOTIFICATION_LISTENER,
     IntentKind.DREAM -> R.string.preview_settings_not_filtered
     else -> R.string.preview_scenario_not_final_ui
