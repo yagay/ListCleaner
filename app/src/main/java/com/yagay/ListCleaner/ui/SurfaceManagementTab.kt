@@ -95,7 +95,11 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                         val surfaceChanged = draftManagedDisabled != savedManagedDisabled
                         // Entry and LSPosed policy is one per-user repository transaction.
                         // Only write Root's device-wide preference after that succeeds.
-                        val applied = vm.applyModesForSpace(
+                        val applied = if (!entryChanged && !surfaceChanged) {
+                            // Root-only changes do not depend on an installed LSPosed
+                            // runtime or a recoverable Entry rules snapshot.
+                            vm.selectedSpace.value == userId
+                        } else vm.applyModesForSpace(
                             userId,
                             if (entryChanged) draftDisabled else null,
                             if (surfaceChanged) draftManagedDisabled else null,
