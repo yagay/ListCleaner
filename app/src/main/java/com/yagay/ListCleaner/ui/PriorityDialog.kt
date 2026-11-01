@@ -44,6 +44,7 @@ import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.supportsTitleEditing
 import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.EntryGroup
+import com.yagay.ListCleaner.domain.effectivePriorityMode
 import com.yagay.ListCleaner.domain.entryGroup
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.AppType
@@ -103,26 +104,42 @@ fun PriorityDialogContent(
         LaunchedEffect(state.filter) { if (onExit != null) onExit() else vm.setDestination(Destination.RULES) }
         return
     }
-    val openPreset by vm.ruleOpenPreset.collectAsStateWithLifecycle()
-    val browserHost by vm.ruleBrowserHost.collectAsStateWithLifecycle()
+    val sharedOpenPreset by vm.ruleOpenPreset.collectAsStateWithLifecycle()
+    val sharedBrowserHost by vm.ruleBrowserHost.collectAsStateWithLifecycle()
+    // In overlay mode, editor subfilters are local so the Cleanup page below
+    // keeps its category and open/deep-link subtype unchanged.
+    var localOpenPreset by rememberSaveable(vm.selectedSpace.value) { mutableStateOf(sharedOpenPreset) }
+    var localBrowserHost by rememberSaveable(vm.selectedSpace.value) { mutableStateOf(sharedBrowserHost) }
+    val openPreset = if (onExit != null) localOpenPreset else sharedOpenPreset
+    val browserHost = if (onExit != null) localBrowserHost else sharedBrowserHost
     var confirmPriorityReset by remember { mutableStateOf(false) }
     val prefsContext = LocalContext.current
     val confirmation = rememberSelectionConfirmationController()
     SelectionConfirmationDialog(confirmation)
     var sortHelpExpanded by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.openHelpByDefault) }
     var viewFilter by rememberSaveable { mutableStateOf(UiPreferencesStore.initialFilter(prefsContext, "priority")) }
-    val appTypeFilter by vm.entryAppTypeFilter.collectAsStateWithLifecycle()
+    val sharedAppTypeFilter by vm.entryAppTypeFilter.collectAsStateWithLifecycle()
+    var localAppTypeFilter by rememberSaveable(vm.selectedSpace.value) { mutableStateOf(sharedAppTypeFilter) }
+    val appTypeFilter = if (onExit != null) localAppTypeFilter else sharedAppTypeFilter
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
     var expandedKey by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(kind) {
-        if (kind != IntentKind.OPEN) vm.setRuleOpenPreset(null)
-        if (kind != IntentKind.DEEP_LINK) vm.setRuleBrowserHost(null)
+        if (kind != IntentKind.OPEN) {
+            if (onExit != null) localOpenPreset = null else vm.setRuleOpenPreset(null)
+        }
+        if (kind != IntentKind.DEEP_LINK) {
+            if (onExit != null) localBrowserHost = null else vm.setRuleBrowserHost(null)
+        }
     }
     LaunchedEffect(state.openTypesExplicit.customDefinitions, openPreset) {
-        if (openPreset?.isCustom == true && openPreset !in state.openTypesExplicit.customDefinitions) vm.setRuleOpenPreset(null)
+        if (openPreset?.isCustom == true && openPreset !in state.openTypesExplicit.customDefinitions) {
+            if (onExit != null) localOpenPreset = null else vm.setRuleOpenPreset(null)
+        }
     }
     LaunchedEffect(state.browserAvailableHosts, browserHost) {
-        if (browserHost != null && browserHost !in state.browserAvailableHosts) vm.setRuleBrowserHost(null)
+        if (browserHost != null && browserHost !in state.browserAvailableHosts) {
+            if (onExit != null) localBrowserHost = null else vm.setRuleBrowserHost(null)
+        }
     }
 
     val typedOpenPreset = openPreset.takeIf { kind == IntentKind.OPEN }
@@ -224,10 +241,10 @@ fun PriorityDialogContent(
     // Sort only targets that survive the currently active cleaning policy.
     // Modes-disabled categories are unfiltered; per-category display overrides
     // take precedence over the global mode. Stored ranks for hidden targets stay.
-    val effectiveMode = if (kind in state.disabledEntryKinds ||
-        kind.entryGroup() in state.disabledEntryGroups) {
-        DisplayMode.SHOW_ALL
-    } else state.modeOverrides[kind] ?: state.displayMode
+    val effectiveMode = effectivePriorityMode(
+        kind, state.displayMode, state.modeOverrides,
+        state.disabledEntryKinds, state.disabledEntryGroups,
+    )
     val baseGroups = remember(
         scopedCandidates, state.selected, scopedExtraSelected, effectiveMode,
         kind, rankedRaw, state.query, priorityListFilter, appTypeFilter
@@ -336,16 +353,25 @@ fun PriorityDialogContent(
                     Column {
                         ListControls(
                             state.copy(filter = kind, uiFilter = viewFilter),
-                            onFilter = { entry -> if (entry != null) navigate { vm.setFilter(entry); expandedKey = null } },
+                            onFilter = { entry ->
+                                // An overlay edits only the current Cleanup category.
+                                if (onExit == null && entry != null) navigate {
+                                    vm.setFilter(entry)
+                                    expandedKey = null
+                                }
+                            },
                             onUiFilter = {
                                 viewFilter = it
                                 UiPreferencesStore.rememberFilter(prefsContext, it, "priority")
                             },
                             appTypeFilter = appTypeFilter,
-                            onAppTypeFilter = vm::setEntryAppTypeFilter,
+                            onAppTypeFilter = { filter ->
+                                if (onExit != null) localAppTypeFilter = filter
+                                else vm.setEntryAppTypeFilter(filter)
+                            },
                             includeAllKinds = false,
                             showEntryGroups = true,
-                            availableEntryKinds = priorityKinds,
+                            availableEntryKinds = if (onExit != null) setOf(kind) else priorityKinds,
                             selectionActions = selectionActions,
                             modeAction = { WorkspaceSortShortcut(kind, ordering = true) {
                                 navigate { if (onExit != null) onExit() else vm.setDestination(Destination.RULES) }
@@ -387,7 +413,10 @@ fun PriorityDialogContent(
                                     IntentKind.OPEN -> OpenPresetFilterMenu(
                                         selected = openPreset,
                                         config = state.openTypesExplicit,
-                                        onSelected = { preset -> navigate { vm.setRuleOpenPreset(preset) } },
+                                        onSelected = { preset ->
+                                            if (onExit != null) localOpenPreset = preset
+                                            else navigate { vm.setRuleOpenPreset(preset) }
+                                        },
                                         onManageCustom = { showCustomTypes = true },
                                         iconOnly = true
                                     )
@@ -395,7 +424,10 @@ fun PriorityDialogContent(
                                         selected = browserHost,
                                         config = state.browserLinks,
                                         availableHosts = state.browserAvailableHosts,
-                                        onSelected = { host -> navigate { vm.setRuleBrowserHost(host) } },
+                                        onSelected = { host ->
+                                            if (onExit != null) localBrowserHost = host
+                                            else navigate { vm.setRuleBrowserHost(host) }
+                                        },
                                         onManage = { showBrowserHosts = true },
                                         iconOnly = true
                                     )
