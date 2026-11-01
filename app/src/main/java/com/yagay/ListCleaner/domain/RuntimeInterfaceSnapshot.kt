@@ -20,6 +20,8 @@ data class RuntimeInterfaceSnapshot(
     val packages: List<String>,
     /** Exact flattened ComponentName identifiers, when the captured API exposes them. */
     val components: List<String> = emptyList(),
+    /** Optional display labels keyed by component, supplied by the owning system manager. */
+    val componentLabels: Map<String, String> = emptyMap(),
     /** Counts from the original Hook result before storage limits are applied. */
     val totalPackages: Int = 0,
     val totalComponents: Int = 0,
@@ -38,6 +40,8 @@ object RuntimeInterfaceSnapshotCodec {
     fun keyForResolverOrder(kind: IntentKind): String = "resolver_adapter_order_v1_" + kind.name
     /** RoleController eligibility is independent of ACTION_ASSIST resolver and current holder. */
     fun keyForRoleEligibility(kind: IntentKind): String = "role_eligible_packages_v1_" + kind.name
+    /** An NFC payment surface can contain the same component in multiple Android profiles. */
+    fun keyForNfcPayment(userId: Int): String = "nfc_payment_services_v1_user_" + userId
 
     fun encode(snapshot: RuntimeInterfaceSnapshot): String {
         val originalPackages = snapshot.totalPackages.takeIf { it > 0 } ?: snapshot.packages.size
@@ -61,6 +65,9 @@ object RuntimeInterfaceSnapshotCodec {
             value = value.copy(
                 packages = value.packages.take(value.packages.size / 2),
                 components = value.components.take(value.components.size / 2),
+                componentLabels = value.componentLabels.filterKeys {
+                    it in value.components.take(value.components.size / 2)
+                },
                 truncated = true,
             )
         }
@@ -74,7 +81,8 @@ object RuntimeInterfaceSnapshotCodec {
                 parsed.capturedAtMillis <= 0L || parsed.callerUserId < 0 ||
                 parsed.callerUid < -1 ||
                 parsed.totalPackages < 0 || parsed.totalComponents < 0 ||
-                parsed.packages.size > MAX_PACKAGES || parsed.components.size > MAX_PACKAGES
+                parsed.packages.size > MAX_PACKAGES || parsed.components.size > MAX_PACKAGES ||
+                parsed.componentLabels.size > MAX_PACKAGES
             ) return@runCatching null
             sanitize(parsed)
         }.getOrNull()
@@ -98,6 +106,12 @@ object RuntimeInterfaceSnapshotCodec {
                     parts[1].isNotBlank() && parts[1].length <= 250 &&
                     parts[1].none { it == '\n' || it == '\r' }
             }
-            .distinct().take(MAX_PACKAGES).toList()
+            .distinct().take(MAX_PACKAGES).toList(),
+        componentLabels = snapshot.componentLabels.asSequence()
+            .filter { (component, _) -> component in snapshot.components }
+            .take(MAX_PACKAGES)
+            .associate { (component, label) ->
+                component to label.take(120).filter { it != '\n' && it != '\r' }
+            },
     )
 }
