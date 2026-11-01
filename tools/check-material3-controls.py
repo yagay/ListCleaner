@@ -644,9 +644,13 @@ for token in ("val homeLayout: UiHomeLayout = UiHomeLayout.CLASSIC_LIST",
 app_row = (root / "WorkspaceAppRow.kt").read_text(encoding="utf-8")
 if "androidx.compose.material3.ListItem(" in app_row:
     errors.append("WorkspaceAppRow.kt: two-line ListItem padding makes list too tall")
-# OPEN formats such as PDF/Word/Excel are metadata, never a separate chip/card.
-open_indicator = (root / "AppListRows.kt").read_text(encoding="utf-8").split(
-    "private fun OpenWithTypeIndicator(", 1
+# Open, Share and Multi Share share a flat, read-only format summary.
+# They must never reintroduce per-MIME cards or selection controls.
+app_list_rows = (root / "AppListRows.kt").read_text(encoding="utf-8")
+if "private fun DetectedTypeIndicator(" not in app_list_rows:
+    errors.append("AppListRows.kt: shared type summary indicator missing")
+open_indicator = app_list_rows.split(
+    "private fun DetectedTypeIndicator(", 1
 )[-1].split("@OptIn(ExperimentalFoundationApi::class)", 1)[0]
 for forbidden in ("Surface(", "BorderStroke(", "RoundedCornerShape(", "MaterialFlatPalette.sectionSurface()"):
     if forbidden in open_indicator:
