@@ -149,7 +149,7 @@
     <string name="lc_filter_sheet_reset">Reset</string>
     <string name="lc_filter_sheet_apply">Apply filters</string>
     <string name="lc_category_picker_entry_title">Choose LSPosed category</string>
-    <string name="lc_category_picker_component_title">Choose component category</string>
+    <string name="lc_category_picker_component_title">Choose Root category</string>
     <string name="lc_category_picker_current">Category: %1$s</string>
     <string name="lc_multiuser_logs_title">Multi-user logs</string>
     <string name="lc_multiuser_logs_help">Record system logs across Android users with Root (up to about 30 MB). Switch profiles to reproduce the issue, then stop. Logs may include sensitive information.</string>
