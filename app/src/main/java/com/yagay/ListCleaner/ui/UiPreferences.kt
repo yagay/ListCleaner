@@ -333,7 +333,7 @@ internal object UiPreferencesStore {
     }
 
     private val backupTextKeys = setOf("density", "accent", "home_layout", "start_page", "app_sort", "default_filter",
-        "pinned_entry_kinds", "pinned_root_kinds", "pinned_managed_surfaces", "disabled_root_kinds",
+        "pinned_entry_kinds", "pinned_root_kinds", "pinned_managed_surfaces", "disabled_root_kinds", "disabled_managed_surfaces",
         "default_app_type", "scan_mode", "proactive_scan_mode",
         "candidate_source", "component_start", "preview_default", "probe_default_scenario",
         "diagnostics_level", "component_refresh", "last_probe_scenario", "last_filter_rules", "last_filter_priority", "last_filter_components",
