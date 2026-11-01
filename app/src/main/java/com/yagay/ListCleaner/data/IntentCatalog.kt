@@ -103,6 +103,7 @@ class IntentCatalog(private val context: Context) {
     private val appIconCache = LruCache<String, Bitmap>(192)
     private val appLabelCache = LruCache<String, String>(256)
     @Volatile private var cachedInputFingerprint: String? = null
+    @Volatile private var lastCompletedScanElapsedMs: Long = 0L
     @Volatile private var cachedDefinitionFingerprint: String? = null
     @Volatile private var invalidated = true
     @Volatile private var cacheHitsSinceLastScan = 0L
@@ -159,7 +160,8 @@ class IntentCatalog(private val context: Context) {
         // Normal state/UI refreshes are frequent. If inputs have not changed and no package/runtime
         // invalidation was observed, return before expensive manager/AppOps discovery. Explicit user
         // refresh passes force=true and still performs a complete authority scan immediately.
-        if (!force && !invalidated && inputFingerprint == cachedInputFingerprint) {
+        if (!force && !invalidated && inputFingerprint == cachedInputFingerprint &&
+            android.os.SystemClock.elapsedRealtime() - lastCompletedScanElapsedMs in 0L..29_999L) {
             cacheHitsSinceLastScan++
             return@withContext cached
         }
@@ -348,6 +350,7 @@ class IntentCatalog(private val context: Context) {
         mutableCandidates.value = result
         mutableSnapshot.value = Snapshot(userId, result)
         cachedInputFingerprint = inputFingerprint
+        lastCompletedScanElapsedMs = android.os.SystemClock.elapsedRealtime()
         cachedDefinitionFingerprint = fingerprint
         // An incomplete scan must be retried; caching a partial scan as complete
         // can turn a transient Shell/PackageManager failure into a persistent zero.
