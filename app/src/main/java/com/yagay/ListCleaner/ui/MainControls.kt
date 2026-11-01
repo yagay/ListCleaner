@@ -179,7 +179,7 @@ internal fun ListControls(
     selectionActions: List<WorkspaceMenuAction> = emptyList(),
 ) {
     LaunchedEffect(state.filter, state.disabledEntryGroups) {
-        if (state.filter?.entryGroup() in state.disabledEntryGroups) onFilter(null)
+        if ((state.filter in state.disabledEntryKinds || state.filter?.entryGroup() in state.disabledEntryGroups)) onFilter(null)
     }
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
         WorkspaceCategoryFilterRow(
@@ -191,6 +191,7 @@ internal fun ListControls(
                     includeAllKinds = includeAllKinds,
                     availableKinds = availableEntryKinds,
                     disabledGroups = state.disabledEntryGroups,
+                    disabledKinds = state.disabledEntryKinds,
                     subtypeTitle = subtypeTitle,
                     previewActions = previewActions,
                     subtypeSelector = if (
