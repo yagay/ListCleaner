@@ -194,11 +194,12 @@ internal object SystemEntryProbe {
         )?.takeIf { it.callerUserId == ourUser }
         val local = decode(RuntimeInterfaceSnapshotCodec.keyForCaller(kind, ownUid))
         val last = decode(RuntimeInterfaceSnapshotCodec.key(kind))
-        val roleEligibility = if (kind == IntentKind.ASSISTANT) {
+        val roleEligibility = if (kind in setOf(IntentKind.ASSISTANT, IntentKind.HOME,
+                IntentKind.BROWSER, IntentKind.CALL_SCREENING)) {
             decode(RuntimeInterfaceSnapshotCodec.keyForRoleEligibility(kind))
                 ?.takeIf {
                     it.source == "ROLE_CONTROLLER_RETURN" &&
-                        it.requestAction == "android.app.role.ASSISTANT" &&
+                        it.requestAction == "android.app.role." + kind.name &&
                         it.callerPackage.substringBefore(':') in setOf(
                             "com.android.permissioncontroller", "com.google.android.permissioncontroller"
                         )
