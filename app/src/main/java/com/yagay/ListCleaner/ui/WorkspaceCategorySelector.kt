@@ -498,24 +498,33 @@ internal fun EntryCategoryPicker(
                 )) }
             )
         }
-        sortedKinds.filter { it !in pinned }.forEach { kind ->
-            WorkspaceFavoriteChoice(
-                stringResource(kind.titleRes()), managedSurface == null && selected == kind, false,
-                CleanupCategoryId.Entry(kind).icon(), { dismiss(); onSelected(kind) },
-                { UiPreferencesStore.write(context,
-                    UiPreferencesRuntime.current.copy(
-                        pinnedEntryKinds = UiPreferencesRuntime.current.pinnedEntryKinds + kind
+        entryCategories.filter { category ->
+            when (category) {
+                is CleanupCategoryId.Entry -> category.kind !in pinned
+                is CleanupCategoryId.Managed -> category.surface !in pinnedManaged
+                else -> false
+            }
+        }.forEach { category ->
+            when (category) {
+                is CleanupCategoryId.Entry -> WorkspaceFavoriteChoice(
+                    stringResource(category.titleResource()),
+                    managedSurface == null && selected == category.kind,
+                    false, category.icon(),
+                    { dismiss(); onSelected(category.kind) },
+                    { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(
+                        pinnedEntryKinds = UiPreferencesRuntime.current.pinnedEntryKinds + category.kind
                     )) },
-            )
-        }
-        ManagedComponentSurface.entries.filter { it !in pinnedManaged }.forEach { surface ->
-            WorkspaceFavoriteChoice(
-                stringResource(surface.titleRes), managedSurface == surface, false, CleanupCategoryId.Managed(surface).icon(),
-                { dismiss(); onManagedSurface(surface) },
-                { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(
-                    pinnedManagedSurfaces = UiPreferencesRuntime.current.pinnedManagedSurfaces + surface.name
-                )) }
-            )
+                )
+                is CleanupCategoryId.Managed -> WorkspaceFavoriteChoice(
+                    stringResource(category.titleResource()), managedSurface == category.surface,
+                    false, category.icon(),
+                    { dismiss(); onManagedSurface(category.surface) },
+                    { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(
+                        pinnedManagedSurfaces = UiPreferencesRuntime.current.pinnedManagedSurfaces + category.surface.name
+                    )) },
+                )
+                else -> Unit
+            }
         }
 
     }
