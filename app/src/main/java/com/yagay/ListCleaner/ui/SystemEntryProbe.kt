@@ -299,8 +299,8 @@ internal object SystemEntryProbe {
         request: SystemProbeRequest,
     ): SystemProbeResult {
         val pm = context.packageManager
-        return when (kind.previewAuthority()) {
-            PreviewAuthority.PICKER_PRIVATE -> {
+        return when (PreviewContracts.forEntry(kind).adapter) {
+            PreviewAdapter.DOCUMENTS_UI -> {
                 val observed = previouslyObservedDocumentRoots(context)
                 // Preserve unknown-action snapshots as historical evidence; the
                 // verifier and UI must not misrepresent them as a matched request.
@@ -339,9 +339,9 @@ internal object SystemEntryProbe {
                     )
                 }
             }
-            PreviewAuthority.RESOLVER_CANDIDATES,
-            PreviewAuthority.ROLE_CANDIDATES -> {
-                val roleResult = if (kind.previewAuthority() == PreviewAuthority.ROLE_CANDIDATES)
+            PreviewAdapter.RESOLVER,
+            PreviewAdapter.ROLE_CONTROLLER -> {
+                val roleResult = if (PreviewContracts.forEntry(kind).adapter == PreviewAdapter.ROLE_CONTROLLER)
                     roleHolders(context, kind) else null
                 if (roleResult != null) return roleResult
                 if (kind == IntentKind.ASSISTANT) {
@@ -365,15 +365,15 @@ internal object SystemEntryProbe {
                 }
                 candidates(
                     R.string.system_probe_source_activities,
-                    if (kind.previewAuthority() == PreviewAuthority.ROLE_CANDIDATES)
+                    if (PreviewContracts.forEntry(kind).adapter == PreviewAdapter.ROLE_CONTROLLER)
                         R.string.system_probe_role_notice else R.string.system_probe_pm_notice,
                     registrations,
                 )
             }
-            PreviewAuthority.ENABLED_MANAGER -> enabledManager(context, kind)
-            PreviewAuthority.SERVICE_CANDIDATES -> registeredServices(context, kind)
-            PreviewAuthority.PROVIDER_CANDIDATES -> registeredProviders(context, kind)
-            PreviewAuthority.SHORTCUT_PRIVATE -> {
+            PreviewAdapter.ENABLED_MANAGER -> enabledManager(context, kind)
+            PreviewAdapter.SYSTEM_SERVICES -> registeredServices(context, kind)
+            PreviewAdapter.PROVIDER_REGISTRY -> registeredProviders(context, kind)
+            PreviewAdapter.HOST_PRIVATE -> {
                 // Direct Share and dynamic shortcut targets are owned by
                 // ShortcutService/the calling launcher. We can show only
                 // previously observed targets, not a fabricated live panel.
@@ -390,7 +390,7 @@ internal object SystemEntryProbe {
                 noPublicList(R.string.system_probe_shortcut_final_private)
                     .copy(historicalItems = unique(history))
             }
-            PreviewAuthority.HOST_CANDIDATES -> noPublicList()
+            PreviewAdapter.ROOT_COMPONENT_STATE -> noPublicList()
         }
     }
 
