@@ -1,5 +1,12 @@
 package com.yagay.ListCleaner.ui
 
+/**
+ * Keep the sort sheet close to the top without moving its content beyond the
+ * bottom edge. The former 23% viewport inset created a huge empty strip.
+ */
+internal fun sortSheetTopInsetPx(viewportPx: Float, preferredInsetPx: Float): Float =
+    preferredInsetPx.coerceAtLeast(0f).coerceAtMost(viewportPx.coerceAtLeast(0f) * 0.10f)
+
 /** Two-stage sheet transitions shared by the sort handle and nested list scroll. */
 internal enum class SortSheetRelease { EXPANDED, PARTIAL, DISMISS }
 
