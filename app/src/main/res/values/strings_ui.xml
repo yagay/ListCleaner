@@ -365,4 +365,8 @@
     <string name="lc_mode_managed_notifications_desc">Controls whether notification-app and channel cleanup can be changed; saved rules remain intact</string>
     <string name="lc_hook_filter_selected">Only selected</string>
     <string name="lc_hook_filter_unselected">Only unselected</string>
+    <string name="lc_hook_batch_confirm_title">Confirm cleanup selection</string>
+    <string name="lc_hook_batch_confirm_text">Apply batch selection: %1$s? Changes will remain pending until you press Apply.</string>
+    <string name="lc_hook_empty_filtered">No matching applications or channels</string>
+    <string name="lc_hook_clear_filters">Clear filters</string>
 </resources>
