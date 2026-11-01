@@ -178,6 +178,9 @@ internal fun ListControls(
     modeAction: (@Composable () -> Unit)? = null,
     selectionActions: List<WorkspaceMenuAction> = emptyList(),
 ) {
+    LaunchedEffect(state.filter, state.disabledEntryGroups) {
+        if (state.filter?.entryGroup() in state.disabledEntryGroups) onFilter(null)
+    }
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
         WorkspaceCategoryFilterRow(
             category = {
