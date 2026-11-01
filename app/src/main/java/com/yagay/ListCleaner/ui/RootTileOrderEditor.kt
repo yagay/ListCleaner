@@ -104,9 +104,13 @@ internal fun RootTileOrderEditor(
     var appTypeFilter by rememberSaveable(userId) {
         mutableStateOf(UiPreferencesStore.initialAppType(context, "components"))
     }
-    val known = remember(candidates) {
-        candidates.filter { it.kind == CleanupKind.TILE }
-            .distinctBy { it.component.flattenToString() }
+    // Sorting operates on the post-Root-cleaning tile inventory. Disabled or
+    // indeterminate TileServices must not reappear just because they are saved
+    // in the ordering policy; their saved rank remains intact for restoration.
+    val known = remember(candidates, userId) {
+        candidates.filter {
+            it.kind == CleanupKind.TILE && it.user == userId && it.enabled == true
+        }.distinctBy { it.component.flattenToString() }
     }
     val byComponent = known.associateBy { it.component.flattenToString() }
     val availableIds = byComponent.keys
