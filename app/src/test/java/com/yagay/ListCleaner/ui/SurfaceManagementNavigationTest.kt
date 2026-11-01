@@ -5,6 +5,7 @@ import com.yagay.ListCleaner.domain.EntryGroup
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.kinds
 import com.yagay.ListCleaner.domain.isSelectableEntryKind
+import com.yagay.ListCleaner.domain.isLegacyDocumentsUiCategory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -37,7 +38,12 @@ class SurfaceManagementNavigationTest {
         assertTrue(lsposed.contains(CleanupCategoryId.Managed(ManagedComponentSurface.SETTINGS_APPS)))
         assertTrue(lsposed.contains(CleanupCategoryId.Managed(ManagedComponentSurface.NOTIFICATIONS)))
         assertFalse(root.any { it is CleanupCategoryId.Managed })
-        assertEquals(IntentKind.entries.count { it.isSelectableEntryKind() } + 2, lsposed.size)
+        assertEquals(IntentKind.entries.count { it.isSelectableEntryKind() && !it.isLegacyDocumentsUiCategory() } + 2, lsposed.size)
+        assertEquals(1, lsposed.count { it == CleanupCategoryId.Entry(IntentKind.DOCUMENT_PROVIDER) })
+        assertFalse(lsposed.contains(CleanupCategoryId.Entry(IntentKind.OPEN_DOCUMENT)))
+        assertFalse(lsposed.contains(CleanupCategoryId.Entry(IntentKind.CREATE_DOCUMENT)))
+        assertFalse(lsposed.contains(CleanupCategoryId.Entry(IntentKind.GET_CONTENT)))
+        assertFalse(lsposed.contains(CleanupCategoryId.Entry(IntentKind.DOCUMENT_ROOT)))
     }
 
     @Test fun settingsStillOwnIndependentListPresentationPreferences() {
