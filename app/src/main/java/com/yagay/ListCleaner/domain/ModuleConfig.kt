@@ -34,6 +34,25 @@ data class ModuleConfig(
     val disabledEntryGroups: Set<EntryGroup> = emptySet(),
     val disabledEntryKinds: Set<IntentKind> = emptySet()
 ) {
+    /**
+     * Pure Modes transition shared by repository updates and tests.
+     * Null leaves the corresponding family unchanged; an empty set enables all.
+     * Other cleanup rules, priorities and user profiles must remain intact.
+     */
+    fun withModeDisables(
+        entryKinds: Set<IntentKind>?,
+        surfaces: Set<SurfaceKind>?,
+    ): ModuleConfig {
+        if (entryKinds != null) require(entryKinds.all { it.isSelectableEntryKind() })
+        val result = copy(
+            disabledEntryKinds = entryKinds?.toSet() ?: disabledEntryKinds,
+            disabledEntryGroups = if (entryKinds != null) emptySet() else disabledEntryGroups,
+            surfaceFilters = if (surfaces == null) surfaceFilters
+                else surfaceFilters.copy(disabledCleanupSurfaces = surfaces.toSet()),
+        )
+        return result.validated()
+    }
+
     fun modeFor(kind: IntentKind): DisplayMode = modeOverrides[kind] ?: mode
 
     fun validated(): ModuleConfig {
