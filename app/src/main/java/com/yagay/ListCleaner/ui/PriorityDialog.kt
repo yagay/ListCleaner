@@ -47,6 +47,7 @@ import com.yagay.ListCleaner.domain.EntryGroup
 import com.yagay.ListCleaner.domain.effectivePriorityMode
 import com.yagay.ListCleaner.domain.entryGroup
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.DOCUMENTS_UI_PREVIEW_KINDS
 import com.yagay.ListCleaner.domain.AppType
 import com.yagay.ListCleaner.domain.AppTypeFilter
 import com.yagay.ListCleaner.domain.OpenPreset
@@ -412,17 +413,19 @@ fun PriorityDialogContent(
                             modeAction = { WorkspaceSortShortcut(kind, ordering = true) {
                                 navigate { if (onExit != null) onExit() else vm.setDestination(Destination.RULES) }
                             } },
-                            previewActions = listOf(
+                            previewActions = (if (kind == IntentKind.DOCUMENT_PROVIDER)
+                                DOCUMENTS_UI_PREVIEW_KINDS else listOf(kind)).map { previewKind ->
                                 WorkspaceMenuAction(
-                                    label = stringResource(kind.titleRes()),
+                                    label = stringResource(previewKind.titleRes()),
                                     onClick = {
                                         systemProbeRequest = SystemProbeRequest(
-                                            entryKind = kind,
-                                            userId = vm.selectedSpace.value
+                                            entryKind = previewKind,
+                                            userId = vm.selectedSpace.value,
+                                            directLaunch = previewKind == IntentKind.DOCUMENT_PROVIDER,
                                         )
                                     }
                                 )
-                            ) + previewMimeOptions(
+                            } + previewMimeOptions(
                                 kind, state.candidates, state.openTypesExplicit
                             ).map { option ->
                                 WorkspaceMenuAction(

@@ -3,6 +3,7 @@ package com.yagay.ListCleaner.ui
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.isSelectableEntryKind
+import com.yagay.ListCleaner.domain.isLegacyDocumentsUiCategory
 
 /**
  * Effective mode for an Entry view. Null means that All contains several
@@ -16,7 +17,7 @@ internal fun currentEntryDisplayMode(
 ): DisplayMode? {
     if (kind != null) return overrides[kind] ?: globalMode
     val modes = IntentKind.entries.asSequence()
-        .filter { it.isSelectableEntryKind() }
+        .filter { it.isSelectableEntryKind() && !it.isLegacyDocumentsUiCategory() }
         .map { overrides[it] ?: globalMode }
         .distinct()
         .take(2)

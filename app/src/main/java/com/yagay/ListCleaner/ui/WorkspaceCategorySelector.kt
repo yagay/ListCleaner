@@ -53,6 +53,7 @@ import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.domain.EntryGroup
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.isSelectableEntryKind
+import com.yagay.ListCleaner.domain.isLegacyDocumentsUiCategory
 import com.yagay.ListCleaner.domain.entryGroup
 import com.yagay.ListCleaner.domain.kinds
 
@@ -454,14 +455,14 @@ internal fun EntryCategoryPicker(
     }
     val pinned = remember(preferences.pinnedEntryKinds, availableKinds, disabledGroups, disabledKinds) {
         preferences.pinnedEntryKinds.filter {
-            it.isSelectableEntryKind() &&
+            it.isSelectableEntryKind() && !it.isLegacyDocumentsUiCategory() &&
                 (availableKinds == null || it in availableKinds) &&
                 it.entryGroup() !in disabledGroups && it !in disabledKinds
         }
     }
     val kinds = remember(availableKinds, disabledGroups, disabledKinds, includeAllKinds) {
         IntentKind.entries.filter {
-            it.isSelectableEntryKind() &&
+            it.isSelectableEntryKind() && !it.isLegacyDocumentsUiCategory() &&
                 (availableKinds == null || it in availableKinds) &&
                 it.entryGroup() !in disabledGroups &&
                 it !in disabledKinds &&

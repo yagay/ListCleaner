@@ -479,6 +479,7 @@ previewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds,
                                     systemProbeRequest = SystemProbeRequest(
                                         entryKind = previewKind,
                                         userId = vm.selectedSpace.value,
+                                        directLaunch = previewKind == IntentKind.DOCUMENT_PROVIDER,
                                         scenario = scopedProbeScenario(previewKind, typedOpenPreset, directShareType),
                                         browserHost = deepLinkHost.takeIf { previewKind == IntentKind.DEEP_LINK },
                                         directShareType = directShareType.takeIf { previewKind == IntentKind.DIRECT_SHARE },

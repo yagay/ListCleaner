@@ -25,6 +25,8 @@ import androidx.compose.ui.platform.LocalContext
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.domain.AndroidUid
+import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.DOCUMENTS_UI_PREVIEW_KINDS
 
 /**
  * Preview actions now launch Android's real surfaces without any local candidate
@@ -58,6 +60,8 @@ internal fun SystemProbeDialog(
     }
     // When Share has a selected MIME filter, preview that exact scenario
     // instead of asking for a different preset in a second popup.
+    val documentChoices = if (request.entryKind == IntentKind.DOCUMENT_PROVIDER && !request.directLaunch)
+        DOCUMENTS_UI_PREVIEW_KINDS else emptyList()
     val typedKind = request.entryKind?.takeIf {
         it in setOf(com.yagay.ListCleaner.domain.IntentKind.OPEN,
             com.yagay.ListCleaner.domain.IntentKind.SHARE,
@@ -68,7 +72,29 @@ internal fun SystemProbeDialog(
     else emptyList()
     val choices = if (request.directLaunch || request.shareMimeType != null || typedOptions.isNotEmpty())
         emptyList() else request.entryKind?.let(::availableProbeScenarios).orEmpty()
-    if (typedOptions.isNotEmpty()) {
+    if (documentChoices.isNotEmpty()) {
+        SettingsFlatDialog(
+            onDismissRequest = onDismiss,
+            title = { AdaptiveText(stringResource(R.string.intent_document_provider)) },
+            text = {
+                Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                    documentChoices.forEach { previewKind ->
+                        SettingsFlatChoiceRow(
+                            label = stringResource(previewKind.titleRes()),
+                            selected = false,
+                            onClick = {
+                                SystemEffectPreview.launch(context, previewKind, request.userId)
+                                onDismiss()
+                            },
+                        )
+                    }
+                }
+            },
+            confirmButton = { AdaptiveTextButton(onClick = onDismiss) {
+                AdaptiveText(stringResource(R.string.common_cancel))
+            } },
+        )
+    } else if (typedOptions.isNotEmpty()) {
         SettingsFlatDialog(
             onDismissRequest = onDismiss,
             title = { AdaptiveText(stringResource(typedKind!!.titleRes())) },
@@ -127,7 +153,7 @@ internal fun SystemProbeDialog(
         )
     }
     LaunchedEffect(request) {
-        if (choices.size > 1 || typedOptions.isNotEmpty()) return@LaunchedEffect
+        if (documentChoices.isNotEmpty() || choices.size > 1 || typedOptions.isNotEmpty()) return@LaunchedEffect
         try {
             val kind = request.entryKind
             val component = request.componentKind
