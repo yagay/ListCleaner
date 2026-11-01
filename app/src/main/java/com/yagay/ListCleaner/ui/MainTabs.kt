@@ -356,9 +356,10 @@ fun RulesTab(
                     }, visibleRules.isNotEmpty())
                 )
 
-    Box(Modifier.fillMaxSize()) {
-    LazyColumn(Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = if (selectionDraft.count > 0) 90.dp else 16.dp)
+    UnifiedCleanupList(
+        pendingCount = selectionDraft.count,
+        onDiscard = selectionDraft::discard,
+        onApply = { applyChanges() },
     ) {
         stickyHeader(key = "unified-cleanup-modes") {
             ClassicCleanupTabs(
@@ -660,13 +661,6 @@ previewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds,
             }
         }
     }
-    PendingChangesBar(
-        count = selectionDraft.count,
-        onDiscard = selectionDraft::discard,
-        onApply = { applyChanges() },
-        modifier = Modifier.align(Alignment.BottomCenter)
-    )
-}
 }
 
 @Composable
