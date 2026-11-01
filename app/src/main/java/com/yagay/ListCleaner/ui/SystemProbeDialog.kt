@@ -293,8 +293,13 @@ internal fun SystemProbeDialog(
                     Modifier.padding(16.dp))
             } else if (result.items.isEmpty()) {
                 Text(stringResource(
-                    if (result.source == PreviewV2Source.NFC_CAPTURE_REQUIRED)
-                        R.string.preview_v4_nfc_open_hint else R.string.preview_v2_empty
+                    when {
+                        result.source == PreviewV2Source.NFC_CAPTURE_REQUIRED ->
+                            R.string.preview_v4_nfc_open_hint
+                        systemLaunchedAt != null && result.source == PreviewV2Source.UNAVAILABLE ->
+                            R.string.preview_capture_not_observed
+                        else -> R.string.preview_v2_empty
+                    }
                 ), Modifier.padding(16.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
