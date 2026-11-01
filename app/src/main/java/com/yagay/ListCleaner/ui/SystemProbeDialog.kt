@@ -64,10 +64,12 @@ internal fun SystemProbeDialog(
     previewState: MainState? = null,
     previewScopedSelection: Set<ComponentRule>? = null,
     hasPendingDraft: Boolean = false,
+    rootSnapshot: RootPreviewSnapshot? = null,
 ) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current
     val kind = request.entryKind
+    val contract = PreviewContracts.forRequest(request)
     val route = kind?.let(::systemPreviewRoute)
         ?: request.componentKind?.let(::systemPreviewRoute)
         ?: SystemPreviewRoute.UNAVAILABLE
@@ -123,16 +125,13 @@ internal fun SystemProbeDialog(
         expectedMime = identity?.second,
         expectedHost = identity?.third,
         pendingDraft = hasPendingDraft && !history,
-        selected = if (kind == IntentKind.ASSISTANT && previewScopedSelection != null) {
-            // The scoped set is the committed selection with pending adds AND removals.
-            // Unioning it with saved state would re-add an item unselected in the draft.
-            previewState?.selected.orEmpty().filterTo(linkedSetOf()) {
-                it.kind != IntentKind.ASSISTANT
-            } + previewScopedSelection.filter { it.kind == IntentKind.ASSISTANT }
-        } else previewState?.selected.orEmpty() + previewScopedSelection.orEmpty(),
+        selected = EffectivePreviewPolicy.selection(
+            previewState?.selected.orEmpty(), previewScopedSelection, kind,
+        ),
         globalMode = previewState?.displayMode ?: com.yagay.ListCleaner.domain.DisplayMode.HIDE_SELECTED,
         overrides = previewState?.modeOverrides.orEmpty(),
         historyRequested = history,
+        rootSnapshot = rootSnapshot,
     )
 
     val widgetHost = remember(context) {
@@ -204,6 +203,9 @@ internal fun SystemProbeDialog(
                 PreviewV2Source.INTENT_CANDIDATES -> R.string.preview_v2_candidates
                 PreviewV2Source.ROLE_ELIGIBILITY -> R.string.preview_v2_role_eligibility
                 PreviewV2Source.ROLE_POLICY_PROJECTED -> R.string.preview_v2_role_policy_projected
+                PreviewV2Source.POLICY_PROJECTED -> R.string.preview_v3_policy_projected
+                PreviewV2Source.ROOT_STATE -> R.string.preview_v3_root_state
+                PreviewV2Source.ROOT_DRAFT_SIMULATION -> R.string.preview_v3_root_draft
                 PreviewV2Source.ROLE_CANDIDATES -> R.string.preview_v2_role_candidates
                 PreviewV2Source.ROLE_HOLDER -> R.string.preview_v2_role_holder
                 PreviewV2Source.DRAFT_SIMULATION -> R.string.preview_v2_draft
@@ -233,9 +235,8 @@ internal fun SystemProbeDialog(
                         Text(stringResource(R.string.preview_tab_current))
                     }
                 }
-                if (route !in setOf(
-                        SystemPreviewRoute.UNAVAILABLE, SystemPreviewRoute.CONTEXT_MENU,
-                    )
+                if (contract.nativeAction != PreviewNativeAction.NONE &&
+                    route !in setOf(SystemPreviewRoute.UNAVAILABLE, SystemPreviewRoute.CONTEXT_MENU)
                 ) {
                     AdaptiveTextButton(onClick = {
                         if (route == SystemPreviewRoute.WIDGET_PICKER) {
@@ -270,10 +271,16 @@ internal fun SystemProbeDialog(
                             }
                         }
                     }) {
-                        Text(stringResource(
-                            if (kind == IntentKind.ASSISTANT) R.string.preview_open_assistant_picker
-                            else R.string.system_probe_open_system
-                        ))
+                        Text(stringResource(when {
+                            kind == IntentKind.ASSISTANT -> R.string.preview_open_assistant_picker
+                            contract.nativeAction == PreviewNativeAction.INTENT_TEST ->
+                                R.string.preview_v3_test_intent
+                            contract.nativeAction == PreviewNativeAction.CHOOSER_TEST ->
+                                R.string.preview_v3_test_chooser
+                            contract.nativeAction == PreviewNativeAction.SYSTEM_PICKER ->
+                                R.string.preview_v3_open_picker
+                            else -> R.string.system_probe_open_system
+                        }))
                     }
                 }
             }
