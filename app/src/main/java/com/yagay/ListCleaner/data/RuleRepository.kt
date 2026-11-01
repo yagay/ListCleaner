@@ -335,14 +335,8 @@ class RuleRepository(context: Context) {
         disabledSurfaces: Set<com.yagay.ListCleaner.domain.SurfaceKind>?,
     ): Boolean {
         if (userId != activeUserId) return false
-        if (disabledKinds != null) require(disabledKinds.all { it.isSelectableEntryKind() })
         val current = localSnapshot()
-        val next = current.copy(
-            disabledEntryKinds = disabledKinds?.toSet() ?: current.disabledEntryKinds,
-            disabledEntryGroups = if (disabledKinds != null) emptySet() else current.disabledEntryGroups,
-            surfaceFilters = if (disabledSurfaces == null) current.surfaceFilters
-                else current.surfaceFilters.copy(disabledCleanupSurfaces = disabledSurfaces.toSet()),
-        ).validated()
+        val next = current.withModeDisables(disabledKinds, disabledSurfaces)
         if (next == current) return true
         persistPrepared(next)
         mutableDisabledEntryKinds.value = next.disabledEntryKinds
