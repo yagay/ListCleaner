@@ -667,19 +667,19 @@ previewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds,
             }
         }
     }
-    // Keep the Cleanup LazyColumn mounted and untouched while ordering is edited.
-    if (showSortEditor) {
-        WorkspaceSortEditorOverlay(
-            guard = sortNavigation,
-            onDismiss = { showSortEditor = false },
-        ) {
-            PriorityDialogContent(
-                state = state,
-                vm = vm,
-                pendingNavigation = sortNavigation,
-                onExit = { showSortEditor = false },
-            )
-        }
+    // Keep this host in composition while closed: it animates the editor
+    // downward before removing its contents. The Cleanup list never remounts.
+    WorkspaceSortEditorOverlay(
+        visible = showSortEditor,
+        guard = sortNavigation,
+        onDismiss = { showSortEditor = false },
+    ) {
+        PriorityDialogContent(
+            state = state,
+            vm = vm,
+            pendingNavigation = sortNavigation,
+            onExit = { showSortEditor = false },
+        )
     }
 }
 
