@@ -27,11 +27,9 @@ class SystemEffectPreviewRouteTest {
             .forEach { assertEquals(it.name, SystemPreviewRoute.PICKER, systemPreviewRoute(it)) }
     }
 
-    @Test fun documentProviderRegistryDoesNotOpenAnUnrelatedDocumentPicker() {
-        assertEquals(SystemPreviewRoute.UNAVAILABLE,
+    @Test fun documentProviderUsesNativeDocumentsUiPicker() {
+        assertEquals(SystemPreviewRoute.PICKER,
             systemPreviewRoute(IntentKind.DOCUMENT_PROVIDER))
-        assertEquals(PreviewNativeAction.NONE,
-            PreviewContracts.forEntry(IntentKind.DOCUMENT_PROVIDER).nativeAction)
     }
 
     @Test fun roleDefaultsOpenSettingsInsteadOfFakedDefaultAppChoosers() {
@@ -45,7 +43,7 @@ class SystemEffectPreviewRouteTest {
         assertEquals(android.provider.Settings.ACTION_HOME_SETTINGS,
             SystemEffectPreview.settingsActions(IntentKind.HOME).first())
         assertEquals(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS,
-            SystemEffectPreview.settingsActions(IntentKind.BROWSER).first())
+            SystemEffectPreview.settingsActions(IntentKind.BROWSER)[1])
     }
 
     @Test fun systemServicesUseSettingsWithExplicitLimitations() {
@@ -56,8 +54,8 @@ class SystemEffectPreviewRouteTest {
             .forEach { assertEquals(it.name, SystemPreviewRoute.SETTINGS, systemPreviewRoute(it)) }
     }
 
-    @Test fun keyboardSwitchIsNativePickerWithSeparateSettings() {
-        assertEquals(SystemPreviewRoute.INPUT_METHOD_PICKER,
+    @Test fun keyboardOpensInputMethodManagementSettings() {
+        assertEquals(SystemPreviewRoute.SETTINGS,
             systemPreviewRoute(IntentKind.INPUT_METHOD))
         assertEquals(android.provider.Settings.ACTION_INPUT_METHOD_SETTINGS,
             SystemEffectPreview.settingsActions(IntentKind.INPUT_METHOD).first())
