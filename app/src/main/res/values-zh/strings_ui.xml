@@ -284,4 +284,15 @@
     <string name="preview_quality_ordered_adapter">系统适配器排序 · 未验证最终画面</string>
     <string name="preview_estimated_note">仅为本地预计结果，并非系统实际返回。系统及厂商过滤、Intent 子类型、快捷方式和未扫描项目可能导致实际显示不同。</string>
     <string name="preview_estimated_count">预计：%1$d 项，涉及 %2$d 个应用</string>
+    <string name="preview_v2_adapter">已捕获系统适配器顺序（不等于最终画面）</string>
+    <string name="preview_v2_filtered">已捕获 PackageManager 过滤结果（不等于最终画面）</string>
+    <string name="preview_v2_documents">已验证的 DocumentsUI 根目录／侧栏返回</string>
+    <string name="preview_v2_enabled">Android 管理器返回的已启用项目</string>
+    <string name="preview_v2_candidates">当前 Intent 候选项目 · 尚未验证系统最终画面</string>
+    <string name="preview_v2_draft">尚未确认的选择模拟结果 · 尚未应用到 Android</string>
+    <string name="preview_v2_history">历史观察项目 · 不是实时系统列表</string>
+    <string name="preview_v2_unavailable">当前入口没有可验证的系统列表</string>
+    <string name="preview_v2_loading">正在查询当前 Android 接口…</string>
+    <string name="preview_v2_empty">当前请求没有返回项目，这不代表该分类完全为空。</string>
+    <string name="preview_v2_disclaimer">预览不会把宽泛扫描缓存混入系统返回。Android 可能在捕获阶段之后继续排序、置顶或隐藏目标。</string>
 </resources>
