@@ -4,7 +4,6 @@ import com.yagay.ListCleaner.domain.ComponentRule
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.RuntimeInterfaceSnapshot
-import com.yagay.ListCleaner.domain.isPackageScopedEntry
 
 /**
  * A single, source-first preview pipeline. A broad catalog scan is NEVER an input.
@@ -16,7 +15,8 @@ import com.yagay.ListCleaner.domain.isPackageScopedEntry
 internal enum class PreviewV2Source {
     ADAPTER_OBSERVED, FILTERED_OBSERVED, DOCUMENT_ROOTS,
     ENABLED, INTENT_CANDIDATES, ROLE_ELIGIBILITY, ROLE_POLICY_PROJECTED,
-    ROLE_CANDIDATES, ROLE_HOLDER, DRAFT_SIMULATION, HISTORY, UNAVAILABLE
+    ROLE_CANDIDATES, ROLE_HOLDER, DRAFT_SIMULATION, HISTORY, ROOT_STATE,
+    ROOT_DRAFT_SIMULATION, POLICY_PROJECTED, UNAVAILABLE
 }
 
 internal data class PreviewV2Result(
@@ -49,30 +49,46 @@ internal object SystemPreviewV2 {
         globalMode: DisplayMode = DisplayMode.HIDE_SELECTED,
         overrides: Map<IntentKind, DisplayMode> = emptyMap(),
         historyRequested: Boolean = false,
+        rootSnapshot: RootPreviewSnapshot? = null,
     ): PreviewV2Result {
-        if (probe == null || !probe.supported || probe.failure) return unavailable()
         val kind = request.entryKind
-        val apiItems = probe.items.distinctBy(SystemProbeItem::component)
-        if (kind == null) return when {
-            historyRequested -> unavailable()
-            apiItems.isNotEmpty() -> PreviewV2Result(apiItems, PreviewV2Source.INTENT_CANDIDATES)
-            else -> unavailable()
+        if (kind == null) {
+            val rootKind = request.componentKind ?: return unavailable()
+            val snapshot = rootSnapshot?.takeIf { it.userId == request.userId }
+                ?: return unavailable()
+            return PreviewV2Result(snapshot.visible(rootKind),
+                if (snapshot.pendingDraft) PreviewV2Source.ROOT_DRAFT_SIMULATION
+                else PreviewV2Source.ROOT_STATE)
         }
-
+        if (probe == null || probe.failure) return unavailable()
+        // Historical private targets are useful even when Android offers NO public live API.
         if (historyRequested) {
             val history = probe.historicalItems.distinctBy(SystemProbeItem::component)
             return if (history.isEmpty()) unavailable() else
                 PreviewV2Result(history, PreviewV2Source.HISTORY)
         }
+        if (!probe.supported) return unavailable()
+        val apiItems = probe.items.distinctBy(SystemProbeItem::component)
+        fun projected(items: List<SystemProbeItem>, source: PreviewV2Source): PreviewV2Result {
+            val visible = EffectivePreviewPolicy.visible(kind, items, selected, globalMode, overrides)
+            return PreviewV2Result(visible, when {
+                pendingDraft -> PreviewV2Source.DRAFT_SIMULATION
+                visible != items && source in setOf(
+                    PreviewV2Source.ADAPTER_OBSERVED, PreviewV2Source.FILTERED_OBSERVED,
+                    PreviewV2Source.ENABLED, PreviewV2Source.DOCUMENT_ROOTS,
+                ) -> PreviewV2Source.POLICY_PROJECTED
+                else -> source
+            })
+        }
 
-        if (kind == IntentKind.ASSISTANT) {
+        if (kind.previewAuthority() == PreviewAuthority.ROLE_CANDIDATES) {
             // RoleController's getQualifyingPackagesAsUser() (after ListCleaner Hook
             // filtering) supplies the actual eligibility decision. Its snapshot has
             // a separate storage key and is NEVER an ACTION_ASSIST resolver return.
             val eligible = probe.roleEligibilityReturn?.takeIf { capture ->
                 capture.source == "ROLE_CONTROLLER_RETURN" &&
                     capture.kind == kind.name &&
-                    capture.requestAction == "android.app.role.ASSISTANT" &&
+                    capture.requestAction == "android.app.role." + kind.name &&
                     capture.callerPackage.substringBefore(':') in setOf(
                         "com.android.permissioncontroller", "com.google.android.permissioncontroller"
                     ) &&
@@ -82,12 +98,9 @@ internal object SystemPreviewV2 {
             }
             val candidates = eligible?.let { toItems(it, probe.diagnosticCandidates) }
                 ?: probe.diagnosticCandidates.distinctBy(SystemProbeItem::packageName)
-            val effectiveMode = overrides[kind] ?: globalMode
-            // The role snapshot already underwent a Hook filter when captured, but a rule
-            // may have been applied SINCE that capture. Unverified fallback registrations
-            // have never been filtered at all. Always apply the current effective policy
-            // to this presentation, not only when a draft is pending.
-            val visible = simulate(kind, candidates, selected, effectiveMode)
+            val visible = EffectivePreviewPolicy.visible(
+                kind, candidates, selected, globalMode, overrides,
+            )
             if (pendingDraft) {
                 return PreviewV2Result(visible, PreviewV2Source.DRAFT_SIMULATION)
             }
@@ -106,25 +119,21 @@ internal object SystemPreviewV2 {
             // app, and can also be outdated relative to the local cleanup rules.
             val holders = probe.enabledItems.ifEmpty { apiItems }
             return if (holders.isNotEmpty()) {
-                val visibleHolders = simulate(kind, holders, selected, effectiveMode)
+                val visibleHolders = EffectivePreviewPolicy.visible(
+                    kind, holders, selected, globalMode, overrides,
+                )
                 PreviewV2Result(visibleHolders,
                     if (visibleHolders == holders) PreviewV2Source.ROLE_HOLDER
                     else PreviewV2Source.ROLE_POLICY_PROJECTED)
             } else unavailable()
         }
 
-        // An uncommitted selection is NOT active in Android. Project it only over the
-        // matching current API inventory; never combine it with broad scan results.
+        // Pending rules are only a simulation, and must not pretend the OS has applied
+        // them. Use exact current request candidates (or a matched manager inventory).
         if (pendingDraft) {
-            if (kind.previewAuthority() !in setOf(
-                    PreviewAuthority.RESOLVER_CANDIDATES, PreviewAuthority.ROLE_CANDIDATES,
-                )) return unavailable()
             val candidates = (probe.diagnosticCandidates.takeIf { it.isNotEmpty() }
                 ?: apiItems).distinctBy(SystemProbeItem::component)
-            return PreviewV2Result(
-                simulate(kind, candidates, selected, overrides[kind] ?: globalMode),
-                PreviewV2Source.DRAFT_SIMULATION,
-            )
+            return projected(candidates, PreviewV2Source.DRAFT_SIMULATION)
         }
 
         val ordered = probe.orderedReturn
@@ -136,7 +145,7 @@ internal object SystemPreviewV2 {
                 "android", "system", "com.android.intentresolver",
             )
         ) {
-            return PreviewV2Result(toItems(requireNotNull(ordered), apiItems),
+            return projected(toItems(requireNotNull(ordered), apiItems),
                 PreviewV2Source.ADAPTER_OBSERVED)
         }
 
@@ -150,7 +159,7 @@ internal object SystemPreviewV2 {
                 expectedAction, expectedMime, expectedHost,
             )
         ) {
-            return PreviewV2Result(toItems(returned, apiItems),
+            return projected(toItems(returned, apiItems),
                 PreviewV2Source.FILTERED_OBSERVED)
         }
 
@@ -174,11 +183,11 @@ internal object SystemPreviewV2 {
                     it.className + "@user" + (it.userId?.toString() ?: "unknown"),
                     it.label)
             }
-            return PreviewV2Result(roots + apps, PreviewV2Source.DOCUMENT_ROOTS)
+            return projected(roots + apps, PreviewV2Source.DOCUMENT_ROOTS)
         }
 
         if (probe.evidence == ProbeEvidence.ENABLED) {
-            return PreviewV2Result(probe.enabledItems.ifEmpty { apiItems }
+            return projected(probe.enabledItems.ifEmpty { apiItems }
                 .distinctBy(SystemProbeItem::component), PreviewV2Source.ENABLED)
         }
 
@@ -188,7 +197,7 @@ internal object SystemPreviewV2 {
                 PreviewAuthority.RESOLVER_CANDIDATES, PreviewAuthority.ROLE_CANDIDATES,
                 PreviewAuthority.SERVICE_CANDIDATES, PreviewAuthority.PROVIDER_CANDIDATES,
             )
-        ) return PreviewV2Result(
+        ) return projected(
             (probe.diagnosticCandidates.takeIf { it.isNotEmpty() } ?: apiItems)
                 .distinctBy(SystemProbeItem::component),
             PreviewV2Source.INTENT_CANDIDATES,
@@ -230,23 +239,6 @@ internal object SystemPreviewV2 {
             val existing = byPackage[pkg]
             SystemProbeItem(existing?.appLabel ?: pkg, pkg,
                 "@captured/" + capture.kind, existing?.appLabel ?: pkg)
-        }
-    }
-
-    private fun simulate(
-        kind: IntentKind,
-        candidates: List<SystemProbeItem>,
-        selected: Set<ComponentRule>,
-        mode: DisplayMode,
-    ): List<SystemProbeItem> {
-        val scoped = selected.filter { it.kind == kind }
-        val byId = scoped.mapTo(hashSetOf()) { it.id }
-        val byPackage = scoped.mapTo(hashSetOf()) { it.packageName }
-        val packageScoped = kind.isPackageScopedEntry()
-        return candidates.filter {
-            val matches = if (packageScoped) it.packageName in byPackage
-                else ComponentRule(kind, it.packageName, it.className).id in byId
-            mode.includes(matches, scoped.isNotEmpty())
         }
     }
 
