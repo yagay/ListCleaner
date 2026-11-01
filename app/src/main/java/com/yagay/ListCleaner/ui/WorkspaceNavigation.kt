@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -33,9 +32,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalDensity
-import kotlin.math.roundToInt
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -120,15 +117,17 @@ internal fun WorkspaceSortEditorOverlay(
 ) {
     val currentDismiss by rememberUpdatedState(onDismiss)
     val density = LocalDensity.current
-    val threshold = with(density) { 64.dp.toPx() }
     val flingThreshold = with(density) { 640.dp.toPx() }
     BackHandler(enabled = visible && !guard.showPrompt) { guard.request(currentDismiss) }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val viewportPx = with(density) { maxHeight.toPx() }
-        // Initially expose most of the editor; a second upward gesture reaches
-        // the top of this screen without creating a separate Dialog window.
-        val partialOffset = viewportPx * 0.23f
+        // The old 23% offset left a conspicuous empty strip above the sheet.
+        // Keep a small, fixed peek gap instead, regardless of screen height.
+        val partialOffset = with(density) { 48.dp.toPx() }
+            .coerceAtMost(viewportPx * 0.10f)
+        val threshold = (partialOffset * 0.55f)
+            .coerceAtMost(with(density) { 32.dp.toPx() })
         var expanded by remember(partialOffset) { mutableStateOf(false) }
         var sheetPosition by remember(partialOffset) { mutableFloatStateOf(partialOffset) }
         var dragging by remember { mutableStateOf(false) }
@@ -238,8 +237,13 @@ internal fun WorkspaceSortEditorOverlay(
             modifier = Modifier.align(Alignment.BottomCenter),
         ) {
             Surface(
-                modifier = Modifier.fillMaxSize()
-                    .offset { IntOffset(0, animatedPosition.roundToInt()) }
+                // Resize the panel from its TOP while keeping the bottom
+                // anchored to the page edge. Translating a full-height panel
+                // down hid part of its editor beneath the bottom navigation.
+                modifier = Modifier.fillMaxWidth()
+                    .height(with(density) {
+                        (viewportPx - animatedPosition).coerceAtLeast(0f).toDp()
+                    })
                     .nestedScroll(scrollConnection),
                 shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
                 color = MaterialTheme.colorScheme.surface,
