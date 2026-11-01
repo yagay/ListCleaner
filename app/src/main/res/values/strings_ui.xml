@@ -352,7 +352,13 @@
     <string name="lc_mode_desc_dream">Screen saver services</string>
     <string name="lc_mode_entry_heading">Entry cleanup</string>
     <string name="lc_mode_root_heading">Root categories</string>
-    <string name="lc_mode_root_visibility_description">Controls visibility in Root; does not change component state</string>
-    <string name="lc_mode_root_hidden">Hidden in Root</string>
-    <string name="lc_mode_root_visible">Visible in Root</string>
+    <string name="lc_mode_root_visibility_description">Controls whether Root can change components; existing changes are not undone</string>
+    <string name="lc_mode_root_hidden">Cleanup disabled</string>
+    <string name="lc_mode_root_visible">Cleanup enabled</string>
+    <string name="lc_mode_root_desc_launcher">Control whether Root can change launcher activity component states</string>
+    <string name="lc_mode_root_desc_shortcut">Control whether Root can change shortcut-related components</string>
+    <string name="lc_mode_root_desc_widget">Control whether Root can change app widget provider components</string>
+    <string name="lc_mode_root_desc_tile">Control whether Root can change Quick Settings tile services</string>
+    <string name="lc_mode_root_desc_controls">Control whether Root can change device control services</string>
+    <string name="lc_mode_root_desc_authenticator">Control whether Root can change account authenticator components</string>
 </resources>
