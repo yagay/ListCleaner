@@ -29,7 +29,6 @@ import com.yagay.ListCleaner.domain.isSelectableEntryKind
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.yagay.ListCleaner.domain.kinds
 import androidx.compose.material3.MaterialTheme
-import com.yagay.ListCleaner.domain.isSelectableEntryKind
 
 /**
  * Bottom-navigation Lists tab: Global Mode management only.
