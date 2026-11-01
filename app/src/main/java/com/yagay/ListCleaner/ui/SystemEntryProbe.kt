@@ -11,6 +11,7 @@ import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import android.content.pm.ServiceInfo
 import android.os.Process
+import android.os.UserManager
 import android.provider.DocumentsContract
 import android.view.accessibility.AccessibilityManager
 import android.view.inputmethod.InputMethodManager
@@ -60,8 +61,11 @@ internal data class SystemProbeItem(
     val packageName: String,
     val className: String,
     val appLabel: String = label,
+    /** Actual Android profile identity; null for ordinary single-user candidates. */
+    val userId: Int? = null,
 ) {
     val component: String get() = "$packageName/$className"
+    val displayIdentity: String get() = component + (userId?.let { "@user$it" } ?: "")
 }
 
 /** Source roots observed earlier inside the real DocumentsUI process via LSPosed.
@@ -113,6 +117,8 @@ internal data class SystemProbeResult(
     val enabledItems: List<SystemProbeItem> = emptyList(),
     /** Previously observed ShortcutService/launcher items, never a live host list. */
     val historicalItems: List<SystemProbeItem> = emptyList(),
+    /** Post-filter NFC CATEGORY_PAYMENT service returns, individually keyed by userId. */
+    val nfcPaymentReturns: List<RuntimeInterfaceSnapshot> = emptyList(),
 )
 
 /**
@@ -142,6 +148,8 @@ internal object SystemEntryProbe {
                     roleEligibilityReturn = roleEligibility,
                     hostReturn = host,
                     unattributedReturn = other,
+                    nfcPaymentReturns = if (kind == IntentKind.NFC_HCE)
+                        readNfcPaymentReturns(context) else emptyList(),
                 )
                 if (kind !in setOf(
                         IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT,
@@ -226,6 +234,41 @@ internal object SystemEntryProbe {
             roleEligibility = roleEligibility,
         )
     }.getOrDefault(RuntimeObservations(null, null, null, null, null))
+
+    /**
+     * One trustworthy NFC service return per accessible Android profile. A shared
+     * NFC process may query work user 10 while running under owner user 0.
+     * Only profiles returned by Android are read; never expose arbitrary user IDs
+     * just because an old preference key exists.
+     */
+    private fun readNfcPaymentReturns(context: Context): List<RuntimeInterfaceSnapshot> {
+        val current = AndroidUid.userId(Process.myUid())
+        val fromManager = runCatching {
+            context.getSystemService(UserManager::class.java)?.userProfiles.orEmpty()
+                .map { it.identifier }
+        }.getOrDefault(emptyList())
+        val fromLauncher = runCatching {
+            context.getSystemService(LauncherApps::class.java)?.profiles.orEmpty()
+                .map { it.identifier }
+        }.getOrDefault(emptyList())
+        val users = (listOf(current) + fromManager + fromLauncher)
+            .filter { it in 0..21474 }.distinct().take(32)
+        val prefs = context.getSharedPreferences(
+            com.yagay.ListCleaner.domain.RuntimeCaptureContract.PREFS,
+            Context.MODE_PRIVATE,
+        )
+        return users.mapNotNull { userId ->
+            RuntimeInterfaceSnapshotCodec.decode(
+                prefs.getString(RuntimeInterfaceSnapshotCodec.keyForNfcPayment(userId), null),
+                IntentKind.NFC_HCE,
+            )?.takeIf { snapshot ->
+                snapshot.source == "NFC_PAYMENT_FILTERED_RETURN" &&
+                    snapshot.requestAction == "android.nfc.cardemulation.payment" &&
+                    snapshot.callerPackage.substringBefore(':') == "com.android.nfc" &&
+                    snapshot.callerUserId == userId && !snapshot.truncated
+            }
+        }.sortedWith(compareBy({ it.callerUserId != current }, { it.callerUserId }))
+    }
 
     @Suppress("DEPRECATION")
     private fun isRecognizedSettingsUid(context: Context, uid: Int): Boolean {
