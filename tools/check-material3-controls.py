@@ -830,7 +830,7 @@ if "AdaptiveFilterChip(" not in compact:
 # Categories use an anchored, scrollable Material 3 dropdown, not a distant bottom sheet.
 category = (root / "WorkspaceCategorySelector.kt").read_text(encoding="utf-8")
 for expected in ("FlatWorkspaceDropdownMenu(", "Surface(", "EntryCategoryPicker(",
-                 "ComponentCategoryPicker(", "expandedGroup", "group.kinds()",
+                 "ComponentCategoryPicker(", "IntentKind.entries.filter",
                  "availableKinds", "onSelected(null)", "menuWidth = 280.dp",
                  "AdaptiveDropdownMenuItem("):
     if expected not in category:
