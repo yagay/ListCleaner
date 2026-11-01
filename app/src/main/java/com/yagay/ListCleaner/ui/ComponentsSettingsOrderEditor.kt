@@ -27,7 +27,7 @@ import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
-import com.yagay.ListCleaner.data.CleanupKind
+import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.AppTypeFilter
 import com.yagay.ListCleaner.domain.activePriorityRanks
 import com.yagay.ListCleaner.domain.addActivePriority
@@ -49,7 +49,7 @@ internal fun ComponentsSettingsOrderEditor(
     labels: Map<String, String>,
     pendingNavigation: PendingNavigationGuard?,
     onExit: () -> Unit,
-    onRootKind: (CleanupKind?) -> Unit,
+    onEntryKind: (IntentKind?) -> Unit,
     onManagedKind: (ManagedComponentSurface) -> Unit,
 ) {
     val context = LocalContext.current
@@ -162,7 +162,7 @@ internal fun ComponentsSettingsOrderEditor(
                             category = {
                                 EntryCategoryPicker(
                                     selected = null,
-                                    onSelected = { requestExit { onRootKind(null) } },
+                                    onSelected = { selected -> requestExit { onEntryKind(selected) } },
                                     managedSurface = ManagedComponentSurface.SETTINGS_APPS,
                                     onManagedSurface = { next ->
                                         requestExit {
