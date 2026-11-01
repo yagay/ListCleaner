@@ -50,9 +50,26 @@ internal object CandidateCachePolicy {
             nowElapsedMs - lastCompletedElapsedMs < MAX_AGE_MS
 }
 
+/** A scan with zero entries is only a verified empty list when every source completed. */
+internal data class CandidateScanEvidence(
+    val userId: Int,
+    val observedAtMillis: Long = 0L,
+    val candidateCount: Int = 0,
+    val failedSources: Int = 0,
+    val unavailableSources: Int = 0,
+) {
+    val isComplete: Boolean get() =
+        observedAtMillis > 0 && failedSources == 0 && unavailableSources == 0
+    val isVerifiedEmpty: Boolean get() = isComplete && candidateCount == 0
+}
+
 /** Evidence-based discovery, not a claim to enumerate every installed intent filter. */
 class IntentCatalog(private val context: Context) {
-    data class Snapshot(val userId: Int, val items: List<ComponentCandidate>)
+    data class Snapshot(
+        val userId: Int,
+        val items: List<ComponentCandidate>,
+        val evidence: CandidateScanEvidence = CandidateScanEvidence(userId),
+    )
     private val mutableSnapshot = MutableStateFlow(Snapshot(android.os.Process.myUid() / 100000, emptyList()))
     val snapshot: StateFlow<Snapshot> = mutableSnapshot.asStateFlow()
     private val mutableCandidates = MutableStateFlow<List<ComponentCandidate>>(emptyList())
@@ -368,13 +385,19 @@ class IntentCatalog(private val context: Context) {
             else -> null
         }
         mutableCandidates.value = result
-        mutableSnapshot.value = Snapshot(userId, result)
+        mutableSnapshot.value = Snapshot(userId, result, CandidateScanEvidence(
+            userId = userId,
+            observedAtMillis = System.currentTimeMillis(),
+            candidateCount = result.size,
+            failedSources = failures,
+            unavailableSources = specialUnavailable.size,
+        ))
         cachedInputFingerprint = inputFingerprint
         lastCompletedScanElapsedMs = android.os.SystemClock.elapsedRealtime()
         cachedDefinitionFingerprint = fingerprint
         // An incomplete scan must be retried; caching a partial scan as complete
         // can turn a transient Shell/PackageManager failure into a persistent zero.
-        invalidated = failures > 0
+        invalidated = failures > 0 || specialUnavailable.isNotEmpty()
         result
     }
 
