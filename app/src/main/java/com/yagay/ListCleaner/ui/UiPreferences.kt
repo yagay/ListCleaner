@@ -51,6 +51,7 @@ internal data class UiPreferences(
     val pinnedRootKinds: List<CleanupKind> = emptyList(),
     val pinnedManagedSurfaces: List<String> = emptyList(),
     val disabledRootKinds: Set<CleanupKind> = emptySet(),
+    val disabledManagedSurfaces: Set<String> = emptySet(),
     val rememberFilters: Boolean = false,
     val openHelpByDefault: Boolean = false,
     val homeColumns: Int = 2,
@@ -89,6 +90,7 @@ internal data class UiPreferences(
         pinnedRootKinds = pinnedRootKinds.distinct().take(CleanupKind.entries.size),
         pinnedManagedSurfaces = pinnedManagedSurfaces.filter { it in setOf("SETTINGS_APPS", "NOTIFICATIONS") }.distinct(),
         disabledRootKinds = disabledRootKinds.intersect(CleanupKind.entries.toSet()),
+        disabledManagedSurfaces = disabledManagedSurfaces.intersect(setOf("SETTINGS_APPS", "NOTIFICATIONS")),
         homeLayout = UiHomeLayout.CLASSIC_LIST,
         colorOverrides = colorOverrides.filter { (key, hex) -> (key in UiColorRoles.keys || (key.startsWith("dark_") && key.removePrefix("dark_") in UiColorRoles.keys)) && hex.matches(Regex("#[0-9a-fA-F]{6}")) },
         customAccentHex = customAccentHex.takeIf { it.matches(Regex("#[0-9a-fA-F]{6}")) } ?: "#2859AB",
@@ -176,7 +178,8 @@ internal object UiPreferencesStore {
             pinnedEntryKinds = storedKinds(p.getString("pinned_entry_kinds", null), IntentKind.entries.toTypedArray()),
             pinnedRootKinds = storedKinds(p.getString("pinned_root_kinds", null), CleanupKind.entries.toTypedArray()),
             pinnedManagedSurfaces = p.getString("pinned_managed_surfaces", null).orEmpty().split(',').filter { it in setOf("SETTINGS_APPS", "NOTIFICATIONS") }.distinct(),
-            disabledRootKinds = storedKinds(p.getString("disabled_root_kinds", null), CleanupKind.entries.toTypedArray()).toSet(),
+            disabledRootKinds = storedKinds(p.getString("disabled_root_kinds", "disabled_managed_surfaces", null), CleanupKind.entries.toTypedArray()).toSet(),
+            disabledManagedSurfaces = p.getString("disabled_managed_surfaces", null).orEmpty().split(',').filter { it in setOf("SETTINGS_APPS", "NOTIFICATIONS") }.toSet(),
             rememberFilters = p.getBoolean("remember_filters", defaults.rememberFilters),
             openHelpByDefault = p.getBoolean("help_default", defaults.openHelpByDefault),
             homeColumns = p.getInt("home_columns", defaults.homeColumns),
@@ -230,6 +233,7 @@ internal object UiPreferencesStore {
             .putString("pinned_root_kinds", safe.pinnedRootKinds.joinToString(",") { it.name })
             .putString("pinned_managed_surfaces", safe.pinnedManagedSurfaces.joinToString(","))
             .putString("disabled_root_kinds", safe.disabledRootKinds.joinToString(",") { it.name })
+            .putString("disabled_managed_surfaces", safe.disabledManagedSurfaces.joinToString(","))
             .putBoolean("remember_filters", safe.rememberFilters)
             .putBoolean("help_default", safe.openHelpByDefault)
             .putInt("home_columns", safe.homeColumns)
@@ -356,6 +360,7 @@ internal object UiPreferencesStore {
         snapshot.put("pinned_root_kinds", v.pinnedRootKinds.joinToString(",") { it.name })
         snapshot.put("pinned_managed_surfaces", v.pinnedManagedSurfaces.joinToString(","))
         snapshot.put("disabled_root_kinds", v.disabledRootKinds.joinToString(",") { it.name })
+        snapshot.put("disabled_managed_surfaces", v.disabledManagedSurfaces.joinToString(","))
         snapshot.put("scan_mode", v.scanMode.name)
         snapshot.put("proactive_scan_mode", v.proactiveScanMode.name)
         snapshot.put("proactive_direct_share", v.proactiveDirectShare)
