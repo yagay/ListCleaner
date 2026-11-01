@@ -308,4 +308,7 @@
     <string name="preview_v4_nfc_required">No verified NFC payment service response has been captured. Installed HCE services are not the system default payment list.</string>
     <string name="preview_v4_nfc_open_hint">Open the system NFC panel, then return here and refresh. Only services actually returned by the NFC manager will be displayed.</string>
     <string name="preview_v4_nfc_profile_label">User %1$d</string>
+    <string name="lc_category_visibility_title">Enabled categories</string>
+    <string name="lc_category_visibility_help">Disabled categories are hidden from Entry and their cleanup rules and priorities do not run. Saved settings are restored when re-enabled. Changes take effect only after confirmation.</string>
+    <string name="lc_category_apply">Confirm changes</string>
 </resources>
