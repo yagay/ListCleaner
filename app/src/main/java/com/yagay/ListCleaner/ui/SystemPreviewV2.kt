@@ -27,7 +27,7 @@ internal data class PreviewV2Result(
     val isObserved: Boolean get() = source in setOf(
         PreviewV2Source.ADAPTER_OBSERVED, PreviewV2Source.FILTERED_OBSERVED,
         PreviewV2Source.DOCUMENT_ROOTS, PreviewV2Source.ENABLED,
-        PreviewV2Source.ROLE_ELIGIBILITY,
+        PreviewV2Source.ROLE_ELIGIBILITY, PreviewV2Source.NFC_PAYMENT_CAPTURED,
     )
 }
 
