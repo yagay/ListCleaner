@@ -181,6 +181,67 @@ class SystemPreviewV2Test {
         assertTrue(pending.items.none { it.packageName == "com.example.macro" })
     }
 
+    @Test fun savedAssistantCleanupFiltersRawFallbackWithoutPendingDraft() {
+        val candidates = SystemProbeResult(0, 0, diagnosticCandidates = listOf(
+            SystemProbeItem("Google", "com.example.google", "com.example.google.Assist"),
+            SystemProbeItem("MacroDroid", "com.example.macro", "com.example.macro.VoiceService"),
+            SystemProbeItem("Secure Settings", "com.example.secure", "com.example.secure.Assist"),
+        ))
+        val selected = setOf(ComponentRule(IntentKind.ASSISTANT,
+            "com.example.macro", "@assistant"))
+        val output = SystemPreviewV2.resolve(
+            assistantRequest, candidates, now, selected = selected)
+        assertEquals(PreviewV2Source.ROLE_CANDIDATES, output.source)
+        assertEquals(listOf("com.example.google", "com.example.secure"),
+            output.items.map { it.packageName })
+    }
+
+    @Test fun savedAssistantCleanupReprojectsStaleObservedRoleCapture() {
+        val response = SystemProbeResult(0, 0,
+            roleEligibilityReturn = assistantRoleSnapshot())
+        val selected = setOf(ComponentRule(IntentKind.ASSISTANT,
+            "com.example.macro", "@assistant"))
+        val output = SystemPreviewV2.resolve(
+            assistantRequest, response, now, selected = selected)
+        assertEquals(PreviewV2Source.ROLE_POLICY_PROJECTED, output.source)
+        assertTrue(output.items.none { it.packageName == "com.example.macro" })
+        assertEquals(3, output.items.size)
+    }
+
+    @Test fun assistantDisplayModesAndOverridesRemainAuthoritative() {
+        val response = SystemProbeResult(0, 0,
+            roleEligibilityReturn = assistantRoleSnapshot())
+        val selected = setOf(ComponentRule(IntentKind.ASSISTANT,
+            "com.example.macro", "@assistant"))
+        val shownOnly = SystemPreviewV2.resolve(
+            assistantRequest, response, now, selected = selected,
+            globalMode = DisplayMode.SHOW_SELECTED)
+        assertEquals(listOf("com.example.macro"),
+            shownOnly.items.map { it.packageName })
+        val override = SystemPreviewV2.resolve(
+            assistantRequest, response, now, selected = selected,
+            globalMode = DisplayMode.SHOW_SELECTED,
+            overrides = mapOf(IntentKind.ASSISTANT to DisplayMode.HIDE_SELECTED))
+        assertTrue(override.items.none { it.packageName == "com.example.macro" })
+        val showAll = SystemPreviewV2.resolve(
+            assistantRequest, response, now, selected = selected,
+            globalMode = DisplayMode.SHOW_ALL)
+        assertEquals(4, showAll.items.size)
+    }
+
+    @Test fun assistantWithAllCandidatesRemovedMustStayEmpty() {
+        val candidate = SystemProbeItem(
+            "MacroDroid", "com.example.macro", "com.example.macro.VoiceService")
+        val response = SystemProbeResult(0, 0,
+            diagnosticCandidates = listOf(candidate))
+        val output = SystemPreviewV2.resolve(
+            assistantRequest, response, now,
+            selected = setOf(ComponentRule(IntentKind.ASSISTANT,
+                "com.example.macro", "@assistant")))
+        assertEquals(PreviewV2Source.ROLE_CANDIDATES, output.source)
+        assertTrue(output.items.isEmpty())
+    }
+
     @Test fun foreignProfileDoesNotShowThisUsersCandidates() {
         val foreign = request.copy(userId = 10)
         val unavailable = SystemProbeResult(0, 0, supported = false)
