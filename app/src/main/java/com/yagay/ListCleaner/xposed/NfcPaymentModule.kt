@@ -36,7 +36,7 @@ class NfcPaymentModule : XposedModule() {
         )
     }
     private val runtimeCapture by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        RuntimeInterfaceCaptureWriter(preferences, ::record)
+        RuntimeInterfaceCaptureWriter(::record)
     }
     private val authorityWriter by lazy(LazyThreadSafetyMode.PUBLICATION) {
         AuthoritySnapshotWriter(preferences, ::record)
