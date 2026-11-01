@@ -371,33 +371,6 @@ fun RulesTab(
                         onAppTypeFilter = vm::setEntryAppTypeFilter,
                         showEntryGroups = true,
                         selectionActions = selectionActions,
-                        toolbarPreviewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds, state.disabledEntryGroups)
-                            .sortedWith { a, b ->
-                                val pinned = UiPreferencesRuntime.current.pinnedEntryKinds
-                                val aPin = pinned.indexOf(a).let { if (it < 0) Int.MAX_VALUE else it }
-                                val bPin = pinned.indexOf(b).let { if (it < 0) Int.MAX_VALUE else it }
-                                if (aPin != bPin) aPin.compareTo(bPin)
-                                else previewNameComparator.compare(
-                                    prefsContext.getString(a.titleRes()),
-                                    prefsContext.getString(b.titleRes())
-                                )
-                            }.map { previewKind ->
-                            WorkspaceMenuAction(
-                                label = stringResource(previewKind.titleRes()),
-                                onClick = {
-                                    systemProbeRequest = SystemProbeRequest(
-                                        entryKind = previewKind,
-                                        userId = vm.selectedSpace.value,
-                                        scenario = scopedProbeScenario(previewKind, typedOpenPreset, directShareType),
-                                        openPreset = typedOpenPreset.takeIf { previewKind == IntentKind.OPEN },
-                                        browserHost = deepLinkHost.takeIf { previewKind == IntentKind.DEEP_LINK },
-                                        directShareType = directShareType.takeIf { previewKind == IntentKind.DIRECT_SHARE },
-                                        customMimeType = scopedProbeMime(typedOpenPreset, state.openTypesExplicit.customDefinitions)
-                                            .takeIf { previewKind == IntentKind.OPEN },
-                                    )
-                                },
-                            )
-                        },
                         modeAction = { WorkspaceSortShortcut(state.filter) { navigate { vm.setDestination(Destination.PRIORITY) } } },
                         subtypeTitle = when (state.filter) {
                             IntentKind.OPEN -> openPreset?.let { state.openTypesExplicit.localizedTitle(it) }
@@ -448,7 +421,34 @@ fun RulesTab(
                 state, shownGroups.size,
                 actions = emptyList(),
                 helpExpanded = ruleHelpExpanded,
-                onHelpToggle = { ruleHelpExpanded = !ruleHelpExpanded }
+previewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds, state.disabledEntryGroups)
+                            .sortedWith { a, b ->
+                                val pinned = UiPreferencesRuntime.current.pinnedEntryKinds
+                                val aPin = pinned.indexOf(a).let { if (it < 0) Int.MAX_VALUE else it }
+                                val bPin = pinned.indexOf(b).let { if (it < 0) Int.MAX_VALUE else it }
+                                if (aPin != bPin) aPin.compareTo(bPin)
+                                else previewNameComparator.compare(
+                                    prefsContext.getString(a.titleRes()),
+                                    prefsContext.getString(b.titleRes())
+                                )
+                            }.map { previewKind ->
+                            WorkspaceMenuAction(
+                                label = stringResource(previewKind.titleRes()),
+                                onClick = {
+                                    systemProbeRequest = SystemProbeRequest(
+                                        entryKind = previewKind,
+                                        userId = vm.selectedSpace.value,
+                                        scenario = scopedProbeScenario(previewKind, typedOpenPreset, directShareType),
+                                        openPreset = typedOpenPreset.takeIf { previewKind == IntentKind.OPEN },
+                                        browserHost = deepLinkHost.takeIf { previewKind == IntentKind.DEEP_LINK },
+                                        directShareType = directShareType.takeIf { previewKind == IntentKind.DIRECT_SHARE },
+                                        customMimeType = scopedProbeMime(typedOpenPreset, state.openTypesExplicit.customDefinitions)
+                                            .takeIf { previewKind == IntentKind.OPEN },
+                                    )
+                                },
+                            )
+                        },
+                                onHelpToggle = { ruleHelpExpanded = !ruleHelpExpanded }
             )
             if (ruleHelpExpanded) WorkspaceHelpSection {
                 AdaptiveText(
@@ -668,7 +668,8 @@ private fun SummaryRow(
     displayedApps: Int,
     actions: List<WorkspaceMenuAction>,
     helpExpanded: Boolean,
-    onHelpToggle: () -> Unit
+    onHelpToggle: () -> Unit,
+    previewActions: List<WorkspaceMenuAction> = emptyList(),
 ) {
     WorkspaceListSummary(
         title = stringResource(R.string.app_list_count, displayedApps),
@@ -676,6 +677,7 @@ private fun SummaryRow(
         showSelectionActions = false,
         actions = actions,
         helpExpanded = helpExpanded,
+        previewActions = previewActions,
         onHelpToggle = onHelpToggle
     )
     if (state.error != null) {
