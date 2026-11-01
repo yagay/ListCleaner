@@ -120,9 +120,18 @@ internal object SystemEffectPreview {
         if (!checkUser(context, selectedUserId)) return
         val route = systemPreviewRoute(kind)
         if (route == SystemPreviewRoute.UNAVAILABLE ||
-            route == SystemPreviewRoute.WIDGET_PICKER ||
-            route == SystemPreviewRoute.CONTEXT_MENU) {
+            route == SystemPreviewRoute.WIDGET_PICKER) {
             show(context, R.string.system_preview_unavailable)
+            return
+        }
+        if (route == SystemPreviewRoute.CONTEXT_MENU) {
+            runCatching {
+                context.startActivity(Intent(context, TextSelectionProbeActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }.onFailure {
+                Log.w("ListCleaner.SystemPreview", "TEXT_SELECTION_PROBE_FAILED", it)
+                show(context, R.string.system_preview_failed)
+            }
             return
         }
         if (route == SystemPreviewRoute.INPUT_METHOD_PICKER) {
