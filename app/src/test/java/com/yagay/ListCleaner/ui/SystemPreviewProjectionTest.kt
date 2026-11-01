@@ -18,8 +18,14 @@ class SystemPreviewProjectionTest {
     private val a = ComponentRule(kind, "com.test.a", "com.test.a.Main")
     private val b = ComponentRule(kind, "com.test.b", "com.test.b.Main")
     private val candidates = listOf(
-        ComponentCandidate(a, "A", "Activity A"),
-        ComponentCandidate(b, "B", "Activity B"),
+        ComponentCandidate(a, "A", "Activity A", evidence = listOf(
+            "VIEW scheme=content mime=text/plain sample=a.txt",
+            "VIEW scheme=content mime=application/pdf sample=a.pdf",
+        )),
+        ComponentCandidate(b, "B", "Activity B", evidence = listOf(
+            "VIEW scheme=content mime=text/plain sample=b.txt",
+            "VIEW scheme=content mime=application/pdf sample=b.pdf",
+        )),
     )
     private fun estimate(
         saved: Set<ComponentRule>,
@@ -155,7 +161,7 @@ class SystemPreviewProjectionTest {
         assertEquals(listOf("com.test.b", "com.test.a"), result.items.map { it.packageName })
     }
 
-    @Test fun apiQueryAndSameMimeScanAreMergedWithoutIncludingOtherMimeTargets() {
+    @Test fun exactApiQueryDoesNotInheritOtherScannedTargets() {
         val kind = IntentKind.SHARE
         val b = ComponentCandidate(
             ComponentRule(kind, "com.test.b", "com.test.b.Send"), "B", "Send",
@@ -174,9 +180,20 @@ class SystemPreviewProjectionTest {
         val result = SystemPreviewProjection.estimate(kind, listOf(a,b,image),
             emptySet(), DisplayMode.SHOW_ALL, emptyMap(), probe,
             scenario = SystemProbeScenario.TEXT)!!
-        assertEquals(listOf("com.test.b", "com.test.a"),
-            result.items.map { it.packageName })
+        assertEquals(listOf("com.test.b"), result.items.map { it.packageName })
         assertEquals(PreviewListSource.ESTIMATED, result.source)
+    }
+
+    @Test fun missingMimeEvidenceIsNeverAssumedToMatchTheCurrentSharesheet() {
+        val share = IntentKind.SHARE
+        val unknown = ComponentCandidate(
+            ComponentRule(share, "com.test.unknown", "com.test.unknown.Send"),
+            "Unknown", "Unknown", evidence = listOf("UNVERIFIED registration"),
+        )
+        assertNull(SystemPreviewProjection.estimate(
+            share, listOf(unknown), emptySet(), DisplayMode.SHOW_ALL,
+            emptyMap(), null, scenario = SystemProbeScenario.TEXT,
+        ))
     }
 
     @Test fun openPdfScanIsPreservedWhileOtherFileTypesStayOut() {
