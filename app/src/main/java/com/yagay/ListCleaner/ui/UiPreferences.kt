@@ -44,7 +44,7 @@ internal data class UiPreferences(
     val appIconSize: Int = 36,
     val listRowHeight: Int = 60,
     val startPage: UiStartPage = UiStartPage.CLEANUP,
-    val appSort: UiAppSort = UiAppSort.NAME,
+    val appSort: UiAppSort = UiAppSort.SELECTED_FIRST,
     val defaultFilter: UiFilter = UiFilter.ALL,
     val defaultAppType: AppTypeFilter = AppTypeFilter.USER,
     val pinnedEntryKinds: List<IntentKind> = emptyList(),
