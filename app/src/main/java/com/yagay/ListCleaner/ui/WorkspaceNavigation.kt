@@ -4,6 +4,13 @@ import android.widget.Toast
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
@@ -55,5 +62,33 @@ internal fun WorkspaceSortModeAction(
                 modifier = Modifier.size(22.dp),
                 tint = iconTint
             )
+    }
+}
+
+/**
+ * Edit order above the active Cleanup page. Keeping that page composed retains
+ * its category, search, expanded rows, selection draft and LazyColumn scroll.
+ * The overlay owns its own pending-navigation guard so the underlying editor
+ * cannot overwrite or accidentally discard a staged order.
+ */
+@Composable
+internal fun WorkspaceSortEditorOverlay(
+    guard: PendingNavigationGuard,
+    onDismiss: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    Dialog(
+        onDismissRequest = { guard.request(onDismiss) },
+        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false),
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.96f).padding(horizontal = 8.dp),
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surface,
+        ) {
+            content()
+        }
+        // Show pending-order confirmation in the overlay window, not behind it.
+        PendingNavigationDialog(guard)
     }
 }
