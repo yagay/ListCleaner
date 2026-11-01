@@ -383,8 +383,8 @@ internal object SystemEffectPreview {
             Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
         IntentKind.BROWSER -> listOf(
             ACTION_MANAGE_DEFAULT_APP, Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
-        IntentKind.CALL_SCREENING ->
-            listOf(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+        IntentKind.CALL_SCREENING -> listOf(
+            ACTION_MANAGE_DEFAULT_APP, Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
         IntentKind.INPUT_METHOD -> listOf(Settings.ACTION_INPUT_METHOD_SETTINGS)
         IntentKind.ACCESSIBILITY -> listOf(Settings.ACTION_ACCESSIBILITY_SETTINGS)
         IntentKind.PRINT -> listOf(Settings.ACTION_PRINT_SETTINGS)
@@ -401,10 +401,15 @@ internal object SystemEffectPreview {
         settingsActions(kind).map { action ->
             Intent(action).apply {
                 if (action == ACTION_MANAGE_DEFAULT_APP &&
-                    (kind == IntentKind.ASSISTANT || kind == IntentKind.BROWSER)) {
+                    (kind == IntentKind.ASSISTANT || kind == IntentKind.BROWSER ||
+                        kind == IntentKind.CALL_SCREENING)) {
                     addCategory(Intent.CATEGORY_DEFAULT)
                     putExtra(EXTRA_ROLE_NAME,
-                        if (kind == IntentKind.BROWSER) ROLE_BROWSER else ROLE_ASSISTANT)
+                        when (kind) {
+                            IntentKind.BROWSER -> ROLE_BROWSER
+                            IntentKind.CALL_SCREENING -> ROLE_CALL_SCREENING
+                            else -> ROLE_ASSISTANT
+                        })
                 }
             }
         }
@@ -413,6 +418,7 @@ internal object SystemEffectPreview {
     private const val EXTRA_ROLE_NAME = "android.intent.extra.ROLE_NAME"
     private const val ROLE_ASSISTANT = "android.app.role.ASSISTANT"
     private const val ROLE_BROWSER = "android.app.role.BROWSER"
+    private const val ROLE_CALL_SCREENING = "android.app.role.CALL_SCREENING"
 
     /** Build the resolver/PackageManager QUERY, never a Settings navigation intent. */
     internal fun candidateIntent(
