@@ -24,13 +24,13 @@ internal class EntryPolicyProvider(
         preferences = preferences,
         selectRules = { config ->
             config.rules.asSequence()
-                .filter { it.kind in ownedKinds && it.kind.entryGroup() !in config.disabledEntryGroups }
+                .filter { it.kind in ownedKinds && it.kind.entryGroup() !in config.disabledEntryGroups && it.kind !in config.disabledEntryKinds }
                 .mapTo(linkedSetOf()) { it.id }.apply {
-                    if (IntentKind.DIRECT_SHARE in ownedKinds && EntryGroup.SHARE !in config.disabledEntryGroups) addAll(config.directShareTypes.runtimeIds())
+                    if (IntentKind.DIRECT_SHARE in ownedKinds && EntryGroup.SHARE !in config.disabledEntryGroups && IntentKind.DIRECT_SHARE !in config.disabledEntryKinds) addAll(config.directShareTypes.runtimeIds())
                 }
         },
         selectPriorities = { config ->
-            if (includePriorities) config.priorities.apps.filterKeys { it in ownedKinds && it.entryGroup() !in config.disabledEntryGroups }
+            if (includePriorities) config.priorities.apps.filterKeys { it in ownedKinds && it.entryGroup() !in config.disabledEntryGroups && it !in config.disabledEntryKinds }
             else emptyMap()
         },
         record = record,
