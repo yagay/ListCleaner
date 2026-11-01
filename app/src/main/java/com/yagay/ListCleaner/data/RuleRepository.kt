@@ -22,6 +22,7 @@ import com.yagay.ListCleaner.domain.VisibilityScope
 import com.yagay.ListCleaner.domain.UserSpaceRules
 import com.yagay.ListCleaner.domain.LegacyDirectShareRuleCleanup
 import com.yagay.ListCleaner.domain.toSpaceRules
+import com.yagay.ListCleaner.domain.EntryGroup
 import com.yagay.ListCleaner.domain.normalizeBrowserHost
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -105,6 +106,7 @@ class RuleRepository(context: Context) {
         mutableRules.value = next.rules.mapNotNull { ComponentRule.fromId(it.id) }.toSet()
         mutableMode.value = next.mode
         mutableModeOverrides.value = next.modeOverrides
+        mutableDisabledEntryGroups.value = next.disabledEntryGroups
         mutablePriorities.value = next.priorities
         mutableOpenTypes.value = next.openTypes
         mutableDirectShareTypes.value = next.directShareTypes
@@ -123,6 +125,7 @@ class RuleRepository(context: Context) {
     private val mutableRules = MutableStateFlow(initialConfig.rules.mapNotNull { ComponentRule.fromId(it.id) }.toSet())
     private val mutableMode = MutableStateFlow(initialConfig.mode)
     private val mutableModeOverrides = MutableStateFlow(initialConfig.modeOverrides)
+    private val mutableDisabledEntryGroups = MutableStateFlow(initialConfig.disabledEntryGroups)
     private val mutablePriorities = MutableStateFlow(initialConfig.priorities)
     private val mutableOpenTypes = MutableStateFlow(initialConfig.openTypes)
     private val mutableDirectShareTypes = MutableStateFlow(initialConfig.directShareTypes)
@@ -144,6 +147,7 @@ class RuleRepository(context: Context) {
     val rules: StateFlow<Set<ComponentRule>> = mutableRules.asStateFlow()
     val displayMode: StateFlow<DisplayMode> = mutableMode.asStateFlow()
     val modeOverrides: StateFlow<Map<IntentKind, DisplayMode>> = mutableModeOverrides.asStateFlow()
+    val disabledEntryGroups: StateFlow<Set<EntryGroup>> = mutableDisabledEntryGroups.asStateFlow()
     val priorities: StateFlow<PriorityConfig> = mutablePriorities.asStateFlow()
     val diagnosticMode: StateFlow<Boolean> = mutableDiagnostic.asStateFlow()
     private val mutableRevision = MutableStateFlow(0L)
@@ -281,6 +285,7 @@ class RuleRepository(context: Context) {
         rules = mutableRules.value.toSet(),
         mode = mutableMode.value,
         modeOverrides = mutableModeOverrides.value,
+        disabledEntryGroups = mutableDisabledEntryGroups.value,
         priorities = mutablePriorities.value,
         diagnostic = mutableDiagnostic.value,
         hiddenFromApps = mutableHiddenFromApps.value.toSet(),
@@ -565,6 +570,13 @@ class RuleRepository(context: Context) {
         }.toSet())
     }
 
+    @Synchronized fun setDisabledEntryGroups(groups: Set<EntryGroup>) {
+        if (groups == mutableDisabledEntryGroups.value) return
+        mutableDisabledEntryGroups.value = groups.toSet()
+        persistLocalSnapshot()
+        mutableRevision.value++
+    }
+
     @Synchronized fun setKindDisplayMode(kind: IntentKind, value: DisplayMode?) {
         require(kind.isSelectableEntryKind())
         val next = mutableModeOverrides.value.toMutableMap().apply {
@@ -735,6 +747,7 @@ class RuleRepository(context: Context) {
         mutableRules.value = active.rules
         mutableMode.value = active.mode
         mutableModeOverrides.value = active.modeOverrides
+        mutableDisabledEntryGroups.value = active.disabledEntryGroups
         mutablePriorities.value = active.priorities
         mutableOpenTypes.value = active.openTypes
         mutableDirectShareTypes.value = active.directShareTypes
@@ -834,6 +847,7 @@ class RuleRepository(context: Context) {
         mutableRules.value = prepared.rules
         mutableMode.value = prepared.mode
         mutableModeOverrides.value = prepared.modeOverrides
+        mutableDisabledEntryGroups.value = prepared.disabledEntryGroups
         mutablePriorities.value = prepared.priorities
         mutableOpenTypes.value = prepared.openTypes
         mutableDirectShareTypes.value = prepared.directShareTypes
