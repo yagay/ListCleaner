@@ -11,6 +11,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -50,6 +52,11 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
     val rootSorted = CleanupKind.entries.sortedWith { a, b ->
         nameOrder.compare(context.getString(a.titleRes()), context.getString(b.titleRes()))
     }
+    val sortedManaged = ManagedComponentSurface.entries.sortedWith { a, b ->
+        nameOrder.compare(context.getString(a.titleRes), context.getString(b.titleRes))
+    }
+    val savedManagedDisabled = UiPreferencesRuntime.current.disabledManagedSurfaces
+    var draftManagedDisabled by remember(userId, savedManagedDisabled) { mutableStateOf(savedManagedDisabled) }
     val savedRootDisabled = UiPreferencesRuntime.current.disabledRootKinds
     var draftRootDisabled by remember(userId, savedRootDisabled) { mutableStateOf(savedRootDisabled) }
     // Only one inline mode editor at a time, and no modes are written
@@ -60,7 +67,7 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
         state.disabledEntryKinds + state.disabledEntryGroups.flatMap { it.kinds() }
     }
     var draftDisabled by remember(userId, savedDisabled) { mutableStateOf(savedDisabled) }
-    val hasPendingChanges = draftDisabled != savedDisabled || draftRootDisabled != savedRootDisabled
+    val hasPendingChanges = draftDisabled != savedDisabled || draftRootDisabled != savedRootDisabled || draftManagedDisabled != savedManagedDisabled
 
     Scaffold(
         bottomBar = {
@@ -70,7 +77,7 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    AdaptiveTextButton(onClick = { draftDisabled = savedDisabled; draftRootDisabled = savedRootDisabled }) {
+                    AdaptiveTextButton(onClick = { draftDisabled = savedDisabled; draftRootDisabled = savedRootDisabled; draftManagedDisabled = savedManagedDisabled }) {
                         AdaptiveText(stringResource(R.string.common_cancel))
                     }
                     AdaptiveButton(onClick = {
@@ -78,7 +85,7 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                         // enabling one member cannot be overridden by its old group flag.
                         vm.setDisabledEntryKinds(draftDisabled)
                         if (state.disabledEntryGroups.isNotEmpty()) vm.setDisabledEntryGroups(emptySet())
-                        if (draftRootDisabled != savedRootDisabled) UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(disabledRootKinds = draftRootDisabled))
+                        if (draftRootDisabled != savedRootDisabled || draftManagedDisabled != savedManagedDisabled) UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(disabledRootKinds = draftRootDisabled, disabledManagedSurfaces = draftManagedDisabled))
                     }) {
                         AdaptiveText(stringResource(R.string.lc_mode_confirm_apply))
                     }
@@ -146,7 +153,33 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
             }
         }
         item(key = "modes-root-heading") { FlatPopupHeader(stringResource(R.string.lc_mode_root_heading)) }
-        rootSorted.forEach { kind ->
+        // Root component and managed-rule categories remain independent engines but share one Modes list.
+        val rootModeItems = (rootSorted.map { it to null } + sortedManaged.map { null to it }).sortedWith { a, b ->
+            nameOrder.compare(
+                context.getString(a.first?.titleRes() ?: requireNotNull(a.second).titleRes),
+                context.getString(b.first?.titleRes() ?: requireNotNull(b.second).titleRes)
+            )
+        }
+        rootModeItems.forEach { (rootKind, managedSurface) ->
+            if (managedSurface != null) {
+                item(key = "modes-managed-${managedSurface.name}") {
+                    val disabled = managedSurface.name in draftManagedDisabled
+                    GlobalModeSettingsRow(
+                        title = stringResource(managedSurface.titleRes),
+                        leadingIcon = if (managedSurface == ManagedComponentSurface.SETTINGS_APPS) Icons.Rounded.Settings else Icons.Rounded.Notifications,
+                        description = stringResource(if (managedSurface == ManagedComponentSurface.SETTINGS_APPS) R.string.lc_mode_managed_settings_desc else R.string.lc_mode_managed_notifications_desc),
+                        selectedMode = stringResource(if (disabled) R.string.lc_mode_disabled else R.string.lc_mode_enabled),
+                        expanded = false,
+                        onClick = {},
+                        modeMenu = {},
+                        enabled = !disabled,
+                        onEnabledChange = { enabled ->
+                            draftManagedDisabled = if (enabled) draftManagedDisabled - managedSurface.name else draftManagedDisabled + managedSurface.name
+                        },
+                    )
+                }
+            } else if (rootKind != null) {
+                val kind = rootKind
             item(key = "modes-root-${kind.name}") {
                 val disabled = kind in draftRootDisabled
                 GlobalModeSettingsRow(
@@ -162,6 +195,7 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                         draftRootDisabled = if (enabled) draftRootDisabled - kind else draftRootDisabled + kind
                     },
                 )
+            }
             }
         }
     }
