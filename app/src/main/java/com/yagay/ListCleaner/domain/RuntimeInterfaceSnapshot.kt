@@ -36,6 +36,8 @@ object RuntimeInterfaceSnapshotCodec {
     fun keyForCaller(kind: IntentKind, uid: Int): String = key(kind) + "_uid_" + uid
     /** Separate namespace: PackageManager observations must never overwrite adapter order. */
     fun keyForResolverOrder(kind: IntentKind): String = "resolver_adapter_order_v1_" + kind.name
+    /** RoleController eligibility is independent of ACTION_ASSIST resolver and current holder. */
+    fun keyForRoleEligibility(kind: IntentKind): String = "role_eligible_packages_v1_" + kind.name
 
     fun encode(snapshot: RuntimeInterfaceSnapshot): String {
         val originalPackages = snapshot.totalPackages.takeIf { it > 0 } ?: snapshot.packages.size
