@@ -150,14 +150,14 @@ internal fun SystemProbeDialog(
     }
 
     inspected?.let { item ->
-        AlertDialog(
+        AdaptiveAlertDialog(
             onDismissRequest = { inspected = null },
             title = { Text(item.appLabel) },
             text = {
                 Text(item.label + "\n" + item.packageName + "\n" + item.className)
             },
             confirmButton = {
-                TextButton(onClick = { inspected = null }) {
+                AdaptiveTextButton(onClick = { inspected = null }) {
                     Text(stringResource(R.string.common_ok))
                 }
             },
@@ -181,7 +181,7 @@ internal fun SystemProbeDialog(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     scenarios.forEach { option ->
-                        FilterChip(
+                        AdaptiveFilterChip(
                             selected = scenario == option,
                             onClick = { scenario = option; systemLaunchedAt = null },
                             label = { Text(stringResource(option.titleRes)) },
@@ -210,15 +210,15 @@ internal fun SystemProbeDialog(
                     .padding(horizontal = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                TextButton(onClick = { revision++ }) {
+                AdaptiveTextButton(onClick = { revision++ }) {
                     Text(stringResource(R.string.system_probe_refresh))
                 }
                 if (!history && response?.historicalItems?.isNotEmpty() == true) {
-                    TextButton(onClick = { history = true }) {
+                    AdaptiveTextButton(onClick = { history = true }) {
                         Text(stringResource(R.string.preview_tab_history))
                     }
                 } else if (history) {
-                    TextButton(onClick = { history = false }) {
+                    AdaptiveTextButton(onClick = { history = false }) {
                         Text(stringResource(R.string.preview_tab_current))
                     }
                 }
@@ -226,7 +226,7 @@ internal fun SystemProbeDialog(
                         SystemPreviewRoute.UNAVAILABLE, SystemPreviewRoute.CONTEXT_MENU,
                     )
                 ) {
-                    TextButton(onClick = {
+                    AdaptiveTextButton(onClick = {
                         if (route == SystemPreviewRoute.WIDGET_PICKER) {
                             if (request.userId != AndroidUid.userId(Process.myUid())) {
                                 Toast.makeText(context, R.string.system_preview_other_space,
@@ -263,7 +263,7 @@ internal fun SystemProbeDialog(
                     }
                 }
                 if (kind != null && supportsScenarioTest(kind)) {
-                    TextButton(onClick = {
+                    AdaptiveTextButton(onClick = {
                         systemLaunchedAt = System.currentTimeMillis()
                         SystemEffectPreview.launchScenario(context, kind, request.userId, scenario)
                     }) {
