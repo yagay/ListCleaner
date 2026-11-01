@@ -9,14 +9,17 @@ import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.isSelectableEntryKind
 
-/**
- * One registry for all Cleanup families. Identity remains namespaced, because
- * a Root component is not an Entry rule or a managed Surface rule.
- */
+/** Two visible execution groups only: Root and LSPosed. Internal rule identities stay distinct. */
+internal enum class CleanupExecutionGroup { ROOT, LSPOSED }
 internal sealed interface CleanupCategoryId {
     data class Entry(val kind: IntentKind) : CleanupCategoryId
     data class Root(val kind: CleanupKind) : CleanupCategoryId
     data class Managed(val surface: ManagedComponentSurface) : CleanupCategoryId
+}
+
+internal fun CleanupCategoryId.executionGroup(): CleanupExecutionGroup = when (this) {
+    is CleanupCategoryId.Root -> CleanupExecutionGroup.ROOT
+    is CleanupCategoryId.Entry, is CleanupCategoryId.Managed -> CleanupExecutionGroup.LSPOSED
 }
 
 internal fun CleanupCategoryId.titleResource(): Int = when (this) {
@@ -26,9 +29,12 @@ internal fun CleanupCategoryId.titleResource(): Int = when (this) {
 }
 
 internal object CleanupCategoryRegistry {
-    fun entries(): List<CleanupCategoryId> =
+    fun lsposedCategories(): List<CleanupCategoryId> =
         IntentKind.entries.filter { it.isSelectableEntryKind() }.map { CleanupCategoryId.Entry(it) } +
             ManagedComponentSurface.entries.map { CleanupCategoryId.Managed(it) }
+
+    /** Compatibility with existing Entry navigation, which retains its underlying editors. */
+    fun entries(): List<CleanupCategoryId> = lsposedCategories()
 
     fun rootCategories(): List<CleanupCategoryId> =
         CleanupKind.entries.map { CleanupCategoryId.Root(it) }
