@@ -209,6 +209,7 @@ internal fun SystemProbeDialog(
                 PreviewV2Source.POLICY_PROJECTED -> R.string.preview_v3_policy_projected
                 PreviewV2Source.ROOT_STATE -> R.string.preview_v3_root_state
                 PreviewV2Source.ROOT_DRAFT_SIMULATION -> R.string.preview_v3_root_draft
+                PreviewV2Source.SHORTCUT_SERVICE_OBSERVED -> R.string.preview_shortcut_service_observed
                 PreviewV2Source.NFC_PAYMENT_CAPTURED -> R.string.preview_v4_nfc_captured
                 PreviewV2Source.NFC_CAPTURE_REQUIRED -> R.string.preview_v4_nfc_required
                 PreviewV2Source.ROLE_CANDIDATES -> R.string.preview_v2_role_candidates
