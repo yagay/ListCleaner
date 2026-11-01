@@ -1,6 +1,10 @@
 package com.yagay.ListCleaner.ui
 
 import android.content.Context
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.isSelectableEntryKind
@@ -37,5 +41,15 @@ internal object CleanupCategoryRegistry {
                 context.getString(second.titleResource())
             ).takeIf { it != 0 } ?: first.toString().compareTo(second.toString())
         }
+    }
+}
+
+/** Presentation metadata shared by category picker, Modes and preview. */
+internal fun CleanupCategoryId.icon(): ImageVector = when (this) {
+    is CleanupCategoryId.Entry -> kind.hierarchyIcon()
+    is CleanupCategoryId.Root -> kind.hierarchyIcon()
+    is CleanupCategoryId.Managed -> when (surface) {
+        ManagedComponentSurface.SETTINGS_APPS -> Icons.Rounded.Settings
+        ManagedComponentSurface.NOTIFICATIONS -> Icons.Rounded.Notifications
     }
 }
