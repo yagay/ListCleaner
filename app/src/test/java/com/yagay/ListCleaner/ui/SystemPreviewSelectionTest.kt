@@ -276,6 +276,31 @@ class SystemPreviewSelectionTest {
         assertEquals(PreviewListSource.DIAGNOSTIC, selected.source)
         assertEquals(raw, selected.items.single())
     }
+    @Test fun pmCaptureMustMatchActionMimeAndHostOfThisPreview() {
+        val captured = RuntimeInterfaceSnapshot(
+            kind = IntentKind.SHARE.name, source = "PACKAGE_MANAGER_FILTERED_RETURN",
+            callerUserId = 0, callerUid = 12345,
+            requestAction = "android.intent.action.SEND", requestMimeType = "image/png",
+            requestHost = "", capturedAtMillis = now - 100L,
+            packages = listOf("com.example.filtered"),
+        )
+        val payload = result(raw).copy(runtimeReturn = captured)
+        fun resultFor(action: String, mime: String, host: String? = null) =
+            SystemPreviewSelection.select(
+                request(IntentKind.SHARE), payload, false, now,
+                now - 1000L, 12345,
+                expectedAction = action, expectedMimeType = mime, expectedHost = host,
+            ).source
+        assertEquals(PreviewListSource.HOOK_OBSERVATION,
+            resultFor("android.intent.action.SEND", "image/png"))
+        assertEquals(PreviewListSource.API_RETURN,
+            resultFor("android.intent.action.SEND", "text/plain"))
+        assertEquals(PreviewListSource.API_RETURN,
+            resultFor("android.intent.action.SEND_MULTIPLE", "image/png"))
+        assertEquals(PreviewListSource.API_RETURN,
+            resultFor("android.intent.action.SEND", "image/png", "example.com"))
+    }
+
     @Test fun chooserAdapterOrderPreservesExactComponentOrderAfterMatchedLaunch() {
         val capture = RuntimeInterfaceSnapshot(
             kind = IntentKind.SHARE.name, source = "CHOOSER_ADAPTER_ORDER",
