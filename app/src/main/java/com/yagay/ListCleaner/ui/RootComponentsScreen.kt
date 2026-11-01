@@ -301,7 +301,7 @@ internal fun RootComponentsScreen(
                         tileRanks[it.component.flattenToString()] ?: Int.MAX_VALUE
                     }.thenBy { it.label.lowercase() }
                 else compareBy<RootComponent> { it.kind.ordinal }
-                    .thenComparator { a, b -> nameComparator.compare(a.label, b.label) }
+                    .thenBy { it.label.lowercase() }
                     .thenBy { it.id }
             )
         }
