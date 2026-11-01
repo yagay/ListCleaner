@@ -45,16 +45,9 @@ import androidx.compose.material3.MaterialTheme
 internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val nameOrder = remember { displayNameComparator() }
-    val sortedKinds = IntentKind.entries.filter { it.isSelectableEntryKind() }.sortedWith { a, b ->
-        nameOrder.compare(context.getString(a.titleRes()), context.getString(b.titleRes()))
-    }
-    val rootSorted = CleanupKind.entries.sortedWith { a, b ->
-        nameOrder.compare(context.getString(a.titleRes()), context.getString(b.titleRes()))
-    }
-    val sortedManaged = ManagedComponentSurface.entries.sortedWith { a, b ->
-        nameOrder.compare(context.getString(a.titleRes), context.getString(b.titleRes))
-    }
+    val sortedKinds = CleanupCategoryRegistry.sorted(context, CleanupCategoryRegistry.entries())
+        .map { it.kind }
+    val rootModeItems = CleanupCategoryRegistry.sorted(context, CleanupCategoryRegistry.rootCategories())
     val savedManagedDisabled = UiPreferencesRuntime.current.disabledManagedSurfaces
     var draftManagedDisabled by remember(userId, savedManagedDisabled) { mutableStateOf(savedManagedDisabled) }
     val savedRootDisabled = UiPreferencesRuntime.current.disabledRootKinds
@@ -154,13 +147,9 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
         }
         item(key = "modes-root-heading") { FlatPopupHeader(stringResource(R.string.lc_mode_root_heading)) }
         // Root component and managed-rule categories remain independent engines but share one Modes list.
-        val rootModeItems = (rootSorted.map { it to null } + sortedManaged.map { null to it }).sortedWith { a, b ->
-            nameOrder.compare(
-                context.getString(a.first?.titleRes() ?: requireNotNull(a.second).titleRes),
-                context.getString(b.first?.titleRes() ?: requireNotNull(b.second).titleRes)
-            )
-        }
-        rootModeItems.forEach { (rootKind, managedSurface) ->
+        rootModeItems.forEach { category ->
+            val managedSurface = (category as? CleanupCategoryId.Managed)?.surface
+            val rootKind = (category as? CleanupCategoryId.Root)?.kind
             if (managedSurface != null) {
                 item(key = "modes-managed-${managedSurface.name}") {
                     val disabled = managedSurface.name in draftManagedDisabled
