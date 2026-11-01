@@ -270,20 +270,24 @@ internal fun RootComponentsScreen(
             .filter { viewFilter != UiFilter.LOCKED || vm.isComponentBulkProtected(kind, it) }
             .groupBy { "${it.user}|${it.component.packageName}" }
             .entries
-            .sortedWith(when {
-                kind == CleanupKind.TILE && tileRanks.isNotEmpty() ->
-                    compareBy<Map.Entry<String, List<RootComponent>>> { group ->
+            .let { entries ->
+                if (kind == CleanupKind.TILE && tileRanks.isNotEmpty()) {
+                    entries.sortedWith(compareBy<Map.Entry<String, List<RootComponent>>> { group ->
                         group.value.minOfOrNull {
                             tileRanks[it.component.flattenToString()] ?: Int.MAX_VALUE
                         } ?: Int.MAX_VALUE
-                    }.thenBy { it.value.first().owner.lowercase() }.thenBy { it.key }
-                appSort == UiAppSort.SELECTED_FIRST -> compareBy<Map.Entry<String, List<RootComponent>>> { componentAppSelectionRank(it.value) }
-                    .thenBy { it.value.first().owner.lowercase() }.thenBy { it.key }
-                appSort == UiAppSort.NAME -> compareBy<Map.Entry<String, List<RootComponent>>> { it.value.first().owner.lowercase() }
-                    .thenBy { it.key }
-                else -> compareBy<Map.Entry<String, List<RootComponent>>> { it.value.first().component.packageName.lowercase() }
-                    .thenBy { it.key }
-            })
+                    }.thenBy { it.value.first().owner.lowercase() }.thenBy { it.key })
+                } else {
+                    orderCleanupAppGroups(entries, appSort) { group ->
+                        CleanupGroupOrderKey(
+                            stableId = group.key,
+                            displayName = group.value.first().owner,
+                            packageName = group.value.first().component.packageName,
+                            selectionRank = componentAppSelectionRank(group.value),
+                        )
+                    }
+                }
+            }
             .map { it.key to it.value }
     }
     LaunchedEffect(kind, groups.firstOrNull()?.first, UiPreferencesRuntime.current.expandFirstApp) {
