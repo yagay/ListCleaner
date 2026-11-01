@@ -51,6 +51,7 @@ fun RulesTab(
     val spaceScanState by vm.spaceScanState.collectAsStateWithLifecycle()
     val componentBusy by vm.componentBusy.collectAsStateWithLifecycle()
     val prefsContext = LocalContext.current
+    val previewNameComparator = remember { displayNameComparator() }
     val navigate: (() -> Unit) -> Unit = { action ->
         if (pendingNavigation != null) pendingNavigation.request(action) else action()
     }
@@ -376,7 +377,7 @@ fun RulesTab(
                                 val aPin = pinned.indexOf(a).let { if (it < 0) Int.MAX_VALUE else it }
                                 val bPin = pinned.indexOf(b).let { if (it < 0) Int.MAX_VALUE else it }
                                 if (aPin != bPin) aPin.compareTo(bPin)
-                                else displayNameComparator().compare(
+                                else previewNameComparator.compare(
                                     prefsContext.getString(a.titleRes()),
                                     prefsContext.getString(b.titleRes())
                                 )
