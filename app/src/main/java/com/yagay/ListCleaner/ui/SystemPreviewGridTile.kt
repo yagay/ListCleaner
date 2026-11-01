@@ -2,6 +2,9 @@ package com.yagay.ListCleaner.ui
 
 import android.content.ComponentName
 import android.graphics.Bitmap
+import android.os.Process
+import android.os.UserHandle
+import com.yagay.ListCleaner.domain.AndroidUid
 import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -44,7 +47,7 @@ internal fun SystemPreviewGridTile(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val cacheKey = item.component
+    val cacheKey = item.displayIdentity
     val icon by produceState<Bitmap?>(
         initialValue = systemPreviewGridIconCache.get(cacheKey),
         key1 = cacheKey,
@@ -56,7 +59,13 @@ internal fun SystemPreviewGridTile(
                     val drawable = runCatching {
                         pm.getActivityIcon(ComponentName(item.packageName, item.className))
                     }.getOrNull() ?: pm.getApplicationIcon(item.packageName)
-                    drawable.toBitmap(width = 88, height = 88)
+                    val drawableForUser = item.userId?.takeIf {
+                        it != AndroidUid.userId(Process.myUid())
+                    }?.let { user ->
+                        runCatching { pm.getUserBadgedIcon(drawable, UserHandle.of(user)) }
+                            .getOrNull()
+                    } ?: drawable
+                    drawableForUser.toBitmap(width = 88, height = 88)
                 }.getOrNull()?.also { systemPreviewGridIconCache.put(cacheKey, it) }
             }
         }
@@ -100,6 +109,16 @@ internal fun SystemPreviewGridTile(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
+        if (item.userId != null && item.userId != AndroidUid.userId(Process.myUid())) {
+            Text(
+                "User ${item.userId}",
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+            )
+        }
         if (item.label.isNotBlank() && item.label != item.appLabel) {
             Text(
                 item.label,
