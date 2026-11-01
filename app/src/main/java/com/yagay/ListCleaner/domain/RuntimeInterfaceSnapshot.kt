@@ -46,15 +46,16 @@ object RuntimeInterfaceSnapshotCodec {
     fun encode(snapshot: RuntimeInterfaceSnapshot): String {
         val originalPackages = snapshot.totalPackages.takeIf { it > 0 } ?: snapshot.packages.size
         val originalComponents = snapshot.totalComponents.takeIf { it > 0 } ?: snapshot.components.size
-        var value = sanitize(snapshot).copy(
+        val sanitized = sanitize(snapshot)
+        var value = sanitized.copy(
             totalPackages = originalPackages,
             totalComponents = originalComponents,
             truncated = snapshot.truncated ||
                 originalPackages > snapshot.packages.size ||
                 originalComponents > snapshot.components.size ||
                 originalPackages > MAX_PACKAGES || originalComponents > MAX_PACKAGES ||
-                originalPackages > sanitize(snapshot).packages.size ||
-                originalComponents > sanitize(snapshot).components.size,
+                originalPackages > sanitized.packages.size ||
+                originalComponents > sanitized.components.size,
         )
         // Keep a bounded, explicit partial observation instead of dropping
         // the entire capture when many long component names are returned.
@@ -84,7 +85,12 @@ object RuntimeInterfaceSnapshotCodec {
                 parsed.packages.size > MAX_PACKAGES || parsed.components.size > MAX_PACKAGES ||
                 parsed.componentLabels.size > MAX_PACKAGES
             ) return@runCatching null
-            sanitize(parsed)
+            val clean = sanitize(parsed)
+            // Invalid or duplicate identifiers removed while decoding are not a
+            // verified complete system return. Never promote them to live evidence.
+            clean.copy(truncated = clean.truncated ||
+                clean.packages.size != parsed.packages.size ||
+                clean.components.size != parsed.components.size)
         }.getOrNull()
     }
 
