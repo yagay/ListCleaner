@@ -307,4 +307,5 @@
     <string name="preview_v4_nfc_captured">Captured NFC payment services by Android profile (after Hook filtering); the OEM screen may further change or merge the list.</string>
     <string name="preview_v4_nfc_required">No verified NFC payment service response has been captured. Installed HCE services are not the system default payment list.</string>
     <string name="preview_v4_nfc_open_hint">Open the system NFC panel, then return here and refresh. Only services actually returned by the NFC manager will be displayed.</string>
+    <string name="preview_v4_nfc_profile_label">User %1$d</string>
 </resources>
