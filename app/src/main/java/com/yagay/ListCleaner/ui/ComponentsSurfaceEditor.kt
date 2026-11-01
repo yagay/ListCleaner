@@ -180,14 +180,14 @@ internal fun applyManagedComponentDraft(
 }
 
 @Composable
-internal fun ComponentsSurfaceEditor(
+internal fun EntryManagedSurfaceEditor(
     state: MainState,
     vm: MainViewModel,
     surface: ManagedComponentSurface,
     pendingNavigation: PendingNavigationGuard?,
     refreshRegistry: ListsRefreshRegistry?,
-    onRootKind: (CleanupKind?) -> Unit,
-    onManagedKind: (ManagedComponentSurface) -> Unit,
+    onEntry: () -> Unit,
+    onManagedSurface: (ManagedComponentSurface) -> Unit,
     onOpenRoot: () -> Unit = {},
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -356,7 +356,7 @@ internal fun ComponentsSurfaceEditor(
         else if (selectionDraft.count == 0) action()
         else { selectionDraft.discard(); action() }
     }
-    BackHandler(enabled = !sorting) { request { onRootKind(null) } }
+    BackHandler(enabled = !sorting) { request { onEntry() } }
 
     val hasQuery = state.query.isNotBlank()
     val groups = byPackage.entries.mapNotNull { (pkg, rows) ->
@@ -435,8 +435,8 @@ internal fun ComponentsSurfaceEditor(
             candidates = packageNames, labels = labels,
             pendingNavigation = pendingNavigation,
             onExit = { sorting = false },
-            onRootKind = onRootKind,
-            onManagedKind = onManagedKind,
+            onRootKind = { onEntry() },
+            onManagedKind = onManagedSurface,
         )
         return
     }
@@ -449,7 +449,7 @@ internal fun ComponentsSurfaceEditor(
             stickyHeader(key = "unified-cleanup-modes") {
                 ClassicCleanupTabs(
                     active = ClassicCleanupMode.ENTRIES,
-                    onEntries = { request { onRootKind(null) } },
+                    onEntries = { request { onEntry() } },
                     onComponents = { request { onOpenRoot() } },
                 )
             }
@@ -468,8 +468,8 @@ internal fun ComponentsSurfaceEditor(
                                 viewFilter = it
                                 UiPreferencesStore.rememberFilter(context, it, "rules")
                             },
-                            onEntry = { request { onRootKind(null) } },
-                            onManagedSurface = { next -> request { onManagedKind(next) } },
+                            onEntry = { request { onEntry() } },
+                            onManagedSurface = { next -> request { onManagedSurface(next) } },
                             canSort = !isNotification,
                             onOpenSort = { request { sorting = true } },
                             actions = listOf(
