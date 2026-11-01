@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.isSelectableEntryKind
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.yagay.ListCleaner.domain.kinds
 import androidx.compose.material3.MaterialTheme
 import com.yagay.ListCleaner.domain.isSelectableEntryKind
@@ -100,6 +102,7 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                         val isDisabled = kind in draftDisabled
                         GlobalModeSettingsRow(
                             title = stringResource(kind.titleRes()),
+                            leadingIcon = kind.hierarchyIcon(),
                             description = stringResource(kind.modeDescriptionRes()),
                             selectedMode = stringResource(
                                 if (kind in (draftDisabled - savedDisabled)) R.string.lc_mode_pending_disable
@@ -146,11 +149,13 @@ private fun GlobalModeSettingsRow(
     onClick: () -> Unit,
     modeMenu: @Composable () -> Unit,
     enabled: Boolean? = null,
+    leadingIcon: ImageVector? = null,
     onEnabledChange: ((Boolean) -> Unit)? = null,
 ) {
     androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth()) {
         MaterialSettingsRow(
             title = title,
+            leadingIcon = leadingIcon,
             supportingText = if (description == null) selectedMode else "$description\n$selectedMode",
             onClick = onClick,
         ) {
