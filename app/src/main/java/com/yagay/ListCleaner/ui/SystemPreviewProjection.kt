@@ -101,7 +101,14 @@ internal object SystemPreviewProjection {
         // (still explicitly labelled ESTIMATED, never an observed Resolver panel).
         val queried = probe?.diagnosticCandidates?.takeIf { it.isNotEmpty() }
             ?: probe?.items?.takeIf { it.isNotEmpty() }
-        val known = (queried ?: scopedCatalog).distinctBy(SystemProbeItem::component)
+        val known = when {
+            queried != null -> queried
+            // A successful, empty query is authoritative about its own *candidate inventory*:
+            // do not repopulate it from the broad multi-Intent discovery catalog.
+            probe?.evidence == ProbeEvidence.REGISTERED && !probe.failure -> emptyList()
+            // No public chooser inventory exists for Direct Share/other private surfaces.
+            else -> scopedCatalog
+        }.distinctBy(SystemProbeItem::component)
         if (known.isEmpty()) return null
 
         val kindRules = selectedRules.filter { it.kind == kind }
