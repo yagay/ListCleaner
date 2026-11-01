@@ -595,8 +595,10 @@ previewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds,
                         )
                     },
                     onOverview = { overviewPackage = group.packageName },
-                    openWithDefinitions = if (state.filter == IntentKind.OPEN &&
-                        typedOpenPreset == null) state.openTypesExplicit.customDefinitions else null
+                    openWithDefinitions = if (state.filter in setOf(
+                            IntentKind.OPEN, IntentKind.SHARE, IntentKind.SHARE_MULTIPLE
+                        )) state.openTypesExplicit.customDefinitions else null,
+                    formatKind = state.filter
                 )
             }
             if (expanded) {

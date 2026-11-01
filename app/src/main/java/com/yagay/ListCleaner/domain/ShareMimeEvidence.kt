@@ -15,7 +15,10 @@ private fun shareMimeProbes(item: ComponentCandidate): Set<String> {
         else -> return emptySet()
     }
     return item.evidence.asSequence().filter { line ->
-        line.startsWith(prefix) || line.startsWith("BROAD $prefix")
+        line.startsWith(prefix) || line.startsWith("BROAD $prefix") ||
+            // User-defined formats generate resolver evidence with the same
+            // real action; avoid treating CUSTOM VIEW as a sharing match.
+            (line.startsWith("CUSTOM ") && line.contains(" $prefix"))
     }.mapNotNull { line ->
         shareProbeMime.find(line)?.groupValues?.getOrNull(1)
             ?.substringBefore(';')?.trim()?.lowercase()
@@ -39,6 +42,43 @@ fun observedShareMimeTypes(
             }
         }.thenBy { it })
         .toList()
+}
+
+/**
+ * Informational formats displayed under the app row for one sharing action.
+ * These labels are scanned evidence, not separate cleanup scopes.
+ */
+data class ShareWithTypeSummary(
+    val universal: Boolean = false,
+    val presets: List<OpenPreset> = emptyList(),
+    val unknownMimes: List<String> = emptyList(),
+) {
+    val isEmpty: Boolean get() = !universal && presets.isEmpty() && unknownMimes.isEmpty()
+}
+
+fun summarizeShareWithTypes(
+    candidates: Collection<ComponentCandidate>,
+    kind: IntentKind,
+    customDefinitions: Map<OpenPreset, CustomOpenDefinition> = emptyMap(),
+): ShareWithTypeSummary {
+    if (kind !in setOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE))
+        return ShareWithTypeSummary()
+    val mimes = observedShareMimeTypes(candidates, kind)
+    val known = linkedSetOf<OpenPreset>()
+    val unknown = linkedSetOf<String>()
+    for (mime in mimes) {
+        if (mime == "*/*") continue
+        val preset = matchOpenPreset(
+            IntentKind.OPEN, mime, null, customDefinitions = customDefinitions
+        )
+        if (preset != null && preset != OpenPreset.BROWSER) known += preset
+        else unknown += mime
+    }
+    return ShareWithTypeSummary(
+        universal = "*/*" in mimes,
+        presets = known.sortedBy(OpenPreset::ordinal),
+        unknownMimes = unknown.sorted(),
+    )
 }
 
 /**

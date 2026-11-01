@@ -34,8 +34,8 @@ import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.CustomOpenDefinition
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.OpenPreset
-import com.yagay.ListCleaner.domain.OpenWithTypeSummary
 import com.yagay.ListCleaner.domain.summarizeOpenWithTypes
+import com.yagay.ListCleaner.domain.summarizeShareWithTypes
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -50,10 +50,19 @@ internal fun AppRow(
     onUnlock: () -> Unit,
     onOverview: (() -> Unit)? = null,
     openWithDefinitions: Map<OpenPreset, CustomOpenDefinition>? = null,
+    formatKind: IntentKind? = null,
 ) {
-    val openTypeSummary = if (openWithDefinitions != null) {
+    // Use the same presentation for Open/Share/Multi Share without splitting
+    // applications by MIME, creating filters or touching the selection state.
+    val openTypeSummary = if (openWithDefinitions != null && formatKind == IntentKind.OPEN) {
         remember(group.components, openWithDefinitions) {
             summarizeOpenWithTypes(group.components, openWithDefinitions)
+        }
+    } else null
+    val shareTypeSummary = if (openWithDefinitions != null &&
+        formatKind in setOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE)) {
+        remember(group.components, openWithDefinitions, formatKind) {
+            summarizeShareWithTypes(group.components, formatKind!!, openWithDefinitions)
         }
     } else null
     val selectedCount = group.components.count { it.rule in selected }
@@ -85,7 +94,22 @@ internal fun AppRow(
         },
         details = {
             if (openTypeSummary != null && !openTypeSummary.isEmpty) {
-                OpenWithTypeIndicator(openTypeSummary, openWithDefinitions.orEmpty(), expanded)
+                DetectedTypeIndicator(
+                    universal = openTypeSummary.universal,
+                    presets = openTypeSummary.presets,
+                    unknownMimes = emptyList(),
+                    customDefinitions = openWithDefinitions.orEmpty(),
+                    expanded = expanded,
+                )
+            }
+            if (shareTypeSummary != null && !shareTypeSummary.isEmpty) {
+                DetectedTypeIndicator(
+                    universal = shareTypeSummary.universal,
+                    presets = shareTypeSummary.presets,
+                    unknownMimes = shareTypeSummary.unknownMimes,
+                    customDefinitions = openWithDefinitions.orEmpty(),
+                    expanded = expanded,
+                )
             }
             // A missing scan result is not evidence that a saved entry was deleted.
             // Keep it informational; only separately verified restrictions are warnings.
@@ -107,16 +131,19 @@ internal fun AppRow(
 
 /** A single read-only label for all detected formats; no extra selection controls. */
 @Composable
-private fun OpenWithTypeIndicator(
-    summary: OpenWithTypeSummary,
+private fun DetectedTypeIndicator(
+    universal: Boolean,
+    presets: List<OpenPreset>,
+    unknownMimes: List<String>,
     customDefinitions: Map<OpenPreset, CustomOpenDefinition>,
     expanded: Boolean,
 ) {
     val labels = buildList {
-        if (summary.universal) add(stringResource(R.string.open_type_universal))
-        summary.presets.forEach { preset ->
+        if (universal) add(stringResource(R.string.open_type_universal))
+        presets.forEach { preset ->
             add(customDefinitions[preset]?.title ?: stringResource(preset.titleRes()))
         }
+        addAll(unknownMimes)
     }
     // Compact app rows stay a single line; expanding reveals every detected type.
     val compactCount = 3

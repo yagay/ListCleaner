@@ -31,6 +31,59 @@ class ShareMimeEvidenceTest {
         assertFalse(multi.matchesShareMimeType("text/plain"))
     }
 
+    @Test fun shareAndMultiShareAppRowsHaveSeparateCombinedTypeSummaries() {
+        val rows = listOf(
+            candidate(IntentKind.SHARE,
+                "SEND mime=application/pdf",
+                "SEND mime=image/jpeg",
+                "SEND mime=image/png",
+                "SEND mime=application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "SEND mime=application/x-unknown-format",
+                "BROAD SEND mime=*/*"),
+            candidate(IntentKind.SHARE_MULTIPLE,
+                "SEND_MULTIPLE mime=application/zip",
+                "SEND_MULTIPLE mime=video/mp4")
+        )
+        val single = summarizeShareWithTypes(rows, IntentKind.SHARE)
+        assertTrue(single.universal)
+        assertEquals(listOf(OpenPreset.PDF, OpenPreset.WORD, OpenPreset.IMAGE),
+            single.presets)
+        assertEquals(listOf("application/x-unknown-format"), single.unknownMimes)
+        val multi = summarizeShareWithTypes(rows, IntentKind.SHARE_MULTIPLE)
+        assertFalse(multi.universal)
+        assertEquals(listOf(OpenPreset.VIDEO, OpenPreset.ARCHIVE), multi.presets)
+        assertTrue(multi.unknownMimes.isEmpty())
+        assertEquals(ShareWithTypeSummary(), summarizeShareWithTypes(rows, IntentKind.OPEN))
+    }
+
+    @Test fun shareTypeSummaryRecognizesCustomSendEvidenceOnlyForMatchingAction() {
+        val mime = "application/vnd.example.special"
+        val config = mapOf(OpenPreset.CUSTOM_1 to
+            CustomOpenDefinition("Special", mimeTypes = setOf(mime)).validated())
+        val rows = listOf(
+            candidate(IntentKind.SHARE,
+                "CUSTOM preset=CUSTOM_1 SEND mime=$mime flags=0x10000",
+                "CUSTOM preset=CUSTOM_1 VIEW scheme=content mime=application/pdf"),
+            candidate(IntentKind.SHARE_MULTIPLE,
+                "CUSTOM preset=CUSTOM_1 SEND_MULTIPLE mime=application/epub+zip")
+        )
+        assertEquals(listOf(OpenPreset.CUSTOM_1),
+            summarizeShareWithTypes(rows, IntentKind.SHARE, config).presets)
+        assertEquals(listOf(OpenPreset.EPUB),
+            summarizeShareWithTypes(rows, IntentKind.SHARE_MULTIPLE, config).presets)
+        assertFalse(rows[0].matchesShareMimeType("application/pdf"))
+    }
+
+    @Test fun savedOrUntrustedEvidenceDoesNotAdvertiseUnsupportedFormats() {
+        val legacy = candidate(IntentKind.SHARE, "RULE_RETAINED mime=application/pdf",
+            unavailable = true)
+        val bad = candidate(IntentKind.SHARE, "RANDOM mime=image/png",
+            "SEND mime=bad/value/extra")
+        val summary = summarizeShareWithTypes(listOf(legacy, bad), IntentKind.SHARE)
+        assertTrue(summary.isEmpty)
+        assertEquals(ShareWithTypeSummary(), summary)
+    }
+
     @Test fun wildcardReceiversMatchConcreteTypesWithoutInventingSupport() {
         val images = candidate(IntentKind.SHARE, "BROAD SEND mime=image/* flags=0x10000")
         val universal = candidate(IntentKind.SHARE, "BROAD SEND mime=*/* flags=0x10000")
