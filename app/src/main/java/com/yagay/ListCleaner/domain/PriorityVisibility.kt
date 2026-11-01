@@ -1,5 +1,19 @@
 package com.yagay.ListCleaner.domain
 
+/**
+ * The ordering inventory must mirror the EFFECTIVE cleanup policy, not just the
+ * global display mode. Paused/disabled kinds do not hide any targets.
+ */
+fun effectivePriorityMode(
+    kind: IntentKind,
+    globalMode: DisplayMode,
+    overrides: Map<IntentKind, DisplayMode>,
+    disabledKinds: Set<IntentKind>,
+    disabledGroups: Set<EntryGroup>,
+): DisplayMode =
+    if (kind in disabledKinds || kind.entryGroup() in disabledGroups) DisplayMode.SHOW_ALL
+    else overrides[kind] ?: globalMode
+
 /** Same category and rule mode as filtering. A partially hidden app keeps surviving entries. */
 fun priorityCandidates(
     candidates: List<ComponentCandidate>, selected: Set<ComponentRule>, mode: DisplayMode, kind: IntentKind,
