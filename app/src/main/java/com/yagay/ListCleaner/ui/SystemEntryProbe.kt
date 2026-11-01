@@ -9,7 +9,6 @@ import android.content.pm.LauncherApps
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
-import android.content.pm.ServiceInfo
 import android.os.Process
 import android.os.UserManager
 import android.provider.DocumentsContract
@@ -30,10 +29,8 @@ import com.yagay.ListCleaner.domain.ControlsProviderEligibility
 import com.yagay.ListCleaner.domain.RuntimeInterfaceSnapshot
 import com.yagay.ListCleaner.domain.RuntimeInterfaceSnapshotCodec
 import com.yagay.ListCleaner.runtime.PreviewCaptureSessionStore
-import com.yagay.ListCleaner.domain.SystemServiceEntryDefinition
 import com.yagay.ListCleaner.domain.isPackageScopedEntry
 import com.yagay.ListCleaner.domain.webTargetKind
-import org.xmlpull.v1.XmlPullParser
 
 internal data class SystemProbeRequest(
     val entryKind: IntentKind? = null,
@@ -651,7 +648,7 @@ internal object SystemEntryProbe {
                 // payment AID groups absent from the service's static XML. A local
                 // PackageManager scan is registration evidence, not the authoritative
                 // payment list: never discard a valid HCE service solely because
-                // staticPaymentAidGroup() is false.
+                // its static XML contains no payment aid-group.
                 SystemProbeItem(
                     resolved.loadLabel(pm)?.toString().orEmpty().ifBlank { service.name },
                     service.packageName, service.name,
@@ -666,26 +663,6 @@ internal object SystemEntryProbe {
             entries,
         )
     }
-
-    private fun staticPaymentAidGroup(
-        pm: PackageManager, service: ServiceInfo, definition: SystemServiceEntryDefinition,
-    ): Boolean = runCatching {
-        val meta = if (definition.action == "android.nfc.cardemulation.action.HOST_APDU_SERVICE")
-            "android.nfc.cardemulation.host_apdu_service"
-        else "android.nfc.cardemulation.off_host_apdu_service"
-        service.loadXmlMetaData(pm, meta)?.use { parser ->
-            while (parser.eventType != XmlPullParser.END_DOCUMENT) {
-                if (parser.eventType == XmlPullParser.START_TAG && parser.name == "aid-group") {
-                    val category = parser.getAttributeValue(
-                        "http://schemas.android.com/apk/res/android", "category"
-                    ) ?: parser.getAttributeValue(null, "category")
-                    if (category == "payment") return@use true
-                }
-                parser.next()
-            }
-            false
-        } ?: false
-    }.getOrDefault(false)
 
     @Suppress("DEPRECATION")
     private fun probeComponent(context: Context, kind: CleanupKind): SystemProbeResult {
