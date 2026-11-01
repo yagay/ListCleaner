@@ -17,7 +17,7 @@ internal enum class PreviewV2Source {
     ENABLED, INTENT_CANDIDATES, ROLE_ELIGIBILITY, ROLE_POLICY_PROJECTED,
     ROLE_CANDIDATES, ROLE_HOLDER, DRAFT_SIMULATION, HISTORY, ROOT_STATE,
     ROOT_DRAFT_SIMULATION, POLICY_PROJECTED, NFC_PAYMENT_CAPTURED,
-    NFC_CAPTURE_REQUIRED, UNAVAILABLE
+    NFC_CAPTURE_REQUIRED, SHORTCUT_SERVICE_OBSERVED, UNAVAILABLE
 }
 
 internal data class PreviewV2Result(
@@ -67,6 +67,22 @@ internal object SystemPreviewV2 {
             val history = probe.historicalItems.distinctBy(SystemProbeItem::component)
             return if (history.isEmpty()) unavailable() else
                 PreviewV2Result(history, PreviewV2Source.HISTORY)
+        }
+        // ShortcutService returns real package targets but not final Sharesheet pixels.
+        // Direct Share has no public final picker API. A recent, post-launch Hook return
+        // is useful evidence and must be labeled separately from adapter observations.
+        if (kind == IntentKind.DIRECT_SHARE && systemLaunchedAt != null) {
+            val shortcut = listOfNotNull(probe.unattributedReturn, probe.hostReturn,
+                probe.runtimeReturn).firstOrNull {
+                it.kind == kind.name && it.source == "DIRECT_SHARE_SERVICE_RETURN" &&
+                    it.callerUserId == request.userId && !it.truncated &&
+                    it.capturedAtMillis >= systemLaunchedAt &&
+                    atMillis - it.capturedAtMillis in 0L..MAX_AGE_MS
+            }
+            if (shortcut != null) {
+                return PreviewV2Result(toItems(shortcut, emptyList()),
+                    PreviewV2Source.SHORTCUT_SERVICE_OBSERVED)
+            }
         }
         if (!probe.supported) return unavailable()
         val apiItems = probe.items.distinctBy(SystemProbeItem::component)
