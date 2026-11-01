@@ -104,20 +104,14 @@ internal fun sortManagedSurfaceAppGroups(
     labels: Map<String, String>,
     saved: SurfaceFilterConfig,
     mode: UiAppSort,
-): List<Pair<String, List<ManagedComponentRule>>> = groups.sortedWith(
-    when (mode) {
-        UiAppSort.SELECTED_FIRST ->
-            compareBy<Pair<String, List<ManagedComponentRule>>> {
-                managedGroupSelectionRank(it.second, saved)
-            }.thenBy { labels[it.first].orEmpty().lowercase() }.thenBy { it.first }
-        UiAppSort.NAME ->
-            compareBy<Pair<String, List<ManagedComponentRule>>> {
-                labels[it.first].orEmpty().lowercase()
-            }.thenBy { it.first }
-        UiAppSort.PACKAGE ->
-            compareBy<Pair<String, List<ManagedComponentRule>>> { it.first }
-    }
-)
+): List<Pair<String, List<ManagedComponentRule>>> = orderCleanupAppGroups(groups, mode) { (pkg, rows) ->
+    CleanupGroupOrderKey(
+        stableId = pkg,
+        displayName = labels[pkg].orEmpty(),
+        packageName = pkg,
+        selectionRank = managedGroupSelectionRank(rows, saved),
+    )
+}
 
 internal fun managedRuleHidden(config: SurfaceFilterConfig, item: ManagedComponentRule): Boolean =
     when (item.type) {
