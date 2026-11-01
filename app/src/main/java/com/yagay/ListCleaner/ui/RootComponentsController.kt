@@ -196,7 +196,8 @@ internal class RootComponentsController(
 
     fun change(visibleTargets: List<RootComponent>, enable: Boolean) {
         val targets = visibleTargets.filter {
-            it.blocked == null && it.enabled != null && it.enabled != enable
+            it.kind !in UiPreferencesRuntime.current.disabledRootKinds &&
+                it.blocked == null && it.enabled != null && it.enabled != enable
         }
         mutateBatch(
             visibleTargets = targets,
@@ -223,7 +224,7 @@ internal class RootComponentsController(
     /** One verified Root operation for mixed enable/disable requests; never race two batches. */
     fun changeDesired(desired: Map<RootComponent, Boolean>) {
         val eligible = desired.filter { (target, enable) ->
-            target.blocked == null && target.enabled != null && target.enabled != enable
+            target.kind !in UiPreferencesRuntime.current.disabledRootKinds && target.blocked == null && target.enabled != null && target.enabled != enable
         }
         mutateBatch(
             visibleTargets = eligible.keys.toList(),
@@ -246,7 +247,10 @@ internal class RootComponentsController(
 
     fun invert(visibleTargets: List<RootComponent>) {
         mutateBatch(
-            visibleTargets = visibleTargets.filter { it.blocked == null && it.enabled != null },
+            visibleTargets = visibleTargets.filter {
+                it.kind !in UiPreferencesRuntime.current.disabledRootKinds &&
+                    it.blocked == null && it.enabled != null
+            },
             initialMessage = app.getString(R.string.root_requesting_invert),
             targetEnable = { it.enabled == false },
             progressMessage = { _, _, target ->
