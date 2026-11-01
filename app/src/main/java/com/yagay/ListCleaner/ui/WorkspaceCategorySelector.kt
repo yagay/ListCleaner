@@ -449,6 +449,10 @@ internal fun EntryCategoryPicker(
             it !in disabledKinds &&
             (includeAllKinds || it.entryGroup() != EntryGroup.DESKTOP)
     }
+    val nameOrder = remember { displayNameComparator() }
+    val sortedKinds = kinds.sortedWith { a, b ->
+        nameOrder.compare(context.getString(a.titleRes()), context.getString(b.titleRes()))
+    }
     val currentTitle = if (selected == null) stringResource(R.string.common_all)
         else stringResource(selected.titleRes())
     var managePins by remember { mutableStateOf(false) }
@@ -477,7 +481,7 @@ internal fun EntryCategoryPicker(
                 kind.hierarchyIcon(), { dismiss(); onSelected(kind) },
                 { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedEntryKinds = UiPreferencesRuntime.current.pinnedEntryKinds - kind)) })
         }
-        kinds.filter { it !in pinned }.forEach { kind ->
+        sortedKinds.filter { it !in pinned }.forEach { kind ->
             WorkspaceFavoriteChoice(
                 stringResource(kind.titleRes()), selected == kind, false,
                 kind.hierarchyIcon(), { dismiss(); onSelected(kind) },
@@ -502,6 +506,10 @@ internal fun ComponentCategoryPicker(
     val context = LocalContext.current
     val preferences = UiPreferencesRuntime.current
     val pinned = preferences.pinnedRootKinds
+    val nameOrder = remember { displayNameComparator() }
+    val sortedRootKinds = ComponentCategoryFilterPolicy.choices.filterNotNull().sortedWith { a, b ->
+        nameOrder.compare(context.getString(a.titleRes()), context.getString(b.titleRes()))
+    }
     var managePins by remember { mutableStateOf(false) }
     if (managePins) CategoryPinnedManagerDialog(
         items = pinned, label = { kind -> stringResource(kind.titleRes()) },
@@ -525,7 +533,7 @@ internal fun ComponentCategoryPicker(
             { dismiss(); onSelected(kind) },
             { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedRootKinds = UiPreferencesRuntime.current.pinnedRootKinds - kind)) })
         }
-        ComponentCategoryFilterPolicy.choices.filterNotNull().filter { it !in pinned }.forEach { kind ->
+        sortedRootKinds.filter { it !in pinned }.forEach { kind ->
             WorkspaceFavoriteChoice(stringResource(kind.titleRes()), managedSurface == null && selected == kind, false, kind.hierarchyIcon(),
                 { dismiss(); onSelected(kind) },
                 { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedRootKinds = UiPreferencesRuntime.current.pinnedRootKinds + kind)) })
