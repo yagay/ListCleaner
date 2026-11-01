@@ -149,7 +149,7 @@
     <string name="lc_filter_sheet_reset">重置</string>
     <string name="lc_filter_sheet_apply">应用筛选</string>
     <string name="lc_category_picker_entry_title">选择 LSPosed 分类</string>
-    <string name="lc_category_picker_component_title">选择组件分类</string>
+    <string name="lc_category_picker_component_title">选择 Root 分类</string>
     <string name="lc_category_picker_current">分类：%1$s</string>
     <string name="lc_multiuser_logs_title">多空间日志</string>
     <string name="lc_multiuser_logs_help">使用 Root 录制所有用户空间的系统日志，最多约 30 MB。切换空间复现问题后返回停止；日志可能包含敏感信息。</string>
