@@ -23,5 +23,6 @@ fun effectiveResolverPriorities(
     val hostPriority = if (kind == IntentKind.DEEP_LINK && browserHost != null) {
         browserLinks.priority(browserHost)
     } else emptyList()
-    return if (hostPriority.isNotEmpty()) hostPriority else priorities.apps[kind].orEmpty()
+    return if (hostPriority.isNotEmpty()) hostPriority else
+        priorities.apps[if (kind in DOCUMENTS_UI_SOURCE_KINDS) IntentKind.DOCUMENT_PROVIDER else kind].orEmpty()
 }

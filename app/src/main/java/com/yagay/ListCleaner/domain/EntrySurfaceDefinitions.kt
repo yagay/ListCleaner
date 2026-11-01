@@ -167,7 +167,8 @@ val ENTRY_SURFACE_DEFINITIONS: Map<IntentKind, EntrySurfaceDefinition> = buildMa
             IntentKind.DOCUMENT_PROVIDER,
             EntryIdentityScope.COMPONENT,
             EntryAuthority.PACKAGE_MANAGER,
-            setOf(EntryDiscoverySource.DOCUMENT_PROVIDER),
+            setOf(EntryDiscoverySource.DOCUMENT_PROVIDER, EntryDiscoverySource.RESOLVER_ACTIVITY,
+                EntryDiscoverySource.OBSERVED_DOCUMENT_ROOT),
         )
     )
 

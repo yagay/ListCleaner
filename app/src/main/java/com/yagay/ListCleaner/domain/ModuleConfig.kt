@@ -105,7 +105,7 @@ data class ModuleConfig(
     }
 
     fun validated(): ModuleConfig {
-        val unified = unifiedMimeManagement()
+        val unified = unifiedMimeManagement().unifiedDocumentsUiManagement()
         if (unified != this) return unified.validated()
         require(rules.size <= 20_000 && rules.all(ComponentRule::isValid))
         require(userSpaces.size <= 16 && userSpaces.keys.all { it in 1..99999 })

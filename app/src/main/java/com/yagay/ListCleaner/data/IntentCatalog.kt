@@ -370,7 +370,7 @@ class IntentCatalog(private val context: Context) {
             }.distinctBy { it.rule.id }.toList()
         if (launcherShortcuts.isNotEmpty()) found += launcherShortcuts
         report.appendLine("launcherShortcutHost userId=$userId current=${launcherShortcuts.size}")
-        val result = merge(found)
+        val result = com.yagay.ListCleaner.domain.unifyDocumentsUiCandidates(merge(found))
         report.insert(0, "scanTiming userId=$userId specialMs=$specialMillis batchMs=$batchMillis " +
             "intentQueriesMs=$intentQueryMillis shortcutsMs=${(System.nanoTime() - shortcutStartNanos) / 1_000_000} " +
             "totalMs=${(System.nanoTime() - scanStartedNanos) / 1_000_000}\n")
