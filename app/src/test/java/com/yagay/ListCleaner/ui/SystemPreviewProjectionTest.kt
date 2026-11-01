@@ -184,6 +184,21 @@ class SystemPreviewProjectionTest {
         assertEquals(PreviewListSource.ESTIMATED, result.source)
     }
 
+    @Test fun successfulEmptyIntentQueryMustRemainEmptyDespiteBroadScanMatches() {
+        val share = IntentKind.SHARE
+        val scanned = ComponentCandidate(
+            ComponentRule(share, "com.test.scanned", "com.test.scanned.Send"),
+            "Scanned", "Send",
+            evidence = listOf("SEND mime=text/plain"),
+        )
+        val emptySystemQuery = SystemProbeResult(0, 0, items = emptyList(),
+            evidence = ProbeEvidence.REGISTERED)
+        assertNull(SystemPreviewProjection.estimate(
+            share, listOf(scanned), emptySet(), DisplayMode.SHOW_ALL,
+            emptyMap(), emptySystemQuery, scenario = SystemProbeScenario.TEXT,
+        ))
+    }
+
     @Test fun missingMimeEvidenceIsNeverAssumedToMatchTheCurrentSharesheet() {
         val share = IntentKind.SHARE
         val unknown = ComponentCandidate(
