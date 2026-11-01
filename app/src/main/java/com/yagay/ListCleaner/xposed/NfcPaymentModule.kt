@@ -192,10 +192,21 @@ class NfcPaymentModule : XposedModule() {
             val component = componentOf(service) ?: return@mapNotNull null
             val info = ReflectionAccess.invokeNoArg(service, "getServiceInfo")
                 as? android.content.pm.ResolveInfo
-            val label = pm?.let { runCatching { info?.loadLabel(it)?.toString() }.getOrNull() }
-                .orEmpty().ifBlank {
-                    (ReflectionAccess.invokeNoArg(service, "getDescription") as? String).orEmpty()
-                }.trim()
+            // AOSP PaymentBackend displays ApduServiceInfo.loadLabel(PackageManager),
+            // which can differ from ResolveInfo's label and from the app label.
+            val label = pm?.let { manager ->
+                runCatching {
+                    service?.javaClass?.methods?.firstOrNull { method ->
+                        method.name == "loadLabel" && method.parameterCount == 1 &&
+                            method.parameterTypes[0] == android.content.pm.PackageManager::class.java
+                    }?.invoke(service, manager)?.toString()
+                }.getOrNull()
+            }.orEmpty().ifBlank {
+                pm?.let { runCatching { info?.loadLabel(it)?.toString() }.getOrNull() }
+                    .orEmpty()
+            }.ifBlank {
+                (ReflectionAccess.invokeNoArg(service, "getDescription") as? String).orEmpty()
+            }.trim()
             component.flattenToString().takeIf { label.isNotEmpty() }?.let { it to label }
         }.toMap()
     }
