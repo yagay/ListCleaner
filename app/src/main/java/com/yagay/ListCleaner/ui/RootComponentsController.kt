@@ -293,6 +293,9 @@ internal class RootComponentsController(
                     catalog.requireRoot()
                     for (target in targets) {
                         coroutineContext.ensureActive()
+                        // Re-check at execution time: a category may have been disabled
+                        // in Modes after the batch was queued.
+                        if (target.kind in UiPreferencesRuntime.current.disabledRootKinds) continue
                         mutableMessage.value = progressMessage(
                             completedTargets.size + 1,
                             targets.size,
