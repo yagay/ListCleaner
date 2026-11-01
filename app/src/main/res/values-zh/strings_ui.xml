@@ -308,4 +308,7 @@
     <string name="preview_v4_nfc_required">尚未捕获 NFC 管理器的有效支付服务结果。已安装的 HCE 服务不等于系统默认支付应用列表。</string>
     <string name="preview_v4_nfc_open_hint">先打开系统 NFC 页面，再返回刷新。这里仅展示 NFC 管理器实际返回的支付服务。</string>
     <string name="preview_v4_nfc_profile_label">用户空间 %1$d</string>
+    <string name="lc_category_visibility_title">分类启用管理</string>
+    <string name="lc_category_visibility_help">禁用后分类从入口列表隐藏，对应清理规则和排序停止执行。重新启用时恢复原设置。只有确认修改后才生效。</string>
+    <string name="lc_category_apply">确认修改</string>
 </resources>
