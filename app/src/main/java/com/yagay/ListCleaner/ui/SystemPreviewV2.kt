@@ -15,8 +15,8 @@ import com.yagay.ListCleaner.domain.isPackageScopedEntry
  */
 internal enum class PreviewV2Source {
     ADAPTER_OBSERVED, FILTERED_OBSERVED, DOCUMENT_ROOTS,
-    ENABLED, INTENT_CANDIDATES, ROLE_ELIGIBILITY, ROLE_CANDIDATES, ROLE_HOLDER,
-    DRAFT_SIMULATION, HISTORY, UNAVAILABLE
+    ENABLED, INTENT_CANDIDATES, ROLE_ELIGIBILITY, ROLE_POLICY_PROJECTED,
+    ROLE_CANDIDATES, ROLE_HOLDER, DRAFT_SIMULATION, HISTORY, UNAVAILABLE
 }
 
 internal data class PreviewV2Result(
@@ -82,23 +82,34 @@ internal object SystemPreviewV2 {
             }
             val candidates = eligible?.let { toItems(it, probe.diagnosticCandidates) }
                 ?: probe.diagnosticCandidates.distinctBy(SystemProbeItem::packageName)
+            val effectiveMode = overrides[kind] ?: globalMode
+            // The role snapshot already underwent a Hook filter when captured, but a rule
+            // may have been applied SINCE that capture. Unverified fallback registrations
+            // have never been filtered at all. Always apply the current effective policy
+            // to this presentation, not only when a draft is pending.
+            val visible = simulate(kind, candidates, selected, effectiveMode)
             if (pendingDraft) {
-                return PreviewV2Result(
-                    simulate(kind, candidates, selected, overrides[kind] ?: globalMode),
-                    PreviewV2Source.DRAFT_SIMULATION,
-                )
+                return PreviewV2Result(visible, PreviewV2Source.DRAFT_SIMULATION)
             }
             if (eligible != null) {
-                return PreviewV2Result(candidates, PreviewV2Source.ROLE_ELIGIBILITY)
+                return PreviewV2Result(
+                    visible,
+                    if (visible == candidates) PreviewV2Source.ROLE_ELIGIBILITY
+                    else PreviewV2Source.ROLE_POLICY_PROJECTED,
+                )
             }
             if (candidates.isNotEmpty()) {
-                // A union of possible registration paths is NOT system role eligibility.
-                return PreviewV2Result(candidates, PreviewV2Source.ROLE_CANDIDATES)
+                // These are potential registrations, never the final Android role list.
+                return PreviewV2Result(visible, PreviewV2Source.ROLE_CANDIDATES)
             }
-            // A RoleManager holder is only the current default, not eligible apps.
+            // A RoleManager holder represents the current default, not every eligible
+            // app, and can also be outdated relative to the local cleanup rules.
             val holders = probe.enabledItems.ifEmpty { apiItems }
             return if (holders.isNotEmpty()) {
-                PreviewV2Result(holders, PreviewV2Source.ROLE_HOLDER)
+                val visibleHolders = simulate(kind, holders, selected, effectiveMode)
+                PreviewV2Result(visibleHolders,
+                    if (visibleHolders == holders) PreviewV2Source.ROLE_HOLDER
+                    else PreviewV2Source.ROLE_POLICY_PROJECTED)
             } else unavailable()
         }
 
