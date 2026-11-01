@@ -86,11 +86,15 @@ class RuntimeCaptureProvider : ContentProvider() {
 
     companion object {
         private val ORDERED_SOURCES = setOf("CHOOSER_ADAPTER_ORDER", "RESOLVER_RANKED_ORDER")
-        private val RETURN_SOURCES = setOf("PACKAGE_MANAGER_FILTERED_RETURN", "SYSTEM_MANAGER_RETURN")
+        private val RETURN_SOURCES = setOf(
+            "PACKAGE_MANAGER_FILTERED_RETURN", "SYSTEM_MANAGER_RETURN",
+            "INPUT_METHOD_MENU", "ROLE_CONTROLLER_RETURN",
+            "DIRECT_SHARE_SERVICE_RETURN", "NFC_PAYMENT_FILTERED_RETURN",
+        )
         private val TRUSTED_PROCESS_PACKAGES = setOf(
             "com.android.intentresolver", "com.android.settings",
             "com.android.permissioncontroller", "com.google.android.permissioncontroller",
-            "com.google.android.documentsui", "com.android.systemui",
+            "com.google.android.documentsui", "com.android.systemui", "com.android.nfc",
         )
     }
 }
