@@ -46,7 +46,6 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val entryModeItems = CleanupCategoryRegistry.sorted(context, CleanupCategoryRegistry.entries())
-    val sortedKinds = entryModeItems.filterIsInstance<CleanupCategoryId.Entry>().map { it.kind }
     val rootModeItems = CleanupCategoryRegistry.sorted(context, CleanupCategoryRegistry.rootCategories())
     val savedManagedDisabled = UiPreferencesRuntime.current.disabledManagedSurfaces
     var draftManagedDisabled by remember(userId, savedManagedDisabled) { mutableStateOf(savedManagedDisabled) }
@@ -110,7 +109,10 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
         }
 
         item(key = "modes-entry-heading") { FlatPopupHeader(stringResource(R.string.lc_mode_entry_heading)) }
-        sortedKinds.forEach { kind ->
+        entryModeItems.forEach { category ->
+            when (category) {
+                is CleanupCategoryId.Entry -> {
+                    val kind = category.kind
             item(key = "global-mode-kind-${kind.name}") {
                         val isDisabled = kind in draftDisabled
                         GlobalModeSettingsRow(
@@ -144,8 +146,9 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                             },
                         )
             }
-        }
-        entryModeItems.filterIsInstance<CleanupCategoryId.Managed>().forEach { managedCategory ->
+                }
+                is CleanupCategoryId.Managed -> {
+                    val managedCategory = category
             val managedSurface = managedCategory.surface
             item(key = "modes-managed-${managedSurface.name}") {
                 val disabled = managedSurface.name in draftManagedDisabled
@@ -160,6 +163,9 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                         draftManagedDisabled = if (enabled) draftManagedDisabled - managedSurface.name else draftManagedDisabled + managedSurface.name
                     },
                 )
+            }
+                }
+                else -> Unit
             }
         }
         item(key = "modes-root-heading") { FlatPopupHeader(stringResource(R.string.lc_mode_root_heading)) }
