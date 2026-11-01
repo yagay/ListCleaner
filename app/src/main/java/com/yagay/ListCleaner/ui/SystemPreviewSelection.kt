@@ -132,8 +132,12 @@ internal object SystemPreviewSelection {
         }
         val callerMatches = !isManager ||
             (snapshot != null && snapshot.callerUid == currentCallerUid && currentCallerUid >= 0)
+        // The same action can resolve completely different MIME types or hosts.
+        // A new, unrelated query from another app must not become this preview's truth.
         val actionMatches = snapshot?.source != "PACKAGE_MANAGER_FILTERED_RETURN" ||
-            (expectedAction != null && snapshot.requestAction == expectedAction)
+            (expectedAction != null && snapshot.requestAction == expectedAction &&
+                snapshot.requestMimeType == expectedMimeType.orEmpty() &&
+                snapshot.requestHost == expectedHost.orEmpty())
         val attributable = if (isManager) callerMatches else capturedAfterLaunch
         if (recent && sourceMatches && attributable && actionMatches && snapshot != null) {
             return PreviewListResult(asEntries(snapshot, value.items), PreviewListSource.HOOK_OBSERVATION)
