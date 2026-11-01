@@ -24,6 +24,15 @@ class RuntimeInterfaceSnapshotCodecTest {
         assertNull(RuntimeInterfaceSnapshotCodec.decode(encoded, IntentKind.BROWSER))
     }
 
+    @Test fun roleEligibilityHasDedicatedSlotIndependentOfIntentAndAdapterReturns() {
+        val kind = IntentKind.ASSISTANT
+        val eligible = RuntimeInterfaceSnapshotCodec.keyForRoleEligibility(kind)
+        assertTrue(eligible.contains("role_eligible_packages"))
+        assertFalse(eligible == RuntimeInterfaceSnapshotCodec.key(kind))
+        assertFalse(eligible == RuntimeInterfaceSnapshotCodec.keyForCaller(kind, 10001))
+        assertFalse(eligible == RuntimeInterfaceSnapshotCodec.keyForResolverOrder(kind))
+    }
+
     @Test fun emptyReturnedListIsDistinguishableFromMissingHookCapture() {
         val empty = RuntimeInterfaceSnapshot(
             kind = IntentKind.BROWSER.name, source = "ROLE_CONTROLLER_RETURN",
