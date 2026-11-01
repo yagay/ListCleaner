@@ -31,10 +31,14 @@ class SystemEffectPreviewRouteTest {
         listOf(IntentKind.BROWSER, IntentKind.HOME, IntentKind.ASSISTANT,
             IntentKind.CALL_SCREENING)
             .forEach { assertEquals(it.name, SystemPreviewRoute.SETTINGS, systemPreviewRoute(it)) }
-        assertTrue(supportsScenarioTest(IntentKind.BROWSER))
-        assertTrue(supportsScenarioTest(IntentKind.HOME))
-        assertTrue(supportsScenarioTest(IntentKind.ASSISTANT))
-        assertFalse(supportsScenarioTest(IntentKind.CALL_SCREENING))
+        // These roles always open their real system settings/role picker.
+        // No ordinary Intent.createChooser() may substitute for role eligibility.
+        assertEquals("android.intent.action.MANAGE_DEFAULT_APP",
+            SystemEffectPreview.settingsActions(IntentKind.ASSISTANT).first())
+        assertEquals(android.provider.Settings.ACTION_HOME_SETTINGS,
+            SystemEffectPreview.settingsActions(IntentKind.HOME).first())
+        assertEquals(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS,
+            SystemEffectPreview.settingsActions(IntentKind.BROWSER).first())
     }
 
     @Test fun systemServicesUseSettingsWithExplicitLimitations() {
