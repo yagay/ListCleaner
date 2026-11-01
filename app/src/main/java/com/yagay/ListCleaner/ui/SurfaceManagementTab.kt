@@ -58,7 +58,7 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
             if (legacy.isNotEmpty()) {
                 val merged = surfacePolicy.disabledCleanupSurfaces + legacy
                 if (merged == surfacePolicy.disabledCleanupSurfaces ||
-                    vm.setSurfaceFilters(surfacePolicy.copy(disabledCleanupSurfaces = merged))) {
+                    vm.setSurfaceFiltersForSpace(userId, surfacePolicy.copy(disabledCleanupSurfaces = merged))) {
                     UiPreferencesStore.finishManagedDisableMigration(context)
                 }
             }
@@ -97,7 +97,7 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                             if (state.disabledEntryGroups.isNotEmpty()) vm.setDisabledEntryGroups(emptySet())
                         }
                         if (draftRootDisabled != savedRootDisabled) UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(disabledRootKinds = draftRootDisabled))
-                        if (draftManagedDisabled != savedManagedDisabled) vm.setSurfaceFilters(surfacePolicy.copy(disabledCleanupSurfaces = draftManagedDisabled))
+                        if (draftManagedDisabled != savedManagedDisabled) vm.setSurfaceFiltersForSpace(userId, surfacePolicy.copy(disabledCleanupSurfaces = draftManagedDisabled))
                     }) {
                         AdaptiveText(stringResource(R.string.lc_mode_confirm_apply))
                     }
