@@ -186,7 +186,7 @@ internal fun EntryManagedSurfaceEditor(
     surface: ManagedComponentSurface,
     pendingNavigation: PendingNavigationGuard?,
     refreshRegistry: ListsRefreshRegistry?,
-    onEntry: () -> Unit,
+    onEntry: (com.yagay.ListCleaner.domain.IntentKind?) -> Unit,
     onManagedSurface: (ManagedComponentSurface) -> Unit,
     onOpenRoot: () -> Unit = {},
 ) {
@@ -356,7 +356,7 @@ internal fun EntryManagedSurfaceEditor(
         else if (selectionDraft.count == 0) action()
         else { selectionDraft.discard(); action() }
     }
-    BackHandler(enabled = !sorting) { request { onEntry() } }
+    BackHandler(enabled = !sorting) { request { onEntry(null) } }
 
     val hasQuery = state.query.isNotBlank()
     val groups = byPackage.entries.mapNotNull { (pkg, rows) ->
@@ -435,7 +435,7 @@ internal fun EntryManagedSurfaceEditor(
             candidates = packageNames, labels = labels,
             pendingNavigation = pendingNavigation,
             onExit = { sorting = false },
-            onRootKind = { onEntry() },
+            onRootKind = { onEntry(null) },
             onManagedKind = onManagedSurface,
         )
         return
@@ -449,7 +449,7 @@ internal fun EntryManagedSurfaceEditor(
             stickyHeader(key = "unified-cleanup-modes") {
                 ClassicCleanupTabs(
                     active = ClassicCleanupMode.ENTRIES,
-                    onEntries = { request { onEntry() } },
+                    onEntries = { request { onEntry(null) } },
                     onComponents = { request { onOpenRoot() } },
                 )
             }
@@ -468,7 +468,7 @@ internal fun EntryManagedSurfaceEditor(
                                 viewFilter = it
                                 UiPreferencesStore.rememberFilter(context, it, "rules")
                             },
-                            onEntry = { request { onEntry() } },
+                            onEntry = { kind -> request { onEntry(kind) } },
                             onManagedSurface = { next -> request { onManagedSurface(next) } },
                             canSort = !isNotification,
                             onOpenSort = { request { sorting = true } },
