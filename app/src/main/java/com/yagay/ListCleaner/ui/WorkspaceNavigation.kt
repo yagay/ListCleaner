@@ -107,7 +107,7 @@ internal fun WorkspaceSortModeAction(
  * its children alive until the slide-out completes before disposing the editor.
  */
 @Composable
-internal fun WorkspaceSortEditorOverlay
+internal fun WorkspaceSortEditorOverlay(
     visible: Boolean,
     guard: PendingNavigationGuard,
     onDismiss: () -> Unit,
