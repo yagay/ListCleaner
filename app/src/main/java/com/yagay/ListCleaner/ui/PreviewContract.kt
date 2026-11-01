@@ -32,7 +32,8 @@ internal object PreviewContracts {
             ?: forRoot(requireNotNull(request.componentKind))
 
     fun forEntry(kind: IntentKind): PreviewContract {
-        val adapter = when (kind.previewAuthority()) {
+        val adapter = if (kind == IntentKind.NFC_HCE) PreviewAdapter.NFC_PAYMENT
+            else when (kind.previewAuthority()) {
             PreviewAuthority.RESOLVER_CANDIDATES -> PreviewAdapter.RESOLVER
             PreviewAuthority.ROLE_CANDIDATES -> PreviewAdapter.ROLE_CONTROLLER
             PreviewAuthority.ENABLED_MANAGER -> PreviewAdapter.ENABLED_MANAGER
