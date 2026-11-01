@@ -75,8 +75,10 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                     AdaptiveButton(onClick = {
                         // Convert legacy group disables to explicit per-kind state so
                         // enabling one member cannot be overridden by its old group flag.
-                        vm.setDisabledEntryKinds(draftDisabled)
-                        if (state.disabledEntryGroups.isNotEmpty()) vm.setDisabledEntryGroups(emptySet())
+                        if (draftDisabled != savedDisabled || state.disabledEntryGroups.isNotEmpty()) {
+                            vm.setDisabledEntryKinds(draftDisabled)
+                            if (state.disabledEntryGroups.isNotEmpty()) vm.setDisabledEntryGroups(emptySet())
+                        }
                         if (draftRootDisabled != savedRootDisabled || draftManagedDisabled != savedManagedDisabled) UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(disabledRootKinds = draftRootDisabled, disabledManagedSurfaces = draftManagedDisabled))
                     }) {
                         AdaptiveText(stringResource(R.string.lc_mode_confirm_apply))
