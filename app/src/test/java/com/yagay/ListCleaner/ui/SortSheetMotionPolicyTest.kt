@@ -19,10 +19,10 @@ class SortSheetMotionPolicyTest {
 
     @Test fun sheetTopGapIsCompactAndRespectsSmallViewports() {
         // A 1000px view formerly left a 230px gap.
-        assertEquals(48f, sortSheetTopInsetPx(1000f, 48f))
-        assertEquals(30f, sortSheetTopInsetPx(300f, 48f))
-        assertEquals(0f, sortSheetTopInsetPx(0f, 48f))
-        assertEquals(0f, sortSheetTopInsetPx(600f, -20f))
+        assertEquals(48f, sortSheetTopInsetPx(1000f, 48f), 0.001f)
+        assertEquals(30f, sortSheetTopInsetPx(300f, 48f), 0.001f)
+        assertEquals(0f, sortSheetTopInsetPx(0f, 48f), 0.001f)
+        assertEquals(0f, sortSheetTopInsetPx(600f, -20f), 0.001f)
     }
 
     @Test fun upwardDragOrFlingExpandsToTop() {
