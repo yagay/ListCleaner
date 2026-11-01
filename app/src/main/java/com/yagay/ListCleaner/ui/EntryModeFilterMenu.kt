@@ -13,6 +13,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.DisplayMode
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.kinds
+import com.yagay.ListCleaner.domain.entryGroup
 
 /**
  * Uses the same anchored dropdown, 48dp selectable rows and fixed action footer
@@ -34,9 +36,13 @@ internal fun EntryModeFilterMenu(
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
     val saved: DisplayMode? =
         if (kind == null) state.displayMode else state.modeOverrides[kind]
+    val savedDisabled = kind != null && (kind in state.disabledEntryKinds ||
+        kind.entryGroup() in state.disabledEntryGroups)
     var draft by remember(kind, userId, saved) {
         mutableStateOf(EntryModeChangeDraft(saved))
     }
+    var draftDisabled by remember(kind, userId, savedDisabled) { mutableStateOf(savedDisabled) }
+    val changed = draft.hasChanges || draftDisabled != savedDisabled
     val title = when (kind) {
         null -> stringResource(R.string.lc_mode_default_title)
         IntentKind.OPEN -> stringResource(R.string.lc_mode_open_short)
@@ -67,14 +73,18 @@ internal fun EntryModeFilterMenu(
                 WorkspaceFilterFooterAction(
                     label = stringResource(R.string.lc_mode_confirm_apply),
                     primary = true,
-                    enabled = draft.hasChanges,
+                    enabled = changed,
                     onClick = {
-                        if (!draft.hasChanges) return@WorkspaceFilterFooterAction
+                        if (!changed) return@WorkspaceFilterFooterAction
                         if (kind == null) {
                             // All affects only the default; overrides stay untouched.
                             draft.pending?.let(vm::setDisplayMode)
                         } else {
-                            vm.setKindDisplayMode(kind, draft.pending)
+                            val existing = state.disabledEntryKinds +
+                                state.disabledEntryGroups.flatMap { it.kinds() }
+                            val updated = if (draftDisabled) existing + kind else existing - kind
+                            if (draft.hasChanges) vm.setKindDisplayMode(kind, draft.pending)
+                            vm.setDisabledEntryKinds(updated)
                         }
                         onDismiss()
                     },
@@ -85,9 +95,17 @@ internal fun EntryModeFilterMenu(
         options.forEach { (mode, label) ->
             WorkspaceFlatMenuRow(
                 title = label,
-                selected = draft.pending == mode,
+                selected = !draftDisabled && draft.pending == mode,
                 compactOption = true,
-                onClick = { draft = draft.select(mode) },
+                onClick = { draft = draft.select(mode); draftDisabled = false },
+            )
+        }
+        if (kind != null) {
+            WorkspaceFlatMenuRow(
+                title = stringResource(R.string.lc_mode_disabled),
+                selected = draftDisabled,
+                compactOption = true,
+                onClick = { draftDisabled = true },
             )
         }
     }
