@@ -361,4 +361,6 @@
     <string name="lc_mode_root_desc_tile">Control whether Root can change Quick Settings tile services</string>
     <string name="lc_mode_root_desc_controls">Control whether Root can change device control services</string>
     <string name="lc_mode_root_desc_authenticator">Control whether Root can change account authenticator components</string>
+    <string name="lc_mode_managed_settings_desc">Controls whether Settings-app list cleanup can be changed; saved rules remain intact</string>
+    <string name="lc_mode_managed_notifications_desc">Controls whether notification-app and channel cleanup can be changed; saved rules remain intact</string>
 </resources>
