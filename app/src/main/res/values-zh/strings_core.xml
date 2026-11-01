@@ -66,7 +66,7 @@
     <string name="intent_assistant">助手入口</string>
     <string name="intent_launcher_shortcut">旧快捷方式</string>
     <string name="intent_shortcut_item">长按快捷方式</string>
-    <string name="intent_document_provider">存储提供器</string>
+    <string name="intent_document_provider">DocumentsUI 文档管理</string>
     <string name="intent_document_root">文件侧栏</string>
     <string name="intent_photo_source">云端照片来源</string>
     <string name="intent_input_method">输入法</string>

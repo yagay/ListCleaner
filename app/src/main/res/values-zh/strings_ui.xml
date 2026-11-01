@@ -331,7 +331,7 @@
     <string name="lc_mode_desc_capture_image">调用相机拍照</string>
     <string name="lc_mode_desc_capture_video">调用相机录制视频</string>
     <string name="lc_mode_desc_record_audio">调用录音应用</string>
-    <string name="lc_mode_desc_document_provider">供系统文件选择器使用的存储提供者</string>
+    <string name="lc_mode_desc_document_provider">统一管理打开、保存、内容选取及存储提供器</string>
     <string name="lc_mode_desc_document_root">文件选择器中的存储位置和目录</string>
     <string name="lc_mode_desc_photo_source">从可用来源选择照片</string>
     <string name="lc_mode_desc_home">选择默认桌面启动器</string>

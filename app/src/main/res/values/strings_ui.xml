@@ -331,7 +331,7 @@
     <string name="lc_mode_desc_capture_image">Capture a photo using a camera app</string>
     <string name="lc_mode_desc_capture_video">Record a video using a camera app</string>
     <string name="lc_mode_desc_record_audio">Record sound using an audio app</string>
-    <string name="lc_mode_desc_document_provider">Storage providers visible to document pickers</string>
+    <string name="lc_mode_desc_document_provider">Unified Open, Save, Get Content and provider cleanup</string>
     <string name="lc_mode_desc_document_root">Storage locations and folder roots</string>
     <string name="lc_mode_desc_photo_source">Pick photos from available sources</string>
     <string name="lc_mode_desc_home">Select the default home launcher</string>

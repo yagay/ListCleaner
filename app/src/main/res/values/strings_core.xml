@@ -71,7 +71,7 @@
     <string name="intent_assistant">Assistant entry</string>
     <string name="intent_launcher_shortcut">Legacy shortcut</string>
     <string name="intent_shortcut_item">Long-press shortcuts</string>
-    <string name="intent_document_provider">Storage providers</string>
+    <string name="intent_document_provider">DocumentsUI</string>
     <string name="intent_document_root">File sidebar</string>
     <string name="intent_photo_source">Cloud photo sources</string>
     <string name="intent_input_method">Keyboards</string>

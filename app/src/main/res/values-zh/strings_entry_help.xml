@@ -23,7 +23,7 @@
     <string name="intent_desc_assistant">ACTION_ASSIST 返回的助手 Activity 入口，归到“操作”组。它不是完整的 Assistant Role / VoiceInteractionService 管理，也不会修改当前默认助手。</string>
     <string name="intent_desc_launcher_shortcut">旧配置兼容枚举，现已退休；旧规则、排序和标题会在读取时自动丢弃，不再显示或执行。</string>
     <string name="intent_desc_shortcut_item">桌面长按快捷方式候选可来自运行时 Hook 观察或只读主动扫描；主动结果不保证实际显示。主要包含已启用的 Manifest / Dynamic ShortcutInfo，不混入 Pinned-only 和 Cached 项。可按应用或子项过滤，不会删除底层 Shortcut 数据。</string>
-    <string name="intent_desc_document_provider">Storage Access Framework 的 DocumentsProvider，例如云盘、文件管理器或 NAS Provider。这里显示的是 Provider 组件，不等于 Provider 内每一个存储 Root；隐藏规则不会删除文件。</string>
+    <string name="intent_desc_document_provider">统一管理打开文档、保存文档、选择内容、存储提供器及文档根目录。一个应用只勾选一次，统一优先顺序适用于所有支持的入口；眼睛可分别预览系统操作。不会删除文件。</string>
     <string name="intent_desc_document_root">原生文件选择器 DocumentsUI 左侧的第三方存储根入口。先打开一次系统文件选择器，再刷新列表识别。勾选只隐藏侧栏显示，不停用文件服务、不删除文件。修改后可能需要重启文件选择器；不兼容的厂商界面保持原状。</string>
     <string name="intent_desc_photo_source">通过 Android CloudMediaProvider 接口识别云端照片提供者。规则仅过滤符合条件的 PackageManager 查询；系统照片选择器的特权查询可能绕过过滤。不会修改当前照片来源，也不会删除照片。</string>
     <string name="intent_desc_input_method">普通应用查询到的 InputMethodService 候选。不会启用、停用或切换当前输入法；系统设置页列表不保证受此规则影响。</string>
