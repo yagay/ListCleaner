@@ -623,7 +623,7 @@ for symbol in ("WorkspaceReadOnlyDetailRow(", "WorkspaceDetailRow(",
         errors.append(f"WorkspaceCommon.kt: expanded detail surface contract missing {symbol}")
 
 # The rebuilt preview uses one flat list and scoped MIME chips (no legacy mode tabs).
-if "FilterChip(" not in (root / "SystemProbeDialog.kt").read_text(encoding="utf-8"):
+if "AdaptiveFilterChip(" not in (root / "SystemProbeDialog.kt").read_text(encoding="utf-8"):
     errors.append("SystemProbeDialog.kt: scoped MIME choices lack visible selected state")
 if "SettingsFlatDialog(" not in (root / "AppearanceSettings.kt").read_text(encoding="utf-8"):
     errors.append("AppearanceSettings.kt: custom color editor bypassed shared flat dialog")
