@@ -391,7 +391,7 @@ if "WorkspaceCategoryPreviewIcon(" in classic_preview or "previewActions:" in cl
     errors.append("ClassicListLayout.kt: duplicate eye remained on Entry mode title row")
 entry_preview = (root / "MainTabs.kt").read_text(encoding="utf-8")
 entry_controls = (root / "MainControls.kt").read_text(encoding="utf-8")
-if "toolbarPreviewActions = entryHeaderPreviewKinds(state.filter)" not in entry_preview or "browseAllComponents" in entry_preview:
+if "toolbarPreviewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds, state.disabledEntryGroups)" not in entry_preview or "browseAllComponents" in entry_preview:
     errors.append("MainTabs.kt: toolbar preview must follow current Entry category")
 if "toolbarPreviewActions: List<WorkspaceMenuAction>" not in entry_controls or (
         "if (toolbarPreviewActions.isNotEmpty())" not in entry_controls or
