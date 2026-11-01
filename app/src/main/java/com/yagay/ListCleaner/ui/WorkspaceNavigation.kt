@@ -37,8 +37,14 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalDensity
 import kotlin.math.roundToInt
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -112,20 +118,88 @@ internal fun WorkspaceSortEditorOverlay(
     content: @Composable () -> Unit,
 ) {
     val currentDismiss by rememberUpdatedState(onDismiss)
-    val thresholdPx = with(LocalDensity.current) { 80.dp.toPx() }
-    var dragDistance by remember { mutableFloatStateOf(0f) }
-    var dragging by remember { mutableStateOf(false) }
-    val animatedDrag by animateFloatAsState(
-        targetValue = dragDistance,
-        animationSpec = if (dragging) snap() else spring(stiffness = Spring.StiffnessMedium),
-        label = "sort-sheet-handle-drag",
-    )
-    val handleDrag = rememberDraggableState { amount ->
-        dragDistance = (dragDistance + amount).coerceAtLeast(0f)
-    }
+    val density = LocalDensity.current
+    val threshold = with(density) { 64.dp.toPx() }
+    val flingThreshold = with(density) { 640.dp.toPx() }
     BackHandler(enabled = visible && !guard.showPrompt) { guard.request(currentDismiss) }
 
-    Box(Modifier.fillMaxSize()) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val viewportPx = with(density) { maxHeight.toPx() }
+        // Initially expose most of the editor; a second upward gesture reaches
+        // the top of this screen without creating a separate Dialog window.
+        val partialOffset = viewportPx * 0.23f
+        var expanded by remember(partialOffset) { mutableStateOf(false) }
+        var sheetPosition by remember(partialOffset) { mutableFloatStateOf(partialOffset) }
+        var dragging by remember { mutableStateOf(false) }
+        val animatedPosition by animateFloatAsState(
+            targetValue = sheetPosition,
+            animationSpec = if (dragging) snap() else tween(250, easing = FastOutSlowInEasing),
+            label = "sort-sheet-vertical-anchor",
+        )
+
+        fun moveSheet(delta: Float): Float {
+            val previous = sheetPosition
+            sheetPosition = (previous + delta).coerceIn(0f, viewportPx * 0.9f)
+            if (sheetPosition != previous) dragging = true
+            return sheetPosition - previous
+        }
+
+        fun settleSheet(velocity: Float) {
+            val position = sheetPosition
+            val dismiss = !expanded &&
+                (position > partialOffset + threshold || velocity > flingThreshold && position >= partialOffset)
+            val expand = if (expanded) {
+                !(position > threshold || velocity > flingThreshold)
+            } else {
+                position < partialOffset - threshold || velocity < -flingThreshold
+            }
+            dragging = false
+            when {
+                dismiss -> {
+                    sheetPosition = partialOffset
+                    guard.request(currentDismiss)
+                }
+                expand -> {
+                    expanded = true
+                    sheetPosition = 0f
+                }
+                else -> {
+                    expanded = false
+                    sheetPosition = partialOffset
+                }
+            }
+        }
+
+        // Let the editor list scroll normally. Pulling up from its bottom first
+        // expands the sheet; pulling down after the list reaches its top moves
+        // the whole sheet, then collapses or dismisses it.
+        val scrollConnection = object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y >= 0f || sheetPosition <= 0f) return Offset.Zero
+                return Offset(0f, moveSheet(available.y))
+            }
+
+            override fun onPostScroll(
+                consumed: Offset, available: Offset, source: NestedScrollSource,
+            ): Offset {
+                if (available.y <= 0f) return Offset.Zero
+                return Offset(0f, moveSheet(available.y))
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                if (!dragging) return Velocity.Zero
+                settleSheet(available.y)
+                return Velocity(0f, available.y)
+            }
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                if (!dragging) return Velocity.Zero
+                settleSheet(available.y)
+                return Velocity(0f, available.y)
+            }
+        }
+        val handleState = rememberDraggableState { delta -> moveSheet(delta) }
+
         AnimatedVisibility(
             visible = visible,
             enter = fadeIn(animationSpec = tween(240)),
@@ -154,9 +228,9 @@ internal fun WorkspaceSortEditorOverlay(
             modifier = Modifier.align(Alignment.BottomCenter),
         ) {
             Surface(
-                modifier = Modifier.fillMaxWidth()
-                    .fillMaxHeight(0.92f)
-                    .offset { IntOffset(0, animatedDrag.roundToInt()) },
+                modifier = Modifier.fillMaxSize()
+                    .offset { IntOffset(0, animatedPosition.roundToInt()) }
+                    .nestedScroll(scrollConnection),
                 shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
                 color = MaterialTheme.colorScheme.surface,
                 shadowElevation = 8.dp,
@@ -164,15 +238,10 @@ internal fun WorkspaceSortEditorOverlay(
                 Column {
                     Box(
                         Modifier.fillMaxWidth().height(40.dp).draggable(
-                            state = handleDrag,
+                            state = handleState,
                             orientation = Orientation.Vertical,
                             onDragStarted = { dragging = true },
-                            onDragStopped = { velocity ->
-                                val close = dragDistance > thresholdPx || velocity > 1100f
-                                dragging = false
-                                dragDistance = 0f
-                                if (close) guard.request(currentDismiss)
-                            },
+                            onDragStopped = { velocity -> settleSheet(velocity) },
                         ),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -182,7 +251,6 @@ internal fun WorkspaceSortEditorOverlay(
                 }
             }
         }
-        // Confirmation remains above the sheet without tearing down the editor.
         PendingNavigationDialog(guard)
     }
 }
