@@ -661,7 +661,7 @@ private fun SummaryRow(
 ) {
     WorkspaceListSummary(
         title = stringResource(R.string.app_list_count, displayedApps),
-        secondary = entryCurrentModeLabel(state),
+        secondary = null,
         showSelectionActions = false,
         actions = actions,
         helpExpanded = helpExpanded,
