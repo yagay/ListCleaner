@@ -92,16 +92,18 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                     AdaptiveButton(onClick = {
                         // Convert legacy group disables to explicit per-kind state so
                         // enabling one member cannot be overridden by its old group flag.
-                        if (draftDisabled != savedDisabled || state.disabledEntryGroups.isNotEmpty()) {
-                            vm.setDisabledEntryKinds(draftDisabled)
-                            if (state.disabledEntryGroups.isNotEmpty()) vm.setDisabledEntryGroups(emptySet())
-                        }
+
                         // Commit the space-bound policy first. A rejected space update must
                         // not partially apply the device-local Root preference change.
                         val surfaceAccepted = draftManagedDisabled == savedManagedDisabled ||
                             vm.setSurfaceFiltersForSpace(userId, surfacePolicy.copy(disabledCleanupSurfaces = draftManagedDisabled))
                         if (surfaceAccepted && draftRootDisabled != savedRootDisabled) {
                             UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(disabledRootKinds = draftRootDisabled))
+                        }
+                        // RuleRepository.setDisabledEntryKinds already clears legacy group
+                        // disables in the same persistence transaction.
+                        if (surfaceAccepted && (draftDisabled != savedDisabled || state.disabledEntryGroups.isNotEmpty())) {
+                            vm.setDisabledEntryKinds(draftDisabled)
                         }
                     }) {
                         AdaptiveText(stringResource(R.string.lc_mode_confirm_apply))
