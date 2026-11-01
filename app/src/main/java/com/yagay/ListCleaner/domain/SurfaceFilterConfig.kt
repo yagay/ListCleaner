@@ -38,6 +38,9 @@ data class SurfaceFilterConfig(
         else PackageIdentity.valid(value)
 
     fun validated(): SurfaceFilterConfig {
+        require(disabledCleanupSurfaces.all {
+            it == SurfaceKind.SETTINGS_APPS || it == SurfaceKind.NOTIFICATION_SHADE
+        })
         require(packages.size <= SurfaceKind.entries.size)
         require(locks.size <= SurfaceKind.entries.size)
         require(order.size <= SurfaceKind.entries.size)
