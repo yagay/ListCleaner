@@ -7,4 +7,6 @@
     <string name="direct_share_type_audio">Audio</string>
     <string name="direct_share_type_files">Files</string>
     <string name="direct_share_scan_unavailable">Direct Share scan unavailable; showing previously observed targets. Check module status and scan logs.</string>
+    <string name="share_mime_filter_title">Detected MIME types</string>
+    <string name="share_mime_scope_note">These are detected sharing targets. Selecting a MIME filters this list; cleanup rules for Share and Multi Share still apply to that receiver across its supported types.</string>
 </resources>

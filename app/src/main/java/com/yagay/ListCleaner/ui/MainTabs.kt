@@ -37,6 +37,8 @@ import com.yagay.ListCleaner.domain.DirectShareType
 import com.yagay.ListCleaner.domain.DirectShareTypeRules
 import com.yagay.ListCleaner.domain.matchesOpenPreset
 import com.yagay.ListCleaner.domain.matchesBrowserHost
+import com.yagay.ListCleaner.domain.observedShareMimeTypes
+import com.yagay.ListCleaner.domain.matchesShareMimeType
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -98,6 +100,13 @@ internal fun RulesTab(
     var directShareTypeName by rememberSaveable(vm.selectedSpace.value) { mutableStateOf<String?>(null) }
     val directShareType = directShareTypeName?.let(DirectShareType::fromName)
         .takeIf { state.filter == IntentKind.DIRECT_SHARE }
+    // ACTION_SEND and ACTION_SEND_MULTIPLE are distinct Android lists.
+    // Offer only MIME types actually returned by each kind's resolver probes.
+    val observedShareTypes = remember(state.candidates, state.filter) {
+        state.filter?.let { observedShareMimeTypes(state.candidates, it) }.orEmpty()
+    }
+    var shareMimeName by rememberSaveable(vm.selectedSpace.value, state.filter) { mutableStateOf<String?>(null) }
+    val selectedShareMime = shareMimeName?.takeIf { it in observedShareTypes }
     LaunchedEffect(state.filter) {
         if (state.filter != IntentKind.OPEN) vm.setRuleOpenPreset(null)
         if (state.filter != IntentKind.DEEP_LINK) vm.setRuleBrowserHost(null)
@@ -133,7 +142,7 @@ internal fun RulesTab(
         directShareType != null -> scopedDirectShareSelected
         else -> state.selected
     }
-    val selectionDraft = remember(state.filter, typedOpenPreset, deepLinkHost, directShareType, vm.selectedSpace.value) {
+    val selectionDraft = remember(state.filter, typedOpenPreset, deepLinkHost, directShareType, selectedShareMime, vm.selectedSpace.value) {
         PendingSelectionDraft<ComponentRule>()
     }
     // Preserve staged choices until repository state confirms each applied rule.
@@ -175,7 +184,7 @@ internal fun RulesTab(
 
     // Independent navigation and runtime heartbeat updates must not re-filter every app.
     val lockScopeCandidates = remember(
-        typedOpenPreset, deepLinkHost, directShareType, state.candidates,
+        typedOpenPreset, deepLinkHost, directShareType, selectedShareMime, state.candidates,
         state.openTypesExplicit.customDefinitions, deepLinkSelected, state.filter
     ) {
         when {
@@ -190,6 +199,9 @@ internal fun RulesTab(
             directShareType != null -> state.candidates.filter {
                 it.rule.kind == IntentKind.DIRECT_SHARE && !it.unavailable &&
                     directShareType in DirectShareTypeRules.observed(it.evidence)
+            }
+            selectedShareMime != null -> state.candidates.filter {
+                it.rule.kind == state.filter && it.matchesShareMimeType(selectedShareMime)
             }
             else -> state.candidates.filter { state.filter == null || it.rule.kind == state.filter }
         }
@@ -207,7 +219,7 @@ internal fun RulesTab(
         })
     }
     val scopedAppGroups = remember(
-        catalogAppGroups, typedOpenPreset, deepLinkHost, directShareType,
+        catalogAppGroups, typedOpenPreset, deepLinkHost, directShareType, selectedShareMime,
         state.openTypesExplicit.customDefinitions, deepLinkSelected
     ) {
         val eligible: (com.yagay.ListCleaner.domain.ComponentCandidate) -> Boolean = when {
@@ -222,9 +234,12 @@ internal fun RulesTab(
                 item.rule.kind == IntentKind.DIRECT_SHARE && !item.unavailable &&
                     directShareType in DirectShareTypeRules.observed(item.evidence)
             }
+            selectedShareMime != null -> { item ->
+                item.rule.kind == state.filter && item.matchesShareMimeType(selectedShareMime)
+            }
             else -> { _ -> true }
         }
-        if (typedOpenPreset == null && deepLinkHost == null && directShareType == null) catalogAppGroups
+        if (typedOpenPreset == null && deepLinkHost == null && directShareType == null && selectedShareMime == null) catalogAppGroups
         else catalogAppGroups.mapNotNull { group ->
             val matching = group.components.filter(eligible)
             if (matching.isEmpty()) null else {
@@ -241,7 +256,7 @@ internal fun RulesTab(
     // Staged edits change checkboxes only. Sorting and selected/unselected filters
     // depend on confirmed selection, and must not rebuild the catalog grouping.
     val baseShownGroups = remember(
-        scopedAppGroups, activeSelected, state.filter, typedOpenPreset, deepLinkHost, directShareType,
+        scopedAppGroups, activeSelected, state.filter, typedOpenPreset, deepLinkHost, directShareType, selectedShareMime,
         state.query, state.uiFilter, UiPreferencesRuntime.current
     ) {
         filterAppGroups(
@@ -256,7 +271,7 @@ internal fun RulesTab(
     }
     val lockFilteredGroups = remember(
         baseShownGroups, state.uiFilter, bulkLockRevision,
-        state.filter, openPreset, deepLinkScoped, lockScope
+        state.filter, openPreset, deepLinkScoped, lockScope, selectedShareMime
     ) {
         if (state.uiFilter == UiFilter.LOCKED) {
             baseShownGroups.mapNotNull { group ->
@@ -271,7 +286,7 @@ internal fun RulesTab(
     val shownGroups = remember(lockFilteredGroups, appTypeFilter) {
         lockFilteredGroups.filter { appTypeFilter.matches(it.appType) }
     }
-    LaunchedEffect(state.filter, openPreset, browserHost, directShareType, shownGroups.firstOrNull()?.packageName,
+    LaunchedEffect(state.filter, openPreset, browserHost, directShareType, selectedShareMime, shownGroups.firstOrNull()?.packageName,
         UiPreferencesRuntime.current.expandFirstApp) {
         if (UiPreferencesRuntime.current.expandFirstApp && state.expandedAppKey == null) {
             shownGroups.firstOrNull()?.let { group ->
@@ -390,6 +405,7 @@ internal fun RulesTab(
                             IntentKind.OPEN -> openPreset?.let { state.openTypesExplicit.localizedTitle(it) }
                             IntentKind.DEEP_LINK -> browserHost
                             IntentKind.DIRECT_SHARE -> directShareType?.let { stringResource(it.titleRes()) }
+                            IntentKind.SHARE, IntentKind.SHARE_MULTIPLE -> selectedShareMime
                             else -> null
                         },
                         subtypeAvailable = when (state.filter) {
@@ -397,6 +413,7 @@ internal fun RulesTab(
                             IntentKind.DEEP_LINK -> state.browserAvailableHosts.isNotEmpty() ||
                                 state.browserLinks.hosts.isNotEmpty() || browserHost != null
                             IntentKind.DIRECT_SHARE -> true
+                            IntentKind.SHARE, IntentKind.SHARE_MULTIPLE -> observedShareTypes.isNotEmpty()
                             else -> false
                         },
                         extraFilter = {
@@ -411,6 +428,11 @@ internal fun RulesTab(
                                 IntentKind.DIRECT_SHARE -> DirectShareTypeFilterMenu(
                                     selected = directShareType,
                                     onSelected = { type -> navigate { directShareTypeName = type?.name } }
+                                )
+                                IntentKind.SHARE, IntentKind.SHARE_MULTIPLE -> ShareMimeFilterMenu(
+                                    selected = selectedShareMime,
+                                    supported = observedShareTypes,
+                                    onSelected = { type -> navigate { shareMimeName = type } },
                                 )
                                 IntentKind.DEEP_LINK -> BrowserHostFilterMenu(
                                     selected = browserHost,
@@ -458,6 +480,7 @@ previewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds,
                                         directShareType = directShareType.takeIf { previewKind == IntentKind.DIRECT_SHARE },
                                         customMimeType = scopedProbeMime(typedOpenPreset, state.openTypesExplicit.customDefinitions)
                                             .takeIf { previewKind == IntentKind.OPEN },
+                                        shareMimeType = selectedShareMime.takeIf { previewKind == state.filter },
                                     )
                                 },
                             )
@@ -632,6 +655,7 @@ previewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds,
                                 directShareType = directShareType.takeIf { component.rule.kind == IntentKind.DIRECT_SHARE },
                                 customMimeType = scopedProbeMime(typedOpenPreset, state.openTypesExplicit.customDefinitions)
                                     .takeIf { component.rule.kind == IntentKind.OPEN },
+                                shareMimeType = selectedShareMime.takeIf { component.rule.kind == state.filter },
                                 focusPackage = component.rule.packageName,
                                 focusClass = component.rule.className,
                             )
@@ -679,6 +703,7 @@ previewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds,
             vm = vm,
             pendingNavigation = sortNavigation,
             onExit = { showSortEditor = false },
+            shareMimeType = selectedShareMime,
         )
     }
 }

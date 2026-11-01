@@ -53,6 +53,7 @@ import com.yagay.ListCleaner.domain.OpenPreset
 import com.yagay.ListCleaner.domain.PriorityListFilter
 import com.yagay.ListCleaner.domain.matchesOpenPreset
 import com.yagay.ListCleaner.domain.matchesBrowserHost
+import com.yagay.ListCleaner.domain.matchesShareMimeType
 import com.yagay.ListCleaner.domain.priorityAppGroups
 import com.yagay.ListCleaner.domain.moveVisiblePriority
 import com.yagay.ListCleaner.domain.moveVisiblePriorityTo
@@ -64,6 +65,7 @@ fun PriorityDialogContent(
     state: MainState, vm: MainViewModel,
     pendingNavigation: PendingNavigationGuard? = null,
     onExit: (() -> Unit)? = null,
+    shareMimeType: String? = null,
 ) {
     val navigate: (() -> Unit) -> Unit = { action ->
         if (pendingNavigation != null) pendingNavigation.request(action) else action()
@@ -151,7 +153,7 @@ fun PriorityDialogContent(
     val deepLinkSelected = genericDeepLinkSelected + explicitDeepLinkSelected
     val deepLinkScoped = deepLinkHost != null
     val scopedCandidates = remember(
-        state.candidates, typedOpenPreset, deepLinkHost,
+        state.candidates, typedOpenPreset, deepLinkHost, shareMimeType,
         state.openTypesExplicit.customDefinitions, deepLinkSelected
     ) {
         when {
@@ -161,6 +163,8 @@ fun PriorityDialogContent(
                 it.rule.kind == IntentKind.DEEP_LINK &&
                     (it.matchesBrowserHost(deepLinkHost) || it.rule in deepLinkSelected)
             }
+            shareMimeType != null && kind in setOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE) ->
+                state.candidates.filter { it.rule.kind == kind && it.matchesShareMimeType(shareMimeType) }
             else -> state.candidates
         }
     }

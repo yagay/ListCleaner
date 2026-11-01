@@ -56,7 +56,10 @@ internal fun SystemProbeDialog(
             if (widgetId >= 0) runCatching { widgetHost.deleteAppWidgetId(widgetId) }
         }
     }
-    val choices = request.entryKind?.let(::availableProbeScenarios).orEmpty()
+    // When Share has a selected MIME filter, preview that exact scenario
+    // instead of asking for a different preset in a second popup.
+    val choices = if (request.shareMimeType != null) emptyList()
+        else request.entryKind?.let(::availableProbeScenarios).orEmpty()
     if (choices.size > 1) {
         SettingsFlatDialog(
             onDismissRequest = onDismiss,

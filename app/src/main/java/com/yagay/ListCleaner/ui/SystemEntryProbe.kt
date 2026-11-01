@@ -44,6 +44,8 @@ internal data class SystemProbeRequest(
     val browserHost: String? = null,
     val directShareType: com.yagay.ListCleaner.domain.DirectShareType? = null,
     val customMimeType: String? = null,
+    /** Selected ACTION_SEND / ACTION_SEND_MULTIPLE subtype; never applied to other kinds. */
+    val shareMimeType: String? = null,
     val focusPackage: String? = null,
     val focusClass: String? = null,
 ) {

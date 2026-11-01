@@ -507,7 +507,7 @@ internal object SystemEffectPreview {
         IntentKind.SHARE, IntentKind.DIRECT_SHARE -> {
             val type = if (kind == IntentKind.DIRECT_SHARE)
                 request?.directShareType?.mime ?: scenario.mimeType ?: "text/plain"
-                else scenario.mimeType ?: "text/plain"
+                else request?.shareMimeType ?: scenario.mimeType ?: "text/plain"
             if (type.startsWith("text/")) {
                 Intent(Intent.ACTION_SEND).apply {
                     this.type = type
@@ -525,7 +525,7 @@ internal object SystemEffectPreview {
         }
         IntentKind.SHARE_MULTIPLE -> sampleFiles(context, scenario).let { uris ->
             Intent(Intent.ACTION_SEND_MULTIPLE).apply {
-                type = scenario.mimeType ?: "text/plain"
+                type = request?.shareMimeType ?: scenario.mimeType ?: "text/plain"
                 putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 clipData = ClipData.newUri(context.contentResolver,
