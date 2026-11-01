@@ -74,7 +74,7 @@ fun PriorityDialogContent(
     }
     var systemProbeRequest by remember { mutableStateOf<SystemProbeRequest?>(null) }
     systemProbeRequest?.let { request ->
-        SystemProbeDialog(request, onDismiss = { systemProbeRequest = null })
+        SystemProbeDialog(request, onDismiss = { systemProbeRequest = null }, previewState = state)
     }
     var editingTitle by remember { mutableStateOf<ComponentCandidate?>(null) }
     var showCustomTypes by rememberSaveable { mutableStateOf(false) }
@@ -422,7 +422,18 @@ fun PriorityDialogContent(
                                         )
                                     }
                                 )
-                            ),
+                            ) + previewMimeOptions(
+                                kind, state.candidates, state.openTypesExplicit
+                            ).map { option ->
+                                WorkspaceMenuAction(
+                                    label = previewMimeLabel(option, state.openTypesExplicit),
+                                    onClick = {
+                                        systemProbeRequest = previewMimeRequest(
+                                            kind, vm.selectedSpace.value, option
+                                        )
+                                    }
+                                )
+                            },
                             viewTitle = {
                                 stringResource(
                                     when (it) {
