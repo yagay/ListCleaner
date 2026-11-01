@@ -154,24 +154,21 @@ class NfcPaymentModule : XposedModule() {
             )
         }
 
-        // Always publish external CATEGORY_PAYMENT results, even without any selected
-        // rule or when the returned list is empty. One snapshot per queried user
-        // allows a personal PayPal and a managed-profile PayPal to coexist.
-        if (!localInternalCall && !managerQuery) {
-            val returnedComponents = filtered.mapNotNull(::componentOf)
-            runtimeCapture.publish(
-                kind = IntentKind.NFC_HCE,
-                source = "NFC_PAYMENT_FILTERED_RETURN",
-                userId = userId,
-                packages = returnedComponents.map { it.packageName },
-                components = returnedComponents.map { it.flattenToString() },
-                componentLabels = componentLabels(filtered),
-                callerPackage = processName,
-                callerUid = callerUid,
-                requestAction = "android.nfc.cardemulation.payment",
-            )
-            record("PAYMENT_RETURN user=$userId callerUid=$callerUid count=${returnedComponents.size} filtered=${filtered != values}")
-        }
+        // Capture NFC internal and manager queries too, while keeping their original
+        // unfiltered result. They are the only callers on some vendor builds.
+        val returnedComponents = filtered.mapNotNull(::componentOf)
+        runtimeCapture.publish(
+            kind = IntentKind.NFC_HCE,
+            source = "NFC_PAYMENT_FILTERED_RETURN",
+            userId = userId,
+            packages = returnedComponents.map { it.packageName },
+            components = returnedComponents.map { it.flattenToString() },
+            componentLabels = componentLabels(filtered),
+            callerPackage = processName,
+            callerUid = callerUid,
+            requestAction = "android.nfc.cardemulation.payment",
+        )
+        record("PAYMENT_RETURN user=$userId callerUid=$callerUid count=${returnedComponents.size} filtered=${filtered != values} internal=$localInternalCall manager=$managerQuery")
         if (filtered == values) original else {
             record("FILTER category=$category user=$userId callerUid=$callerUid before=${values.size} after=${filtered.size} selected=${selected.size}")
             ArrayList(filtered)
