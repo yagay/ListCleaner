@@ -75,9 +75,10 @@ class AospSurfaceFilterModule : XposedModule() {
                     val args = chain.args.toTypedArray()
                     val entries = args[0] as? List<*> ?: return@install proceedOriginal(chain)
                     if (profiles.values.all {
-                            it.selected(SurfaceKind.NOTIFICATION_SHADE).isEmpty() &&
-                                it.hiddenNotificationChannels.isEmpty() &&
-                                it.hiddenNotificationCategories.isEmpty()
+                            SurfaceKind.NOTIFICATION_SHADE in it.disabledCleanupSurfaces ||
+                                (it.selected(SurfaceKind.NOTIFICATION_SHADE).isEmpty() &&
+                                    it.hiddenNotificationChannels.isEmpty() &&
+                                    it.hiddenNotificationCategories.isEmpty())
                         }) return@install proceedOriginal(chain)
                     val filtered = entries.filterNot { item ->
                         shouldHideNotification(item)
