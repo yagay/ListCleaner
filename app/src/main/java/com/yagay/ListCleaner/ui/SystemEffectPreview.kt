@@ -44,8 +44,11 @@ internal fun systemPreviewRoute(kind: IntentKind): SystemPreviewRoute = when (ki
     IntentKind.WALLPAPER -> SystemPreviewRoute.DIRECT
 
     IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT, IntentKind.CREATE_DOCUMENT,
-    IntentKind.DOCUMENT_PROVIDER, IntentKind.DOCUMENT_ROOT, IntentKind.PHOTO_SOURCE ->
+    IntentKind.DOCUMENT_ROOT, IntentKind.PHOTO_SOURCE ->
         SystemPreviewRoute.PICKER
+    // A DocumentsProvider declaration has no standalone visible OS provider-list
+    // activity. Opening ACTION_OPEN_DOCUMENT would show a different surface.
+    IntentKind.DOCUMENT_PROVIDER -> SystemPreviewRoute.UNAVAILABLE
 
     IntentKind.HOME, IntentKind.BROWSER, IntentKind.ASSISTANT,
     IntentKind.CALL_SCREENING, IntentKind.ACCESSIBILITY,
