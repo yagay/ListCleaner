@@ -349,7 +349,7 @@ internal fun EntryManagedSurfaceEditor(
     }
     val owner = remember(userId, surface) { Any() }
     RegisterPendingNavigation(pendingNavigation, owner, selectionDraft.count,
-        applyChanges, selectionDraft::discard, rootEditor = true)
+        applyChanges, selectionDraft::discard, rootEditor = false)
 
     val request: (() -> Unit) -> Unit = { action ->
         if (pendingNavigation != null) pendingNavigation.request(action)
