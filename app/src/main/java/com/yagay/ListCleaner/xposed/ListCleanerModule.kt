@@ -1426,10 +1426,10 @@ class ListCleanerModule : XposedModule() {
         }
 
         val nextSnapshot = RuntimeRuleSnapshot(
-            configured = config.rules.filter { it.kind.entryGroup() !in config.disabledEntryGroups }.map { it.id }.toSet(),
+            configured = config.rules.filter { it.kind.entryGroup() !in config.disabledEntryGroups && it.kind !in config.disabledEntryKinds }.map { it.id }.toSet(),
             displayMode = config.mode,
-            modeOverrides = config.modeOverrides + IntentKind.entries.filter { it.entryGroup() in config.disabledEntryGroups }.associateWith { DisplayMode.SHOW_ALL },
-            priorities = config.priorities.copy(apps = config.priorities.apps.filterKeys { it.entryGroup() !in config.disabledEntryGroups }),
+            modeOverrides = config.modeOverrides + IntentKind.entries.filter { (it.entryGroup() in config.disabledEntryGroups || it in config.disabledEntryKinds) }.associateWith { DisplayMode.SHOW_ALL },
+            priorities = config.priorities.copy(apps = config.priorities.apps.filterKeys { it.entryGroup() !in config.disabledEntryGroups && it !in config.disabledEntryKinds }),
             openTypes = config.openTypes,
             browserLinks = config.browserLinks,
             diagnostic = config.diagnostic,
@@ -1440,10 +1440,10 @@ class ListCleanerModule : XposedModule() {
         )
         val scopeSnapshots = config.userSpaces.mapValues { (_, space) ->
             RuntimeRuleSnapshot(
-                configured = space.rules.filter { it.kind.entryGroup() !in space.disabledEntryGroups }.map { it.id }.toSet(),
+                configured = space.rules.filter { it.kind.entryGroup() !in space.disabledEntryGroups && it.kind !in space.disabledEntryKinds }.map { it.id }.toSet(),
                 displayMode = space.mode,
-                modeOverrides = space.modeOverrides + IntentKind.entries.filter { it.entryGroup() in space.disabledEntryGroups }.associateWith { DisplayMode.SHOW_ALL },
-                priorities = space.priorities.copy(apps = space.priorities.apps.filterKeys { it.entryGroup() !in space.disabledEntryGroups }),
+                modeOverrides = space.modeOverrides + IntentKind.entries.filter { (it.entryGroup() in space.disabledEntryGroups || it in space.disabledEntryKinds) }.associateWith { DisplayMode.SHOW_ALL },
+                priorities = space.priorities.copy(apps = space.priorities.apps.filterKeys { it.entryGroup() !in space.disabledEntryGroups && it !in space.disabledEntryKinds }),
                 openTypes = space.openTypes,
                 browserLinks = space.browserLinks,
                 diagnostic = space.diagnostic,
@@ -1460,10 +1460,10 @@ class ListCleanerModule : XposedModule() {
             managerAppId = config.managerAppId,
             protectedComponents = protected,
             displayMode = config.mode,
-            modeOverrides = config.modeOverrides + IntentKind.entries.filter { it.entryGroup() in config.disabledEntryGroups }.associateWith { DisplayMode.SHOW_ALL },
+            modeOverrides = config.modeOverrides + IntentKind.entries.filter { (it.entryGroup() in config.disabledEntryGroups || it in config.disabledEntryKinds) }.associateWith { DisplayMode.SHOW_ALL },
             entryRules = nextSnapshot.configured,
-            directShareTypes = if (EntryGroup.SHARE in config.disabledEntryGroups) DirectShareTypeConfig() else config.directShareTypes,
-            entryPriorities = config.priorities.apps.filterKeys { it.entryGroup() !in config.disabledEntryGroups },
+            directShareTypes = if ((EntryGroup.SHARE in config.disabledEntryGroups || IntentKind.DIRECT_SHARE in config.disabledEntryKinds)) DirectShareTypeConfig() else config.directShareTypes,
+            entryPriorities = config.priorities.apps.filterKeys { it.entryGroup() !in config.disabledEntryGroups && it !in config.disabledEntryKinds },
             digest = digest,
         )
         policies = UserPolicyGeneration(nextSnapshot, scopeSnapshots)
@@ -1474,10 +1474,10 @@ class ListCleanerModule : XposedModule() {
                     managerAppId = config.managerAppId,
                     protectedComponents = protected,
                     displayMode = space.mode,
-                modeOverrides = space.modeOverrides + IntentKind.entries.filter { it.entryGroup() in space.disabledEntryGroups }.associateWith { DisplayMode.SHOW_ALL },
-                    entryRules = space.rules.filter { it.kind.entryGroup() !in space.disabledEntryGroups }.map { it.id },
-                    directShareTypes = if (EntryGroup.SHARE in space.disabledEntryGroups) DirectShareTypeConfig() else space.directShareTypes,
-                    entryPriorities = space.priorities.apps.filterKeys { it.entryGroup() !in space.disabledEntryGroups },
+                modeOverrides = space.modeOverrides + IntentKind.entries.filter { (it.entryGroup() in space.disabledEntryGroups || it in space.disabledEntryKinds) }.associateWith { DisplayMode.SHOW_ALL },
+                    entryRules = space.rules.filter { it.kind.entryGroup() !in space.disabledEntryGroups && it.kind !in space.disabledEntryKinds }.map { it.id },
+                    directShareTypes = if ((EntryGroup.SHARE in space.disabledEntryGroups || IntentKind.DIRECT_SHARE in space.disabledEntryKinds)) DirectShareTypeConfig() else space.directShareTypes,
+                    entryPriorities = space.priorities.apps.filterKeys { it.entryGroup() !in space.disabledEntryGroups && it !in space.disabledEntryKinds },
                     digest = digest,
                 )
             }
