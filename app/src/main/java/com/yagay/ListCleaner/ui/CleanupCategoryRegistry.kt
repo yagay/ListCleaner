@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.isSelectableEntryKind
+import com.yagay.ListCleaner.domain.isLegacyDocumentsUiCategory
 
 /** Two visible execution groups only: Root and LSPosed. Internal rule identities stay distinct. */
 internal enum class CleanupExecutionGroup { ROOT, LSPOSED }
@@ -30,7 +31,8 @@ internal fun CleanupCategoryId.titleResource(): Int = when (this) {
 
 internal object CleanupCategoryRegistry {
     fun lsposedCategories(): List<CleanupCategoryId> =
-        IntentKind.entries.filter { it.isSelectableEntryKind() }.map { CleanupCategoryId.Entry(it) } +
+        IntentKind.entries.filter { it.isSelectableEntryKind() && !it.isLegacyDocumentsUiCategory() }
+            .map { CleanupCategoryId.Entry(it) } +
             ManagedComponentSurface.entries.map { CleanupCategoryId.Managed(it) }
 
     /** Compatibility with existing Entry navigation, which retains its underlying editors. */
