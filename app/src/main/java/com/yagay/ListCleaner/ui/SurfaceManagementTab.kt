@@ -78,7 +78,10 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                         AdaptiveText(stringResource(R.string.common_cancel))
                     }
                     Button(onClick = {
+                        // Convert legacy group disables to explicit per-kind state so
+                        // enabling one member cannot be overridden by its old group flag.
                         vm.setDisabledEntryKinds(draftDisabled)
+                        if (state.disabledEntryGroups.isNotEmpty()) vm.setDisabledEntryGroups(emptySet())
                     }) {
                         AdaptiveText(stringResource(R.string.lc_mode_confirm_apply))
                     }
@@ -150,7 +153,9 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                             GlobalModeSettingsRow(
                                 title = stringResource(kind.titleRes()),
                                 selectedMode = stringResource(
-                                    if (isDisabled) R.string.lc_mode_disabled else R.string.lc_mode_enabled
+                                    if (kind in (draftDisabled - savedDisabled)) R.string.lc_mode_pending_disable
+                                    else if (kind in (savedDisabled - draftDisabled)) R.string.lc_mode_pending_enable
+                                    else if (isDisabled) R.string.lc_mode_disabled else R.string.lc_mode_enabled
                                 ) + " · " + (state.modeOverrides[kind]?.let {
                                     stringResource(it.titleRes())
                                 } ?: stringResource(
