@@ -506,9 +506,7 @@ internal object SystemEffectPreview {
         request: SystemProbeRequest? = null,
     ): Intent = when (kind) {
         IntentKind.SHARE, IntentKind.DIRECT_SHARE -> {
-            val type = if (kind == IntentKind.DIRECT_SHARE)
-                request?.directShareType?.mime ?: scenario.mimeType ?: "text/plain"
-                else request?.shareMimeType ?: scenario.mimeType ?: "text/plain"
+            val type = previewMimeForScenario(kind, scenario, request)
             if (type.startsWith("text/")) {
                 Intent(Intent.ACTION_SEND).apply {
                     this.type = type
@@ -525,7 +523,7 @@ internal object SystemEffectPreview {
             }
         }
         IntentKind.SHARE_MULTIPLE -> {
-            val type = request?.shareMimeType ?: scenario.mimeType ?: "text/plain"
+            val type = previewMimeForScenario(kind, scenario, request)
             val uris = sampleFiles(context, scenario, type)
             Intent(Intent.ACTION_SEND_MULTIPLE).apply {
                 this.type = type
@@ -545,13 +543,13 @@ internal object SystemEffectPreview {
         }
         IntentKind.EDIT -> Intent(Intent.ACTION_EDIT).apply {
             setDataAndType(sampleFiles(context, scenario).first(),
-                scenario.mimeType ?: "text/plain")
+                previewMimeForScenario(kind, scenario, request))
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
         }
         IntentKind.OPEN -> request?.openPreset?.let(::scopedProbeUri)?.let { uri ->
             Intent(Intent.ACTION_VIEW, Uri.parse(uri))
         } ?: Intent(Intent.ACTION_VIEW).apply {
-            val type = request?.customMimeType ?: scenario.mimeType ?: "text/plain"
+            val type = previewMimeForScenario(kind, scenario, request)
             setDataAndType(sampleFiles(context, scenario, type).first(), type)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
@@ -562,19 +560,21 @@ internal object SystemEffectPreview {
             )).apply { addCategory(Intent.CATEGORY_BROWSABLE) }
         IntentKind.DIAL -> Intent(Intent.ACTION_DIAL, Uri.parse("tel:0000000000"))
         IntentKind.GET_CONTENT -> Intent(Intent.ACTION_GET_CONTENT).apply {
-            type = scenario.mimeType ?: "*/*"
+            type = previewMimeForScenario(kind, scenario, request)
             addCategory(Intent.CATEGORY_OPENABLE)
         }
         IntentKind.OPEN_DOCUMENT, IntentKind.DOCUMENT_PROVIDER ->
             Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                 type = if (kind == IntentKind.DOCUMENT_PROVIDER) "*/*"
-                    else scenario.mimeType ?: "*/*"
+                    else previewMimeForScenario(kind, scenario, request)
                 addCategory(Intent.CATEGORY_OPENABLE)
             }
         IntentKind.CREATE_DOCUMENT -> Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-            type = scenario.mimeType ?: "text/plain"
+            val selectedMime = previewMimeForScenario(kind, scenario, request)
+            type = selectedMime
             addCategory(Intent.CATEGORY_OPENABLE)
-            putExtra(Intent.EXTRA_TITLE, context.getString(R.string.system_preview_file_name))
+            putExtra(Intent.EXTRA_TITLE,
+                previewDocumentName(selectedMime, context.getString(R.string.system_preview_file_name)))
         }
         IntentKind.DOCUMENT_ROOT -> Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
         IntentKind.PHOTO_SOURCE -> if (Build.VERSION.SDK_INT >= 33) {
@@ -627,33 +627,7 @@ internal object SystemEffectPreview {
         val mime = selectedMime?.substringBefore(';')?.lowercase()
             ?: scenario.mimeType ?: "text/plain"
         val folder = File(context.cacheDir, "system-preview").apply { mkdirs() }
-        val extension = when (mime) {
-            "application/pdf" -> "pdf"
-            "image/jpeg" -> "jpg"
-            "image/png" -> "png"
-            "image/gif" -> "gif"
-            "image/svg+xml" -> "svg"
-            "application/zip", "application/x-zip-compressed" -> "zip"
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document" -> "docx"
-            "application/msword" -> "doc"
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" -> "xlsx"
-            "application/vnd.ms-excel" -> "xls"
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation" -> "pptx"
-            "application/vnd.ms-powerpoint" -> "ppt"
-            "application/epub+zip" -> "epub"
-            "application/vnd.android.package-archive" -> "apk"
-            "application/x-bittorrent" -> "torrent"
-            "application/json" -> "json"
-            "text/markdown" -> "md"
-            "text/csv" -> "csv"
-            "application/xml", "text/xml" -> "xml"
-            "video/mp4" -> "mp4"
-            "audio/mpeg" -> "mp3"
-            else -> android.webkit.MimeTypeMap.getSingleton()
-                .getExtensionFromMimeType(mime)
-                ?.takeIf { it.length in 1..8 && it.all(Char::isLetterOrDigit) }
-                ?: "txt"
-        }
+        val extension = previewExtensionForMime(mime)
         return (1..2).map { index ->
             val file = File(folder, "list-cleaner-demo-$index.$extension")
             when (mime) {

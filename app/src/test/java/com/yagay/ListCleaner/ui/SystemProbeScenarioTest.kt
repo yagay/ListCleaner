@@ -28,6 +28,54 @@ class SystemProbeScenarioTest {
         assertEquals(SystemProbeScenario.ANY, previewScenarioForMime("*/*"))
     }
 
+    @Test fun saveDocumentNameTracksSelectedMimeNotHardcodedTxt() {
+        val selected = listOf(
+            SystemProbeScenario.TEXT to "ListCleaner-preview.txt",
+            SystemProbeScenario.IMAGE to "ListCleaner-preview.png",
+            SystemProbeScenario.PDF to "ListCleaner-preview.pdf",
+            SystemProbeScenario.VIDEO to "ListCleaner-preview.mp4",
+            SystemProbeScenario.AUDIO to "ListCleaner-preview.mp3",
+            SystemProbeScenario.ANY to "ListCleaner-preview.bin",
+        )
+        for ((scenario, filename) in selected) {
+            val mime = previewMimeForScenario(IntentKind.CREATE_DOCUMENT, scenario, null)
+            assertEquals(scenario.mimeType, mime)
+            assertEquals(filename, previewDocumentName(mime, "ListCleaner-preview.txt"))
+        }
+    }
+
+    @Test fun fileAndDocumentPickerKeepSelectedMimeAndMatchingExtension() {
+        for (kind in listOf(IntentKind.GET_CONTENT, IntentKind.OPEN_DOCUMENT,
+            IntentKind.CREATE_DOCUMENT, IntentKind.OPEN, IntentKind.SHARE_MULTIPLE)) {
+            val req = if (kind == IntentKind.OPEN)
+                SystemProbeRequest(entryKind = kind, userId = 0, customMimeType = "image/jpeg")
+            else if (kind == IntentKind.SHARE_MULTIPLE)
+                SystemProbeRequest(entryKind = kind, userId = 0, shareMimeType = "video/webm")
+            else null
+            val scenario = SystemProbeScenario.IMAGE
+            val expected = when (kind) {
+                IntentKind.OPEN -> "image/jpeg"
+                IntentKind.SHARE_MULTIPLE -> "video/webm"
+                else -> "image/png"
+            }
+            assertEquals(expected, previewMimeForScenario(kind, scenario, req))
+            assertEquals(
+                when (kind) {
+                    IntentKind.OPEN -> "jpg"
+                    IntentKind.SHARE_MULTIPLE -> "webm"
+                    else -> "png"
+                },
+                previewExtensionForMime(expected)
+            )
+        }
+        assertEquals("ListCleaner-preview.docx", previewDocumentName(
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "ListCleaner-preview.txt"))
+        assertEquals("ListCleaner-preview.zip", previewDocumentName(
+            "application/zip", "ListCleaner-preview.txt"))
+        assertEquals("ListCleaner-preview.bin", previewDocumentName(
+            "application/x-unknown-vendor-type", "ListCleaner-preview.txt"))
+    }
+
     @Test fun fileAndSendToTestTypesAreNotAllTheSame() {
         val pickerTypes = availableProbeScenarios(IntentKind.GET_CONTENT)
         assertTrue(SystemProbeScenario.VIDEO in pickerTypes)
