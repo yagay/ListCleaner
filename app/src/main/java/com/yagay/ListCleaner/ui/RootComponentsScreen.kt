@@ -168,6 +168,7 @@ internal fun RootComponentsScreen(
     var expandedAppKey by rememberSaveable(vm.selectedSpace.value) { mutableStateOf<String?>(null) }
     var detailsExpanded by rememberSaveable(vm.selectedSpace.value) { mutableStateOf(false) }
     var sortingTiles by rememberSaveable(vm.selectedSpace.value) { mutableStateOf(false) }
+    val tileSortNavigation = remember { PendingNavigationGuard() }
     var pendingBatch by remember { mutableStateOf<PendingRootBatch?>(null) }
     pendingBatch?.let { batch ->
         val eligible = batch.targets.filter { item ->
@@ -311,26 +312,6 @@ internal fun RootComponentsScreen(
                         it.blocked == null && it.enabled != null && !vm.isComponentBulkProtected(kind, it)
                     })
                 )
-
-    // Entry's sort shortcut opens its own editor; Root Tiles now follows the
-    // same navigation/commit pattern instead of changing order in overflow.
-    if (kind == CleanupKind.TILE && sortingTiles) {
-        RootTileOrderEditor(
-            vm = vm,
-            userId = vm.selectedSpace.value,
-            candidates = kindItems,
-            saved = systemTileLabels,
-            pendingNavigation = pendingNavigation,
-            onExit = { sortingTiles = false },
-            onSelectKind = { selected ->
-                kind = selected
-                expandedAppKey = null
-                sortingTiles = false
-            },
-            onManagedKind = { _ -> sortingTiles = false },
-        )
-        return
-    }
 
     UnifiedCleanupList(
         pendingCount = selectionDraft.count,
@@ -633,6 +614,27 @@ internal fun RootComponentsScreen(
                     } else null
                 )
             }
+        }
+    }
+    // Keep the active Root page and scroll position alive beneath the ordering editor.
+    if (kind == CleanupKind.TILE && sortingTiles) {
+        WorkspaceSortEditorOverlay(
+            guard = tileSortNavigation,
+            onDismiss = { sortingTiles = false },
+        ) {
+            RootTileOrderEditor(
+                vm = vm,
+                userId = vm.selectedSpace.value,
+                candidates = kindItems,
+                saved = systemTileLabels,
+                pendingNavigation = tileSortNavigation,
+                onExit = { sortingTiles = false },
+                onSelectKind = { selected ->
+                    kind = selected
+                    sortingTiles = false
+                },
+                onManagedKind = { _ -> sortingTiles = false },
+            )
         }
     }
 }
