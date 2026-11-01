@@ -375,6 +375,28 @@ internal fun RootComponentsScreen(
                         ClassicComponentCategoryFilter(
                             selected = kind,
                             modifier = Modifier.fillMaxWidth(),
+                            previewActions = ((if (kind == null) CleanupKind.entries.toList()
+                                else listOf(requireNotNull(kind))).map { previewKind ->
+                                WorkspaceMenuAction(
+                                    label = stringResource(previewKind.titleRes()),
+                                    onClick = {
+                                        systemProbeRequest = SystemProbeRequest(
+                                            componentKind = previewKind,
+                                            userId = vm.selectedSpace.value
+                                        )
+                                    }
+                                )
+                            } + ManagedComponentSurface.entries.map { surface ->
+                                WorkspaceMenuAction(
+                                    label = stringResource(surface.titleRes),
+                                    onClick = { navigate {
+                                        managedSurface = surface
+                                        expandedAppKey = null
+                                    } }
+                                )
+                            }).sortedWith { a, b ->
+                                displayNameComparator().compare(a.label, b.label)
+                            },
                             onSelected = { selected ->
                                 if (kind != selected) navigate {
                                     kind = selected
@@ -444,28 +466,6 @@ internal fun RootComponentsScreen(
                 title = stringResource(R.string.root_summary, groups.size, visible.size),
                 showSelectionActions = false,
                 helpExpanded = detailsExpanded,
-                previewActions = ((if (kind == null) CleanupKind.entries.toList()
-                                else listOf(requireNotNull(kind))).map { previewKind ->
-                                WorkspaceMenuAction(
-                                    label = stringResource(previewKind.titleRes()),
-                                    onClick = {
-                                        systemProbeRequest = SystemProbeRequest(
-                                            componentKind = previewKind,
-                                            userId = vm.selectedSpace.value
-                                        )
-                                    }
-                                )
-                            } + ManagedComponentSurface.entries.map { surface ->
-                                WorkspaceMenuAction(
-                                    label = stringResource(surface.titleRes),
-                                    onClick = { navigate {
-                                        managedSurface = surface
-                                        expandedAppKey = null
-                                    } }
-                                )
-                            }).sortedWith { a, b ->
-                                displayNameComparator().compare(a.label, b.label)
-                            },
                 onHelpToggle = { detailsExpanded = !detailsExpanded }
             )
             if (detailsExpanded) WorkspaceHelpSection {
