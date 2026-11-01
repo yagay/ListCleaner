@@ -107,6 +107,80 @@ class SystemPreviewV2Test {
         assertEquals(first, history.items.single())
     }
 
+    private fun assistantRoleSnapshot(
+        source: String = "ROLE_CONTROLLER_RETURN",
+        user: Int = 0,
+        at: Long = now - 40,
+        role: String = "android.app.role.ASSISTANT",
+        process: String = "com.google.android.permissioncontroller",
+        truncated: Boolean = false,
+    ) = RuntimeInterfaceSnapshot(
+        kind = IntentKind.ASSISTANT.name,
+        source = source, callerUserId = user, callerUid = 10080,
+        callerPackage = process, requestAction = role, capturedAtMillis = at,
+        packages = listOf("com.example.google", "com.example.macro",
+            "com.example.secure", "com.example.browser"),
+        truncated = truncated,
+    )
+
+    private val assistantRequest = SystemProbeRequest(entryKind = IntentKind.ASSISTANT, userId = 0)
+    private val assistantHolder = SystemProbeItem(
+        "Google", "com.example.google", "@role/ASSISTANT")
+    private val assistOnly = SystemProbeItem(
+        "Google", "com.example.google", "com.example.google.AssistActivity")
+
+    @Test fun assistantRoleEligibilityIncludesVoiceServiceAppsMissingFromActionAssist() {
+        val response = SystemProbeResult(
+            0, 0, items = listOf(assistantHolder), enabledItems = listOf(assistantHolder),
+            diagnosticCandidates = listOf(assistOnly),
+            roleEligibilityReturn = assistantRoleSnapshot(),
+            // A matching ACTION_ASSIST return must not replace the eligible role apps.
+            runtimeReturn = capture(source = "PACKAGE_MANAGER_FILTERED_RETURN")
+                .copy(kind = "ASSISTANT", packages = listOf("com.example.google")),
+        )
+        val result = SystemPreviewV2.resolve(assistantRequest, response, now,
+            systemLaunchedAt = now - 500, queryStartedAt = now - 500, managerUid = 12345,
+            expectedAction = "android.intent.action.ASSIST")
+        assertEquals(PreviewV2Source.ROLE_ELIGIBILITY, result.source)
+        assertEquals(4, result.items.size)
+        assertTrue(result.items.any { it.packageName == "com.example.macro" })
+    }
+
+    @Test fun assistantNeverTreatsUnrelatedOrStaleRoleCaptureAsSystemEligibility() {
+        val incorrect = listOf(
+            assistantRoleSnapshot(source = "PACKAGE_MANAGER_FILTERED_RETURN"),
+            assistantRoleSnapshot(user = 10),
+            assistantRoleSnapshot(at = now - 120_001L),
+            assistantRoleSnapshot(role = "android.app.role.BROWSER"),
+            assistantRoleSnapshot(process = "com.example.untrusted"),
+            assistantRoleSnapshot(truncated = true),
+        )
+        for (capture in incorrect) {
+            val response = SystemProbeResult(0, 0,
+                items = listOf(assistantHolder),
+                diagnosticCandidates = listOf(assistOnly),
+                roleEligibilityReturn = capture)
+            val result = SystemPreviewV2.resolve(assistantRequest, response, now)
+            assertEquals(PreviewV2Source.ROLE_CANDIDATES, result.source)
+            assertEquals(listOf("com.example.google"), result.items.map { it.packageName })
+        }
+    }
+
+    @Test fun assistantExplicitlySeparatesHolderPossibleCandidatesAndPendingDraft() {
+        val holdersOnly = SystemProbeResult(0, 0,
+            items = listOf(assistantHolder), enabledItems = listOf(assistantHolder))
+        assertEquals(PreviewV2Source.ROLE_HOLDER,
+            SystemPreviewV2.resolve(assistantRequest, holdersOnly, now).source)
+        val qualified = holdersOnly.copy(
+            roleEligibilityReturn = assistantRoleSnapshot())
+        val pending = SystemPreviewV2.resolve(
+            assistantRequest, qualified, now, pendingDraft = true,
+            selected = setOf(ComponentRule(IntentKind.ASSISTANT,
+                "com.example.macro", "@role/ASSISTANT")))
+        assertEquals(PreviewV2Source.DRAFT_SIMULATION, pending.source)
+        assertTrue(pending.items.none { it.packageName == "com.example.macro" })
+    }
+
     @Test fun foreignProfileDoesNotShowThisUsersCandidates() {
         val foreign = request.copy(userId = 10)
         val unavailable = SystemProbeResult(0, 0, supported = false)
