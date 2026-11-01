@@ -124,7 +124,7 @@ internal fun filterAppGroups(
     filter: IntentKind?,
     query: String,
     uiFilter: UiFilter,
-    sortMode: UiAppSort = UiAppSort.SELECTED_FIRST,
+    sortMode: UiAppSort = UiAppSort.NAME,
     preferences: UiPreferences = UiPreferencesRuntime.current,
 ): List<AppGroup> {
     val needle = query.trim().lowercase()
@@ -144,14 +144,16 @@ internal fun filterAppGroups(
     val selectionRanks = if (sortMode == UiAppSort.SELECTED_FIRST) {
         filtered.associate { it.packageName to appSelectionRank(it, selected) }
     } else emptyMap()
+    val nameComparator = displayNameComparator()
     return filtered.sortedWith(
         when (sortMode) {
             UiAppSort.SELECTED_FIRST -> compareBy<AppGroup> { selectionRanks.getValue(it.packageName) }
-                .thenBy { it.components.firstOrNull()?.normalizedAppLabel ?: it.appLabel.lowercase() }
+                .thenComparator { a, b -> nameComparator.compare(a.appLabel, b.appLabel) }
                 .thenBy { it.packageName }
-            UiAppSort.NAME -> compareBy<AppGroup> {
-                it.components.firstOrNull()?.normalizedAppLabel ?: it.appLabel.lowercase()
-            }.thenBy { it.packageName }
+            UiAppSort.NAME -> Comparator<AppGroup> { a, b ->
+                nameComparator.compare(a.appLabel, b.appLabel).takeIf { it != 0 }
+                    ?: a.packageName.compareTo(b.packageName)
+            }
             UiAppSort.PACKAGE -> compareBy<AppGroup> { it.packageName.lowercase() }
         }
     )
