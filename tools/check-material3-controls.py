@@ -622,9 +622,12 @@ for symbol in ("WorkspaceReadOnlyDetailRow(", "WorkspaceDetailRow(",
     if symbol not in details:
         errors.append(f"WorkspaceCommon.kt: expanded detail surface contract missing {symbol}")
 
-# The rebuilt preview uses one flat list and scoped MIME chips (no legacy mode tabs).
-if "AdaptiveFilterChip(" not in (root / "SystemProbeDialog.kt").read_text(encoding="utf-8"):
-    errors.append("SystemProbeDialog.kt: scoped MIME choices lack visible selected state")
+# Native-preview routing has replaced the app-owned preview controls.
+native_preview = (root / "SystemProbeDialog.kt").read_text(encoding="utf-8")
+if "SystemEffectPreview.launch(" not in native_preview or "LaunchedEffect(request)" not in native_preview:
+    errors.append("SystemProbeDialog.kt: native system launch routing missing")
+if "ModalBottomSheet(" in native_preview or "SystemPreviewV2.resolve(" in native_preview:
+    errors.append("SystemProbeDialog.kt: rebuilt local preview unexpectedly active")
 if "SettingsFlatDialog(" not in (root / "AppearanceSettings.kt").read_text(encoding="utf-8"):
     errors.append("AppearanceSettings.kt: custom color editor bypassed shared flat dialog")
 
@@ -674,14 +677,8 @@ if "preview_test_intent" in preview_source or "launchScenario(" in preview_sourc
     errors.append("SystemProbeDialog.kt: old role Intent tester returned")
 if "fun launchScenario(" in preview_route or "supportsScenarioTest(" in preview_route:
     errors.append("SystemEffectPreview.kt: obsolete default-role Intent chooser returned")
-if "R.string.preview_open_assistant_picker" not in preview_source:
-    errors.append("SystemProbeDialog.kt: Assistant must explicitly open its system role chooser")
-for token in ("ModalBottomSheet(", "skipPartiallyExpanded = true",
-              "SystemPreviewV2.resolve(", "LazyVerticalGrid(", "GridCells.Adaptive(",
-              "SystemPreviewGridTile(", "onDismissRequest = onDismiss",
-              "PreviewV2Source.DRAFT_SIMULATION", "systemLaunchedAt ="):
-    if token not in preview_source:
-        errors.append(f"SystemProbeDialog.kt: rebuilt flat preview contract missing {token}")
+if "kind != null -> SystemEffectPreview.launch(" not in preview_source:
+    errors.append("SystemProbeDialog.kt: entry kinds must route to native system surfaces")
 for token in ("internal object SystemPreviewV2", "exactCapture(", "queryStartedAt",
               "systemLaunchedAt", "pendingDraft", "historyRequested"):
     if token not in preview_engine:
