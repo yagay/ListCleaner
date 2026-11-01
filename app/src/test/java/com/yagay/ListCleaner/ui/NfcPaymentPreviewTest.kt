@@ -47,8 +47,8 @@ class NfcPaymentPreviewTest {
 
     @Test fun registeredGooglePlayServicesIsNotPresentedAsAnObservedPaymentApp() {
         val empty = result(emptyList())
-        assertEquals(PreviewV2Source.NFC_CAPTURE_REQUIRED, empty.source)
-        assertTrue(empty.items.isEmpty())
+        assertEquals(PreviewV2Source.INTENT_CANDIDATES, empty.source)
+        assertEquals(listOf("com.google.android.gms"), empty.items.map { it.packageName })
         val verified = result(listOf(capture(0, listOf(wallet))))
         assertEquals(PreviewV2Source.NFC_PAYMENT_CAPTURED, verified.source)
         assertEquals(listOf("com.google.android.apps.walletnfcrel"),
@@ -99,8 +99,8 @@ class NfcPaymentPreviewTest {
             good.copy(requestAction = "android.intent.action.VIEW"),
         )) {
             val output = result(listOf(bad))
-            assertEquals(PreviewV2Source.NFC_CAPTURE_REQUIRED, output.source)
-            assertTrue(output.items.isEmpty())
+            assertEquals(PreviewV2Source.INTENT_CANDIDATES, output.source)
+            assertEquals(listOf("com.google.android.gms"), output.items.map { it.packageName })
         }
     }
 
