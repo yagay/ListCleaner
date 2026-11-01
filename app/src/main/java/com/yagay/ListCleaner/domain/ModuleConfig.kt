@@ -80,16 +80,17 @@ data class ModuleConfig(
         }
         val mergedOrder = priorities.apps.toMutableMap()
         val oldOpenOrder = typedOpen.priorities.entries
-            .sortedBy { it.key.ordinal }.flatMap { it.value }.distinct().take(200)
-        if (mergedOrder[IntentKind.OPEN].isNullOrEmpty() && oldOpenOrder.isNotEmpty()) {
-            mergedOrder[IntentKind.OPEN] = oldOpenOrder
-        }
+            .sortedBy { it.key.ordinal }.flatMap { it.value }.distinct()
+        val mergedOpen = (mergedOrder[IntentKind.OPEN].orEmpty() + oldOpenOrder)
+            .distinct().take(200)
+        if (mergedOpen.isNotEmpty()) mergedOrder[IntentKind.OPEN] = mergedOpen
         for (kind in listOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE)) {
-            if (mergedOrder[kind].isNullOrEmpty()) {
-                val oldOrder = typedOpen.sharePriorities[kind].orEmpty().toSortedMap()
-                    .values.flatMap { it }.distinct().take(200)
-                if (oldOrder.isNotEmpty()) mergedOrder[kind] = oldOrder
-            }
+            val oldOrder = typedOpen.sharePriorities[kind].orEmpty().toSortedMap()
+                .values.flatMap { it }.distinct()
+            // Do not discard older per-MIME priorities when a generic order
+            // already exists. Append only the missing package identities.
+            val merged = (mergedOrder[kind].orEmpty() + oldOrder).distinct().take(200)
+            if (merged.isNotEmpty()) mergedOrder[kind] = merged
         }
         return copy(
             rules = migratedRules,

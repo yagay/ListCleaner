@@ -155,8 +155,7 @@ internal fun MainToolbar(
 
 /** Every Entry kind with a secondary type picker must share this contract. */
 internal fun hasEntrySubtypeSelector(kind: IntentKind?): Boolean = kind in setOf(
-    IntentKind.OPEN, IntentKind.DEEP_LINK, IntentKind.DIRECT_SHARE,
-    IntentKind.SHARE, IntentKind.SHARE_MULTIPLE
+    IntentKind.DEEP_LINK, IntentKind.DIRECT_SHARE,
 )
 
 /** The category choice is now a single full-width Material 3 picker. */

@@ -632,6 +632,12 @@ class IntentCatalog(private val context: Context) {
             val fallbackExt = definition.extensions.firstOrNull() ?: "custom"
             definition.mimeTypes.take(24).forEachIndexed { index, mime ->
                 val sample = "custom-$index.$fallbackExt"
+                for (action in listOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE)) {
+                    add(Probe(
+                        Intent(action).setType(mime), false,
+                        "CUSTOM preset=${preset.name} ${action.substringAfterLast('.')} mime=$mime"
+                    ))
+                }
                 for (scheme in listOf("content", "file")) {
                     val uri = if (scheme == "content") {
                         "content://com.yagay.ListCleaner.placeholder/$sample"
@@ -707,7 +713,7 @@ class IntentCatalog(private val context: Context) {
                 val first = matches.firstOrNull { it.isCatalogCandidate } ?: matches.first()
                 first.copy(
                     evidence = matches.flatMap { it.evidence }.distinct()
-                        .sortedBy { !it.startsWith("REAL_FILE ") }.take(32),
+                        .sortedBy { !it.startsWith("REAL_FILE ") }.take(256),
                     restricted = matches.all { it.restricted },
                     unavailable = matches.all { it.unavailable },
                     broadMatch = matches.all { it.broadMatch },
@@ -736,7 +742,27 @@ class IntentCatalog(private val context: Context) {
             "application/zip" to "sample.zip", "application/vnd.rar" to "sample.rar",
             "application/msword" to "sample.doc", "application/vnd.openxmlformats-officedocument.wordprocessingml.document" to "sample.docx",
             "application/vnd.ms-excel" to "sample.xls", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" to "sample.xlsx",
-            "application/vnd.ms-powerpoint" to "sample.ppt", "application/vnd.openxmlformats-officedocument.presentationml.presentation" to "sample.pptx"
+            "application/vnd.ms-powerpoint" to "sample.ppt", "application/vnd.openxmlformats-officedocument.presentationml.presentation" to "sample.pptx",
+            // Additional concrete probes make the unified list a more complete
+            // union than the old per-type UI; wildcard-only queries miss many
+            // MIME-specific receivers on Android.
+            "image/webp" to "sample.webp", "image/avif" to "sample.avif",
+            "image/heic" to "sample.heic", "image/tiff" to "sample.tif",
+            "image/bmp" to "sample.bmp",
+            "video/webm" to "sample.webm", "video/quicktime" to "sample.mov",
+            "video/x-matroska" to "sample.mkv", "video/3gpp" to "sample.3gp",
+            "audio/ogg" to "sample.ogg", "audio/flac" to "sample.flac",
+            "audio/wav" to "sample.wav", "audio/mp4" to "sample.m4a",
+            "application/vnd.oasis.opendocument.text" to "sample.odt",
+            "application/vnd.oasis.opendocument.spreadsheet" to "sample.ods",
+            "application/vnd.oasis.opendocument.presentation" to "sample.odp",
+            "application/rtf" to "sample.rtf",
+            "application/x-7z-compressed" to "sample.7z",
+            "application/x-rar-compressed" to "sample.rar",
+            "application/gzip" to "sample.gz", "application/x-tar" to "sample.tar",
+            "application/x-zip-compressed" to "sample.zip",
+            "text/calendar" to "sample.ics", "text/vcard" to "sample.vcf",
+            "application/yaml" to "sample.yaml", "application/octet-stream" to "sample.bin"
         )
     }
 }

@@ -114,7 +114,7 @@ fun PriorityDialogContent(
     // keeps its category and open/deep-link subtype unchanged.
     var localOpenPreset by rememberSaveable(vm.selectedSpace.value) { mutableStateOf(sharedOpenPreset) }
     var localBrowserHost by rememberSaveable(vm.selectedSpace.value) { mutableStateOf(sharedBrowserHost) }
-    val openPreset = if (onExit != null) localOpenPreset else sharedOpenPreset
+    val openPreset: OpenPreset? = null
     val browserHost = if (onExit != null) localBrowserHost else sharedBrowserHost
     var confirmPriorityReset by remember { mutableStateOf(false) }
     val prefsContext = LocalContext.current
@@ -156,7 +156,7 @@ fun PriorityDialogContent(
     val shareTypeOptions = remember(state.candidates, kind, state.openTypesExplicit.customDefinitions) {
         observedShareTypeOptions(state.candidates, kind, state.openTypesExplicit.customDefinitions)
     }
-    val activeShareType = shareTypeOptions.firstOrNull { it.key == localShareTypeKey }
+    val activeShareType: ShareTypeOption? = null
 
     val typedSelected = typedOpenPreset?.let { state.openTypes.selectedRules(it) }.orEmpty()
     val explicitDeepLinkSelected = deepLinkHost?.let { state.browserLinks.selectedRules(it) }.orEmpty()
@@ -434,38 +434,16 @@ fun PriorityDialogContent(
                                 )
                             },
                             subtypeTitle = when (kind) {
-                                IntentKind.OPEN -> openPreset?.let { state.openTypesExplicit.localizedTitle(it) }
                                 IntentKind.DEEP_LINK -> browserHost
-                                IntentKind.SHARE, IntentKind.SHARE_MULTIPLE ->
-                                    activeShareType?.preset?.let { state.openTypesExplicit.localizedTitle(it) }
-                                        ?: activeShareType?.mimeTypes?.firstOrNull()
                                 else -> null
                             },
                             subtypeAvailable = when (kind) {
-                                IntentKind.OPEN -> state.openTypesExplicit.configuredPresets().isNotEmpty()
                                 IntentKind.DEEP_LINK -> state.browserAvailableHosts.isNotEmpty() ||
                                     state.browserLinks.hosts.isNotEmpty() || browserHost != null
-                                IntentKind.SHARE, IntentKind.SHARE_MULTIPLE -> shareTypeOptions.isNotEmpty()
                                 else -> false
                             },
                             extraFilter = {
                                 when (kind) {
-                                    IntentKind.OPEN -> OpenPresetFilterMenu(
-                                        selected = openPreset,
-                                        config = state.openTypesExplicit,
-                                        onSelected = { preset ->
-                                            if (onExit != null) localOpenPreset = preset
-                                            else navigate { vm.setRuleOpenPreset(preset) }
-                                        },
-                                        onManageCustom = { showCustomTypes = true },
-                                        iconOnly = true
-                                    )
-                                    IntentKind.SHARE, IntentKind.SHARE_MULTIPLE -> ShareMimeFilterMenu(
-                                        selected = activeShareType,
-                                        supported = shareTypeOptions,
-                                        config = state.openTypesExplicit,
-                                        onSelected = { localShareTypeKey = it?.key },
-                                    )
                                     IntentKind.DEEP_LINK -> BrowserHostFilterMenu(
                                         selected = browserHost,
                                         config = state.browserLinks,

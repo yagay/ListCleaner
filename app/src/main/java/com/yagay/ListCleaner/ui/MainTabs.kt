@@ -95,37 +95,30 @@ internal fun RulesTab(
         )
     }
 
-    val openPreset by vm.ruleOpenPreset.collectAsStateWithLifecycle()
+    val legacyOpenPreset by vm.ruleOpenPreset.collectAsStateWithLifecycle()
+    // A single Open list owns all MIME targets. Clear an old per-type filter
+    // persisted before the unified-list migration.
+    LaunchedEffect(legacyOpenPreset) {
+        if (legacyOpenPreset != null) vm.setRuleOpenPreset(null)
+    }
+    val openPreset: OpenPreset? = null
     val browserHost by vm.ruleBrowserHost.collectAsStateWithLifecycle()
     var directShareTypeName by rememberSaveable(vm.selectedSpace.value) { mutableStateOf<String?>(null) }
     val directShareType = directShareTypeName?.let(DirectShareType::fromName)
         .takeIf { state.filter == IntentKind.DIRECT_SHARE }
-    // ACTION_SEND and ACTION_SEND_MULTIPLE are distinct Android lists.
-    // Offer only MIME types actually returned by each kind's resolver probes.
-    val observedShareTypes = remember(
-        state.candidates, state.filter, state.openTypesExplicit.customDefinitions
-    ) {
-        state.filter?.let {
-            observedShareTypeOptions(
-                state.candidates, it, state.openTypesExplicit.customDefinitions
-            )
-        }.orEmpty()
-    }
-    var shareMimeName by rememberSaveable(vm.selectedSpace.value, state.filter) { mutableStateOf<String?>(null) }
-    val selectedShareMime = observedShareTypes.firstOrNull { it.key == shareMimeName }
+    // Scan many MIME combinations, present one receiver list for each action.
+    // The previous per-MIME submenu is deliberately not used for cleanup.
+    val selectedShareMime: com.yagay.ListCleaner.domain.ShareTypeOption? = null
     LaunchedEffect(state.filter) {
         if (state.filter != IntentKind.OPEN) vm.setRuleOpenPreset(null)
         if (state.filter != IntentKind.DEEP_LINK) vm.setRuleBrowserHost(null)
         if (state.filter != IntentKind.DIRECT_SHARE) directShareTypeName = null
     }
-    LaunchedEffect(state.openTypesExplicit.customDefinitions, openPreset) {
-        if (openPreset?.isCustom == true && openPreset !in state.openTypesExplicit.customDefinitions) vm.setRuleOpenPreset(null)
-    }
     LaunchedEffect(state.browserAvailableHosts, browserHost) {
         if (browserHost != null && browserHost !in state.browserAvailableHosts) vm.setRuleBrowserHost(null)
     }
 
-    val typedOpenPreset = openPreset.takeIf { state.filter == IntentKind.OPEN }
+    val typedOpenPreset: OpenPreset? = null
     val deepLinkHost = browserHost.takeIf { state.filter == IntentKind.DEEP_LINK }
 
     val typedSelected = typedOpenPreset?.let { state.openTypes.selectedRules(it) }.orEmpty()
@@ -430,43 +423,21 @@ internal fun RulesTab(
                             navigate { showSortEditor = true }
                         } },
                         subtypeTitle = when (state.filter) {
-                            IntentKind.OPEN -> openPreset?.let { state.openTypesExplicit.localizedTitle(it) }
                             IntentKind.DEEP_LINK -> browserHost
                             IntentKind.DIRECT_SHARE -> directShareType?.let { stringResource(it.titleRes()) }
-                            IntentKind.SHARE, IntentKind.SHARE_MULTIPLE -> selectedShareMime?.let { option ->
-                                if (option.key == "universal") prefsContext.getString(R.string.open_type_universal)
-                                else if (option.preset != null)
-                                    state.openTypesExplicit.localizedTitle(option.preset)
-                                else option.mimeTypes.first()
-                            }
                             else -> null
                         },
                         subtypeAvailable = when (state.filter) {
-                            IntentKind.OPEN -> state.openTypesExplicit.configuredPresets().isNotEmpty()
                             IntentKind.DEEP_LINK -> state.browserAvailableHosts.isNotEmpty() ||
                                 state.browserLinks.hosts.isNotEmpty() || browserHost != null
                             IntentKind.DIRECT_SHARE -> true
-                            IntentKind.SHARE, IntentKind.SHARE_MULTIPLE -> observedShareTypes.isNotEmpty()
                             else -> false
                         },
                         extraFilter = {
                             when (state.filter) {
-                                IntentKind.OPEN -> OpenPresetFilterMenu(
-                                    selected = openPreset,
-                                    config = state.openTypesExplicit,
-                                    onSelected = { preset -> navigate { vm.setRuleOpenPreset(preset) } },
-                                    onManageCustom = { showCustomTypes = true },
-                                    iconOnly = true
-                                )
                                 IntentKind.DIRECT_SHARE -> DirectShareTypeFilterMenu(
                                     selected = directShareType,
                                     onSelected = { type -> navigate { directShareTypeName = type?.name } }
-                                )
-                                IntentKind.SHARE, IntentKind.SHARE_MULTIPLE -> ShareMimeFilterMenu(
-                                    selected = selectedShareMime,
-                                    supported = observedShareTypes,
-                                    config = state.openTypesExplicit,
-                                    onSelected = { type -> navigate { shareMimeName = type?.key } },
                                 )
                                 IntentKind.DEEP_LINK -> BrowserHostFilterMenu(
                                     selected = browserHost,

@@ -599,10 +599,6 @@ class ListCleanerModule : XposedModule() {
             } else {
                 pollPreferences()
                 val current = snapshotForUser(com.yagay.ListCleaner.domain.AndroidUid.userId(Process.myUid()))
-                if (current.modeFor(kind) == DisplayMode.SHOW_ALL) {
-                    diagnostic("ORDER_SKIP reason=show_all")
-                    return@runCatching null
-                }
                 val preset = adapterOpenPreset(receiver, kind)
                 val browserHost = adapterBrowserHost(receiver, kind)
                 val shareTypeKey = adapterShareTypeKey(receiver, kind, current)

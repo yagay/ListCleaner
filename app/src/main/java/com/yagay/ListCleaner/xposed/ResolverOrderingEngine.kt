@@ -20,10 +20,9 @@ internal class ResolverOrderingEngine(
         current: RuntimeRuleSnapshot,
         shareTypeKey: String? = null,
     ): List<String> {
-        if (shareTypeKey != null && kind in setOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE)) {
-            current.openTypes.sharePriority(kind, shareTypeKey)
-                .takeIf { it.isNotEmpty() }?.let { return it }
-        }
+        // One priority order per action. Each MIME's actual resolver result is
+        // ranked using that same saved package list; missing targets are never
+        // inserted and unsupported entries remain absent.
         return effectiveResolverPriorities(
             kind, preset, browserHost, current.priorities, current.openTypes, current.browserLinks,
         )
