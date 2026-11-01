@@ -252,6 +252,7 @@ internal fun RootComponentsScreen(
         kindItems.groupBy(::componentBulkLockAppId)
     }
     val appSort = UiPreferencesRuntime.current.appSort
+    val nameComparator = remember { displayNameComparator() }
     val tileRanks = systemTileLabels.tileOrder.withIndex()
         .associate { it.value to it.index }
     val groups = remember(kindItems, appTypeFilter, viewFilter, state.query, bulkLockRevision, appSort, tileRanks) {
@@ -276,11 +277,13 @@ internal fun RootComponentsScreen(
                         group.value.minOfOrNull {
                             tileRanks[it.component.flattenToString()] ?: Int.MAX_VALUE
                         } ?: Int.MAX_VALUE
-                    }.thenBy { it.value.first().owner.lowercase() }.thenBy { it.key }
+                    }.thenComparator { a, b -> nameComparator.compare(a.value.first().owner, b.value.first().owner) }.thenBy { it.key }
                 appSort == UiAppSort.SELECTED_FIRST -> compareBy<Map.Entry<String, List<RootComponent>>> { componentAppSelectionRank(it.value) }
                     .thenBy { it.value.first().owner.lowercase() }.thenBy { it.key }
-                appSort == UiAppSort.NAME -> compareBy<Map.Entry<String, List<RootComponent>>> { it.value.first().owner.lowercase() }
-                    .thenBy { it.key }
+                appSort == UiAppSort.NAME -> Comparator<Map.Entry<String, List<RootComponent>>> { a, b ->
+                    nameComparator.compare(a.value.first().owner, b.value.first().owner).takeIf { it != 0 }
+                        ?: a.key.compareTo(b.key)
+                }
                 else -> compareBy<Map.Entry<String, List<RootComponent>>> { it.value.first().component.packageName.lowercase() }
                     .thenBy { it.key }
             })
@@ -293,14 +296,16 @@ internal fun RootComponentsScreen(
             }
         }
     }
-    val sortedGroups = remember(groups, tileRanks, kind) {
+    val sortedGroups = remember(groups, tileRanks, kind, nameComparator) {
         groups.map { (appKey, items) ->
             appKey to items.sortedWith(
                 if (kind == CleanupKind.TILE && tileRanks.isNotEmpty())
                     compareBy<RootComponent> {
                         tileRanks[it.component.flattenToString()] ?: Int.MAX_VALUE
-                    }.thenBy { it.label.lowercase() }
-                else compareBy({ it.kind.ordinal }, { it.label.lowercase() }, { it.id })
+                    }.thenComparator { a, b -> nameComparator.compare(a.label, b.label) }
+                else compareBy<RootComponent> { it.kind.ordinal }
+                    .thenComparator { a, b -> nameComparator.compare(a.label, b.label) }
+                    .thenBy { it.id }
             )
         }
     }
