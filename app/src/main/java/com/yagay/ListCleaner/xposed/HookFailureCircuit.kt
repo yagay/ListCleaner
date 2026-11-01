@@ -1,28 +1,30 @@
 package com.yagay.ListCleaner.xposed
 
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
+
 /**
  * Process-local fail-open circuit for one installed hook method.
  *
- * Repeated adapter failures disable only this hook until its process is restarted.
- * An exception thrown by the original framework method is not a hook failure.
+ * Repeated adapter failures disable only that hook until its process is restarted.
+ * Original framework exceptions must not count toward this threshold.
+ * The success path is lock-free because resolver hooks run very frequently.
  */
 internal class HookFailureCircuit(private val threshold: Int = 3) {
     init { require(threshold > 0) }
-    private var consecutiveFailures = 0
-    private var disabled = false
+    private val consecutiveFailures = AtomicInteger()
+    private val disabled = AtomicBoolean()
 
-    @Synchronized fun isDisabled(): Boolean = disabled
+    fun isDisabled(): Boolean = disabled.get()
 
     /** Returns true only when this failure trips the circuit. */
-    @Synchronized fun recordFailure(): Boolean {
-        if (disabled) return false
-        consecutiveFailures++
-        if (consecutiveFailures < threshold) return false
-        disabled = true
-        return true
+    fun recordFailure(): Boolean {
+        if (disabled.get()) return false
+        val count = consecutiveFailures.incrementAndGet()
+        return count >= threshold && disabled.compareAndSet(false, true)
     }
 
-    @Synchronized fun recordSuccess() {
-        if (!disabled) consecutiveFailures = 0
+    fun recordSuccess() {
+        if (!disabled.get() && consecutiveFailures.get() != 0) consecutiveFailures.set(0)
     }
 }
