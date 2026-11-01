@@ -300,25 +300,38 @@ class RuleRepository(context: Context) {
         visibilityCompat = VisibilityCompatConfig(scopes = mutableVisibilityScopes.value.toSet()),
     ).validated()
 
-    private fun persistPrepared(config: ModuleConfig) {
+    private fun persistPrepared(config: ModuleConfig, durable: Boolean = false) {
         val local = config.copy(
             managerAppId = -1,
             rootDisabledComponents = null,
             visibilityCompat = VisibilityCompatConfig(scopes = config.visibilityCompat.scopes.toSet()),
             userSpaces = emptyMap(),
         ).validated()
-        storedSpaces[activeUserId] = local.toSpaceRules()
-        val primary = (storedSpaces[0] ?: UserSpaceRules()).toModuleConfig()
-            .copy(userSpaces = storedSpaces.filterKeys { it != 0 }).validated()
-        val encoded = json.encodeToString(ModuleConfig.serializer(), primary)
-        prefs.edit()
-            .putString(KEY_LOCAL_CONFIG, encoded)
-            .putBoolean(KEY_INITIALIZED, true)
-            .remove(KEY_TILES)
-            .remove(KEY_DEFAULT_OPEN)
-            .apply()
-        validatedLocalJson = encoded
-        validatedLocalResult = true
+        val previous = storedSpaces[activeUserId]
+        try {
+            storedSpaces[activeUserId] = local.toSpaceRules()
+            val primary = (storedSpaces[0] ?: UserSpaceRules()).toModuleConfig()
+                .copy(userSpaces = storedSpaces.filterKeys { it != 0 }).validated()
+            val encoded = json.encodeToString(ModuleConfig.serializer(), primary)
+            val edit = prefs.edit()
+                .putString(KEY_LOCAL_CONFIG, encoded)
+                .putBoolean(KEY_INITIALIZED, true)
+                .remove(KEY_TILES)
+                .remove(KEY_DEFAULT_OPEN)
+            if (durable) {
+                check(edit.commit()) { "Failed to commit Modes configuration" }
+            } else {
+                edit.apply()
+            }
+            validatedLocalJson = encoded
+            validatedLocalResult = true
+        } catch (failure: Exception) {
+            // Failed validation or durable disk persistence must not silently
+            // leave a different in-memory user-space snapshot behind.
+            if (previous == null) storedSpaces.remove(activeUserId)
+            else storedSpaces[activeUserId] = previous
+            throw failure
+        }
     }
 
     private fun persistLocalSnapshot() = persistPrepared(localSnapshot())
@@ -338,7 +351,7 @@ class RuleRepository(context: Context) {
         val current = localSnapshot()
         val next = current.withModeDisables(disabledKinds, disabledSurfaces)
         if (next == current) return true
-        persistPrepared(next)
+        persistPrepared(next, durable = true)
         mutableDisabledEntryKinds.value = next.disabledEntryKinds
         mutableDisabledEntryGroups.value = next.disabledEntryGroups
         mutableSurfaceFilters.value = next.surfaceFilters
