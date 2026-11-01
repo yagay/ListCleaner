@@ -10,6 +10,10 @@ import org.junit.Test
 
 /** Regression coverage for the replacement engine, not the retired preview fallback graph. */
 class SystemPreviewV2Test {
+    @Test fun inputMethodPreviewUsesNativeSystemPicker() {
+        assertEquals(SystemPreviewRoute.INPUT_METHOD_PICKER, systemPreviewRoute(IntentKind.INPUT_METHOD))
+    }
+
     private val kind = IntentKind.SHARE
     private val request = SystemProbeRequest(entryKind = kind, userId = 0,
         scenario = SystemProbeScenario.TEXT)
