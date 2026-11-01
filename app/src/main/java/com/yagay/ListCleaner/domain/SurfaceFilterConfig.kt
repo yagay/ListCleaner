@@ -29,6 +29,8 @@ data class SurfaceFilterConfig(
     val tileLabels: Map<String, String> = emptyMap(),
     /** Preferred order in the add-tile chooser; never changes already-added QS tiles. */
     val tileOrder: List<String> = emptyList(),
+    /** Modes switches, stored per Android user alongside the rules. */
+    val disabledCleanupSurfaces: Set<SurfaceKind> = emptySet(),
 ) {
     private fun allowed(kind: SurfaceKind, value: String): Boolean =
         if (kind == SurfaceKind.MEDIA_OUTPUT) value.length in 1..256 &&
