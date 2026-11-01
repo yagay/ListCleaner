@@ -443,10 +443,14 @@ internal fun EntryCategoryPicker(
     val context = LocalContext.current
     val preferences = UiPreferencesRuntime.current
     val pinned = preferences.pinnedEntryKinds.filter { (availableKinds == null || it in availableKinds) && it.entryGroup() !in disabledGroups && it !in disabledKinds }
-    val groups = EntryGroup.entries.filter { it !in disabledGroups && (includeAllKinds || it != EntryGroup.DESKTOP) }
+    val kinds = IntentKind.entries.filter {
+        (availableKinds == null || it in availableKinds) &&
+            it.entryGroup() !in disabledGroups &&
+            it !in disabledKinds &&
+            (includeAllKinds || it.entryGroup() != EntryGroup.DESKTOP)
+    }
     val currentTitle = if (selected == null) stringResource(R.string.common_all)
         else stringResource(selected.titleRes())
-    var expandedGroup by remember(selected) { mutableStateOf(selected?.entryGroup()) }
     var managePins by remember { mutableStateOf(false) }
     if (managePins) CategoryPinnedManagerDialog(
         items = preferences.pinnedEntryKinds,
@@ -473,19 +477,15 @@ internal fun EntryCategoryPicker(
                 kind.hierarchyIcon(), { dismiss(); onSelected(kind) },
                 { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedEntryKinds = UiPreferencesRuntime.current.pinnedEntryKinds - kind)) })
         }
-        groups.forEach { group ->
-            val kinds = group.kinds().filter { (availableKinds == null || it in availableKinds) && it !in pinned && it !in disabledKinds }
-            if (kinds.isNotEmpty()) {
-                val expanded = expandedGroup == group
-                WorkspaceMenuSection(stringResource(group.titleRes()), expanded,
-                    onClick = { expandedGroup = if (expanded) null else group }, icon = group.hierarchyIcon())
-                if (expanded) kinds.forEach { kind ->
-                    WorkspaceFavoriteChoice(stringResource(kind.titleRes()), selected == kind, false,
-                        kind.hierarchyIcon(), { dismiss(); onSelected(kind) },
-                        { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedEntryKinds = UiPreferencesRuntime.current.pinnedEntryKinds + kind)) },
-                        indented = true)
-                }
-            }
+        kinds.filter { it !in pinned }.forEach { kind ->
+            WorkspaceFavoriteChoice(
+                stringResource(kind.titleRes()), selected == kind, false,
+                kind.hierarchyIcon(), { dismiss(); onSelected(kind) },
+                { UiPreferencesStore.write(context,
+                    UiPreferencesRuntime.current.copy(
+                        pinnedEntryKinds = UiPreferencesRuntime.current.pinnedEntryKinds + kind
+                    )) },
+            )
         }
     }
 }
