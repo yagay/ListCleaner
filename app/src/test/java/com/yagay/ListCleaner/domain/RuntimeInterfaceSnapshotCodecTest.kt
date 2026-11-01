@@ -33,6 +33,26 @@ class RuntimeInterfaceSnapshotCodecTest {
         assertFalse(eligible == RuntimeInterfaceSnapshotCodec.keyForResolverOrder(kind))
     }
 
+    @Test fun nfcPaymentSnapshotsKeepProfileKeysAndServiceLabels() {
+        val component = "com.paypal.android/com.paypal.nfc.PaymentService"
+        val capture = RuntimeInterfaceSnapshot(
+            kind = IntentKind.NFC_HCE.name, source = "NFC_PAYMENT_FILTERED_RETURN",
+            callerUserId = 10, callerPackage = "com.android.nfc",
+            capturedAtMillis = 4000L,
+            packages = listOf("com.paypal.android"),
+            components = listOf(component),
+            componentLabels = mapOf(component to "PayPal",
+                "com.unrelated/.Unknown" to "Should never survive"),
+        )
+        val encoded = RuntimeInterfaceSnapshotCodec.encode(capture)
+        val decoded = RuntimeInterfaceSnapshotCodec.decode(encoded, IntentKind.NFC_HCE)!!
+        assertEquals(mapOf(component to "PayPal"), decoded.componentLabels)
+        assertFalse(RuntimeInterfaceSnapshotCodec.keyForNfcPayment(0) ==
+            RuntimeInterfaceSnapshotCodec.keyForNfcPayment(10))
+        assertFalse(RuntimeInterfaceSnapshotCodec.keyForNfcPayment(10) ==
+            RuntimeInterfaceSnapshotCodec.key(IntentKind.NFC_HCE))
+    }
+
     @Test fun emptyReturnedListIsDistinguishableFromMissingHookCapture() {
         val empty = RuntimeInterfaceSnapshot(
             kind = IntentKind.BROWSER.name, source = "ROLE_CONTROLLER_RETURN",
