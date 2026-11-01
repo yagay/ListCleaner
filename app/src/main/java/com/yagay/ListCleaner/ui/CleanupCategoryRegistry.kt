@@ -1,7 +1,6 @@
 package com.yagay.ListCleaner.ui
 
 import android.content.Context
-import androidx.annotation.StringRes
 import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.isSelectableEntryKind
@@ -24,11 +23,11 @@ internal fun CleanupCategoryId.titleResource(): Int = when (this) {
 
 internal object CleanupCategoryRegistry {
     fun entries(): List<CleanupCategoryId.Entry> =
-        IntentKind.entries.filter { it.isSelectableEntryKind() }.map(CleanupCategoryId::Entry)
+        IntentKind.entries.filter { it.isSelectableEntryKind() }.map { CleanupCategoryId.Entry(it) }
 
     fun rootCategories(): List<CleanupCategoryId> =
-        CleanupKind.entries.map(CleanupCategoryId::Root) +
-            ManagedComponentSurface.entries.map(CleanupCategoryId::Managed)
+        CleanupKind.entries.map { CleanupCategoryId.Root(it) } +
+            ManagedComponentSurface.entries.map { CleanupCategoryId.Managed(it) }
 
     fun <T : CleanupCategoryId> sorted(context: Context, categories: List<T>): List<T> {
         val comparator = displayNameComparator()
