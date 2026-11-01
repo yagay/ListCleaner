@@ -68,6 +68,7 @@ data class MainState(
     val displayMode: DisplayMode = DisplayMode.HIDE_SELECTED,
     val modeOverrides: Map<IntentKind, DisplayMode> = emptyMap(),
     val disabledEntryGroups: Set<com.yagay.ListCleaner.domain.EntryGroup> = emptySet(),
+    val disabledEntryKinds: Set<com.yagay.ListCleaner.domain.IntentKind> = emptySet(),
     val filter: IntentKind? = null,
     val query: String = "",
     val uiFilter: UiFilter = UiFilter.ALL,
@@ -316,6 +317,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val modeOverrides: Map<IntentKind, DisplayMode> = emptyMap(),
         val priorities: PriorityConfig,
         val disabledEntryGroups: Set<com.yagay.ListCleaner.domain.EntryGroup> = emptySet(),
+    val disabledEntryKinds: Set<com.yagay.ListCleaner.domain.IntentKind> = emptySet(),
         val diagnosticMode: Boolean,
         val hiddenFromApps: Set<String>,
         val openTypes: OpenTypeConfig,
@@ -387,6 +389,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         input.copy(modeOverrides = overrides)
     }.combine(app.rules.disabledEntryGroups) { input, disabled ->
         input.copy(disabledEntryGroups = disabled)
+    }.combine(app.rules.disabledEntryKinds) { input, kinds ->
+        input.copy(disabledEntryKinds = kinds)
     }
 
     private val shellInputs = combine(
@@ -412,6 +416,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             displayMode = rules.displayMode,
             modeOverrides = rules.modeOverrides,
             disabledEntryGroups = rules.disabledEntryGroups,
+            disabledEntryKinds = rules.disabledEntryKinds,
             filter = content.filter,
             query = queryText,
             priorities = rules.priorities,
@@ -790,6 +795,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         bulkLocks.toggleApp(scope, appId, itemIds)
     internal fun toggleBulkItemLock(scope: String, itemId: String) = bulkLocks.toggleItem(scope, itemId)
 
+    fun setDisabledEntryKinds(kinds: Set<com.yagay.ListCleaner.domain.IntentKind>) {
+        if (canEdit()) app.rules.setDisabledEntryKinds(kinds)
+    }
     fun setDisabledEntryGroups(groups: Set<com.yagay.ListCleaner.domain.EntryGroup>) {
         if (canEdit()) app.rules.setDisabledEntryGroups(groups)
     }
