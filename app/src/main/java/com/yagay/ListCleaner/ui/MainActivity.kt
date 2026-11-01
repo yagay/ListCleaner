@@ -121,6 +121,7 @@ class MainActivity : ComponentActivity() {
         PendingNavigationDialog(pendingNavigation)
         LaunchedEffect(componentBusy) { pendingNavigation.observeRootBusy(componentBusy) }
         var searchExpanded by rememberSaveable { mutableStateOf(false) }
+        var managedEntrySurface by rememberSaveable(selectedSpace) { mutableStateOf<ManagedComponentSurface?>(null) }
         val listsRefresh = remember { ListsRefreshRegistry() }
         var openModuleStatus by remember { mutableStateOf(false) }
         var restartPromptDismissed by rememberSaveable { mutableStateOf(false) }
@@ -286,14 +287,27 @@ class MainActivity : ComponentActivity() {
         val pageContent: @Composable (androidx.compose.foundation.layout.PaddingValues) -> Unit = { padding ->
             Box(Modifier.padding(padding).consumeWindowInsets(padding).fillMaxSize()) {
                 when (state.destination) {
-                    Destination.RULES -> RulesTab(
-                        state, vm,
-                        pendingNavigation = pendingNavigation,
-                        onOpenModuleStatus = {
-                            openModuleStatus = true
-                            pendingNavigation.request { vm.setDestination(Destination.SETTINGS) }
-                        }
-                    )
+                    Destination.RULES -> if (managedEntrySurface != null) {
+                        ComponentsSurfaceEditor(
+                            state = state,
+                            vm = vm,
+                            surface = requireNotNull(managedEntrySurface),
+                            pendingNavigation = pendingNavigation,
+                            refreshRegistry = listsRefresh,
+                            onRootKind = { managedEntrySurface = null },
+                            onManagedKind = { managedEntrySurface = it },
+                        )
+                    } else {
+                        RulesTab(
+                            state, vm,
+                            pendingNavigation = pendingNavigation,
+                            onManagedSurface = { managedEntrySurface = it },
+                            onOpenModuleStatus = {
+                                openModuleStatus = true
+                                pendingNavigation.request { vm.setDestination(Destination.SETTINGS) }
+                            }
+                        )
+                    }
                     Destination.PRIORITY -> PriorityTab(state, vm, pendingNavigation)
                     Destination.TILES -> RootComponentsScreen(state, vm, embedded = true, onExit = { vm.setDestination(Destination.RULES) }, pendingNavigation = pendingNavigation, refreshRegistry = listsRefresh)
                     Destination.SURFACES -> SurfaceManagementTab(state, vm)
