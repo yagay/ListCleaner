@@ -25,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
+import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.isSelectableEntryKind
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -46,6 +47,11 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
     val sortedKinds = IntentKind.entries.filter { it.isSelectableEntryKind() }.sortedWith { a, b ->
         nameOrder.compare(context.getString(a.titleRes()), context.getString(b.titleRes()))
     }
+    val rootSorted = CleanupKind.entries.sortedWith { a, b ->
+        nameOrder.compare(context.getString(a.titleRes()), context.getString(b.titleRes()))
+    }
+    val savedRootHidden = UiPreferencesRuntime.current.hiddenRootKinds
+    var draftRootHidden by remember(userId, savedRootHidden) { mutableStateOf(savedRootHidden) }
     // Only one inline mode editor at a time, and no modes are written
     // until its explicit confirmation button is pressed.
     var editingModeKey by rememberSaveable(userId) { mutableStateOf<String?>(null) }
@@ -54,7 +60,7 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
         state.disabledEntryKinds + state.disabledEntryGroups.flatMap { it.kinds() }
     }
     var draftDisabled by remember(userId, savedDisabled) { mutableStateOf(savedDisabled) }
-    val hasPendingChanges = draftDisabled != savedDisabled
+    val hasPendingChanges = draftDisabled != savedDisabled || draftRootHidden != savedRootHidden
 
     Scaffold(
         bottomBar = {
@@ -64,7 +70,7 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    AdaptiveTextButton(onClick = { draftDisabled = savedDisabled }) {
+                    AdaptiveTextButton(onClick = { draftDisabled = savedDisabled; draftRootHidden = savedRootHidden }) {
                         AdaptiveText(stringResource(R.string.common_cancel))
                     }
                     AdaptiveButton(onClick = {
@@ -72,6 +78,7 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                         // enabling one member cannot be overridden by its old group flag.
                         vm.setDisabledEntryKinds(draftDisabled)
                         if (state.disabledEntryGroups.isNotEmpty()) vm.setDisabledEntryGroups(emptySet())
+                        if (draftRootHidden != savedRootHidden) UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(hiddenRootKinds = draftRootHidden))
                     }) {
                         AdaptiveText(stringResource(R.string.lc_mode_confirm_apply))
                     }
@@ -102,6 +109,7 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
             )
         }
 
+        item(key = "modes-entry-heading") { FlatPopupHeader(stringResource(R.string.lc_mode_entry_heading)) }
         sortedKinds.forEach { kind ->
             item(key = "global-mode-kind-${kind.name}") {
                         val isDisabled = kind in draftDisabled
@@ -135,6 +143,25 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                                 draftDisabled = if (enabled) draftDisabled - kind else draftDisabled + kind
                             },
                         )
+            }
+        }
+        item(key = "modes-root-heading") { FlatPopupHeader(stringResource(R.string.lc_mode_root_heading)) }
+        rootSorted.forEach { kind ->
+            item(key = "modes-root-${kind.name}") {
+                val hidden = kind in draftRootHidden
+                GlobalModeSettingsRow(
+                    title = stringResource(kind.titleRes()),
+                    leadingIcon = kind.hierarchyIcon(),
+                    description = stringResource(R.string.lc_mode_root_visibility_description),
+                    selectedMode = stringResource(if (hidden) R.string.lc_mode_root_hidden else R.string.lc_mode_root_visible),
+                    expanded = false,
+                    onClick = {},
+                    modeMenu = {},
+                    enabled = !hidden,
+                    onEnabledChange = { visible ->
+                        draftRootHidden = if (visible) draftRootHidden - kind else draftRootHidden + kind
+                    },
+                )
             }
         }
     }
