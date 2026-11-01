@@ -71,11 +71,6 @@ internal fun systemPreviewRoute(kind: CleanupKind): SystemPreviewRoute = when (k
         SystemPreviewRoute.UNAVAILABLE
 }
 
-/** An extra scenario tester never replaces an Android role/default-app settings UI. */
-internal fun supportsScenarioTest(kind: IntentKind): Boolean = kind in setOf(
-    IntentKind.HOME, IntentKind.BROWSER, IntentKind.ASSISTANT
-)
-
 /** UI wording: a system settings page is NOT evidence of filtered candidates. */
 internal fun previewRouteNote(kind: IntentKind): Int = when (kind) {
     IntentKind.CREDENTIAL_PROVIDER -> R.string.system_preview_unavailable
@@ -427,27 +422,6 @@ internal object SystemEffectPreview {
             putExtra(Intent.EXTRA_PROCESS_TEXT_READONLY, true)
         }
         else -> buildIntent(context, kind, scenario, request)
-    }
-
-    /**
-     * Optional implicit-Intent test beside the authoritative default-app settings.
-     * It can launch a chosen app, so it is never used for passive state inspection.
-     */
-    fun launchScenario(
-        context: Context, kind: IntentKind, selectedUserId: Int,
-        scenario: SystemProbeScenario = defaultProbeScenario(kind),
-    ) {
-        if (!supportsScenarioTest(kind)) return
-        if (!checkUser(context, selectedUserId)) return
-        runCatching {
-            val target = scenarioIntent(context, kind, scenario)
-            context.startActivity(Intent.createChooser(
-                target, context.getString(R.string.system_preview_chooser_title)
-            ))
-        }.onFailure { failure ->
-            show(context, if (failure is ActivityNotFoundException || failure is SecurityException)
-                R.string.system_preview_no_handler else R.string.system_preview_failed)
-        }
     }
 
     fun launch(context: Context, kind: CleanupKind, selectedUserId: Int) {
