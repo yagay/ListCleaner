@@ -160,7 +160,8 @@ internal fun SystemProbeDialog(
             onDismissRequest = { inspected = null },
             title = { Text(item.appLabel) },
             text = {
-                Text(item.label + "\n" + item.packageName + "\n" + item.className)
+                Text(item.label + "\n" + item.packageName + "\n" + item.className +
+                    (item.userId?.let { "\nUser $it" } ?: ""))
             },
             confirmButton = {
                 AdaptiveTextButton(onClick = { inspected = null }) {
@@ -206,6 +207,8 @@ internal fun SystemProbeDialog(
                 PreviewV2Source.POLICY_PROJECTED -> R.string.preview_v3_policy_projected
                 PreviewV2Source.ROOT_STATE -> R.string.preview_v3_root_state
                 PreviewV2Source.ROOT_DRAFT_SIMULATION -> R.string.preview_v3_root_draft
+                PreviewV2Source.NFC_PAYMENT_CAPTURED -> R.string.preview_v4_nfc_captured
+                PreviewV2Source.NFC_CAPTURE_REQUIRED -> R.string.preview_v4_nfc_required
                 PreviewV2Source.ROLE_CANDIDATES -> R.string.preview_v2_role_candidates
                 PreviewV2Source.ROLE_HOLDER -> R.string.preview_v2_role_holder
                 PreviewV2Source.DRAFT_SIMULATION -> R.string.preview_v2_draft
@@ -289,8 +292,10 @@ internal fun SystemProbeDialog(
                 Text(stringResource(R.string.preview_v2_loading),
                     Modifier.padding(16.dp))
             } else if (result.items.isEmpty()) {
-                Text(stringResource(R.string.preview_v2_empty),
-                    Modifier.padding(16.dp),
+                Text(stringResource(
+                    if (result.source == PreviewV2Source.NFC_CAPTURE_REQUIRED)
+                        R.string.preview_v4_nfc_open_hint else R.string.preview_v2_empty
+                ), Modifier.padding(16.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 LazyVerticalGrid(
@@ -301,7 +306,7 @@ internal fun SystemProbeDialog(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     itemsIndexed(result.items, key = { index, item ->
-                        "${index}_${item.component}"
+                        "${index}_${item.displayIdentity}"
                     }) { _, item ->
                         SystemPreviewGridTile(
                             item = item,
