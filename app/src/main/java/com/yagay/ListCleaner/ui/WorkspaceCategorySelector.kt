@@ -505,9 +505,10 @@ internal fun ComponentCategoryPicker(
 ) {
     val context = LocalContext.current
     val preferences = UiPreferencesRuntime.current
-    val pinned = preferences.pinnedRootKinds
+    val pinned = preferences.pinnedRootKinds.filter { it !in preferences.hiddenRootKinds }
     val nameOrder = remember { displayNameComparator() }
-    val sortedRootKinds = ComponentCategoryFilterPolicy.choices.filterNotNull().sortedWith { a, b ->
+    val sortedRootKinds = ComponentCategoryFilterPolicy.choices.filterNotNull()
+        .filter { it !in preferences.hiddenRootKinds }.sortedWith { a, b ->
         nameOrder.compare(context.getString(a.titleRes()), context.getString(b.titleRes()))
     }
     var managePins by remember { mutableStateOf(false) }
