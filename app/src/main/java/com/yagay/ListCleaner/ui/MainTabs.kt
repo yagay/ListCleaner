@@ -413,8 +413,9 @@ internal fun RulesTab(
                             IntentKind.DIRECT_SHARE -> directShareType?.let { stringResource(it.titleRes()) }
                             IntentKind.SHARE, IntentKind.SHARE_MULTIPLE -> selectedShareMime?.let { option ->
                                 if (option.key == "universal") prefsContext.getString(R.string.open_type_universal)
-                                else option.preset?.let(state.openTypesExplicit::localizedTitle)
-                                    ?: option.mimeTypes.first()
+                                else if (option.preset != null)
+                                    state.openTypesExplicit.localizedTitle(option.preset)
+                                else option.mimeTypes.first()
                             }
                             else -> null
                         },
