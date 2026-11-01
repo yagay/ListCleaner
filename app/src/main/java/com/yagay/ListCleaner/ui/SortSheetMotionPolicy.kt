@@ -7,25 +7,15 @@ package com.yagay.ListCleaner.ui
 internal fun sortSheetTopInsetPx(viewportPx: Float, preferredInsetPx: Float): Float =
     preferredInsetPx.coerceAtLeast(0f).coerceAtMost(viewportPx.coerceAtLeast(0f) * 0.10f)
 
-/** Two-stage sheet transitions shared by the sort handle and nested list scroll. */
-internal enum class SortSheetRelease { EXPANDED, PARTIAL, DISMISS }
+/** One resting height: short drags rebound, downward swipes dismiss. */
+internal enum class SortSheetRelease { OPEN, DISMISS }
 
 internal fun sortSheetRelease(
-    wasExpanded: Boolean,
-    positionPx: Float,
-    partialOffsetPx: Float,
-    thresholdPx: Float,
+    dragOffsetPx: Float,
+    dismissDistancePx: Float,
     releaseVelocityPx: Float,
     flingThresholdPx: Float,
-): SortSheetRelease {
-    if (!wasExpanded && (positionPx > partialOffsetPx + thresholdPx ||
-            (releaseVelocityPx > flingThresholdPx && positionPx >= partialOffsetPx))) {
-        return SortSheetRelease.DISMISS
-    }
-    val shouldExpand = if (wasExpanded) {
-        !(positionPx > thresholdPx || releaseVelocityPx > flingThresholdPx)
-    } else {
-        positionPx < partialOffsetPx - thresholdPx || releaseVelocityPx < -flingThresholdPx
-    }
-    return if (shouldExpand) SortSheetRelease.EXPANDED else SortSheetRelease.PARTIAL
-}
+): SortSheetRelease =
+    if (dragOffsetPx >= dismissDistancePx ||
+        (dragOffsetPx > 0f && releaseVelocityPx > flingThresholdPx)
+    ) SortSheetRelease.DISMISS else SortSheetRelease.OPEN

@@ -120,71 +120,59 @@ internal fun WorkspaceSortEditorOverlay(
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val viewportPx = with(density) { maxHeight.toPx() }
-        // The old 23% offset left a conspicuous empty strip above the sheet.
-        // Keep a small, fixed peek gap instead, regardless of screen height.
-        val partialOffset = sortSheetTopInsetPx(
+        // One resting height only: show the editor near the top immediately,
+        // then allow downward drag to dismiss without an intermediate stop.
+        val topInsetPx = sortSheetTopInsetPx(
             viewportPx = viewportPx,
             preferredInsetPx = with(density) { 48.dp.toPx() },
         )
-        val threshold = (partialOffset * 0.55f)
-            .coerceAtMost(with(density) { 32.dp.toPx() })
-        var expanded by remember(partialOffset) { mutableStateOf(false) }
-        var sheetPosition by remember(partialOffset) { mutableFloatStateOf(partialOffset) }
+        val dismissDistancePx = with(density) { 72.dp.toPx() }
+        var dragOffsetPx by remember { mutableFloatStateOf(0f) }
         var dragging by remember { mutableStateOf(false) }
-        // Reopen in the default partly-expanded position even if the last
-        // session finished fully expanded before being dismissed.
-        LaunchedEffect(visible, partialOffset) {
+        LaunchedEffect(visible) {
             if (visible) {
                 dragging = false
-                expanded = false
-                sheetPosition = partialOffset
+                dragOffsetPx = 0f
             }
         }
-        val animatedPosition by animateFloatAsState(
-            targetValue = sheetPosition,
+        val animatedOffsetPx by animateFloatAsState(
+            targetValue = dragOffsetPx,
             animationSpec = if (dragging) snap() else tween(250, easing = FastOutSlowInEasing),
-            label = "sort-sheet-vertical-anchor",
+            label = "sort-sheet-drag-offset",
         )
 
         fun moveSheet(delta: Float): Float {
-            val previous = sheetPosition
-            sheetPosition = (previous + delta).coerceIn(0f, viewportPx * 0.9f)
-            if (sheetPosition != previous) dragging = true
-            return sheetPosition - previous
+            val previous = dragOffsetPx
+            dragOffsetPx = (previous + delta).coerceIn(0f, viewportPx * 0.9f)
+            if (dragOffsetPx != previous) dragging = true
+            return dragOffsetPx - previous
         }
 
         fun settleSheet(velocity: Float) {
-            val target = sortSheetRelease(
-                wasExpanded = expanded,
-                positionPx = sheetPosition,
-                partialOffsetPx = partialOffset,
-                thresholdPx = threshold,
+            val outcome = sortSheetRelease(
+                dragOffsetPx = dragOffsetPx,
+                dismissDistancePx = dismissDistancePx,
                 releaseVelocityPx = velocity,
                 flingThresholdPx = flingThreshold,
             )
             dragging = false
-            when (target) {
-                SortSheetRelease.DISMISS -> {
-                    sheetPosition = partialOffset
-                    guard.request(currentDismiss)
-                }
-                SortSheetRelease.EXPANDED -> {
-                    expanded = true
-                    sheetPosition = 0f
-                }
-                SortSheetRelease.PARTIAL -> {
-                    expanded = false
-                    sheetPosition = partialOffset
-                }
+            if (outcome == SortSheetRelease.DISMISS) {
+                // If there are pending edits, restore the sheet and let the
+                // existing Apply / Discard / Stay confirmation handle dismissal.
+                if (guard.hasChanges) dragOffsetPx = 0f
+                guard.request(currentDismiss)
+            } else {
+                // Insufficient travel: animate back to the sole open anchor.
+                dragOffsetPx = 0f
             }
         }
 
-        // Let the editor list scroll normally. Pulling up from its bottom first
-        // expands the sheet; pulling down after the list reaches its top moves
-        // the whole sheet, then collapses or dismisses it.
+        // List scrolling stays independent. At the top of the list, downward
+        // overscroll drags the sheet; upward input returns a dragged sheet to
+        // its only open position before scrolling the list again.
         val scrollConnection = object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (available.y >= 0f || sheetPosition <= 0f) return Offset.Zero
+                if (available.y >= 0f || dragOffsetPx <= 0f) return Offset.Zero
                 return Offset(0f, moveSheet(available.y))
             }
 
@@ -242,7 +230,7 @@ internal fun WorkspaceSortEditorOverlay(
                 // down hid part of its editor beneath the bottom navigation.
                 modifier = Modifier.fillMaxWidth()
                     .height(with(density) {
-                        (viewportPx - animatedPosition).coerceAtLeast(0f).toDp()
+                        (viewportPx - topInsetPx - animatedOffsetPx).coerceAtLeast(0f).toDp()
                     })
                     .nestedScroll(scrollConnection),
                 shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
