@@ -23,7 +23,9 @@ internal object PreviewCaptureSessionStore {
         startedAt: Long = System.currentTimeMillis(),
     ): String {
         val id = UUID.randomUUID().toString()
+        val previous = prefs(context).getString(PREFIX + "id", null)
         val saved = prefs(context).edit()
+            .apply { if (previous != null) remove(PREFIX + "result_" + previous) }
             .putString(PREFIX + "id", id)
             .putString(PREFIX + "kind", kind.name)
             .putInt(PREFIX + "user", userId)
