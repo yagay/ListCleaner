@@ -50,7 +50,10 @@ object CustomOpenRegistry {
 data class OpenTypeConfig(
     val rules: Map<OpenPreset, Set<String>> = emptyMap(),
     val priorities: Map<OpenPreset, List<String>> = emptyMap(),
-    val customDefinitions: Map<OpenPreset, CustomOpenDefinition> = emptyMap()
+    val customDefinitions: Map<OpenPreset, CustomOpenDefinition> = emptyMap(),
+    /** SEND and SEND_MULTIPLE typed policies are separate from each other and OPEN. */
+    val shareRules: Map<IntentKind, Map<String, Set<String>>> = emptyMap(),
+    val sharePriorities: Map<IntentKind, Map<String, List<String>>> = emptyMap(),
 ) {
     fun validated(): OpenTypeConfig {
         require(OpenPreset.BROWSER !in rules && OpenPreset.BROWSER !in priorities) { "browser_not_open_type" }
@@ -73,9 +76,37 @@ data class OpenTypeConfig(
                 it.isNotBlank() && it.length <= 255 && '|' !in it && it.none { ch -> ch.isWhitespace() || ch.isISOControl() }
             }
         }) { "invalid_open_type_priorities" }
+        val shareKinds = setOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE)
+        require(shareRules.keys.all { it in shareKinds } &&
+            sharePriorities.keys.all { it in shareKinds })
+        require(shareRules.all { (kind, types) ->
+            types.size <= 128 && types.all { (key, ids) ->
+                validShareTypeKey(key) && ids.size <= 2_000 && ids.all { id ->
+                    val rule = ComponentRule.fromId(id)
+                    rule != null && rule.id == id && rule.kind == kind
+                }
+            }
+        }) { "invalid_share_type_rules" }
+        require(sharePriorities.values.all { types ->
+            types.size <= 128 && types.all { (key, packages) ->
+                validShareTypeKey(key) && packages.size <= 200 &&
+                    packages.distinct().size == packages.size &&
+                    packages.all { it.isNotBlank() && it.length <= 255 &&
+                        '|' !in it && it.none { ch -> ch.isWhitespace() || ch.isISOControl() } }
+            }
+        }) { "invalid_share_type_priorities" }
         CustomOpenRegistry.replace(cleanCustom)
         return if (cleanCustom == customDefinitions) this else copy(customDefinitions = cleanCustom)
     }
+
+    fun shareRuleIds(kind: IntentKind, key: String): Set<String> =
+        shareRules[kind]?.get(key).orEmpty()
+
+    fun selectedShareRules(kind: IntentKind, key: String): Set<ComponentRule> =
+        shareRuleIds(kind, key).mapNotNull(ComponentRule::fromId).toSet()
+
+    fun sharePriority(kind: IntentKind, key: String): List<String> =
+        sharePriorities[kind]?.get(key).orEmpty()
 
     fun selectedRules(preset: OpenPreset): Set<ComponentRule> =
         rules[preset].orEmpty().mapNotNull(ComponentRule::fromId).toSet()

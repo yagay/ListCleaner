@@ -468,6 +468,35 @@ class RuleRepository(context: Context) {
         setOpenTypes(mutableOpenTypes.value.copy(priorities = map))
     }
 
+    @Synchronized fun setShareTypeSelected(
+        kind: IntentKind, key: String, rules: Collection<ComponentRule>, selected: Boolean,
+    ) {
+        require(kind in setOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE))
+        require(com.yagay.ListCleaner.domain.validShareTypeKey(key))
+        val ids = rules.filter { it.kind == kind && it.isValid() }.map { it.id }.toSet()
+        if (ids.isEmpty()) return
+        val current = mutableOpenTypes.value
+        val byKind = current.shareRules[kind].orEmpty().toMutableMap()
+        val updated = byKind[key].orEmpty().toMutableSet().apply {
+            if (selected) addAll(ids) else removeAll(ids)
+        }
+        if (updated.isEmpty()) byKind.remove(key) else byKind[key] = updated
+        val all = current.shareRules.toMutableMap()
+        if (byKind.isEmpty()) all.remove(kind) else all[kind] = byKind
+        setOpenTypes(current.copy(shareRules = all))
+    }
+
+    @Synchronized fun setShareTypePriority(kind: IntentKind, key: String, packages: List<String>) {
+        require(kind in setOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE))
+        require(com.yagay.ListCleaner.domain.validShareTypeKey(key))
+        val current = mutableOpenTypes.value
+        val byKind = current.sharePriorities[kind].orEmpty().toMutableMap()
+        if (packages.isEmpty()) byKind.remove(key) else byKind[key] = packages.distinct()
+        val all = current.sharePriorities.toMutableMap()
+        if (byKind.isEmpty()) all.remove(kind) else all[kind] = byKind
+        setOpenTypes(current.copy(sharePriorities = all))
+    }
+
     private fun setOpenTypes(value: OpenTypeConfig) {
         val next = value.validated()
         if (next == mutableOpenTypes.value) return

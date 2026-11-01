@@ -77,13 +77,7 @@ fun observedShareTypeOptions(
     val mimeTypes = observedShareMimeTypes(candidates, kind)
     val grouped = linkedMapOf<String, MutableList<String>>()
     for (mime in mimeTypes) {
-        val preset = if (mime == "*/*") null
-            else matchOpenPreset(IntentKind.OPEN, mime, null, customDefinitions = customDefinitions)
-        val key = when {
-            mime == "*/*" -> "universal"
-            preset != null -> "preset:${preset.name}"
-            else -> "mime:$mime"
-        }
+        val key = shareTypeKeyForMime(mime, customDefinitions) ?: continue
         grouped.getOrPut(key) { mutableListOf() }.add(mime)
     }
     return grouped.map { (key, mimes) ->
@@ -104,3 +98,25 @@ fun observedShareTypeOptions(
 
 fun ComponentCandidate.matchesShareTypeOption(option: ShareTypeOption): Boolean =
     option.mimeTypes.any(::matchesShareMimeType)
+
+// Same key derivation in manager UI and in the resolver hook.
+fun validShareTypeKey(key: String): Boolean =
+    key == "universal" ||
+        (key.startsWith("preset:") &&
+            runCatching { OpenPreset.valueOf(key.removePrefix("preset:")) }
+                .getOrNull()?.let { it != OpenPreset.BROWSER } == true) ||
+        (key.startsWith("mime:") &&
+            key.removePrefix("mime:").let { it.length <= 127 && validShareMime.matches(it) })
+
+fun shareTypeKeyForMime(
+    mimeType: String?,
+    customDefinitions: Map<OpenPreset, CustomOpenDefinition> = CustomOpenRegistry.snapshot(),
+): String? {
+    val mime = mimeType?.substringBefore(';')?.trim()?.lowercase()
+        ?.takeIf { it.isNotEmpty() && it.length <= 127 && validShareMime.matches(it) }
+        ?: return null
+    if (mime == "*/*") return "universal"
+    val preset = matchOpenPreset(IntentKind.OPEN, mime, null, customDefinitions = customDefinitions)
+    return if (preset != null && preset != OpenPreset.BROWSER) "preset:${preset.name}"
+        else "mime:$mime"
+}
