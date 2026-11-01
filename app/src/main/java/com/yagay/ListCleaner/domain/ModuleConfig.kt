@@ -31,7 +31,8 @@ data class ModuleConfig(
     /** Additional Android user profiles. User 0 remains the legacy top-level configuration. */
     val userSpaces: Map<Int, UserSpaceRules> = emptyMap(),
     val modeOverrides: Map<IntentKind, DisplayMode> = emptyMap(),
-    val disabledEntryGroups: Set<EntryGroup> = emptySet()
+    val disabledEntryGroups: Set<EntryGroup> = emptySet(),
+    val disabledEntryKinds: Set<IntentKind> = emptySet()
 ) {
     fun modeFor(kind: IntentKind): DisplayMode = modeOverrides[kind] ?: mode
 
@@ -39,6 +40,7 @@ data class ModuleConfig(
         require(rules.size <= 20_000 && rules.all(ComponentRule::isValid))
         require(userSpaces.size <= 16 && userSpaces.keys.all { it in 1..99999 })
         require(disabledEntryGroups.size <= EntryGroup.entries.size)
+        require(disabledEntryKinds.size <= IntentKind.entries.size && disabledEntryKinds.all { it.isSelectableEntryKind() })
         require(modeOverrides.size <= IntentKind.entries.size && modeOverrides.keys.all { it.isSelectableEntryKind() })
         val validatedSpaces = userSpaces.mapValues { (_, space) -> space.validated() }
         val cleanRules = rules.asSequence()
