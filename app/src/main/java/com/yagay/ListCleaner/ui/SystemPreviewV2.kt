@@ -111,6 +111,13 @@ internal object SystemPreviewV2 {
                     atMillis - it.capturedAtMillis in 0L..MAX_AGE_MS
             }.distinctBy { it.callerUserId }
             if (captures.isEmpty()) {
+                // The HCE service registry remains useful even when the NFC process
+                // has not produced a recent CATEGORY_PAYMENT Hook return. It is only
+                // a registration inventory, never the verified payment picker list.
+                val registered = probe.items.distinctBy(SystemProbeItem::component)
+                if (registered.isNotEmpty()) {
+                    return projected(registered, PreviewV2Source.INTENT_CANDIDATES)
+                }
                 return PreviewV2Result(emptyList(), PreviewV2Source.NFC_CAPTURE_REQUIRED)
             }
             val candidates = probe.items.associateBy(SystemProbeItem::component)
