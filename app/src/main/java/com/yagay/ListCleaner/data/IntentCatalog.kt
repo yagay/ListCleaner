@@ -32,6 +32,24 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import java.time.Instant
 
+/** Bounded cache for scans that depend on external system-manager state. */
+internal object CandidateCachePolicy {
+    const val MAX_AGE_MS = 30_000L
+
+    fun canReuse(
+        force: Boolean,
+        invalidated: Boolean,
+        fingerprint: String,
+        cachedFingerprint: String?,
+        nowElapsedMs: Long,
+        lastCompletedElapsedMs: Long,
+    ): Boolean =
+        !force && !invalidated && cachedFingerprint != null &&
+            fingerprint == cachedFingerprint &&
+            nowElapsedMs >= lastCompletedElapsedMs &&
+            nowElapsedMs - lastCompletedElapsedMs < MAX_AGE_MS
+}
+
 /** Evidence-based discovery, not a claim to enumerate every installed intent filter. */
 class IntentCatalog(private val context: Context) {
     data class Snapshot(val userId: Int, val items: List<ComponentCandidate>)
@@ -160,8 +178,10 @@ class IntentCatalog(private val context: Context) {
         // Normal state/UI refreshes are frequent. If inputs have not changed and no package/runtime
         // invalidation was observed, return before expensive manager/AppOps discovery. Explicit user
         // refresh passes force=true and still performs a complete authority scan immediately.
-        if (!force && !invalidated && inputFingerprint == cachedInputFingerprint &&
-            android.os.SystemClock.elapsedRealtime() - lastCompletedScanElapsedMs in 0L..29_999L) {
+        if (CandidateCachePolicy.canReuse(
+                force, invalidated, inputFingerprint, cachedInputFingerprint,
+                android.os.SystemClock.elapsedRealtime(), lastCompletedScanElapsedMs
+            )) {
             cacheHitsSinceLastScan++
             return@withContext cached
         }
