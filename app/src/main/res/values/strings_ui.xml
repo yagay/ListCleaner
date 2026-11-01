@@ -298,5 +298,5 @@
     <string name="preview_v2_role_eligibility">RoleController qualified apps · captured after filtering, not final pixels. None is a system choice, not an app.</string>
     <string name="preview_v2_role_candidates">Possible assistant apps · filtered with saved cleanup rules, not a verified system picker.</string>
     <string name="preview_v2_role_holder">Current default assistant only · eligible alternatives not yet captured.</string>
-    <string name="preview_v2_role_policy_projected">RoleController/role-holder result adjusted using your current cleanup rules; Android's displayed list has not been reverified.</string>
+    <string name="preview_v2_role_policy_projected">RoleController or role-holder result filtered using current cleanup rules; the system display has not been reverified.</string>
 </resources>
