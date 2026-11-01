@@ -296,6 +296,7 @@
     <string name="preview_v2_empty">当前请求没有返回项目，这不代表该分类完全为空。</string>
     <string name="preview_v2_disclaimer">预览不会把宽泛扫描缓存混入系统返回。Android 可能在捕获阶段之后继续排序、置顶或隐藏目标。</string>
     <string name="preview_v2_role_eligibility">RoleController 符合资格的应用 · 已捕获过滤结果，非最终画面。“无”是系统选项，不属于应用。</string>
-    <string name="preview_v2_role_candidates">可能的助手应用 · 来自 ACTION_ASSIST 与语音服务，打开系统面板可捕获实际角色候选。</string>
+    <string name="preview_v2_role_candidates">可能的助手应用 · 已按保存的清理规则过滤，尚未验证系统实际选择列表。</string>
     <string name="preview_v2_role_holder">仅当前默认助手 · 尚未捕获其他符合资格的候选应用。</string>
+    <string name="preview_v2_role_policy_projected">根据当前清理规则重新过滤了已捕获的助手结果；尚未重新验证系统实际显示列表。</string>
 </resources>
