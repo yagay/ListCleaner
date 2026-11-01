@@ -435,7 +435,7 @@ internal fun EntryManagedSurfaceEditor(
             candidates = packageNames, labels = labels,
             pendingNavigation = pendingNavigation,
             onExit = { sorting = false },
-            onRootKind = { onEntry(null) },
+            onEntryKind = onEntry,
             onManagedKind = onManagedSurface,
         )
         return
