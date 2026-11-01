@@ -45,7 +45,7 @@ class PackageManagerEntryFilterModule : XposedModule() {
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
     private val listResults = SafeListResultExtractor(::record)
     private val runtimeCapture by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        RuntimeInterfaceCaptureWriter(preferences, ::record)
+        RuntimeInterfaceCaptureWriter(::record)
     }
     private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
         getRemotePreferences(RuleRepository.REMOTE_PREFS)
@@ -261,6 +261,10 @@ class PackageManagerEntryFilterModule : XposedModule() {
             callerPackage = callerProcess.orEmpty(),
             callerUid = callerUid,
             requestAction = (intent.selector ?: intent).action.orEmpty(),
+            requestMimeType = (intent.selector ?: intent).type.orEmpty(),
+            requestHost = com.yagay.ListCleaner.domain.normalizeBrowserHost(
+                (intent.selector ?: intent).data?.host
+            ).orEmpty(),
         )
         if (removed == 0 && ordered == result.values) return@Hooker original
         record(
