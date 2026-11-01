@@ -25,6 +25,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.kinds
+import androidx.compose.material3.MaterialTheme
+import com.yagay.ListCleaner.domain.isSelectableEntryKind
 
 /**
  * Bottom-navigation Lists tab: Global Mode management only.
@@ -92,11 +95,12 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
             )
         }
 
-        IntentKind.entries.forEach { kind ->
+        IntentKind.entries.filter { it.isSelectableEntryKind() }.forEach { kind ->
             item(key = "global-mode-kind-${kind.name}") {
                         val isDisabled = kind in draftDisabled
                         GlobalModeSettingsRow(
                             title = stringResource(kind.titleRes()),
+                            description = stringResource(kind.modeDescriptionRes()),
                             selectedMode = stringResource(
                                 if (kind in (draftDisabled - savedDisabled)) R.string.lc_mode_pending_disable
                                 else if (kind in (savedDisabled - draftDisabled)) R.string.lc_mode_pending_enable
@@ -137,6 +141,7 @@ private const val GLOBAL_MODE_KEY = "GLOBAL"
 private fun GlobalModeSettingsRow(
     title: String,
     selectedMode: String,
+    description: String? = null,
     expanded: Boolean,
     onClick: () -> Unit,
     modeMenu: @Composable () -> Unit,
@@ -146,7 +151,7 @@ private fun GlobalModeSettingsRow(
     androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth()) {
         MaterialSettingsRow(
             title = title,
-            supportingText = selectedMode,
+            supportingText = if (description == null) selectedMode else "$description\n$selectedMode",
             onClick = onClick,
         ) {
             if (enabled != null && onEnabledChange != null) {
@@ -163,4 +168,43 @@ private fun GlobalModeSettingsRow(
         // The popup is anchored to this particular row, not a full-screen dialog.
         modeMenu()
     }
+}
+
+/** Short, localized explanations; enabled state and effective mode remain separate. */
+private fun IntentKind.modeDescriptionRes(): Int = when (this) {
+    IntentKind.SHARE -> R.string.lc_mode_desc_share
+    IntentKind.SHARE_MULTIPLE -> R.string.lc_mode_desc_share_multiple
+    IntentKind.DIRECT_SHARE -> R.string.lc_mode_desc_direct_share
+    IntentKind.SEND_TO -> R.string.lc_mode_desc_send_to
+    IntentKind.OPEN -> R.string.lc_mode_desc_open
+    IntentKind.BROWSER -> R.string.lc_mode_desc_browser
+    IntentKind.DEEP_LINK -> R.string.lc_mode_desc_deep_link
+    IntentKind.DIAL -> R.string.lc_mode_desc_dial
+    IntentKind.EDIT -> R.string.lc_mode_desc_edit
+    IntentKind.GET_CONTENT -> R.string.lc_mode_desc_get_content
+    IntentKind.PICK -> R.string.lc_mode_desc_pick
+    IntentKind.OPEN_DOCUMENT -> R.string.lc_mode_desc_open_document
+    IntentKind.CREATE_DOCUMENT -> R.string.lc_mode_desc_create_document
+    IntentKind.CAPTURE_IMAGE -> R.string.lc_mode_desc_capture_image
+    IntentKind.CAPTURE_VIDEO -> R.string.lc_mode_desc_capture_video
+    IntentKind.RECORD_AUDIO -> R.string.lc_mode_desc_record_audio
+    IntentKind.DOCUMENT_PROVIDER -> R.string.lc_mode_desc_document_provider
+    IntentKind.DOCUMENT_ROOT -> R.string.lc_mode_desc_document_root
+    IntentKind.PHOTO_SOURCE -> R.string.lc_mode_desc_photo_source
+    IntentKind.HOME -> R.string.lc_mode_desc_home
+    IntentKind.ASSISTANT -> R.string.lc_mode_desc_assistant
+    IntentKind.LAUNCHER_SHORTCUT -> R.string.lc_mode_desc_launcher_shortcut
+    IntentKind.SHORTCUT_ITEM -> R.string.lc_mode_desc_shortcut_item
+    IntentKind.PROCESS_TEXT -> R.string.lc_mode_desc_process_text
+    IntentKind.INPUT_METHOD -> R.string.lc_mode_desc_input_method
+    IntentKind.AUTOFILL -> R.string.lc_mode_desc_autofill
+    IntentKind.CREDENTIAL_PROVIDER -> R.string.lc_mode_desc_credential_provider
+    IntentKind.NOTIFICATION_LISTENER -> R.string.lc_mode_desc_notification_listener
+    IntentKind.ACCESSIBILITY -> R.string.lc_mode_desc_accessibility
+    IntentKind.VPN -> R.string.lc_mode_desc_vpn
+    IntentKind.PRINT -> R.string.lc_mode_desc_print
+    IntentKind.NFC_HCE -> R.string.lc_mode_desc_nfc_hce
+    IntentKind.CALL_SCREENING -> R.string.lc_mode_desc_call_screening
+    IntentKind.WALLPAPER -> R.string.lc_mode_desc_wallpaper
+    IntentKind.DREAM -> R.string.lc_mode_desc_dream
 }
