@@ -106,7 +106,6 @@
     <string name="preview_no_public_system_entry">该列表属于系统宿主，没有受支持的公开启动入口；只能查看可取得的 API 候选或运行时观察。</string>
     <string name="preview_other_user_unavailable">此入口属于其他 Android 用户空间。系统限制跨用户启动界面；这里只能测试当前用户。</string>
     <string name="preview_no_verified_list">当前没有经过验证的系统列表。可通过 Show API 查看候选，或检查历史 Hook 观察结果。</string>
-    <string name="preview_test_intent">测试应用 Intent</string>
     <string name="preview_open_related_settings">打开系统设置</string>
     <string name="preview_widget_picker_unavailable">此设备没有可供当前应用调用的系统小部件选择器。</string>
     <string name="preview_source_hook_observed">数据来源：已捕获 Hook 返回（不保证等于最终绘制的界面）</string>
