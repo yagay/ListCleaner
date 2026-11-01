@@ -37,9 +37,10 @@ internal class ResolverOrderingEngine(
         preset: OpenPreset?,
         browserHost: String?,
         current: RuntimeRuleSnapshot,
+        shareTypeKey: String? = null,
     ): Boolean {
         if (kind != IntentKind.BROWSER) {
-            return effectivePriorities(kind, preset, browserHost, current).isNotEmpty()
+            return effectivePriorities(kind, preset, browserHost, current, shareTypeKey).isNotEmpty()
         }
         return current.priorities.apps[IntentKind.BROWSER].orEmpty().isNotEmpty() ||
             effectivePriorities(IntentKind.DEEP_LINK, null, browserHost, current).isNotEmpty()
@@ -100,6 +101,7 @@ internal class ResolverOrderingEngine(
         fixedPackages: Set<String> = emptySet(),
         preset: OpenPreset? = null,
         browserHost: String? = null,
+        shareTypeKey: String? = null,
     ): List<*> {
         if (items.size < 2) return items
         val infos = items.map { resolveInfoForOrder(it, stage) }
@@ -126,7 +128,7 @@ internal class ResolverOrderingEngine(
                 effectivePriorities(IntentKind.DEEP_LINK, null, browserHost, current),
             )
         } else {
-            reorderSubset(kind, effectivePriorities(kind, preset, browserHost, current))
+            reorderSubset(kind, effectivePriorities(kind, preset, browserHost, current, shareTypeKey))
         }
         val changed = positions != items.indices.toList()
         diagnostic(

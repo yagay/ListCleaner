@@ -565,6 +565,17 @@ class ListCleanerModule : XposedModule() {
         return matchOpenPreset(kind, mime, data?.scheme, data?.lastPathSegment ?: data?.path)
     }
 
+    private fun adapterShareTypeKey(receiver: Any, kind: IntentKind): String? {
+        if (kind !in setOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE)) return null
+        val intent = OrderingAccess.targetIntent(receiver) as? Intent ?: return null
+        val effective = intent.selector ?: intent
+        val context = runCatching { OrderingAccess.field(receiver, "mContext") as? Context }.getOrNull()
+        val mime = effective.type ?: runCatching {
+            context?.let { effective.resolveTypeIfNeeded(it.contentResolver) }
+        }.getOrNull()
+        return shareTypeKeyForMime(mime)
+    }
+
     private fun adapterBrowserHost(receiver: Any, kind: IntentKind): String? {
         if (kind != IntentKind.BROWSER) return null
         val intent = OrderingAccess.targetIntent(receiver) as? Intent ?: return null
@@ -592,7 +603,8 @@ class ListCleanerModule : XposedModule() {
                 }
                 val preset = adapterOpenPreset(receiver, kind)
                 val browserHost = adapterBrowserHost(receiver, kind)
-                if (!orderingEngine.hasEffectivePriorities(kind, preset, browserHost, current)) {
+                val shareTypeKey = adapterShareTypeKey(receiver, kind)
+                if (!orderingEngine.hasEffectivePriorities(kind, preset, browserHost, current, shareTypeKey)) {
                     diagnostic("ORDER_SKIP kind=$kind reason=no_priorities")
                     return@runCatching null
                 }
@@ -603,6 +615,7 @@ class ListCleanerModule : XposedModule() {
                     "ranked",
                     preset = preset,
                     browserHost = browserHost,
+                    shareTypeKey = shareTypeKey,
                 )
             }
             if (ordered === items) null else chain.args.toTypedArray().also { it[0] = ordered }

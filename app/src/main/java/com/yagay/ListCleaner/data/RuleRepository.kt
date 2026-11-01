@@ -412,12 +412,22 @@ class RuleRepository(context: Context) {
         val definitions = current.customDefinitions.toMutableMap()
         val rules = current.rules.toMutableMap()
         val priorities = current.priorities.toMutableMap()
+        val shareKey = "preset:${preset.name}"
+        val shareRules = current.shareRules.mapValues { (_, types) ->
+            if (definition == null) types - shareKey else types
+        }.filterValues { it.isNotEmpty() }
+        val sharePriorities = current.sharePriorities.mapValues { (_, types) ->
+            if (definition == null) types - shareKey else types
+        }.filterValues { it.isNotEmpty() }
         if (definition == null) {
             definitions.remove(preset)
             rules.remove(preset)
             priorities.remove(preset)
         } else definitions[preset] = definition.validated()
-        setOpenTypes(current.copy(rules = rules, priorities = priorities, customDefinitions = definitions))
+        setOpenTypes(current.copy(
+            rules = rules, priorities = priorities, customDefinitions = definitions,
+            shareRules = shareRules, sharePriorities = sharePriorities,
+        ))
     }
 
     @Synchronized fun setOpenTypeSelected(preset: OpenPreset, rules: Collection<ComponentRule>, selected: Boolean) {
