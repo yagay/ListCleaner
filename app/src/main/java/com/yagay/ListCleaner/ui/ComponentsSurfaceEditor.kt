@@ -338,6 +338,9 @@ internal fun ComponentsSurfaceEditor(
         !managedRuleLocked(saved, item)
     }
     val applyChanges: () -> Boolean = {
+        if (surface.name in UiPreferencesRuntime.current.disabledManagedSurfaces) {
+            false
+        } else {
         val latest = vm.surfaceFilters.value
         val updated = applyManagedComponentDraft(latest, allRules, selectionDraft.changes)
         if (selectionDraft.count == 0) true else if (updated == latest) {
@@ -347,6 +350,7 @@ internal fun ComponentsSurfaceEditor(
             selectionDraft.discard()
             true
         } else false
+    }
     }
     val owner = remember(userId, surface) { Any() }
     RegisterPendingNavigation(pendingNavigation, owner, selectionDraft.count,
