@@ -87,6 +87,7 @@
     <string name="root_batch_enabled_plain">已核验组件启用状态；请重新打开目标界面</string>
     <string name="root_batch_disabled_plain">已核验组件禁用状态；请重新打开目标界面</string>
     <string name="root_batch_inverted_plain">已核验组件状态变更；请重新打开目标界面</string>
+    <string name="root_batch_skipped_modes">已完成 %1$d/%2$d 项；因“模式”中禁用了所属 Root 分类而跳过 %3$d 项。</string>
     <string name="root_batch_stopped_plain">操作已停止：%1$s。已完成的修改保留，其余项目未执行。</string>
     <string name="root_invert_stopped_plain">反选已停止：%1$s。已完成的修改保留。</string>
     <string name="root_batch_cancelled_plain">已停止后续操作，正在执行中的组件命令仍可能完成。</string>
