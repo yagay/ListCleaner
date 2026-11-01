@@ -508,6 +508,9 @@ internal fun ComponentCategoryPicker(
     val context = LocalContext.current
     val preferences = UiPreferencesRuntime.current
     val pinned = preferences.pinnedRootKinds
+    val pinnedManaged = preferences.pinnedManagedSurfaces.mapNotNull { name ->
+        ManagedComponentSurface.entries.firstOrNull { it.name == name }
+    }
     val nameOrder = remember { displayNameComparator() }
     val sortedRootKinds = ComponentCategoryFilterPolicy.choices.filterNotNull().sortedWith { a, b ->
         nameOrder.compare(context.getString(a.titleRes()), context.getString(b.titleRes()))
@@ -526,7 +529,7 @@ internal fun ComponentCategoryPicker(
         modifier = modifier, previewActions = previewActions
     ) { dismiss ->
         WorkspaceMenuChoice(stringResource(R.string.common_all), selected == null && managedSurface == null, { dismiss(); onSelected(null) })
-        if (pinned.isNotEmpty()) {
+        if (pinned.isNotEmpty() || pinnedManaged.isNotEmpty()) {
             WorkspaceMenuChoice(stringResource(R.string.category_manage_pins), false, { dismiss(); managePins = true })
             FlatPopupHeader(stringResource(R.string.category_favorites))
         }
@@ -535,11 +538,21 @@ internal fun ComponentCategoryPicker(
             { dismiss(); onSelected(kind) },
             { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedRootKinds = UiPreferencesRuntime.current.pinnedRootKinds - kind)) })
         }
+        pinnedManaged.forEach { surface ->
+            WorkspaceFavoriteChoice(
+                stringResource(surface.titleRes), managedSurface == surface, true,
+                if (surface == ManagedComponentSurface.SETTINGS_APPS) Icons.Rounded.Settings else Icons.Rounded.Notifications,
+                { dismiss(); onManagedSurface(surface) },
+                { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(
+                    pinnedManagedSurfaces = UiPreferencesRuntime.current.pinnedManagedSurfaces - surface.name
+                )) }
+            )
+        }
         // Root component categories and managed rule surfaces share one
         // alphabetical category list. Their underlying engines remain distinct.
         val regular = sortedRootKinds.filter { it !in pinned }
         val merged = (regular.map { it to null } +
-            ManagedComponentSurface.entries.map { null to it })
+            ManagedComponentSurface.entries.filter { it !in pinnedManaged }.map { null to it })
             .sortedWith { a, b ->
                 nameOrder.compare(
                     context.getString(a.first?.titleRes() ?: requireNotNull(a.second).titleRes),
@@ -553,11 +566,13 @@ internal fun ComponentCategoryPicker(
                     { dismiss(); onSelected(kind) },
                     { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedRootKinds = UiPreferencesRuntime.current.pinnedRootKinds + kind)) })
             } else if (surface != null) {
-                WorkspaceMenuChoice(
-                    stringResource(surface.titleRes),
-                    managedSurface == surface,
+                WorkspaceFavoriteChoice(
+                    stringResource(surface.titleRes), managedSurface == surface, false,
+                    if (surface == ManagedComponentSurface.SETTINGS_APPS) Icons.Rounded.Settings else Icons.Rounded.Notifications,
                     { dismiss(); onManagedSurface(surface) },
-                    icon = if (surface == ManagedComponentSurface.SETTINGS_APPS) Icons.Rounded.Settings else Icons.Rounded.Notifications,
+                    { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(
+                        pinnedManagedSurfaces = UiPreferencesRuntime.current.pinnedManagedSurfaces + surface.name
+                    )) }
                 )
             }
         }
