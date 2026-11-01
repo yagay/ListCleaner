@@ -361,4 +361,6 @@
     <string name="lc_mode_root_desc_tile">控制 Root 是否允许清理快捷设置磁贴服务</string>
     <string name="lc_mode_root_desc_controls">控制 Root 是否允许清理设备控制服务</string>
     <string name="lc_mode_root_desc_authenticator">控制 Root 是否允许清理账户认证器组件</string>
+    <string name="lc_mode_managed_settings_desc">控制是否允许修改设置应用列表清理；已保存规则保留</string>
+    <string name="lc_mode_managed_notifications_desc">控制是否允许修改通知应用和通知渠道清理；已保存规则保留</string>
 </resources>
