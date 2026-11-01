@@ -669,7 +669,8 @@ for filename in ("WorkspaceAppRow.kt", "WorkspaceCommon.kt", "RootComponentsScre
 preview_source = (root / "SystemProbeDialog.kt").read_text(encoding="utf-8")
 preview_engine = (root / "SystemPreviewV2.kt").read_text(encoding="utf-8")
 for token in ("ModalBottomSheet(", "skipPartiallyExpanded = true",
-              "SystemPreviewV2.resolve(", "itemsIndexed(result.items", "onDismissRequest = onDismiss",
+              "SystemPreviewV2.resolve(", "LazyVerticalGrid(", "GridCells.Adaptive(",
+              "SystemPreviewGridTile(", "onDismissRequest = onDismiss",
               "PreviewV2Source.DRAFT_SIMULATION", "systemLaunchedAt ="):
     if token not in preview_source:
         errors.append(f"SystemProbeDialog.kt: rebuilt flat preview contract missing {token}")
@@ -677,6 +678,10 @@ for token in ("internal object SystemPreviewV2", "exactCapture(", "queryStartedA
               "systemLaunchedAt", "pendingDraft", "historyRequested"):
     if token not in preview_engine:
         errors.append(f"SystemPreviewV2.kt: strict provenance contract missing {token}")
+grid_tile = (root / "SystemPreviewGridTile.kt").read_text(encoding="utf-8")
+for token in ("getActivityIcon(", "getApplicationIcon(", "onInspect", "maxLines = 2"):
+    if token not in grid_tile:
+        errors.append(f"SystemPreviewGridTile.kt: app-icon tile contract missing {token}")
 for obsolete in ("SystemProbeCompactTile.kt", "SystemPreviewSelection.kt",
                  "SystemPreviewProjection.kt"):
     if (root / obsolete).exists():
