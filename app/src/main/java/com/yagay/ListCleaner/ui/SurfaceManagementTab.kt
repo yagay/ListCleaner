@@ -115,7 +115,7 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                         val isDisabled = kind in draftDisabled
                         GlobalModeSettingsRow(
                             title = stringResource(kind.titleRes()),
-                            leadingIcon = kind.hierarchyIcon(),
+                            leadingIcon = CleanupCategoryId.Entry(kind).icon(),
                             description = stringResource(kind.modeDescriptionRes()),
                             selectedMode = stringResource(
                                 if (kind in (draftDisabled - savedDisabled)) R.string.lc_mode_pending_disable
@@ -155,7 +155,7 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                     val disabled = managedSurface.name in draftManagedDisabled
                     GlobalModeSettingsRow(
                         title = stringResource(managedSurface.titleRes),
-                        leadingIcon = if (managedSurface == ManagedComponentSurface.SETTINGS_APPS) Icons.Rounded.Settings else Icons.Rounded.Notifications,
+                        leadingIcon = CleanupCategoryId.Managed(managedSurface).icon(),
                         description = stringResource(if (managedSurface == ManagedComponentSurface.SETTINGS_APPS) R.string.lc_mode_managed_settings_desc else R.string.lc_mode_managed_notifications_desc),
                         selectedMode = stringResource(if (disabled) R.string.lc_mode_disabled else R.string.lc_mode_enabled),
                         expanded = false,
@@ -173,7 +173,7 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                 val disabled = kind in draftRootDisabled
                 GlobalModeSettingsRow(
                     title = stringResource(kind.titleRes()),
-                    leadingIcon = kind.hierarchyIcon(),
+                    leadingIcon = CleanupCategoryId.Root(kind).icon(),
                     description = stringResource(kind.rootModeDescriptionRes()),
                     selectedMode = stringResource(if (disabled) R.string.lc_mode_disabled else R.string.lc_mode_enabled),
                     expanded = false,
