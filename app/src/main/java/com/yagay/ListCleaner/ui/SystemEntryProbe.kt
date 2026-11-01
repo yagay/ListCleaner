@@ -647,9 +647,11 @@ internal object SystemEntryProbe {
                 if (!service.enabled || service.applicationInfo?.enabled != true ||
                     !definition.acceptsPermission(service.permission)
                 ) return@mapNotNull null
-                if (kind == IntentKind.NFC_HCE &&
-                    !staticPaymentAidGroup(pm, service, definition)
-                ) return@mapNotNull null
+                // NFC's RegisteredServicesCache may include dynamically registered
+                // payment AID groups absent from the service's static XML. A local
+                // PackageManager scan is registration evidence, not the authoritative
+                // payment list: never discard a valid HCE service solely because
+                // staticPaymentAidGroup() is false.
                 SystemProbeItem(
                     resolved.loadLabel(pm)?.toString().orEmpty().ifBlank { service.name },
                     service.packageName, service.name,
