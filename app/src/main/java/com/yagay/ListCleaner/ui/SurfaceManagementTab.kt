@@ -50,9 +50,10 @@ import com.yagay.ListCleaner.domain.kinds
 @Composable
 internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
-    var pendingDisabled by remember(userId) { mutableStateOf<Set<EntryGroup>?>(null) }
-    val disabled = pendingDisabled ?: state.disabledEntryGroups
-    val hasPending = pendingDisabled != null && disabled != state.disabledEntryGroups
+    var pendingDisabled by remember(userId) { mutableStateOf<Set<IntentKind>?>(null) }
+    val existingDisabled = state.disabledEntryKinds + state.disabledEntryGroups.flatMap { it.kinds() }
+    val disabled = pendingDisabled ?: existingDisabled
+    val hasPending = pendingDisabled != null && disabled != existingDisabled
     var expanded by rememberSaveable(userId) { mutableStateOf<EntryGroup?>(null) }
     // Only one inline mode editor at a time, and no modes are written
     // until its explicit confirmation button is pressed.
@@ -88,18 +89,21 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
             SettingsArea(stringResource(R.string.lc_category_visibility_title)) {
                 SettingsHint(stringResource(R.string.lc_category_visibility_help))
                 EntryGroup.entries.forEach { group ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                            .padding(horizontal = MaterialUiTokens.pageHorizontal),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        AdaptiveText(stringResource(group.titleRes()), modifier = Modifier.weight(1f))
-                        androidx.compose.material3.Checkbox(
-                            checked = group !in disabled,
-                            onCheckedChange = { enabled ->
-                                pendingDisabled = if (enabled) disabled - group else disabled + group
-                            },
-                        )
+                    FlatSectionHeader(stringResource(group.titleRes()))
+                    group.kinds().forEach { kind ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .padding(horizontal = MaterialUiTokens.pageHorizontal),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            AdaptiveText(stringResource(kind.titleRes()), modifier = Modifier.weight(1f))
+                            androidx.compose.material3.Checkbox(
+                                checked = kind !in disabled,
+                                onCheckedChange = { enabled ->
+                                    pendingDisabled = if (enabled) disabled - kind else disabled + kind
+                                },
+                            )
+                        }
                     }
                 }
                 if (hasPending) {
@@ -111,7 +115,7 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                             AdaptiveText(stringResource(R.string.common_cancel))
                         }
                         AdaptiveTextButton(onClick = {
-                            vm.setDisabledEntryGroups(disabled)
+                            vm.setDisabledEntryKinds(disabled)
                             pendingDisabled = null
                         }) {
                             AdaptiveText(stringResource(R.string.lc_category_apply))
