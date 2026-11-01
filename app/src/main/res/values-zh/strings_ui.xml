@@ -311,4 +311,5 @@
     <string name="lc_category_visibility_title">分类启用管理</string>
     <string name="lc_category_visibility_help">禁用后分类从入口列表隐藏，对应清理规则和排序停止执行。重新启用时恢复原设置。只有确认修改后才生效。</string>
     <string name="lc_category_apply">确认修改</string>
+    <string name="lc_mode_disabled">禁用</string>
 </resources>
