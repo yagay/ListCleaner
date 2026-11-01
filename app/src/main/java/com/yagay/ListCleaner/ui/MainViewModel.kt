@@ -464,6 +464,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         get() = app.rules.surfaceFilters
 
     /** Returns true only when the local rules update was accepted. Sync is asynchronous. */
+    /** Reject a stale Modes draft if its Android user changed before Apply. */
+    fun setSurfaceFiltersForSpace(
+        userId: Int,
+        value: com.yagay.ListCleaner.domain.SurfaceFilterConfig,
+    ): Boolean {
+        if (selectedSpace.value != userId || app.rules.selectedUserId != userId) return false
+        return setSurfaceFilters(value)
+    }
+
     fun setSurfaceFilters(value: com.yagay.ListCleaner.domain.SurfaceFilterConfig): Boolean {
         if (!canEdit()) return false
         return runCatching {
