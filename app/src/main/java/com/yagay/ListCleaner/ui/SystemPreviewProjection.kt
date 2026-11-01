@@ -32,7 +32,8 @@ internal object SystemPreviewProjection {
                 line.startsWith("CUSTOM ") || line.startsWith("REAL_FILE ")) &&
                 "mime=" in line
         }
-        if (tagged.isEmpty()) return candidate.evidence.none { "mime=" in it }
+        // Lack of a matching scan probe is not evidence of support for this Intent.
+        if (tagged.isEmpty()) return false
         return tagged.any { line ->
             val found = line.substringAfter("mime=", "").substringBefore(' ').lowercase()
             found == requested || found == "*/*" ||
@@ -94,12 +95,13 @@ internal object SystemPreviewProjection {
             .distinctBy { it.component }
             .toList()
 
-        // PackageManager can return fewer rows than discovery because it queries only one
-        // MIME, URI scheme and caller. Keep query order first, then evidence-matched scanned
-        // extras. This union is only an estimate, never an observed system-visible list.
+        // A manager scan is the union of MANY distinct Intents; it must never inflate
+        // the candidates queried for this exact system request. Only when the current
+        // API supplies no inventory may matching scan evidence serve as a fallback
+        // (still explicitly labelled ESTIMATED, never an observed Resolver panel).
         val queried = probe?.diagnosticCandidates?.takeIf { it.isNotEmpty() }
             ?: probe?.items?.takeIf { it.isNotEmpty() }
-        val known = (queried.orEmpty() + scopedCatalog).distinctBy(SystemProbeItem::component)
+        val known = (queried ?: scopedCatalog).distinctBy(SystemProbeItem::component)
         if (known.isEmpty()) return null
 
         val kindRules = selectedRules.filter { it.kind == kind }
