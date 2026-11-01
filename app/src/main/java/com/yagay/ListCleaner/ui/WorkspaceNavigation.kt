@@ -263,9 +263,10 @@ internal fun WorkspaceSortEditorOverlay(
                         contentAlignment = Alignment.Center,
                     ) {
                         Box(
-                            Modifier.width(36.dp).height(4.dp)
+                            Modifier.width(42.dp).height(5.dp)
                                 .background(
-                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                                    // Strong surface contrast in both light and dark themes.
+                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
                                     RoundedCornerShape(50),
                                 )
                         )
