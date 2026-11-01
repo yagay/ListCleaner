@@ -59,7 +59,9 @@ internal fun systemPreviewRoute(kind: IntentKind): SystemPreviewRoute = when (ki
     // Retired legacy kind: no system preview or cleanable route.
     IntentKind.CREDENTIAL_PROVIDER -> SystemPreviewRoute.UNAVAILABLE
 
-    IntentKind.INPUT_METHOD -> SystemPreviewRoute.SETTINGS
+    // Use Android's actual IME picker; the SETTINGS route never reached the
+    // dedicated showInputMethodPicker implementation below.
+    IntentKind.INPUT_METHOD -> SystemPreviewRoute.INPUT_METHOD_PICKER
     IntentKind.PROCESS_TEXT -> SystemPreviewRoute.CONTEXT_MENU
 
     // A dynamic shortcut is owned by the launcher/ShortcutService. A generic
