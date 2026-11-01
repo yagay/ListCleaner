@@ -278,7 +278,7 @@ internal fun RootComponentsScreen(
                         } ?: Int.MAX_VALUE
                     }.thenBy { it.value.first().owner.lowercase() }.thenBy { it.key })
                 } else {
-                    orderCleanupAppGroups(entries, appSort) { group ->
+                    orderCleanupAppGroups(entries.toList(), appSort) { group ->
                         CleanupGroupOrderKey(
                             stableId = group.key,
                             displayName = group.value.first().owner,
