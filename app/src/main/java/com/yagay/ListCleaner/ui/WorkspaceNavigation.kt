@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -131,6 +132,15 @@ internal fun WorkspaceSortEditorOverlay(
         var expanded by remember(partialOffset) { mutableStateOf(false) }
         var sheetPosition by remember(partialOffset) { mutableFloatStateOf(partialOffset) }
         var dragging by remember { mutableStateOf(false) }
+        // Reopen in the default partly-expanded position even if the last
+        // session finished fully expanded before being dismissed.
+        LaunchedEffect(visible, partialOffset) {
+            if (visible) {
+                dragging = false
+                expanded = false
+                sheetPosition = partialOffset
+            }
+        }
         val animatedPosition by animateFloatAsState(
             targetValue = sheetPosition,
             animationSpec = if (dragging) snap() else tween(250, easing = FastOutSlowInEasing),
