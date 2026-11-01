@@ -57,10 +57,10 @@ class AospSurfaceConfigTest {
     @Test fun moduleAndPerUserPoliciesRoundTripIndependently() {
         val work = SurfaceFilterConfig().withSelected(
             SurfaceKind.NOTIFICATION_SHADE, setOf("com.example.work")
-        )
+        ).copy(disabledCleanupSurfaces = setOf(SurfaceKind.NOTIFICATION_SHADE))
         val personal = SurfaceFilterConfig().withSelected(
             SurfaceKind.LAUNCHER_PREDICTIONS, setOf("com.example.home")
-        )
+        ).copy(disabledCleanupSurfaces = setOf(SurfaceKind.SETTINGS_APPS))
         val config = ModuleConfig(
             rules = emptySet(), mode = DisplayMode.HIDE_SELECTED,
             priorities = PriorityConfig(), diagnostic = false,
@@ -71,6 +71,9 @@ class AospSurfaceConfigTest {
             json.encodeToString(ModuleConfig.serializer(), config)).validated()
         assertEquals(personal, decoded.surfaceFilters)
         assertEquals(work, decoded.userSpaces.getValue(10).surfaceFilters)
+        assertEquals(setOf(SurfaceKind.SETTINGS_APPS), decoded.surfaceFilters.disabledCleanupSurfaces)
+        assertEquals(setOf(SurfaceKind.NOTIFICATION_SHADE),
+            decoded.userSpaces.getValue(10).surfaceFilters.disabledCleanupSurfaces)
     }
 
     @Test fun retiredHomeAndRecentsRulesStayReadableForOldBackups() {
