@@ -562,7 +562,7 @@ internal fun ComponentCategoryPicker(
         }
         sortedRootKinds.filter { it !in pinned }.forEach { kind ->
             WorkspaceFavoriteChoice(
-                stringResource(kind.titleRes), selected == kind, false, CleanupCategoryId.Root(kind).icon(),
+                stringResource(kind.titleRes()), selected == kind, false, CleanupCategoryId.Root(kind).icon(),
                 { dismiss(); onSelected(kind) },
                 { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(
                     pinnedRootKinds = UiPreferencesRuntime.current.pinnedRootKinds + kind
