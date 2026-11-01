@@ -59,7 +59,7 @@ internal class RemoteEntryPolicyFallback(
             fun compile(single: ModuleConfig): Snapshot = Snapshot(
                 managerAppId = config.managerAppId,
                 displayMode = single.mode,
-                modeOverrides = single.modeOverrides + IntentKind.entries.filter { it.entryGroup() in single.disabledEntryGroups }.associateWith { DisplayMode.SHOW_ALL },
+                modeOverrides = single.modeOverrides + IntentKind.entries.filter { (it.entryGroup() in single.disabledEntryGroups || it in single.disabledEntryKinds) }.associateWith { DisplayMode.SHOW_ALL },
                 rules = selectRules(single).toSet(),
                 priorities = selectPriorities(single).mapValues { (_, packages) -> packages.toList() },
             )
