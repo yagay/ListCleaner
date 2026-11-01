@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.data.CleanupKind
+import com.yagay.ListCleaner.domain.SurfaceKind
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.isSelectableEntryKind
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -47,7 +48,8 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
     val context = LocalContext.current
     val entryModeItems = CleanupCategoryRegistry.sorted(context, CleanupCategoryRegistry.lsposedCategories())
     val rootModeItems = CleanupCategoryRegistry.sorted(context, CleanupCategoryRegistry.rootCategories())
-    val savedManagedDisabled = UiPreferencesRuntime.current.disabledManagedSurfaces
+    val surfacePolicy by vm.surfaceFilters.collectAsStateWithLifecycle()
+    val savedManagedDisabled = surfacePolicy.disabledCleanupSurfaces
     var draftManagedDisabled by remember(userId, savedManagedDisabled) { mutableStateOf(savedManagedDisabled) }
     val savedRootDisabled = UiPreferencesRuntime.current.disabledRootKinds
     var draftRootDisabled by remember(userId, savedRootDisabled) { mutableStateOf(savedRootDisabled) }
@@ -79,7 +81,8 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                             vm.setDisabledEntryKinds(draftDisabled)
                             if (state.disabledEntryGroups.isNotEmpty()) vm.setDisabledEntryGroups(emptySet())
                         }
-                        if (draftRootDisabled != savedRootDisabled || draftManagedDisabled != savedManagedDisabled) UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(disabledRootKinds = draftRootDisabled, disabledManagedSurfaces = draftManagedDisabled))
+                        if (draftRootDisabled != savedRootDisabled) UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(disabledRootKinds = draftRootDisabled))
+                        if (draftManagedDisabled != savedManagedDisabled) vm.setSurfaceFilters(surfacePolicy.copy(disabledCleanupSurfaces = draftManagedDisabled))
                     }) {
                         AdaptiveText(stringResource(R.string.lc_mode_confirm_apply))
                     }
@@ -153,7 +156,7 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                     val managedCategory = category
             val managedSurface = managedCategory.surface
             item(key = "modes-managed-${managedSurface.name}") {
-                val disabled = managedSurface.name in draftManagedDisabled
+                val disabled = managedSurface.surfaceKind() in draftManagedDisabled
                 GlobalModeSettingsRow(
                     title = stringResource(managedSurface.titleRes),
                     leadingIcon = managedCategory.icon(),
@@ -162,7 +165,7 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                     expanded = false, onClick = {}, modeMenu = {},
                     enabled = !disabled,
                     onEnabledChange = { enabled ->
-                        draftManagedDisabled = if (enabled) draftManagedDisabled - managedSurface.name else draftManagedDisabled + managedSurface.name
+                        draftManagedDisabled = if (enabled) draftManagedDisabled - managedSurface.surfaceKind() else draftManagedDisabled + managedSurface.surfaceKind()
                     },
                 )
             }
@@ -195,6 +198,11 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
     }
     }
 
+}
+
+private fun ManagedComponentSurface.surfaceKind(): SurfaceKind = when (this) {
+    ManagedComponentSurface.SETTINGS_APPS -> SurfaceKind.SETTINGS_APPS
+    ManagedComponentSurface.NOTIFICATIONS -> SurfaceKind.NOTIFICATION_SHADE
 }
 
 /** The same anchored Filter-style menu opens from each Lists mode row. */
