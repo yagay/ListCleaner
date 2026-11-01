@@ -20,6 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -40,6 +41,11 @@ import androidx.compose.material3.MaterialTheme
 @Composable
 internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val nameOrder = remember { displayNameComparator() }
+    val sortedKinds = IntentKind.entries.filter { it.isSelectableEntryKind() }.sortedWith { a, b ->
+        nameOrder.compare(context.getString(a.titleRes()), context.getString(b.titleRes()))
+    }
     // Only one inline mode editor at a time, and no modes are written
     // until its explicit confirmation button is pressed.
     var editingModeKey by rememberSaveable(userId) { mutableStateOf<String?>(null) }
@@ -96,7 +102,7 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
             )
         }
 
-        IntentKind.entries.filter { it.isSelectableEntryKind() }.forEach { kind ->
+        sortedKinds.forEach { kind ->
             item(key = "global-mode-kind-${kind.name}") {
                         val isDisabled = kind in draftDisabled
                         GlobalModeSettingsRow(
