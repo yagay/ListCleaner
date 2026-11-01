@@ -6,6 +6,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.AppTypeFilter
+import com.yagay.ListCleaner.domain.IntentKind
 
 /**
  * Entry-facing controls shared by the Hook-backed Settings Apps and Notification
@@ -18,7 +19,7 @@ internal fun EntryManagedSurfaceToolbar(
     onAppTypeFilter: (AppTypeFilter) -> Unit,
     viewFilter: UiFilter,
     onViewFilter: (UiFilter) -> Unit,
-    onEntry: () -> Unit,
+    onEntry: (IntentKind?) -> Unit,
     onManagedSurface: (ManagedComponentSurface) -> Unit,
     onOpenSort: () -> Unit,
     canSort: Boolean,
@@ -29,7 +30,7 @@ internal fun EntryManagedSurfaceToolbar(
             EntryCategoryPicker(
                 selected = null,
                 managedSurface = surface,
-                onSelected = { onEntry() },
+                onSelected = onEntry,
                 onManagedSurface = onManagedSurface,
                 modifier = Modifier.fillMaxWidth(),
             )
