@@ -34,10 +34,9 @@ internal enum class SystemPreviewRoute {
 }
 
 internal fun systemPreviewRoute(kind: IntentKind): SystemPreviewRoute = when (kind) {
-    // Browser previews intentionally show the native link-handler chooser; this is
-    // not the default-browser role manager and does not change defaults.
-    IntentKind.SHARE, IntentKind.SHARE_MULTIPLE, IntentKind.DIRECT_SHARE,
-    IntentKind.BROWSER -> SystemPreviewRoute.CHOOSER
+    // Native chooser for Share; Browser uses its dedicated default-role selector.
+    IntentKind.SHARE, IntentKind.SHARE_MULTIPLE, IntentKind.DIRECT_SHARE ->
+        SystemPreviewRoute.CHOOSER
 
     IntentKind.SEND_TO, IntentKind.OPEN, IntentKind.EDIT, IntentKind.PICK,
     IntentKind.DEEP_LINK, IntentKind.DIAL,
@@ -52,7 +51,7 @@ internal fun systemPreviewRoute(kind: IntentKind): SystemPreviewRoute = when (ki
     // its locations/navigation panel exposes available document roots.
     IntentKind.DOCUMENT_PROVIDER -> SystemPreviewRoute.PICKER
 
-    IntentKind.HOME, IntentKind.ASSISTANT,
+    IntentKind.HOME, IntentKind.BROWSER, IntentKind.ASSISTANT,
     IntentKind.CALL_SCREENING, IntentKind.ACCESSIBILITY,
     IntentKind.PRINT, IntentKind.VPN, IntentKind.NFC_HCE,
     IntentKind.NOTIFICATION_LISTENER, IntentKind.DREAM,
@@ -415,6 +414,12 @@ internal object SystemEffectPreview {
                     (kind == IntentKind.ASSISTANT || kind == IntentKind.BROWSER ||
                         kind == IntentKind.CALL_SCREENING)) {
                     addCategory(Intent.CATEGORY_DEFAULT)
+                    // Match AOSP Settings: dispatch the role-specific management
+                    // activity to PermissionController, not a generic settings handler.
+                    if (kind == IntentKind.BROWSER) {
+                        context.packageManager.permissionControllerPackageName
+                            ?.takeIf { it.isNotBlank() }?.let(::setPackage)
+                    }
                     putExtra(EXTRA_ROLE_NAME,
                         when (kind) {
                             IntentKind.BROWSER -> ROLE_BROWSER
