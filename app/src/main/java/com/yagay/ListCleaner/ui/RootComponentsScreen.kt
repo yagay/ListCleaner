@@ -616,25 +616,25 @@ internal fun RootComponentsScreen(
             }
         }
     }
-    // Keep the active Root page and scroll position alive beneath the ordering editor.
-    if (kind == CleanupKind.TILE && sortingTiles) {
-        WorkspaceSortEditorOverlay(
-            guard = tileSortNavigation,
-            onDismiss = { sortingTiles = false },
-        ) {
-            RootTileOrderEditor(
-                vm = vm,
-                userId = vm.selectedSpace.value,
-                candidates = kindItems,
-                saved = systemTileLabels,
-                pendingNavigation = tileSortNavigation,
-                onExit = { sortingTiles = false },
-                onSelectKind = { selected ->
-                    kind = selected
-                    sortingTiles = false
-                },
-                onManagedKind = { _ -> sortingTiles = false },
-            )
-        }
+    // The Root sheet stays mounted throughout its slide-out, preserving the
+    // underlying component list and bottom navigation without a dialog window.
+    WorkspaceSortEditorOverlay(
+        visible = kind == CleanupKind.TILE && sortingTiles,
+        guard = tileSortNavigation,
+        onDismiss = { sortingTiles = false },
+    ) {
+        RootTileOrderEditor(
+            vm = vm,
+            userId = vm.selectedSpace.value,
+            candidates = kindItems,
+            saved = systemTileLabels,
+            pendingNavigation = tileSortNavigation,
+            onExit = { sortingTiles = false },
+            onSelectKind = { selected ->
+                kind = selected
+                sortingTiles = false
+            },
+            onManagedKind = { _ -> sortingTiles = false },
+        )
     }
 }
