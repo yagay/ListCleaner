@@ -289,7 +289,10 @@ class MainActivity : ComponentActivity() {
                 when (state.destination) {
                     Destination.RULES -> if (managedEntrySurface != null) {
                         val editor = requireNotNull(managedEntrySurface)
-                        val backToEntry = { managedEntrySurface = null }
+                        val backToEntry: (com.yagay.ListCleaner.domain.IntentKind?) -> Unit = { chosen ->
+                            managedEntrySurface = null
+                            vm.setFilter(chosen)
+                        }
                         val chooseHookCategory: (ManagedComponentSurface) -> Unit = { managedEntrySurface = it }
                         val openRoot = {
                             managedEntrySurface = null
