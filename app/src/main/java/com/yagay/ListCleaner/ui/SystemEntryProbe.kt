@@ -426,7 +426,7 @@ internal object SystemEntryProbe {
             // AOSP RoleController distinguishes currently-held roles from
             // eligible activities. Preserve both, with explicit provenance.
             val candidates = when (kind) {
-                IntentKind.CALL_SCREENING -> emptyList()
+                IntentKind.CALL_SCREENING -> registeredServices(context, kind).items
                 IntentKind.ASSISTANT -> assistantCandidateRegistrations(context)
                 else -> runCatching {
                     val query = SystemEffectPreview.queryIntent(
