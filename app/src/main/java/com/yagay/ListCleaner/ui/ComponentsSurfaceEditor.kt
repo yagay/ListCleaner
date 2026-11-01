@@ -440,11 +440,11 @@ internal fun ComponentsSurfaceEditor(
         return
     }
 
-    Box(Modifier.fillMaxSize()) {
-        LazyColumn(
-            Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = if (selectionDraft.count > 0) 90.dp else 16.dp),
-        ) {
+    UnifiedCleanupList(
+        pendingCount = selectionDraft.count,
+        onDiscard = selectionDraft::discard,
+        onApply = { applyChanges() },
+    ) {
             stickyHeader(key = "controls") {
                 PageFilterSection {
                     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
@@ -644,12 +644,5 @@ internal fun ComponentsSurfaceEditor(
                     )
                 }
             }
-        }
-        PendingChangesBar(
-            count = selectionDraft.count,
-            onDiscard = selectionDraft::discard,
-            onApply = { applyChanges() },
-            modifier = Modifier.align(Alignment.BottomCenter),
-        )
     }
 }
