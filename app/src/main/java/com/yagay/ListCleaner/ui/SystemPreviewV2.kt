@@ -93,7 +93,7 @@ internal object SystemPreviewV2 {
         // The manager-initiated PackageManager query can be attributed to the tested
         // request. Never treat a capture from another caller or another MIME as ours.
         val returned = probe.runtimeReturn
-        if (managerUid >= 0 && returned?.callerUid == managerUid &&
+        if (managerUid >= 0 && returned != null && returned.callerUid == managerUid &&
             returned.source == "PACKAGE_MANAGER_FILTERED_RETURN" &&
             queryStartedAt != null && exactCapture(
                 returned, kind, request.userId, atMillis, queryStartedAt,
