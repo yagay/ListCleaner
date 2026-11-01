@@ -381,7 +381,9 @@ internal object SystemEffectPreview {
             ACTION_MANAGE_DEFAULT_APP,
             Settings.ACTION_VOICE_INPUT_SETTINGS,
             Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
-        IntentKind.BROWSER, IntentKind.CALL_SCREENING ->
+        IntentKind.BROWSER -> listOf(
+            ACTION_MANAGE_DEFAULT_APP, Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+        IntentKind.CALL_SCREENING ->
             listOf(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
         IntentKind.INPUT_METHOD -> listOf(Settings.ACTION_INPUT_METHOD_SETTINGS)
         IntentKind.ACCESSIBILITY -> listOf(Settings.ACTION_ACCESSIBILITY_SETTINGS)
@@ -398,9 +400,11 @@ internal object SystemEffectPreview {
     internal fun settingsIntents(context: Context, kind: IntentKind): List<Intent> =
         settingsActions(kind).map { action ->
             Intent(action).apply {
-                if (kind == IntentKind.ASSISTANT && action == ACTION_MANAGE_DEFAULT_APP) {
+                if (action == ACTION_MANAGE_DEFAULT_APP &&
+                    (kind == IntentKind.ASSISTANT || kind == IntentKind.BROWSER)) {
                     addCategory(Intent.CATEGORY_DEFAULT)
-                    putExtra(EXTRA_ROLE_NAME, ROLE_ASSISTANT)
+                    putExtra(EXTRA_ROLE_NAME,
+                        if (kind == IntentKind.BROWSER) ROLE_BROWSER else ROLE_ASSISTANT)
                 }
             }
         }
@@ -408,6 +412,7 @@ internal object SystemEffectPreview {
     private const val ACTION_MANAGE_DEFAULT_APP = "android.intent.action.MANAGE_DEFAULT_APP"
     private const val EXTRA_ROLE_NAME = "android.intent.extra.ROLE_NAME"
     private const val ROLE_ASSISTANT = "android.app.role.ASSISTANT"
+    private const val ROLE_BROWSER = "android.app.role.BROWSER"
 
     /** Build the resolver/PackageManager QUERY, never a Settings navigation intent. */
     internal fun candidateIntent(
