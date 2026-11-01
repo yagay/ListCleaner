@@ -295,7 +295,7 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                     Destination.PRIORITY -> PriorityTab(state, vm, pendingNavigation)
-                    Destination.TILES -> RootComponentsScreen(state, vm, pendingNavigation = pendingNavigation, refreshRegistry = listsRefresh)
+                    Destination.TILES -> RootComponentsScreen(state, vm, embedded = true, onExit = { vm.setDestination(Destination.RULES) }, pendingNavigation = pendingNavigation, refreshRegistry = listsRefresh)
                     Destination.SURFACES -> SurfaceManagementTab(state, vm)
                     Destination.SETTINGS -> SettingsTabContent(
                         state,
@@ -361,10 +361,10 @@ class MainActivity : ComponentActivity() {
                         tonalElevation = 0.dp,
                         windowInsets = WindowInsets(0, 0, 0, 0)
                     ) {
-                        listOf(Destination.RULES, Destination.TILES, Destination.SURFACES, Destination.SETTINGS)
+                        listOf(Destination.RULES, Destination.SURFACES, Destination.SETTINGS)
                             .forEach { dest ->
                             val selected = state.destination == dest ||
-                                (dest == Destination.RULES && state.destination == Destination.PRIORITY)
+                                (dest == Destination.RULES && state.destination in setOf(Destination.PRIORITY, Destination.TILES))
                             NavigationBarItem(
                                 selected = selected,
                                 onClick = {
