@@ -311,8 +311,8 @@
     <string name="lc_category_visibility_title">Enabled categories</string>
     <string name="lc_category_visibility_help">Disabled categories are hidden from Entry and their cleanup rules and priorities do not run. Saved settings are restored when re-enabled. Changes take effect only after confirmation.</string>
     <string name="lc_category_apply">Confirm changes</string>
-    <string name="lc_mode_disabled">Disabled</string>
-    <string name="lc_mode_enabled">Enabled</string>
+    <string name="lc_mode_disabled">Cleanup disabled</string>
+    <string name="lc_mode_enabled">Cleanup enabled</string>
     <string name="lc_mode_pending_enable">Pending enable</string>
     <string name="lc_mode_pending_disable">Pending disable</string>
     <string name="lc_mode_desc_share">Share content with other apps</string>
