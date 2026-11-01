@@ -60,9 +60,6 @@ fun RulesTab(
     var showCustomTypes by rememberSaveable { mutableStateOf(false) }
     var showBrowserHosts by rememberSaveable { mutableStateOf(false) }
     val appTypeFilter by vm.entryAppTypeFilter.collectAsStateWithLifecycle()
-    var showModeSettings by rememberSaveable { mutableStateOf(false) }
-    // Switching Entry categories closes and discards the previous inline draft.
-    LaunchedEffect(state.filter, vm.selectedSpace.value) { showModeSettings = false }
     var ruleHelpExpanded by rememberSaveable { mutableStateOf(UiPreferencesRuntime.current.openHelpByDefault) }
     var overviewPackage by remember { mutableStateOf<String?>(null) }
     overviewPackage?.let { packageName ->
@@ -363,21 +360,6 @@ fun RulesTab(
         contentPadding = PaddingValues(bottom = if (selectionDraft.count > 0) 90.dp else 16.dp)
     ) {
         stickyHeader(key = "workspace-header") {
-            ClassicCleanupTabs(
-                active = ClassicCleanupMode.ENTRIES,
-                onEntries = {},
-                onComponents = {}, // Entry header no longer switches to embedded Components.
-                modeLabel = entryCurrentModeLabel(state),
-                modeExpanded = showModeSettings,
-                onModeClick = { showModeSettings = !showModeSettings },
-                modeMenu = {
-                    EntryModeFilterMenu(
-                        state = state, vm = vm, kind = state.filter,
-                        expanded = showModeSettings,
-                        onDismiss = { showModeSettings = false },
-                    )
-                },
-            )
             PageFilterSection {
                 Column {
                     ListControls(
@@ -392,7 +374,6 @@ fun RulesTab(
                             WorkspaceMenuAction(
                                 label = stringResource(previewKind.titleRes()),
                                 onClick = {
-                                    showModeSettings = false
                                     systemProbeRequest = SystemProbeRequest(
                                         entryKind = previewKind,
                                         userId = vm.selectedSpace.value,
@@ -699,24 +680,4 @@ fun PriorityTab(state: MainState, vm: MainViewModel, pendingNavigation: PendingN
     PriorityDialogContent(state, vm, pendingNavigation)
 }
 
-/**
- * Show the actual effective runtime mode for the active Entry category.
- * The All view has no single mode when different kinds override Global Mode.
- * The compact status is reused by the toolbar and the list summary.
- */
-@Composable
-private fun entryCurrentModeLabel(state: MainState): String {
-    val effective = currentEntryDisplayMode(state.filter, state.displayMode, state.modeOverrides)
-    val category = when (state.filter) {
-        IntentKind.OPEN -> stringResource(R.string.lc_mode_open_short)
-        null -> stringResource(R.string.common_all)
-        else -> stringResource(requireNotNull(state.filter).titleRes())
-    }
-    val mode = when (effective) {
-        DisplayMode.HIDE_SELECTED -> stringResource(R.string.lc_mode_header_hide)
-        DisplayMode.SHOW_SELECTED -> stringResource(R.string.lc_mode_header_show)
-        DisplayMode.SHOW_ALL -> stringResource(R.string.lc_mode_header_all)
-        null -> stringResource(R.string.lc_mode_mixed_categories)
-    }
-    return stringResource(R.string.lc_mode_header_category_format, category, mode)
-}
+
