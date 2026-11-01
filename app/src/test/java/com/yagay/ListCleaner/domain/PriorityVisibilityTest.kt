@@ -15,6 +15,51 @@ class PriorityVisibilityTest {
         }
     }
 
+    @Test fun orderingUsesCategoryOverrideAndDisabledCategoryPolicy() {
+        val open = item(IntentKind.OPEN, pkg = "com.example.hidden")
+        val rest = item(IntentKind.OPEN, pkg = "com.example.survivor")
+        val selected = setOf(open.rule)
+        val override = mapOf(IntentKind.OPEN to DisplayMode.SHOW_SELECTED)
+        val hiddenMode = effectivePriorityMode(
+            IntentKind.OPEN, DisplayMode.HIDE_SELECTED, override,
+            emptySet(), emptySet(),
+        )
+        assertEquals(listOf(open), priorityCandidates(
+            listOf(open, rest), selected, hiddenMode, IntentKind.OPEN,
+        ))
+        val paused = effectivePriorityMode(
+            IntentKind.OPEN, DisplayMode.HIDE_SELECTED, override,
+            setOf(IntentKind.OPEN), emptySet(),
+        )
+        assertEquals(DisplayMode.SHOW_ALL, paused)
+        assertEquals(listOf(open, rest), priorityCandidates(
+            listOf(open, rest), selected, paused, IntentKind.OPEN,
+        ))
+        assertEquals(DisplayMode.SHOW_ALL, effectivePriorityMode(
+            IntentKind.OPEN, DisplayMode.HIDE_SELECTED, override,
+            emptySet(), setOf(IntentKind.OPEN.entryGroup()),
+        ))
+        val normal = effectivePriorityMode(
+            IntentKind.OPEN, DisplayMode.HIDE_SELECTED, emptyMap(),
+            emptySet(), emptySet(),
+        )
+        assertEquals(listOf(rest), priorityCandidates(
+            listOf(open, rest), selected, normal, IntentKind.OPEN,
+        ))
+    }
+
+    @Test fun savedPriorityRulesRemainAfterTheirItemsAreCleaned() {
+        val a = item(IntentKind.SHARE, pkg = "com.example.a")
+        val b = item(IntentKind.SHARE, pkg = "com.example.b")
+        val saved = listOf("com.example.a", "com.example.b")
+        val visibleGroups = priorityAppGroups(
+            listOf(a, b), setOf(a.rule), DisplayMode.HIDE_SELECTED,
+            IntentKind.SHARE, saved, "", PriorityListFilter.ALL,
+        )
+        assertEquals(listOf("com.example.b"), visibleGroups.map { it.packageName })
+        assertEquals(saved, saved)
+    }
+
     @Test fun partiallyCleanedAppKeepsOnlySurvivingComponents() {
         val a = item(IntentKind.OPEN, cls = "A")
         val b = item(IntentKind.OPEN, cls = "B")
