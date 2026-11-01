@@ -11,7 +11,8 @@ class SystemProbeScenarioTest {
     @Test fun shareAndOpenUseTypedIntentScenarios() {
         for (kind in listOf(IntentKind.SHARE, IntentKind.SHARE_MULTIPLE, IntentKind.OPEN)) {
             assertEquals(
-                listOf(SystemProbeScenario.TEXT, SystemProbeScenario.IMAGE, SystemProbeScenario.PDF),
+                listOf(SystemProbeScenario.TEXT, SystemProbeScenario.IMAGE, SystemProbeScenario.PDF,
+                    SystemProbeScenario.VIDEO, SystemProbeScenario.AUDIO),
                 availableProbeScenarios(kind)
             )
         }
