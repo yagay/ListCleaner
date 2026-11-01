@@ -2,6 +2,9 @@ package com.yagay.ListCleaner.xposed
 
 import android.content.SharedPreferences
 import com.yagay.ListCleaner.domain.IntentKind
+import com.yagay.ListCleaner.domain.entryGroup
+import com.yagay.ListCleaner.domain.EntryGroup
+import com.yagay.ListCleaner.domain.DirectShareTypeConfig
 
 /**
  * Shared policy source for specialized Xposed adapters.
@@ -21,13 +24,13 @@ internal class EntryPolicyProvider(
         preferences = preferences,
         selectRules = { config ->
             config.rules.asSequence()
-                .filter { it.kind in ownedKinds }
+                .filter { it.kind in ownedKinds && it.kind.entryGroup() !in config.disabledEntryGroups }
                 .mapTo(linkedSetOf()) { it.id }.apply {
-                    if (IntentKind.DIRECT_SHARE in ownedKinds) addAll(config.directShareTypes.runtimeIds())
+                    if (IntentKind.DIRECT_SHARE in ownedKinds && EntryGroup.SHARE !in config.disabledEntryGroups) addAll(config.directShareTypes.runtimeIds())
                 }
         },
         selectPriorities = { config ->
-            if (includePriorities) config.priorities.apps.filterKeys { it in ownedKinds }
+            if (includePriorities) config.priorities.apps.filterKeys { it in ownedKinds && it.entryGroup() !in config.disabledEntryGroups }
             else emptyMap()
         },
         record = record,
