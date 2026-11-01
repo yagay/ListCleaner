@@ -451,7 +451,8 @@ internal fun EntryCategoryPicker(
     }
     val pinned = preferences.pinnedEntryKinds.filter { (availableKinds == null || it in availableKinds) && it.entryGroup() !in disabledGroups && it !in disabledKinds }
     val kinds = IntentKind.entries.filter {
-        (availableKinds == null || it in availableKinds) &&
+        it.isSelectableEntryKind() &&
+            (availableKinds == null || it in availableKinds) &&
             it.entryGroup() !in disabledGroups &&
             it !in disabledKinds &&
             (includeAllKinds || it.entryGroup() != EntryGroup.DESKTOP)
