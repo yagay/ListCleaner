@@ -114,7 +114,8 @@ fun OpenPresetFilterMenu(
             EntryTypeMenuOption(preset.name, config.localizedTitle(preset))
         },
         onSelected = { key -> onSelected(key?.let(OpenPreset::valueOf)) },
-        selectedTitle = selected?.let(config::localizedTitle) ?: stringResource(R.string.common_all),
+        selectedTitle = if (selected == null) stringResource(R.string.common_all)
+            else config.localizedTitle(selected),
         filterTitle = stringResource(R.string.open_type_filter),
         onManageTypes = onManageCustom,
         iconOnly = iconOnly,
