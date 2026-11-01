@@ -434,14 +434,15 @@ internal fun EntryCategoryPicker(
     modifier: Modifier = Modifier,
     includeAllKinds: Boolean = true,
     availableKinds: Set<IntentKind>? = null,
+    disabledGroups: Set<EntryGroup> = emptySet(),
     subtypeTitle: String? = null,
     subtypeSelector: (@Composable () -> Unit)? = null,
     previewActions: List<WorkspaceMenuAction> = emptyList(),
 ) {
     val context = LocalContext.current
     val preferences = UiPreferencesRuntime.current
-    val pinned = preferences.pinnedEntryKinds.filter { availableKinds == null || it in availableKinds }
-    val groups = EntryGroup.entries.filter { includeAllKinds || it != EntryGroup.DESKTOP }
+    val pinned = preferences.pinnedEntryKinds.filter { (availableKinds == null || it in availableKinds) && it.entryGroup() !in disabledGroups }
+    val groups = EntryGroup.entries.filter { it !in disabledGroups && (includeAllKinds || it != EntryGroup.DESKTOP) }
     val currentTitle = if (selected == null) stringResource(R.string.common_all)
         else stringResource(selected.titleRes())
     var expandedGroup by remember(selected) { mutableStateOf(selected?.entryGroup()) }
