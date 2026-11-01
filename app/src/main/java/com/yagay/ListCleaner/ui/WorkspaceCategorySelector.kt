@@ -441,9 +441,13 @@ internal fun EntryCategoryPicker(
     subtypeTitle: String? = null,
     subtypeSelector: (@Composable () -> Unit)? = null,
     previewActions: List<WorkspaceMenuAction> = emptyList(),
+    onManagedSurface: (ManagedComponentSurface) -> Unit = {},
 ) {
     val context = LocalContext.current
     val preferences = UiPreferencesRuntime.current
+    val pinnedManaged = preferences.pinnedManagedSurfaces.mapNotNull { name ->
+        ManagedComponentSurface.entries.firstOrNull { it.name == name }
+    }
     val pinned = preferences.pinnedEntryKinds.filter { (availableKinds == null || it in availableKinds) && it.entryGroup() !in disabledGroups && it !in disabledKinds }
     val kinds = IntentKind.entries.filter {
         (availableKinds == null || it in availableKinds) &&
@@ -451,9 +455,10 @@ internal fun EntryCategoryPicker(
             it !in disabledKinds &&
             (includeAllKinds || it.entryGroup() != EntryGroup.DESKTOP)
     }
-    val nameOrder = remember { displayNameComparator() }
-    val sortedKinds = CleanupCategoryRegistry.sorted(context, kinds.map { CleanupCategoryId.Entry(it) })
-        .map { it.kind }
+    val entryCategories = CleanupCategoryRegistry.sorted(
+        context, kinds.map { CleanupCategoryId.Entry(it) } + ManagedComponentSurface.entries.map { CleanupCategoryId.Managed(it) }
+    )
+    val sortedKinds = entryCategories.filterIsInstance<CleanupCategoryId.Entry>().map { it.kind }
     val currentTitle = if (selected == null) stringResource(R.string.common_all)
         else stringResource(selected.titleRes())
     var managePins by remember { mutableStateOf(false) }
@@ -472,15 +477,24 @@ internal fun EntryCategoryPicker(
             title = stringResource(R.string.common_all), selected = selected == null,
             onClick = { dismiss(); onSelected(null) }
         )
-        if (preferences.pinnedEntryKinds.isNotEmpty()) WorkspaceMenuChoice(
+        if (preferences.pinnedEntryKinds.isNotEmpty() || pinnedManaged.isNotEmpty()) WorkspaceMenuChoice(
             title = stringResource(R.string.category_manage_pins), selected = false,
             onClick = { dismiss(); managePins = true }
         )
-        if (pinned.isNotEmpty()) FlatPopupHeader(stringResource(R.string.category_favorites))
+        if (pinned.isNotEmpty() || pinnedManaged.isNotEmpty()) FlatPopupHeader(stringResource(R.string.category_favorites))
         pinned.forEach { kind ->
             WorkspaceFavoriteChoice(stringResource(kind.titleRes()), selected == kind, true,
                 CleanupCategoryId.Entry(kind).icon(), { dismiss(); onSelected(kind) },
                 { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedEntryKinds = UiPreferencesRuntime.current.pinnedEntryKinds - kind)) })
+        }
+        pinnedManaged.forEach { surface ->
+            WorkspaceFavoriteChoice(
+                stringResource(surface.titleRes), false, true, CleanupCategoryId.Managed(surface).icon(),
+                { dismiss(); onManagedSurface(surface) },
+                { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(
+                    pinnedManagedSurfaces = UiPreferencesRuntime.current.pinnedManagedSurfaces - surface.name
+                )) }
+            )
         }
         sortedKinds.filter { it !in pinned }.forEach { kind ->
             WorkspaceFavoriteChoice(
@@ -492,6 +506,16 @@ internal fun EntryCategoryPicker(
                     )) },
             )
         }
+        ManagedComponentSurface.entries.filter { it !in pinnedManaged }.forEach { surface ->
+            WorkspaceFavoriteChoice(
+                stringResource(surface.titleRes), false, false, CleanupCategoryId.Managed(surface).icon(),
+                { dismiss(); onManagedSurface(surface) },
+                { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(
+                    pinnedManagedSurfaces = UiPreferencesRuntime.current.pinnedManagedSurfaces + surface.name
+                )) }
+            )
+        }
+
     }
 }
 
@@ -507,9 +531,6 @@ internal fun ComponentCategoryPicker(
     val context = LocalContext.current
     val preferences = UiPreferencesRuntime.current
     val pinned = preferences.pinnedRootKinds
-    val pinnedManaged = preferences.pinnedManagedSurfaces.mapNotNull { name ->
-        ManagedComponentSurface.entries.firstOrNull { it.name == name }
-    }
     val nameOrder = remember { displayNameComparator() }
     val sortedRootKinds = CleanupCategoryRegistry.sorted(
         context, ComponentCategoryFilterPolicy.choices.filterNotNull().map { CleanupCategoryId.Root(it) }
@@ -528,7 +549,7 @@ internal fun ComponentCategoryPicker(
         modifier = modifier, previewActions = previewActions
     ) { dismiss ->
         WorkspaceMenuChoice(stringResource(R.string.common_all), selected == null && managedSurface == null, { dismiss(); onSelected(null) })
-        if (pinned.isNotEmpty() || pinnedManaged.isNotEmpty()) {
+        if (pinned.isNotEmpty()) {
             WorkspaceMenuChoice(stringResource(R.string.category_manage_pins), false, { dismiss(); managePins = true })
             FlatPopupHeader(stringResource(R.string.category_favorites))
         }
@@ -537,43 +558,14 @@ internal fun ComponentCategoryPicker(
             { dismiss(); onSelected(kind) },
             { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedRootKinds = UiPreferencesRuntime.current.pinnedRootKinds - kind)) })
         }
-        pinnedManaged.forEach { surface ->
+        sortedRootKinds.filter { it !in pinned }.forEach { kind ->
             WorkspaceFavoriteChoice(
-                stringResource(surface.titleRes), managedSurface == surface, true,
-                CleanupCategoryId.Managed(surface).icon(),
-                { dismiss(); onManagedSurface(surface) },
+                stringResource(kind.titleRes), selected == kind, false, CleanupCategoryId.Root(kind).icon(),
+                { dismiss(); onSelected(kind) },
                 { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(
-                    pinnedManagedSurfaces = UiPreferencesRuntime.current.pinnedManagedSurfaces - surface.name
+                    pinnedRootKinds = UiPreferencesRuntime.current.pinnedRootKinds + kind
                 )) }
             )
-        }
-        // Root component categories and managed rule surfaces share one
-        // alphabetical category list. Their underlying engines remain distinct.
-        val regular = sortedRootKinds.filter { it !in pinned }
-        val merged = (regular.map { it to null } +
-            ManagedComponentSurface.entries.filter { it !in pinnedManaged }.map { null to it })
-            .sortedWith { a, b ->
-                nameOrder.compare(
-                    context.getString(a.first?.titleRes() ?: requireNotNull(a.second).titleRes),
-                    context.getString(b.first?.titleRes() ?: requireNotNull(b.second).titleRes)
-                )
-            }
-        merged.forEach { (kind, surface) ->
-            if (kind != null) {
-                WorkspaceFavoriteChoice(stringResource(kind.titleRes()), managedSurface == null && selected == kind,
-                    false, CleanupCategoryId.Root(kind).icon(),
-                    { dismiss(); onSelected(kind) },
-                    { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(pinnedRootKinds = UiPreferencesRuntime.current.pinnedRootKinds + kind)) })
-            } else if (surface != null) {
-                WorkspaceFavoriteChoice(
-                    stringResource(surface.titleRes), managedSurface == surface, false,
-                    CleanupCategoryId.Managed(surface).icon(),
-                    { dismiss(); onManagedSurface(surface) },
-                    { UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(
-                        pinnedManagedSurfaces = UiPreferencesRuntime.current.pinnedManagedSurfaces + surface.name
-                    )) }
-                )
-            }
         }
     }
 }
