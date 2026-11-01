@@ -112,46 +112,92 @@ class NfcPaymentModule : XposedModule() {
             ?: return@Hooker chain.proceed()
         if (category != PAYMENT_CATEGORY) return@Hooker chain.proceed()
 
-        val userId = (chain.args.firstOrNull() as? Int)?.takeIf { it in 0..21474 }
-            ?: return@Hooker chain.proceed()
+        // AOSP's getServices(String category, int userId) starts with a String.
+        // The old firstOrNull() cast to Int silently skipped this normal signature.
+        val userId = chain.args.filterIsInstance<Int>().firstOrNull()
+            ?.takeIf { it in 0..21474 } ?: return@Hooker chain.proceed()
         val original = chain.proceed()
         val values = original as? List<*> ?: return@Hooker original
         val components = values.mapNotNull(::componentOf)
-        authorityWriter.replaceComponents(IntentKind.NFC_HCE, components, userId = userId)
+        runCatching {
+            authorityWriter.replaceComponents(IntentKind.NFC_HCE, components, userId = userId)
+        }.onFailure {
+            // Older LSPosed remote preferences can be read-only. Never let optional
+            // discovery persistence prevent live filtering or payment list capture.
+            record("AUTHORITY_CACHE_UNAVAILABLE user=$userId error=${it.javaClass.simpleName}")
+        }
 
         val callerUid = Binder.getCallingUid()
-        val policy = policyProvider.snapshot(userId)
         val callerPid = Binder.getCallingPid()
-        if (ManagerIdentity.matches(callerUid, policy.managerAppId) || callerPid == Process.myPid()) {
-            return@Hooker original
-        }
+        val policy = policyProvider.snapshot(userId)
         val selected = policy.selected(IntentKind.NFC_HCE)
         val priorities = policy.priorities(IntentKind.NFC_HCE)
-        if ((policy.modeFor(IntentKind.NFC_HCE) == DisplayMode.SHOW_ALL || selected.isEmpty()) && priorities.isEmpty()) return@Hooker original
+        val localInternalCall = callerPid == Process.myPid()
+        val managerQuery = ManagerIdentity.matches(callerUid, policy.managerAppId)
+        val needsChanges = (policy.modeFor(IntentKind.NFC_HCE) != DisplayMode.SHOW_ALL &&
+            selected.isNotEmpty()) || priorities.isNotEmpty()
 
-        val kept = values.filter { value ->
-            val component = componentOf(value) ?: return@filter true
-            val rule = ComponentRule(IntentKind.NFC_HCE, component.packageName, component.className)
-            policy.modeFor(IntentKind.NFC_HCE) == DisplayMode.SHOW_ALL || selected.isEmpty() ||
-                policy.modeFor(IntentKind.NFC_HCE).includes(rule.id in selected, selected.isNotEmpty())
+        // Preserve the existing privilege bypass: a manager's discovery query must
+        // not be restricted, and NFC's internal requests must not be mutated.
+        val filtered = if (localInternalCall || managerQuery || !needsChanges) values else {
+            val kept = values.filter { value ->
+                val component = componentOf(value) ?: return@filter true
+                val rule = ComponentRule(IntentKind.NFC_HCE, component.packageName,
+                    component.className)
+                policy.modeFor(IntentKind.NFC_HCE) == DisplayMode.SHOW_ALL ||
+                    policy.modeFor(IntentKind.NFC_HCE).includes(
+                        rule.id in selected, selected.isNotEmpty()
+                    )
+            }
+            com.yagay.ListCleaner.domain.prioritizeApps(
+                kept, priorities, { componentOf(it)?.packageName ?: "" }, { userId },
+            )
         }
-        val filtered = com.yagay.ListCleaner.domain.prioritizeApps(
-            kept, priorities, { componentOf(it)?.packageName ?: "" }, { userId },
-        )
-        runtimeCapture.publish(
-            kind = IntentKind.NFC_HCE,
-            source = "NFC_PAYMENT_FILTERED_RETURN",
-            userId = userId,
-            packages = filtered.mapNotNull { componentOf(it)?.packageName },
-            components = filtered.mapNotNull { componentOf(it)?.flattenToString() },
-            callerUid = callerUid,
-            requestAction = "android.nfc.cardemulation.payment",
-        )
-        if (filtered == values) return@Hooker original
-        record(
-            "FILTER category=$category callerUid=$callerUid before=${values.size} after=${filtered.size} selected=${selected.size}"
-        )
-        ArrayList(filtered)
+
+        // Always publish external CATEGORY_PAYMENT results, even without any selected
+        // rule or when the returned list is empty. One snapshot per queried user
+        // allows a personal PayPal and a managed-profile PayPal to coexist.
+        if (!localInternalCall) {
+            val returnedComponents = filtered.mapNotNull(::componentOf)
+            runtimeCapture.publish(
+                kind = IntentKind.NFC_HCE,
+                source = "NFC_PAYMENT_FILTERED_RETURN",
+                userId = userId,
+                packages = returnedComponents.map { it.packageName },
+                components = returnedComponents.map { it.flattenToString() },
+                componentLabels = componentLabels(filtered),
+                callerPackage = processName,
+                callerUid = callerUid,
+                requestAction = "android.nfc.cardemulation.payment",
+            )
+            record("PAYMENT_RETURN user=$userId callerUid=$callerUid count=${returnedComponents.size} filtered=${filtered != values}")
+        }
+        if (filtered == values) original else {
+            record("FILTER category=$category user=$userId callerUid=$callerUid before=${values.size} after=${filtered.size} selected=${selected.size}")
+            ArrayList(filtered)
+        }
+    }
+
+    private fun componentLabels(values: List<*>): Map<String, String> {
+        // Labels from the system's ApduServiceInfo ResolveInfo are preferable to
+        // package labels. An absent label is resolved by the manager preview later.
+        val pm = runCatching {
+            val clazz = Class.forName("android.app.ActivityThread")
+            val method = clazz.getDeclaredMethod("currentApplication").apply {
+                isAccessible = true
+            }
+            (method.invoke(null) as? android.content.Context)?.packageManager
+        }.getOrNull()
+        return values.mapNotNull { service ->
+            val component = componentOf(service) ?: return@mapNotNull null
+            val info = ReflectionAccess.invokeNoArg(service, "getServiceInfo")
+                as? android.content.pm.ResolveInfo
+            val label = pm?.let { runCatching { info?.loadLabel(it)?.toString() }.getOrNull() }
+                .orEmpty().ifBlank {
+                    (ReflectionAccess.invokeNoArg(service, "getDescription") as? String).orEmpty()
+                }.trim()
+            component.flattenToString().takeIf { label.isNotEmpty() }?.let { it to label }
+        }.toMap()
     }
 
     private fun componentOf(value: Any?): ComponentName? =
