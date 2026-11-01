@@ -20,7 +20,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -50,10 +49,6 @@ import com.yagay.ListCleaner.domain.kinds
 @Composable
 internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
-    var pendingDisabled by remember(userId) { mutableStateOf<Set<IntentKind>?>(null) }
-    val existingDisabled = state.disabledEntryKinds + state.disabledEntryGroups.flatMap { it.kinds() }
-    val disabled = pendingDisabled ?: existingDisabled
-    val hasPending = pendingDisabled != null && disabled != existingDisabled
     var expanded by rememberSaveable(userId) { mutableStateOf<EntryGroup?>(null) }
     // Only one inline mode editor at a time, and no modes are written
     // until its explicit confirmation button is pressed.
@@ -85,46 +80,6 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
             }
         }
 
-        item(key = "category-enabled-settings") {
-            SettingsArea(stringResource(R.string.lc_category_visibility_title)) {
-                SettingsHint(stringResource(R.string.lc_category_visibility_help))
-                EntryGroup.entries.forEach { group ->
-                    FlatSectionHeader(stringResource(group.titleRes()))
-                    group.kinds().forEach { kind ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                                .padding(horizontal = MaterialUiTokens.pageHorizontal),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            AdaptiveText(stringResource(kind.titleRes()), modifier = Modifier.weight(1f))
-                            androidx.compose.material3.Checkbox(
-                                checked = kind !in disabled,
-                                onCheckedChange = { enabled ->
-                                    pendingDisabled = if (enabled) disabled - kind else disabled + kind
-                                },
-                            )
-                        }
-                    }
-                }
-                if (hasPending) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal),
-                        horizontalArrangement = Arrangement.End,
-                    ) {
-                        AdaptiveTextButton(onClick = { pendingDisabled = null }) {
-                            AdaptiveText(stringResource(R.string.common_cancel))
-                        }
-                        AdaptiveTextButton(onClick = {
-                            vm.setDisabledEntryKinds(disabled)
-                            pendingDisabled = null
-                        }) {
-                            AdaptiveText(stringResource(R.string.lc_category_apply))
-                        }
-                    }
-                }
-            }
-        }
-
         item(key = "global-mode-overrides-explanation") {
             SettingsArea(stringResource(R.string.lc_mode_category_overrides)) {
                 SettingsHint(stringResource(R.string.lc_mode_category_overrides_help))
@@ -134,7 +89,7 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
         EntryGroup.entries.forEach { group ->
             item(key = "global-mode-group-${group.name}") {
                 val kinds = group.kinds()
-                val overridden = kinds.count { it in state.modeOverrides }
+                val overridden = kinds.count { it in state.modeOverrides || it in state.disabledEntryKinds || it.entryGroup() in state.disabledEntryGroups }
                 val isExpanded = expanded == group
                 GlobalModeGroupHeader(
                     title = stringResource(group.titleRes()),
@@ -170,7 +125,9 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                         kinds.forEach { kind: IntentKind ->
                             GlobalModeSettingsRow(
                                 title = stringResource(kind.titleRes()),
-                                selectedMode = state.modeOverrides[kind]?.let {
+                                selectedMode = if (kind in state.disabledEntryKinds || group in state.disabledEntryGroups) {
+                                    stringResource(R.string.lc_mode_disabled)
+                                } else state.modeOverrides[kind]?.let {
                                     stringResource(it.titleRes())
                                 } ?: stringResource(
                                     R.string.lc_mode_follow_global_value,
