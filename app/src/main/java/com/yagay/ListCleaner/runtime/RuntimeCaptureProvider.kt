@@ -38,12 +38,11 @@ class RuntimeCaptureProvider : ContentProvider() {
         if (!validCapture(snapshot, callingUid)) return null
         val ordered = snapshot.source in ORDERED_SOURCES
         if (extras.getBoolean(RuntimeCaptureContract.KEY_ORDERED, false) != ordered) return null
-        // RoleController's qualifying package list is NOT a resolver/PM return. Keep
-        // it in its own slot so subsequent ACTION_ASSIST queries cannot overwrite it.
-        // Keep existing HOME/BROWSER role captures in their original slots.
-        // Only ASSISTANT needs a distinct role-eligibility channel.
+        // All default-app roles use the same RoleController eligibility endpoint.
+        // Never share their slot with PackageManager or Resolver observations.
         val isRoleEligibility = snapshot.source == "ROLE_CONTROLLER_RETURN" &&
-            kind == IntentKind.ASSISTANT
+            kind in setOf(IntentKind.ASSISTANT, IntentKind.HOME,
+                IntentKind.BROWSER, IntentKind.CALL_SCREENING)
         val key = when {
             ordered -> RuntimeInterfaceSnapshotCodec.keyForResolverOrder(kind)
             isRoleEligibility -> RuntimeInterfaceSnapshotCodec.keyForRoleEligibility(kind)
