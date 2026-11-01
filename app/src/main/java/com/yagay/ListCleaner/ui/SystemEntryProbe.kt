@@ -130,7 +130,9 @@ internal data class SystemProbeResult(
  */
 internal object SystemEntryProbe {
     fun query(context: Context, request: SystemProbeRequest): SystemProbeResult {
-        if (request.userId != AndroidUid.userId(Process.myUid())) {
+        if (request.userId != AndroidUid.userId(Process.myUid()) &&
+            !(request.entryKind == IntentKind.NFC_HCE &&
+                request.userId in accessibleNfcUsers(context))) {
             return SystemProbeResult(
                 R.string.system_probe_source_none, R.string.system_probe_other_user,
                 supported = false, evidence = ProbeEvidence.NOT_PUBLIC,
@@ -241,7 +243,7 @@ internal object SystemEntryProbe {
      * Only profiles returned by Android are read; never expose arbitrary user IDs
      * just because an old preference key exists.
      */
-    private fun readNfcPaymentReturns(context: Context): List<RuntimeInterfaceSnapshot> {
+    private fun accessibleNfcUsers(context: Context): List<Int> {
         val current = AndroidUid.userId(Process.myUid())
         val fromManager = runCatching {
             context.getSystemService(UserManager::class.java)?.userProfiles.orEmpty()
@@ -251,8 +253,13 @@ internal object SystemEntryProbe {
             context.getSystemService(LauncherApps::class.java)?.profiles.orEmpty()
                 .map { it.identifier }
         }.getOrDefault(emptyList())
-        val users = (listOf(current) + fromManager + fromLauncher)
+        return (listOf(current) + fromManager + fromLauncher)
             .filter { it in 0..21474 }.distinct().take(32)
+    }
+
+    private fun readNfcPaymentReturns(context: Context): List<RuntimeInterfaceSnapshot> {
+        val current = AndroidUid.userId(Process.myUid())
+        val users = accessibleNfcUsers(context)
         val prefs = context.getSharedPreferences(
             com.yagay.ListCleaner.domain.RuntimeCaptureContract.PREFS,
             Context.MODE_PRIVATE,
