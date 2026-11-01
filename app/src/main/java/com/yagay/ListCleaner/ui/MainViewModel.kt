@@ -463,14 +463,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val surfaceFilters: StateFlow<com.yagay.ListCleaner.domain.SurfaceFilterConfig>
         get() = app.rules.surfaceFilters
 
-    /** Returns true only when the local rules update was accepted. Sync is asynchronous. */
-    /** Reject a stale Modes draft if its Android user changed before Apply. */
+    /** Space-checked surface edit; repository validates identity and writes under one lock. */
     fun setSurfaceFiltersForSpace(
         userId: Int,
         value: com.yagay.ListCleaner.domain.SurfaceFilterConfig,
     ): Boolean {
-        if (selectedSpace.value != userId || app.rules.selectedUserId != userId) return false
-        return setSurfaceFilters(value)
+        if (!canEdit() || selectedSpace.value != userId) return false
+        return runCatching {
+            val accepted = app.rules.setSurfaceFiltersForSpace(userId, value)
+            if (accepted) viewModelScope.launch { app.synchronize() }
+            accepted
+        }.getOrDefault(false)
+    }
+
+    /** One Entry + LSPosed Modes transaction, with a single runtime sync. */
+    fun applyModesForSpace(
+        userId: Int,
+        disabledKinds: Set<IntentKind>?,
+        disabledSurfaces: Set<com.yagay.ListCleaner.domain.SurfaceKind>?,
+    ): Boolean {
+        if (!canEdit() || selectedSpace.value != userId) return false
+        return runCatching {
+            val accepted = app.rules.applyModesForSpace(userId, disabledKinds, disabledSurfaces)
+            if (accepted && (disabledKinds != null || disabledSurfaces != null)) {
+                viewModelScope.launch { app.synchronize() }
+            }
+            accepted
+        }.getOrDefault(false)
     }
 
     fun setSurfaceFilters(value: com.yagay.ListCleaner.domain.SurfaceFilterConfig): Boolean {
