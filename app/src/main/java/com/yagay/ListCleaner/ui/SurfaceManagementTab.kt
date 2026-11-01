@@ -45,8 +45,8 @@ import androidx.compose.material3.MaterialTheme
 internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val sortedKinds = CleanupCategoryRegistry.sorted(context, CleanupCategoryRegistry.entries())
-        .map { it.kind }
+    val entryModeItems = CleanupCategoryRegistry.sorted(context, CleanupCategoryRegistry.entries())
+    val sortedKinds = entryModeItems.filterIsInstance<CleanupCategoryId.Entry>().map { it.kind }
     val rootModeItems = CleanupCategoryRegistry.sorted(context, CleanupCategoryRegistry.rootCategories())
     val savedManagedDisabled = UiPreferencesRuntime.current.disabledManagedSurfaces
     var draftManagedDisabled by remember(userId, savedManagedDisabled) { mutableStateOf(savedManagedDisabled) }
@@ -145,30 +145,28 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                         )
             }
         }
+        entryModeItems.filterIsInstance<CleanupCategoryId.Managed>().forEach { managedCategory ->
+            val managedSurface = managedCategory.surface
+            item(key = "modes-managed-${managedSurface.name}") {
+                val disabled = managedSurface.name in draftManagedDisabled
+                GlobalModeSettingsRow(
+                    title = stringResource(managedSurface.titleRes),
+                    leadingIcon = managedCategory.icon(),
+                    description = stringResource(if (managedSurface == ManagedComponentSurface.SETTINGS_APPS) R.string.lc_mode_managed_settings_desc else R.string.lc_mode_managed_notifications_desc),
+                    selectedMode = stringResource(if (disabled) R.string.lc_mode_disabled else R.string.lc_mode_enabled),
+                    expanded = false, onClick = {}, modeMenu = {},
+                    enabled = !disabled,
+                    onEnabledChange = { enabled ->
+                        draftManagedDisabled = if (enabled) draftManagedDisabled - managedSurface.name else draftManagedDisabled + managedSurface.name
+                    },
+                )
+            }
+        }
         item(key = "modes-root-heading") { FlatPopupHeader(stringResource(R.string.lc_mode_root_heading)) }
         // Root component and managed-rule categories remain independent engines but share one Modes list.
-        rootModeItems.forEach { category ->
-            val managedSurface = (category as? CleanupCategoryId.Managed)?.surface
-            val rootKind = (category as? CleanupCategoryId.Root)?.kind
-            if (managedSurface != null) {
-                item(key = "modes-managed-${managedSurface.name}") {
-                    val disabled = managedSurface.name in draftManagedDisabled
-                    GlobalModeSettingsRow(
-                        title = stringResource(managedSurface.titleRes),
-                        leadingIcon = CleanupCategoryId.Managed(managedSurface).icon(),
-                        description = stringResource(if (managedSurface == ManagedComponentSurface.SETTINGS_APPS) R.string.lc_mode_managed_settings_desc else R.string.lc_mode_managed_notifications_desc),
-                        selectedMode = stringResource(if (disabled) R.string.lc_mode_disabled else R.string.lc_mode_enabled),
-                        expanded = false,
-                        onClick = {},
-                        modeMenu = {},
-                        enabled = !disabled,
-                        onEnabledChange = { enabled ->
-                            draftManagedDisabled = if (enabled) draftManagedDisabled - managedSurface.name else draftManagedDisabled + managedSurface.name
-                        },
-                    )
-                }
-            } else if (rootKind != null) {
-                val kind = rootKind
+        rootModeItems.filterIsInstance<CleanupCategoryId.Root>().forEach { rootCategory ->
+            val kind = rootCategory.kind
+
             item(key = "modes-root-${kind.name}") {
                 val disabled = kind in draftRootDisabled
                 GlobalModeSettingsRow(
@@ -184,7 +182,6 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                         draftRootDisabled = if (enabled) draftRootDisabled - kind else draftRootDisabled + kind
                     },
                 )
-            }
             }
         }
     }
