@@ -221,12 +221,19 @@ fun PriorityDialogContent(
     // The checkbox shows stagedOrder immediately, but the list position/section
     // remains in the CONFIRMED Priority order until Apply succeeds. This also
     // prevents a pending deselection from jumping to Not Priority.
+    // Sort only targets that survive the currently active cleaning policy.
+    // Modes-disabled categories are unfiltered; per-category display overrides
+    // take precedence over the global mode. Stored ranks for hidden targets stay.
+    val effectiveMode = if (kind in state.disabledEntryKinds ||
+        kind.entryGroup() in state.disabledEntryGroups) {
+        DisplayMode.SHOW_ALL
+    } else state.modeOverrides[kind] ?: state.displayMode
     val baseGroups = remember(
-        scopedCandidates, state.selected, scopedExtraSelected, state.displayMode,
+        scopedCandidates, state.selected, scopedExtraSelected, effectiveMode,
         kind, rankedRaw, state.query, priorityListFilter, appTypeFilter
     ) {
         priorityAppGroups(
-            scopedCandidates, state.selected, state.displayMode, kind,
+            scopedCandidates, state.selected, effectiveMode, kind,
             rankedRaw, state.query, priorityListFilter, scopedExtraSelected, appTypeFilter
         )
     }
