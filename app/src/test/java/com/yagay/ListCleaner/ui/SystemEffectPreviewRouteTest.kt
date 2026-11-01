@@ -71,7 +71,7 @@ class SystemEffectPreviewRouteTest {
         assertEquals(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS,
             SystemEffectPreview.settingsActions(IntentKind.ASSISTANT)[2])
         assertEquals(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS,
-            SystemEffectPreview.settingsActions(IntentKind.BROWSER).first())
+            SystemEffectPreview.settingsActions(IntentKind.BROWSER)[1])
         // Provider routes must not use the old generic Settings dispatch.
         assertEquals(emptyList<String>(),
             SystemEffectPreview.settingsActions(IntentKind.CREDENTIAL_PROVIDER))
