@@ -106,7 +106,6 @@
     <string name="preview_no_public_system_entry">This system-owned list has no supported public launcher. Only available API candidates or runtime observations can be inspected.</string>
     <string name="preview_other_user_unavailable">This system entry belongs to a different Android user. Cross-user UI launch is restricted; only the current user can be tested here.</string>
     <string name="preview_no_verified_list">No verified current system list is available for this entry. Use Show API for candidates or inspect prior Hook observations.</string>
-    <string name="preview_test_intent">Test application Intent</string>
     <string name="preview_open_related_settings">Open system settings</string>
     <string name="preview_widget_picker_unavailable">This device does not provide an accessible system widget picker.</string>
     <string name="preview_source_hook_observed">Data source: captured Hook return (not guaranteed to match the final rendered UI)</string>
