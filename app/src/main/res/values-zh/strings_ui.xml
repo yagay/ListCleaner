@@ -352,7 +352,13 @@
     <string name="lc_mode_desc_dream">系统屏幕保护程序</string>
     <string name="lc_mode_entry_heading">Entry 清理</string>
     <string name="lc_mode_root_heading">Root 分类</string>
-    <string name="lc_mode_root_visibility_description">仅控制在 Root 页面显示，不修改系统组件状态</string>
-    <string name="lc_mode_root_hidden">已隐藏分类</string>
-    <string name="lc_mode_root_visible">已显示分类</string>
+    <string name="lc_mode_root_visibility_description">控制 Root 是否允许操作该类组件；已有修改不会自动恢复</string>
+    <string name="lc_mode_root_hidden">已禁用清理</string>
+    <string name="lc_mode_root_visible">已启用清理</string>
+    <string name="lc_mode_root_desc_launcher">控制 Root 是否允许清理桌面启动器相关 Activity 组件</string>
+    <string name="lc_mode_root_desc_shortcut">控制 Root 是否允许清理快捷方式相关组件</string>
+    <string name="lc_mode_root_desc_widget">控制 Root 是否允许清理桌面小组件提供者</string>
+    <string name="lc_mode_root_desc_tile">控制 Root 是否允许清理快捷设置磁贴服务</string>
+    <string name="lc_mode_root_desc_controls">控制 Root 是否允许清理设备控制服务</string>
+    <string name="lc_mode_root_desc_authenticator">控制 Root 是否允许清理账户认证器组件</string>
 </resources>
