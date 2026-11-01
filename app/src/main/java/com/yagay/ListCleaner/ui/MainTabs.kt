@@ -370,7 +370,17 @@ fun RulesTab(
                         onAppTypeFilter = vm::setEntryAppTypeFilter,
                         showEntryGroups = true,
                         selectionActions = selectionActions,
-                        toolbarPreviewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds, state.disabledEntryGroups).map { previewKind ->
+                        toolbarPreviewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds, state.disabledEntryGroups)
+                            .sortedWith { a, b ->
+                                val pinned = UiPreferencesRuntime.current.pinnedEntryKinds
+                                val aPin = pinned.indexOf(a).let { if (it < 0) Int.MAX_VALUE else it }
+                                val bPin = pinned.indexOf(b).let { if (it < 0) Int.MAX_VALUE else it }
+                                if (aPin != bPin) aPin.compareTo(bPin)
+                                else displayNameComparator().compare(
+                                    prefsContext.getString(a.titleRes()),
+                                    prefsContext.getString(b.titleRes())
+                                )
+                            }.map { previewKind ->
                             WorkspaceMenuAction(
                                 label = stringResource(previewKind.titleRes()),
                                 onClick = {
