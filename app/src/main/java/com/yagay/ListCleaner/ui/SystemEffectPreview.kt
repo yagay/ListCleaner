@@ -34,9 +34,10 @@ internal enum class SystemPreviewRoute {
 }
 
 internal fun systemPreviewRoute(kind: IntentKind): SystemPreviewRoute = when (kind) {
-    // ACTION_CHOOSER is appropriate for explicit sharing, not for default-app selection.
-    IntentKind.SHARE, IntentKind.SHARE_MULTIPLE, IntentKind.DIRECT_SHARE ->
-        SystemPreviewRoute.CHOOSER
+    // Browser previews intentionally show the native link-handler chooser; this is
+    // not the default-browser role manager and does not change defaults.
+    IntentKind.SHARE, IntentKind.SHARE_MULTIPLE, IntentKind.DIRECT_SHARE,
+    IntentKind.BROWSER -> SystemPreviewRoute.CHOOSER
 
     IntentKind.SEND_TO, IntentKind.OPEN, IntentKind.EDIT, IntentKind.PICK,
     IntentKind.DEEP_LINK, IntentKind.DIAL,
@@ -51,7 +52,7 @@ internal fun systemPreviewRoute(kind: IntentKind): SystemPreviewRoute = when (ki
     // its locations/navigation panel exposes available document roots.
     IntentKind.DOCUMENT_PROVIDER -> SystemPreviewRoute.PICKER
 
-    IntentKind.HOME, IntentKind.BROWSER, IntentKind.ASSISTANT,
+    IntentKind.HOME, IntentKind.ASSISTANT,
     IntentKind.CALL_SCREENING, IntentKind.ACCESSIBILITY,
     IntentKind.PRINT, IntentKind.VPN, IntentKind.NFC_HCE,
     IntentKind.NOTIFICATION_LISTENER, IntentKind.DREAM,
@@ -575,7 +576,8 @@ internal object SystemEffectPreview {
         IntentKind.CAPTURE_IMAGE -> Intent(MediaStore.ACTION_IMAGE_CAPTURE)
         IntentKind.CAPTURE_VIDEO -> Intent(MediaStore.ACTION_VIDEO_CAPTURE)
         IntentKind.RECORD_AUDIO -> Intent(MediaStore.Audio.Media.RECORD_SOUND_ACTION)
-        IntentKind.HOME, IntentKind.BROWSER, IntentKind.ASSISTANT,
+        IntentKind.BROWSER -> scenarioIntent(context, kind, scenario)
+        IntentKind.HOME, IntentKind.ASSISTANT,
         IntentKind.CALL_SCREENING -> error("System roles use settingsActions for UI and candidateIntent for candidates")
         IntentKind.WALLPAPER -> Intent(Intent.ACTION_SET_WALLPAPER)
         IntentKind.INPUT_METHOD, IntentKind.ACCESSIBILITY, IntentKind.PRINT,
