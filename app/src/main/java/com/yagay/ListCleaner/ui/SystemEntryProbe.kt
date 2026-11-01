@@ -103,6 +103,8 @@ internal data class SystemProbeResult(
     val runtimeReturn: RuntimeInterfaceSnapshot? = null,
     /** Ordered app targets captured at the Resolver/Chooser adapter boundary; not final pixels. */
     val orderedReturn: RuntimeInterfaceSnapshot? = null,
+    /** RoleController eligibility (not ACTION_ASSIST targets or the current role holder). */
+    val roleEligibilityReturn: RuntimeInterfaceSnapshot? = null,
     /** Captured in a recognized system settings UID, not proof of its actual rendered rows. */
     val hostReturn: RuntimeInterfaceSnapshot? = null,
     /** Last same-user return from another caller; unverified unless explicitly attributed. */
@@ -132,10 +134,12 @@ internal object SystemEntryProbe {
             request.entryKind?.let { kind ->
                 val scenario = request.scenario ?: defaultProbeScenario(kind)
                 val initial = probeEntry(context, kind, scenario, request)
-                val (local, host, other, ordered) = readRuntimeReturns(context, kind)
+                val (local, host, other, ordered, roleEligibility) =
+                    readRuntimeReturns(context, kind)
                 val result = initial.copy(
                     runtimeReturn = local,
                     orderedReturn = ordered,
+                    roleEligibilityReturn = roleEligibility,
                     hostReturn = host,
                     unattributedReturn = other,
                 )
@@ -171,6 +175,7 @@ internal object SystemEntryProbe {
         val host: RuntimeInterfaceSnapshot?,
         val other: RuntimeInterfaceSnapshot?,
         val ordered: RuntimeInterfaceSnapshot?,
+        val roleEligibility: RuntimeInterfaceSnapshot?,
     )
 
     private fun readRuntimeReturns(
@@ -189,6 +194,16 @@ internal object SystemEntryProbe {
         )?.takeIf { it.callerUserId == ourUser }
         val local = decode(RuntimeInterfaceSnapshotCodec.keyForCaller(kind, ownUid))
         val last = decode(RuntimeInterfaceSnapshotCodec.key(kind))
+        val roleEligibility = if (kind == IntentKind.ASSISTANT) {
+            decode(RuntimeInterfaceSnapshotCodec.keyForRoleEligibility(kind))
+                ?.takeIf {
+                    it.source == "ROLE_CONTROLLER_RETURN" &&
+                        it.requestAction == "android.app.role.ASSISTANT" &&
+                        it.callerPackage.substringBefore(':') in setOf(
+                            "com.android.permissioncontroller", "com.google.android.permissioncontroller"
+                        )
+                }
+        } else null
         val ordered = decode(RuntimeInterfaceSnapshotCodec.keyForResolverOrder(kind))
             ?.takeIf {
                 it.source in setOf("CHOOSER_ADAPTER_ORDER", "RESOLVER_RANKED_ORDER") &&
@@ -207,8 +222,9 @@ internal object SystemEntryProbe {
             host = host,
             other = last?.takeIf { it.callerUid != ownUid && it !== host },
             ordered = ordered,
+            roleEligibility = roleEligibility,
         )
-    }.getOrDefault(RuntimeObservations(null, null, null, null))
+    }.getOrDefault(RuntimeObservations(null, null, null, null, null))
 
     @Suppress("DEPRECATION")
     private fun isRecognizedSettingsUid(context: Context, uid: Int): Boolean {
