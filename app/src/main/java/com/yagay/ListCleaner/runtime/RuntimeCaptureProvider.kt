@@ -69,7 +69,7 @@ class RuntimeCaptureProvider : ContentProvider() {
         val ordered = value.source in ORDERED_SOURCES
         if (value.source !in ORDERED_SOURCES && value.source !in RETURN_SOURCES) return false
         if (ordered && value.callerPackage.substringBefore(':') !in
-            setOf("android", "com.android.intentresolver")) return false
+            setOf("android", "system", "com.android.intentresolver")) return false
         // system_server may report calls originating in a different profile.
         if (callingUid != Process.SYSTEM_UID &&
             value.callerUserId != AndroidUid.userId(callingUid)) return false
