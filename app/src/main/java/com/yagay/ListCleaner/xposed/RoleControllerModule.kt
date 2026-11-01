@@ -35,7 +35,7 @@ class RoleControllerModule : XposedModule() {
         AuthoritySnapshotWriter(preferences, ::record)
     }
     private val runtimeCapture by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        RuntimeInterfaceCaptureWriter(preferences, ::record)
+        RuntimeInterfaceCaptureWriter(::record)
     }
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
