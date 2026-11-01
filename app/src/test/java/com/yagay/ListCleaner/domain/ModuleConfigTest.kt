@@ -34,6 +34,39 @@ class ModuleConfigTest {
         assertEquals(restored.priorities, workEdited.priorities)
     }
 
+    @Test fun modesTransactionPreservesRulesPrioritiesAndOtherUserSpaces() {
+        val rule = ComponentRule(IntentKind.OPEN, "com.example.keep", "com.example.keep.Main")
+        val surface = SurfaceFilterConfig()
+            .withSelected(SurfaceKind.SETTINGS_APPS, setOf("com.example.keep"))
+        val work = UserSpaceRules(disabledEntryKinds = setOf(IntentKind.SHARE))
+        val starting = ModuleConfig(
+            rules = setOf(rule),
+            mode = DisplayMode.HIDE_SELECTED,
+            priorities = PriorityConfig(),
+            diagnostic = false,
+            surfaceFilters = surface,
+            userSpaces = mapOf(10 to work),
+            disabledEntryGroups = setOf(EntryGroup.SHARE),
+        ).validated()
+        val changed = starting.withModeDisables(
+            setOf(IntentKind.OPEN),
+            setOf(SurfaceKind.SETTINGS_APPS),
+        )
+        assertEquals(setOf(IntentKind.OPEN), changed.disabledEntryKinds)
+        assertTrue(changed.disabledEntryGroups.isEmpty())
+        assertEquals(setOf(SurfaceKind.SETTINGS_APPS), changed.surfaceFilters.disabledCleanupSurfaces)
+        assertEquals(starting.rules, changed.rules)
+        assertEquals(starting.priorities, changed.priorities)
+        assertEquals(starting.userSpaces, changed.userSpaces)
+        assertEquals(setOf("com.example.keep"), changed.surfaceFilters.selected(SurfaceKind.SETTINGS_APPS))
+        val clearedSurface = changed.withModeDisables(null, emptySet())
+        assertEquals(changed.disabledEntryKinds, clearedSurface.disabledEntryKinds)
+        assertTrue(clearedSurface.surfaceFilters.disabledCleanupSurfaces.isEmpty())
+        assertThrows(IllegalArgumentException::class.java) {
+            starting.withModeDisables(null, setOf(SurfaceKind.RECENTS))
+        }
+    }
+
     @Test fun hiddenFromAppsRoundTrip() {
         val config = ModuleConfig(
             emptySet(), DisplayMode.HIDE_SELECTED, PriorityConfig(), false, 10715,
