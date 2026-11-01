@@ -71,10 +71,10 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    AdaptiveTextAdaptiveButton(onClick = { draftDisabled = savedDisabled }) {
+                    AdaptiveTextButton(onClick = { draftDisabled = savedDisabled }) {
                         AdaptiveText(stringResource(R.string.common_cancel))
                     }
-                    Button(onClick = {
+                    AdaptiveButton(onClick = {
                         // Convert legacy group disables to explicit per-kind state so
                         // enabling one member cannot be overridden by its old group flag.
                         vm.setDisabledEntryKinds(draftDisabled)
