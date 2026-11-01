@@ -114,6 +114,7 @@ class ListCleanerModule : XposedModule() {
     private var suppressedDetails = 0L
     @Volatile private var nextPreferencePoll = 0L
     private val queryInProgress = ThreadLocal<Boolean>()
+    private val queryFaultCircuits = ConcurrentHashMap<String, HookFailureCircuit>()
     private val installedMethods = ConcurrentHashMap.newKeySet<String>()
     private val tracedActions = ConcurrentHashMap.newKeySet<String>()
     private val queryHits = AtomicLong()
@@ -729,7 +730,9 @@ class ListCleanerModule : XposedModule() {
     }
 
     private fun queryHooker(layer: Layer) = XposedInterface.Hooker { chain ->
-        if (queryInProgress.get() == true) return@Hooker chain.proceed()
+        val methodId = "$layer:${chain.executable}"
+        val circuit = queryFaultCircuits.computeIfAbsent(methodId) { HookFailureCircuit() }
+        if (circuit.isDisabled() || queryInProgress.get() == true) return@Hooker chain.proceed()
         val callerUid = if (layer == Layer.SYSTEM) Binder.getCallingUid() else -1
         queryInProgress.set(true)
         try {
@@ -794,8 +797,11 @@ class ListCleanerModule : XposedModule() {
             activeQueryUserContext.set(userContext)
             activeQuerySnapshot.set(userPolicy)
             try {
-                processQuery(chain, original, layer, callerUid)
+                processQuery(chain, original, layer, callerUid).also { circuit.recordSuccess() }
             } catch (failure: Throwable) {
+                if (circuit.recordFailure()) {
+                    record("HOOK_DISABLED layer=$layer method=$methodId reason=consecutive_filter_failures")
+                }
                 diagnostic("FILTER_FAILED layer=$layer error=${failure.javaClass.name}; keeping original")
                 original
             }
