@@ -298,4 +298,10 @@
     <string name="preview_v2_role_candidates">可能的助手应用 · 已按保存的清理规则过滤，尚未验证系统实际选择列表。</string>
     <string name="preview_v2_role_holder">仅当前默认助手 · 尚未捕获其他符合资格的候选应用。</string>
     <string name="preview_v2_role_policy_projected">根据当前清理规则重新过滤了已捕获的助手结果；尚未重新验证系统实际显示列表。</string>
+    <string name="preview_v3_policy_projected">已捕获的系统返回已按当前清理规则重新计算；尚未验证系统最终显示画面。</string>
+    <string name="preview_v3_root_state">来自当前空间扫描的已启用 Root 组件；桌面或 SystemUI 可能进一步过滤。</string>
+    <string name="preview_v3_root_draft">Root 组件未确认修改的模拟预览；尚未更改系统组件状态。</string>
+    <string name="preview_v3_test_intent">测试样例 Intent</string>
+    <string name="preview_v3_test_chooser">测试样例选择器</string>
+    <string name="preview_v3_open_picker">打开测试选择器</string>
 </resources>
