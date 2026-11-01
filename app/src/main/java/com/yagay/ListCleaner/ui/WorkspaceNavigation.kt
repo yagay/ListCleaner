@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -42,8 +43,6 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Velocity
-import androidx.compose.material3.BottomSheetDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.graphics.SolidColor
@@ -107,9 +106,8 @@ internal fun WorkspaceSortModeAction(
  * Always compose this host, even when visible=false: AnimatedVisibility keeps
  * its children alive until the slide-out completes before disposing the editor.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun WorkspaceSortEditorOverlay(
+internal fun WorkspaceSortEditorOverlay
     visible: Boolean,
     guard: PendingNavigationGuard,
     onDismiss: () -> Unit,
@@ -252,8 +250,11 @@ internal fun WorkspaceSortEditorOverlay(
                 shadowElevation = 8.dp,
             ) {
                 Column {
+                    // Keep a compact dedicated drag area. The previous 40dp
+                    // row plus the Material3 DragHandle's own padding looked
+                    // like an empty bar above both ordering lists.
                     Box(
-                        Modifier.fillMaxWidth().height(40.dp).draggable(
+                        Modifier.fillMaxWidth().height(24.dp).draggable(
                             state = handleState,
                             orientation = Orientation.Vertical,
                             onDragStarted = { dragging = true },
@@ -261,7 +262,13 @@ internal fun WorkspaceSortEditorOverlay(
                         ),
                         contentAlignment = Alignment.Center,
                     ) {
-                        BottomSheetDefaults.DragHandle()
+                        Box(
+                            Modifier.width(36.dp).height(4.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                                    RoundedCornerShape(50),
+                                )
+                        )
                     }
                     Box(Modifier.weight(1f)) { content() }
                 }
