@@ -96,8 +96,13 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                             vm.setDisabledEntryKinds(draftDisabled)
                             if (state.disabledEntryGroups.isNotEmpty()) vm.setDisabledEntryGroups(emptySet())
                         }
-                        if (draftRootDisabled != savedRootDisabled) UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(disabledRootKinds = draftRootDisabled))
-                        if (draftManagedDisabled != savedManagedDisabled) vm.setSurfaceFiltersForSpace(userId, surfacePolicy.copy(disabledCleanupSurfaces = draftManagedDisabled))
+                        // Commit the space-bound policy first. A rejected space update must
+                        // not partially apply the device-local Root preference change.
+                        val surfaceAccepted = draftManagedDisabled == savedManagedDisabled ||
+                            vm.setSurfaceFiltersForSpace(userId, surfacePolicy.copy(disabledCleanupSurfaces = draftManagedDisabled))
+                        if (surfaceAccepted && draftRootDisabled != savedRootDisabled) {
+                            UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(disabledRootKinds = draftRootDisabled))
+                        }
                     }) {
                         AdaptiveText(stringResource(R.string.lc_mode_confirm_apply))
                     }
