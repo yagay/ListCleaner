@@ -343,6 +343,16 @@ internal object SystemEntryProbe {
                 val roleResult = if (kind.previewAuthority() == PreviewAuthority.ROLE_CANDIDATES)
                     roleHolders(context, kind) else null
                 if (roleResult != null) return roleResult
+                if (kind == IntentKind.ASSISTANT) {
+                    // Role eligibility is not equivalent to ACTION_ASSIST resolution.
+                    // Without a RoleController capture, this UNION is only a possible
+                    // candidate inventory, never the actual default-app picker list.
+                    return candidates(
+                        R.string.system_probe_source_activities,
+                        R.string.system_probe_role_notice,
+                        assistantCandidateRegistrations(context),
+                    )
+                }
                 if (kind == IntentKind.CALL_SCREENING) return registeredServices(context, kind)
                 val intent = SystemEffectPreview.queryIntent(context, kind, scenario, request)
                 val flags = if (kind in setOf(IntentKind.PROCESS_TEXT, IntentKind.HOME, IntentKind.ASSISTANT))
@@ -414,14 +424,17 @@ internal object SystemEntryProbe {
             }
             // AOSP RoleController distinguishes currently-held roles from
             // eligible activities. Preserve both, with explicit provenance.
-            val candidates = if (kind == IntentKind.CALL_SCREENING) emptyList()
-                else runCatching {
+            val candidates = when (kind) {
+                IntentKind.CALL_SCREENING -> emptyList()
+                IntentKind.ASSISTANT -> assistantCandidateRegistrations(context)
+                else -> runCatching {
                     val query = SystemEffectPreview.queryIntent(
                         context, kind, defaultProbeScenario(kind)
                     )
                     pm.queryIntentActivities(query, PackageManager.MATCH_DEFAULT_ONLY)
                         .mapNotNull { resolvedItem(pm, it) }
                 }.getOrDefault(emptyList())
+            }
             SystemProbeResult(
                 R.string.system_probe_source_services,
                 R.string.system_probe_role_notice,
@@ -431,6 +444,42 @@ internal object SystemEntryProbe {
                 evidence = ProbeEvidence.ENABLED,
             )
         }.getOrNull()
+    }
+
+    /**
+     * Diagnostic-only fallback for ASSISTANT when the actual RoleController response has
+     * not been observed. AOSP allows either an ACTION_ASSIST activity OR a qualifying
+     * VoiceInteractionService. QUERY_ALL_PACKAGES is held by this manager, but it still
+     * cannot reproduce RoleController's additional OEM qualification checks.
+     */
+    @Suppress("DEPRECATION")
+    private fun assistantCandidateRegistrations(context: Context): List<SystemProbeItem> {
+        val pm = context.packageManager
+        val activities = runCatching {
+            pm.queryIntentActivities(
+                SystemEffectPreview.queryIntent(context, IntentKind.ASSISTANT),
+                PackageManager.MATCH_ALL,
+            ).mapNotNull { resolvedItem(pm, it) }
+        }.getOrDefault(emptyList())
+        val voiceServices = runCatching {
+            pm.queryIntentServices(
+                Intent("android.service.voice.VoiceInteractionService"),
+                PackageManager.GET_META_DATA or PackageManager.MATCH_ALL,
+            ).mapNotNull { resolved ->
+                val service = resolved.serviceInfo ?: return@mapNotNull null
+                if (service.permission != "android.permission.BIND_VOICE_INTERACTION") {
+                    return@mapNotNull null
+                }
+                SystemProbeItem(
+                    label = service.loadLabel(pm)?.toString().orEmpty()
+                        .ifBlank { service.name },
+                    packageName = service.packageName,
+                    className = service.name,
+                    appLabel = appLabel(pm, service.packageName, service.packageName),
+                )
+            }
+        }.getOrDefault(emptyList())
+        return unique(activities + voiceServices)
     }
 
     private fun enabledManager(context: Context, kind: IntentKind): SystemProbeResult {
