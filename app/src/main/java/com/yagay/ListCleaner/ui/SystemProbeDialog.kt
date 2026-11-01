@@ -196,6 +196,9 @@ internal fun SystemProbeDialog(
                 PreviewV2Source.DOCUMENT_ROOTS -> R.string.preview_v2_documents
                 PreviewV2Source.ENABLED -> R.string.preview_v2_enabled
                 PreviewV2Source.INTENT_CANDIDATES -> R.string.preview_v2_candidates
+                PreviewV2Source.ROLE_ELIGIBILITY -> R.string.preview_v2_role_eligibility
+                PreviewV2Source.ROLE_CANDIDATES -> R.string.preview_v2_role_candidates
+                PreviewV2Source.ROLE_HOLDER -> R.string.preview_v2_role_holder
                 PreviewV2Source.DRAFT_SIMULATION -> R.string.preview_v2_draft
                 PreviewV2Source.HISTORY -> R.string.preview_v2_history
                 PreviewV2Source.UNAVAILABLE -> R.string.preview_v2_unavailable
