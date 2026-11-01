@@ -4,6 +4,8 @@ import android.content.ComponentName
 import android.graphics.Bitmap
 import android.os.Process
 import android.os.UserHandle
+import android.os.UserManager
+import com.yagay.ListCleaner.R
 import com.yagay.ListCleaner.domain.AndroidUid
 import android.util.LruCache
 import androidx.compose.foundation.Image
@@ -62,8 +64,15 @@ internal fun SystemPreviewGridTile(
                     val drawableForUser = item.userId?.takeIf {
                         it != AndroidUid.userId(Process.myUid())
                     }?.let { user ->
-                        runCatching { pm.getUserBadgedIcon(drawable, UserHandle.of(user)) }
-                            .getOrNull()
+                        val profile = runCatching {
+                            context.getSystemService(UserManager::class.java)
+                                ?.userProfiles.orEmpty().firstOrNull { handle ->
+                                    val method = handle.javaClass.getMethod("getIdentifier")
+                                    (method.invoke(handle) as? Int) == user
+                                }
+                        }.getOrNull()
+                        profile?.let { runCatching { pm.getUserBadgedIcon(drawable, it) }
+                            .getOrNull() }
                     } ?: drawable
                     drawableForUser.toBitmap(width = 88, height = 88)
                 }.getOrNull()?.also { systemPreviewGridIconCache.put(cacheKey, it) }
