@@ -247,11 +247,17 @@ internal object SystemEntryProbe {
         val current = AndroidUid.userId(Process.myUid())
         val fromManager = runCatching {
             context.getSystemService(UserManager::class.java)?.userProfiles.orEmpty()
-                .map { it.identifier }
+                .mapNotNull { handle -> runCatching {
+                    val method = handle.javaClass.getMethod("getIdentifier")
+                    method.invoke(handle) as? Int
+                }.getOrNull() }
         }.getOrDefault(emptyList())
         val fromLauncher = runCatching {
             context.getSystemService(LauncherApps::class.java)?.profiles.orEmpty()
-                .map { it.identifier }
+                .mapNotNull { handle -> runCatching {
+                    val method = handle.javaClass.getMethod("getIdentifier")
+                    method.invoke(handle) as? Int
+                }.getOrNull() }
         }.getOrDefault(emptyList())
         return (listOf(current) + fromManager + fromLauncher)
             .filter { it in 0..21474 }.distinct().take(32)
