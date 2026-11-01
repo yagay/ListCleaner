@@ -289,15 +289,20 @@ internal class RootComponentsController(
                 // Also refresh a target when the root command succeeds but saving its state fails.
                 val attemptedTargets = mutableListOf<RootComponent>()
                 var lastResult = ""
+                var skippedDisabled = 0
                 try {
                     catalog.requireRoot()
                     for (target in targets) {
                         coroutineContext.ensureActive()
                         // Re-check at execution time: a category may have been disabled
                         // in Modes after the batch was queued.
-                        if (target.kind in UiPreferencesRuntime.current.disabledRootKinds) continue
+                        if (target.kind in UiPreferencesRuntime.current.disabledRootKinds) {
+                            skippedDisabled++
+                            mutableBatchProgress.value = RootBatchProgress(completedTargets.size + skippedDisabled, targets.size)
+                            continue
+                        }
                         mutableMessage.value = progressMessage(
-                            completedTargets.size + 1,
+                            completedTargets.size + skippedDisabled + 1,
                             targets.size,
                             target,
                         )
@@ -316,7 +321,9 @@ internal class RootComponentsController(
                             mutableBatchProgress.value = RootBatchProgress(completedTargets.size, targets.size)
                         }
                     }
-                    mutableMessage.value = successMessage(completedTargets.size, lastResult)
+                    mutableMessage.value = if (skippedDisabled > 0) {
+                        "${completedTargets.size}/${targets.size} completed; $skippedDisabled disabled by Modes"
+                    } else successMessage(completedTargets.size, lastResult)
                 } catch (cancelled: CancellationException) {
                     Log.i(TAG, "Root component $operationName cancelled after ${completedTargets.size}/${targets.size}")
                     mutableMessage.value = app.getString(R.string.root_batch_cancelled_plain)
