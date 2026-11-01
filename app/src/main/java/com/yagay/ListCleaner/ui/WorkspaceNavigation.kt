@@ -5,12 +5,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Surface
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.graphics.SolidColor
@@ -20,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.R
@@ -65,29 +67,38 @@ internal fun WorkspaceSortModeAction(
 }
 
 /**
- * Edit order above the active Cleanup page. Keeping that page composed retains
- * its category, search, expanded rows, selection draft and LazyColumn scroll.
- * The overlay owns its own pending-navigation guard so the underlying editor
- * cannot overwrite or accidentally discard a staged order.
+ * Sort above the mounted Cleanup page using a drag-to-dismiss bottom sheet.
+ * The underlying LazyColumn (including scroll, filters and expanded rows)
+ * stays composed while the sort editor is visible.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun WorkspaceSortEditorOverlay(
     guard: PendingNavigationGuard,
     onDismiss: () -> Unit,
     content: @Composable () -> Unit,
 ) {
-    Dialog(
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { target ->
+            if (target == SheetValue.Hidden && guard.hasChanges) {
+                // A downward swipe must not discard an unfinished reorder.
+                guard.request(onDismiss)
+                false
+            } else true
+        },
+    )
+    val height = (LocalConfiguration.current.screenHeightDp * 0.9f).dp
+    ModalBottomSheet(
         onDismissRequest = { guard.request(onDismiss) },
-        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false),
+        sheetState = sheetState,
+        dragHandle = { BottomSheetDefaults.DragHandle() },
+        containerColor = MaterialTheme.colorScheme.surface,
     ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.96f).padding(horizontal = 8.dp),
-            shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.surface,
-        ) {
+        Box(Modifier.fillMaxWidth().height(height)) {
             content()
         }
-        // Show pending-order confirmation in the overlay window, not behind it.
+        // Keep Apply / Discard / Stay above the sheet for swipes and Back.
         PendingNavigationDialog(guard)
     }
 }
