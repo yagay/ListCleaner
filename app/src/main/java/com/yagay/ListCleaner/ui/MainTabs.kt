@@ -360,6 +360,13 @@ fun RulesTab(
     LazyColumn(Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = if (selectionDraft.count > 0) 90.dp else 16.dp)
     ) {
+        stickyHeader(key = "unified-cleanup-modes") {
+            ClassicCleanupTabs(
+                active = ClassicCleanupMode.ENTRIES,
+                onEntries = {},
+                onComponents = { navigate { vm.setDestination(Destination.TILES) } }
+            )
+        }
         stickyHeader(key = "workspace-header") {
             PageFilterSection {
                 Column {
