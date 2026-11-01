@@ -90,12 +90,16 @@ class RoleControllerModule : XposedModule() {
         val kind = ROLE_KIND_BY_NAME[roleName] ?: return@Hooker original
 
         val userId = ReflectionAccess.userId(chain.args.firstOrNull { it is android.os.UserHandle }) ?: return@Hooker original
-        authorityWriter.replacePackages(
-            kind = kind,
-            packages = values.filterIsInstance<String>(),
-            publishLive = true,
-            userId = userId,
-        )
+        // An older LSPosed remote preference implementation may reject writes;
+        // that must not abort the authoritative qualifying-package Hook itself.
+        runCatching {
+            authorityWriter.replacePackages(
+                kind = kind,
+                packages = values.filterIsInstance<String>(),
+                publishLive = true,
+                userId = userId,
+            )
+        }.onFailure { record("ROLE_CACHE_UNAVAILABLE kind=$kind error=${it.javaClass.simpleName}") }
 
         val policy = policyProvider.snapshot(userId)
         val selectedPackages = policy.selectedPackages(kind)
@@ -112,6 +116,9 @@ class RoleControllerModule : XposedModule() {
         runtimeCapture.publish(
             kind = kind, source = "ROLE_CONTROLLER_RETURN", userId = userId,
             packages = filtered.filterIsInstance<String>(),
+            callerPackage = processName,
+            callerUid = Process.myUid(),
+            requestAction = roleName,
         )
         if (filtered == values) {
             record("HIT role=$roleName kind=$kind count=${values.size} selectedPackages=${selectedPackages.size}")
