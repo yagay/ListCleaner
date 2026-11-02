@@ -18,4 +18,5 @@
     <string name="preview_accessibility_detail_invalid">No valid accessibility service was selected.</string>
     <string name="preview_accessibility_detail_not_service">This item is not a registered accessibility service. A service detail page cannot be opened for it.</string>
     <string name="preview_accessibility_detail_unavailable">Could not verify the selected accessibility service details page. Android may have redirected to the Accessibility home screen because the service is hidden by a cleanup rule, unavailable, or restricted. Export diagnostics to see ACCESSIBILITY_DETAIL.</string>
+    <string name="preview_accessibility_downloaded_unavailable">Could not open OxygenOS Downloaded accessibility apps. The captured system subpage may be unavailable or blocked; see ACCESSIBILITY_DOWNLOADED in diagnostics.</string>
 </resources>
