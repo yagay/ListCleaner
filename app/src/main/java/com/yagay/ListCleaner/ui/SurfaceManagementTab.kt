@@ -154,6 +154,7 @@ internal fun SurfaceManagementTab(
                         R.string.lc_home_favorite_type_component
                         else R.string.lc_home_favorite_type_entry)
             },
+            iconFor = { category -> category.icon() },
             onSave = { chosen ->
                 UiPreferencesStore.write(
                     context,
@@ -172,6 +173,7 @@ internal fun SurfaceManagementTab(
                         R.string.lc_home_favorite_type_component
                         else R.string.lc_home_favorite_type_entry)
             },
+            iconFor = { category -> category.icon() },
             onChange = { updated ->
                 UiPreferencesStore.write(
                     context,
