@@ -123,6 +123,11 @@ internal fun SurfaceManagementTab(
         modesViewMatches(modeFilter, disabled, modeQuery,
             context.getString(category.titleResource()))
     }
+    // Global cleanup method belongs to the Entry manager, not the Controls home.
+    // A method has no enabled/disabled switch, so show it only in the All filter.
+    val defaultModeVisible = modeFilter == ModesViewFilter.ALL &&
+        context.getString(R.string.lc_mode_default_title)
+            .contains(modeQuery.trim(), ignoreCase = true)
     val orderedRootModes = rootModeItems.filterIsInstance<CleanupCategoryId.Root>()
         .let { all ->
             val priority = all.filter { it.kind in prefs.pinnedRootKinds }
@@ -237,23 +242,7 @@ internal fun SurfaceManagementTab(
                 AdaptiveIcon(Icons.Rounded.ChevronRight, null)
             }
         }
-        item(key = "global-mode-default") {
-            GlobalModeSettingsRow(
-                title = stringResource(R.string.lc_mode_default_title),
-                selectedMode = stringResource(state.displayMode.titleRes()),
-                expanded = editingModeKey == GLOBAL_MODE_KEY,
-                onClick = {
-                    editingModeKey = if (editingModeKey == GLOBAL_MODE_KEY) null else GLOBAL_MODE_KEY
-                },
-                modeMenu = {
-                    EntryModeFilterMenu(
-                        state = state, vm = vm, kind = null,
-                        expanded = editingModeKey == GLOBAL_MODE_KEY,
-                        onDismiss = { editingModeKey = null },
-                    )
-                },
-            )
-        }
+
 
 
         item(key = "home-cleanup-overview") {
@@ -483,10 +472,29 @@ internal fun SurfaceManagementTab(
                     stringResource(R.string.lc_home_preset_explain), informational = true)
             }
             if (section == ModesHomeSection.LSPOSED) {
-                if (visibleEntryModes.isNotEmpty()) {
+                if (defaultModeVisible || visibleEntryModes.isNotEmpty()) {
                     item(key = "modes-entry-heading") {
                         FlatPopupHeader(stringResource(R.string.lc_mode_entry_heading))
                     }
+                }
+                if (defaultModeVisible) {
+        item(key = "global-mode-default") {
+            GlobalModeSettingsRow(
+                title = stringResource(R.string.lc_mode_default_title),
+                selectedMode = stringResource(state.displayMode.titleRes()),
+                expanded = editingModeKey == GLOBAL_MODE_KEY,
+                onClick = {
+                    editingModeKey = if (editingModeKey == GLOBAL_MODE_KEY) null else GLOBAL_MODE_KEY
+                },
+                modeMenu = {
+                    EntryModeFilterMenu(
+                        state = state, vm = vm, kind = null,
+                        expanded = editingModeKey == GLOBAL_MODE_KEY,
+                        onDismiss = { editingModeKey = null },
+                    )
+                },
+            )
+        }
                 }
 
         visibleEntryModes.forEach { category ->
@@ -586,7 +594,8 @@ internal fun SurfaceManagementTab(
         }
             }
             if ((if (section == ModesHomeSection.LSPOSED)
-                visibleEntryModes.isEmpty() else visibleRootModes.isEmpty())) {
+                !defaultModeVisible && visibleEntryModes.isEmpty()
+                else visibleRootModes.isEmpty())) {
                 item(key = "modes-manager-empty") {
                     WorkspaceAppNote(stringResource(R.string.lc_home_modes_empty))
                 }
