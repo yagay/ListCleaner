@@ -49,6 +49,8 @@ internal data class UiPreferences(
     val defaultAppType: AppTypeFilter = AppTypeFilter.ALL,
     val pinnedEntryKinds: List<IntentKind> = emptyList(),
     val pinnedRootKinds: List<CleanupKind> = emptyList(),
+    /** Cross-type home order only; membership remains in pinnedEntryKinds/pinnedRootKinds. */
+    val homePinnedCategoryOrder: List<String> = emptyList(),
     val pinnedManagedSurfaces: List<String> = emptyList(),
     val disabledRootKinds: Set<CleanupKind> = emptySet(),
     val disabledManagedSurfaces: Set<String> = emptySet(),
@@ -88,6 +90,10 @@ internal data class UiPreferences(
         listStyle = UiListStyle.ORIGINAL,
         pinnedEntryKinds = pinnedEntryKinds.filter { it.isSelectableEntryKind() }.distinct().take(16),
         pinnedRootKinds = pinnedRootKinds.distinct().take(CleanupKind.entries.size),
+        homePinnedCategoryOrder = homePinnedCategoryOrder.filter { key ->
+            (key.startsWith("ENTRY:") && IntentKind.entries.any { it.name == key.removePrefix("ENTRY:") }) ||
+                (key.startsWith("COMPONENT:") && CleanupKind.entries.any { it.name == key.removePrefix("COMPONENT:") })
+        }.distinct().take(40),
         pinnedManagedSurfaces = pinnedManagedSurfaces.filter { it in setOf("SETTINGS_APPS", "NOTIFICATIONS") }.distinct(),
         disabledRootKinds = disabledRootKinds.intersect(CleanupKind.entries.toSet()),
         disabledManagedSurfaces = disabledManagedSurfaces.intersect(setOf("SETTINGS_APPS", "NOTIFICATIONS")),
@@ -220,6 +226,8 @@ internal object UiPreferencesStore {
             defaultAppType = stored(p.getString("default_app_type", null), AppTypeFilter.entries.toTypedArray(), defaults.defaultAppType),
             pinnedEntryKinds = storedKinds(p.getString("pinned_entry_kinds", null), IntentKind.entries.toTypedArray()),
             pinnedRootKinds = storedKinds(p.getString("pinned_root_kinds", null), CleanupKind.entries.toTypedArray()),
+            homePinnedCategoryOrder = p.getString("home_pinned_category_order", "").orEmpty()
+                .split(',').filter { it.isNotBlank() },
             pinnedManagedSurfaces = p.getString("pinned_managed_surfaces", null).orEmpty().split(',').filter { it in setOf("SETTINGS_APPS", "NOTIFICATIONS") }.distinct(),
             disabledRootKinds = storedKinds(p.getString("disabled_root_kinds", null), CleanupKind.entries.toTypedArray()).toSet(),
             disabledManagedSurfaces = p.getString("disabled_managed_surfaces", null).orEmpty().split(',').filter { it in setOf("SETTINGS_APPS", "NOTIFICATIONS") }.toSet(),
@@ -274,6 +282,7 @@ internal object UiPreferencesStore {
             .putString("default_app_type", safe.defaultAppType.name)
             .putString("pinned_entry_kinds", safe.pinnedEntryKinds.joinToString(",") { it.name })
             .putString("pinned_root_kinds", safe.pinnedRootKinds.joinToString(",") { it.name })
+            .putString("home_pinned_category_order", safe.homePinnedCategoryOrder.joinToString(","))
             .putString("pinned_managed_surfaces", safe.pinnedManagedSurfaces.joinToString(","))
             .putString("disabled_root_kinds", safe.disabledRootKinds.joinToString(",") { it.name })
             .putString("disabled_managed_surfaces", safe.disabledManagedSurfaces.joinToString(","))
@@ -376,7 +385,7 @@ internal object UiPreferencesStore {
     }
 
     private val backupTextKeys = setOf("density", "accent", "home_layout", "start_page", "app_sort", "default_filter",
-        "pinned_entry_kinds", "pinned_root_kinds", "pinned_managed_surfaces", "disabled_root_kinds", "disabled_managed_surfaces",
+        "pinned_entry_kinds", "pinned_root_kinds", "pinned_managed_surfaces", "home_pinned_category_order", "disabled_root_kinds", "disabled_managed_surfaces",
         "default_app_type", "scan_mode", "proactive_scan_mode",
         "candidate_source", "component_start", "preview_default", "probe_default_scenario",
         "diagnostics_level", "component_refresh", "last_probe_scenario", "last_filter_rules", "last_filter_priority", "last_filter_components",
@@ -401,6 +410,7 @@ internal object UiPreferencesStore {
         snapshot.put("default_app_type", v.defaultAppType.name)
         snapshot.put("pinned_entry_kinds", v.pinnedEntryKinds.joinToString(",") { it.name })
         snapshot.put("pinned_root_kinds", v.pinnedRootKinds.joinToString(",") { it.name })
+        snapshot.put("home_pinned_category_order", v.homePinnedCategoryOrder.joinToString(","))
         snapshot.put("pinned_managed_surfaces", v.pinnedManagedSurfaces.joinToString(","))
         snapshot.put("disabled_root_kinds", v.disabledRootKinds.joinToString(",") { it.name })
         snapshot.put("disabled_managed_surfaces", v.disabledManagedSurfaces.joinToString(","))
@@ -455,6 +465,11 @@ internal object UiPreferencesStore {
                     value.split(',').filter { it.isNotBlank() }.all { it in setOf("SETTINGS_APPS", "NOTIFICATIONS") }
                 "pinned_root_kinds" -> value is String && value.length <= 256 &&
                     value.split(',').filter { it.isNotBlank() }.all { name -> CleanupKind.entries.any { it.name == name } }
+                "home_pinned_category_order" -> value is String && value.length <= 1024 &&
+                    value.split(',').filter { it.isNotBlank() }.all { token ->
+                        (token.startsWith("ENTRY:") && IntentKind.entries.any { it.name == token.removePrefix("ENTRY:") }) ||
+                            (token.startsWith("COMPONENT:") && CleanupKind.entries.any { it.name == token.removePrefix("COMPONENT:") })
+                    }
                 in backupTextKeys, "appearance_color_mode" -> value is String && value.length <= 256
                 in backupIntKeys -> value is Number && value.toInt() in -1000..10000
                 in backupBoolKeys -> value is Boolean
