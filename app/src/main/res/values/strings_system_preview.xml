@@ -15,4 +15,7 @@
     <string name="preview_shortcut_service_observed">Hook capture: actual ShortcutService package return; not the final Direct Share contacts or Sharesheet layout.</string>
     <string name="preview_role_parent_fallback">Cannot directly open the default-app picker. Opening the parent system settings page instead.</string>
     <string name="preview_role_opened_not_verified">Android started the role picker, but the actual foreground screen could not be verified. Check the system page before using it.</string>
+    <string name="preview_accessibility_detail_invalid">No valid accessibility service was selected.</string>
+    <string name="preview_accessibility_detail_not_service">This item is not a registered accessibility service. A service detail page cannot be opened for it.</string>
+    <string name="preview_accessibility_detail_unavailable">Android did not allow this accessibility service detail page to be opened. The general Accessibility page was not substituted.</string>
 </resources>
