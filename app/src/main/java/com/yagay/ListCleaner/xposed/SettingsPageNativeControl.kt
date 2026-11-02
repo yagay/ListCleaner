@@ -32,7 +32,7 @@ internal object SettingsPageNativeControl {
     private const val CONTROL_TAG = "ListCleaner.SettingsCaptureControl"
     private val main = Handler(Looper.getMainLooper())
 
-    fun maybeAttach(activity: Activity, executor: Executor) {
+    fun maybeAttach(activity: Activity, executor: Executor, saved: Boolean = false) {
         if (activity.packageName != SETTINGS_PACKAGE) return
         val weak = WeakReference(activity)
         executor.execute {
@@ -42,7 +42,10 @@ internal object SettingsPageNativeControl {
             main.post {
                 val owner = weak.get() ?: return@post
                 if (owner.isFinishing || owner.isDestroyed) return@post
-                if (enabled) attach(owner, executor, active) else remove(owner)
+                if (enabled) {
+                    attach(owner, executor, active)
+                    if (saved) showSuccess(owner)
+                } else remove(owner)
             }
         }
     }
