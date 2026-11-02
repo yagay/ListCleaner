@@ -470,6 +470,7 @@ internal fun RootComponentsScreen(
                 WorkspaceAppRow(
                     icon = first.icon,
                     title = first.owner,
+                    isSystemApp = first.appType == AppType.SYSTEM,
                     packageName = first.component.packageName,
                     subtitle = WorkspaceAppSummaryText(
                         R.string.root_disabled_summary,
