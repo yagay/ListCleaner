@@ -3,6 +3,7 @@ package com.yagay.ListCleaner.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -13,6 +14,10 @@ import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.WarningAmber
+import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,14 +42,20 @@ import com.yagay.ListCleaner.domain.kinds
 import androidx.compose.material3.MaterialTheme
 
 /**
- * Bottom-navigation Lists tab: Global Mode management only.
- *
- * No active notification, stale-rule or AOSP surface editor is exposed here.
- * The underlying cleanup engines and stored rules remain untouched.
- * Effective modes control system Entry filtering, never the manager's UiFilter.
+ * Modes home: live read-only status, shortcuts, and the existing mode editors.
+ * All preset and category switches stage changes in the same confirmed draft.
+ * The underlying Hook/Root engines and saved cleanup rules remain untouched.
  */
 @Composable
-internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
+internal fun SurfaceManagementTab(
+    state: MainState,
+    vm: MainViewModel,
+    pendingNavigation: PendingNavigationGuard? = null,
+    onOpenEntry: (IntentKind) -> Unit = {},
+    onOpenRoot: () -> Unit = {},
+    onOpenDiagnostics: () -> Unit = {},
+    onOpenStatus: () -> Unit = {},
+) {
     val userId by vm.selectedSpace.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val entryModeItems = CleanupCategoryRegistry.sorted(context, CleanupCategoryRegistry.lsposedCategories())
@@ -76,7 +87,48 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
         state.disabledEntryKinds + state.disabledEntryGroups.flatMap { it.kinds() }
     }
     var draftDisabled by remember(userId, savedDisabled) { mutableStateOf(savedDisabled) }
-    val hasPendingChanges = draftDisabled != savedDisabled || draftRootDisabled != savedRootDisabled || draftManagedDisabled != savedManagedDisabled
+    val pendingCount = modesDifferenceCount(savedDisabled, draftDisabled) +
+        modesDifferenceCount(savedRootDisabled, draftRootDisabled) +
+        modesDifferenceCount(savedManagedDisabled, draftManagedDisabled)
+    val hasPendingChanges = pendingCount > 0
+    val allEntryKinds = entryModeItems.filterIsInstance<CleanupCategoryId.Entry>()
+        .map { it.kind }.toSet()
+    val allRootKinds = rootModeItems.filterIsInstance<CleanupCategoryId.Root>()
+        .map { it.kind }.toSet()
+    val allManagedKinds = ManagedComponentSurface.entries.map { it.surfaceKind() }.toSet()
+    val pinned = UiPreferencesRuntime.current.pinnedEntryKinds.filter { it in allEntryKinds }
+    val shortcuts = (pinned.ifEmpty {
+        listOf(IntentKind.OPEN, IntentKind.SHARE, IntentKind.DIRECT_SHARE)
+    }).filter { it in allEntryKinds }.distinct().take(4)
+
+    val applyChanges: () -> Boolean = {
+        val entryChanged = draftDisabled != savedDisabled ||
+            state.disabledEntryGroups.isNotEmpty()
+        val surfaceChanged = draftManagedDisabled != savedManagedDisabled
+        val applied = if (!entryChanged && !surfaceChanged) {
+            // Root-only Mode switches live in UI settings, not the Root pm backend.
+            vm.selectedSpace.value == userId
+        } else vm.applyModesForSpace(
+            userId,
+            if (entryChanged) draftDisabled else null,
+            if (surfaceChanged) draftManagedDisabled else null,
+        )
+        if (applied && draftRootDisabled != savedRootDisabled) {
+            UiPreferencesStore.write(
+                context, UiPreferencesRuntime.current.copy(disabledRootKinds = draftRootDisabled)
+            )
+        }
+        applied
+    }
+    val discardChanges: () -> Unit = {
+        draftDisabled = savedDisabled
+        draftRootDisabled = savedRootDisabled
+        draftManagedDisabled = savedManagedDisabled
+    }
+    val guardOwner = remember(userId) { Any() }
+    RegisterPendingNavigation(
+        pendingNavigation, guardOwner, pendingCount, applyChanges, discardChanges
+    )
 
     Scaffold(
         bottomBar = {
@@ -86,28 +138,15 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    AdaptiveTextButton(onClick = { draftDisabled = savedDisabled; draftRootDisabled = savedRootDisabled; draftManagedDisabled = savedManagedDisabled }) {
+                    AdaptiveText(
+                        stringResource(R.string.lc_home_pending_count, pendingCount),
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                    AdaptiveTextButton(onClick = discardChanges) {
                         AdaptiveText(stringResource(R.string.common_cancel))
                     }
-                    AdaptiveButton(onClick = {
-                        val entryChanged = draftDisabled != savedDisabled ||
-                            state.disabledEntryGroups.isNotEmpty()
-                        val surfaceChanged = draftManagedDisabled != savedManagedDisabled
-                        // Entry and LSPosed policy is one per-user repository transaction.
-                        // Only write Root's device-wide preference after that succeeds.
-                        val applied = if (!entryChanged && !surfaceChanged) {
-                            // Root-only changes do not depend on an installed LSPosed
-                            // runtime or a recoverable Entry rules snapshot.
-                            vm.selectedSpace.value == userId
-                        } else vm.applyModesForSpace(
-                            userId,
-                            if (entryChanged) draftDisabled else null,
-                            if (surfaceChanged) draftManagedDisabled else null,
-                        )
-                        if (applied && draftRootDisabled != savedRootDisabled) {
-                            UiPreferencesStore.write(context, UiPreferencesRuntime.current.copy(disabledRootKinds = draftRootDisabled))
-                        }
-                    }) {
+                    AdaptiveButton(onClick = { applyChanges() }) {
                         AdaptiveText(stringResource(R.string.lc_mode_confirm_apply))
                     }
                 }
@@ -119,6 +158,96 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
         contentPadding = PaddingValues(vertical = MaterialUiTokens.pageVertical),
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
+        item(key = "home-runtime-status") {
+            val lsposed = when {
+                !state.module.checked -> stringResource(R.string.lc_home_status_unchecked)
+                !state.module.connected -> stringResource(R.string.lc_home_status_disconnected)
+                state.module.outdated -> stringResource(R.string.lc_home_status_outdated)
+                else -> stringResource(R.string.lc_home_status_connected)
+            }
+            val runtime = stringResource(if (state.runtime.ready)
+                R.string.lc_home_status_ready else R.string.lc_home_status_not_ready)
+            MaterialSettingsRow(
+                title = stringResource(R.string.lc_home_status_title),
+                supportingText = "$lsposed · $runtime\\n" +
+                    stringResource(R.string.lc_home_status_root_unchecked),
+                onClick = onOpenStatus,
+            ) {
+                AdaptiveIcon(Icons.Rounded.ChevronRight, null)
+            }
+        }
+        item(key = "home-cleanup-overview") {
+            WorkspaceListSummary(
+                title = stringResource(R.string.lc_home_overview_title),
+                secondary = stringResource(
+                    R.string.lc_home_overview_summary,
+                    state.selected.size,
+                    savedDisabled.size + savedManagedDisabled.size + savedRootDisabled.size,
+                    surfacePolicy.hiddenNotificationChannels.size,
+                ),
+            )
+        }
+        item(key = "home-shortcuts-heading") {
+            FlatPopupHeader(stringResource(R.string.lc_home_quick_title))
+        }
+        item(key = "home-shortcuts-row") {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AdaptiveTextButton(onClick = { onOpenEntry(IntentKind.OPEN) }) {
+                    AdaptiveText(stringResource(R.string.lc_home_entry_shortcut))
+                }
+                AdaptiveTextButton(onClick = onOpenRoot) {
+                    AdaptiveText(stringResource(R.string.lc_home_root_shortcut))
+                }
+                AdaptiveTextButton(onClick = onOpenDiagnostics) {
+                    AdaptiveText(stringResource(R.string.lc_home_diagnostics_shortcut))
+                }
+            }
+        }
+        if (shortcuts.isNotEmpty()) {
+            item(key = "home-favorites-heading") {
+                FlatPopupHeader(stringResource(if (pinned.isEmpty())
+                    R.string.lc_home_favorites_suggested else R.string.lc_home_favorites_title))
+            }
+            shortcuts.forEach { kind ->
+                item(key = "home-shortcut-kind-${kind.name}") {
+                    FlatCategoryRow(
+                        icon = CleanupCategoryId.Entry(kind).icon(),
+                        title = stringResource(kind.titleRes()),
+                        description = null,
+                        onClick = { onOpenEntry(kind) },
+                    )
+                }
+            }
+        }
+        if (state.module.outdated || (state.module.checked && !state.module.connected) ||
+            (state.module.checked && !state.runtime.ready) || state.error != null) {
+            item(key = "home-issues-heading") {
+                FlatPopupHeader(stringResource(R.string.lc_home_issues_title))
+            }
+            item(key = "home-issues-summary") {
+                val issue = when {
+                    state.module.outdated -> R.string.lc_home_issue_outdated
+                    state.module.checked && !state.module.connected ->
+                        R.string.lc_home_issue_connection
+                    state.module.checked && !state.runtime.ready ->
+                        R.string.lc_home_issue_runtime
+                    else -> R.string.lc_home_issue_scan
+                }
+                MaterialSettingsRow(
+                    title = stringResource(issue),
+                    leadingIcon = Icons.Rounded.WarningAmber,
+                    onClick = if (state.error != null && state.module.connected)
+                        onOpenDiagnostics else onOpenStatus,
+                ) {
+                    AdaptiveIcon(Icons.Rounded.ChevronRight, null)
+                }
+            }
+        }
+
         item(key = "global-mode-default") {
             GlobalModeSettingsRow(
                 title = stringResource(R.string.lc_mode_default_title),
@@ -135,6 +264,38 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
                     )
                 },
             )
+        }
+
+        item(key = "home-preset-heading") {
+            FlatPopupHeader(stringResource(R.string.lc_home_preset_title))
+        }
+        item(key = "home-preset-actions") {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                AdaptiveTextButton(
+                    onClick = {
+                        draftDisabled = modesPresetSelection(
+                            ModesQuickPreset.ENABLE_ALL, allEntryKinds, savedDisabled)
+                        draftManagedDisabled = modesPresetSelection(
+                            ModesQuickPreset.ENABLE_ALL, allManagedKinds, savedManagedDisabled)
+                        draftRootDisabled = modesPresetSelection(
+                            ModesQuickPreset.ENABLE_ALL, allRootKinds, savedRootDisabled)
+                    },
+                ) { AdaptiveText(stringResource(R.string.lc_home_preset_enable)) }
+                AdaptiveTextButton(
+                    onClick = {
+                        draftDisabled = modesPresetSelection(
+                            ModesQuickPreset.PAUSE_ALL, allEntryKinds, savedDisabled)
+                        draftManagedDisabled = modesPresetSelection(
+                            ModesQuickPreset.PAUSE_ALL, allManagedKinds, savedManagedDisabled)
+                        draftRootDisabled = modesPresetSelection(
+                            ModesQuickPreset.PAUSE_ALL, allRootKinds, savedRootDisabled)
+                    },
+                ) { AdaptiveText(stringResource(R.string.lc_home_preset_pause)) }
+            }
+            WorkspaceAppNote(stringResource(R.string.lc_home_preset_explain), informational = true)
         }
 
         item(key = "modes-entry-heading") { FlatPopupHeader(stringResource(R.string.lc_mode_entry_heading)) }
@@ -223,6 +384,21 @@ internal fun SurfaceManagementTab(state: MainState, vm: MainViewModel) {
     }
 
 }
+
+/** Safe predefined home actions; they only calculate an unapplied UI draft. */
+internal enum class ModesQuickPreset { ENABLE_ALL, PAUSE_ALL }
+
+internal fun <T> modesPresetSelection(
+    preset: ModesQuickPreset,
+    available: Set<T>,
+    previouslyDisabled: Set<T>,
+): Set<T> = when (preset) {
+    ModesQuickPreset.ENABLE_ALL -> emptySet()
+    ModesQuickPreset.PAUSE_ALL -> previouslyDisabled + available
+}
+
+internal fun <T> modesDifferenceCount(saved: Set<T>, draft: Set<T>): Int =
+    (saved - draft).size + (draft - saved).size
 
 private fun ManagedComponentSurface.surfaceKind(): SurfaceKind = when (this) {
     ManagedComponentSurface.SETTINGS_APPS -> SurfaceKind.SETTINGS_APPS
