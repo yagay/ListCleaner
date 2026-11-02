@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="role_preview_explanation">Real RoleController qualifying packages, captured by the system Hook. The currently selected default is a separate RoleManager state.</string>
+    <string name="role_preview_not_captured">No RoleController list captured yet. Open the system default-app selection page below, return here and tap the eye again. Check the PermissionController LSPosed scope if nothing is recorded.</string>
+    <string name="role_preview_last_observed">Last captured at %1$s (historical snapshot; not a live screen)</string>
+    <string name="role_preview_counts">Qualifying before cleaning: %1$d · returned after cleaning: %2$d</string>
+    <string name="role_preview_unpaired">Capture stages do not match. Hiding differences cannot be verified until the same RoleController query supplies both snapshots.</string>
+    <string name="role_preview_partial">Only one capture stage is available. Missing data does not mean an empty system list.</string>
+    <string name="role_preview_empty_observation">The captured RoleController return contained no qualifying packages.</string>
+    <string name="role_preview_removed">Removed by cleaning</string>
+    <string name="role_preview_kept">Returned by RoleController</string>
+    <string name="role_preview_original_only">Original candidate</string>
+    <string name="role_preview_current_default">Current default</string>
+    <string name="role_preview_not_pixel_verified">A RoleController return is not proof of the final on-screen Settings rows. System and OEM checks may differ.</string>
+    <string name="role_preview_open_native">Open the real default-app settings page</string>
+</resources>
