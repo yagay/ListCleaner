@@ -3,6 +3,7 @@ package com.yagay.ListCleaner.ui
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.content.pm.PackageManager
 import android.os.Process
 import android.provider.Settings
@@ -23,6 +24,7 @@ import com.yagay.ListCleaner.domain.CapturedSettingsPage
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.SettingsPageCaptureProtocol
 import com.yagay.ListCleaner.runtime.SettingsPageCaptureStore
+import com.yagay.ListCleaner.runtime.SettingsPageFloatingService
 
 /**
  * Browser-role discovery is opt-in and read-only. A discovered Activity is not
@@ -42,6 +44,36 @@ internal fun BrowserPageCaptureDialog(userId: Int, onDismiss: () -> Unit) {
         text = {
             Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState())) {
                 AdaptiveText(stringResource(R.string.page_capture_info))
+                AdaptiveText(stringResource(R.string.page_capture_float_hint))
+                SettingsFlatChoiceRow(
+                    label = stringResource(
+                        if (SettingsPageFloatingService.isShowing())
+                            R.string.page_capture_float_stop
+                        else R.string.page_capture_float_start
+                    ),
+                    selected = SettingsPageFloatingService.isShowing(),
+                    onClick = {
+                        if (!sameUser) {
+                            showCaptureMessage(context, R.string.system_preview_other_space)
+                        } else if (SettingsPageFloatingService.isShowing()) {
+                            SettingsPageFloatingService.close(context)
+                            onDismiss()
+                        } else if (!Settings.canDrawOverlays(context)) {
+                            showCaptureMessage(context, R.string.page_capture_float_permission)
+                            runCatching {
+                                context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                    Uri.parse("package:" + context.packageName)))
+                            }
+                            onDismiss()
+                        } else if (!SettingsPageFloatingService.launch(context)) {
+                            showCaptureMessage(context, R.string.page_capture_start_failed)
+                        } else {
+                            // Arm capture before the user navigates through the settings pages.
+                            openDefaultAppsSettings(context)
+                            onDismiss()
+                        }
+                    }
+                )
                 SettingsFlatChoiceRow(
                     label = stringResource(R.string.page_capture_open_normal),
                     selected = false,
