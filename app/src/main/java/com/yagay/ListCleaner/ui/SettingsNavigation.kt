@@ -29,6 +29,8 @@ internal fun SettingsTabContent(
     onColorModeChange: (UiColorMode) -> Unit,
     openModuleStatus: Boolean = false,
     onModuleStatusOpened: () -> Unit = {},
+    openCompatibility: Boolean = false,
+    onCompatibilityOpened: () -> Unit = {},
     openDiagnostics: Boolean = false,
     onDiagnosticsOpened: () -> Unit = {},
 ) {
@@ -43,6 +45,14 @@ internal fun SettingsTabContent(
             showScopeDetails = true
             vm.refreshModuleStatus()
             onModuleStatusOpened()
+        }
+    }
+    LaunchedEffect(openCompatibility) {
+        if (openCompatibility) {
+            // The former Settings-home shortcut opens the compatibility page,
+            // unlike the dedicated scope shortcut which opens ScopeDialog.
+            selectedSection = SettingsSection.COMPATIBILITY
+            onCompatibilityOpened()
         }
     }
     LaunchedEffect(openDiagnostics) {
@@ -76,7 +86,7 @@ internal fun SettingsTabContent(
             }
         )
         if (selectedSection == null) {
-            SettingsCenterHome(state = state, onSelect = { selectedSection = it })
+            SettingsCenterHome(onSelect = { selectedSection = it })
         } else {
             // Stable keys preserve the scroll position of each setting area on navigation.
             val page = requireNotNull(selectedSection)
