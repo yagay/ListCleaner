@@ -1079,6 +1079,22 @@ for expected in ("appTypeFilter != AppTypeFilter.ALL", "viewFilter != UiFilter.A
     if expected not in toolbar:
         errors.append(f"WorkspaceCommon.kt: filter highlight or text regression: {expected}")
 
+# The second bottom tab hosts BOTH Entry and Component cleanup editors.
+# Keep its label distinct from the internal Entry category, in both locales.
+destination_labels = (root / "TextResources.kt").read_text(encoding="utf-8")
+if "Destination.RULES -> R.string.bottom_cleanup" not in destination_labels:
+    errors.append("TextResources.kt: shared Entry/Component destination must be named Cleanup")
+resources_root = Path(__file__).resolve().parents[1] / "app/src/main/res"
+for locale, expected_label in (("values", "Cleanup"), ("values-zh", "清理")):
+    resources_text = (resources_root / locale / "strings.xml").read_text(encoding="utf-8")
+    if f'<string name="bottom_cleanup">{expected_label}</string>' not in resources_text:
+        errors.append(f"{locale}/strings.xml: bottom Cleanup label incorrect")
+# Existing internal tabs must still be labeled Entry and Component separately.
+cleanup_tabs_source = (root / "ClassicListLayout.kt").read_text(encoding="utf-8")
+for tab_key in ("lc_cleanup_mode_entry_short", "lc_cleanup_mode_component_short"):
+    if f"R.string.{tab_key}" not in cleanup_tabs_source:
+        errors.append(f"ClassicListLayout.kt: missing internal {tab_key} tab")
+
 if errors:
     print("\n".join(errors), file=sys.stderr)
     sys.exit(1)
