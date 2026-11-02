@@ -82,6 +82,7 @@ internal fun SurfaceManagementTab(
     var editingModeKey by rememberSaveable(userId) { mutableStateOf<String?>(null) }
     var showFavoritePicker by rememberSaveable { mutableStateOf(false) }
     var showFavoriteManager by rememberSaveable { mutableStateOf(false) }
+    var expandedFavorites by rememberSaveable { mutableStateOf(false) }
     var section by rememberSaveable(userId) { mutableStateOf(ModesHomeSection.HOME) }
     var modeQuery by rememberSaveable(userId, section) { mutableStateOf("") }
     var modeFilter by rememberSaveable(userId, section) { mutableStateOf(ModesViewFilter.ALL) }
@@ -109,8 +110,8 @@ internal fun SurfaceManagementTab(
         entryModeItems.filterIsInstance<CleanupCategoryId.Entry>() +
             rootModeItems.filterIsInstance<CleanupCategoryId.Root>()
     val pinned = homeFavoriteCategories(prefs, homeFavoriteOptions)
-    // Show only user-pinned Entry and Component categories.
-    val shortcuts = pinned.take(4)
+    // Stay compact by default; allow revealing all pinned Entry/Component items.
+    val shortcuts = if (expandedFavorites) pinned else pinned.take(4)
     val favorites = entryModeItems.filter { category ->
         when (category) {
             is CleanupCategoryId.Entry -> category.kind in prefs.pinnedEntryKinds
@@ -298,6 +299,18 @@ internal fun SurfaceManagementTab(
             ) {
                 androidx.compose.foundation.layout.Box(Modifier.weight(1f)) {
                     FlatSectionHeader(stringResource(R.string.lc_home_favorites_title))
+                }
+                if (pinned.size > 4) {
+                    AdaptiveIconButton(onClick = { expandedFavorites = !expandedFavorites }) {
+                        AdaptiveIcon(
+                            if (expandedFavorites) Icons.Rounded.KeyboardArrowUp
+                                else Icons.Rounded.KeyboardArrowDown,
+                            stringResource(if (expandedFavorites)
+                                R.string.lc_home_favorites_collapse
+                                else R.string.lc_home_favorites_expand),
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
                 }
                 AdaptiveIconButton(onClick = { showFavoritePicker = true }) {
                     AdaptiveIcon(
