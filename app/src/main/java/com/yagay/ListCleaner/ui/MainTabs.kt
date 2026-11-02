@@ -78,9 +78,9 @@ internal fun RulesTab(
         val kind = request.entryKind
         if (kind != null && opensRolePickerDirectly(kind)) {
             SystemEffectPreview.launchSettings(prefsContext, kind, request.userId)
-        } else if (kind == IntentKind.ACCESSIBILITY && request.focusPackage != null) {
-            // App-row eye: carry the exact service component straight to Settings.
-            // The category eye has no component and must not pretend otherwise.
+        } else if (kind == IntentKind.ACCESSIBILITY) {
+            // Category eye: downloaded services on supported OxygenOS builds.
+            // Service-row eye: native details for the selected service.
             SystemEffectPreview.launchSettings(prefsContext, kind, request.userId, request)
         } else {
             systemProbeRequest = request
