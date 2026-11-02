@@ -43,13 +43,64 @@ internal object AccessibilityServiceDetailRoute {
             " --es android.intent.extra.COMPONENT_NAME $service"
     }
 
-    internal fun launchAccepted(result: String): Boolean =
-        result.contains("Status: ok", ignoreCase = true) &&
+    private val settingsActivity = Regex(
+        """com\\.android\\.settings/[A-Za-z_.$][A-Za-z_.$0-9]*"""
+    )
+
+    /** Query the actual device's registered detail Activity, not an implicit parent. */
+    internal fun discoverCommand(userId: Int): String {
+        require(userId >= 0)
+        return "cmd package query-activities --brief --components --user $userId" +
+            " -a $ACTION -c android.intent.category.DEFAULT"
+    }
+
+    internal fun selectRegisteredDetails(output: String): String? =
+        settingsActivity.findAll(output).map { it.value }.firstOrNull { candidate ->
+            val cls = candidate.substringAfter('/')
+            cls.substringAfterLast('.').contains("Accessibility", ignoreCase = true) &&
+                cls.contains("Detail", ignoreCase = true)
+        }
+
+    internal fun rootLaunchCommand(
+        userId: Int, service: String, activity: String,
+    ): String {
+        require(userId >= 0 && safeComponent.matches(service))
+        require(activity == selectRegisteredDetails(activity))
+        // The Activity name may contain '
+}
+ (Settings$Accessibility...).
+        // Shell single-quotes protect it from variable expansion.
+        return "am start -W --user $userId -n '$activity'" +
+            " -a $ACTION -c android.intent.category.DEFAULT" +
+            " --es android.intent.extra.COMPONENT_NAME $service"
+    }
+
+    internal fun launchAccepted(result: String, activity: String): Boolean =
+        activity == selectRegisteredDetails(activity) &&
+            result.contains("Status: ok", ignoreCase = true) &&
             !listOf("Permission Denial", "SecurityException", "Error:", "Status: timeout",
                 "Status: canceled", "Status: error").any {
                 result.contains(it, ignoreCase = true)
             } &&
             result.lineSequence().any { line ->
-                line.trim().startsWith("Activity: $SETTINGS_PACKAGE/")
+                line.trim().startsWith("Activity: ") &&
+                    line.substringAfter("Activity: ").trim().startsWith(SETTINGS_PACKAGE + "/")
             }
+
+    /**
+     * AOSP detail trampoline finishes and opens a SubSettings fragment.
+     * Merely seeing com.android.settings (or SubSettings) is NOT success.
+     */
+    internal fun detailFragmentVisible(dump: String): Boolean =
+        listOf(
+            "ToggleAccessibilityServicePreferenceFragment",
+            "AccessibilityServiceDetailFragment",
+            "AccessibilityServiceDetailsFragment",
+        ).any(dump::contains)
+
+    internal fun parentAccessibilityVisible(dump: String): Boolean =
+        !detailFragmentVisible(dump) &&
+            (dump.contains("AccessibilitySettings") ||
+                dump.contains("AccessibilityMain") ||
+                dump.contains("AccessibilityFragment"))
 }
