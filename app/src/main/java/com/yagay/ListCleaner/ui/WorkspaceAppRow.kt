@@ -30,6 +30,7 @@ internal fun WorkspaceAppRow(
     title: String,
     subtitle: String,
     expanded: Boolean,
+    isSystemApp: Boolean = false,
     lockState: BulkLockState,
     onExpand: () -> Unit,
     onLock: (() -> Unit)? = null,
@@ -50,6 +51,7 @@ internal fun WorkspaceAppRow(
             icon = icon,
             title = title,
             subtitle = subtitle,
+            isSystemApp = isSystemApp,
             packageName = packageName,
             modifier = modifier.combinedClickable(
                 onClickLabel = expandLabel,
@@ -114,6 +116,7 @@ internal fun MaterialAppRowBody(
     title: String,
     subtitle: String,
     modifier: Modifier = Modifier,
+    isSystemApp: Boolean = false,
     selection: @Composable RowScope.() -> Unit,
     // Only direct workspace app rows are edge-aligned; other callers retain
     // the shared page inset (e.g. app-scope picker).
@@ -145,6 +148,10 @@ internal fun MaterialAppRowBody(
             AdaptiveText(
                 title,
                 style = MaterialTheme.typography.bodyLarge,
+                // Muted theme Secondary denotes a system app; selection and lock
+                // state continue to use their own icons and status colors.
+                color = if (isSystemApp) MaterialTheme.colorScheme.secondary
+                    else MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Medium,
                 maxLines = UiPreferencesRuntime.current.appTitleLines,
                 overflow = TextOverflow.Ellipsis
