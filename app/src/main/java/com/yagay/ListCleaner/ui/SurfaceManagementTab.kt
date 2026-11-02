@@ -48,6 +48,7 @@ internal fun SurfaceManagementTab(
     vm: MainViewModel,
     pendingNavigation: PendingNavigationGuard? = null,
     onOpenEntry: (IntentKind) -> Unit = {},
+    onOpenRoot: () -> Unit = {},
     onOpenDiagnostics: () -> Unit = {},
     onOpenStatus: () -> Unit = {},
 ) {
@@ -249,6 +250,27 @@ internal fun SurfaceManagementTab(
                     surfacePolicy.hiddenNotificationChannels.size,
                 ),
             )
+        }
+        item(key = "home-shortcuts-heading") {
+            FlatPopupHeader(stringResource(R.string.lc_home_quick_title))
+        }
+        item(key = "home-shortcuts-row") {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Each label names the actual page/action, not the backend.
+                AdaptiveTextButton(onClick = { onOpenEntry(IntentKind.OPEN) }) {
+                    AdaptiveText(stringResource(R.string.lc_home_entry_shortcut))
+                }
+                AdaptiveTextButton(onClick = onOpenRoot) {
+                    AdaptiveText(stringResource(R.string.lc_home_root_shortcut))
+                }
+                AdaptiveTextButton(onClick = onOpenDiagnostics) {
+                    AdaptiveText(stringResource(R.string.lc_home_diagnostics_shortcut))
+                }
+            }
         }
         item(key = "home-favorites-heading") {
             Row(
