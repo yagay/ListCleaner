@@ -13,7 +13,6 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.os.Process
 import android.provider.Settings
 import android.view.Gravity
 import android.view.MotionEvent
@@ -55,13 +54,19 @@ class SettingsPageFloatingService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        running = this
-        createChannel()
-        startForeground(NOTIFICATION_ID, notification())
         if (!Settings.canDrawOverlays(this)) {
             stopSelf()
             return
         }
+        val foregroundReady = runCatching {
+            createChannel()
+            startForeground(NOTIFICATION_ID, notification())
+        }.isSuccess
+        if (!foregroundReady) {
+            stopSelf()
+            return
+        }
+        running = this
         windowManager = getSystemService(WindowManager::class.java)
         val size = dp(52)
         val initial = WindowManager.LayoutParams(
@@ -81,7 +86,10 @@ class SettingsPageFloatingService : Service() {
             elevation = dp(6).toFloat()
             contentDescription = getString(R.string.page_capture_float_active)
         }
-        windowManager.addView(view, initial)
+        if (runCatching { windowManager.addView(view, initial) }.isFailure) {
+            stopSelf()
+            return
+        }
         bubble = view
         params = initial
         attachTouchControls(view)
@@ -196,7 +204,6 @@ class SettingsPageFloatingService : Service() {
             shape = GradientDrawable.OVAL
             setColor(color)
         }
-        view.setOnClickListener(null)
     }
 
     private fun notification(): Notification {
