@@ -46,9 +46,29 @@ internal fun RulesTab(
     state: MainState,
     vm: MainViewModel,
     pendingNavigation: PendingNavigationGuard? = null,
+    managedSurface: ManagedComponentSurface? = null,
+    refreshRegistry: ListsRefreshRegistry? = null,
+    onEntrySelected: (IntentKind?) -> Unit = {},
     onManagedSurface: (ManagedComponentSurface) -> Unit = {},
+    onOpenRoot: () -> Unit = {},
     onOpenModuleStatus: () -> Unit = {}
 ) {
+    // One Entry workspace and category picker. Managed categories differ only
+    // in discovery/persistence (SurfaceFilterConfig instead of Intent rules).
+    // They no longer have independent destination screens.
+    if (managedSurface != null) {
+        EntryManagedSurfaceEditor(
+            state = state,
+            vm = vm,
+            surface = managedSurface,
+            pendingNavigation = pendingNavigation,
+            refreshRegistry = refreshRegistry,
+            onEntry = onEntrySelected,
+            onManagedSurface = onManagedSurface,
+            onOpenRoot = onOpenRoot,
+        )
+        return
+    }
     val bulkLockRevision by vm.bulkLockRevision.collectAsStateWithLifecycle()
     val componentScan by vm.componentScan.collectAsStateWithLifecycle()
     val spaceScanState by vm.spaceScanState.collectAsStateWithLifecycle()
