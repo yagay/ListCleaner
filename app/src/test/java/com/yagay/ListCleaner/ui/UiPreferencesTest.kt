@@ -26,7 +26,7 @@ class UiPreferencesTest {
     @Test fun homePresetsOnlyStageIntendedModeSelections() {
         val supported = setOf("OPEN", "SHARE", "DIRECT_SHARE")
         val previouslyDisabled = setOf("SHARE", "LEGACY")
-        assertEquals(emptySet<String>(), modesPresetSelection(
+        assertEquals(setOf("LEGACY"), modesPresetSelection(
             ModesQuickPreset.ENABLE_ALL, supported, previouslyDisabled))
         assertEquals(setOf("OPEN", "SHARE", "DIRECT_SHARE", "LEGACY"),
             modesPresetSelection(ModesQuickPreset.PAUSE_ALL, supported, previouslyDisabled))
@@ -34,6 +34,15 @@ class UiPreferencesTest {
             previouslyDisabled, setOf("OPEN", "SHARE", "DIRECT_SHARE")))
         // A preset is only a computed draft; the original set is unchanged.
         assertEquals(setOf("SHARE", "LEGACY"), previouslyDisabled)
+    }
+
+    @Test fun modeManagementFiltersMatchDraftStateAndSearch() {
+        assertTrue(modesViewMatches(ModesViewFilter.ALL, false, "", "Open"))
+        assertTrue(modesViewMatches(ModesViewFilter.ENABLED, false, " op ", "Open"))
+        assertTrue(modesViewMatches(ModesViewFilter.DISABLED, true, "sha", "Share"))
+        assertFalse(modesViewMatches(ModesViewFilter.ENABLED, true, "", "Share"))
+        assertFalse(modesViewMatches(ModesViewFilter.DISABLED, false, "", "Open"))
+        assertFalse(modesViewMatches(ModesViewFilter.ALL, false, "Root", "Open"))
     }
 
     @Test fun defaultAppTypeShowsAllWithoutFiltering() {
