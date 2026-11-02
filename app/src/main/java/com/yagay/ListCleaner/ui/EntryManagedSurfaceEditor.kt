@@ -205,6 +205,7 @@ internal fun EntryManagedSurfaceEditor(
     }
     var expandedApp by rememberSaveable(userId, surface) { mutableStateOf<String?>(null) }
     var sorting by rememberSaveable(userId, surface) { mutableStateOf(false) }
+    val sortNavigation = remember(userId, surface) { PendingNavigationGuard() }
     var scanRevision by remember(userId, surface) { mutableIntStateOf(0) }
     RegisterListsRefresh(refreshRegistry) { scanRevision++ }
     val isNotification = surface == ManagedComponentSurface.NOTIFICATIONS
@@ -429,18 +430,6 @@ internal fun EntryManagedSurfaceEditor(
         )
     }
 
-    if (sorting && !isNotification) {
-        ComponentsSettingsOrderEditor(
-            vm = vm, userId = userId, saved = saved,
-            candidates = packageNames, labels = labels,
-            pendingNavigation = pendingNavigation,
-            onExit = { sorting = false },
-            onEntryKind = onEntry,
-            onManagedKind = onManagedSurface,
-        )
-        return
-    }
-
     UnifiedCleanupList(
         pendingCount = selectionDraft.count,
         onDiscard = selectionDraft::discard,
@@ -640,5 +629,26 @@ internal fun EntryManagedSurfaceEditor(
                     )
                 }
             }
+    }
+    // Same in-window sorting overlay as every other Entry category. The
+    // Settings Apps ordering backend remains SurfaceFilterConfig, not Root pm.
+    if (!isNotification) {
+        WorkspaceSortEditorOverlay(
+            visible = sorting,
+            guard = sortNavigation,
+            onDismiss = { sorting = false },
+        ) {
+            ComponentsSettingsOrderEditor(
+                vm = vm,
+                userId = userId,
+                saved = saved,
+                candidates = packageNames,
+                labels = labels,
+                pendingNavigation = sortNavigation,
+                onExit = { sorting = false },
+                onEntryKind = { kind -> request { sorting = false; onEntry(kind) } },
+                onManagedKind = { next -> request { sorting = false; onManagedSurface(next) } },
+            )
+        }
     }
 }
