@@ -122,6 +122,9 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(componentBusy) { pendingNavigation.observeRootBusy(componentBusy) }
         var searchExpanded by rememberSaveable { mutableStateOf(false) }
         var managedEntrySurface by rememberSaveable(selectedSpace) { mutableStateOf<ManagedComponentSurface?>(null) }
+        var favoriteComponentKind by rememberSaveable(selectedSpace) {
+            mutableStateOf<CleanupKind?>(null)
+        }
         val listsRefresh = remember { ListsRefreshRegistry() }
         var openModuleStatus by remember { mutableStateOf(false) }
         var openCompatibility by remember { mutableStateOf(false) }
@@ -317,6 +320,7 @@ class MainActivity : ComponentActivity() {
                         },
                         onOpenRoot = {
                             managedEntrySurface = null
+                            favoriteComponentKind = null
                             vm.setDestination(Destination.TILES)
                         },
                         onOpenModuleStatus = {
@@ -325,7 +329,12 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                     Destination.PRIORITY -> PriorityTab(state, vm, pendingNavigation)
-                    Destination.TILES -> RootComponentsScreen(state, vm, embedded = true, onExit = { vm.setDestination(Destination.RULES) }, pendingNavigation = pendingNavigation, refreshRegistry = listsRefresh)
+                    Destination.TILES -> RootComponentsScreen(state, vm,
+                        initialKind = favoriteComponentKind,
+                        embedded = true,
+                        onExit = { vm.setDestination(Destination.RULES) },
+                        pendingNavigation = pendingNavigation,
+                        refreshRegistry = listsRefresh)
                     Destination.SURFACES -> SurfaceManagementTab(
                         state = state, vm = vm, pendingNavigation = pendingNavigation,
                         onOpenEntry = { kind ->
@@ -333,6 +342,12 @@ class MainActivity : ComponentActivity() {
                                 managedEntrySurface = null
                                 vm.setFilter(kind)
                                 vm.setDestination(Destination.RULES)
+                            }
+                        },
+                        onOpenComponentCategory = { kind ->
+                            pendingNavigation.request {
+                                favoriteComponentKind = kind
+                                vm.setDestination(Destination.TILES)
                             }
                         },
                         onOpenCleanupEntry = {
@@ -347,7 +362,10 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         onOpenComponents = {
-                            pendingNavigation.request { vm.setDestination(Destination.TILES) }
+                            pendingNavigation.request {
+                                favoriteComponentKind = null
+                                vm.setDestination(Destination.TILES)
+                            }
                         },
                         onOpenDiagnostics = {
                             openDiagnostics = true
