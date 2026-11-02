@@ -80,6 +80,7 @@ required = {
                               "ScopeDialog(", "SettingsSection.ABOUT -> AboutSettings()"],
     "SurfaceManagementTab.kt": ["fun SurfaceManagementTab(", "pendingNavigation: PendingNavigationGuard?",
                                   "onOpenEntry: (IntentKind) -> Unit",
+                                  "onOpenCleanupEntry: () -> Unit", "onOpenComponents: () -> Unit",
                                   "onOpenDiagnostics: () -> Unit", "RegisterPendingNavigation(",
                                   "modesPresetSelection(", "home-module-status", "dashboard_module_status",
                                  "home-manage-entry", "home-manage-root",
@@ -745,18 +746,49 @@ if "InlineEntryModePicker(" in entry_code or "modeLabel =" in entry_code:
     errors.append("MainTabs.kt: deleted Entry mode-header row must not return")
 if "EntryModeFilterMenu(" not in lists_code:
     errors.append("SurfaceManagementTab.kt: mode editing must retain anchored menu")
-# Entry is an entry kind; Root is a backend. Neither belongs in a duplicate
-# fixed Quick access row. Real shortcuts are the user's pinned Entry categories.
-for retired in ('item(key = "home-shortcuts-heading")',
-                'item(key = "home-shortcuts-row")',
-                'onOpenRoot: () -> Unit'):
-    if retired in lists_code:
-        errors.append(f"SurfaceManagementTab.kt: redundant or mismatched Quick access item remains: {retired}")
+# Entry/Component are the actual two Cleanup tabs. Open is a specific Entry
+# category and Root is an implementation, so neither may stand in for those tabs.
+quick_start = lists_code.find('item(key = "home-shortcuts-heading")')
+quick_end = lists_code.find('item(key = "home-favorites-heading")', quick_start)
+quick_code = lists_code[quick_start:quick_end] if quick_start >= 0 and quick_end > quick_start else ""
+for required in (
+    'item(key = "home-shortcuts-row")',
+    'onClick = onOpenCleanupEntry',
+    'stringResource(R.string.lc_cleanup_mode_entry_short)',
+    'onClick = onOpenComponents',
+    'stringResource(R.string.lc_cleanup_mode_component_short)',
+    'onClick = onOpenDiagnostics',
+):
+    if required not in quick_code:
+        errors.append(f"Controls Quick access must match Cleanup tabs: missing {required}")
+for wrong in ('onOpenEntry(IntentKind.OPEN)', 'onOpenRoot', 'lc_home_entry_shortcut',
+              'lc_home_root_shortcut'):
+    if wrong in quick_code:
+        errors.append(f"Controls Quick access contains incorrect label/target: {wrong}")
 for required in ('home-favorites-heading', 'val shortcuts = pinned.take(4)',
                  'onClick = { onOpenEntry(kind) }', 'home-manage-entry',
                  'home-manage-root'):
     if required not in lists_code:
         errors.append(f"SurfaceManagementTab.kt: missing pinned quick action or cleanup manager: {required}")
+activity_code = (root / "MainActivity.kt").read_text(encoding="utf-8")
+entry_route_start = activity_code.find("onOpenCleanupEntry = {")
+component_route_start = activity_code.find("onOpenComponents = {", entry_route_start)
+diagnostics_route_start = activity_code.find("onOpenDiagnostics = {", component_route_start)
+entry_route = activity_code[entry_route_start:component_route_start]
+component_route = activity_code[component_route_start:diagnostics_route_start]
+if not (entry_route_start >= 0 and component_route_start > entry_route_start
+        and diagnostics_route_start > component_route_start
+        and "vm.setFilter(null)" in entry_route
+        and "managedEntrySurface = null" in entry_route
+        and "vm.setDestination(Destination.RULES)" in entry_route):
+    errors.append("MainActivity.kt: Quick Entry must open unfiltered Entry Cleanup")
+if not ("vm.setDestination(Destination.TILES)" in component_route):
+    errors.append("MainActivity.kt: Quick Component must open Component Cleanup")
+# Prevent duplicate labels from drifting away from ClassicCleanupTabs.
+cleanup_tabs_code = (root / "ClassicListLayout.kt").read_text(encoding="utf-8")
+for label in ("lc_cleanup_mode_entry_short", "lc_cleanup_mode_component_short"):
+    if f"R.string.{label}" not in cleanup_tabs_code or f"R.string.{label}" not in quick_code:
+        errors.append(f"Quick access and Cleanup must share the same label: {label}")
 # Module status was moved to Controls home; Settings only keeps its detailed page.
 settings_home_code = (root / "SettingsCenterHome.kt").read_text(encoding="utf-8")
 if "dashboard_module_status" in settings_home_code:
