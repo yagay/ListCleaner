@@ -7,6 +7,9 @@
         android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
     <queries>
         <package android:name="com.android.systemui"/>
         <package android:name="com.android.intentresolver"/>
@@ -92,6 +95,16 @@
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService"/>
             </intent-filter>
+        </service>
+
+        <!-- User-started, short-lived overlay control for Settings page identification. -->
+        <service
+            android:name=".runtime.SettingsPageFloatingService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-initiated temporary Settings page identification overlay" />
         </service>
 
         <service
