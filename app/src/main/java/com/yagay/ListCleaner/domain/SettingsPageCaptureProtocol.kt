@@ -18,6 +18,12 @@ data class CapturedSettingsPage(
 
 object SettingsPageCaptureProtocol {
     const val METHOD_PUBLISH = "publish_settings_page_v1"
+    /** Trusted Settings process only: query/toggle a user-started capture session. */
+    const val METHOD_CONTROL_STATUS = "settings_page_control_status_v1"
+    const val METHOD_CONTROL_TOGGLE = "settings_page_control_toggle_v1"
+    const val METHOD_CONTROL_CLOSE = "settings_page_control_close_v1"
+    const val KEY_CONTROL_ENABLED = "enabled"
+    const val KEY_CONTROL_ACTIVE = "active"
     const val EXTRA_PAGE = "page"
     const val PREFS = "settings_page_capture_v1"
     const val MAX_AGE_MS = 180_000L
