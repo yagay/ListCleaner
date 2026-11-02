@@ -62,7 +62,7 @@ class UiPreferencesTest {
                 homeFavoriteCategories(updated, available), entry, -2
             ), available
         ).normalized()
-        assertEquals(listOf(component, entry, otherEntry, otherComponent),
+        assertEquals(listOf(entry, component, otherEntry, otherComponent),
             homeFavoriteCategories(reordered, available))
         assertEquals(updated.pinnedEntryKinds.toSet(), reordered.pinnedEntryKinds.toSet())
         assertEquals(updated.pinnedRootKinds.toSet(), reordered.pinnedRootKinds.toSet())
