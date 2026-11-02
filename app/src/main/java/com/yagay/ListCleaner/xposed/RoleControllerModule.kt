@@ -90,6 +90,14 @@ class RoleControllerModule : XposedModule() {
         val kind = ROLE_KIND_BY_NAME[roleName] ?: return@Hooker original
 
         val userId = ReflectionAccess.userId(chain.args.firstOrNull { it is android.os.UserHandle }) ?: return@Hooker original
+        // Capture the actual RoleController eligibility source, separately from the
+        // filtered candidates. Never reconstruct this list from PM guesses.
+        runtimeCapture.publish(
+            kind = kind, source = "ROLE_CONTROLLER_ORIGINAL", userId = userId,
+            packages = values.filterIsInstance<String>(),
+            callerPackage = processName, callerUid = Process.myUid(),
+            requestAction = roleName,
+        )
         // An older LSPosed remote preference implementation may reject writes;
         // that must not abort the authoritative qualifying-package Hook itself.
         runCatching {
