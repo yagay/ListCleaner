@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="component_display_filters">列表显示过滤</string>
-    <string name="component_settings_apps">设置应用列表</string>
+    <string name="component_settings_apps">已安装应用</string>
     <string name="component_notifications">通知频道</string>
     <string name="component_surface_app_rule">整个应用</string>
     <string name="component_surface_channel_rule">通知频道</string>
