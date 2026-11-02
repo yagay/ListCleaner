@@ -25,4 +25,11 @@
     <string name="page_capture_float_notification_title">ListCleaner 页面识别</string>
     <string name="page_capture_float_notification_text">点悬浮图标开始或暂停，长按关闭</string>
     <string name="page_capture_float_hint">开启后默认抓取。点击暂停/恢复，拖动移动，长按关闭。成功保存 Activity/Fragment 时显示绿色勾和提示。</string>
+
+    <string name="page_capture_float_notification_running">正在抓取设置页面，可从通知栏暂停或结束。</string>
+    <string name="page_capture_float_notification_paused">已暂停抓取，点击“恢复”继续。</string>
+    <string name="page_capture_float_paused_badge_long">暂停</string>
+    <string name="page_capture_float_resume">恢复</string>
+    <string name="page_capture_float_notification_permission">请允许通知权限，以便系统隐藏悬浮图标时仍能从通知栏控制抓取。</string>
+    <string name="page_capture_float_overlay_fallback">系统设置可能隐藏悬浮图标；此时可以从常驻通知暂停、恢复或结束抓取。</string>
 </resources>
