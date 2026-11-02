@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="page_capture_title">识别默认浏览器设置页面</string>
+    <string name="page_capture_info">开始识别后，进入系统设置的“默认应用 → 浏览器”，再返回 ListCleaner，重新点眼睛查看结果。仅在 3 分钟内记录 Activity/Fragment 标识，不读取页面内容。</string>
+    <string name="page_capture_open_normal">尝试原来的默认浏览器设置入口</string>
+    <string name="page_capture_start">开始识别页面</string>
+    <string name="page_capture_stop">停止识别</string>
+    <string name="page_capture_active">正在识别（到期自动停止）</string>
+    <string name="page_capture_none">还没有捕获到设置页面。请检查 LSPosed 中系统设置和 PermissionController 的作用域，再实际进入对应页面。</string>
+    <string name="page_capture_found">已识别的页面（最新在前）。点击可以尝试启动对应 Activity。</string>
+    <string name="page_capture_no_external">该 Activity 无法从外部启动，或需要内部状态；仍可使用其标识进行诊断。</string>
+    <string name="page_capture_start_failed">无法开始识别。</string>
+    <string name="page_capture_open_failed">无法打开系统设置。</string>
+</resources>
