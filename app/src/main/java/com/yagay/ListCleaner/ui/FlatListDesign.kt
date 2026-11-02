@@ -1,5 +1,7 @@
 package com.yagay.ListCleaner.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
@@ -32,6 +34,7 @@ import androidx.compose.ui.unit.dp
  * independently of their domain actions. A future Card presentation may
  * reuse those actions, but no card-specific structure is needed today.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun FlatRowSurface(
     modifier: Modifier = Modifier,
@@ -40,6 +43,7 @@ internal fun FlatRowSurface(
     dividerInset: Dp = MaterialUiTokens.pageHorizontal,
     showDivider: Boolean = true,
     color: Color = MaterialFlatPalette.surface(),
+    onLongClick: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
     val dividerColor = MaterialFlatPalette.outline()
@@ -51,7 +55,12 @@ internal fun FlatRowSurface(
             val y = size.height - stroke / 2f
             drawLine(dividerColor, Offset(x, y), Offset(size.width - x, y), stroke)
         } else Modifier)
-    if (onClick != null) {
+    if (onClick != null && onLongClick != null) {
+        Surface(
+            modifier = rowModifier.combinedClickable(onClick = onClick, onLongClick = onLongClick),
+            shape = RectangleShape, color = color
+        ) { content() }
+    } else if (onClick != null) {
         Surface(
             onClick = onClick, modifier = rowModifier,
             shape = RectangleShape, color = color
@@ -78,9 +87,10 @@ internal fun FlatCategoryRow(
     title: String,
     description: String?,
     modifier: Modifier = Modifier,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null
 ) {
-    FlatRowSurface(modifier = modifier, onClick = onClick) {
+    FlatRowSurface(modifier = modifier, onClick = onClick, onLongClick = onLongClick) {
         ListItem(
             modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
