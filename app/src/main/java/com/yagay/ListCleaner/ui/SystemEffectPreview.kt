@@ -190,10 +190,17 @@ internal object SystemEffectPreview {
             return
         }
         if (!checkUser(context, selectedUserId)) return
-        if (kind == IntentKind.ACCESSIBILITY && request?.focusPackage != null) {
-            // The app-row eye has a specific service identity. The category eye
-            // has no such target and continues to open the native service list.
-            launchAccessibilityServiceDetails(context, selectedUserId, request)
+        if (kind == IntentKind.ACCESSIBILITY) {
+            if (request?.focusPackage != null) {
+                // A row with a concrete service opens that service's detail page.
+                launchAccessibilityServiceDetails(context, selectedUserId, request)
+            } else if (OplusAccessibilityDownloadedRoute.supportsManufacturer(Build.MANUFACTURER)) {
+                // Device capture on OxygenOS 16: Downloaded apps lives in an
+                // OEM SubSettings fragment, NOT the public Accessibility landing page.
+                launchOplusAccessibilityDownloaded(context, selectedUserId)
+            } else {
+                launchSettingsTargets(context, kind, settingsIntents(context, kind))
+            }
             return
         }
         if (kind in setOf(IntentKind.ASSISTANT, IntentKind.BROWSER,
@@ -202,6 +209,66 @@ internal object SystemEffectPreview {
             return
         }
         launchSettingsTargets(context, kind, settingsIntents(context, kind))
+    }
+
+    /**
+     * Open OxygenOS's actual "Downloaded apps" Accessibility list through its
+     * captured Settings fragment. Never report a generic Settings launch as
+     * proof of the downloaded-services list. The normal public AOSP route
+     * continues to be used on other manufacturers.
+     */
+    private fun launchOplusAccessibilityDownloaded(context: Context, userId: Int) {
+        CoroutineScope(Dispatchers.Main.immediate).launch {
+            val outcome = withContext(Dispatchers.IO) {
+                runCatching {
+                    val started = ComponentRootCommand.run(
+                        OplusAccessibilityDownloadedRoute.rootLaunchCommand(userId)
+                    )
+                    if (started.timedOut || started.exitCode != 0 ||
+                        !OplusAccessibilityDownloadedRoute.activityLaunchAccepted(started.output)) {
+                        return@runCatching false to
+                            "START_REJECTED exit=${started.exitCode} timedOut=${started.timedOut} " +
+                            "result=${started.output.take(240)}"
+                    }
+                    // SubSettings can launch before its Fragment is attached.
+                    // The launch is known; record whether the native fragment was
+                    // actually observed rather than silently claiming success.
+                    var observed = false
+                    var latest = ""
+                    repeat(2) { attempt ->
+                        Thread.sleep(if (attempt == 0) 500 else 600)
+                        val top = ComponentRootCommand.runReadOnly(
+                            "dumpsys activity top | grep -F -m 2 " +
+                                "'${OplusAccessibilityDownloadedRoute.FRAGMENT}'"
+                        )
+                        if (!top.timedOut) {
+                            latest = top.output.take(240)
+                            if (OplusAccessibilityDownloadedRoute.actualFragmentVisible(
+                                top.output
+                            )) {
+                                observed = true
+                                return@repeat
+                            }
+                        }
+                    }
+                    if (observed) {
+                        true to "DOWNLOADED_FRAGMENT_VERIFIED"
+                    } else {
+                        true to "SUBSETTINGS_STARTED_FRAGMENT_UNVERIFIED probe=${latest.take(140)}"
+                    }
+                }.getOrElse { err ->
+                    false to "ROOT_EXCEPTION ${err.javaClass.simpleName}: ${err.message?.take(110)}"
+                }
+            }
+            if (outcome.first) {
+                Log.i("ListCleaner.SystemPreview",
+                    "ACCESSIBILITY_DOWNLOADED ${outcome.second}")
+            } else {
+                Log.w("ListCleaner.SystemPreview",
+                    "ACCESSIBILITY_DOWNLOADED ${outcome.second}")
+                show(context, R.string.preview_accessibility_downloaded_unavailable)
+            }
+        }
     }
 
     /**
