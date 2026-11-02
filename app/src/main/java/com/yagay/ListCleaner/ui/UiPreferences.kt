@@ -46,7 +46,7 @@ internal data class UiPreferences(
     val startPage: UiStartPage = UiStartPage.CLEANUP,
     val appSort: UiAppSort = UiAppSort.SELECTED_FIRST,
     val defaultFilter: UiFilter = UiFilter.ALL,
-    val defaultAppType: AppTypeFilter = AppTypeFilter.USER,
+    val defaultAppType: AppTypeFilter = AppTypeFilter.ALL,
     val pinnedEntryKinds: List<IntentKind> = emptyList(),
     val pinnedRootKinds: List<CleanupKind> = emptyList(),
     val pinnedManagedSurfaces: List<String> = emptyList(),
@@ -156,17 +156,24 @@ internal object UiPreferencesStore {
     internal fun upgradedListLayout(saved: UiHomeLayout, alreadyUpgraded: Boolean): UiHomeLayout =
         UiHomeLayout.CLASSIC_LIST
 
+    /** Undo the legacy user-only default without changing explicit system-only choices. */
+    internal fun upgradedDefaultAppType(saved: String?): String? =
+        if (saved == AppTypeFilter.USER.name) AppTypeFilter.ALL.name else saved
+
     fun read(context: Context): UiPreferences {
         val p = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
         val defaults = UiPreferences()
-        // Upgrade the previous ALL-apps default once, keeping explicit SYSTEM choices.
-        if (!p.getBoolean("default_user_apps_v1", false)) {
-            if (p.getString("default_app_type", null) in setOf(null, AppTypeFilter.ALL.name)) {
-                p.edit().putString("default_app_type", AppTypeFilter.USER.name)
-                    .putBoolean("default_user_apps_v1", true).apply()
-            } else {
-                p.edit().putBoolean("default_user_apps_v1", true).apply()
+        // The previous release forced USER as the starting filter. Migrate that
+        // saved default once so existing installations also open with all apps.
+        // Independently remembered per-page filter choices are left intact.
+        if (!p.getBoolean("default_all_apps_v2", false)) {
+            val oldDefault = p.getString("default_app_type", null)
+            val newDefault = upgradedDefaultAppType(oldDefault)
+            val editor = p.edit()
+            if (oldDefault != newDefault && newDefault != null) {
+                editor.putString("default_app_type", newDefault)
             }
+            editor.putBoolean("default_all_apps_v2", true).apply()
         }
         val migrationKey = "direct_list_default_v3"
         val migrated = p.getBoolean(migrationKey, false)
