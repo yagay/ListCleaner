@@ -634,6 +634,12 @@ if "if (expanded) MaterialFlatPalette.selectionHighlightSurface()" not in groupe
     errors.append("WorkspaceGroupedRows.kt: expanded app background missing")
 if "dividerInset = MaterialUiTokens.pageHorizontal," not in grouped.split("internal fun ContinuousDetailSurface(", 1)[-1]:
     errors.append("WorkspaceGroupedRows.kt: component dividers must align with application rows")
+# The selected indicator belongs immediately before the 48dp-aligned detail
+# title, not at the leftmost edge of the application/selection controls.
+if "val railCenterX = MaterialUiTokens.iconTouchTarget.toPx() - 4.dp.toPx()" not in grouped:
+    errors.append("WorkspaceGroupedRows.kt: selected detail rail must sit next to the title")
+if "start = Offset(railCenterX, verticalInset)" not in grouped or "end = Offset(railCenterX, size.height - verticalInset)" not in grouped:
+    errors.append("WorkspaceGroupedRows.kt: rail must follow its title-aligned position")
 palette = (root / "MaterialActionColors.kt").read_text(encoding="utf-8")
 if "fun selectionHighlightSurface()" not in palette or "MaterialTheme.colorScheme.primary.copy(" not in palette:
     errors.append("MaterialActionColors.kt: shared category/row theme highlight missing")
