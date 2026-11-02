@@ -277,7 +277,10 @@ class MainActivity : ComponentActivity() {
 
         val onRefresh: () -> Unit = {
             when (state.destination) {
-                Destination.RULES -> vm.refresh(forceCatalog = true)
+                Destination.RULES -> {
+                    if (managedEntrySurface != null && listsRefresh.available) listsRefresh.refresh()
+                    else vm.refresh(forceCatalog = true)
+                }
                 Destination.PRIORITY -> vm.refresh(forceCatalog = true)
                 Destination.TILES -> if (listsRefresh.available) listsRefresh.refresh() else vm.refreshComponents()
                 Destination.SURFACES -> vm.refreshModuleStatus()
@@ -287,39 +290,30 @@ class MainActivity : ComponentActivity() {
         val pageContent: @Composable (androidx.compose.foundation.layout.PaddingValues) -> Unit = { padding ->
             Box(Modifier.padding(padding).consumeWindowInsets(padding).fillMaxSize()) {
                 when (state.destination) {
-                    Destination.RULES -> if (managedEntrySurface != null) {
-                        val editor = requireNotNull(managedEntrySurface)
-                        val backToEntry: (com.yagay.ListCleaner.domain.IntentKind?) -> Unit = { chosen ->
+                    Destination.RULES -> RulesTab(
+                        state, vm,
+                        pendingNavigation = pendingNavigation,
+                        managedSurface = managedEntrySurface,
+                        refreshRegistry = listsRefresh,
+                        onEntrySelected = { chosen ->
                             managedEntrySurface = null
                             vm.setFilter(chosen)
-                        }
-                        val chooseHookCategory: (ManagedComponentSurface) -> Unit = { managedEntrySurface = it }
-                        val openRoot = {
+                        },
+                        onManagedSurface = { selected ->
+                            managedEntrySurface = selected
+                            // Managed categories are selected instead of an Intent
+                            // category, not stacked as a second screen.
+                            vm.setFilter(null)
+                        },
+                        onOpenRoot = {
                             managedEntrySurface = null
                             vm.setDestination(Destination.TILES)
+                        },
+                        onOpenModuleStatus = {
+                            openModuleStatus = true
+                            pendingNavigation.request { vm.setDestination(Destination.SETTINGS) }
                         }
-                        if (editor == ManagedComponentSurface.SETTINGS_APPS) {
-                            SettingsAppsEntryScreen(
-                                state, vm, pendingNavigation, listsRefresh,
-                                backToEntry, chooseHookCategory, openRoot,
-                            )
-                        } else {
-                            NotificationCleanupEntryScreen(
-                                state, vm, pendingNavigation, listsRefresh,
-                                backToEntry, chooseHookCategory, openRoot,
-                            )
-                        }
-                    } else {
-                        RulesTab(
-                            state, vm,
-                            pendingNavigation = pendingNavigation,
-                            onManagedSurface = { managedEntrySurface = it },
-                            onOpenModuleStatus = {
-                                openModuleStatus = true
-                                pendingNavigation.request { vm.setDestination(Destination.SETTINGS) }
-                            }
-                        )
-                    }
+                    )
                     Destination.PRIORITY -> PriorityTab(state, vm, pendingNavigation)
                     Destination.TILES -> RootComponentsScreen(state, vm, embedded = true, onExit = { vm.setDestination(Destination.RULES) }, pendingNavigation = pendingNavigation, refreshRegistry = listsRefresh)
                     Destination.SURFACES -> SurfaceManagementTab(state, vm)
