@@ -13,6 +13,9 @@ import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.RuntimeCaptureContract
 import com.yagay.ListCleaner.domain.RuntimeInterfaceSnapshot
 import com.yagay.ListCleaner.domain.RuntimeInterfaceSnapshotCodec
+import com.yagay.ListCleaner.domain.CapturedSettingsPage
+import com.yagay.ListCleaner.domain.SettingsPageCaptureProtocol
+import kotlinx.serialization.json.Json
 
 /**
  * One-way, UID-verified bridge from system_server / the real Resolver process into the
@@ -24,6 +27,24 @@ class RuntimeCaptureProvider : ContentProvider() {
     override fun onCreate(): Boolean = true
 
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle? {
+        if (method == SettingsPageCaptureProtocol.METHOD_PUBLISH) {
+            val ctx = context ?: return null
+            val callerUid = Binder.getCallingUid()
+            if (!trustedFrameworkUid(callerUid)) return null
+            val raw = extras?.getString(SettingsPageCaptureProtocol.EXTRA_PAGE)
+                ?.takeIf { it.length in 1..SettingsPageCaptureProtocol.MAX_PAYLOAD_CHARS }
+                ?: return null
+            val page = runCatching {
+                Json.decodeFromString(CapturedSettingsPage.serializer(), raw)
+            }.getOrNull() ?: return null
+            if (!SettingsPageCaptureProtocol.valid(page) ||
+                page.userId != AndroidUid.userId(callerUid)) return null
+            // The claimed Activity package must actually belong to this Binder caller.
+            if (page.packageName !in ctx.packageManager.getPackagesForUid(callerUid).orEmpty()) return null
+            return Bundle().apply {
+                putBoolean("accepted", SettingsPageCaptureStore.record(ctx, page))
+            }
+        }
         if (method != RuntimeCaptureContract.METHOD_PUBLISH) return null
         val ctx = context ?: return null
         val callingUid = Binder.getCallingUid()
