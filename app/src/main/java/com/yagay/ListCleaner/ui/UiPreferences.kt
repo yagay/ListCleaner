@@ -43,7 +43,7 @@ internal data class UiPreferences(
     val buttonHeight: Int = 40,
     val appIconSize: Int = 36,
     val listRowHeight: Int = 60,
-    val startPage: UiStartPage = UiStartPage.CLEANUP,
+    val startPage: UiStartPage = UiStartPage.SURFACES,
     val appSort: UiAppSort = UiAppSort.SELECTED_FIRST,
     val defaultFilter: UiFilter = UiFilter.ALL,
     val defaultAppType: AppTypeFilter = AppTypeFilter.ALL,
@@ -156,6 +156,13 @@ internal object UiPreferencesStore {
     internal fun upgradedListLayout(saved: UiHomeLayout, alreadyUpgraded: Boolean): UiHomeLayout =
         UiHomeLayout.CLASSIC_LIST
 
+    /** Modes is the new home. Keep explicitly chosen Ordering/Settings pages. */
+    internal fun upgradedStartPage(saved: String?): String =
+        when (saved) {
+            null, UiStartPage.CLEANUP.name -> UiStartPage.SURFACES.name
+            else -> saved
+        }
+
     /** Undo the legacy user-only default without changing explicit system-only choices. */
     internal fun upgradedDefaultAppType(saved: String?): String? =
         if (saved == AppTypeFilter.USER.name) AppTypeFilter.ALL.name else saved
@@ -174,6 +181,15 @@ internal object UiPreferencesStore {
                 editor.putString("default_app_type", newDefault)
             }
             editor.putBoolean("default_all_apps_v2", true).apply()
+        }
+        // Move existing installs off the previous Cleanup home once. Users can
+        // still select any start page in Settings after this migration.
+        if (!p.getBoolean("modes_home_default_v1", false)) {
+            val previous = p.getString("start_page", null)
+            val upgraded = upgradedStartPage(previous)
+            val editor = p.edit()
+            if (previous != upgraded) editor.putString("start_page", upgraded)
+            editor.putBoolean("modes_home_default_v1", true).apply()
         }
         val migrationKey = "direct_list_default_v3"
         val migrated = p.getBoolean(migrationKey, false)
