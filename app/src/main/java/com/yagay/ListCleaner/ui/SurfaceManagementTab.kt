@@ -1,12 +1,7 @@
 package com.yagay.ListCleaner.ui
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
@@ -81,6 +76,14 @@ internal fun SurfaceManagementTab(
     // Only one inline mode editor at a time, and no modes are written
     // until its explicit confirmation button is pressed.
     var editingModeKey by rememberSaveable(userId) { mutableStateOf<String?>(null) }
+    var section by rememberSaveable(userId) { mutableStateOf(ModesHomeSection.HOME) }
+    var modeQuery by rememberSaveable(userId, section) { mutableStateOf("") }
+    var modeFilter by rememberSaveable(userId, section) { mutableStateOf(ModesViewFilter.ALL) }
+    BackHandler(enabled = section != ModesHomeSection.HOME) {
+        // No data is lost: drafts and the Apply footer belong to the whole Modes tab.
+        section = ModesHomeSection.HOME
+        editingModeKey = null
+    }
 
     val savedDisabled = remember(state.disabledEntryKinds, state.disabledEntryGroups) {
         state.disabledEntryKinds + state.disabledEntryGroups.flatMap { it.kinds() }
@@ -99,6 +102,33 @@ internal fun SurfaceManagementTab(
     val shortcuts = (pinned.ifEmpty {
         listOf(IntentKind.OPEN, IntentKind.SHARE, IntentKind.DIRECT_SHARE)
     }).filter { it in allEntryKinds }.distinct().take(4)
+    val prefs = UiPreferencesRuntime.current
+    val favorites = entryModeItems.filter { category ->
+        when (category) {
+            is CleanupCategoryId.Entry -> category.kind in prefs.pinnedEntryKinds
+            is CleanupCategoryId.Managed -> category.surface.name in prefs.pinnedManagedSurfaces
+            else -> false
+        }
+    }
+    val orderedEntryModes = favorites + entryModeItems.filterNot { it in favorites }
+    val visibleEntryModes = orderedEntryModes.filter { category ->
+        val disabled = when (category) {
+            is CleanupCategoryId.Entry -> category.kind in draftDisabled
+            is CleanupCategoryId.Managed -> category.surface.surfaceKind() in draftManagedDisabled
+            else -> false
+        }
+        modesViewMatches(modeFilter, disabled, modeQuery,
+            context.getString(category.titleResource()))
+    }
+    val orderedRootModes = rootModeItems.filterIsInstance<CleanupCategoryId.Root>()
+        .let { all ->
+            val priority = all.filter { it.kind in prefs.pinnedRootKinds }
+            priority + all.filterNot { it in priority }
+        }
+    val visibleRootModes = orderedRootModes.filter { category ->
+        modesViewMatches(modeFilter, category.kind in draftRootDisabled, modeQuery,
+            context.getString(category.titleResource()))
+    }
 
     val applyChanges: () -> Boolean = {
         val entryChanged = draftDisabled != savedDisabled ||
@@ -157,6 +187,7 @@ internal fun SurfaceManagementTab(
         contentPadding = PaddingValues(vertical = MaterialUiTokens.pageVertical),
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
+        if (section == ModesHomeSection.HOME) {
         item(key = "home-runtime-status") {
             val lsposed = when {
                 !state.module.checked -> stringResource(R.string.lc_home_status_unchecked)
@@ -175,6 +206,25 @@ internal fun SurfaceManagementTab(
                 AdaptiveIcon(Icons.Rounded.ChevronRight, null)
             }
         }
+        item(key = "global-mode-default") {
+            GlobalModeSettingsRow(
+                title = stringResource(R.string.lc_mode_default_title),
+                selectedMode = stringResource(state.displayMode.titleRes()),
+                expanded = editingModeKey == GLOBAL_MODE_KEY,
+                onClick = {
+                    editingModeKey = if (editingModeKey == GLOBAL_MODE_KEY) null else GLOBAL_MODE_KEY
+                },
+                modeMenu = {
+                    EntryModeFilterMenu(
+                        state = state, vm = vm, kind = null,
+                        expanded = editingModeKey == GLOBAL_MODE_KEY,
+                        onDismiss = { editingModeKey = null },
+                    )
+                },
+            )
+        }
+
+
         item(key = "home-cleanup-overview") {
             WorkspaceListSummary(
                 title = stringResource(R.string.lc_home_overview_title),
@@ -247,58 +297,142 @@ internal fun SurfaceManagementTab(
             }
         }
 
-        item(key = "global-mode-default") {
-            GlobalModeSettingsRow(
-                title = stringResource(R.string.lc_mode_default_title),
-                selectedMode = stringResource(state.displayMode.titleRes()),
-                expanded = editingModeKey == GLOBAL_MODE_KEY,
+
+
+        item(key = "home-manage-heading") {
+            FlatPopupHeader(stringResource(R.string.lc_home_manage_title))
+        }
+        item(key = "home-manage-entry") {
+            FlatCategoryRow(
+                icon = Icons.Rounded.Tune,
+                title = stringResource(R.string.lc_mode_entry_heading),
+                description = stringResource(
+                    R.string.lc_home_manage_count,
+                    allEntryKinds.size + allManagedKinds.size,
+                    allEntryKinds.count { it in draftDisabled } +
+                        allManagedKinds.count { it in draftManagedDisabled }),
                 onClick = {
-                    editingModeKey = if (editingModeKey == GLOBAL_MODE_KEY) null else GLOBAL_MODE_KEY
+                    modeQuery = ""
+                    modeFilter = ModesViewFilter.ALL
+                    section = ModesHomeSection.LSPOSED
                 },
-                modeMenu = {
-                    EntryModeFilterMenu(
-                        state = state, vm = vm, kind = null,
-                        expanded = editingModeKey == GLOBAL_MODE_KEY,
-                        onDismiss = { editingModeKey = null },
-                    )
+            )
+        }
+        item(key = "home-manage-root") {
+            FlatCategoryRow(
+                icon = Icons.Rounded.GridView,
+                title = stringResource(R.string.lc_mode_root_heading),
+                description = stringResource(
+                    R.string.lc_home_manage_count,
+                    allRootKinds.size,
+                    allRootKinds.count { it in draftRootDisabled }),
+                onClick = {
+                    modeQuery = ""
+                    modeFilter = ModesViewFilter.ALL
+                    section = ModesHomeSection.ROOT
                 },
             )
         }
 
-        item(key = "home-preset-heading") {
-            FlatPopupHeader(stringResource(R.string.lc_home_preset_title))
-        }
-        item(key = "home-preset-actions") {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                AdaptiveTextButton(
-                    onClick = {
-                        draftDisabled = modesPresetSelection(
-                            ModesQuickPreset.ENABLE_ALL, allEntryKinds, savedDisabled)
-                        draftManagedDisabled = modesPresetSelection(
-                            ModesQuickPreset.ENABLE_ALL, allManagedKinds, savedManagedDisabled)
-                        draftRootDisabled = modesPresetSelection(
-                            ModesQuickPreset.ENABLE_ALL, allRootKinds, savedRootDisabled)
-                    },
-                ) { AdaptiveText(stringResource(R.string.lc_home_preset_enable)) }
-                AdaptiveTextButton(
-                    onClick = {
-                        draftDisabled = modesPresetSelection(
-                            ModesQuickPreset.PAUSE_ALL, allEntryKinds, savedDisabled)
-                        draftManagedDisabled = modesPresetSelection(
-                            ModesQuickPreset.PAUSE_ALL, allManagedKinds, savedManagedDisabled)
-                        draftRootDisabled = modesPresetSelection(
-                            ModesQuickPreset.PAUSE_ALL, allRootKinds, savedRootDisabled)
-                    },
-                ) { AdaptiveText(stringResource(R.string.lc_home_preset_pause)) }
+        } else {
+            item(key = "modes-manager-header") {
+                Row(
+                    Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(
+                        end = MaterialUiTokens.pageHorizontal),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    AdaptiveBackButton(onClick = {
+                        section = ModesHomeSection.HOME
+                        editingModeKey = null
+                    })
+                    AdaptiveText(
+                        stringResource(if (section == ModesHomeSection.LSPOSED)
+                            R.string.lc_mode_entry_heading else R.string.lc_mode_root_heading),
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    AdaptiveText(
+                        (if (section == ModesHomeSection.LSPOSED)
+                            visibleEntryModes.size else visibleRootModes.size).toString(),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
-            WorkspaceAppNote(stringResource(R.string.lc_home_preset_explain), informational = true)
-        }
+            item(key = "modes-manager-search") {
+                androidx.compose.foundation.layout.Box(
+                    Modifier.fillMaxWidth().padding(horizontal = MaterialUiTokens.pageHorizontal)
+                ) {
+                    CompactSearchField(
+                        query = modeQuery,
+                        onQueryChange = { modeQuery = it },
+                        autoFocus = false,
+                        placeholder = stringResource(R.string.lc_home_modes_search),
+                    )
+                }
+            }
+            item(key = "modes-manager-filter") {
+                Row(
+                    Modifier.fillMaxWidth().padding(
+                        horizontal = MaterialUiTokens.pageHorizontal),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    ModesViewFilter.entries.forEach { filter ->
+                        AdaptiveFilterChip(
+                            selected = modeFilter == filter,
+                            onClick = { modeFilter = filter },
+                            modifier = Modifier.weight(1f),
+                            label = {
+                                AdaptiveText(stringResource(when (filter) {
+                                    ModesViewFilter.ALL -> R.string.lc_home_filter_all
+                                    ModesViewFilter.ENABLED -> R.string.lc_home_filter_enabled
+                                    ModesViewFilter.DISABLED -> R.string.lc_home_filter_disabled
+                                }), style = MaterialTheme.typography.labelMedium)
+                            },
+                        )
+                    }
+                }
+            }
+            item(key = "modes-manager-presets") {
+                Row(
+                    Modifier.fillMaxWidth().padding(
+                        horizontal = MaterialUiTokens.pageHorizontal),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    AdaptiveTextButton(onClick = {
+                        if (section == ModesHomeSection.LSPOSED) {
+                            draftDisabled = modesPresetSelection(
+                                ModesQuickPreset.ENABLE_ALL, allEntryKinds, draftDisabled)
+                            draftManagedDisabled = modesPresetSelection(
+                                ModesQuickPreset.ENABLE_ALL, allManagedKinds, draftManagedDisabled)
+                        } else {
+                            draftRootDisabled = modesPresetSelection(
+                                ModesQuickPreset.ENABLE_ALL, allRootKinds, draftRootDisabled)
+                        }
+                    }) { AdaptiveText(stringResource(R.string.lc_home_preset_enable)) }
+                    AdaptiveTextButton(onClick = {
+                        if (section == ModesHomeSection.LSPOSED) {
+                            draftDisabled = modesPresetSelection(
+                                ModesQuickPreset.PAUSE_ALL, allEntryKinds, draftDisabled)
+                            draftManagedDisabled = modesPresetSelection(
+                                ModesQuickPreset.PAUSE_ALL, allManagedKinds, draftManagedDisabled)
+                        } else {
+                            draftRootDisabled = modesPresetSelection(
+                                ModesQuickPreset.PAUSE_ALL, allRootKinds, draftRootDisabled)
+                        }
+                    }) { AdaptiveText(stringResource(R.string.lc_home_preset_pause)) }
+                }
+                WorkspaceAppNote(
+                    stringResource(R.string.lc_home_preset_explain), informational = true)
+            }
+            if (section == ModesHomeSection.LSPOSED) {
+                if (visibleEntryModes.isNotEmpty()) {
+                    item(key = "modes-entry-heading") {
+                        FlatPopupHeader(stringResource(R.string.lc_mode_entry_heading))
+                    }
+                }
 
-        item(key = "modes-entry-heading") { FlatPopupHeader(stringResource(R.string.lc_mode_entry_heading)) }
-        entryModeItems.forEach { category ->
+        visibleEntryModes.forEach { category ->
             when (category) {
                 is CleanupCategoryId.Entry -> {
                     val kind = category.kind
@@ -346,7 +480,12 @@ internal fun SurfaceManagementTab(
                     leadingIcon = managedCategory.icon(),
                     description = stringResource(if (managedSurface == ManagedComponentSurface.SETTINGS_APPS) R.string.lc_mode_managed_settings_desc else R.string.lc_mode_managed_notifications_desc),
                     selectedMode = stringResource(if (disabled) R.string.lc_mode_disabled else R.string.lc_mode_enabled),
-                    expanded = false, onClick = {}, modeMenu = {},
+                    expanded = false,
+                    onClick = {
+                        draftManagedDisabled = if (disabled)
+                            draftManagedDisabled - managedSurface.surfaceKind()
+                        else draftManagedDisabled + managedSurface.surfaceKind()
+                    }, modeMenu = {},
                     enabled = !disabled,
                     onEnabledChange = { enabled ->
                         draftManagedDisabled = if (enabled) draftManagedDisabled - managedSurface.surfaceKind() else draftManagedDisabled + managedSurface.surfaceKind()
@@ -357,9 +496,15 @@ internal fun SurfaceManagementTab(
                 else -> Unit
             }
         }
-        item(key = "modes-root-heading") { FlatPopupHeader(stringResource(R.string.lc_mode_root_heading)) }
+
+            } else {
+                if (visibleRootModes.isNotEmpty()) {
+                    item(key = "modes-root-heading") {
+                        FlatPopupHeader(stringResource(R.string.lc_mode_root_heading))
+                    }
+                }
         // Root section lists only Root component kinds. Hook-backed managed surfaces stay in LSPosed.
-        rootModeItems.filterIsInstance<CleanupCategoryId.Root>().forEach { rootCategory ->
+        visibleRootModes.forEach { rootCategory ->
             val kind = rootCategory.kind
 
             item(key = "modes-root-${kind.name}") {
@@ -370,7 +515,10 @@ internal fun SurfaceManagementTab(
                     description = stringResource(kind.rootModeDescriptionRes()),
                     selectedMode = stringResource(if (disabled) R.string.lc_mode_disabled else R.string.lc_mode_enabled),
                     expanded = false,
-                    onClick = {},
+                    onClick = {
+                        draftRootDisabled = if (disabled) draftRootDisabled - kind
+                            else draftRootDisabled + kind
+                    },
                     modeMenu = {},
                     enabled = !disabled,
                     onEnabledChange = { enabled ->
@@ -379,9 +527,29 @@ internal fun SurfaceManagementTab(
                 )
             }
         }
+            }
+            if ((if (section == ModesHomeSection.LSPOSED)
+                visibleEntryModes.isEmpty() else visibleRootModes.isEmpty())) {
+                item(key = "modes-manager-empty") {
+                    WorkspaceAppNote(stringResource(R.string.lc_home_modes_empty))
+                }
+            }
+        }
     }
     }
 
+}
+
+internal enum class ModesHomeSection { HOME, LSPOSED, ROOT }
+internal enum class ModesViewFilter { ALL, ENABLED, DISABLED }
+
+/** Filter by the visible localized category name and staged switch state only. */
+internal fun modesViewMatches(
+    filter: ModesViewFilter, disabled: Boolean, query: String, name: String,
+): Boolean = name.contains(query.trim(), ignoreCase = true) && when (filter) {
+    ModesViewFilter.ALL -> true
+    ModesViewFilter.ENABLED -> !disabled
+    ModesViewFilter.DISABLED -> disabled
 }
 
 /** Safe predefined home actions; they only calculate an unapplied UI draft. */
@@ -392,7 +560,7 @@ internal fun <T> modesPresetSelection(
     available: Set<T>,
     previouslyDisabled: Set<T>,
 ): Set<T> = when (preset) {
-    ModesQuickPreset.ENABLE_ALL -> emptySet()
+    ModesQuickPreset.ENABLE_ALL -> previouslyDisabled - available
     ModesQuickPreset.PAUSE_ALL -> previouslyDisabled + available
 }
 
