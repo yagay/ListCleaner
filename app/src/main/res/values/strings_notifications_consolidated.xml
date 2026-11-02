@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="notification_cleanup_title">Notification Channel Cleanup</string>
+    <string name="notification_cleanup_title">Notification Channels</string>
     <string name="notification_cleanup_help">Hide notifications by app or by registered channel. App-level and channel-level rules are independent. Does not disable notification delivery.</string>
     <string name="notification_cleanup_app_toggle">Hide all notifications from this app</string>
     <string name="notification_cleanup_app_selected">Entire app hidden from notification shade</string>
