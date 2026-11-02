@@ -80,6 +80,7 @@ required = {
                               "ScopeDialog(", "SettingsSection.ABOUT -> AboutSettings()"],
     "SurfaceManagementTab.kt": ["fun SurfaceManagementTab(", "pendingNavigation: PendingNavigationGuard?",
                                   "onOpenEntry: (IntentKind) -> Unit",
+                                  "onOpenComponentCategory: (CleanupKind) -> Unit",
                                   "onOpenCleanupEntry: () -> Unit", "onOpenComponents: () -> Unit",
                                   "onOpenDiagnostics: () -> Unit", "RegisterPendingNavigation(",
                                   "modesPresetSelection(", "home-module-status", "dashboard_module_status",
@@ -766,8 +767,9 @@ for wrong in ('onOpenEntry(IntentKind.OPEN)', 'onOpenRoot', 'lc_home_entry_short
     if wrong in quick_code:
         errors.append(f"Controls Quick access contains incorrect label/target: {wrong}")
 for shortcut_symbol in ('home-favorites-heading', 'val shortcuts = pinned.take(4)',
-                 'onClick = { onOpenEntry(kind) }', 'home-manage-entry',
-                 'home-manage-root'):
+                 'is CleanupCategoryId.Entry -> onOpenEntry(category.kind)',
+                 'is CleanupCategoryId.Root -> onOpenComponentCategory(category.kind)',
+                 'home-manage-entry', 'home-manage-root'):
     if shortcut_symbol not in lists_code:
         errors.append(f"SurfaceManagementTab.kt: missing pinned quick action or cleanup manager: {shortcut_symbol}")
 activity_code = (root / "MainActivity.kt").read_text(encoding="utf-8")
@@ -789,6 +791,23 @@ cleanup_tabs_code = (root / "ClassicListLayout.kt").read_text(encoding="utf-8")
 for label in ("lc_cleanup_mode_entry_short", "lc_cleanup_mode_component_short"):
     if f"R.string.{label}" not in cleanup_tabs_code or f"R.string.{label}" not in quick_code:
         errors.append(f"Quick access and Cleanup must share the same label: {label}")
+# Home favorites must reuse Entry/Component pin membership and preserve
+# the user's mixed ordering. Category-specific Component shortcuts must retain kind.
+favorite_helper = (root / "CategoryPinnedManager.kt").read_text(encoding="utf-8")
+ui_prefs_code = (root / "UiPreferences.kt").read_text(encoding="utf-8")
+for required_symbol in ("homeFavoriteCategories(", "updateHomeFavorites(",
+                        "pinnedEntryKinds", "pinnedRootKinds", "homePinnedCategoryOrder"):
+    if required_symbol not in favorite_helper:
+        errors.append(f"Mixed favorites must use existing category pins: {required_symbol}")
+for required_symbol in ("homeFavoriteCategories(prefs, homeFavoriteOptions)",
+                        "CategoryPinnedPickerDialog(", "CategoryPinnedManagerDialog(",
+                        "onOpenComponentCategory(category.kind)"):
+    if required_symbol not in lists_code:
+        errors.append(f"Controls home must support Component favorites: {required_symbol}")
+if '"home_pinned_category_order"' not in ui_prefs_code:
+    errors.append("UiPreferences.kt: mixed favorites ordering not persisted")
+if "initialKind = favoriteComponentKind" not in activity_code:
+    errors.append("MainActivity.kt: Component favorite must open its selected category")
 # Module status was moved to Controls home; Settings only keeps its detailed page.
 settings_home_code = (root / "SettingsCenterHome.kt").read_text(encoding="utf-8")
 if "dashboard_module_status" in settings_home_code:
