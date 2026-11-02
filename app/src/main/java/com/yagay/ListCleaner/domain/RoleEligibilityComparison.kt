@@ -32,6 +32,8 @@ fun compareRoleEligibility(
     val before = original?.takeIf { it.matches("ROLE_CONTROLLER_ORIGINAL") }
     val after = filtered?.takeIf { it.matches("ROLE_CONTROLLER_RETURN") }
     val paired = before != null && after != null &&
+        before.requestToken.isNotBlank() &&
+        before.requestToken == after.requestToken &&
         before.callerUid == after.callerUid &&
         before.callerPackage == after.callerPackage &&
         abs(before.capturedAtMillis - after.capturedAtMillis) <= 10_000L
