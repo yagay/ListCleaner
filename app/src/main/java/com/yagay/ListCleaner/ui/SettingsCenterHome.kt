@@ -44,23 +44,13 @@ internal enum class SettingsSection(
 }
 
 @Composable
-internal fun SettingsCenterHome(state: MainState, onSelect: (SettingsSection) -> Unit) {
+internal fun SettingsCenterHome(onSelect: (SettingsSection) -> Unit) {
     val headings = listOf(
         R.string.lc_settings_home_interface,
         R.string.lc_settings_home_functional,
         R.string.lc_settings_home_maintenance
     )
     MaterialPageColumn(fullBleed = true) {
-        MaterialSettingsRow(
-            title = stringResource(R.string.dashboard_module_status),
-            supportingText = when {
-                !state.runtime.ready && state.runtime.message.isNotBlank() -> state.runtime.message
-                state.syncStatus.isNotBlank() -> state.syncStatus
-                else -> stringResource(R.string.dashboard_sync_status)
-            },
-            onClick = { onSelect(SettingsSection.COMPATIBILITY) },
-            trailing = { AdaptiveIcon(Icons.Rounded.ChevronRight, null) }
-        )
         val allSections = SettingsSection.entries.filter { it != SettingsSection.ABOUT }
         listOf(allSections.take(2), allSections.drop(2).take(2), allSections.drop(4))
             .forEachIndexed { groupIndex, sections ->
