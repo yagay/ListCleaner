@@ -16,6 +16,8 @@ data class RuntimeInterfaceSnapshot(
     /** MIME and host are required to match a resolver capture to the tested Intent. */
     val requestMimeType: String = "",
     val requestHost: String = "",
+    /** Same RoleController invocation marker for safe before/after comparison. */
+    val requestToken: String = "",
     val capturedAtMillis: Long,
     val packages: List<String>,
     /** Exact flattened ComponentName identifiers, when the captured API exposes them. */
@@ -107,6 +109,9 @@ object RuntimeInterfaceSnapshotCodec {
         requestAction = snapshot.requestAction.take(240),
         requestMimeType = snapshot.requestMimeType.take(127),
         requestHost = snapshot.requestHost.take(253),
+        requestToken = snapshot.requestToken.take(64).filter {
+            it.isLetterOrDigit() || it == '-' || it == '_'
+        },
         packages = snapshot.packages.asSequence()
             .filter { PackageIdentity.valid(it) }
             .distinct()
