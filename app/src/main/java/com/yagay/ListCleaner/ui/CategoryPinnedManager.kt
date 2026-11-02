@@ -36,6 +36,50 @@ internal fun <T> movePinnedCategory(items: List<T>, item: T, by: Int): List<T> {
     }
 }
 
+/** The pinned sets remain the source of truth. Only display order is shared
+ * by the Controls home. Existing Entry and Component picker pins stay in sync.
+ */
+internal fun homeFavoriteKey(category: CleanupCategoryId): String = when (category) {
+    is CleanupCategoryId.Entry -> "ENTRY:${category.kind.name}"
+    is CleanupCategoryId.Root -> "COMPONENT:${category.kind.name}"
+    is CleanupCategoryId.Managed -> "MANAGED:${category.surface.name}"
+}
+
+internal fun homeFavoriteCategories(
+    prefs: UiPreferences, available: List<CleanupCategoryId>,
+): List<CleanupCategoryId> {
+    val pinned = available.filter { category -> when (category) {
+        is CleanupCategoryId.Entry -> category.kind in prefs.pinnedEntryKinds
+        is CleanupCategoryId.Root -> category.kind in prefs.pinnedRootKinds
+        is CleanupCategoryId.Managed -> false
+    } }
+    val byKey = pinned.associateBy(::homeFavoriteKey)
+    val sorted = prefs.homePinnedCategoryOrder.mapNotNull(byKey::get).distinct()
+    return sorted + pinned.filterNot { it in sorted }
+}
+
+/** Update both existing pin stores atomically; preserve out-of-scope pins. */
+internal fun updateHomeFavorites(
+    prefs: UiPreferences,
+    chosen: List<CleanupCategoryId>,
+    available: List<CleanupCategoryId>,
+): UiPreferences {
+    val visibleEntries = available.filterIsInstance<CleanupCategoryId.Entry>().map { it.kind }.toSet()
+    val visibleRoots = available.filterIsInstance<CleanupCategoryId.Root>().map { it.kind }.toSet()
+    val retainedEntries = prefs.pinnedEntryKinds.filterNot { it in visibleEntries }
+    val retainedRoots = prefs.pinnedRootKinds.filterNot { it in visibleRoots }
+    val selectedEntries = chosen.filterIsInstance<CleanupCategoryId.Entry>().map { it.kind }
+    val selectedRoots = chosen.filterIsInstance<CleanupCategoryId.Root>().map { it.kind }
+    val availableKeys = available.map(::homeFavoriteKey).toSet()
+    // Other category IDs are not exposed in the chooser, so retain their order.
+    val retainedOrder = prefs.homePinnedCategoryOrder.filterNot { it in availableKeys }
+    return prefs.copy(
+        pinnedEntryKinds = (selectedEntries + retainedEntries).distinct(),
+        pinnedRootKinds = (selectedRoots + retainedRoots).distinct(),
+        homePinnedCategoryOrder = (chosen.map(::homeFavoriteKey) + retainedOrder).distinct(),
+    )
+}
+
 /** Keep the original favorites order, then append newly checked categories.
  * Existing pinned categories outside this chooser remain untouched.
  */
