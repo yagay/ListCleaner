@@ -326,7 +326,7 @@ class MainActivity : ComponentActivity() {
                     Destination.PRIORITY -> PriorityTab(state, vm, pendingNavigation)
                     Destination.TILES -> RootComponentsScreen(state, vm, embedded = true, onExit = { vm.setDestination(Destination.RULES) }, pendingNavigation = pendingNavigation, refreshRegistry = listsRefresh)
                     Destination.SURFACES -> SurfaceManagementTab(
-                        state = state, vm = vm,
+                        state = state, vm = vm, pendingNavigation = pendingNavigation,
                         onOpenEntry = { kind ->
                             pendingNavigation.request {
                                 managedEntrySurface = null
