@@ -166,7 +166,7 @@ private val SurfaceWorkspaceUiSaver = Saver<SurfaceWorkspaceUiState, List<String
     restore = { values ->
         SurfaceWorkspaceUiState(
             UiFilter.entries.firstOrNull { it.name == values.getOrNull(0) } ?: UiFilter.ALL,
-            AppTypeFilter.entries.firstOrNull { it.name == values.getOrNull(1) } ?: AppTypeFilter.USER,
+            AppTypeFilter.entries.firstOrNull { it.name == values.getOrNull(1) } ?: AppTypeFilter.ALL,
         ).also { state ->
             values.getOrNull(2)?.takeIf { it.isNotEmpty() }?.let(state::toggleExpanded)
             state.searchQuery = values.getOrNull(3).orEmpty()
