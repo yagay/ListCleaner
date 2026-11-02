@@ -37,6 +37,7 @@ class SettingsPageFloatingService : Service() {
     private var params: WindowManager.LayoutParams? = null
     private var successUntil = 0L
     private var capturedName: String = ""
+    private var lastNotificationState = ""
 
     private val refresh = object : Runnable {
         override fun run() {
@@ -46,6 +47,7 @@ class SettingsPageFloatingService : Service() {
                 capturedName = ""
             }
             render()
+            updateNotificationIfChanged()
             handler.postDelayed(this, 750L)
         }
     }
@@ -54,10 +56,8 @@ class SettingsPageFloatingService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        if (!Settings.canDrawOverlays(this)) {
-            stopSelf()
-            return
-        }
+        // A foreground capture session must still work when Android hides or refuses
+        // third-party overlay windows on protected Settings pages.
         val foregroundReady = runCatching {
             createChannel()
             startForeground(NOTIFICATION_ID, notification())
@@ -68,6 +68,12 @@ class SettingsPageFloatingService : Service() {
         }
         running = this
         windowManager = getSystemService(WindowManager::class.java)
+        if (!Settings.canDrawOverlays(this)) {
+            // Notification actions remain accessible without overlay permission.
+            if (!SettingsPageCaptureStore.active(this)) SettingsPageCaptureStore.begin(this)
+            updateNotificationIfChanged(force = true)
+            return
+        }
         val size = dp(52)
         val initial = WindowManager.LayoutParams(
             size, size, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
@@ -87,7 +93,9 @@ class SettingsPageFloatingService : Service() {
             contentDescription = getString(R.string.page_capture_float_active)
         }
         if (runCatching { windowManager.addView(view, initial) }.isFailure) {
-            stopSelf()
+            // Do not destroy the capture session when the OEM restricts overlays.
+            if (!SettingsPageCaptureStore.active(this)) SettingsPageCaptureStore.begin(this)
+            updateNotificationIfChanged(force = true)
             return
         }
         bubble = view
@@ -99,7 +107,19 @@ class SettingsPageFloatingService : Service() {
         handler.post(refresh)
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_NOT_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        when (intent?.action) {
+            ACTION_TOGGLE_CAPTURE -> toggle()
+            ACTION_STOP_CAPTURE -> stopSelf()
+            else -> {
+                if (!SettingsPageCaptureStore.active(this) && capturedName.isEmpty()) {
+                    SettingsPageCaptureStore.begin(this)
+                }
+            }
+        }
+        updateNotificationIfChanged(force = true)
+        return START_NOT_STICKY
+    }
 
     private fun attachTouchControls(view: TextView) {
         val slop = ViewConfiguration.get(this).scaledTouchSlop
@@ -168,7 +188,9 @@ class SettingsPageFloatingService : Service() {
                 Toast.LENGTH_SHORT).show()
         }
         successUntil = 0L
+        capturedName = ""
         render()
+        updateNotificationIfChanged(force = true)
     }
 
     private fun onCaptured(page: CapturedSettingsPage) {
@@ -178,6 +200,7 @@ class SettingsPageFloatingService : Service() {
         render()
         Toast.makeText(this, getString(R.string.page_capture_float_success, capturedName),
             Toast.LENGTH_SHORT).show()
+        updateNotificationIfChanged(force = true)
     }
 
     private fun render() {
@@ -206,16 +229,49 @@ class SettingsPageFloatingService : Service() {
         }
     }
 
+    private fun updateNotificationIfChanged(force: Boolean = false) {
+        val active = SettingsPageCaptureStore.active(this)
+        val state = "$active/$capturedName"
+        if (!force && state == lastNotificationState) return
+        lastNotificationState = state
+        runCatching {
+            getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification())
+        }
+    }
+
     private fun notification(): Notification {
+        val active = SettingsPageCaptureStore.active(this)
+        val toggleIntent = PendingIntent.getService(
+            this, 1, Intent(this, SettingsPageFloatingService::class.java).setAction(ACTION_TOGGLE_CAPTURE),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val stopIntent = PendingIntent.getService(
+            this, 2, Intent(this, SettingsPageFloatingService::class.java).setAction(ACTION_STOP_CAPTURE),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
         val openApp = PendingIntent.getActivity(
             this, 0, Intent(this, com.yagay.ListCleaner.ui.MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         return Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_view)
-            .setContentTitle(getString(R.string.page_capture_float_notification_title))
-            .setContentText(getString(R.string.page_capture_float_notification_text))
+            .setContentTitle(
+                if (capturedName.isNotBlank()) getString(R.string.page_capture_float_success, capturedName)
+                else getString(R.string.page_capture_float_notification_title)
+            )
+            .setContentText(
+                if (active) getString(R.string.page_capture_float_notification_running)
+                else getString(R.string.page_capture_float_notification_paused)
+            )
             .setContentIntent(openApp)
+            .addAction(
+                if (active) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
+                getString(if (active) R.string.page_capture_float_paused_badge_long else R.string.page_capture_float_resume),
+                toggleIntent
+            )
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel,
+                getString(R.string.page_capture_float_stop), stopIntent)
+            .setOnlyAlertOnce(true)
             .setOngoing(true)
             .build()
     }
@@ -243,6 +299,8 @@ class SettingsPageFloatingService : Service() {
 
     companion object {
         private const val CHANNEL_ID = "settings-page-floating"
+        const val ACTION_TOGGLE_CAPTURE = "com.yagay.ListCleaner.action.TOGGLE_PAGE_CAPTURE"
+        const val ACTION_STOP_CAPTURE = "com.yagay.ListCleaner.action.STOP_PAGE_CAPTURE"
         private const val NOTIFICATION_ID = 33021
         @Volatile private var running: SettingsPageFloatingService? = null
 
