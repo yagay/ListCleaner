@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.WarningAmber
