@@ -76,7 +76,7 @@ internal fun RulesTab(
     // should launch the actual system role picker, not first open our snapshot UI.
     val openSystemPreview: (SystemProbeRequest) -> Unit = { request ->
         val kind = request.entryKind
-        if (kind != null && kind in ROLE_PREVIEW_KINDS) {
+        if (kind != null && opensRolePickerDirectly(kind)) {
             SystemEffectPreview.launchSettings(prefsContext, kind, request.userId)
         } else {
             systemProbeRequest = request
