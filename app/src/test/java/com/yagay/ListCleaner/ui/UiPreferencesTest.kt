@@ -23,6 +23,19 @@ class UiPreferencesTest {
         assertEquals(UiListStyle.ORIGINAL, UiPreferences().normalized().listStyle)
     }
 
+    @Test fun homePresetsOnlyStageIntendedModeSelections() {
+        val supported = setOf("OPEN", "SHARE", "DIRECT_SHARE")
+        val previouslyDisabled = setOf("SHARE", "LEGACY")
+        assertEquals(emptySet<String>(), modesPresetSelection(
+            ModesQuickPreset.ENABLE_ALL, supported, previouslyDisabled))
+        assertEquals(setOf("OPEN", "SHARE", "DIRECT_SHARE", "LEGACY"),
+            modesPresetSelection(ModesQuickPreset.PAUSE_ALL, supported, previouslyDisabled))
+        assertEquals(3, modesDifferenceCount(
+            previouslyDisabled, setOf("OPEN", "SHARE", "DIRECT_SHARE")))
+        // A preset is only a computed draft; the original set is unchanged.
+        assertEquals(setOf("SHARE", "LEGACY"), previouslyDisabled)
+    }
+
     @Test fun defaultAppTypeShowsAllWithoutFiltering() {
         assertEquals(UiFilter.ALL, UiPreferences().defaultFilter)
         assertEquals(AppTypeFilter.ALL, UiPreferences().defaultAppType)
