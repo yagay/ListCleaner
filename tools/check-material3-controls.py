@@ -766,7 +766,7 @@ for wrong in ('onOpenEntry(IntentKind.OPEN)', 'onOpenRoot', 'lc_home_entry_short
               'lc_home_root_shortcut'):
     if wrong in quick_code:
         errors.append(f"Controls Quick access contains incorrect label/target: {wrong}")
-for shortcut_symbol in ('home-favorites-heading', 'val shortcuts = pinned.take(4)',
+for shortcut_symbol in ('home-favorites-heading', 'val shortcuts = if (expandedFavorites) pinned else pinned.take(4)',
                  'is CleanupCategoryId.Entry -> onOpenEntry(category.kind)',
                  'is CleanupCategoryId.Root -> onOpenComponentCategory(category.kind)',
                  'home-manage-entry', 'home-manage-root'):
@@ -808,6 +808,8 @@ if '"home_pinned_category_order"' not in ui_prefs_code:
     errors.append("UiPreferences.kt: mixed favorites ordering not persisted")
 if "initialKind = favoriteComponentKind" not in activity_code:
     errors.append("MainActivity.kt: Component favorite must open its selected category")
+if "if (pinned.size > 4)" not in lists_code or "expandedFavorites = !expandedFavorites" not in lists_code:
+    errors.append("SurfaceManagementTab.kt: compact favorites must allow seeing additional Component items")
 # Module status was moved to Controls home; Settings only keeps its detailed page.
 settings_home_code = (root / "SettingsCenterHome.kt").read_text(encoding="utf-8")
 if "dashboard_module_status" in settings_home_code:
