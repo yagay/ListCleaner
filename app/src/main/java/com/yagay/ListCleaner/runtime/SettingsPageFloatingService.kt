@@ -41,7 +41,6 @@ class SettingsPageFloatingService : Service() {
 
     private val refresh = object : Runnable {
         override fun run() {
-            if (bubble == null) return
             if (successUntil > 0 && android.os.SystemClock.elapsedRealtime() >= successUntil) {
                 successUntil = 0
                 capturedName = ""
@@ -67,6 +66,8 @@ class SettingsPageFloatingService : Service() {
             return
         }
         running = this
+        // Continue refreshing notification state even if the OEM refuses the overlay.
+        handler.post(refresh)
         windowManager = getSystemService(WindowManager::class.java)
         if (!Settings.canDrawOverlays(this)) {
             // Notification actions remain accessible without overlay permission.
@@ -104,7 +105,6 @@ class SettingsPageFloatingService : Service() {
         // Starting from ListCleaner arms capture before navigating to the actual page.
         if (!SettingsPageCaptureStore.active(this)) SettingsPageCaptureStore.begin(this)
         render()
-        handler.post(refresh)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
