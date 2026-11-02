@@ -41,4 +41,11 @@
     <string name="lc_home_preset_pause">Pause all</string>
     <string name="lc_home_preset_explain">Presets only stage changes to Modes switches. Apply changes below to save; existing rules and Android components remain untouched.</string>
     <string name="lc_home_pending_count">%1$d mode changes awaiting Apply</string>
+    <string name="lc_home_manage_title">Mode categories</string>
+    <string name="lc_home_manage_count">%1$d categories · %2$d paused</string>
+    <string name="lc_home_modes_search">Search mode categories</string>
+    <string name="lc_home_filter_all">All</string>
+    <string name="lc_home_filter_enabled">Enabled</string>
+    <string name="lc_home_filter_disabled">Disabled</string>
+    <string name="lc_home_modes_empty">No matching mode categories</string>
 </resources>
