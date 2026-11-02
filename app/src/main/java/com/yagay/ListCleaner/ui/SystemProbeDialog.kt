@@ -72,7 +72,9 @@ internal fun SystemProbeDialog(
     else emptyList()
     val choices = if (request.directLaunch || request.shareMimeType != null || typedOptions.isNotEmpty())
         emptyList() else request.entryKind?.let(::availableProbeScenarios).orEmpty()
-    if (documentChoices.isNotEmpty()) {
+    if (request.entryKind == IntentKind.BROWSER && !request.directLaunch) {
+        BrowserPageCaptureDialog(request.userId, onDismiss)
+    } else if (documentChoices.isNotEmpty()) {
         SettingsFlatDialog(
             onDismissRequest = onDismiss,
             title = { AdaptiveText(stringResource(R.string.intent_document_provider)) },
@@ -153,7 +155,9 @@ internal fun SystemProbeDialog(
         )
     }
     LaunchedEffect(request) {
-        if (documentChoices.isNotEmpty() || choices.size > 1 || typedOptions.isNotEmpty()) return@LaunchedEffect
+        if ((request.entryKind == IntentKind.BROWSER && !request.directLaunch) ||
+            documentChoices.isNotEmpty() || choices.size > 1 || typedOptions.isNotEmpty()
+        ) return@LaunchedEffect
         try {
             val kind = request.entryKind
             val component = request.componentKind
