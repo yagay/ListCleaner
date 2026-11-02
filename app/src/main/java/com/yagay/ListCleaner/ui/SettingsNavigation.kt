@@ -29,6 +29,8 @@ internal fun SettingsTabContent(
     onColorModeChange: (UiColorMode) -> Unit,
     openModuleStatus: Boolean = false,
     onModuleStatusOpened: () -> Unit = {},
+    openDiagnostics: Boolean = false,
+    onDiagnosticsOpened: () -> Unit = {},
 ) {
     var selectedSection by rememberSaveable { mutableStateOf<SettingsSection?>(null) }
     var showScopeDetails by remember { mutableStateOf(false) }
@@ -41,6 +43,12 @@ internal fun SettingsTabContent(
             showScopeDetails = true
             vm.refreshModuleStatus()
             onModuleStatusOpened()
+        }
+    }
+    LaunchedEffect(openDiagnostics) {
+        if (openDiagnostics) {
+            selectedSection = SettingsSection.ADVANCED
+            onDiagnosticsOpened()
         }
     }
     BackHandler(enabled = selectedSection != null && !showScopeDetails && !showAppScopePicker) {
