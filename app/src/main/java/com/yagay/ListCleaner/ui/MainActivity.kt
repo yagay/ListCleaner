@@ -124,6 +124,7 @@ class MainActivity : ComponentActivity() {
         var managedEntrySurface by rememberSaveable(selectedSpace) { mutableStateOf<ManagedComponentSurface?>(null) }
         val listsRefresh = remember { ListsRefreshRegistry() }
         var openModuleStatus by remember { mutableStateOf(false) }
+        var openCompatibility by remember { mutableStateOf(false) }
         var openDiagnostics by remember { mutableStateOf(false) }
         var restartPromptDismissed by rememberSaveable { mutableStateOf(false) }
         var pendingImport by remember { mutableStateOf<Pair<String, SpaceBackupInspection>?>(null) }
@@ -340,8 +341,10 @@ class MainActivity : ComponentActivity() {
                             pendingNavigation.request { vm.setDestination(Destination.SETTINGS) }
                         },
                         onOpenStatus = {
-                            openModuleStatus = true
-                            pendingNavigation.request { vm.setDestination(Destination.SETTINGS) }
+                            pendingNavigation.request {
+                                openCompatibility = true
+                                vm.setDestination(Destination.SETTINGS)
+                            }
                         }
                     )
                     Destination.SETTINGS -> SettingsTabContent(
@@ -359,6 +362,8 @@ class MainActivity : ComponentActivity() {
                         onColorModeChange = onColorModeChange,
                         openModuleStatus = openModuleStatus,
                         onModuleStatusOpened = { openModuleStatus = false },
+                        openCompatibility = openCompatibility,
+                        onCompatibilityOpened = { openCompatibility = false },
                         openDiagnostics = openDiagnostics,
                         onDiagnosticsOpened = { openDiagnostics = false }
                     )
