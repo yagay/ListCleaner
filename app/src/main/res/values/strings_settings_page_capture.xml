@@ -11,4 +11,18 @@
     <string name="page_capture_no_external">This Activity cannot be launched externally or requires internal state. Its identity is still available for diagnostics.</string>
     <string name="page_capture_start_failed">Could not start capture.</string>
     <string name="page_capture_open_failed">Unable to open system Settings.</string>
+
+    <string name="page_capture_float_start">Open floating capture control</string>
+    <string name="page_capture_float_stop">Close floating control</string>
+    <string name="page_capture_float_permission">Allow display over other apps to use the floating capture button</string>
+    <string name="page_capture_float_active">Page capture started</string>
+    <string name="page_capture_float_paused">Page capture paused</string>
+    <string name="page_capture_float_success">Capture saved: %1$s</string>
+    <string name="page_capture_float_active_badge">●</string>
+    <string name="page_capture_float_paused_badge">Ⅱ</string>
+    <string name="page_capture_float_success_badge">✓</string>
+    <string name="page_capture_float_closed">Floating control closed</string>
+    <string name="page_capture_float_notification_title">ListCleaner page identification</string>
+    <string name="page_capture_float_notification_text">Tap the floating icon to start/pause capture; hold to close</string>
+    <string name="page_capture_float_hint">The icon starts in capture mode. Tap to pause/resume, drag to move, hold to close. Green check and a toast confirm a saved Activity/Fragment.</string>
 </resources>
