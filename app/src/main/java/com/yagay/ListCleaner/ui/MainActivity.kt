@@ -43,6 +43,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yagay.ListCleaner.R
+import com.yagay.ListCleaner.data.CleanupKind
 import com.yagay.ListCleaner.data.SpaceBackupInspection
 import com.yagay.ListCleaner.data.readBackupText
 import kotlinx.coroutines.CancellationException
