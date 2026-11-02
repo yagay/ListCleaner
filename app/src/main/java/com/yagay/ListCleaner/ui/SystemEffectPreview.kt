@@ -184,116 +184,128 @@ internal object SystemEffectPreview {
             return
         }
         if (!checkUser(context, selectedUserId)) return
-        val targets = settingsIntents(context, kind)
-        if (kind == IntentKind.ASSISTANT) {
-            launchAssistantRolePicker(context, selectedUserId)
+        if (kind in setOf(IntentKind.ASSISTANT, IntentKind.BROWSER,
+                IntentKind.HOME, IntentKind.CALL_SCREENING)) {
+            launchRolePicker(context, kind, selectedUserId)
             return
         }
-        launchSettingsTargets(context, kind, targets)
+        launchSettingsTargets(context, kind, settingsIntents(context, kind))
     }
 
     /**
-     * Open the actual role chooser, not the ManageAssist parent.
-     * Use the existing user-approved Root facility for discovery AND launch.
-     * Never interpret ordinary PackageManager visibility as proof that the
-     * privileged PermissionController Activity does not exist.
+     * Root is used only for a concrete, system-registered PermissionController
+     * DefaultAppActivity. It is not used to change a role holder or bypass user
+     * confirmation. The launched Activity is verified by exact component name:
+     * a normal parent Settings page is not reported as success.
      */
-    private fun launchAssistantRolePicker(context: Context, userId: Int) {
+    private fun launchRolePicker(context: Context, kind: IntentKind, userId: Int) {
         CoroutineScope(Dispatchers.Main.immediate).launch {
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
                     val discovery = ComponentRootCommand.runReadOnly(
-                        AssistantRolePickerBridge.discoverCommand(userId)
+                        DefaultRolePickerBridge.discoverCommand(userId)
                     )
-                    if (discovery.exitCode != 0 || discovery.timedOut ||
-                        discovery.output.contains("[output truncated]")) {
-                        return@runCatching AssistantPickerOutcome(
-                            R.string.preview_assistant_discovery_failed,
-                            "DISCOVERY_FAILED exit=${discovery.exitCode} " +
-                                "timeout=${discovery.timedOut} " +
-                                discovery.output.take(350)
+                    if (discovery.timedOut || discovery.exitCode != 0 ||
+                        discovery.output.contains("[output truncated]") ||
+                        discovery.output.contains("[output incomplete]")) {
+                        return@runCatching RolePickerOutcome(
+                            false, false,
+                            "DISCOVERY_FAILED kind=$kind exit=${discovery.exitCode} " +
+                                "timeout=${discovery.timedOut}"
                         )
                     }
-                    val systemPackagesResult = ComponentRootCommand.runReadOnly(
-                        AssistantRolePickerBridge.systemPackageQueryCommand(userId)
+
+                    val packages = ComponentRootCommand.runReadOnly(
+                        DefaultRolePickerBridge.systemPackageQueryCommand(userId)
                     )
-                    if (systemPackagesResult.exitCode != 0 || systemPackagesResult.timedOut ||
-                        systemPackagesResult.output.contains("[output truncated]")) {
-                        return@runCatching AssistantPickerOutcome(
-                            R.string.preview_assistant_discovery_failed,
-                            "SYSTEM_PACKAGE_QUERY_FAILED exit=${systemPackagesResult.exitCode} " +
-                                systemPackagesResult.output.take(350)
+                    if (packages.timedOut || packages.exitCode != 0 ||
+                        packages.output.contains("[output truncated]") ||
+                        packages.output.contains("[output incomplete]")) {
+                        return@runCatching RolePickerOutcome(
+                            false, false,
+                            "SYSTEM_PACKAGE_FAILED kind=$kind exit=${packages.exitCode}"
                         )
                     }
-                    val registeredSystems = AssistantRolePickerBridge.systemPackages(
-                        systemPackagesResult.output
+                    val component = DefaultRolePickerBridge.selectRegisteredComponent(
+                        discovery.output,
+                        DefaultRolePickerBridge.systemPackages(packages.output)
+                    ) ?: return@runCatching RolePickerOutcome(
+                        false, false, "COMPONENT_NOT_REGISTERED kind=$kind"
                     )
-                    val component = AssistantRolePickerBridge.selectRegisteredComponent(
-                        discovery.output, registeredSystems
-                    ) ?: return@runCatching AssistantPickerOutcome(
-                        R.string.preview_assistant_missing_component,
-                        "NO_ROLE_COMPONENT " + discovery.output.take(550)
+
+                    val launched = ComponentRootCommand.run(
+                        DefaultRolePickerBridge.launchCommand(userId, component, kind)
                     )
-                    val started = ComponentRootCommand.run(
-                        AssistantRolePickerBridge.launchCommand(userId, component)
-                    )
-                    if (started.timedOut || started.exitCode != 0 ||
-                        !AssistantRolePickerBridge.launchAccepted(started.output, component)) {
-                        return@runCatching AssistantPickerOutcome(
-                            R.string.preview_assistant_launch_failed,
-                            "LAUNCH_FAILED component=$component exit=${started.exitCode} " +
-                                "timeout=${started.timedOut} " +
-                                started.output.take(550)
+                    if (launched.timedOut || launched.exitCode != 0 ||
+                        !DefaultRolePickerBridge.launchAccepted(launched.output, component)) {
+                        return@runCatching RolePickerOutcome(
+                            false, false,
+                            "START_REJECTED kind=$kind component=$component " +
+                                "exit=${launched.exitCode} timeout=${launched.timedOut} " +
+                                "reason=${launched.output.take(180)}"
                         )
                     }
-                    // Verify the *foreground*, not only am start's exit code.
+
+                    // am start -W is not proof of the requested screen. Verify
+                    // the foreground after the OS has resumed its target.
                     val foreground = ComponentRootCommand.runReadOnly(
                         "dumpsys activity activities"
                     )
-                    if (foreground.exitCode != 0 || foreground.timedOut) {
-                        return@runCatching AssistantPickerOutcome(
-                            R.string.preview_assistant_not_verified,
-                            "FOREGROUND_QUERY_FAILED component=$component"
+                    if (foreground.timedOut || foreground.exitCode != 0 ||
+                        foreground.output.contains("[output truncated]") ||
+                        foreground.output.contains("[output incomplete]")) {
+                        return@runCatching RolePickerOutcome(
+                            false, true,
+                            "FOREGROUND_QUERY_FAILED kind=$kind component=$component"
                         )
                     }
-                    val actual = AssistantRolePickerBridge.foregroundPackage(
-                        foreground.output
+                    val verified = DefaultRolePickerBridge.foregroundMatches(
+                        foreground.output, component
                     )
-                    when {
-                        AssistantRolePickerBridge.foregroundMatches(
-                            foreground.output, component
-                        ) -> AssistantPickerOutcome(
-                            null, "VERIFIED component=$component foreground=$actual"
-                        )
-                        actual?.contains("settings", ignoreCase = true) == true ->
-                            AssistantPickerOutcome(
-                                R.string.preview_assistant_redirected,
-                                "REDIRECTED component=$component foreground=$actual"
-                            )
-                        else -> AssistantPickerOutcome(
-                            R.string.preview_assistant_not_verified,
-                            "FOREGROUND_UNVERIFIED component=$component foreground=$actual"
-                        )
-                    }
+                    RolePickerOutcome(
+                        verified, true,
+                        if (verified) "VERIFIED kind=$kind component=$component"
+                        else "REDIRECTED_OR_UNVERIFIED kind=$kind expected=$component " +
+                            "foreground=${DefaultRolePickerBridge.foregroundComponent(foreground.output)}"
+                    )
                 }.getOrElse { failure ->
-                    AssistantPickerOutcome(
-                        R.string.preview_assistant_discovery_failed,
-                        "ROOT_EXCEPTION " + failure.javaClass.simpleName +
-                            " message=" + failure.message.orEmpty().take(120)
+                    RolePickerOutcome(
+                        false, false,
+                        "ROOT_UNAVAILABLE kind=$kind error=${failure.javaClass.simpleName}"
                     )
                 }
             }
-            if (outcome.messageRes == null) {
-                Log.i("ListCleaner.SystemPreview", "ASSISTANT_ROLE_PICKER " + outcome.diagnostic)
-            } else {
-                Log.w("ListCleaner.SystemPreview", "ASSISTANT_ROLE_PICKER " + outcome.diagnostic)
-                show(context, outcome.messageRes)
+            if (outcome.verified) {
+                Log.i("ListCleaner.SystemPreview", "DEFAULT_ROLE_PICKER " + outcome.diagnostic)
+                return@launch
             }
+            Log.w("ListCleaner.SystemPreview", "DEFAULT_ROLE_PICKER " + outcome.diagnostic)
+
+            if (outcome.started) {
+                // We may already be in an OEM-redirected Activity. Don't start a
+                // second settings screen and conceal the original redirect.
+                show(context, R.string.preview_role_opened_not_verified)
+                return@launch
+            }
+            // Explicitly identify the fallback as a parent Settings screen, not
+            // as the actual default-app candidate picker.
+            show(context, R.string.preview_role_parent_fallback)
+            val fallback = when (kind) {
+                IntentKind.HOME -> settingsIntents(context, kind).take(1)
+                IntentKind.ASSISTANT, IntentKind.BROWSER, IntentKind.CALL_SCREENING ->
+                    settingsIntents(context, kind).filterNot {
+                        it.action == ACTION_MANAGE_DEFAULT_APP
+                    }
+                else -> emptyList()
+            }
+            launchSettingsTargets(context, kind, fallback)
         }
     }
 
-    private data class AssistantPickerOutcome(
-        val messageRes: Int?,
+    private data class RolePickerOutcome(
+        val verified: Boolean,
+        /** Android reported that the privileged target Activity started. */
+        val started: Boolean,
         val diagnostic: String,
     )
 
