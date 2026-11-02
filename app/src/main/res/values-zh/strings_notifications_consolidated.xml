@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="notification_cleanup_title">通知频道清理</string>
+    <string name="notification_cleanup_title">通知频道</string>
     <string name="notification_cleanup_help">按应用或已注册的通知频道隐藏通知。应用级与频道级规则独立保存，不会关闭应用发送通知的权限。</string>
     <string name="notification_cleanup_app_toggle">隐藏此应用的所有通知</string>
     <string name="notification_cleanup_app_selected">已隐藏整个应用的通知</string>
