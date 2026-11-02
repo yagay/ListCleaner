@@ -107,7 +107,10 @@ internal object SettingsPageNativeControl {
             textSize = 21f
             setTextColor(Color.WHITE)
             elevation = dp(activity, 7).toFloat()
-            contentDescription = "ListCleaner Settings page capture: tap to pause or resume, hold to close"
+            contentDescription = runCatching {
+                activity.createPackageContext("com.yagay.ListCleaner", 0)
+                    .getString(com.yagay.ListCleaner.R.string.page_capture_float_hint)
+            }.getOrNull()
         }
         root.addView(view, FrameLayout.LayoutParams(size, size, Gravity.TOP or Gravity.START))
         paint(view, if (active) 1 else 0)
@@ -128,7 +131,7 @@ internal object SettingsPageNativeControl {
                     if (result?.getBoolean(SettingsPageCaptureProtocol.KEY_CONTROL_ENABLED, false) != true) {
                         remove(owner)
                     } else paint(view,
-                        if (result.getBoolean(SettingsPageCaptureProtocol.KEY_CONTROL_ACTIVE, false)) 1 else 0)
+                        if (result?.getBoolean(SettingsPageCaptureProtocol.KEY_CONTROL_ACTIVE, false) == true) 1 else 0)
                 }
             }
         }
