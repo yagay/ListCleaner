@@ -40,6 +40,13 @@ object RuntimeInterfaceSnapshotCodec {
     fun keyForResolverOrder(kind: IntentKind): String = "resolver_adapter_order_v1_" + kind.name
     /** RoleController eligibility is independent of ACTION_ASSIST resolver and current holder. */
     fun keyForRoleEligibility(kind: IntentKind): String = "role_eligible_packages_v1_" + kind.name
+    /** Capture two distinct RoleController stages per Android user; never mix profiles. */
+    fun keyForRoleOriginal(kind: IntentKind, userId: Int): String =
+        "role_original_packages_v1_" + kind.name + "_user_" + userId
+
+    fun keyForRoleFiltered(kind: IntentKind, userId: Int): String =
+        "role_filtered_packages_v1_" + kind.name + "_user_" + userId
+
     /** An NFC payment surface can contain the same component in multiple Android profiles. */
     fun keyForNfcPayment(userId: Int): String = "nfc_payment_services_v1_user_" + userId
 
