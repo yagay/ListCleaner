@@ -335,7 +335,6 @@ class MainActivity : ComponentActivity() {
                                 vm.setDestination(Destination.RULES)
                             }
                         },
-                        onOpenRoot = { pendingNavigation.request { vm.setDestination(Destination.TILES) } },
                         onOpenDiagnostics = {
                             openDiagnostics = true
                             pendingNavigation.request { vm.setDestination(Destination.SETTINGS) }
