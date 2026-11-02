@@ -32,8 +32,9 @@ object SettingsPageCaptureProtocol {
     fun valid(page: CapturedSettingsPage): Boolean {
         if (page.packageName !in HOST_PACKAGES || page.userId !in 0..99_999 ||
             page.capturedAtMillis <= 0) return false
-        if (!page.activityClass.startsWith(page.packageName + ".") ||
-            page.activityClass.length > 240) return false
+        // Google PermissionController APKs sometimes retain the AOSP class namespace.
+        if (page.activityClass.length > 240 ||
+            HOST_PACKAGES.none { page.activityClass.startsWith(it + ".") }) return false
         if (page.fragmentClass.length > 240 || page.fragmentClass.any { it.isISOControl() } ||
             page.action.length > 160 || page.roleName.length > 120) return false
         if (page.action.isNotEmpty() && !page.action.startsWith("android.")) return false
