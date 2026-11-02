@@ -29,8 +29,8 @@ import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.DOCUMENTS_UI_PREVIEW_KINDS
 
 /**
- * Preview actions now launch Android's real surfaces without any local candidate
- * grid, capture sheet or reconstructed system list.
+ * Resolver and picker previews launch actual Android surfaces. RoleController
+ * categories expose verified system-return snapshots and native Settings navigation.
  */
 @Composable
 internal fun SystemProbeDialog(
@@ -72,7 +72,9 @@ internal fun SystemProbeDialog(
     else emptyList()
     val choices = if (request.directLaunch || request.shareMimeType != null || typedOptions.isNotEmpty())
         emptyList() else request.entryKind?.let(::availableProbeScenarios).orEmpty()
-    if (documentChoices.isNotEmpty()) {
+    if (request.entryKind in ROLE_PREVIEW_KINDS) {
+        RoleEligibilityPreviewDialog(request, onDismiss)
+    } else if (documentChoices.isNotEmpty()) {
         SettingsFlatDialog(
             onDismissRequest = onDismiss,
             title = { AdaptiveText(stringResource(R.string.intent_document_provider)) },
@@ -153,7 +155,9 @@ internal fun SystemProbeDialog(
         )
     }
     LaunchedEffect(request) {
-        if (documentChoices.isNotEmpty() || choices.size > 1 || typedOptions.isNotEmpty()) return@LaunchedEffect
+        if (request.entryKind in ROLE_PREVIEW_KINDS ||
+            documentChoices.isNotEmpty() || choices.size > 1 || typedOptions.isNotEmpty()
+        ) return@LaunchedEffect
         try {
             val kind = request.entryKind
             val component = request.componentKind
