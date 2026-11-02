@@ -305,13 +305,12 @@ internal object SystemEffectPreview {
                                 "activity=$activity"
                         }
                     }
-                    false to (
-                        if (AccessibilityServiceDetailRoute.parentAccessibilityVisible(lastDump)) {
-                            "REDIRECTED_TO_ACCESSIBILITY_MAIN"
-                        } else {
-                            "DETAIL_FRAGMENT_NOT_VERIFIED"
-                        }
-                    ) + " target=${component.flattenToString()} " +
+                    val reason = if (AccessibilityServiceDetailRoute.parentAccessibilityVisible(lastDump)) {
+                        "REDIRECTED_TO_ACCESSIBILITY_MAIN"
+                    } else {
+                        "DETAIL_FRAGMENT_NOT_VERIFIED"
+                    }
+                    false to "$reason target=${component.flattenToString()} " +
                         "activity=$activity top=${lastDump.take(300)}"
                 }.getOrElse { failure ->
                     false to "ROOT_EXCEPTION ${failure.javaClass.simpleName}: " +
