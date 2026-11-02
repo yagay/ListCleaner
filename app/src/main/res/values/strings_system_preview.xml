@@ -17,5 +17,5 @@
     <string name="preview_role_opened_not_verified">Android started the role picker, but the actual foreground screen could not be verified. Check the system page before using it.</string>
     <string name="preview_accessibility_detail_invalid">No valid accessibility service was selected.</string>
     <string name="preview_accessibility_detail_not_service">This item is not a registered accessibility service. A service detail page cannot be opened for it.</string>
-    <string name="preview_accessibility_detail_unavailable">Android did not allow this accessibility service detail page to be opened. The general Accessibility page was not substituted.</string>
+    <string name="preview_accessibility_detail_unavailable">Could not verify the selected accessibility service details page. Android may have redirected to the Accessibility home screen because the service is hidden by a cleanup rule, unavailable, or restricted. Export diagnostics to see ACCESSIBILITY_DETAIL.</string>
 </resources>
