@@ -573,9 +573,23 @@ if "start = contentStartInset" not in app_row_geometry or "end = MaterialUiToken
 details = (root / "WorkspaceCommon.kt").read_text(encoding="utf-8")
 detail_row = details.split("internal fun WorkspaceDetailRow(", 1)[-1]
 for expected in ("toggleableState = if (checked)", "trailing(menuExpanded) { menuExpanded = it }",
-                 "leadingInset = 0.dp", "WorkspaceDetailContainer(position, checked, contentBlock)"):
+                 "WorkspaceAlignedDetailRow(modifier = clickModifier, locked = locked)",
+                 "WorkspaceDetailContainer(position, checked, contentBlock)"):
     if expected not in detail_row:
         errors.append(f"WorkspaceCommon.kt: component highlight/selection contract missing {expected}")
+aligned_detail = details.split("private fun WorkspaceAlignedDetailRow(", 1)[-1].split(
+    "/** Sorting's read-only details", 1
+)[0]
+for expected in ("leadingInset = 0.dp", "trailingAccessoryWidth = MaterialUiTokens.appExpandIndicatorWidth",
+                 "Spacer(Modifier.width(MaterialUiTokens.iconTouchTarget))",
+                 "modifier = Modifier.size(MaterialUiTokens.appExpandIndicatorWidth)"):
+    if expected not in aligned_detail:
+        errors.append(f"WorkspaceCommon.kt: shared Entry/Sorting detail alignment missing {expected}")
+read_only_detail = details.split("internal fun WorkspaceReadOnlyDetailRow(", 1)[-1].split(
+    "/** Shared component detail", 1
+)[0]
+if "WorkspaceAlignedDetailRow(content = content)" not in read_only_detail:
+    errors.append("WorkspaceCommon.kt: Sorting read-only rows must use Entry detail geometry")
 if "WorkspaceDetailSelectionCheck(" in details or "trailingAccessoryWidth = 20.dp" in detail_row:
     errors.append("WorkspaceCommon.kt: obsolete selected check or its trailing gap returned")
 if "AdaptiveCheckbox(" in detail_row:
@@ -583,7 +597,7 @@ if "AdaptiveCheckbox(" in detail_row:
 detail_layout = (root / "UiCard.kt").read_text(encoding="utf-8")
 if "end = MaterialUiTokens.pageHorizontal + MaterialUiTokens.appExpandIndicatorWidth -" not in detail_layout:
     errors.append("UiCard.kt: expanded detail check must share the overflow alignment allowance")
-if "Spacer(Modifier.width(15.dp))" in detail_row:
+if "Spacer(Modifier.width(15.dp))" in aligned_detail:
     errors.append("WorkspaceCommon.kt: obsolete leading rail space remains")
 if "leadingInset: Dp = MaterialUiTokens.pageHorizontal" not in detail_layout or "start = leadingInset," not in detail_layout:
     errors.append("UiCard.kt: read-only inset and selectable lock-slot alignment missing")
