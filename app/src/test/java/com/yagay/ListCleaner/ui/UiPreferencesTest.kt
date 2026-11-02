@@ -23,6 +23,18 @@ class UiPreferencesTest {
         assertEquals(UiListStyle.ORIGINAL, UiPreferences().normalized().listStyle)
     }
 
+    @Test fun homeFavoritesCanBeAddedRemovedAndReorderedWithoutChangingRules() {
+        val available = listOf("OPEN", "SHARE", "DIRECT_SHARE", "BROWSER")
+        val saved = listOf("SHARE", "LEGACY", "OPEN")
+        assertEquals(listOf("SHARE", "LEGACY", "OPEN", "BROWSER"),
+            updatePinnedFavorites(saved, available, setOf("OPEN", "SHARE", "BROWSER")))
+        assertEquals(listOf("LEGACY"), updatePinnedFavorites(saved, available, emptySet()))
+        assertEquals(listOf("OPEN", "SHARE"),
+            movePinnedCategory(listOf("SHARE", "OPEN"), "OPEN", -1))
+        assertEquals(saved, listOf("SHARE", "LEGACY", "OPEN"))
+        assertTrue(UiPreferences().pinnedEntryKinds.isEmpty())
+    }
+
     @Test fun homePresetsOnlyStageIntendedModeSelections() {
         val supported = setOf("OPEN", "SHARE", "DIRECT_SHARE")
         val previouslyDisabled = setOf("SHARE", "LEGACY")
