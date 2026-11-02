@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="page_capture_title">Identify default browser Settings page</string>
+    <string name="page_capture_info">Start capture, navigate to Default apps → Browser in system Settings, then return to ListCleaner and tap the eye icon again. Only Activity/Fragment metadata is recorded for 3 minutes. No screen contents are read.</string>
+    <string name="page_capture_open_normal">Open default browser settings (existing route)</string>
+    <string name="page_capture_start">Start page identification</string>
+    <string name="page_capture_stop">Stop identification</string>
+    <string name="page_capture_active">Identification active (expires automatically)</string>
+    <string name="page_capture_none">No Settings page captured yet. Check the LSPosed scope for Settings and PermissionController, and reopen the actual page.</string>
+    <string name="page_capture_found">Captured pages (newest first). Tap one to try opening its actual Activity.</string>
+    <string name="page_capture_no_external">This Activity cannot be launched externally or requires internal state. Its identity is still available for diagnostics.</string>
+    <string name="page_capture_start_failed">Could not start capture.</string>
+    <string name="page_capture_open_failed">Unable to open system Settings.</string>
+</resources>
