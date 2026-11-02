@@ -29,23 +29,29 @@ import java.util.concurrent.Executor
  */
 internal object SettingsPageNativeControl {
     private const val SETTINGS_PACKAGE = "com.android.settings"
+    private val ROLE_PACKAGES = setOf(
+        "com.google.android.permissioncontroller",
+        "com.android.permissioncontroller",
+    )
     private const val CONTROL_TAG = "ListCleaner.SettingsCaptureControl"
     private val main = Handler(Looper.getMainLooper())
 
     fun maybeAttach(activity: Activity, executor: Executor, saved: Boolean = false) {
-        if (activity.packageName != SETTINGS_PACKAGE) return
+        if (!eligible(activity)) return
         val weak = WeakReference(activity)
         executor.execute {
             val status = call(activity.applicationContext, SettingsPageCaptureProtocol.METHOD_CONTROL_STATUS)
             val enabled = status?.getBoolean(SettingsPageCaptureProtocol.KEY_CONTROL_ENABLED, false) == true
             val active = status?.getBoolean(SettingsPageCaptureProtocol.KEY_CONTROL_ACTIVE, false) == true
             main.post {
-                val owner = weak.get() ?: return@post
-                if (owner.isFinishing || owner.isDestroyed) return@post
-                if (enabled) {
-                    attach(owner, executor, active)
-                    if (saved) showSuccess(owner)
-                } else remove(owner)
+                runCatching {
+                    val owner = weak.get() ?: return@runCatching
+                    if (owner.isFinishing || owner.isDestroyed) return@runCatching
+                    if (enabled) {
+                        attach(owner, executor, active)
+                        if (saved) showSuccess(owner)
+                    } else remove(owner)
+                }
             }
         }
     }
@@ -65,6 +71,18 @@ internal object SettingsPageNativeControl {
                 }
             }, 2200L)
         }
+    }
+
+    private fun eligible(activity: Activity): Boolean {
+        if (activity.packageName == SETTINGS_PACKAGE) return true
+        if (activity.packageName !in ROLE_PACKAGES) return false
+        val name = activity.componentName?.className.orEmpty()
+        // Limit native controls in PermissionController to its Default Apps pages,
+        // never to permission grants, credential requests or other sensitive dialogs.
+        if (name.endsWith(".DefaultAppListActivity")) return true
+        return name.endsWith(".DefaultAppActivity") &&
+            activity.intent?.getStringExtra("android.intent.extra.ROLE_NAME") ==
+                "android.app.role.BROWSER"
     }
 
     private fun call(context: Context, operation: String): Bundle? =
