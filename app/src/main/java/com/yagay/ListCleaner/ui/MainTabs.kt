@@ -72,6 +72,16 @@ internal fun RulesTab(
         ApplicationOverviewDialog(packageName, state, componentScan, vm.selectedSpace.value, onDismiss = { overviewPackage = null })
     }
     var systemProbeRequest by remember { mutableStateOf<SystemProbeRequest?>(null) }
+    // RoleController options are already read by Hooks. The eye's user action
+    // should launch the actual system role picker, not first open our snapshot UI.
+    val openSystemPreview: (SystemProbeRequest) -> Unit = { request ->
+        val kind = request.entryKind
+        if (kind != null && kind in ROLE_PREVIEW_KINDS) {
+            SystemEffectPreview.launchSettings(prefsContext, kind, request.userId)
+        } else {
+            systemProbeRequest = request
+        }
+    }
     editingTitle?.let { item ->
         ComponentTitleDialog(
             item,
@@ -476,14 +486,14 @@ previewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds,
                             val baseAction = WorkspaceMenuAction(
                                 label = stringResource(previewKind.titleRes()),
                                 onClick = {
-                                    systemProbeRequest = SystemProbeRequest(
+                                    openSystemPreview(SystemProbeRequest(
                                         entryKind = previewKind,
                                         userId = vm.selectedSpace.value,
                                         directLaunch = previewKind == IntentKind.DOCUMENT_PROVIDER,
                                         scenario = scopedProbeScenario(previewKind, typedOpenPreset, directShareType),
                                         browserHost = deepLinkHost.takeIf { previewKind == IntentKind.DEEP_LINK },
                                         directShareType = directShareType.takeIf { previewKind == IntentKind.DIRECT_SHARE },
-                                    )
+                                    ))
                                 },
                             )
                             // Only expand the selected Open / Share / Multi Share
@@ -495,9 +505,9 @@ previewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds,
                                 WorkspaceMenuAction(
                                     label = previewMimeLabel(option, state.openTypesExplicit),
                                     onClick = {
-                                        systemProbeRequest = previewMimeRequest(
+                                        openSystemPreview(previewMimeRequest(
                                             previewKind, vm.selectedSpace.value, option
-                                        )
+                                        ))
                                     },
                                 )
                             }
@@ -674,7 +684,7 @@ previewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds,
                         },
                         onEditTitle = { editingTitle = component },
                         onPreview = {
-                            systemProbeRequest = SystemProbeRequest(
+                            openSystemPreview(SystemProbeRequest(
                                 entryKind = component.rule.kind,
                                 userId = vm.selectedSpace.value,
                                 scenario = scopedProbeScenario(component.rule.kind, typedOpenPreset, directShareType),
@@ -686,7 +696,7 @@ previewActions = entryHeaderPreviewKinds(state.filter, state.disabledEntryKinds,
                                 shareMimeType = selectedShareMime?.probeMime.takeIf { component.rule.kind == state.filter },
                                 focusPackage = component.rule.packageName,
                                 focusClass = component.rule.className,
-                            )
+                            ))
                         }
                     )
                 }
