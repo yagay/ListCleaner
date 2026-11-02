@@ -48,6 +48,7 @@ internal fun SurfaceManagementTab(
     vm: MainViewModel,
     pendingNavigation: PendingNavigationGuard? = null,
     onOpenEntry: (IntentKind) -> Unit = {},
+    onOpenComponentCategory: (CleanupKind) -> Unit = {},
     onOpenCleanupEntry: () -> Unit = {},
     onOpenComponents: () -> Unit = {},
     onOpenDiagnostics: () -> Unit = {},
@@ -104,8 +105,11 @@ internal fun SurfaceManagementTab(
         .map { it.kind }.toSet()
     val allManagedKinds = ManagedComponentSurface.entries.map { it.surfaceKind() }.toSet()
     val prefs = UiPreferencesRuntime.current
-    val pinned = prefs.pinnedEntryKinds.filter { it in allEntryKinds }
-    // Show only what the user explicitly pinned; an empty list stays empty.
+    val homeFavoriteOptions: List<CleanupCategoryId> =
+        entryModeItems.filterIsInstance<CleanupCategoryId.Entry>() +
+            rootModeItems.filterIsInstance<CleanupCategoryId.Root>()
+    val pinned = homeFavoriteCategories(prefs, homeFavoriteOptions)
+    // Show only user-pinned Entry and Component categories.
     val shortcuts = pinned.take(4)
     val favorites = entryModeItems.filter { category ->
         when (category) {
@@ -141,12 +145,19 @@ internal fun SurfaceManagementTab(
 
     if (showFavoritePicker) {
         CategoryPinnedPickerDialog(
-            available = entryModeItems.filterIsInstance<CleanupCategoryId.Entry>().map { it.kind },
-            pinned = prefs.pinnedEntryKinds,
-            label = { kind -> stringResource(kind.titleRes()) },
+            available = homeFavoriteOptions,
+            pinned = pinned,
+            label = { category ->
+                stringResource(category.titleResource()) + " · " +
+                    stringResource(if (category is CleanupCategoryId.Root)
+                        R.string.lc_home_favorite_type_component
+                        else R.string.lc_home_favorite_type_entry)
+            },
             onSave = { chosen ->
                 UiPreferencesStore.write(
-                    context, UiPreferencesRuntime.current.copy(pinnedEntryKinds = chosen))
+                    context,
+                    updateHomeFavorites(UiPreferencesRuntime.current, chosen, homeFavoriteOptions),
+                )
             },
             onDismiss = { showFavoritePicker = false },
         )
@@ -154,14 +165,17 @@ internal fun SurfaceManagementTab(
     if (showFavoriteManager) {
         CategoryPinnedManagerDialog(
             items = pinned,
-            label = { kind -> stringResource(kind.titleRes()) },
+            label = { category ->
+                stringResource(category.titleResource()) + " · " +
+                    stringResource(if (category is CleanupCategoryId.Root)
+                        R.string.lc_home_favorite_type_component
+                        else R.string.lc_home_favorite_type_entry)
+            },
             onChange = { updated ->
-                // Do not erase legacy/invisible Entry pins from other list pickers.
-                val otherPins = UiPreferencesRuntime.current.pinnedEntryKinds
-                    .filterNot { it in allEntryKinds }
                 UiPreferencesStore.write(
-                    context, UiPreferencesRuntime.current.copy(
-                        pinnedEntryKinds = updated + otherPins))
+                    context,
+                    updateHomeFavorites(UiPreferencesRuntime.current, updated, homeFavoriteOptions),
+                )
             },
             onDismiss = { showFavoriteManager = false },
         )
@@ -298,13 +312,21 @@ internal fun SurfaceManagementTab(
                 WorkspaceAppNote(stringResource(R.string.lc_home_favorites_empty))
             }
         } else {
-            shortcuts.forEach { kind ->
-                item(key = "home-shortcut-kind-${kind.name}") {
+            shortcuts.forEach { category ->
+                item(key = "home-shortcut-category-${homeFavoriteKey(category)}") {
                     FlatCategoryRow(
-                        icon = CleanupCategoryId.Entry(kind).icon(),
-                        title = stringResource(kind.titleRes()),
-                        description = null,
-                        onClick = { onOpenEntry(kind) },
+                        icon = category.icon(),
+                        title = stringResource(category.titleResource()),
+                        description = stringResource(if (category is CleanupCategoryId.Root)
+                            R.string.lc_home_favorite_type_component
+                            else R.string.lc_home_favorite_type_entry),
+                        onClick = {
+                            when (category) {
+                                is CleanupCategoryId.Entry -> onOpenEntry(category.kind)
+                                is CleanupCategoryId.Root -> onOpenComponentCategory(category.kind)
+                                is CleanupCategoryId.Managed -> Unit
+                            }
+                        },
                         onLongClick = { showFavoriteManager = true },
                     )
                 }
