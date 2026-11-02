@@ -52,4 +52,6 @@
     <string name="lc_home_favorites_more">还有 %1$d 个常用分类。长按可调整顺序或移除。</string>
     <string name="lc_home_favorite_type_entry">入口</string>
     <string name="lc_home_favorite_type_component">组件</string>
+    <string name="lc_home_favorites_expand">展开全部常用分类</string>
+    <string name="lc_home_favorites_collapse">收起常用分类</string>
 </resources>
