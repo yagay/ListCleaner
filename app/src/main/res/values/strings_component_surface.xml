@@ -48,4 +48,8 @@
     <string name="lc_home_filter_enabled">Enabled</string>
     <string name="lc_home_filter_disabled">Disabled</string>
     <string name="lc_home_modes_empty">No matching cleanup categories</string>
+    <string name="lc_home_favorites_add">Add favorites</string>
+    <string name="lc_home_favorites_choose">Choose favorite Entry categories</string>
+    <string name="lc_home_favorites_empty">No favorites yet. Tap + to add Entry categories.</string>
+    <string name="lc_home_favorites_more">%1$d more favorites are pinned in Cleanup. Long-press a favorite to reorder or remove it.</string>
 </resources>
