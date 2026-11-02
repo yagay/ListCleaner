@@ -86,6 +86,15 @@ class UiPreferencesTest {
         ))
     }
 
+    @Test fun modesIsHomeForNewAndExistingInstalls() {
+        assertEquals(UiStartPage.SURFACES, UiPreferences().startPage)
+        assertEquals("SURFACES", UiPreferencesStore.upgradedStartPage(null))
+        assertEquals("SURFACES", UiPreferencesStore.upgradedStartPage("CLEANUP"))
+        assertEquals("SURFACES", UiPreferencesStore.upgradedStartPage("SURFACES"))
+        assertEquals("ORDERING", UiPreferencesStore.upgradedStartPage("ORDERING"))
+        assertEquals("SETTINGS", UiPreferencesStore.upgradedStartPage("SETTINGS"))
+    }
+
     @Test fun openingPageMapsToExistingDestinations() {
         assertEquals(Destination.RULES, UiStartPage.CLEANUP.destination())
         assertEquals(Destination.PRIORITY, UiStartPage.ORDERING.destination())
