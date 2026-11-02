@@ -49,7 +49,7 @@ class AccessibilityServiceDetailRouteTest {
 
     @Test fun rootResultRejectsParentAndErrors() {
         assertTrue(AccessibilityServiceDetailRoute.launchAccepted(
-            "Status: ok\nActivity: com.android.settings/.Settings\\$AccessibilityDetailsSettingsActivity\nComplete"))
+            "Status: ok\nActivity: com.android.settings/.Settings\nComplete"))
         assertFalse(AccessibilityServiceDetailRoute.launchAccepted(
             "Status: ok\nActivity: com.example.OtherActivity\nComplete"))
         assertFalse(AccessibilityServiceDetailRoute.launchAccepted(
