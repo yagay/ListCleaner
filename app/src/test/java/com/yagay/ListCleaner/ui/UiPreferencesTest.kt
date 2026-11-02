@@ -1,5 +1,6 @@
 package com.yagay.ListCleaner.ui
 
+import com.yagay.ListCleaner.domain.AppTypeFilter
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -20,6 +21,16 @@ class UiPreferencesTest {
         val preferences = UiPreferences(listStyle = UiListStyle.GROUPED).normalized()
         assertEquals(UiListStyle.ORIGINAL, preferences.listStyle)
         assertEquals(UiListStyle.ORIGINAL, UiPreferences().normalized().listStyle)
+    }
+
+    @Test fun defaultAppTypeShowsAllWithoutFiltering() {
+        assertEquals(UiFilter.ALL, UiPreferences().defaultFilter)
+        assertEquals(AppTypeFilter.ALL, UiPreferences().defaultAppType)
+        assertEquals("ALL", UiPreferencesStore.upgradedDefaultAppType("USER"))
+        assertEquals("ALL", UiPreferencesStore.upgradedDefaultAppType("ALL"))
+        // A user-selected System-only default is not silently changed.
+        assertEquals("SYSTEM", UiPreferencesStore.upgradedDefaultAppType("SYSTEM"))
+        assertEquals(null, UiPreferencesStore.upgradedDefaultAppType(null))
     }
 
     @Test fun entryCleanupAndPriorityShareOneAppTypePreferenceScope() {
