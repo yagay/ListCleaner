@@ -70,11 +70,10 @@ internal fun SystemProbeDialog(
     val typedOptions = if (!request.directLaunch && typedKind != null && previewState != null)
         previewMimeOptions(typedKind, previewState.candidates, previewState.openTypesExplicit)
     else emptyList()
-    val choices = if (request.directLaunch || request.shareMimeType != null || typedOptions.isNotEmpty())
-        emptyList() else request.entryKind?.let(::availableProbeScenarios).orEmpty()
-    if (request.entryKind in ROLE_PREVIEW_KINDS) {
-        RoleEligibilityPreviewDialog(request, onDismiss)
-    } else if (documentChoices.isNotEmpty()) {
+    val choices = if (request.entryKind in ROLE_PREVIEW_KINDS ||
+        request.directLaunch || request.shareMimeType != null || typedOptions.isNotEmpty()
+    ) emptyList() else request.entryKind?.let(::availableProbeScenarios).orEmpty()
+    if (documentChoices.isNotEmpty()) {
         SettingsFlatDialog(
             onDismissRequest = onDismiss,
             title = { AdaptiveText(stringResource(R.string.intent_document_provider)) },
@@ -155,9 +154,8 @@ internal fun SystemProbeDialog(
         )
     }
     LaunchedEffect(request) {
-        if (request.entryKind in ROLE_PREVIEW_KINDS ||
-            documentChoices.isNotEmpty() || choices.size > 1 || typedOptions.isNotEmpty()
-        ) return@LaunchedEffect
+        if (documentChoices.isNotEmpty() || choices.size > 1 || typedOptions.isNotEmpty())
+            return@LaunchedEffect
         try {
             val kind = request.entryKind
             val component = request.componentKind
