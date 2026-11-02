@@ -40,20 +40,28 @@ class RuntimeCaptureProvider : ContentProvider() {
         if (extras.getBoolean(RuntimeCaptureContract.KEY_ORDERED, false) != ordered) return null
         // All default-app roles use the same RoleController eligibility endpoint.
         // Never share their slot with PackageManager or Resolver observations.
-        val isRoleEligibility = snapshot.source == "ROLE_CONTROLLER_RETURN" &&
-            kind in setOf(IntentKind.ASSISTANT, IntentKind.HOME,
-                IntentKind.BROWSER, IntentKind.CALL_SCREENING)
+        val isRoleEligibility = snapshot.source in setOf(
+            "ROLE_CONTROLLER_ORIGINAL", "ROLE_CONTROLLER_RETURN"
+        ) && kind in setOf(IntentKind.ASSISTANT, IntentKind.HOME,
+            IntentKind.BROWSER, IntentKind.CALL_SCREENING)
         val isNfcPayment = snapshot.source == "NFC_PAYMENT_FILTERED_RETURN" &&
             kind == IntentKind.NFC_HCE
         val key = when {
             ordered -> RuntimeInterfaceSnapshotCodec.keyForResolverOrder(kind)
-            isRoleEligibility -> RuntimeInterfaceSnapshotCodec.keyForRoleEligibility(kind)
+            snapshot.source == "ROLE_CONTROLLER_ORIGINAL" && isRoleEligibility ->
+                RuntimeInterfaceSnapshotCodec.keyForRoleOriginal(kind, snapshot.callerUserId)
+            isRoleEligibility -> RuntimeInterfaceSnapshotCodec.keyForRoleFiltered(kind, snapshot.callerUserId)
             isNfcPayment -> RuntimeInterfaceSnapshotCodec.keyForNfcPayment(snapshot.callerUserId)
             else -> RuntimeInterfaceSnapshotCodec.key(kind)
         }
         ctx.getSharedPreferences(RuntimeCaptureContract.PREFS, android.content.Context.MODE_PRIVATE)
             .edit().apply {
                 putString(key, encoded)
+                // Preserve the older key for readers predating per-user snapshots.
+                if (isRoleEligibility && snapshot.source == "ROLE_CONTROLLER_RETURN" &&
+                    snapshot.callerUserId == AndroidUid.userId(callingUid)) {
+                    putString(RuntimeInterfaceSnapshotCodec.keyForRoleEligibility(kind), encoded)
+                }
                 if (!ordered && !isRoleEligibility && !isNfcPayment &&
                     snapshot.callerUid >= 0) {
                     putString(RuntimeInterfaceSnapshotCodec.keyForCaller(kind, snapshot.callerUid), encoded)
@@ -83,7 +91,7 @@ class RuntimeCaptureProvider : ContentProvider() {
         if (value.source !in ORDERED_SOURCES && value.source !in RETURN_SOURCES) return false
         if (ordered && value.callerPackage.substringBefore(':') !in
             setOf("android", "system", "com.android.intentresolver")) return false
-        if (value.source == "ROLE_CONTROLLER_RETURN") {
+        if (value.source in setOf("ROLE_CONTROLLER_ORIGINAL", "ROLE_CONTROLLER_RETURN")) {
             if (value.requestAction != "android.app.role." + value.kind ||
                 value.callerPackage.substringBefore(':') !in setOf(
                     "com.android.permissioncontroller", "com.google.android.permissioncontroller"
@@ -114,7 +122,7 @@ class RuntimeCaptureProvider : ContentProvider() {
         private val ORDERED_SOURCES = setOf("CHOOSER_ADAPTER_ORDER", "RESOLVER_RANKED_ORDER")
         private val RETURN_SOURCES = setOf(
             "PACKAGE_MANAGER_FILTERED_RETURN", "SYSTEM_MANAGER_RETURN",
-            "INPUT_METHOD_MENU", "ROLE_CONTROLLER_RETURN",
+            "INPUT_METHOD_MENU", "ROLE_CONTROLLER_ORIGINAL", "ROLE_CONTROLLER_RETURN",
             "DIRECT_SHARE_SERVICE_RETURN", "NFC_PAYMENT_FILTERED_RETURN",
         )
         private val TRUSTED_PROCESS_PACKAGES = setOf(
