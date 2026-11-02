@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -94,6 +95,7 @@ internal fun <T> CategoryPinnedPickerDialog(
     available: List<T>,
     pinned: List<T>,
     label: @Composable (T) -> String,
+    iconFor: (T) -> ImageVector? = { null },
     onSave: (List<T>) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -113,6 +115,9 @@ internal fun <T> CategoryPinnedPickerDialog(
                             selected = if (item in selected) selected - item else selected + item
                         },
                         compactOption = true,
+                        // Reuse the same category icon, selected rail and checkmark
+                        // as the Cleanup category popup, including mixed types.
+                        leadingIcon = iconFor(item),
                     )
                 }
             }
@@ -138,6 +143,7 @@ internal fun <T> CategoryPinnedPickerDialog(
 internal fun <T> CategoryPinnedManagerDialog(
     items: List<T>,
     label: @Composable (T) -> String,
+    iconFor: (T) -> ImageVector? = { null },
     onChange: (List<T>) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -176,6 +182,13 @@ internal fun <T> CategoryPinnedManagerDialog(
                                 )
                             }
                         )
+                        iconFor(item)?.let { icon ->
+                            AdaptiveIcon(
+                                icon, null, modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.width(10.dp))
+                        }
                         AdaptiveText(label(item), modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.bodyMedium, maxLines = 1)
                         AdaptiveIconButton(onClick = { onChange(items - item) }) {
