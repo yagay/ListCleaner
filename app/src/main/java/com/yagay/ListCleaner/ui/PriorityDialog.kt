@@ -877,7 +877,7 @@ private fun ComponentInfoRow(
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     WorkspaceReadOnlyDetailRow(position = position) {
-        Column(Modifier.weight(1f)) {
+        Column(Modifier.weight(1f).padding(vertical = 4.dp)) {
             WorkspaceDetailHeading(
                 item.activityLabel,
                 stringResource(item.rule.kind.titleRes())
