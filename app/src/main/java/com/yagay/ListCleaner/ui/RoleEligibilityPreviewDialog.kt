@@ -30,6 +30,9 @@ internal val ROLE_PREVIEW_KINDS = setOf(
     IntentKind.CALL_SCREENING,
 )
 
+/** Role eye actions launch the native picker without opening our capture list first. */
+internal fun opensRolePickerDirectly(kind: IntentKind?): Boolean = kind in ROLE_PREVIEW_KINDS
+
 private fun readRoleComparison(context: Context, kind: IntentKind, userId: Int): RoleEligibilityComparison {
     val prefs = context.getSharedPreferences(RuntimeCaptureContract.PREFS, Context.MODE_PRIVATE)
     fun decode(key: String): RuntimeInterfaceSnapshot? =
