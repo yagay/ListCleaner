@@ -5,6 +5,9 @@ import android.graphics.pdf.PdfDocument
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.Context
+import android.content.ComponentName
+import android.content.pm.PackageManager
+import android.view.accessibility.AccessibilityManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -146,7 +149,7 @@ internal object SystemEffectPreview {
             return
         }
         if (route == SystemPreviewRoute.SETTINGS) {
-            launchSettings(context, kind, selectedUserId)
+            launchSettings(context, kind, selectedUserId, request)
             return
         }
         val tracked = kind in setOf(
@@ -178,18 +181,113 @@ internal object SystemEffectPreview {
     /** Open only supported, exported Android settings actions; never assume an OEM
      * retains an AOSP-specific Activity class or pretend that this is the final list.
      */
-    fun launchSettings(context: Context, kind: IntentKind, selectedUserId: Int) {
+    fun launchSettings(
+        context: Context, kind: IntentKind, selectedUserId: Int,
+        request: SystemProbeRequest? = null,
+    ) {
         if (AospProviderSettingsRoute.isProvider(kind)) {
             launchProviderSettings(context, kind, selectedUserId)
             return
         }
         if (!checkUser(context, selectedUserId)) return
+        if (kind == IntentKind.ACCESSIBILITY && request?.focusPackage != null) {
+            // The app-row eye has a specific service identity. The category eye
+            // has no such target and continues to open the native service list.
+            launchAccessibilityServiceDetails(context, selectedUserId, request)
+            return
+        }
         if (kind in setOf(IntentKind.ASSISTANT, IntentKind.BROWSER,
                 IntentKind.HOME, IntentKind.CALL_SCREENING)) {
             launchRolePicker(context, kind, selectedUserId)
             return
         }
         launchSettingsTargets(context, kind, settingsIntents(context, kind))
+    }
+
+    /**
+     * Open the Settings detail/toggle page for a specific installed accessibility
+     * service, not the parent Accessibility landing page. AOSP protects the detail
+     * action with OPEN_ACCESSIBILITY_DETAILS_SETTINGS, so fall back to explicitly
+     * authorized Root only when the ordinary Activity launch is blocked.
+     */
+    @Suppress("DEPRECATION")
+    private fun launchAccessibilityServiceDetails(
+        context: Context, userId: Int, request: SystemProbeRequest,
+    ) {
+        val component = AccessibilityServiceDetailRoute.component(
+            request.focusPackage, request.focusClass,
+        )
+        if (component == null) {
+            Log.w("ListCleaner.SystemPreview", "ACCESSIBILITY_DETAIL_INVALID_COMPONENT")
+            show(context, R.string.preview_accessibility_detail_invalid)
+            return
+        }
+        // Accessibility shortcut Activities are separate from installed
+        // AccessibilityService implementations. Never guess which service a
+        // shortcut controls, and never open another app's settings by package.
+        val serviceManager = context.getSystemService(AccessibilityManager::class.java)
+        val managerMatch = runCatching {
+            serviceManager?.installedAccessibilityServiceList.orEmpty().any { info ->
+                info.resolveInfo?.serviceInfo?.let { service ->
+                    service.packageName == component.packageName &&
+                        service.name == component.className
+                } == true
+            }
+        }.getOrDefault(false)
+        val pmMatch = runCatching {
+            context.packageManager.queryIntentServices(
+                Intent("android.accessibilityservice.AccessibilityService"),
+                PackageManager.GET_META_DATA or PackageManager.MATCH_DISABLED_COMPONENTS,
+            ).any { info ->
+                info.serviceInfo?.let { service ->
+                    service.packageName == component.packageName &&
+                        service.name == component.className
+                } == true
+            }
+        }.getOrDefault(false)
+        if (!managerMatch && !pmMatch) {
+            Log.w("ListCleaner.SystemPreview",
+                "ACCESSIBILITY_DETAIL_NOT_SERVICE component=${component.flattenToString()}")
+            show(context, R.string.preview_accessibility_detail_not_service)
+            return
+        }
+
+        try {
+            context.startActivity(AccessibilityServiceDetailRoute.detailIntent(component))
+            Log.i("ListCleaner.SystemPreview",
+                "ACCESSIBILITY_DETAIL_DIRECT_REQUESTED component=${component.flattenToString()}")
+            return
+        } catch (blocked: SecurityException) {
+            Log.i("ListCleaner.SystemPreview",
+                "ACCESSIBILITY_DETAIL_DIRECT_RESTRICTED component=${component.flattenToString()}")
+        } catch (missing: ActivityNotFoundException) {
+            Log.i("ListCleaner.SystemPreview",
+                "ACCESSIBILITY_DETAIL_DIRECT_MISSING component=${component.flattenToString()}")
+        } catch (failure: RuntimeException) {
+            Log.w("ListCleaner.SystemPreview",
+                "ACCESSIBILITY_DETAIL_DIRECT_FAILED error=${failure.javaClass.simpleName}")
+        }
+
+        CoroutineScope(Dispatchers.Main.immediate).launch {
+            val outcome = withContext(Dispatchers.IO) {
+                runCatching {
+                    ComponentRootCommand.run(
+                        AccessibilityServiceDetailRoute.rootLaunchCommand(userId, component)
+                    )
+                }.getOrNull()
+            }
+            if (outcome != null && !outcome.timedOut && outcome.exitCode == 0 &&
+                AccessibilityServiceDetailRoute.launchAccepted(outcome.output)) {
+                Log.i("ListCleaner.SystemPreview",
+                    "ACCESSIBILITY_DETAIL_ROOT_REQUESTED component=${component.flattenToString()}")
+            } else {
+                Log.w("ListCleaner.SystemPreview",
+                    "ACCESSIBILITY_DETAIL_ROOT_FAILED component=${component.flattenToString()} " +
+                        "exit=${outcome?.exitCode} timeout=${outcome?.timedOut} " +
+                        "output=${outcome?.output?.take(250)}")
+                show(context, R.string.preview_accessibility_detail_unavailable)
+            }
+        }
     }
 
     /**
