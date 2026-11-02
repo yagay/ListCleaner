@@ -224,26 +224,21 @@ internal fun SurfaceManagementTab(
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
         if (section == ModesHomeSection.HOME) {
-        item(key = "home-runtime-status") {
-            val lsposed = when {
-                !state.module.checked -> stringResource(R.string.lc_home_status_unchecked)
-                !state.module.connected -> stringResource(R.string.lc_home_status_disconnected)
-                state.module.outdated -> stringResource(R.string.lc_home_status_outdated)
-                else -> stringResource(R.string.lc_home_status_connected)
-            }
-            val runtime = stringResource(if (state.runtime.ready)
-                R.string.lc_home_status_ready else R.string.lc_home_status_not_ready)
+        item(key = "home-module-status") {
+            // Relocated unchanged from Settings home: display the existing
+            // module sync/acknowledgement message and open Compatibility.
             MaterialSettingsRow(
-                title = stringResource(R.string.lc_home_status_title),
-                supportingText = "$lsposed · $runtime\\n" +
-                    stringResource(R.string.lc_home_status_root_unchecked),
+                title = stringResource(R.string.dashboard_module_status),
+                supportingText = when {
+                    !state.runtime.ready && state.runtime.message.isNotBlank() -> state.runtime.message
+                    state.syncStatus.isNotBlank() -> state.syncStatus
+                    else -> stringResource(R.string.dashboard_sync_status)
+                },
                 onClick = onOpenStatus,
             ) {
                 AdaptiveIcon(Icons.Rounded.ChevronRight, null)
             }
         }
-
-
 
         item(key = "home-cleanup-overview") {
             WorkspaceListSummary(
