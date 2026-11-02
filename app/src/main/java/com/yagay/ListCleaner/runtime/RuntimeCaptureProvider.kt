@@ -38,7 +38,7 @@ class RuntimeCaptureProvider : ContentProvider() {
             val callingUid = Binder.getCallingUid()
             if (!trustedFrameworkUid(callingUid) ||
                 ctx.packageManager.getPackagesForUid(callingUid).orEmpty()
-                    .none { it == "com.android.settings" }) return null
+                    .none { it in SettingsPageCaptureProtocol.HOST_PACKAGES }) return null
             val showing = SettingsPageFloatingService.isShowing()
             val active = SettingsPageCaptureStore.active(ctx)
             if (!showing && !active) return Bundle().apply {
