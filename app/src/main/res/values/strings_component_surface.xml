@@ -26,8 +26,8 @@
     <string name="lc_home_overview_summary">%1$d saved Entry rules · %2$d disabled cleanup categories · %3$d hidden notification channels</string>
     <string name="lc_home_quick_title">Quick access</string>
     <string name="lc_home_diagnostics_shortcut">Diagnostics</string>
-    <string name="lc_home_favorites_title">Favorite Entry categories</string>
-    <string name="lc_home_favorites_suggested">Common Entry categories</string>
+    <string name="lc_home_favorites_title">Favorite categories</string>
+    <string name="lc_home_favorites_suggested">Common categories</string>
     <string name="lc_home_issues_title">Needs attention</string>
     <string name="lc_home_issue_unchecked">LSPosed status has not been checked yet</string>
     <string name="lc_home_issue_connection">LSPosed service is disconnected</string>
@@ -47,7 +47,9 @@
     <string name="lc_home_filter_disabled">Disabled</string>
     <string name="lc_home_modes_empty">No matching cleanup categories</string>
     <string name="lc_home_favorites_add">Add favorites</string>
-    <string name="lc_home_favorites_choose">Choose favorite Entry categories</string>
-    <string name="lc_home_favorites_empty">No favorites yet. Tap + to add Entry categories.</string>
-    <string name="lc_home_favorites_more">%1$d more favorites are pinned in Cleanup. Long-press a favorite to reorder or remove it.</string>
+    <string name="lc_home_favorites_choose">Choose favorite categories</string>
+    <string name="lc_home_favorites_empty">No favorites yet. Tap + to add Entry or Component categories.</string>
+    <string name="lc_home_favorites_more">%1$d more favorites. Long-press a favorite to reorder or remove it.</string>
+    <string name="lc_home_favorite_type_entry">Entry</string>
+    <string name="lc_home_favorite_type_component">Component</string>
 </resources>
