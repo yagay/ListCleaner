@@ -1,6 +1,10 @@
 package com.yagay.ListCleaner.xposed
 
 import android.content.ComponentName
+import android.app.Activity
+import android.content.Intent
+import android.os.Bundle
+import com.yagay.ListCleaner.ui.SettingsAccessibilityNavigationProbe
 import android.os.Process
 import com.yagay.ListCleaner.domain.AndroidUid
 import android.util.Log
@@ -56,12 +60,95 @@ class SettingsEntryAuthorityModule : XposedModule() {
         installed += installVpnHooks(param.classLoader)
         installed += installLegacyAutofillHooks(param.classLoader)
         installed += installDreamOrderingHooks(param.classLoader)
+        installed += installAccessibilityNavigationCapture(param.classLoader)
         if (installed > 0) {
             policyProvider.start()
             record("HOOKS_READY package=${param.packageName} new=$installed total=${installedMethods.size}")
         } else {
             record("AUTHORITY_CLASSES_UNAVAILABLE package=${param.packageName}")
         }
+    }
+
+    /**
+     * Capture the real OEM "Downloaded apps" SubSettings route when the user
+     * navigates there in Settings. This is purely observational: no fragment,
+     * preference, setting, or service state is modified. The regular intent
+     * handler may have OEM-only extras absent from ActivityTaskManager logs.
+     */
+    private fun installAccessibilityNavigationCapture(classLoader: ClassLoader): Int {
+        val settings = runCatching {
+            Class.forName("com.android.settings.SettingsActivity", false, classLoader)
+        }.getOrNull() ?: return 0
+        var installed = 0
+        methods(settings).filter { method ->
+            (method.name == "onCreate" && method.parameterTypes.toList() ==
+                listOf(Bundle::class.java)) ||
+            (method.name == "onNewIntent" && method.parameterTypes.toList() ==
+                listOf(Intent::class.java))
+        }.forEach { method ->
+            if (install(method, A11Y_SUBPAGE_CAPTURE_ID, XposedInterface.Hooker { chain ->
+                val result = chain.proceed()
+                runCatching {
+                    val activity = chain.thisObject as? Activity ?: return@runCatching
+                    val name = activity.javaClass.name
+                    if (!SettingsAccessibilityNavigationProbe.isSubSettings(name)) {
+                        return@runCatching
+                    }
+                    val intent = if (method.name == "onNewIntent") {
+                        chain.args.firstOrNull() as? Intent
+                    } else activity.intent
+                    recordSettingsSubpage(name, intent, method.name)
+                }.onFailure { record("A11Y_SUBPAGE_CAPTURE_ERROR=${it.javaClass.simpleName}") }
+                result
+            })) installed++
+        }
+        // AOSP routes preference clicks via SettingsActivity.startPreferencePanel;
+        // observing the destination before Activity launch helps on OEM variants.
+        methods(settings).filter { method ->
+            method.name == "startPreferencePanel" &&
+                method.parameterTypes.firstOrNull() == String::class.java
+        }.forEach { method ->
+            if (install(method, A11Y_PREF_PANEL_CAPTURE_ID, XposedInterface.Hooker { chain ->
+                runCatching {
+                    val activity = chain.thisObject as? Activity
+                    val source = activity?.javaClass?.name.orEmpty()
+                    val fragment = chain.args.firstOrNull() as? String
+                    if (source.contains("Accessibility", ignoreCase = true) ||
+                        fragment?.contains("Accessibility", ignoreCase = true) == true) {
+                        val args = chain.args.getOrNull(1) as? Bundle
+                        record("A11Y_PREF_PANEL_CAPTURE source=$source " +
+                            "fragment=${SettingsAccessibilityNavigationProbe.safeClassName(fragment) ?: "unknown"} " +
+                            "argKeys=${SettingsAccessibilityNavigationProbe.safeExtraKeys(
+                                runCatching { args?.keySet().orEmpty() }.getOrDefault(emptySet())
+                            )}")
+                    }
+                }
+                chain.proceed()
+            })) installed++
+        }
+        return installed
+    }
+
+    private fun recordSettingsSubpage(activityName: String, intent: Intent?, event: String) {
+        val extras = runCatching { intent?.extras }.getOrNull()
+        val fragment = runCatching {
+            extras?.getString(SettingsAccessibilityNavigationProbe.SHOW_FRAGMENT)
+        }.getOrNull()
+        val arguments = runCatching {
+            extras?.getBundle(SettingsAccessibilityNavigationProbe.FRAGMENT_ARGS)
+        }.getOrNull()
+        val keys = runCatching { extras?.keySet().orEmpty() }.getOrDefault(emptySet())
+        val argKeys = runCatching { arguments?.keySet().orEmpty() }.getOrDefault(emptySet())
+        val preferenceKey = runCatching {
+            arguments?.getString(SettingsAccessibilityNavigationProbe.FRAGMENT_ARG_KEY)
+        }.getOrNull()?.takeIf { value ->
+            value.length <= 120 && value.matches(Regex("""[A-Za-z0-9_.$:-]+"""))
+        }
+        record("A11Y_SUBPAGE_CAPTURE event=$event activity=$activityName " +
+            "fragment=${SettingsAccessibilityNavigationProbe.safeClassName(fragment) ?: "unknown"} " +
+            "intentKeys=${SettingsAccessibilityNavigationProbe.safeExtraKeys(keys)} " +
+            "fragmentArgKeys=${SettingsAccessibilityNavigationProbe.safeExtraKeys(argKeys)} " +
+            "preferenceKey=${preferenceKey ?: "unknown"}")
     }
 
     /**
@@ -235,6 +322,8 @@ class SettingsEntryAuthorityModule : XposedModule() {
 
     private companion object {
         const val TAG = "ListCleaner.SettingsAuthority"
+        const val A11Y_SUBPAGE_CAPTURE_ID = "lc-settings-a11y-subpage-capture"
+        const val A11Y_PREF_PANEL_CAPTURE_ID = "lc-settings-a11y-pref-panel-capture"
         const val SETTINGS_PACKAGE = "com.android.settings"
         const val VPN_SETTINGS_CLASS = "com.android.settings.vpn2.VpnSettings"
         const val DEFAULT_AUTOFILL_PICKER_CLASS =
