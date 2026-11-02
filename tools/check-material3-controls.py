@@ -791,6 +791,15 @@ cleanup_tabs_code = (root / "ClassicListLayout.kt").read_text(encoding="utf-8")
 for label in ("lc_cleanup_mode_entry_short", "lc_cleanup_mode_component_short"):
     if f"R.string.{label}" not in cleanup_tabs_code or f"R.string.{label}" not in quick_code:
         errors.append(f"Quick access and Cleanup must share the same label: {label}")
+# Favorites use the same flat category row and icon source as Cleanup's
+# Entry/Component selection menus; multi-select and drag behavior stay intact.
+pinned_dialog_code = (root / "CategoryPinnedManager.kt").read_text(encoding="utf-8")
+if "leadingIcon = iconFor(item)" not in pinned_dialog_code:
+    errors.append("CategoryPinnedManager.kt: favorite picker must show existing category icons")
+if "iconFor(item)?.let { icon ->" not in pinned_dialog_code:
+    errors.append("CategoryPinnedManager.kt: favorite order manager must show category icons")
+if lists_code.count("iconFor = { category -> category.icon() }") < 2:
+    errors.append("SurfaceManagementTab.kt: Entry/Component category icons missing from favorite dialogs")
 # Home favorites must reuse Entry/Component pin membership and preserve
 # the user's mixed ordering. Category-specific Component shortcuts must retain kind.
 favorite_helper = (root / "CategoryPinnedManager.kt").read_text(encoding="utf-8")
