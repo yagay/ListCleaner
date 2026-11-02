@@ -44,7 +44,7 @@ internal object AccessibilityServiceDetailRoute {
     }
 
     private val settingsActivity = Regex(
-        """com\\.android\\.settings/[A-Za-z_.$][A-Za-z_.$0-9]*"""
+        """com\.android\.settings/[A-Za-z_.$][A-Za-z_.$0-9]*"""
     )
 
     /** Query the actual device's registered detail Activity, not an implicit parent. */
@@ -66,10 +66,7 @@ internal object AccessibilityServiceDetailRoute {
     ): String {
         require(userId >= 0 && safeComponent.matches(service))
         require(activity == selectRegisteredDetails(activity))
-        // The Activity name may contain '
-}
- (Settings$Accessibility...).
-        // Shell single-quotes protect it from variable expansion.
+        // Settings detail Activity class names may contain a dollar sign.\n        // Shell single quotes prevent variable expansion.
         return "am start -W --user $userId -n '$activity'" +
             " -a $ACTION -c android.intent.category.DEFAULT" +
             " --es android.intent.extra.COMPONENT_NAME $service"
