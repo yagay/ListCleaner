@@ -1,6 +1,8 @@
 package com.yagay.ListCleaner.ui
 
 import com.yagay.ListCleaner.domain.AppTypeFilter
+import com.yagay.ListCleaner.data.CleanupKind
+import com.yagay.ListCleaner.domain.IntentKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -33,6 +35,55 @@ class UiPreferencesTest {
             movePinnedCategory(listOf("SHARE", "OPEN"), "OPEN", -1))
         assertEquals(saved, listOf("SHARE", "LEGACY", "OPEN"))
         assertTrue(UiPreferences().pinnedEntryKinds.isEmpty())
+    }
+
+    @Test fun mixedHomeFavoritesReuseEntryAndComponentPinsAndPreserveDragOrder() {
+        val entry = CleanupCategoryId.Entry(IntentKind.OPEN)
+        val otherEntry = CleanupCategoryId.Entry(IntentKind.SHARE)
+        val component = CleanupCategoryId.Root(CleanupKind.WIDGET)
+        val otherComponent = CleanupCategoryId.Root(CleanupKind.TILE)
+        val available: List<CleanupCategoryId> =
+            listOf(entry, otherEntry, component, otherComponent)
+        val existing = UiPreferences(
+            pinnedEntryKinds = listOf(IntentKind.OPEN),
+            pinnedRootKinds = listOf(CleanupKind.WIDGET),
+        )
+        assertEquals(listOf(entry, component), homeFavoriteCategories(existing, available))
+        val updated = updateHomeFavorites(
+            existing, listOf(component, otherEntry, entry, otherComponent), available
+        ).normalized()
+        assertEquals(listOf(IntentKind.SHARE, IntentKind.OPEN), updated.pinnedEntryKinds)
+        assertEquals(listOf(CleanupKind.WIDGET, CleanupKind.TILE), updated.pinnedRootKinds)
+        assertEquals(listOf(component, otherEntry, entry, otherComponent),
+            homeFavoriteCategories(updated, available))
+        // Dragging between Entry and Component does not disturb pinned membership.
+        val reordered = updateHomeFavorites(
+            updated, movePinnedCategory(
+                homeFavoriteCategories(updated, available), entry, -2
+            ), available
+        ).normalized()
+        assertEquals(listOf(component, entry, otherEntry, otherComponent),
+            homeFavoriteCategories(reordered, available))
+        assertEquals(updated.pinnedEntryKinds.toSet(), reordered.pinnedEntryKinds.toSet())
+        assertEquals(updated.pinnedRootKinds.toSet(), reordered.pinnedRootKinds.toSet())
+        assertEquals("ENTRY:OPEN", homeFavoriteKey(entry))
+        assertEquals("COMPONENT:WIDGET", homeFavoriteKey(component))
+    }
+
+    @Test fun removingHomeComponentFavoriteKeepsOtherPinnedCategoriesIntact() {
+        val available: List<CleanupCategoryId> = listOf(
+            CleanupCategoryId.Entry(IntentKind.OPEN),
+            CleanupCategoryId.Root(CleanupKind.WIDGET),
+        )
+        val prefs = UiPreferences(
+            pinnedEntryKinds = listOf(IntentKind.OPEN, IntentKind.SHARE),
+            pinnedRootKinds = listOf(CleanupKind.WIDGET, CleanupKind.TILE),
+        )
+        val updated = updateHomeFavorites(prefs, emptyList(), available).normalized()
+        assertEquals(listOf(IntentKind.SHARE), updated.pinnedEntryKinds)
+        assertEquals(listOf(CleanupKind.TILE), updated.pinnedRootKinds)
+        assertTrue(homeFavoriteCategories(updated, available).isEmpty())
+        assertEquals(emptyList<String>(), updated.homePinnedCategoryOrder)
     }
 
     @Test fun homePresetsOnlyStageIntendedModeSelections() {
