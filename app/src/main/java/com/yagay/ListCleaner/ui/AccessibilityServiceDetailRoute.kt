@@ -15,13 +15,16 @@ internal object AccessibilityServiceDetailRoute {
         """[A-Za-z_][A-Za-z0-9_.]*/[A-Za-z_.$][A-Za-z0-9_.$]*"""
     )
 
-    internal fun component(packageName: String?, serviceName: String?): ComponentName? {
+    /** Pure string validation also works in local JVM regression tests. */
+    internal fun flattenedService(packageName: String?, serviceName: String?): String? {
         if (packageName.isNullOrBlank() || serviceName.isNullOrBlank()) return null
         val name = if (serviceName.startsWith(".")) packageName + serviceName else serviceName
         val flattened = "$packageName/$name"
-        if (!safeComponent.matches(flattened)) return null
-        return ComponentName(packageName, name)
+        return flattened.takeIf(safeComponent::matches)
     }
+
+    internal fun component(packageName: String?, serviceName: String?): ComponentName? =
+        flattenedService(packageName, serviceName)?.let(ComponentName::unflattenFromString)
 
     internal fun detailIntent(component: ComponentName): Intent =
         Intent(ACTION).setPackage(SETTINGS_PACKAGE)
@@ -30,12 +33,14 @@ internal object AccessibilityServiceDetailRoute {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
     /** Validated, quoted-free shell argument: arbitrary user text cannot become a command. */
-    internal fun rootLaunchCommand(userId: Int, component: ComponentName): String {
-        require(userId >= 0)
-        require(this.component(component.packageName, component.className) == component)
+    internal fun rootLaunchCommand(userId: Int, component: ComponentName): String =
+        rootLaunchCommand(userId, component.flattenToString())
+
+    internal fun rootLaunchCommand(userId: Int, service: String): String {
+        require(userId >= 0 && safeComponent.matches(service))
         return "am start -W --user $userId" +
             " -a $ACTION -c android.intent.category.DEFAULT -p $SETTINGS_PACKAGE" +
-            " --es android.intent.extra.COMPONENT_NAME ${component.flattenToString()}"
+            " --es android.intent.extra.COMPONENT_NAME $service"
     }
 
     internal fun launchAccepted(result: String): Boolean =
