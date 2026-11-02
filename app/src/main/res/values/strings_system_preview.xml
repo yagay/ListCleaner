@@ -13,4 +13,6 @@
     <string name="system_preview_explanation">Preview uses accessible Android APIs for the selected entry and distinguishes enabled services, API candidates and Hook observations. Not every category exposes the final rendered list. Open a native system surface for comparison when supported. Calling app, content type, OEM behavior and user space can all affect the result.</string>
     <string name="preview_capture_not_observed">No matching Hook observation was received after opening the system screen. Check the LSPosed scope for the system host, then retry. This is not proof that the system list is empty.</string>
     <string name="preview_shortcut_service_observed">Hook capture: actual ShortcutService package return; not the final Direct Share contacts or Sharesheet layout.</string>
+    <string name="preview_role_parent_fallback">Cannot directly open the default-app picker. Opening the parent system settings page instead.</string>
+    <string name="preview_role_opened_not_verified">Android started the role picker, but the actual foreground screen could not be verified. Check the system page before using it.</string>
 </resources>
