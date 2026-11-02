@@ -36,11 +36,11 @@
     <string name="lc_home_issue_scan">Entry 扫描报告了问题</string>
     <string name="lc_home_preset_title">批量清理控制</string>
     <string name="lc_home_preset_enable">全部启用</string>
-    <string name="lc_home_preset_pause">全部暂停</string>
-    <string name="lc_home_preset_explain">批量操作仅暂存分类开关状态。点击下方“确认修改”才保存；不会删除已有规则或禁用 Android 组件。</string>
-    <string name="lc_home_pending_count">%1$d 项模式变更等待应用</string>
+    <string name="lc_home_preset_disable">全部禁用</string>
+    <string name="lc_home_preset_explain">批量启用或禁用当前分组的分类清理功能。点击“确认修改”后才保存；不删除已有规则，也不直接改变 Android 组件状态。</string>
+    <string name="lc_home_pending_count">%1$d 项分类开关变更待确认</string>
     <string name="lc_home_manage_title">清理管理</string>
-    <string name="lc_home_manage_count">共 %1$d 项 · 已暂停 %2$d 项</string>
+    <string name="lc_home_manage_count">共 %1$d 项 · 已禁用 %2$d 项</string>
     <string name="lc_home_modes_search">搜索清理分类</string>
     <string name="lc_home_filter_all">全部</string>
     <string name="lc_home_filter_enabled">已启用</string>
