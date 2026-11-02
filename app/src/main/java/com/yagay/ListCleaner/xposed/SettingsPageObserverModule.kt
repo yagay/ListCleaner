@@ -59,6 +59,7 @@ class SettingsPageObserverModule : XposedModule() {
                     }
                     val fragment = if (instance is Activity) "" else instance.javaClass.name
                     capture(activity, fragment)
+                    if (instance is Activity) SettingsPageNativeControl.maybeAttach(activity, worker)
                 }.onFailure {
                     Log.d("ListCleaner.PageObserver", "Capture skipped: " + it.javaClass.simpleName)
                 }
@@ -99,10 +100,13 @@ class SettingsPageObserverModule : XposedModule() {
                 val arguments = Bundle().apply {
                     putString(SettingsPageCaptureProtocol.EXTRA_PAGE, payload)
                 }
-                appContext.contentResolver.call(
+                val result = appContext.contentResolver.call(
                     Uri.parse("content://" + RuntimeCaptureContract.AUTHORITY),
                     SettingsPageCaptureProtocol.METHOD_PUBLISH, null, arguments
                 )
+                if (result?.getBoolean("accepted", false) == true && fragment.isNotEmpty()) {
+                    SettingsPageNativeControl.maybeAttach(activity, worker, saved = true)
+                }
             }.onFailure {
                 Log.d("ListCleaner.PageObserver", "Publish skipped: " + it.javaClass.simpleName)
             }
