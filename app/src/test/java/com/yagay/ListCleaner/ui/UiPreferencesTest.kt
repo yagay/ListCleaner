@@ -41,7 +41,7 @@ class UiPreferencesTest {
         assertEquals(setOf("LEGACY"), modesPresetSelection(
             ModesQuickPreset.ENABLE_ALL, supported, previouslyDisabled))
         assertEquals(setOf("OPEN", "SHARE", "DIRECT_SHARE", "LEGACY"),
-            modesPresetSelection(ModesQuickPreset.PAUSE_ALL, supported, previouslyDisabled))
+            modesPresetSelection(ModesQuickPreset.DISABLE_ALL, supported, previouslyDisabled))
         assertEquals(3, modesDifferenceCount(
             previouslyDisabled, setOf("OPEN", "SHARE", "DIRECT_SHARE")))
         // A preset is only a computed draft; the original set is unchanged.
