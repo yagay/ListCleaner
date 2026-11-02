@@ -252,39 +252,76 @@ internal object SystemEffectPreview {
             return
         }
 
-        try {
-            context.startActivity(AccessibilityServiceDetailRoute.detailIntent(component))
-            Log.i("ListCleaner.SystemPreview",
-                "ACCESSIBILITY_DETAIL_DIRECT_REQUESTED component=${component.flattenToString()}")
-            return
-        } catch (blocked: SecurityException) {
-            Log.i("ListCleaner.SystemPreview",
-                "ACCESSIBILITY_DETAIL_DIRECT_RESTRICTED component=${component.flattenToString()}")
-        } catch (missing: ActivityNotFoundException) {
-            Log.i("ListCleaner.SystemPreview",
-                "ACCESSIBILITY_DETAIL_DIRECT_MISSING component=${component.flattenToString()}")
-        } catch (failure: RuntimeException) {
-            Log.w("ListCleaner.SystemPreview",
-                "ACCESSIBILITY_DETAIL_DIRECT_FAILED error=${failure.javaClass.simpleName}")
-        }
-
+        // On AOSP the exported details Activity is a trampoline to SubSettings;
+        // successful startActivity() may immediately redirect to the main list.
+        // Always use one explicit, registered target and verify the final fragment.
         CoroutineScope(Dispatchers.Main.immediate).launch {
-            val outcome = withContext(Dispatchers.IO) {
+            val (verified, diagnostic) = withContext(Dispatchers.IO) {
                 runCatching {
-                    ComponentRootCommand.run(
-                        AccessibilityServiceDetailRoute.rootLaunchCommand(userId, component)
+                    val found = ComponentRootCommand.runReadOnly(
+                        AccessibilityServiceDetailRoute.discoverCommand(userId)
                     )
-                }.getOrNull()
+                    if (found.timedOut || found.exitCode != 0 ||
+                        found.output.contains("[output truncated]") ||
+                        found.output.contains("[output incomplete]")) {
+                        return@runCatching false to
+                            "DISCOVERY_FAILED exit=${found.exitCode} timeout=${found.timedOut}"
+                    }
+                    val activity = AccessibilityServiceDetailRoute.selectRegisteredDetails(
+                        found.output
+                    ) ?: return@runCatching false to
+                        "NO_REGISTERED_DETAILS_ACTIVITY output=${found.output.take(170)}"
+                    val launched = ComponentRootCommand.run(
+                        AccessibilityServiceDetailRoute.rootLaunchCommand(
+                            userId, component.flattenToString(), activity
+                        )
+                    )
+                    if (launched.timedOut || launched.exitCode != 0 ||
+                        !AccessibilityServiceDetailRoute.launchAccepted(
+                            launched.output, activity
+                        )) {
+                        return@runCatching false to
+                            "START_REJECTED component=${component.flattenToString()} " +
+                            "activity=$activity exit=${launched.exitCode} " +
+                            "result=${launched.output.take(230)}"
+                    }
+                    // The initial Activity immediately starts a settings fragment
+                    // then finishes. Check the actual Settings fragment, not
+                    // 'Status: ok' or the com.android.settings package.
+                    var lastDump = ""
+                    repeat(2) { attempt ->
+                        Thread.sleep(if (attempt == 0) 450 else 650)
+                        val top = ComponentRootCommand.runReadOnly(
+                            "dumpsys activity top | grep -E -i " +
+                                "'accessibility|subsettings|activity com.android.settings' | head -n 90"
+                        )
+                        if (!top.timedOut && top.exitCode == 0 &&
+                            !top.output.contains("[output truncated]")) {
+                            lastDump = top.output
+                        }
+                        if (AccessibilityServiceDetailRoute.detailFragmentVisible(lastDump)) {
+                            return@runCatching true to
+                                "DETAIL_FRAGMENT_VERIFIED target=${component.flattenToString()} " +
+                                "activity=$activity"
+                        }
+                    }
+                    false to (
+                        if (AccessibilityServiceDetailRoute.parentAccessibilityVisible(lastDump)) {
+                            "REDIRECTED_TO_ACCESSIBILITY_MAIN"
+                        } else {
+                            "DETAIL_FRAGMENT_NOT_VERIFIED"
+                        }
+                    ) + " target=${component.flattenToString()} " +
+                        "activity=$activity top=${lastDump.take(300)}"
+                }.getOrElse { failure ->
+                    false to "ROOT_EXCEPTION ${failure.javaClass.simpleName}: " +
+                        failure.message.orEmpty().take(120)
+                }
             }
-            if (outcome != null && !outcome.timedOut && outcome.exitCode == 0 &&
-                AccessibilityServiceDetailRoute.launchAccepted(outcome.output)) {
-                Log.i("ListCleaner.SystemPreview",
-                    "ACCESSIBILITY_DETAIL_ROOT_REQUESTED component=${component.flattenToString()}")
+            if (verified) {
+                Log.i("ListCleaner.SystemPreview", "ACCESSIBILITY_DETAIL $diagnostic")
             } else {
-                Log.w("ListCleaner.SystemPreview",
-                    "ACCESSIBILITY_DETAIL_ROOT_FAILED component=${component.flattenToString()} " +
-                        "exit=${outcome?.exitCode} timeout=${outcome?.timedOut} " +
-                        "output=${outcome?.output?.take(250)}")
+                Log.w("ListCleaner.SystemPreview", "ACCESSIBILITY_DETAIL $diagnostic")
                 show(context, R.string.preview_accessibility_detail_unavailable)
             }
         }
