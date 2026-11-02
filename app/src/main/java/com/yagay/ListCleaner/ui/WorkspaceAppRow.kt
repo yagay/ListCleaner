@@ -2,8 +2,10 @@ package com.yagay.ListCleaner.ui
 
 import android.graphics.Bitmap
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
@@ -12,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -145,17 +148,38 @@ internal fun MaterialAppRowBody(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            AdaptiveText(
-                title,
-                style = MaterialTheme.typography.bodyLarge,
-                // Muted theme Secondary denotes a system app; selection and lock
-                // state continue to use their own icons and status colors.
-                color = if (isSystemApp) MaterialTheme.colorScheme.secondary
-                    else MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Medium,
-                maxLines = UiPreferencesRuntime.current.appTitleLines,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                AdaptiveText(
+                    title,
+                    modifier = Modifier.weight(1f, fill = false),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (isSystemApp) MaterialStatusPalette.systemAppText()
+                        else MaterialTheme.colorScheme.onSurface,
+                    fontWeight = if (isSystemApp) FontWeight.SemiBold else FontWeight.Medium,
+                    maxLines = UiPreferencesRuntime.current.appTitleLines,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (isSystemApp) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(MaterialStatusPalette.systemAppBadgeBackground())
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AdaptiveText(
+                            stringResource(R.string.system_app_short_label),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialStatusPalette.systemAppText(),
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
             AdaptiveText(
                 subtitle,
                 style = MaterialTheme.typography.bodySmall,
