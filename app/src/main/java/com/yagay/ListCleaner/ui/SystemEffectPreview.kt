@@ -72,6 +72,13 @@ internal fun systemPreviewRoute(kind: IntentKind): SystemPreviewRoute = when (ki
         SystemPreviewRoute.UNAVAILABLE
 }
 
+/**
+ * SMS Send To should show the system's compatible-app list even when Android
+ * has a default messaging app. Do not change normal email or other launchers.
+ */
+internal fun forceSystemChooserForSendTo(kind: IntentKind, scenario: SystemProbeScenario): Boolean =
+    kind == IntentKind.SEND_TO && scenario == SystemProbeScenario.SMS
+
 internal fun systemPreviewRoute(kind: CleanupKind): SystemPreviewRoute = when (kind) {
     CleanupKind.LAUNCHER, CleanupKind.SHORTCUT -> SystemPreviewRoute.CHOOSER
     CleanupKind.WIDGET -> SystemPreviewRoute.WIDGET_PICKER
@@ -160,6 +167,7 @@ internal object SystemEffectPreview {
         runCatching {
             val target = buildIntent(context, kind, scenario, request)
             val launch = if (route == SystemPreviewRoute.CHOOSER ||
+                forceSystemChooserForSendTo(kind, scenario) ||
                 (kind == IntentKind.OPEN && request?.directLaunch == true))
                 Intent.createChooser(target, context.getString(R.string.system_preview_chooser_title))
             else target
@@ -749,7 +757,7 @@ internal object SystemEffectPreview {
             }
         }
         IntentKind.SEND_TO -> Intent(Intent.ACTION_SENDTO,
-            if (scenario == SystemProbeScenario.SMS) Uri.parse("smsto:0000000000")
+            if (scenario == SystemProbeScenario.SMS) Uri.parse("smsto:")
             else Uri.parse("mailto:preview@example.invalid"))
         IntentKind.PICK -> Intent(Intent.ACTION_PICK).apply {
             type = scenario.mimeType ?: "image/*"
