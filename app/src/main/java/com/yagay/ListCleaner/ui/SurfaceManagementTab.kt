@@ -48,7 +48,8 @@ internal fun SurfaceManagementTab(
     vm: MainViewModel,
     pendingNavigation: PendingNavigationGuard? = null,
     onOpenEntry: (IntentKind) -> Unit = {},
-    onOpenRoot: () -> Unit = {},
+    onOpenCleanupEntry: () -> Unit = {},
+    onOpenComponents: () -> Unit = {},
     onOpenDiagnostics: () -> Unit = {},
     onOpenStatus: () -> Unit = {},
 ) {
@@ -260,12 +261,13 @@ internal fun SurfaceManagementTab(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // Each label names the actual page/action, not the backend.
-                AdaptiveTextButton(onClick = { onOpenEntry(IntentKind.OPEN) }) {
-                    AdaptiveText(stringResource(R.string.lc_home_entry_shortcut))
+                // Reuse the exact Entry/Component labels and targets from
+                // ClassicCleanupTabs; Open remains a pinned-category shortcut.
+                AdaptiveTextButton(onClick = onOpenCleanupEntry) {
+                    AdaptiveText(stringResource(R.string.lc_cleanup_mode_entry_short))
                 }
-                AdaptiveTextButton(onClick = onOpenRoot) {
-                    AdaptiveText(stringResource(R.string.lc_home_root_shortcut))
+                AdaptiveTextButton(onClick = onOpenComponents) {
+                    AdaptiveText(stringResource(R.string.lc_cleanup_mode_component_short))
                 }
                 AdaptiveTextButton(onClick = onOpenDiagnostics) {
                     AdaptiveText(stringResource(R.string.lc_home_diagnostics_shortcut))
