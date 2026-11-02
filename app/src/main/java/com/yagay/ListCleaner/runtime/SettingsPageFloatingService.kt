@@ -305,14 +305,33 @@ class SettingsPageFloatingService : Service() {
         @Volatile private var running: SettingsPageFloatingService? = null
 
         fun isShowing(): Boolean = running != null
+        /** Refresh foreground notification after a verified in-Settings control action. */
+        fun captureStateChanged() {
+            running?.let { service ->
+                service.handler.post {
+                    if (running === service) {
+                        service.successUntil = 0L
+                        service.capturedName = ""
+                        service.render()
+                        service.updateNotificationIfChanged(force = true)
+                    }
+                }
+            }
+        }
+
 
         fun launch(context: Context): Boolean {
-            if (!Settings.canDrawOverlays(context)) return false
+            // Arm synchronously before opening Settings: Activity.onResume may run
+            // before the foreground service receives onCreate.
+            if (!SettingsPageCaptureStore.begin(context)) return false
             return runCatching {
                 ContextCompat.startForegroundService(context,
                     Intent(context, SettingsPageFloatingService::class.java))
                 true
-            }.getOrDefault(false)
+            }.getOrElse {
+                SettingsPageCaptureStore.stop(context)
+                false
+            }
         }
 
         fun close(context: Context) {
