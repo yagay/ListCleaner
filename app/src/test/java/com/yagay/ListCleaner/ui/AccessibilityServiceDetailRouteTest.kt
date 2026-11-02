@@ -1,7 +1,5 @@
 package com.yagay.ListCleaner.ui
 
-import android.content.ComponentName
-import android.content.Intent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -9,28 +7,16 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AccessibilityServiceDetailRouteTest {
-    private val service = ComponentName(
-        "org.example.accessibility",
-        "org.example.feature.AccessibilityService",
-    )
+    private val service = "org.example.accessibility/org.example.feature.AccessibilityService"
 
     @Test fun acceptsOnlyWellFormedServiceComponents() {
-        assertEquals(service, AccessibilityServiceDetailRoute.component(
+        assertEquals(service, AccessibilityServiceDetailRoute.flattenedService(
             "org.example.accessibility", "org.example.feature.AccessibilityService"))
-        assertEquals(ComponentName("org.example", "org.example.Service"),
-            AccessibilityServiceDetailRoute.component("org.example", ".Service"))
-        assertNull(AccessibilityServiceDetailRoute.component("org.example", null))
-        assertNull(AccessibilityServiceDetailRoute.component("org.example", "a;reboot"))
-        assertNull(AccessibilityServiceDetailRoute.component("org.example", "a/b"))
-    }
-
-    @Test fun detailIntentTargetsSystemSettingsAndCarriesExactServiceName() {
-        val intent = AccessibilityServiceDetailRoute.detailIntent(service)
-        assertEquals("android.settings.ACCESSIBILITY_DETAILS_SETTINGS", intent.action)
-        assertEquals("com.android.settings", intent.`package`)
-        assertEquals(service.flattenToString(),
-            intent.getStringExtra(Intent.EXTRA_COMPONENT_NAME))
-        assertTrue(intent.hasCategory(Intent.CATEGORY_DEFAULT))
+        assertEquals("org.example/org.example.Service",
+            AccessibilityServiceDetailRoute.flattenedService("org.example", ".Service"))
+        assertNull(AccessibilityServiceDetailRoute.flattenedService("org.example", null))
+        assertNull(AccessibilityServiceDetailRoute.flattenedService("org.example", "a;reboot"))
+        assertNull(AccessibilityServiceDetailRoute.flattenedService("org.example", "a/b"))
     }
 
     @Test fun rootLaunchNamesOnlyTheValidatedServiceAndDoesNotToggleItsState() {
@@ -38,16 +24,18 @@ class AccessibilityServiceDetailRouteTest {
         assertEquals(
             "am start -W --user 0 -a android.settings.ACCESSIBILITY_DETAILS_SETTINGS" +
                 " -c android.intent.category.DEFAULT -p com.android.settings" +
-                " --es android.intent.extra.COMPONENT_NAME ${service.flattenToString()}",
-            cmd)
+                " --es android.intent.extra.COMPONENT_NAME $service", cmd)
         assertFalse(cmd.contains("settings put"))
         assertFalse(cmd.contains("pm enable"))
         assertTrue(runCatching {
             AccessibilityServiceDetailRoute.rootLaunchCommand(-1, service)
         }.isFailure)
+        assertTrue(runCatching {
+            AccessibilityServiceDetailRoute.rootLaunchCommand(0, "org.evil/a;reboot")
+        }.isFailure)
     }
 
-    @Test fun rootResultRejectsParentAndErrors() {
+    @Test fun rootResultRejectsWrongPackageAndErrors() {
         assertTrue(AccessibilityServiceDetailRoute.launchAccepted(
             "Status: ok\nActivity: com.android.settings/.Settings\nComplete"))
         assertFalse(AccessibilityServiceDetailRoute.launchAccepted(
