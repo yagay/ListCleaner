@@ -1095,6 +1095,21 @@ for tab_key in ("lc_cleanup_mode_entry_short", "lc_cleanup_mode_component_short"
     if f"R.string.{tab_key}" not in cleanup_tabs_source:
         errors.append(f"ClassicListLayout.kt: missing internal {tab_key} tab")
 
+# Cleanup category switches are enabled/disabled; there is no temporary Pause.
+# Guard UI labels and their backing enum against confusing them with display modes.
+controls_code = (root / "SurfaceManagementTab.kt").read_text(encoding="utf-8")
+if "ModesQuickPreset.PAUSE_ALL" in controls_code or "lc_home_preset_pause" in controls_code:
+    errors.append("SurfaceManagementTab.kt: cleanup categories must use Disable, not Pause")
+if "ModesQuickPreset.DISABLE_ALL" not in controls_code or "lc_home_preset_disable" not in controls_code:
+    errors.append("SurfaceManagementTab.kt: batch Disable all action missing")
+controls_res_dir = Path(__file__).resolve().parents[1] / "app/src/main/res"
+for controls_locale, disabled_label in (("values", "Disable all"), ("values-zh", "全部禁用")):
+    controls_resource = (controls_res_dir / controls_locale / "strings_component_surface.xml").read_text(encoding="utf-8")
+    if f'<string name="lc_home_preset_disable">{disabled_label}</string>' not in controls_resource:
+        errors.append(f"{controls_locale}: cleanup disable label must match the actual action")
+    if "lc_home_preset_pause" in controls_resource:
+        errors.append(f"{controls_locale}: obsolete Pause label in cleanup manager")
+
 if errors:
     print("\n".join(errors), file=sys.stderr)
     sys.exit(1)
