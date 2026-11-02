@@ -53,14 +53,20 @@ internal object AssistantRolePickerBridge {
             }?.let { (pkg, activity) -> "$pkg/$activity" }
     }
 
-    internal fun launchCommand(userId: Int, component: String): String {
+    internal fun launchCommand(
+        userId: Int, component: String, roleName: String = ROLE,
+    ): String {
         require(userId >= 0)
         require(componentPattern.matchEntire(component) != null)
         require(component.substringBefore('/').contains("permission", ignoreCase = true))
         require(component.substringAfter('/').substringAfterLast('.')
             .equals("DefaultAppActivity", ignoreCase = true))
+        require(roleName in setOf(
+            "android.app.role.ASSISTANT", "android.app.role.BROWSER",
+            "android.app.role.HOME", "android.app.role.CALL_SCREENING",
+        ))
         return "am start -W --user $userId -n $component" +
-            " -a $ACTION -c $CATEGORY --es $ROLE_EXTRA $ROLE"
+            " -a $ACTION -c $CATEGORY --es $ROLE_EXTRA $roleName"
     }
 
     internal fun launchAccepted(output: String, component: String): Boolean {
