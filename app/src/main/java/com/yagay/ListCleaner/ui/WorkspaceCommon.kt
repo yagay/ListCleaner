@@ -425,14 +425,48 @@ private fun WorkspaceDetailContainer(
     ContinuousDetailSurface(selected = selected, content = content)
 }
 
-/** Read-only details use the exact same row body and indentation. */
+/**
+ * One shared expanded-detail geometry for Entry, Root and Sorting.
+ * The 48dp leading slot aligns titles with the app icon; the trailing slot
+ * keeps the overflow actions on the same column even for read-only rows.
+ */
+@Composable
+private fun WorkspaceAlignedDetailRow(
+    modifier: Modifier = Modifier,
+    locked: Boolean = false,
+    content: @Composable RowScope.() -> Unit
+) {
+    UiCardDetailRow(
+        modifier = modifier,
+        leadingInset = 0.dp,
+        trailingAccessoryWidth = MaterialUiTokens.appExpandIndicatorWidth
+    ) {
+        Spacer(Modifier.width(MaterialUiTokens.iconTouchTarget))
+        content()
+        Box(
+            modifier = Modifier.size(MaterialUiTokens.appExpandIndicatorWidth),
+            contentAlignment = Alignment.Center
+        ) {
+            if (locked) {
+                AdaptiveIcon(
+                    Icons.Rounded.Lock,
+                    stringResource(R.string.bulk_lock_full),
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+/** Sorting's read-only details have the same title/menu columns as Entry. */
 @Composable
 internal fun WorkspaceReadOnlyDetailRow(
     position: ListRowPosition = ListRowPosition.SINGLE,
     content: @Composable RowScope.() -> Unit
 ) {
     WorkspaceDetailContainer(position, selected = false) {
-        UiCardDetailRow(content = content)
+        WorkspaceAlignedDetailRow(content = content)
     }
 }
 
@@ -459,35 +493,11 @@ internal fun WorkspaceDetailRow(
                 toggleableState = if (checked) androidx.compose.ui.state.ToggleableState.On
                     else androidx.compose.ui.state.ToggleableState.Off
             }
-        val rowContents: @Composable RowScope.() -> Unit = {
-            // Preserve alignment with the parent app icon: its first 48dp
-            // is the selection target, not a lock indicator.
-            Spacer(Modifier.width(MaterialUiTokens.iconTouchTarget))
+        WorkspaceAlignedDetailRow(modifier = clickModifier, locked = locked) {
             Column(Modifier.weight(1f).padding(vertical = 4.dp)) { content() }
             // Both long-press and the three-dot icon control this same menu.
             trailing(menuExpanded) { menuExpanded = it }
-            // Reuse the space reserved for the app row's expand arrow, so
-            // moving the lock here never shifts the three-dot menu.
-            Box(
-                modifier = Modifier.size(MaterialUiTokens.appExpandIndicatorWidth),
-                contentAlignment = Alignment.Center
-            ) {
-                if (locked) {
-                    AdaptiveIcon(
-                        Icons.Rounded.Lock,
-                        stringResource(R.string.bulk_lock_full),
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
         }
-        UiCardDetailRow(
-            modifier = clickModifier,
-            leadingInset = 0.dp,
-            trailingAccessoryWidth = MaterialUiTokens.appExpandIndicatorWidth,
-            content = rowContents
-        )
     }
     WorkspaceDetailContainer(position, checked, contentBlock)
 }
