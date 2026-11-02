@@ -456,23 +456,32 @@ internal fun EntryManagedSurfaceEditor(
             stickyHeader(key = "controls") {
                 PageFilterSection {
                     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
-                        EntryManagedSurfaceToolbar(
-                            surface = surface,
+                        // Same category, filter, sort and bulk-action controls as
+                        // every other Entry category. Only the data source and
+                        // rule persistence remain surface-specific.
+                        ListControls(
+                            state = state,
+                            onFilter = { kind -> request { onEntry(kind) } },
+                            onUiFilter = { selected ->
+                                viewFilter = selected
+                                UiPreferencesStore.rememberFilter(context, selected, "rules")
+                            },
                             appTypeFilter = appTypeFilter,
-                            onAppTypeFilter = {
-                                appTypeFilter = it
-                                UiPreferencesStore.rememberAppType(context, it, "rules")
+                            onAppTypeFilter = { selected ->
+                                appTypeFilter = selected
+                                UiPreferencesStore.rememberAppType(context, selected, "rules")
                             },
-                            viewFilter = viewFilter,
-                            onViewFilter = {
-                                viewFilter = it
-                                UiPreferencesStore.rememberFilter(context, it, "rules")
-                            },
-                            onEntry = { kind -> request { onEntry(kind) } },
+                            managedSurface = surface,
+                            uiFilterOverride = viewFilter,
+                            showProgress = false,
                             onManagedSurface = { next -> request { onManagedSurface(next) } },
-                            canSort = !isNotification,
-                            onOpenSort = { request { sorting = true } },
-                            actions = listOf(
+                            modeAction = {
+                                WorkspaceSortModeAction(
+                                    supported = !isNotification,
+                                    onOpen = { request { sorting = true } },
+                                )
+                            },
+                            selectionActions = listOf(
                                 WorkspaceMenuAction(stringResource(R.string.select_all), {
                                     pendingBulk = SurfaceBulkOperation.ALL
                                 }, editable.any { !getEffective(it) }),
@@ -484,7 +493,6 @@ internal fun EntryManagedSurfaceEditor(
                                 }, editable.isNotEmpty()),
                             )
                         )
-                        AdaptiveHorizontalDivider()
                     }
                 }
             }
