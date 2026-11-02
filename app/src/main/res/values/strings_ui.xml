@@ -215,7 +215,7 @@
     <string name="surface_channels_count">%1$d channels found</string>
     <string name="surface_channels_confirm">Apply notification channel filters?</string>
     <string name="surface_channels_confirm_help">Only notification shade display is filtered. Channel importance and saved notifications are not changed.</string>
-    <string name="nav_surface_management">Modes</string>
+    <string name="nav_surface_management">Controls</string>
     <string name="surface_group_notifications">Notifications</string>
     <string name="surface_group_notifications_help">Current notifications, notification shade and channels</string>
     <string name="surface_group_launcher">Home and recents</string>
@@ -254,9 +254,9 @@
     <string name="notification_category_other">Other / unspecified</string>
     <string name="notification_group_category_help">Browse current notifications by Android message, email, call, alarm and other categories</string>
     <string name="lc_mode_follow_global">Follow global default</string>
-    <string name="lc_mode_settings_help">Choose the global default or override the current Entry category. Categories without an override inherit the global mode. These settings affect system candidate visibility, not ListCleaner\u0027s own list filter.</string>
-    <string name="lc_mode_default_title">Default mode</string>
-    <string name="lc_mode_category_overrides">Entry category modes</string>
+    <string name="lc_mode_settings_help">Choose the default cleanup method or override an Entry category. Categories without an override inherit the default method. This controls system candidate visibility, not ListCleaner’s own list filter.</string>
+    <string name="lc_mode_default_title">Default cleanup method</string>
+    <string name="lc_mode_category_overrides">Entry cleanup methods</string>
     <string name="lc_mode_category_overrides_help">Each entry type inherits the default unless you choose its own mode. These options change the system resolver, not the app list filter.</string>
     <string name="lc_mode_all_inherit">All follow global mode</string>
     <string name="lc_mode_override_count">%1$d of %2$d independently configured</string>
@@ -264,7 +264,7 @@
     <string name="lc_mode_expand_group">Expand</string>
     <string name="lc_mode_collapse_group">Collapse</string>
     <string name="lc_mode_inherit_count">All %1$d kinds follow global</string>
-    <string name="lc_mode_current_format">Mode: %1$s</string>
+    <string name="lc_mode_current_format">Cleanup method: %1$s</string>
     <string name="lc_mode_mixed_categories">By category</string>
     <string name="lc_entry_cleanup_header">Entry Cleanup</string>
     <string name="lc_mode_open_short">Open</string>
@@ -273,7 +273,7 @@
     <string name="lc_mode_header_all">Show all</string>
     <string name="lc_mode_header_category_format">%1$s · %2$s</string>
     <string name="lc_mode_select_for">%1$s · Cleaning mode</string>
-    <string name="lc_mode_confirm_hint">Choose a mode, then confirm to apply. Cancel keeps the existing mode.</string>
+    <string name="lc_mode_confirm_hint">Choose a cleanup method and confirm. Cancel keeps the existing method.</string>
     <string name="lc_mode_confirm_apply">Confirm change</string>
     <string name="preview_tab_estimated">Estimated</string>
     <string name="preview_estimated_title">Estimated visible list · Unverified</string>
