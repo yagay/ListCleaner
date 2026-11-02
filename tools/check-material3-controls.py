@@ -745,6 +745,16 @@ if "InlineEntryModePicker(" in entry_code or "modeLabel =" in entry_code:
     errors.append("MainTabs.kt: deleted Entry mode-header row must not return")
 if "EntryModeFilterMenu(" not in lists_code:
     errors.append("SurfaceManagementTab.kt: mode editing must retain anchored menu")
+# Default cleanup method belongs in the LSPosed Entry category manager, not home.
+home_start = lists_code.find('if (section == ModesHomeSection.HOME) {')
+entry_manager_start = lists_code.find('if (section == ModesHomeSection.LSPOSED) {', home_start)
+default_row = lists_code.find('item(key = "global-mode-default")')
+entry_rows = lists_code.find("visibleEntryModes.forEach", entry_manager_start)
+if not (home_start >= 0 and entry_manager_start > home_start
+        and entry_manager_start < default_row < entry_rows):
+    errors.append("SurfaceManagementTab.kt: default cleanup method must be the first Entry manager row")
+if 'val defaultModeVisible = modeFilter == ModesViewFilter.ALL' not in lists_code:
+    errors.append("SurfaceManagementTab.kt: default method must respect Entry search/status filters")
 if "InlineEntryModePicker(" in lists_code or "EntryModeConfirmationDialog(" in lists_code:
     errors.append("SurfaceManagementTab.kt: old inline or modal mode editor returned")
 for obsolete in ("InlineEntryModePicker.kt", "EntryModeSettingsDialog.kt"):
