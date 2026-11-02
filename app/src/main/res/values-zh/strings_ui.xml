@@ -215,7 +215,7 @@
     <string name="surface_channels_count">找到 %1$d 个通知渠道</string>
     <string name="surface_channels_confirm">确定应用通知渠道过滤？</string>
     <string name="surface_channels_confirm_help">只过滤通知栏显示，不修改通知重要性，也不删除已保存的通知。</string>
-    <string name="nav_surface_management">模式</string>
+    <string name="nav_surface_management">控制</string>
     <string name="surface_group_notifications">通知清理</string>
     <string name="surface_group_notifications_help">当前通知、通知栏隐藏及通知渠道</string>
     <string name="surface_group_launcher">桌面与最近任务</string>
@@ -254,9 +254,9 @@
     <string name="notification_category_other">其他或未分类</string>
     <string name="notification_group_category_help">按 Android 消息、邮件、通话、闹钟等类别浏览当前通知</string>
     <string name="lc_mode_follow_global">跟随全局默认</string>
-    <string name="lc_mode_settings_help">可修改全局默认模式，也可为当前入口分类设置独立模式。未指定的分类继续跟随全局。此模式控制系统候选列表，而不是 ListCleaner 内部的过滤按钮。</string>
-    <string name="lc_mode_default_title">全局默认方式</string>
-    <string name="lc_mode_category_overrides">分类独立方式</string>
+    <string name="lc_mode_settings_help">可设置默认清理方式，或为 Entry 分类单独指定清理方式。未设置的分类跟随默认方式。这里控制系统候选列表，不是 App 内部的列表过滤。</string>
+    <string name="lc_mode_default_title">默认清理方式</string>
+    <string name="lc_mode_category_overrides">Entry 清理方式</string>
     <string name="lc_mode_category_overrides_help">每种入口默认跟随全局，也可以选择独立的清理模式。此设置影响系统候选列表，不是 App 内部的列表过滤。</string>
     <string name="lc_mode_all_inherit">全部跟随全局</string>
     <string name="lc_mode_override_count">已独立配置 %1$d / %2$d 项</string>
@@ -264,7 +264,7 @@
     <string name="lc_mode_expand_group">展开</string>
     <string name="lc_mode_collapse_group">收起</string>
     <string name="lc_mode_inherit_count">%1$d 项全部跟随全局</string>
-    <string name="lc_mode_current_format">当前：%1$s</string>
+    <string name="lc_mode_current_format">清理方式：%1$s</string>
     <string name="lc_mode_mixed_categories">按分类</string>
     <string name="lc_entry_cleanup_header">入口清理</string>
     <string name="lc_mode_open_short">Open</string>
@@ -273,7 +273,7 @@
     <string name="lc_mode_header_all">显示全部</string>
     <string name="lc_mode_header_category_format">%1$s · %2$s</string>
     <string name="lc_mode_select_for">%1$s · 清理方式</string>
-    <string name="lc_mode_confirm_hint">选择模式后点击确认修改；取消不会更改当前规则。</string>
+    <string name="lc_mode_confirm_hint">选择清理方式后确认修改；取消则保留原来的方式。</string>
     <string name="lc_mode_confirm_apply">确认修改</string>
     <string name="preview_tab_estimated">预计结果</string>
     <string name="preview_estimated_title">预计可见列表 · 未验证</string>
