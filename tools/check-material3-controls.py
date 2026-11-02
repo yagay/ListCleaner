@@ -79,7 +79,7 @@ required = {
                               "SettingsSection.BACKUP ->", "SettingsSection.ADVANCED ->",
                               "ScopeDialog(", "SettingsSection.ABOUT -> AboutSettings()"],
     "SurfaceManagementTab.kt": ["fun SurfaceManagementTab(", "pendingNavigation: PendingNavigationGuard?",
-                                  "onOpenEntry: (IntentKind) -> Unit", "onOpenRoot: () -> Unit",
+                                  "onOpenEntry: (IntentKind) -> Unit",
                                   "onOpenDiagnostics: () -> Unit", "RegisterPendingNavigation(",
                                   "modesPresetSelection(", "home-module-status", "dashboard_module_status",
                                  "home-manage-entry", "home-manage-root",
@@ -745,6 +745,18 @@ if "InlineEntryModePicker(" in entry_code or "modeLabel =" in entry_code:
     errors.append("MainTabs.kt: deleted Entry mode-header row must not return")
 if "EntryModeFilterMenu(" not in lists_code:
     errors.append("SurfaceManagementTab.kt: mode editing must retain anchored menu")
+# Entry is an entry kind; Root is a backend. Neither belongs in a duplicate
+# fixed Quick access row. Real shortcuts are the user's pinned Entry categories.
+for retired in ('item(key = "home-shortcuts-heading")',
+                'item(key = "home-shortcuts-row")',
+                'onOpenRoot: () -> Unit'):
+    if retired in lists_code:
+        errors.append(f"SurfaceManagementTab.kt: redundant or mismatched Quick access item remains: {retired}")
+for required in ('home-favorites-heading', 'val shortcuts = pinned.take(4)',
+                 'onClick = { onOpenEntry(kind) }', 'home-manage-entry',
+                 'home-manage-root'):
+    if required not in lists_code:
+        errors.append(f"SurfaceManagementTab.kt: missing pinned quick action or cleanup manager: {required}")
 # Module status was moved to Controls home; Settings only keeps its detailed page.
 settings_home_code = (root / "SettingsCenterHome.kt").read_text(encoding="utf-8")
 if "dashboard_module_status" in settings_home_code:
