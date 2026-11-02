@@ -25,8 +25,8 @@
     <string name="lc_home_overview_title">Cleanup overview</string>
     <string name="lc_home_overview_summary">%1$d saved Entry rules · %2$d disabled cleanup categories · %3$d hidden notification channels</string>
     <string name="lc_home_quick_title">Quick access</string>
-    <string name="lc_home_entry_shortcut">Entry</string>
-    <string name="lc_home_root_shortcut">Root</string>
+    <string name="lc_home_entry_shortcut">Open</string>
+    <string name="lc_home_root_shortcut">Root Components</string>
     <string name="lc_home_diagnostics_shortcut">Diagnostics</string>
     <string name="lc_home_favorites_title">Favorite Entry categories</string>
     <string name="lc_home_favorites_suggested">Common Entry categories</string>
