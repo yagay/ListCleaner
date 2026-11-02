@@ -25,8 +25,8 @@
     <string name="lc_home_overview_title">清理概况</string>
     <string name="lc_home_overview_summary">Entry 规则 %1$d 条 · 已禁用清理分类 %2$d 项 · 已隐藏通知频道 %3$d 个</string>
     <string name="lc_home_quick_title">快捷入口</string>
-    <string name="lc_home_entry_shortcut">入口清理</string>
-    <string name="lc_home_root_shortcut">Root 组件</string>
+    <string name="lc_home_entry_shortcut">打开方式</string>
+    <string name="lc_home_root_shortcut">Root 组件清理</string>
     <string name="lc_home_diagnostics_shortcut">诊断</string>
     <string name="lc_home_favorites_title">常用 Entry 分类</string>
     <string name="lc_home_favorites_suggested">推荐 Entry 分类</string>
