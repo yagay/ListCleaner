@@ -81,7 +81,7 @@ required = {
     "SurfaceManagementTab.kt": ["fun SurfaceManagementTab(", "pendingNavigation: PendingNavigationGuard?",
                                   "onOpenEntry: (IntentKind) -> Unit", "onOpenRoot: () -> Unit",
                                   "onOpenDiagnostics: () -> Unit", "RegisterPendingNavigation(",
-                                  "modesPresetSelection(", "home-runtime-status",
+                                  "modesPresetSelection(", "home-module-status", "dashboard_module_status",
                                  "home-manage-entry", "home-manage-root",
                                  "visibleEntryModes.forEach", "visibleRootModes.forEach",
                                  "CompactSearchField(", "AdaptiveFilterChip(",
@@ -745,6 +745,21 @@ if "InlineEntryModePicker(" in entry_code or "modeLabel =" in entry_code:
     errors.append("MainTabs.kt: deleted Entry mode-header row must not return")
 if "EntryModeFilterMenu(" not in lists_code:
     errors.append("SurfaceManagementTab.kt: mode editing must retain anchored menu")
+# Module status was moved to Controls home; Settings only keeps its detailed page.
+settings_home_code = (root / "SettingsCenterHome.kt").read_text(encoding="utf-8")
+if "dashboard_module_status" in settings_home_code:
+    errors.append("SettingsCenterHome.kt: duplicate top module status shortcut remains")
+if 'item(key = "home-runtime-status")' in lists_code:
+    errors.append("SurfaceManagementTab.kt: old Runtime status summary remains")
+if 'item(key = "home-module-status")' not in lists_code or (
+    "onClick = onOpenStatus" not in lists_code
+):
+    errors.append("SurfaceManagementTab.kt: relocated module status shortcut missing")
+settings_navigation_code = (root / "SettingsNavigation.kt").read_text(encoding="utf-8")
+if "openCompatibility: Boolean = false" not in settings_navigation_code or (
+    "onCompatibilityOpened()" not in settings_navigation_code
+):
+    errors.append("SettingsNavigation.kt: relocated status must open Compatibility")
 # Default cleanup method belongs in the LSPosed Entry category manager, not home.
 home_start = lists_code.find('if (section == ModesHomeSection.HOME) {')
 entry_manager_start = lists_code.find('if (section == ModesHomeSection.LSPOSED) {', home_start)
