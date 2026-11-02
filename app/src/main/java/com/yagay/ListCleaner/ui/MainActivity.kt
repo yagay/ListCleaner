@@ -335,7 +335,20 @@ class MainActivity : ComponentActivity() {
                                 vm.setDestination(Destination.RULES)
                             }
                         },
-                        onOpenRoot = { pendingNavigation.request { vm.setDestination(Destination.TILES) } },
+                        onOpenCleanupEntry = {
+                            pendingNavigation.request {
+                                managedEntrySurface = null
+                                // A whole Entry shortcut must not retain an old kind,
+                                // Open subtype or browser host from a previous visit.
+                                vm.setFilter(null)
+                                vm.setRuleOpenPreset(null)
+                                vm.setRuleBrowserHost(null)
+                                vm.setDestination(Destination.RULES)
+                            }
+                        },
+                        onOpenComponents = {
+                            pendingNavigation.request { vm.setDestination(Destination.TILES) }
+                        },
                         onOpenDiagnostics = {
                             openDiagnostics = true
                             pendingNavigation.request { vm.setDestination(Destination.SETTINGS) }
