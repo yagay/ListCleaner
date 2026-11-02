@@ -751,7 +751,7 @@ if "EntryModeFilterMenu(" not in lists_code:
 quick_start = lists_code.find('item(key = "home-shortcuts-heading")')
 quick_end = lists_code.find('item(key = "home-favorites-heading")', quick_start)
 quick_code = lists_code[quick_start:quick_end] if quick_start >= 0 and quick_end > quick_start else ""
-for required in (
+for shortcut_symbol in (
     'item(key = "home-shortcuts-row")',
     'onClick = onOpenCleanupEntry',
     'stringResource(R.string.lc_cleanup_mode_entry_short)',
@@ -759,17 +759,17 @@ for required in (
     'stringResource(R.string.lc_cleanup_mode_component_short)',
     'onClick = onOpenDiagnostics',
 ):
-    if required not in quick_code:
-        errors.append(f"Controls Quick access must match Cleanup tabs: missing {required}")
+    if shortcut_symbol not in quick_code:
+        errors.append(f"Controls Quick access must match Cleanup tabs: missing {shortcut_symbol}")
 for wrong in ('onOpenEntry(IntentKind.OPEN)', 'onOpenRoot', 'lc_home_entry_shortcut',
               'lc_home_root_shortcut'):
     if wrong in quick_code:
         errors.append(f"Controls Quick access contains incorrect label/target: {wrong}")
-for required in ('home-favorites-heading', 'val shortcuts = pinned.take(4)',
+for shortcut_symbol in ('home-favorites-heading', 'val shortcuts = pinned.take(4)',
                  'onClick = { onOpenEntry(kind) }', 'home-manage-entry',
                  'home-manage-root'):
-    if required not in lists_code:
-        errors.append(f"SurfaceManagementTab.kt: missing pinned quick action or cleanup manager: {required}")
+    if shortcut_symbol not in lists_code:
+        errors.append(f"SurfaceManagementTab.kt: missing pinned quick action or cleanup manager: {shortcut_symbol}")
 activity_code = (root / "MainActivity.kt").read_text(encoding="utf-8")
 entry_route_start = activity_code.find("onOpenCleanupEntry = {")
 component_route_start = activity_code.find("onOpenComponents = {", entry_route_start)
