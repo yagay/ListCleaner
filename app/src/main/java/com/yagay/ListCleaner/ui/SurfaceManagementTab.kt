@@ -13,6 +13,7 @@ import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -77,6 +78,8 @@ internal fun SurfaceManagementTab(
     // Only one inline mode editor at a time, and no modes are written
     // until its explicit confirmation button is pressed.
     var editingModeKey by rememberSaveable(userId) { mutableStateOf<String?>(null) }
+    var showFavoritePicker by rememberSaveable { mutableStateOf(false) }
+    var showFavoriteManager by rememberSaveable { mutableStateOf(false) }
     var section by rememberSaveable(userId) { mutableStateOf(ModesHomeSection.HOME) }
     var modeQuery by rememberSaveable(userId, section) { mutableStateOf("") }
     var modeFilter by rememberSaveable(userId, section) { mutableStateOf(ModesViewFilter.ALL) }
@@ -99,11 +102,10 @@ internal fun SurfaceManagementTab(
     val allRootKinds = rootModeItems.filterIsInstance<CleanupCategoryId.Root>()
         .map { it.kind }.toSet()
     val allManagedKinds = ManagedComponentSurface.entries.map { it.surfaceKind() }.toSet()
-    val pinned = UiPreferencesRuntime.current.pinnedEntryKinds.filter { it in allEntryKinds }
-    val shortcuts = (pinned.ifEmpty {
-        listOf(IntentKind.OPEN, IntentKind.SHARE, IntentKind.DIRECT_SHARE)
-    }).filter { it in allEntryKinds }.distinct().take(4)
     val prefs = UiPreferencesRuntime.current
+    val pinned = prefs.pinnedEntryKinds.filter { it in allEntryKinds }
+    // Show only what the user explicitly pinned; an empty list stays empty.
+    val shortcuts = pinned.take(4)
     val favorites = entryModeItems.filter { category ->
         when (category) {
             is CleanupCategoryId.Entry -> category.kind in prefs.pinnedEntryKinds
@@ -129,6 +131,34 @@ internal fun SurfaceManagementTab(
     val visibleRootModes = orderedRootModes.filter { category ->
         modesViewMatches(modeFilter, category.kind in draftRootDisabled, modeQuery,
             context.getString(category.titleResource()))
+    }
+
+    if (showFavoritePicker) {
+        CategoryPinnedPickerDialog(
+            available = entryModeItems.filterIsInstance<CleanupCategoryId.Entry>().map { it.kind },
+            pinned = prefs.pinnedEntryKinds,
+            label = { kind -> stringResource(kind.titleRes()) },
+            onSave = { chosen ->
+                UiPreferencesStore.write(
+                    context, UiPreferencesRuntime.current.copy(pinnedEntryKinds = chosen))
+            },
+            onDismiss = { showFavoritePicker = false },
+        )
+    }
+    if (showFavoriteManager) {
+        CategoryPinnedManagerDialog(
+            items = pinned,
+            label = { kind -> stringResource(kind.titleRes()) },
+            onChange = { updated ->
+                // Do not erase legacy/invisible Entry pins from other list pickers.
+                val otherPins = UiPreferencesRuntime.current.pinnedEntryKinds
+                    .filterNot { it in allEntryKinds }
+                UiPreferencesStore.write(
+                    context, UiPreferencesRuntime.current.copy(
+                        pinnedEntryKinds = updated + otherPins))
+            },
+            onDismiss = { showFavoriteManager = false },
+        )
     }
 
     val applyChanges: () -> Boolean = {
@@ -257,11 +287,30 @@ internal fun SurfaceManagementTab(
                 }
             }
         }
-        if (shortcuts.isNotEmpty()) {
-            item(key = "home-favorites-heading") {
-                FlatPopupHeader(stringResource(if (pinned.isEmpty())
-                    R.string.lc_home_favorites_suggested else R.string.lc_home_favorites_title))
+        item(key = "home-favorites-heading") {
+            Row(
+                Modifier.fillMaxWidth().padding(
+                    start = MaterialUiTokens.pageHorizontal,
+                    end = MaterialUiTokens.pageHorizontal,
+                ),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                androidx.compose.foundation.layout.Box(Modifier.weight(1f)) {
+                    FlatSectionHeader(stringResource(R.string.lc_home_favorites_title))
+                }
+                AdaptiveIconButton(onClick = { showFavoritePicker = true }) {
+                    AdaptiveIcon(
+                        Icons.Rounded.Add, stringResource(R.string.lc_home_favorites_add),
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
             }
+        }
+        if (shortcuts.isEmpty()) {
+            item(key = "home-favorites-empty") {
+                WorkspaceAppNote(stringResource(R.string.lc_home_favorites_empty))
+            }
+        } else {
             shortcuts.forEach { kind ->
                 item(key = "home-shortcut-kind-${kind.name}") {
                     FlatCategoryRow(
@@ -269,7 +318,14 @@ internal fun SurfaceManagementTab(
                         title = stringResource(kind.titleRes()),
                         description = null,
                         onClick = { onOpenEntry(kind) },
+                        onLongClick = { showFavoriteManager = true },
                     )
+                }
+            }
+            if (pinned.size > shortcuts.size) {
+                item(key = "home-favorites-more") {
+                    WorkspaceAppNote(stringResource(
+                        R.string.lc_home_favorites_more, pinned.size - shortcuts.size))
                 }
             }
         }
