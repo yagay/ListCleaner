@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yagay.ListCleaner.R
+import com.yagay.ListCleaner.domain.AppType
 import com.yagay.ListCleaner.domain.ComponentCandidate
 import com.yagay.ListCleaner.domain.CustomOpenDefinition
 import com.yagay.ListCleaner.domain.IntentKind
@@ -75,6 +76,7 @@ internal fun AppRow(
     WorkspaceAppRow(
         icon = group.appIcon,
         title = group.appLabel,
+        isSystemApp = group.appType == AppType.SYSTEM,
         packageName = group.packageName,
         subtitle = WorkspaceAppSummaryText(
             R.string.app_row_selection_summary,
