@@ -14,6 +14,7 @@ class RoleEligibilityComparisonTest {
         millis: Long = 120_000L,
         packages: List<String> = listOf("com.example.browser", "com.example.other"),
         truncated: Boolean = false,
+        token: String = "same-request",
     ) = RuntimeInterfaceSnapshot(
         kind = kind.name,
         source = source,
@@ -21,6 +22,7 @@ class RoleEligibilityComparisonTest {
         callerPackage = "com.google.android.permissioncontroller",
         callerUid = 1000,
         requestAction = "android.app.role." + kind.name,
+        requestToken = token,
         capturedAtMillis = millis,
         packages = packages,
         totalPackages = packages.size,
@@ -52,6 +54,14 @@ class RoleEligibilityComparisonTest {
     @Test fun differentInvocationCannotBeDiffed() {
         val before = observed(source = "ROLE_CONTROLLER_ORIGINAL", millis = 100_000L)
         val after = observed(source = "ROLE_CONTROLLER_RETURN", millis = 200_000L)
+        val compare = compareRoleEligibility(IntentKind.BROWSER, 0, before, after)
+        assertFalse(compare.sameQuery)
+        assertTrue(compare.removed.isEmpty())
+    }
+
+    @Test fun nearbyButDifferentRoleQueriesCannotBeDiffed() {
+        val before = observed(source = "ROLE_CONTROLLER_ORIGINAL", token = "query-a")
+        val after = observed(source = "ROLE_CONTROLLER_RETURN", millis = 120_030L, token = "query-b")
         val compare = compareRoleEligibility(IntentKind.BROWSER, 0, before, after)
         assertFalse(compare.sameQuery)
         assertTrue(compare.removed.isEmpty())
