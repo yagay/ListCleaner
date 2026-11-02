@@ -176,17 +176,23 @@ internal fun ListControls(
     previewActions: List<WorkspaceMenuAction> = emptyList(),
     toolbarPreviewActions: List<WorkspaceMenuAction> = emptyList(),
     onManagedSurface: (ManagedComponentSurface) -> Unit = {},
+    managedSurface: ManagedComponentSurface? = null,
+    uiFilterOverride: UiFilter? = null,
+    showProgress: Boolean = state.loading,
     modeAction: (@Composable () -> Unit)? = null,
     selectionActions: List<WorkspaceMenuAction> = emptyList(),
 ) {
-    LaunchedEffect(state.filter, state.disabledEntryGroups) {
-        if ((state.filter in state.disabledEntryKinds || state.filter?.entryGroup() in state.disabledEntryGroups)) onFilter(null)
+    LaunchedEffect(state.filter, state.disabledEntryGroups, managedSurface) {
+        if (managedSurface == null &&
+            (state.filter in state.disabledEntryKinds ||
+                state.filter?.entryGroup() in state.disabledEntryGroups)) onFilter(null)
     }
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
         WorkspaceCategoryFilterRow(
             category = {
                 EntryCategoryPicker(
-                    selected = state.filter,
+                    selected = if (managedSurface != null) null else state.filter,
+                    managedSurface = managedSurface,
                     onSelected = onFilter,
                     modifier = Modifier.fillMaxWidth(),
                     includeAllKinds = includeAllKinds,
@@ -219,13 +225,13 @@ internal fun ListControls(
                 WorkspaceFilterBar(
                     appTypeFilter = appTypeFilter,
                     onAppTypeFilter = onAppTypeFilter,
-                    viewFilter = state.uiFilter,
+                    viewFilter = uiFilterOverride ?: state.uiFilter,
                     onViewFilter = onUiFilter,
                     viewTitle = viewTitle
                 )
             }
         )
-        if (state.loading) WorkspaceProgress()
+        if (showProgress) WorkspaceProgress()
         AdaptiveHorizontalDivider()
     }
 }
