@@ -19,7 +19,7 @@ internal object AccessibilityServiceDetailRoute {
         if (packageName.isNullOrBlank() || serviceName.isNullOrBlank()) return null
         val name = if (serviceName.startsWith(".")) packageName + serviceName else serviceName
         val flattened = "$packageName/$name"
-        if (!safeComponent.matches(flattened) || !name.startsWith("$packageName.")) return null
+        if (!safeComponent.matches(flattened)) return null
         return ComponentName(packageName, name)
     }
 
