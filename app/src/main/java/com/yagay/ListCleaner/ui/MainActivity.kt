@@ -328,9 +328,11 @@ class MainActivity : ComponentActivity() {
                     Destination.SURFACES -> SurfaceManagementTab(
                         state = state, vm = vm,
                         onOpenEntry = { kind ->
-                            managedEntrySurface = null
-                            vm.setFilter(kind)
-                            pendingNavigation.request { vm.setDestination(Destination.RULES) }
+                            pendingNavigation.request {
+                                managedEntrySurface = null
+                                vm.setFilter(kind)
+                                vm.setDestination(Destination.RULES)
+                            }
                         },
                         onOpenRoot = { pendingNavigation.request { vm.setDestination(Destination.TILES) } },
                         onOpenDiagnostics = {
