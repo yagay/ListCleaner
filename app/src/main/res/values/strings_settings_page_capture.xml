@@ -25,4 +25,11 @@
     <string name="page_capture_float_notification_title">ListCleaner page identification</string>
     <string name="page_capture_float_notification_text">Tap the floating icon to start/pause capture; hold to close</string>
     <string name="page_capture_float_hint">The icon starts in capture mode. Tap to pause/resume, drag to move, hold to close. Green check and a toast confirm a saved Activity/Fragment.</string>
+
+    <string name="page_capture_float_notification_running">Capturing Settings pages. Open the notification to pause or stop.</string>
+    <string name="page_capture_float_notification_paused">Page capture paused. Tap Resume to continue.</string>
+    <string name="page_capture_float_paused_badge_long">Pause</string>
+    <string name="page_capture_float_resume">Resume</string>
+    <string name="page_capture_float_notification_permission">Allow notifications to control capture when the system hides overlays.</string>
+    <string name="page_capture_float_overlay_fallback">System Settings may hide the floating button. Use the persistent notification to pause/resume or stop capture.</string>
 </resources>
