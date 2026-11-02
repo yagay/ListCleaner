@@ -32,12 +32,15 @@ internal fun ContinuousDetailSurface(
     FlatRowSurface(
         modifier = if (selected) Modifier.drawWithContent {
             drawContent()
-            // Draw over the surface rather than adding padding or shifting the row.
+            // The shared detail title starts after the 48dp selection slot.
+            // Place the rail directly before that title, not at the screen edge.
+            // Paint in place so text, icons and hit targets do not shift.
             val verticalInset = 8.dp.toPx()
+            val railCenterX = MaterialUiTokens.iconTouchTarget.toPx() - 4.dp.toPx()
             drawLine(
                 color = selectionColor,
-                start = Offset(2.dp.toPx(), verticalInset),
-                end = Offset(2.dp.toPx(), size.height - verticalInset),
+                start = Offset(railCenterX, verticalInset),
+                end = Offset(railCenterX, size.height - verticalInset),
                 strokeWidth = 3.dp.toPx(),
                 cap = StrokeCap.Round
             )
