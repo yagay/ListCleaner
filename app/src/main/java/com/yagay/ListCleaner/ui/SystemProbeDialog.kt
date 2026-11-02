@@ -70,7 +70,7 @@ internal fun SystemProbeDialog(
     val typedOptions = if (!request.directLaunch && typedKind != null && previewState != null)
         previewMimeOptions(typedKind, previewState.candidates, previewState.openTypesExplicit)
     else emptyList()
-    val choices = if (request.entryKind in ROLE_PREVIEW_KINDS ||
+    val choices = if (opensRolePickerDirectly(request.entryKind) ||
         request.directLaunch || request.shareMimeType != null || typedOptions.isNotEmpty()
     ) emptyList() else request.entryKind?.let(::availableProbeScenarios).orEmpty()
     if (documentChoices.isNotEmpty()) {
