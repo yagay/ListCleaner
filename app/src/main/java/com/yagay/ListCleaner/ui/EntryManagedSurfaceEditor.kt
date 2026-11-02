@@ -516,6 +516,7 @@ internal fun EntryManagedSurfaceEditor(
                     val lockCount = rows.count { managedRuleLocked(saved, it) }
                     WorkspaceAppRow(
                         icon = icon, title = labels[pkg] ?: pkg,
+                        isSystemApp = systemApps[pkg] == true,
                         packageName = pkg,
                         subtitle = stringResource(R.string.component_surface_hidden_summary,
                             current, rows.size),
