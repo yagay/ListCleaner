@@ -36,6 +36,7 @@ internal class RuntimeInterfaceCaptureWriter(
         requestAction: String = "",
         requestMimeType: String = "",
         requestHost: String = "",
+        requestToken: String = "",
         resolverOrdered: Boolean = false,
         context: Context? = null,
     ) {
@@ -46,6 +47,7 @@ internal class RuntimeInterfaceCaptureWriter(
             callerPackage = callerPackage,
             callerUid = callerUid, requestAction = requestAction,
             requestMimeType = requestMimeType, requestHost = requestHost,
+            requestToken = requestToken,
             capturedAtMillis = System.currentTimeMillis(),
             packages = uniquePackages.take(RuntimeInterfaceSnapshotCodec.MAX_PACKAGES),
             components = uniqueComponents.take(RuntimeInterfaceSnapshotCodec.MAX_PACKAGES),
