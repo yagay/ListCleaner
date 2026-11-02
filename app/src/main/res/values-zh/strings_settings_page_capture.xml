@@ -11,4 +11,18 @@
     <string name="page_capture_no_external">该 Activity 无法从外部启动，或需要内部状态；仍可使用其标识进行诊断。</string>
     <string name="page_capture_start_failed">无法开始识别。</string>
     <string name="page_capture_open_failed">无法打开系统设置。</string>
+
+    <string name="page_capture_float_start">开启悬浮抓取图标</string>
+    <string name="page_capture_float_stop">关闭悬浮图标</string>
+    <string name="page_capture_float_permission">需要允许“显示在其他应用上层”，才能使用悬浮抓取图标</string>
+    <string name="page_capture_float_active">开始抓取页面</string>
+    <string name="page_capture_float_paused">已暂停抓取</string>
+    <string name="page_capture_float_success">获取成功：%1$s</string>
+    <string name="page_capture_float_active_badge">●</string>
+    <string name="page_capture_float_paused_badge">Ⅱ</string>
+    <string name="page_capture_float_success_badge">✓</string>
+    <string name="page_capture_float_closed">已关闭悬浮图标</string>
+    <string name="page_capture_float_notification_title">ListCleaner 页面识别</string>
+    <string name="page_capture_float_notification_text">点悬浮图标开始或暂停，长按关闭</string>
+    <string name="page_capture_float_hint">开启后默认抓取。点击暂停/恢复，拖动移动，长按关闭。成功保存 Activity/Fragment 时显示绿色勾和提示。</string>
 </resources>
