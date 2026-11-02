@@ -651,6 +651,7 @@ fun PriorityDialogContent(
                     WorkspaceAppRow(
                         icon = first.appIcon,
                         title = first.appLabel,
+                        isSystemApp = group.appType == AppType.SYSTEM,
                         packageName = packageName,
                         subtitle = stringResource(
                             R.string.priority_app_summary, rankText, group.components.size
@@ -749,7 +750,10 @@ fun PriorityDialogContent(
                         item(key = "order|$key") {
                             val index = moveTargets.indexOf(packageName)
                             Row(
-                                Modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp),
+                                Modifier.fillMaxWidth().padding(
+                                    start = MaterialUiTokens.iconTouchTarget,
+                                    end = MaterialUiTokens.pageHorizontal
+                                ),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 AdaptiveText(
