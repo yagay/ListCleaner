@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="component_display_filters">Display filtering</string>
-    <string name="component_settings_apps">Settings Apps</string>
+    <string name="component_settings_apps">Installed Apps</string>
     <string name="component_notifications">Notification Channels</string>
     <string name="component_surface_app_rule">Entire application</string>
     <string name="component_surface_channel_rule">Notification channel</string>
