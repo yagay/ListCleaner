@@ -27,6 +27,43 @@ class RuntimeCaptureProvider : ContentProvider() {
     override fun onCreate(): Boolean = true
 
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle? {
+        // A native control is shown only inside the real Settings Activity and
+        // only for an explicitly started ListCleaner capture session.
+        if (method in setOf(
+                SettingsPageCaptureProtocol.METHOD_CONTROL_STATUS,
+                SettingsPageCaptureProtocol.METHOD_CONTROL_TOGGLE,
+                SettingsPageCaptureProtocol.METHOD_CONTROL_CLOSE,
+            )) {
+            val ctx = context ?: return null
+            val callingUid = Binder.getCallingUid()
+            if (!trustedFrameworkUid(callingUid) ||
+                ctx.packageManager.getPackagesForUid(callingUid).orEmpty()
+                    .none { it == "com.android.settings" }) return null
+            val showing = SettingsPageFloatingService.isShowing()
+            val active = SettingsPageCaptureStore.active(ctx)
+            if (!showing && !active) return Bundle().apply {
+                putBoolean(SettingsPageCaptureProtocol.KEY_CONTROL_ENABLED, false)
+                putBoolean(SettingsPageCaptureProtocol.KEY_CONTROL_ACTIVE, false)
+            }
+            when (method) {
+                SettingsPageCaptureProtocol.METHOD_CONTROL_TOGGLE -> {
+                    if (active) SettingsPageCaptureStore.stop(ctx)
+                    else SettingsPageCaptureStore.begin(ctx)
+                    SettingsPageFloatingService.captureStateChanged()
+                }
+                SettingsPageCaptureProtocol.METHOD_CONTROL_CLOSE -> {
+                    SettingsPageCaptureStore.stop(ctx)
+                    SettingsPageFloatingService.close(ctx)
+                }
+            }
+            return Bundle().apply {
+                putBoolean(SettingsPageCaptureProtocol.KEY_CONTROL_ENABLED,
+                    method != SettingsPageCaptureProtocol.METHOD_CONTROL_CLOSE &&
+                        (showing || SettingsPageCaptureStore.active(ctx)))
+                putBoolean(SettingsPageCaptureProtocol.KEY_CONTROL_ACTIVE,
+                    SettingsPageCaptureStore.active(ctx))
+            }
+        }
         if (method == SettingsPageCaptureProtocol.METHOD_PUBLISH) {
             val ctx = context ?: return null
             val callerUid = Binder.getCallingUid()
