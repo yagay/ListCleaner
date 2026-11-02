@@ -39,6 +39,18 @@ internal object MaterialStatusPalette {
     fun informationalText(): Color =
         if (LocalListCleanerDarkTheme.current) Color(0xFF80DFD0)
         else Color(0xFF006C62)
+
+    // System-app identity must not reuse the theme's primary/secondary accents:
+    // user-selected accent colors intentionally map those roles to the same hue.
+    @Composable
+    fun systemAppText(): Color =
+        if (LocalListCleanerDarkTheme.current) Color(0xFFFFD18B)
+        else Color(0xFF844400)
+
+    @Composable
+    fun systemAppBadgeBackground(): Color =
+        if (LocalListCleanerDarkTheme.current) Color(0xFF50320F)
+        else Color(0xFFFFE7BE)
 }
 
 /**
