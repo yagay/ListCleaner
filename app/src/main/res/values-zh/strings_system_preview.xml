@@ -18,4 +18,5 @@
     <string name="preview_accessibility_detail_invalid">没有选中有效的无障碍服务。</string>
     <string name="preview_accessibility_detail_not_service">这个项目并非已注册的无障碍服务，无法打开服务详情设置页面。</string>
     <string name="preview_accessibility_detail_unavailable">无法验证指定无障碍服务的详情页面。若服务被清理规则隐藏、未注册或受到系统限制，Android 可能自动返回无障碍主页面。请导出诊断日志查看 ACCESSIBILITY_DETAIL。</string>
+    <string name="preview_accessibility_downloaded_unavailable">无法打开 OxygenOS 的无障碍“已下载应用”列表。系统子页面可能不可用或禁止外部启动，请查看诊断中的 ACCESSIBILITY_DOWNLOADED。</string>
 </resources>
