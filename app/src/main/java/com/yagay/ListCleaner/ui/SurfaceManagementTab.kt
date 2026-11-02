@@ -457,14 +457,14 @@ internal fun SurfaceManagementTab(
                     AdaptiveTextButton(onClick = {
                         if (section == ModesHomeSection.LSPOSED) {
                             draftDisabled = modesPresetSelection(
-                                ModesQuickPreset.PAUSE_ALL, allEntryKinds, draftDisabled)
+                                ModesQuickPreset.DISABLE_ALL, allEntryKinds, draftDisabled)
                             draftManagedDisabled = modesPresetSelection(
-                                ModesQuickPreset.PAUSE_ALL, allManagedKinds, draftManagedDisabled)
+                                ModesQuickPreset.DISABLE_ALL, allManagedKinds, draftManagedDisabled)
                         } else {
                             draftRootDisabled = modesPresetSelection(
-                                ModesQuickPreset.PAUSE_ALL, allRootKinds, draftRootDisabled)
+                                ModesQuickPreset.DISABLE_ALL, allRootKinds, draftRootDisabled)
                         }
-                    }) { AdaptiveText(stringResource(R.string.lc_home_preset_pause)) }
+                    }) { AdaptiveText(stringResource(R.string.lc_home_preset_disable)) }
                 }
                 WorkspaceAppNote(
                     stringResource(R.string.lc_home_preset_explain), informational = true)
@@ -617,7 +617,7 @@ internal fun modesViewMatches(
 }
 
 /** Safe predefined home actions; they only calculate an unapplied UI draft. */
-internal enum class ModesQuickPreset { ENABLE_ALL, PAUSE_ALL }
+internal enum class ModesQuickPreset { ENABLE_ALL, DISABLE_ALL }
 
 internal fun <T> modesPresetSelection(
     preset: ModesQuickPreset,
@@ -625,7 +625,7 @@ internal fun <T> modesPresetSelection(
     previouslyDisabled: Set<T>,
 ): Set<T> = when (preset) {
     ModesQuickPreset.ENABLE_ALL -> previouslyDisabled - available
-    ModesQuickPreset.PAUSE_ALL -> previouslyDisabled + available
+    ModesQuickPreset.DISABLE_ALL -> previouslyDisabled + available
 }
 
 internal fun <T> modesDifferenceCount(saved: Set<T>, draft: Set<T>): Int =
