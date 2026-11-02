@@ -52,4 +52,6 @@
     <string name="lc_home_favorites_more">%1$d more favorites. Long-press a favorite to reorder or remove it.</string>
     <string name="lc_home_favorite_type_entry">Entry</string>
     <string name="lc_home_favorite_type_component">Component</string>
+    <string name="lc_home_favorites_expand">Show all favorites</string>
+    <string name="lc_home_favorites_collapse">Show fewer favorites</string>
 </resources>
