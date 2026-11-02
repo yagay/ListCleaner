@@ -124,6 +124,7 @@ class MainActivity : ComponentActivity() {
         var managedEntrySurface by rememberSaveable(selectedSpace) { mutableStateOf<ManagedComponentSurface?>(null) }
         val listsRefresh = remember { ListsRefreshRegistry() }
         var openModuleStatus by remember { mutableStateOf(false) }
+        var openDiagnostics by remember { mutableStateOf(false) }
         var restartPromptDismissed by rememberSaveable { mutableStateOf(false) }
         var pendingImport by remember { mutableStateOf<Pair<String, SpaceBackupInspection>?>(null) }
         var showExportDialog by rememberSaveable { mutableStateOf(false) }
@@ -324,7 +325,23 @@ class MainActivity : ComponentActivity() {
                     )
                     Destination.PRIORITY -> PriorityTab(state, vm, pendingNavigation)
                     Destination.TILES -> RootComponentsScreen(state, vm, embedded = true, onExit = { vm.setDestination(Destination.RULES) }, pendingNavigation = pendingNavigation, refreshRegistry = listsRefresh)
-                    Destination.SURFACES -> SurfaceManagementTab(state, vm)
+                    Destination.SURFACES -> SurfaceManagementTab(
+                        state = state, vm = vm,
+                        onOpenEntry = { kind ->
+                            managedEntrySurface = null
+                            vm.setFilter(kind)
+                            pendingNavigation.request { vm.setDestination(Destination.RULES) }
+                        },
+                        onOpenRoot = { pendingNavigation.request { vm.setDestination(Destination.TILES) } },
+                        onOpenDiagnostics = {
+                            openDiagnostics = true
+                            pendingNavigation.request { vm.setDestination(Destination.SETTINGS) }
+                        },
+                        onOpenStatus = {
+                            openModuleStatus = true
+                            pendingNavigation.request { vm.setDestination(Destination.SETTINGS) }
+                        }
+                    )
                     Destination.SETTINGS -> SettingsTabContent(
                         state,
                         vm,
@@ -339,7 +356,9 @@ class MainActivity : ComponentActivity() {
                         colorMode = colorMode,
                         onColorModeChange = onColorModeChange,
                         openModuleStatus = openModuleStatus,
-                        onModuleStatusOpened = { openModuleStatus = false }
+                        onModuleStatusOpened = { openModuleStatus = false },
+                        openDiagnostics = openDiagnostics,
+                        onDiagnosticsOpened = { openDiagnostics = false }
                     )
                 }
             }        }
