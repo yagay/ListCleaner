@@ -197,16 +197,24 @@ class MainActivity : ComponentActivity() {
             keyboard?.hide()
         }
         BackHandler(enabled = searchExpanded, onBack = closeSearch)
+        // Modes is the bottom-navigation home. Back unwinds any open Entry
+        // category/sort/root editor before returning there, never to the old
+        // Cleanup home merely because it was the previous first tab.
         BackHandler(enabled = !searchExpanded && (
-            state.filter != null || state.destination != Destination.RULES || pendingNavigation.hasChanges
+            state.destination != Destination.SURFACES || pendingNavigation.hasChanges
         )) {
             pendingNavigation.request {
                 when {
-                    state.destination != Destination.RULES && state.destination != Destination.PRIORITY ->
+                    state.destination == Destination.RULES && vm.ruleOpenPreset.value != null ->
+                        vm.setRuleOpenPreset(null)
+                    state.destination == Destination.RULES && vm.ruleBrowserHost.value != null ->
+                        vm.setRuleBrowserHost(null)
+                    state.destination == Destination.RULES && state.filter != null ->
+                        vm.setFilter(null)
+                    state.destination == Destination.PRIORITY || state.destination == Destination.TILES ->
                         vm.setDestination(Destination.RULES)
-                    vm.ruleOpenPreset.value != null -> vm.setRuleOpenPreset(null)
-                    vm.ruleBrowserHost.value != null -> vm.setRuleBrowserHost(null)
-                    state.filter != null -> vm.setFilter(null)
+                    state.destination != Destination.SURFACES ->
+                        vm.setDestination(Destination.SURFACES)
                     else -> finish()
                 }
             }
@@ -381,7 +389,7 @@ class MainActivity : ComponentActivity() {
                         tonalElevation = 0.dp,
                         windowInsets = WindowInsets(0, 0, 0, 0)
                     ) {
-                        listOf(Destination.RULES, Destination.SURFACES, Destination.SETTINGS)
+                        listOf(Destination.SURFACES, Destination.RULES, Destination.SETTINGS)
                             .forEach { dest ->
                             val selected = state.destination == dest ||
                                 (dest == Destination.RULES && state.destination in setOf(Destination.PRIORITY, Destination.TILES))
