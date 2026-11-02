@@ -41,9 +41,9 @@ class RuntimeCaptureProvider : ContentProvider() {
                 page.userId != AndroidUid.userId(callerUid)) return null
             // The claimed Activity package must actually belong to this Binder caller.
             if (page.packageName !in ctx.packageManager.getPackagesForUid(callerUid).orEmpty()) return null
-            return Bundle().apply {
-                putBoolean("accepted", SettingsPageCaptureStore.record(ctx, page))
-            }
+            val saved = SettingsPageCaptureStore.record(ctx, page)
+            if (saved) SettingsPageFloatingService.captured(page)
+            return Bundle().apply { putBoolean("accepted", saved) }
         }
         if (method != RuntimeCaptureContract.METHOD_PUBLISH) return null
         val ctx = context ?: return null
