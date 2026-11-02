@@ -11,6 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -33,6 +34,59 @@ internal fun <T> movePinnedCategory(items: List<T>, item: T, by: Int): List<T> {
         removeAt(from)
         add(to, item)
     }
+}
+
+/** Keep the original favorites order, then append newly checked categories.
+ * Existing pinned categories outside this chooser remain untouched.
+ */
+internal fun <T> updatePinnedFavorites(
+    previous: List<T>, available: List<T>, selected: Set<T>
+): List<T> = previous.filter { it !in available || it in selected } +
+    available.filter { it in selected && it !in previous }
+
+/** Add/remove multiple favorites without changing cleanup or component rules. */
+@Composable
+internal fun <T> CategoryPinnedPickerDialog(
+    available: List<T>,
+    pinned: List<T>,
+    label: @Composable (T) -> String,
+    onSave: (List<T>) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var selected by remember(available, pinned) {
+        mutableStateOf(pinned.filter { it in available }.toSet())
+    }
+    AdaptiveAlertDialog(
+        onDismissRequest = onDismiss,
+        title = { AdaptiveText(stringResource(R.string.lc_home_favorites_choose)) },
+        text = {
+            Column(Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState())) {
+                available.forEach { item ->
+                    WorkspaceFlatMenuRow(
+                        title = label(item),
+                        selected = item in selected,
+                        onClick = {
+                            selected = if (item in selected) selected - item else selected + item
+                        },
+                        compactOption = true,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            AdaptiveTextButton(onClick = {
+                onSave(updatePinnedFavorites(pinned, available, selected))
+                onDismiss()
+            }) {
+                AdaptiveText(stringResource(R.string.lc_mode_confirm_apply))
+            }
+        },
+        dismissButton = {
+            AdaptiveTextButton(onClick = onDismiss) {
+                AdaptiveText(stringResource(R.string.common_cancel))
+            }
+        },
+    )
 }
 
 /** Manage on its own surface so long-press dragging does not compete with popup scrolling. */
