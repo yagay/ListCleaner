@@ -66,7 +66,8 @@ internal object AccessibilityServiceDetailRoute {
     ): String {
         require(userId >= 0 && safeComponent.matches(service))
         require(activity == selectRegisteredDetails(activity))
-        // Settings detail Activity class names may contain a dollar sign.\n        // Shell single quotes prevent variable expansion.
+        // Settings detail Activity class names may contain a dollar sign.
+        // Shell single quotes prevent variable expansion.
         return "am start -W --user $userId -n '$activity'" +
             " -a $ACTION -c android.intent.category.DEFAULT" +
             " --es android.intent.extra.COMPONENT_NAME $service"
