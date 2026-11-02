@@ -15,4 +15,7 @@
     <string name="preview_shortcut_service_observed">Hook 已捕获 ShortcutService 实际返回的应用包；这不是最终联系人快捷分享列表或系统分享面板布局。</string>
     <string name="preview_role_parent_fallback">无法直达默认应用候选列表，已改为打开系统上一级设置页面。</string>
     <string name="preview_role_opened_not_verified">Android 已发起默认应用选择页面，但无法确认当前前台界面就是目标列表，请检查实际打开的页面。</string>
+    <string name="preview_accessibility_detail_invalid">没有选中有效的无障碍服务。</string>
+    <string name="preview_accessibility_detail_not_service">这个项目并非已注册的无障碍服务，无法打开服务详情设置页面。</string>
+    <string name="preview_accessibility_detail_unavailable">系统不允许直接打开此无障碍服务的设置详情；不会自动跳转到无障碍总页面。</string>
 </resources>
