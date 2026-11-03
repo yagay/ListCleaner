@@ -1,5 +1,6 @@
 package com.yagay.ListCleaner.xposed
 
+import android.annotation.SuppressLint
 import android.content.ComponentName
 import android.content.Intent
 import android.content.IntentFilter
@@ -177,7 +178,7 @@ internal object DirectShareActiveScanBridge {
                 List::class.java.isAssignableFrom(method.returnType)
         }
 
-    private fun obtainService(classLoader: ClassLoader): Any? = runCatching {
+    // This bridge executes inside hooked system_server and intentionally resolves an\n    // AOSP LocalServices instance. Restrict the lint exception to this one method.\n    @SuppressLint("BlockedPrivateApi")\n    private fun obtainService(classLoader: ClassLoader): Any? = runCatching {
         val local = Class.forName("com.android.server.LocalServices", false, classLoader)
         val internal = Class.forName(SHORTCUT_SERVICE_INTERNAL_CLASS, false, classLoader)
         local.getDeclaredMethod("getService", Class::class.java).apply {
