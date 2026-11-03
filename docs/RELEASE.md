@@ -25,6 +25,13 @@ Debug CI 可设置 `ciArm64Only` 只构建 arm64；**正式 Release 不应用 AB
 
 README、`docs/**` 等 Markdown 改动可能触发 Debug 检查，**不会自动发布 Release**。只有在 `main` 手动启动 `Build and Publish Release` 才会创建或刷新正式发行版，后续完成日志、LSPosed 同步和 Telegram 推送才可能沿正式发布链路继续。
 
+## 发布前说明核对
+
+- 首先以即将发布到 `main` 的源码核对 **Controls / 控制、Cleanup / 清理、Settings / 设置** 与内部 **Entry / Component**；同步 README、LSPosed 中英文说明和模块简介。
+- 核对“默认与分类独立清理方式”“分类启用/禁用”“Root 真实组件禁用”三者的区别。常用分类支持 Entry/Component 混合置顶和图标，但属于本地 UI 偏好，不随规则备份。
+- 运行本地化、双语对照、Material 3 检查及 Debug 构建/单元测试。**开发分支功能不能提前写入已发布版本的 Release Notes 或历史提交归档。**
+- 本说明文档及 App 内文案的更新只触发对应的 Debug 检查；不会自动发布 Release、同步 LSPosed 或发送 Telegram。
+
 ## 本地构建
 
 将备份中的 `keystore.properties` 放在项目根目录，并将 `storeFile` 设置为密钥绝对路径：

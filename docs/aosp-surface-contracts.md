@@ -1,4 +1,4 @@
-# AOSP system-surface filtering — bata
+# AOSP system-surface filtering — current development contract
 
 The additional cleanups are implemented **against AOSP class and method contracts**;
 no OxygenOS-specific class paths, naming heuristics or compatibility branches are
@@ -10,18 +10,32 @@ terminating a task, cancelling a notification or deleting a document.
 
 ## UI / persistence
 
-- Bottom navigation: **Entry cleanup | Components | Lists | Settings**
-- **Components** → Root components plus **Settings Apps** and **Notification Cleanup** under the same category picker; both added categories use the Components grouped application and detail rows, lock/selection filters, bulk action confirmation and staged Apply.
-- **Lists** → Rule maintenance only (no duplicate notification or Settings Apps editors).
-- Choose an individual surface or operation, edit its candidates, locks or order,
-  then confirm Apply. Navigation and Android user switching are protected by
-  the existing staged-change guard; Settings now contains configuration only.
-- **Entry cleanup** continues to own ACTION_EDIT and ACTION_PICK.
-  **Components** continues to own Device Controls and AccountAuthenticator Root actions.
-- Each Android user has its own `SurfaceFilterConfig` inside `UserSpaceRules`
-- The complete `ModuleConfig` is sent through the existing RemotePreferences
-  configuration bridge to LSPosed; legacy configs default to empty surface rules
-- Single-profile JSON backups and multi-profile v13 backups preserve these selections
+- Bottom navigation: **Controls | Cleanup | Settings**. Cleanup switches between
+  **Entry** (rules/candidate filtering) and **Component** (real Root component
+  states). Supported Entry categories open Priority Order via their sort control.
+- **Controls → Cleanup management** has **Entry cleanup** and **Component
+  cleanup**. Entry cleanup shows the default cleanup method first, followed by
+  category-specific inheritance/overrides and independent category switches.
+  Both pages support search, enabled/disabled filters, Enable all / Disable all,
+  and confirmation. A switch is **not** an immediate Android Root component edit.
+- **Cleanup → Entry** contains LSPosed-managed **Settings Apps** and
+  **Notification Channels** alongside other Entry kinds. These use AOSP
+  presentation filtering / channel rules, not Root component disabling.
+- **Cleanup → Component** manages six Root component kinds (launcher, shortcut
+  configuration, widget, tile, device controls, account authenticator). Root
+  state edits require permissions, staged confirmation and system read-back.
+- **Controls → Favorite categories** shares existing pinned Entry and Component
+  kinds. The + chooser reuses Cleanup category icons/flat rows with multi-select;
+  long press reorders or removes; four items are shown initially and can
+  expand. Cross-type order (`homePinnedCategoryOrder`) is a local preference,
+  separate from per-space rules and omitted from rule backups.
+- User-space rules still live in each `UserSpaceRules` / `SurfaceFilterConfig`.
+  The `ModuleConfig` is synchronized through the existing RemotePreferences
+  bridge; older configurations default to empty surface rules. Multi-profile
+  v13 rule backups preserve the synchronized selections. Navigation and
+  profile changes retain the staged-change guard.
+- Settings holds compatibility/scope and diagnostics configuration. The
+  Module status summary is on the Controls home and opens Compatibility.
 
 ## AOSP hook paths
 
@@ -69,11 +83,13 @@ the legacy backup contains selected or ordered apps. This does not delete
 other modules' entry/shortcut functionality. LSPosed processes already running
 an older module may require an app/process restart to lose the old hooks.
 
-**System Lists integrated:** **Settings Apps** is no longer a Lists editor: it is a category inside Components, backed by the existing Settings ApplicationsAdapter presentation hook. The former Lists **Quick Settings Add-Tile**, **Documents Recents**
-and **Media Output** editors and candidate discovery are retired. Their
-package-based QS hide/order, DocumentsUI recent-file hide, and media output
-hide rules are inert, but their `SurfaceKind` identifiers remain readable in
-per-user JSON backups. No legacy rule is silently deleted.
+**System Lists integrated:** **Settings Apps** is now a managed **Entry /
+LSPosed** category backed by the existing Settings ApplicationsAdapter
+presentation hook, not a Root component or an independent Lists editor.
+Former standalone Lists **Quick Settings Add-Tile**, **Documents Recents**
+and **Media Output** editors and discovery are retired. Their legacy
+package-based rules are inert, while `SurfaceKind` identities remain
+deserializable in per-user JSON backups; no legacy rule is silently deleted.
 
 **Root > Tiles stays active:** its `tileOrder` and `tileLabels` fields
 continue to control component-level SystemUI add-tile suggestion ordering
@@ -84,36 +100,34 @@ Quick Settings tiles, and it does not change enabled/disabled TileServices.
 `com.android.documentsui` may still be required by independent Entry /
 DocumentsUI modules; retiring *recent-file filtering* does not disable those.
 
-**Notification Cleanup** now lives in the Components category picker and combines application-level notification-shade rules
-and registered channel rules under grouped app / detail rows. Selecting the app hides all of its
-unprotected shade notifications; selecting an expanded channel hides only
-notifications from that channel. The two rule sets have separate locks and are
-saved independently per Android user. Bulk actions target only the visible,
-unlocked **channels**, not the whole-app rule. Scanning registered channels uses
-one batched, read-only root `app_process` probe (with listener/observed fallback);
-apps with no discovered channels are omitted unless a saved app-level rule
-exists. Scan failures must not be described as an empty channel registry.
+**Notification Channels** is a managed **Entry** category combining
+application-level notification-shade rules and registered channel rules
+under grouped app/detail rows. Selecting an app hides its unprotected
+notifications in the shade; selecting a channel hides only that channel.
+These have independent locks/rules per Android user. Bulk actions target
+visible unlocked channels, not an entire app. Channel scanning uses a
+batched read-only Root `app_process` probe, with listener/observation
+fallback; missing privileges cannot be called an empty channel registry.
 
-The previous separate Current Notifications, Types, Notification Shade and
-Notification Channels navigation entries are not exposed. Existing global category rules remain
-active for backward compatibility and are visible/removable in a legacy-rule
-section of Notification Cleanup. Backup schemas and SystemUI presentation-hook
-identity are unchanged. The notification listener still observes current
-notifications for inventory fallback, but the cleanup screen never invokes
-`cancelNotifications`; hiding a notification is not cancelling its delivery.
+The former standalone Current Notifications, Types, Notification Shade
+and Notification Channels navigation pages are not exposed. Legacy
+global notification category rules remain compatible and reviewable.
+Notification listeners may observe active notifications but the managed
+cleanup screen does not call `cancelNotifications`: hiding a shade row
+is not cancelling notification delivery.
 
 Device Controls is also separate: its `ControlsProviderService` entries are
 Root component states rather than a display-only filter.
 
 ## Scope / validation
 
-- Active AOSP surface process targets: `com.android.systemui` (notification
-  presentation and Root Tiles) and `com.android.settings` (Settings Apps).
-  Moving these editors into Components does not route any presentation-only
-  change through Root's PackageManager component enable/disable service.
-  `com.android.documentsui` and `com.android.launcher3` are no longer
-  targets of this surface module, but may remain in the broader LSPosed
-  scope for independent entry / DocumentsUI functionality.
+- Active AOSP surface process targets: `com.android.systemui`
+  (notification presentation and Root Tiles) and `com.android.settings`
+  (Settings Apps). Managing the first two as Entry surfaces does not
+  route display-only edits through Root PackageManager component
+  enable/disable commands. `com.android.documentsui` and
+  `com.android.launcher3` may be in broader LSPosed scope for other
+  independent Entry functionality.
 - The package must exist in LSPosed scope, and the process must be restarted to
   install a newly enabled Hook. No new package is hidden by default.
 - CI can validate Android APK compilation and JVM unit tests, **not** live
@@ -143,9 +157,9 @@ Root component states rather than a display-only filter.
   Per-channel and per-app hide rules remain separate and apply only to
   notification-shade presentation hooks; neither disables a notification channel.
 - **Surface lock and ordering**: a locked selected item stays hidden and a
-  locked unselected item stays visible during bulk operations. Components now
-  offers Settings Apps ordering with a separate drag/confirm editor and retains
-  Root Tiles' independent per-component ordering. Legacy Lists QS package ordering, Launcher drawer / predictions,
+  locked unselected item stays visible during bulk operations. the managed Entry Settings Apps category follows its
+  supported presentation/order contract, while Root Tiles retains independent
+  per-component ordering. Legacy Lists QS package ordering, Launcher drawer / predictions,
   and other retired surface rules are retained for backup compatibility but
   no longer applied. Existing active QS tiles and notification protections remain.
 

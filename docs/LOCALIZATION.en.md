@@ -25,6 +25,14 @@ List Cleaner maintains corresponding Chinese and English **user-facing content**
 
 Parity means equivalent information and structure, not word-for-word translation. A complete Chinese document with only an English summary, or an English warning missing from Chinese, violates this policy.
 
+## Navigation, cleanup terminology, and evidence
+
+- Bottom navigation is **Controls / 控制, Cleanup / 清理, Settings / 设置**. Within Cleanup, **Entry / 入口** and **Component / 组件** are editors. Open/Share are specific Entry kinds; LSPosed/Root describe implementation, not navigation targets.
+- **Cleanup method** (Hide selected, Show selected only, Show all, inherit default) differs from **category enabled/disabled**. Do not call category disable “Pause” or claim it immediately disables Android components.
+- **Module status** belongs on Controls and opens compatibility details in Settings; **Quick access** and **Favorite categories** must match the actual editor or specific category they open.
+- Document mixed Entry/Component favorites, icons, pin ordering, expansion, and exclusion from rule backups in both languages.
+- Registered candidates, explicitly enabled services, Hook returns, and a host’s final visible UI are different evidence levels. Never call unverified candidates the actual system list.
+
 ## Content that does not require Chinese
 
 The following may remain English-only or use stable machine identifiers:

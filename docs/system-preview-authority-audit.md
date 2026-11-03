@@ -11,6 +11,17 @@ This audit is deliberately separate from the rules catalog: scanning everything
 that *could* be cleaned and verifying what a particular host *actually displays*
 are different operations.
 
+## Current UI and evidence scope
+
+Bottom navigation is **Controls | Cleanup | Settings**, with **Entry /
+Component** inside Cleanup. The managed **Settings Apps** and
+**Notification Channels** categories belong on the Entry (LSPosed
+presentation) side. Controls hosts Module status, Quick access, favorites,
+default/per-category cleanup methods and separate category enable/disable
+switches. None of these UI settings alone proves a candidate appeared
+in the final system picker. For real device verification, compare
+the native host UI with appropriately labeled API/Hook evidence.
+
 ## Every IntentKind
 
 | Surface | Actual observable source | Final visible system choices? |
@@ -31,7 +42,7 @@ are different operations.
 | VPN, print, NFC HCE | Binding-permission-eligible services; NFC uses static payment AID groups | **Candidates**, not final manager/settings UI or dynamic AID registrations |
 | Notification listener, wallpaper, dream | Matching enabled service declarations with binding contracts | Registered services; final Settings list may differ |
 
-## Four Root component types
+## Six Root component categories
 
 | Surface | Actual observable source | Final host behavior? |
 | --- | --- | --- |
@@ -39,6 +50,8 @@ are different operations.
 | Shortcut configuration | `LauncherApps.getShortcutConfigActivityList` | Not the full dynamic/pinned/Direct Share shortcut list |
 | Widgets | `AppWidgetManager.installedProviders` | Launcher may apply private filtering and preferences |
 | Quick Settings tiles | `PackageManager.queryIntentServices(QS_TILE)` + bind permission/exported/enabled checks | SystemUI editor's actual available/active tile list is not public |
+| Device Controls | `ControlsProviderService` registrations and service eligibility | Host controls picker and actual device-control presentation |
+| Account authenticators | `AccountAuthenticator` service declarations and metadata | Inventory is not an account list; disabling a component may disrupt account setup or sync |
 
 ## Key invariants
 

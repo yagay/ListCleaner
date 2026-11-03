@@ -10,6 +10,17 @@ This change separates three different truths that previous previews mixed:
 3. **Confirmed enabled states** are only lists explicitly returned by dedicated enabled
    manager APIs (currently enabled input methods and accessibility services).
 
+## Where to find this in the current app
+
+Open **Cleanup → Entry** and use the category's preview/eye action to
+launch a supported native Android picker or settings list. **Controls →
+Module status** opens the compatibility details; technical logs and ZIP
+export remain under **Settings → Advanced & Diagnostics**. A category
+being enabled in Controls or pinned under Favorite categories does **not**
+prove that the system chooser drew a corresponding row. **Cleanup →
+Component** manages actual Root component states, not Entry preview
+evidence.
+
 ## Picker test correlation
 
 A native picker launch records IntentKind, MIME/URI test scenario, Android user and

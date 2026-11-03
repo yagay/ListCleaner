@@ -73,9 +73,8 @@ Android 11+ 的 Direct Share（联系人/会话建议）会跟随普通分享清
 | --- | --- |
 | 桌面图标 | 应用导出的 `ACTION_MAIN + CATEGORY_LAUNCHER` Activity / Activity Alias |
 | 磁贴 | 应用提供的标准 `TileService`；不包含没有独立服务的 Wi-Fi、蓝牙等系统内置磁贴 |
-| 快捷方式 | Android `LauncherApps` 注册的快捷方式配置 Activity + 旧 `ACTION_CREATE_SHORTCUT` 创建入口；真正的静态/动态/固定 Shortcut 在“规则 → 长按快捷方式”中以非破坏方式过滤 |
+| 快捷方式 | Android `LauncherApps` 注册的快捷方式配置 Activity + 旧 `ACTION_CREATE_SHORTCUT` 创建入口；具体长按快捷方式由“清理 → Entry → 长按快捷方式”基于 Hook 观察和主动发现单独过滤 |
 | 小部件 | 优先读取 `AppWidgetManager` 当前注册的 Provider，并合并 Manifest 小部件接收器作为兼容补充 |
-
 | 设备控制 | 应用提供的 `ControlsProviderService`；实际禁用可能影响系统设备控制入口 |
 | 账户认证器 | `AccountAuthenticator` 服务；禁用可能影响账户添加、恢复或同步 |
 

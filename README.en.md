@@ -67,9 +67,8 @@ The Components page reads actual system state and supports search, disabled-stat
 | --- | --- |
 | Launcher icons | Exported `ACTION_MAIN + CATEGORY_LAUNCHER` Activity / Activity Alias entries |
 | Tiles | Standard app-provided `TileService` components; system built-in tiles such as Wi-Fi or Bluetooth without an independent service are excluded |
-| Shortcuts | Shortcut configuration activities from Android `LauncherApps` plus legacy `ACTION_CREATE_SHORTCUT` entries; actual static/dynamic/pinned shortcuts are handled non-destructively under Rules → Long-press shortcuts |
+| Shortcuts | Shortcut configuration activities from Android `LauncherApps` plus legacy `ACTION_CREATE_SHORTCUT` entries; actual long-press shortcuts are filtered separately under Cleanup → Entry → Long-press shortcuts using Hook observations and discovery |
 | Widgets | Providers from the Android `AppWidgetManager` registry, merged with manifest widget receivers as a compatibility fallback |
-
 | Device Controls | App-provided `ControlsProviderService`; disabling may affect controls in the host UI |
 | Account authenticators | `AccountAuthenticator` services; disabling may affect account setup or sync |
 

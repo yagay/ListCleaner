@@ -25,6 +25,13 @@ Debug CI may use `ciArm64Only` to restrict builds to arm64. **Release does not f
 
 README / `docs/**` / Markdown changes may trigger Debug checks but **do not automatically publish a Release**. Only manually starting `Build and Publish Release` on `main` can create or refresh a stable release, after which the changelog, LSPosed and Telegram workflows may continue the manual release chain.
 
+## Pre-release documentation review
+
+- Compare the code about to ship from `main` with **Controls / 控制, Cleanup / 清理, Settings / 设置** and the inner **Entry / Component** tabs; update both README and LSPosed languages plus the module summaries.
+- Distinguish default/per-category cleanup methods, category enable/disable switches, and actual Root component disabling. Mixed Entry/Component favorites and icons are local UI preferences excluded from rule backups.
+- Run localization, bilingual parity, Material 3 checks, Debug build and unit tests. **Do not add development-only changes to already published Release Notes or immutable historical commit archives.**
+- Documentation and in-app copy changes trigger only applicable Debug checks; they never publish a signed Release, synchronize LSPosed or post to Telegram automatically.
+
 ## Local builds
 
 Place the backed-up `keystore.properties` in the project root and set `storeFile` to the absolute path of the key:
