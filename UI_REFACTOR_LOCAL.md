@@ -1,6 +1,6 @@
-# List Cleaner · Material 3 扁平化列表规范（main）
+# List Cleaner · Material 3 扁平化列表规范（当前开发版）
 
-本文件描述当前已合并到 main 的界面约束，取代旧 test3 卡片式方案；视觉重构不得改变规则、Root、Hook、多空间及备份的业务语义。
+本文件以 `lists-audit-fix-20261031` 的当前源码为准，替换此前 main/test3 的旧卡片式叙述；视觉重构不得改变规则、Root、Hook、多空间及备份语义。
 
 ## 统一设计系统
 
@@ -12,11 +12,15 @@
 
 ## 导航、列表和高亮
 
-- 底部导航为**清理、排序、设置**三项；组件清理位于清理页内部，`ClassicCleanupTabs` 在规则/组件间切换。注意清理模式切换的细线与**底部导航不另加选中横线**是不同层级。
+- 底部导航为**控制、清理、设置**三项。控制为 `Destination.SURFACES`；清理中 `Destination.RULES` 与 `Destination.TILES` 通过 `ClassicCleanupTabs` 切换 Entry / Component。Priority Order 从支持排序的 Entry 分类进入。底部导航不另画选中横线。
 - 分类和过滤的已选状态使用主题高亮。`ContinuousApplicationSurface` 仅在应用展开时高亮；`ContinuousDetailSurface` 在组件选中时高亮，未选组件保持常规背景。
 - 应用选择标记共用 `WorkspaceAppSelectionCheckbox`：未选为加号、半选为减号、已选为勾号；保留三态无障碍语义与完整触摸区。
 - 应用及组件行**长按打开右侧三点菜单**，菜单提供符合当前对象权限的锁定、解锁及其他操作；锁标识和选择标识各自独立，组件详情尾部三点菜单与应用行对齐。
 - 可用 Android 多空间大于一个时，顶部显示当前空间名称与展开箭头；选择空间后刷新相应空间数据，不复用其他空间的规则或 Root 状态。
+
+- 控制主页“模块状态”复用设置的状态摘要，点击跳转兼容性详情；设置首页不再重复显示状态行。
+- “清理管理”分**入口清理/组件清理**；默认清理方式在入口清理首项，分类可继承或覆盖。清理方式与启用/禁用开关是独立概念；后者不能直接改变已有 Root 组件状态。
+- 常用分类的 Entry/Component 置顶分别保存，主页通过 `homePinnedCategoryOrder` 保存混合顺序；`CategoryPinnedPickerDialog`、`CategoryPinnedManagerDialog` 与 Cleanup 分类菜单复用 `WorkspaceFlatMenuRow` 和 `CleanupCategoryId.icon()`。默认前四项、可展开；长按排序/移除，点击对应分类。
 
 ## 操作提交与权限
 
@@ -27,7 +31,7 @@
 
 ## 设置和文档维护
 
-- 设置首页分为**外观与主题、列表与显示、扫描与刷新、清理与兼容、备份与恢复、高级与诊断**，另有**关于**页。前者放运行状态与作用域，后者放诊断导出与技术数据。
+- 设置首页分为**外观与主题、列表与显示、扫描与刷新、清理与兼容、备份与恢复、高级与诊断**及**关于**；状态快捷入口移到控制主页，设置的兼容页保留作用域详情，高级与诊断保留日志/ZIP 导出。
 - `SettingsAbout` 显示版本、开发者和 GitHub / Releases / Issues / Telegram 链接。外观偏好不应写入 LSPosed 规则配置；恢复默认外观不能清空规则、排序、锁或 Root 状态。
 - v13 多空间备份可选择来源空间并明确映射目标。Root 禁用组件记录仅作为可选参考，导入不得调用 Root 恢复真实禁用状态。
 
@@ -35,4 +39,4 @@
 
 - 检查：`python3 tools/check-material3-controls.py`、`python3 tools/check-bilingual-parity.py`，以及 `./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug`（环境具备 SDK 时）。
 - 实机验收：浅/深色、小屏、大字体、分类/过滤居中、展开与选中高亮、三点菜单/长按、排序手柄、确认应用、多空间、Root 权限与返回栈。
-- GitHub Debug 工作流监听 `main` 与 `test3` 的相关源码/文档变更。**正式 Release 只能手动启动**；文档提交不发布 APK、不同步 LSPosed、不推送 Telegram。
+- GitHub Debug 工作流监听配置中的分支（含 `lists-audit-fix-20261031`）的相关改动。**正式 Release 只能手动启动**；文档提交不发布 APK、不同步 LSPosed、不推送 Telegram。

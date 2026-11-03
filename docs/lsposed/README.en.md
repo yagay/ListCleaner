@@ -35,16 +35,16 @@ Follow **@LISTCLEANER** for release updates, usage tips, and related news.
 - **Priority ordering:** Save independent ordering per category, drag the handle on prioritized apps or move up/down, and confirm Apply. Long-pressing the app row opens its action menu.
 - **Root components:** Manage launcher icons, TileService tiles, LauncherApps/legacy shortcut-creation activities and AppWidgetManager widgets. Prefer public Android APIs with safe fallbacks. Root disable is backed by LSPosed discovery filtering and boot/update reconciliation; system read-back determines actual state.
 - **Android user spaces:** Isolate rules, priority, component state and bulk locks per user; switch spaces, export selected spaces in v13 and map each source to an import destination.
-- **Settings and diagnostics:** Unified flat Material 3 lists; centralized Appearance, Lists, Scanning, Compatibility, Backup, Advanced Diagnostics and About pages with GitHub / Telegram links.
+- **Controls and diagnostics:** Controls shows Module status, default/per-category cleanup methods, category enabled/disabled switches, mixed Entry/Component favorites, and quick links. Settings retains Appearance, Lists, Scanning, Compatibility/Scope, Backup, Advanced Diagnostics and About.
 
 <!-- section:usage -->
 ## Usage Notes
 
-Bottom navigation contains **Entries, Components and Settings**. In Entries, tap the sort icon on a supported category to open **Priority Order**; the Components tab manages Root components. Rules filter system candidates without disabling components, while Component cleanup changes actual enabled state through Root. The three-dot or long-press menu controls **bulk locks**, which are not disabled state. Rule, ordering and Root component changes require Apply confirmation at the bottom before Root commands can run.
+Bottom navigation contains **Controls, Cleanup and Settings**. **Cleanup** has **Entry / Component** editors; supported Entry kinds open Priority Order via the sort icon, while Component manages actual states through Root. **Controls → Cleanup management → Entry cleanup** starts with the default method; categories may inherit or override it. Component category enabled/disabled switches do not immediately disable or restore Android components. **Favorite categories** combines Entry/Component pins, original category icons, long-press ordering/removal and expansion. Rule, ordering, switch and Root operations require confirmation; bulk locks remain separate.
 
 When multiple Android user spaces are detected, choose the target space at the top. v13 backups support selected spaces and explicit source-to-target mapping; v1–v12 rule backups remain readable. Root-disabled component records can be exported as **reference information**, but importing **never runs Root commands or restores actual disabled states/protection policies**. Uninstalling or clearing app data also does not automatically re-enable previously disabled components.
 
-OEM choosers, private app menus and some dynamic shortcuts may differ. Discovery uses public Android APIs with safe compatibility fallbacks. An updated APK may degrade discovery safely while an older system_server hook remains loaded; restart as required by the framework. Check Settings → Cleanup & Compatibility / Advanced & Diagnostics, and review logs before sharing.
+OEM choosers, private app menus and some dynamic shortcuts may differ. Discovery uses public Android APIs with safe fallbacks; an updated APK may still require hooked processes to restart. Check **Controls → Module status** before **Settings → Cleaning & Compatibility / Advanced & Diagnostics**; review logs before sharing.
 
 
 
@@ -56,7 +56,7 @@ Priority editing is offered only to entry categories with a corresponding runtim
 - **Screen savers / Dream**: A Settings `DreamBackend.getDreamInfos()` hook adjusts the returned candidate order without changing the selected/default dream or enabled state; missing methods are safely skipped.
 - **Document Provider, Photo Source, Notification Listener, Wallpaper** remain unsupported for priority editing without a verified final-UI consumer. The legacy Launcher Shortcut kind is retired.
 
-Rules and priorities are independent per Android user space. New spaces default to Hide selected and the app list defaults to user apps. Existing backup priority data is retained. Validate the actual system UI on your device; passing CI is not device compatibility proof.
+Rules and priorities are independent per Android user space. New spaces default to Hide selected; the default app-type filter is **All apps**. Existing backup priority data is retained. Validate the actual host UI; passing CI does not prove device compatibility.
 
 <!-- section:release -->
 Official builds in the author repository and the LSPosed repository use the same APK and pinned release signature. Debug builds may use a different signature, so export your rules and review component states before uninstalling.

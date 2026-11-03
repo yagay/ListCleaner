@@ -28,7 +28,7 @@ The Rules page handles Share, Multiple Share, Send to, Open with, Browser, Deep 
 
 On Android 11+, Direct Share contact/conversation suggestions follow normal Share cleanup: when an app is hidden from Share candidates, its Direct Share targets are filtered as well. List Cleaner does not read or store contact names or conversation content.
 
-Long-press shortcuts are managed by the Launcher Activity that publishes them and cover static, dynamic, and pinned shortcuts returned by Android. Storage locations are managed by `DocumentsProvider` and cover cloud drives, file managers, NAS providers, and similar entries shown by the Storage Access Framework. Both features only filter system query results; they **do not disable components or modify an app's own Shortcut/Provider data**.
+Long-press shortcuts combine runtime Hook observations with proactive read-only discovery (focused on enabled Manifest/Dynamic items; pinned-only/cached items are not guaranteed). Storage locations use DocumentsUI provider roots. These only filter system candidates; **they do not disable components or delete shortcuts or files**.
 
 | Display mode | Effect |
 | --- | --- |
@@ -70,6 +70,9 @@ The Components page reads actual system state and supports search, disabled-stat
 | Shortcuts | Shortcut configuration activities from Android `LauncherApps` plus legacy `ACTION_CREATE_SHORTCUT` entries; actual static/dynamic/pinned shortcuts are handled non-destructively under Rules → Long-press shortcuts |
 | Widgets | Providers from the Android `AppWidgetManager` registry, merged with manifest widget receivers as a compatibility fallback |
 
+| Device Controls | App-provided `ControlsProviderService`; disabling may affect controls in the host UI |
+| Account authenticators | `AccountAuthenticator` services; disabling may affect account setup or sync |
+
 Component discovery follows a **public-API first, compatibility fallback, fail-open** model. A component can carry multiple discovery sources and duplicates are merged automatically. Diagnostics record sources such as `PACKAGE_MANAGER`, `APP_WIDGET_MANAGER`, and `LAUNCHER_APPS` so missing entries can be traced to the discovery layer. Installing, updating, or removing packages invalidates candidate caches automatically.
 
 A runtime capability handshake protects upgrades. If the APK is newer while system_server still runs an older hook, List Cleaner does not force the new discovery path: widget discovery falls back to the manifest scan, and LauncherApps/AppWidgetManager failures are fail-open rather than fatal. Full AppWidgetManager discovery is enabled again only after the running hook confirms the newer discovery protocol.
@@ -89,12 +92,21 @@ Disabling a component can affect places where it is already used, including laun
 ### Backup and diagnostics
 
 - **v13 multi-space JSON backups** let you select export spaces and map each source space to a destination on import. Legacy v1–v12 rule backups remain readable. Rules, display modes and priority configuration are included.
-- Multi-space exports may include **reference records** of Root-disabled components; importing never executes Root commands or restores actual disabled states or protection policies. UI appearance preferences are also excluded. Re-enable components manually as needed before uninstalling.
-- View module connection, scope and synchronization in **Settings → Cleanup & Compatibility**, and runtime details / diagnostic ZIP export in **Settings → Advanced & Diagnostics**. Review app lists and logs before sharing.
+- Multi-space exports may include **reference records** of Root-disabled components; importing never executes Root commands or restores actual disabled states or protection policies. UI favorites and mixed order, appearance, and list-default preferences are excluded from rule backups. Re-enable components manually before uninstalling as appropriate.
+- View **Module status** and sync information at the top of **Controls**; tap it for **Settings → Cleaning & Compatibility** scope details. Export diagnostic ZIPs under **Settings → Advanced & Diagnostics**; review app lists and logs before sharing.
+
+### Controls: cleanup methods, category switches, and favorites
+
+**Controls** includes Module status, the cleanup overview, Quick access, Favorite categories, and Cleanup management. Its **Entry / Component** quick links open the two editors within Cleanup; Diagnostics opens the diagnostics settings. **Open** is an Entry category, while **Root** is an implementation method, not a tab name.
+
+- **Cleanup management → Entry cleanup:** The first item is the **default cleanup method** (Hide selected, Show selected only, Show all). Each Entry category can inherit or override it; its **enabled/disabled cleanup switch** is independent of that method.
+- **Cleanup management → Component cleanup:** Independently enable/disable cleanup for Component categories. These switches **do not immediately disable Android components** and do not re-enable components previously disabled through Root. Search, status filters, Enable all / Disable all and confirmation apply to both managers.
+- **Favorite categories:** Tap **+** to select multiple Entry and Component categories with the same icons and selection rows as Cleanup. Long-press to remove or drag a favorite across types; only four are shown by default, and the list can expand. Tapping one opens its exact category. Pins and mixed home order are local UI settings and are not part of rule backups.
+- **Managed Entry surfaces:** Settings Apps and Notification Channels are managed on the Entry/LSPosed side through presentation filters, not Root component disabling.
 
 ### Flat UI and settings
 
-Flat Material 3 lists share app rows, component details, category filters and three-dot menus. Bottom navigation is **Entries, Components, Settings**. In Entries, open **Priority Order** using the sort icon for a supported category; Components is a separate bottom tab for Root component management. Expanded apps and selected details use theme highlights, while bottom navigation selection has no extra underline.
+Flat Material 3 lists share app rows, component details, category filters, and three-dot menus. Bottom navigation is **Controls, Cleanup, Settings**; **Cleanup** contains Entry and Component editors. Supported Entry categories open Priority Order via the sort icon. Expanded apps and selected details use theme highlights; the bottom navigation adds no selection underline.
 
 Settings includes **Appearance & Theme, Lists & Display, Scanning & Refresh, Cleanup & Compatibility, Backup & Restore, Advanced & Diagnostics**, and **About**. Theme, sizing, list and scanning options are configurable. About shows version information and GitHub / [Telegram](https://t.me/LISTCLEANER) links.
 
@@ -102,9 +114,9 @@ Settings includes **Appearance & Theme, Lists & Display, Scanning & Refresh, Cle
 
 1. Download and install the release APK from [Releases](https://github.com/yagay/ListCleaner/releases/latest).
 2. Enable List Cleaner in a module manager supporting API 102, configure the recommended system/chooser scope, and restart as instructed by the framework.
-3. Check runtime and synchronization in Settings → Cleanup & Compatibility, then configure a category under Entries and confirm Apply.
-4. In Entries, choose a supported category and tap the sort icon; use the drag handles to change priority, then confirm Apply.
-5. Open Cleanup → Component cleanup to manage launcher icons, tiles, shortcut-creation entries or widgets with Root. Long-press shortcuts and storage locations instead use LSPosed filtering without disabling components.
+3. Check **Module status** on **Controls**, tap for compatibility/scope details, and manage default methods or category switches under **Controls → Cleanup management → Entry cleanup** with confirmation.
+4. In **Cleanup → Entry**, select a category and edit rules; use the sort icon and drag handles for supported ordering, then confirm Apply.
+5. In **Cleanup → Component**, use Root to manage launcher icons, tiles, shortcut-creation entries, widgets, device controls, and account authenticators. Long-press shortcuts and storage locations instead use LSPosed candidate filtering.
 
 Component management is independent of rule display modes. Root performs the real component disable, while the LSPosed system_server layer provides restore protection and discovery filtering; third-party apps do not need to be added to the module scope. System/vendor caches can still require closing and reopening a menu.
 
@@ -136,7 +148,7 @@ Localization architecture and bilingual maintenance rules are documented in [Loc
 
 Signing configuration and automated publishing are documented in [Release build documentation](docs/RELEASE.md). Never commit private keys, signing passwords, or `local.properties`.
 
-Relevant source, documentation and build changes on `main` and `test3` trigger Debug checks under the configured workflow. Releases are **manual only**: README/Markdown commits do not publish APKs, synchronize LSPosed or post to Telegram.
+Relevant source, documentation and build changes on branches enabled in the Debug workflow (including `lists-audit-fix-20261031`) trigger Debug checks. Release publication is **manual only**: Markdown commits do not publish APKs, sync LSPosed or post to Telegram.
 
 
 ### Ordering support and system hooks
@@ -147,4 +159,4 @@ Priority editing is offered only to entry categories with a corresponding runtim
 - **Screen savers / Dream**: A Settings `DreamBackend.getDreamInfos()` hook adjusts the returned candidate order without changing the selected/default dream or enabled state; missing methods are safely skipped.
 - **Document Provider, Photo Source, Notification Listener, Wallpaper** remain unsupported for priority editing without a verified final-UI consumer. The legacy Launcher Shortcut kind is retired.
 
-Rules and priorities are independent per Android user space. New spaces default to Hide selected and the app list defaults to user apps. Existing backup priority data is retained. Validate the actual system UI on your device; passing CI is not device compatibility proof.
+Rules and priorities are independent per Android user space. New spaces default to Hide selected, and the default app-type filter is **All apps** (User/System filters are optional). Existing backup priority data is retained. Verify the actual system UI; passing CI is not proof of device compatibility.
