@@ -19,10 +19,10 @@
     <string name="settings_list_section">列表与显示</string>
     <string name="settings_list_subtitle">默认排序、筛选与应用显示</string>
     <string name="settings_scan_subtitle">自动扫描、缓存时间与手动刷新</string>
-    <string name="settings_compat_subtitle">模块状态、清理模式、兼容隐藏与作用域</string>
+    <string name="settings_compat_subtitle">模块兼容、LSPosed 作用域与包可见性设置；清理方式和分类开关请到“控制”管理</string>
     <string name="settings_backup_subtitle">导入与导出清理配置</string>
     <string name="settings_advanced_subtitle">诊断导出、日志与详细运行信息</string>
-    <string name="settings_backup_note">JSON 备份包括清理和排序配置，不包含独立保存的外观、列表默认项和扫描偏好。</string>
+    <string name="settings_backup_note">JSON 规则备份包含清理方式、规则选择和优先排序配置；常用分类、外观、默认列表筛选和扫描偏好属于本地设置，不随规则备份导出。</string>
     <string name="settings_start_page">启动默认页面</string>
     <string name="settings_sort">默认应用排序</string>
     <string name="settings_sort_selected">已选优先</string>
@@ -36,7 +36,7 @@
     <string name="settings_app_scope">默认应用分类</string>
     <string name="settings_app_user">用户应用</string>
     <string name="settings_app_system">系统应用</string>
-    <string name="settings_defaults_help">启动页面和默认筛选在重启应用、重新进入相应页面后应用。规则列表排序立即更新，不改变已保存的优先排序配置。</string>
+    <string name="settings_defaults_help">启动页面和默认筛选在重新进入相应页面后生效，部分修改可能需要重启 App。应用列表显示排序不改变已保存的优先级规则。</string>
     <string name="settings_scan_section">扫描与刷新</string>
     <string name="settings_scan_mode">组件自动扫描方式</string>
     <string name="settings_scan_smart">智能</string>

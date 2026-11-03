@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="entry_help_title">Entry explanation</string>
-    <string name="entry_rules_general_help">Rule cleanup filters candidates requested by Android or apps. Hide selected removes checked candidates; Show selected only retains checked ones. Changes are staged until Apply changes is confirmed. Rules do not set defaults, uninstall apps or actually disable components. Switch to Component - Root within the same Cleanup page for actual component state changes.</string>
+    <string name="entry_rules_general_help">Entry cleanup filters candidates returned to Android or apps. Hide selected removes checked candidates; Show selected only keeps them, while Show all bypasses filtering. Each category can inherit the default cleanup method or override it in Controls → Cleanup management → Entry cleanup. Confirm Apply changes before saving. This never sets Android defaults, uninstalls apps or actually disables components; switch to Component inside Cleanup to manage real component states with Root.</string>
     <string name="entry_system_safety_note">These system-managed entries only filter eligible candidate queries initiated by ordinary apps. System and privileged UID queries are left unchanged for safety, so service lists inside system Settings are not guaranteed to be hidden by these rules. Selecting an item does not grant/revoke permissions, enable/disable services, or change system defaults.</string>
 
     <string name="intent_desc_share">Apps and components offered for normal ACTION_SEND sharing. Selecting hides or keeps the chooser entry only; the target app is unchanged.</string>

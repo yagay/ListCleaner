@@ -19,10 +19,10 @@
     <string name="settings_list_section">Lists and display</string>
     <string name="settings_list_subtitle">Default sorting, filters and row display</string>
     <string name="settings_scan_subtitle">Automatic scans, caching and manual refresh</string>
-    <string name="settings_compat_subtitle">Module status, cleanup modes, compatibility visibility and scope</string>
+    <string name="settings_compat_subtitle">Module compatibility, LSPosed scope and package-visibility options; cleanup methods and category switches are managed under Controls</string>
     <string name="settings_backup_subtitle">Import and export cleaning configuration</string>
     <string name="settings_advanced_subtitle">Diagnostic export, logs and detailed runtime information</string>
-    <string name="settings_backup_note">JSON backups include cleaning and ordering configuration. Local appearance, list defaults and scan preferences are not included.</string>
+    <string name="settings_backup_note">JSON rule backups include cleanup methods, rule selections and priority configuration. UI favorites, appearance, default list filters and scanning preferences are local preferences and are not included.</string>
     <string name="settings_start_page">Open app to</string>
     <string name="settings_sort">Default app order</string>
     <string name="settings_sort_selected">Selected first</string>
@@ -36,7 +36,7 @@
     <string name="settings_app_scope">Default app type</string>
     <string name="settings_app_user">User apps</string>
     <string name="settings_app_system">System apps</string>
-    <string name="settings_defaults_help">The start page and default filters apply the next time the relevant page is opened after restarting the app. Rule-list ordering updates immediately and never changes saved priorities.</string>
+    <string name="settings_defaults_help">Start page and default filters apply when the relevant page is reopened (some changes may require restarting the app). App-list sorting only changes the view, not saved priority rules.</string>
     <string name="settings_scan_section">Scan and refresh</string>
     <string name="settings_scan_mode">Component scan strategy</string>
     <string name="settings_scan_smart">Smart</string>

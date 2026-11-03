@@ -14,7 +14,7 @@
     <string name="component_surface_restore_order">Restore system order</string>
     <string name="component_surface_scanning">Scanning registered channels %1$d / %2$d</string>
     <string name="component_surface_locked_no_changes">No changes applied: the selected items are locked or unavailable.</string>
-    <string name="lc_home_status_title">Runtime status</string>
+    <string name="lc_home_status_title">Module status</string>
     <string name="lc_home_status_unchecked">LSPosed not checked</string>
     <string name="lc_home_status_connected">LSPosed connected</string>
     <string name="lc_home_status_disconnected">LSPosed disconnected</string>
@@ -37,7 +37,7 @@
     <string name="lc_home_preset_title">Batch cleanup controls</string>
     <string name="lc_home_preset_enable">Enable all</string>
     <string name="lc_home_preset_disable">Disable all</string>
-    <string name="lc_home_preset_explain">Enable or disable cleanup for categories in this group. Changes are saved only after confirmation; existing rules and Android component states are preserved.</string>
+    <string name="lc_home_preset_explain">Enable or disable cleanup for categories in this group. Only confirmed category switches are saved; existing rules remain and this does not directly enable/disable Android components.</string>
     <string name="lc_home_pending_count">%1$d cleanup switch changes pending confirmation</string>
     <string name="lc_home_manage_title">Cleanup management</string>
     <string name="lc_home_manage_count">%1$d categories · %2$d disabled</string>
@@ -47,9 +47,9 @@
     <string name="lc_home_filter_disabled">Disabled</string>
     <string name="lc_home_modes_empty">No matching cleanup categories</string>
     <string name="lc_home_favorites_add">Add favorites</string>
-    <string name="lc_home_favorites_choose">Choose favorite categories</string>
+    <string name="lc_home_favorites_choose">Choose Entry and Component favorites</string>
     <string name="lc_home_favorites_empty">No favorites yet. Tap + to add Entry or Component categories.</string>
-    <string name="lc_home_favorites_more">%1$d more favorites. Long-press a favorite to reorder or remove it.</string>
+    <string name="lc_home_favorites_more">%1$d more favorites. Expand the list to see all; long-press a row to reorder or remove.</string>
     <string name="lc_home_favorite_type_entry">Entry</string>
     <string name="lc_home_favorite_type_component">Component</string>
     <string name="lc_home_favorites_expand">Show all favorites</string>

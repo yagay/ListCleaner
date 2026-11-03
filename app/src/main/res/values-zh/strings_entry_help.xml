@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="entry_help_title">入口说明</string>
-    <string name="entry_rules_general_help">规则清理过滤 Android 或应用请求的候选入口。“隐藏选中”隐藏已选项，“只显示选中”保留已选项；选择先进入待应用状态，确认“应用更改”后才保存。不会设置默认应用、卸载应用或真正禁用组件；需要管理真实组件时，请在同一“清理”页切换到“组件 · Root”。</string>
+    <string name="entry_rules_general_help">入口清理过滤 Android 或应用查询到的候选。“隐藏已选”隐藏勾选项，“只显示已选”只保留勾选项，“全部显示”暂不执行候选过滤。每个分类可在“控制 → 清理管理 → 入口清理”继承或单独设置清理方式。勾选更改须确认“应用更改”才保存；不会设置默认应用、卸载应用或真实禁用组件。需要修改组件启用状态时，在“清理”页面切换“组件”并使用 Root。</string>
     <string name="entry_system_safety_note">这些系统管理类入口只过滤普通应用发起的符合条件的候选查询；为安全起见，system/特权 UID 查询保持原样，因此系统设置页里的服务列表不保证随规则隐藏。勾选不会授予/撤销权限，不会启用/停用服务，也不会修改系统默认项。</string>
 
     <string name="intent_desc_share">普通 ACTION_SEND 分享时出现的应用和组件。勾选只影响分享候选是否显示，不会修改目标应用本身。</string>
