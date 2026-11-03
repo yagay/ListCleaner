@@ -1,6 +1,6 @@
 # List Cleaner · Material 3 扁平化列表规范（当前开发版）
 
-本文件以 `lists-audit-fix-20261031` 的当前源码为准，替换此前 main/test3 的旧卡片式叙述；视觉重构不得改变规则、Root、Hook、多空间及备份语义。
+本文件以即将合入 `main` 的当前源码为准，替换此前 main/test3 的旧卡片式叙述；视觉重构不得改变规则、Root、Hook、多空间及备份语义。
 
 ## 统一设计系统
 
