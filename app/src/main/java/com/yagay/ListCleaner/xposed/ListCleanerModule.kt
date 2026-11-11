@@ -40,6 +40,7 @@ import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
 import com.yagay.ListCleaner.domain.ModuleConfig
 import com.yagay.ListCleaner.domain.FilterPolicy
+import com.yagay.ListCleaner.domain.ManagerTextQueryPolicy
 import com.yagay.ListCleaner.domain.intentKind
 import com.yagay.ListCleaner.domain.ManagerIdentity
 import com.yagay.ListCleaner.domain.VisibilityLayout
@@ -1141,11 +1142,18 @@ class ListCleanerModule : XposedModule() {
         val managerCaller = ManagerIdentity.matches(callerUid, moduleAppId)
         val managerPreview = layer == Layer.SYSTEM && managerCaller &&
             outerIntent?.getBooleanExtra(RuntimeProtocol.EXTRA_MANAGER_PREVIEW_QUERY, false) == true
-        if (managerCaller && !managerPreview) {
+        val managerCatalog = layer == Layer.SYSTEM && managerCaller &&
+            outerIntent?.getBooleanExtra(RuntimeProtocol.EXTRA_MANAGER_CATALOG_QUERY, false) == true
+        val isTextAction = outerIntent?.let { (it.selector ?: it).action } == Intent.ACTION_PROCESS_TEXT
+        if (ManagerTextQueryPolicy.bypassManager(
+                managerCaller, managerPreview, managerCatalog, isTextAction)) {
             if (tracedActions.add("manager_bypass")) {
                 record("MANAGER_QUERY_BYPASS uid=$callerUid")
             }
             return original
+        }
+        if (managerCaller && isTextAction) {
+            diagnostic("MANAGER_TEXT_ACTION_MODE callerUid=$callerUid preview=$managerPreview catalog=$managerCatalog")
         }
         if (managerPreview) diagnostic("MANAGER_PREVIEW_QUERY uid=$callerUid requested=true")
 
@@ -1388,6 +1396,9 @@ class ListCleanerModule : XposedModule() {
             return null
         }
         diagnostic("$layer $kind preset=$preset: ${values.size} -> ${titled.size}")
+        if (kind == IntentKind.PROCESS_TEXT) {
+            diagnostic("TEXT_MENU_FILTERED layer=$layer callerUid=$callerUid before=${values.size} after=${titled.size} rules=${current.configured.count { it.startsWith("PROCESS_TEXT|") }}")
+        }
         return titled
     }
 

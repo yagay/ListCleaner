@@ -44,6 +44,9 @@ internal class CandidateController(
     private var browserRefreshJob: Job? = null
     private var generation = 0L
     private var renderedUserId: Int? = null
+    // Only use a snapshot for its exact Android user; never borrow owner results.
+    private val lastVerifiedByUser = mutableMapOf<Int, List<ComponentCandidate>>()
+    private val lastHostsByUser = mutableMapOf<Int, Set<String>>()
 
     private fun isCurrent(requestGeneration: Long, requestUserId: Int): Boolean =
         CandidateScanPublicationPolicy.isCurrent(
@@ -76,9 +79,10 @@ internal class CandidateController(
         generation++
         refreshJob?.cancel()
         browserRefreshJob?.cancel()
-        mutableCandidates.value = emptyList()
-        mutableBrowserHosts.value = emptySet()
-        renderedUserId = null
+        val targetUser = app.rules.activeUser.value
+        mutableCandidates.value = lastVerifiedByUser[targetUser].orEmpty()
+        mutableBrowserHosts.value = lastHostsByUser[targetUser].orEmpty()
+        renderedUserId = targetUser
         mutableLoading.value = true
         mutableError.value = null
     }
@@ -86,11 +90,10 @@ internal class CandidateController(
     fun refresh(forceCatalog: Boolean = false, manualProactive: Boolean = false) {
         val userId = app.rules.activeUser.value
         val currentGeneration = ++generation
-        // Keep the last known candidates visible during same-profile rescans, and
-        // retain them if a transient scan fails. Never carry them to another profile.
+        // Reuse only this profile's verified inventory when moving between spaces.
         if (renderedUserId != userId) {
-            mutableCandidates.value = emptyList()
-            mutableBrowserHosts.value = emptySet()
+            mutableCandidates.value = lastVerifiedByUser[userId].orEmpty()
+            mutableBrowserHosts.value = lastHostsByUser[userId].orEmpty()
             renderedUserId = userId
         }
         refreshJob?.cancel()
@@ -157,8 +160,18 @@ internal class CandidateController(
                 if (!isCurrent(currentGeneration, userId)) return@launch
                 val resolvedBase = completeLogical(baseResult, configuredRules(), userId)
                 if (!isCurrent(currentGeneration, userId)) return@launch
-                mutableCandidates.value = resolvedBase
-                mutableError.value = combinedScanWarning(directShareWarning)
+                val warning = combinedScanWarning(directShareWarning)
+                val oldVerified = lastVerifiedByUser[userId]
+                // A partial or failed remote scan must not replace a verified inventory
+                // with an empty/incomplete result. Surface the warning for retry.
+                val scanIncomplete = !app.catalog.scanWarning.isNullOrBlank()
+                val displayed = if (scanIncomplete && oldVerified != null) oldVerified else resolvedBase
+                mutableCandidates.value = displayed
+                if (!scanIncomplete) {
+                    lastVerifiedByUser[userId] = resolvedBase
+                    lastHostsByUser[userId] = mutableBrowserHosts.value
+                }
+                mutableError.value = warning
                 mutableLoading.value = false
 
                 // User-requested scans still perform deep link enrichment even when auto discovery is disabled.
@@ -182,8 +195,13 @@ internal class CandidateController(
                             if (!isCurrent(currentGeneration, userId)) return@launch
                             val resolvedEnriched = completeLogical(enriched, configuredRules(), userId)
                             if (!isCurrent(currentGeneration, userId)) return@launch
-                            mutableCandidates.value = resolvedEnriched
-                            mutableError.value = combinedScanWarning(directShareWarning)
+                            val enrichmentWarning = combinedScanWarning(directShareWarning)
+                            if (app.catalog.scanWarning.isNullOrBlank()) {
+                                mutableCandidates.value = resolvedEnriched
+                                lastVerifiedByUser[userId] = resolvedEnriched
+                                lastHostsByUser[userId] = browserDiscovery.hosts
+                            }
+                            mutableError.value = enrichmentWarning
                         }
                     } catch (cancelled: CancellationException) {
                         throw cancelled
@@ -195,7 +213,10 @@ internal class CandidateController(
                 throw cancelled
             } catch (failure: Exception) {
                 Log.e(TAG, "Candidate scan failed", failure)
-                if (isCurrent(currentGeneration, userId)) mutableError.value = app.getString(R.string.scan_failed)
+                if (isCurrent(currentGeneration, userId)) {
+                    mutableCandidates.value = lastVerifiedByUser[userId].orEmpty()
+                    mutableError.value = "${app.getString(R.string.scan_failed)} (User $userId: ${failure.javaClass.simpleName})"
+                }
             } finally {
                 if (isCurrent(currentGeneration, userId)) mutableLoading.value = false
             }

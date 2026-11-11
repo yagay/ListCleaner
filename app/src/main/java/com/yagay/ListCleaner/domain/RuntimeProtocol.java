@@ -46,6 +46,9 @@ public final class RuntimeProtocol {
      */
     public static final String EXTRA_MANAGER_PREVIEW_QUERY =
             PACKAGE + ".extra.MANAGER_FILTERED_PREVIEW";
+    /** Catalog inventory must remain unfiltered even when text ActionMode preview is enabled. */
+    public static final String EXTRA_MANAGER_CATALOG_QUERY =
+            PACKAGE + ".extra.MANAGER_CATALOG_QUERY";
 
     public static final String OP_BEGIN = "begin";
     public static final String OP_CHUNK = "chunk";

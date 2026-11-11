@@ -231,6 +231,7 @@ class MainActivity : ComponentActivity() {
         }
         LifecycleResumeEffect(vm) {
             vm.refreshModuleStatus()
+            vm.refreshSpaces()
             onPauseOrDispose { }
         }
 
@@ -290,6 +291,7 @@ class MainActivity : ComponentActivity() {
         }
 
         val onRefresh: () -> Unit = {
+            vm.refreshSpaces()
             when (state.destination) {
                 Destination.RULES -> {
                     if (managedEntrySurface != null && listsRefresh.available) listsRefresh.refresh()

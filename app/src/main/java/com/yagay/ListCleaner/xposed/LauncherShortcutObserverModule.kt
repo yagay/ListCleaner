@@ -139,7 +139,9 @@ class LauncherShortcutObserverModule : XposedModule() {
             val shortcuts = try {
                 launcher.getShortcuts(query, user)
             } catch (error: Exception) {
-                record("SCAN_FAILED user=$userId error=${error.javaClass.simpleName}")
+                // Work/private profiles can be locked while still reported as running.
+                // Retain the prior verified shortcuts for this user on query failure.
+                record("SCAN_FAILED user=$userId error=${error.javaClass.simpleName} detail=${error.message?.take(160)} snapshot=retained")
                 return@forEach
             } ?: run {
                 record("SCAN_FAILED user=$userId reason=null_response")

@@ -3,6 +3,7 @@ package com.yagay.ListCleaner.data
 import android.content.Context
 import android.os.Process
 import android.os.UserManager
+import android.util.Log
 import com.yagay.ListCleaner.domain.AndroidUid
 import com.yagay.ListCleaner.R
 import kotlinx.coroutines.Dispatchers
@@ -31,7 +32,8 @@ class UserSpaceManager(context: Context) {
     private val mutableSelected = MutableStateFlow(currentUserId)
     val selected: StateFlow<Int> = mutableSelected.asStateFlow()
     private val mutableInstalledPackages = MutableStateFlow<Set<String>?>(null)
-    /** null only for the local user; empty means a remote scan failed or has no apps. */
+    /** null means a local user or an unavailable remote inventory; FAILED is a separate state. */
+    private val verifiedPackagesByUser = mutableMapOf<Int, Set<String>>()
     val installedPackages: StateFlow<Set<String>?> = mutableInstalledPackages.asStateFlow()
     private val mutableScanState = MutableStateFlow(SpacePackageScanState.LOCAL)
     val scanState: StateFlow<SpacePackageScanState> = mutableScanState.asStateFlow()
@@ -47,20 +49,26 @@ class UserSpaceManager(context: Context) {
             runCatching {
                 val response = ComponentRootCommand.runReadOnly("pm list packages --user $userId")
                 if (response.exitCode != 0 || response.timedOut ||
-                    response.output.contains("[output truncated]")) {
+                    response.output.contains("[output truncated]") ||
+                    response.output.contains("[output incomplete]") ||
+                    response.output.contains("Error:") ||
+                    response.output.contains("Exception")) {
                     error("Remote user package scan failed or was truncated")
                 }
                 response.output.lineSequence().map { it.trim() }
                     .filter { it.startsWith("package:") }
                     .map { it.removePrefix("package:") }
                     .filter(com.yagay.ListCleaner.domain.PackageIdentity::valid)
-                    .toSet()
+                    .toSet().also { check(it.isNotEmpty()) { "Remote profile returned zero packages" } }
             }.getOrNull()
         }
+        if (packages != null) verifiedPackagesByUser[userId] = packages
         if (selected.value == userId) {
-            mutableInstalledPackages.value = packages ?: emptySet()
+            // Never turn a failed shell call into a verified empty profile.
+            mutableInstalledPackages.value = packages ?: verifiedPackagesByUser[userId]
             mutableScanState.value = if (packages == null) SpacePackageScanState.FAILED
                 else SpacePackageScanState.READY
+            if (packages == null) Log.w("ListCleaner.Spaces", "Package inventory failed for user=$userId; keeping verified snapshot")
         }
     }
 
@@ -104,7 +112,7 @@ class UserSpaceManager(context: Context) {
     fun select(userId: Int): Boolean {
         if (userId !in mutableSpaces.value.map { it.userId }) return false
         mutableSelected.value = userId
-        mutableInstalledPackages.value = if (userId == currentUserId) null else emptySet()
+        mutableInstalledPackages.value = if (userId == currentUserId) null else verifiedPackagesByUser[userId]
         mutableScanState.value = if (userId == currentUserId)
             SpacePackageScanState.LOCAL else SpacePackageScanState.LOADING
         prefs.edit().putInt("selected_user", userId).apply()

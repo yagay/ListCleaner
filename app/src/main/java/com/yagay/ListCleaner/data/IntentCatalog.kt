@@ -21,6 +21,7 @@ import com.yagay.ListCleaner.domain.listCleanerAppType
 import com.yagay.ListCleaner.domain.CustomOpenDefinition
 import com.yagay.ListCleaner.domain.intentKind
 import com.yagay.ListCleaner.domain.FilterPolicy
+import com.yagay.ListCleaner.domain.RuntimeProtocol
 import com.yagay.ListCleaner.domain.normalizeBrowserHost
 import com.yagay.ListCleaner.domain.webTargetKind
 import kotlinx.coroutines.Dispatchers
@@ -431,8 +432,15 @@ class IntentCatalog(private val context: Context) {
         val intentKind = probe.intent.intentKind() ?: return QueryResult(emptyList(), 0)
         val flags = queryFlags(intentKind, discovery)
         check(flags and (PackageManager.MATCH_DISABLED_COMPONENTS or PackageManager.MATCH_DISABLED_UNTIL_USED_COMPONENTS) == 0)
-        val raw = profile?.query(probe.intent, flags)
-            ?: context.packageManager.queryIntentActivities(probe.intent, flags)
+        // The manager's inventory is not a runtime preview. An explicit marker keeps
+        // PROCESS_TEXT candidates discoverable while its actual ActionMode menu is filtered.
+        val catalogIntent = if (profile == null && intentKind == IntentKind.PROCESS_TEXT) {
+            Intent(probe.intent).apply {
+                putExtra(RuntimeProtocol.EXTRA_MANAGER_CATALOG_QUERY, true)
+            }
+        } else probe.intent
+        val raw = profile?.query(catalogIntent, flags)
+            ?: context.packageManager.queryIntentActivities(catalogIntent, flags)
         val candidates = raw.mapNotNull { info ->
             val activity = info.activityInfo ?: return@mapNotNull null
             // Shell reconstructs ResolveInfo without resolved IntentFilter metadata.

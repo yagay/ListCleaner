@@ -109,10 +109,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         UiPreferencesStore.rememberAppType(app, filter, "rules")
     }
 
+    fun refreshSpaces() {
+        viewModelScope.launch {
+            app.spaces.refresh()
+            val userId = app.spaces.selected.value
+            if (app.rules.activeUser.value != userId) selectSpace(userId)
+            else if (userId != app.spaces.currentUserId) app.spaces.refreshInstalledPackages(userId)
+        }
+    }
+
     fun selectSpace(userId: Int) {
         if (rootComponents.busy.value || !app.spaces.select(userId)) return
-        candidateController.clearForSpaceChange()
         app.rules.switchSpace(userId)
+        candidateController.clearForSpaceChange()
         bulkLocks.notifySpaceChanged()
         rootComponents.switchSpace(userId)
         setQuery("")
