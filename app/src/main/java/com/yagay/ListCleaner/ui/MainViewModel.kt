@@ -118,9 +118,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } else if (userId != app.spaces.currentUserId) {
                 val previousState = app.spaces.scanState.value
                 app.spaces.refreshInstalledPackages(userId)
-                if (previousState != com.yagay.ListCleaner.data.SpacePackageScanState.READY &&
-                    app.spaces.scanState.value == com.yagay.ListCleaner.data.SpacePackageScanState.READY) {
-                    // A private/work profile may become accessible only after unlocking it.
+                if (app.spaces.scanState.value == com.yagay.ListCleaner.data.SpacePackageScanState.READY &&
+                    (previousState != com.yagay.ListCleaner.data.SpacePackageScanState.READY ||
+                        candidateController.candidates.value.isEmpty())) {
+                    // Package listing may succeed even while a locked profile's resolver queries
+                    // return nothing. Retry the catalog after the user returns from unlocking it.
                     refresh(forceCatalog = true)
                 }
             }
