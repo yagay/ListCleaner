@@ -1,0 +1,196 @@
+name: Build Release-Signed Test APK
+
+on:
+  push:
+    branches: [test]
+    paths:
+      - 'app/**'
+      - 'gradle/**'
+      - '*.gradle.kts'
+      - 'gradle.properties'
+      - 'gradlew'
+      - '.github/workflows/build-test-signed.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: signed-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile:
+    if: github.repository == 'yagay/ListCleaner' && github.ref == 'refs/heads/test'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout test source without credentials
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Check source localization and UI consistency
+        run: |
+          python3 tools/check-source-localization.py
+          python3 tools/check-translation-resources.py
+          python3 tools/check-bilingual-parity.py
+          python3 tools/check-material3-controls.py
+
+      - name: Set up Java 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+
+      - name: Install build SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -x "${ANDROID_HOME}/cmdline-tools/23.0/bin/sdkmanager" ]]; then
+            sdkmanager "cmdline-tools;23.0"
+          fi
+          "${ANDROID_HOME}/cmdline-tools/23.0/bin/sdkmanager" --channel=3 \
+            "platforms;android-37.0" "build-tools;36.0.0"
+          test -s "${ANDROID_HOME}/platforms/android-37.0/android.jar"
+
+      - name: Test Debug unit regressions
+        run: bash ./gradlew --no-daemon --build-cache --console=plain :app:testDebugUnitTest
+
+      - name: Compile optimized Release variant without signing secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash ./gradlew --no-daemon --build-cache --console=plain --stacktrace \
+            -PallowUnsignedRelease=true :app:assembleRelease
+          unsigned="$(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -type f | head -n 1)"
+          test -n "$unsigned" && test -s "$unsigned"
+          mkdir -p test-unsigned
+          cp "$unsigned" test-unsigned/app-release-unsigned.apk
+
+      - name: Hand off unsigned Test APK only
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: listcleaner-test-unsigned-${{ github.sha }}
+          path: test-unsigned/app-release-unsigned.apk
+          retention-days: 1
+          if-no-files-found: error
+
+  sign:
+    # Only this isolated job receives the fixed Release key. Never run test-branch
+    # scripts or execute the compiled APK in this job.
+    if: github.repository == 'yagay/ListCleaner' && github.ref == 'refs/heads/test'
+    needs: compile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout trusted main signing tools only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Download the unsigned APK
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: listcleaner-test-unsigned-${{ github.sha }}
+          path: unsigned
+
+      - name: Set up Java for certificate validation
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up APK signing and inspection tools
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          packages: 'build-tools;36.0.0'
+          log-accepted-android-sdk-licenses: false
+
+      - name: Prepare and verify pinned Release certificate
+        id: signing
+        env:
+          ANDROID_SIGNING_JSON: ${{ secrets.ANDROID_SIGNING_JSON }}
+        run: |
+          python3 tools/prepare-release-signing.py
+          test "${{ steps.signing.outputs.configured }}" = true || {
+            echo '::error::ANDROID_SIGNING_JSON missing; no signed Test APK can be created'
+            exit 1
+          }
+
+      - name: Sign and verify test APK using Release key
+        shell: bash
+        run: |
+          set -euo pipefail
+          tools="${ANDROID_HOME}/build-tools/36.0.0"
+          apk="unsigned/app-release-unsigned.apk"
+          test -s "$apk"
+          mkdir -p signed-test
+          "$tools/zipalign" -f -P 16 4 "$apk" signed-test/aligned-unsigned.apk
+          "$tools/apksigner" sign \
+            --ks "$RELEASE_STORE_FILE" \
+            --ks-type PKCS12 \
+            --ks-key-alias "$RELEASE_KEY_ALIAS" \
+            --ks-pass env:RELEASE_STORE_PASSWORD \
+            --key-pass env:RELEASE_KEY_PASSWORD \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --out signed-test/ListCleaner-test-signed.apk \
+            signed-test/aligned-unsigned.apk
+          "$tools/apksigner" verify --verbose --print-certs signed-test/ListCleaner-test-signed.apk \
+            > signed-test/signature.txt
+          "$tools/zipalign" -c -P 16 4 signed-test/ListCleaner-test-signed.apk
+          "$tools/aapt" dump badging signed-test/ListCleaner-test-signed.apk \
+            > signed-test/badging.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, re
+          sig = Path('signed-test/signature.txt').read_text()
+          expected = Path('signing/release-certificate.sha256').read_text().strip().lower()
+          match = re.search(r'Signer #1 certificate SHA-256 digest: ([0-9a-fA-F]+)', sig)
+          assert match and match.group(1).lower() == expected, 'Signing certificate mismatch'
+          badging = Path('signed-test/badging.txt').read_text()
+          identity = re.search(r"package: name='([^']+)' versionCode='([0-9]+)' versionName='([^']+)'", badging)
+          assert identity, 'Missing Android package metadata'
+          package, code, version = identity.groups()
+          assert package == 'com.yagay.ListCleaner', 'Unexpected package name'
+          assert version.endswith('-test'), 'Refusing a non-test build'
+          assert int(code) >= 73, 'Test versionCode is too old'
+          assert 'application-debuggable' not in badging, 'Refusing a debuggable signed Test APK'
+          apk = Path('signed-test/ListCleaner-test-signed.apk')
+          dest = apk.with_name(f'ListCleaner-{version}-signed.apk')
+          apk.rename(dest)
+          digest = hashlib.sha256(dest.read_bytes()).hexdigest()
+          Path('signed-test/SHA256SUMS.txt').write_text(f'{digest}  {dest.name}\n')
+          # Do not publish any APK to GitHub Releases, LSPosed, or Telegram.
+          Path('signed-test/signature.txt').unlink()
+          Path('signed-test/badging.txt').unlink()
+          Path('signed-test/aligned-unsigned.apk').unlink()
+          print(f'Verified installable test: {dest.name} versionCode={code}')
+          print(f'Certificate SHA-256: {expected}')
+          PY
+
+      - name: Upload signed test as Actions artifact only
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ListCleaner-signed-test-${{ github.run_number }}
+          path: signed-test/
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Delete signing key from runner
+        if: always()
+        run: rm -rf "${RUNNER_TEMP}/listcleaner-signing"
