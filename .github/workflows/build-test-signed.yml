@@ -124,12 +124,15 @@ jobs:
         id: signing
         env:
           ANDROID_SIGNING_JSON: ${{ secrets.ANDROID_SIGNING_JSON }}
+        run: python3 tools/prepare-release-signing.py
+
+      - name: Require the verified Release signing key
+        shell: bash
         run: |
-          python3 tools/prepare-release-signing.py
-          test "${{ steps.signing.outputs.configured }}" = true || {
+          if [[ "${{ steps.signing.outputs.configured }}" != "true" ]]; then
             echo '::error::ANDROID_SIGNING_JSON missing; no signed Test APK can be created'
             exit 1
-          }
+          fi
 
       - name: Sign and verify test APK using Release key
         shell: bash
