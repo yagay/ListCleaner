@@ -113,8 +113,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             app.spaces.refresh()
             val userId = app.spaces.selected.value
-            if (app.rules.activeUser.value != userId) selectSpace(userId)
-            else if (userId != app.spaces.currentUserId) app.spaces.refreshInstalledPackages(userId)
+            if (app.rules.activeUser.value != userId) {
+                selectSpace(userId)
+            } else if (userId != app.spaces.currentUserId) {
+                val previousState = app.spaces.scanState.value
+                app.spaces.refreshInstalledPackages(userId)
+                if (previousState != com.yagay.ListCleaner.data.SpacePackageScanState.READY &&
+                    app.spaces.scanState.value == com.yagay.ListCleaner.data.SpacePackageScanState.READY) {
+                    // A private/work profile may become accessible only after unlocking it.
+                    refresh(forceCatalog = true)
+                }
+            }
         }
     }
 
