@@ -48,6 +48,10 @@ internal class ObservedEntryCache(context: Context) {
             )
         }
         segmentedEncoded.forEach { (kind, encoded) ->
+            // A successfully published Launcher snapshot is authoritative. Older read-only
+            // LSPosed preference values must never erase the new provider-owned inventory.
+            if (kind == IntentKind.SHORTCUT_ITEM &&
+                prefs.getBoolean(LAUNCHER_AUTHORITY_PREFIX + userId, false)) return@forEach
             val remote = ObservedEntryCacheCodec.decode(encoded)
                 .filter { it.kind == kind.name && it.userId == userId }
             // Launcher process owns a complete Shortcut Host inventory, while
@@ -61,6 +65,25 @@ internal class ObservedEntryCache(context: Context) {
         }
         persist(reconciled)
         return reconciled
+    }
+
+    /**
+     * The manager is the only writer for launcher inventories. An empty list is accepted
+     * only after the trusted host confirms a completed query for this user.
+     * Commit both the inventory and its authority marker atomically.
+     */
+    @Synchronized
+    fun replaceLauncherSnapshot(userId: Int, entries: List<ObservedEntryRecord>): Boolean {
+        if (userId !in 0..21474 || entries.size > ObservedEntryCacheCodec.MAX_ENTRIES) return false
+        if (entries.any { it.kind != IntentKind.SHORTCUT_ITEM.name ||
+                it.userId != userId || it.validatedOrNull() == null }) return false
+        val updated = ObservedEntryCacheCodec.reconcileRemote(
+            snapshot(), entries, setOf(IntentKind.SHORTCUT_ITEM), userId
+        )
+        val encoded = ObservedEntryCacheCodec.encode(updated)
+        if (encoded.length > ObservedEntryCacheCodec.MAX_ENCODED_CHARS) return false
+        return prefs.edit().putString(KEY_ENTRIES, encoded)
+            .putBoolean(LAUNCHER_AUTHORITY_PREFIX + userId, true).commit()
     }
 
     @Synchronized
@@ -86,6 +109,7 @@ internal class ObservedEntryCache(context: Context) {
         private const val REMOTE_KIND_PREFIX = "observed_entries_v2_kind_"
         private const val PREFS = "observed_entries_cache"
         private const val KEY_ENTRIES = "entries_v1"
+        private const val LAUNCHER_AUTHORITY_PREFIX = "launcher_authority_user_"
 
         fun remoteKey(kind: IntentKind, userId: Int = 0): String =
             REMOTE_KIND_PREFIX + kind.name + if (userId == 0) "" else "_user_$userId"
