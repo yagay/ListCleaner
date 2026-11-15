@@ -13,6 +13,10 @@ import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.RuntimeCaptureContract
 import com.yagay.ListCleaner.domain.RuntimeInterfaceSnapshot
 import com.yagay.ListCleaner.domain.RuntimeInterfaceSnapshotCodec
+import com.yagay.ListCleaner.domain.ObservedEntrySnapshot
+import com.yagay.ListCleaner.domain.ObservedEntryCacheCodec
+import com.yagay.ListCleaner.data.ObservedEntryCache
+import kotlinx.serialization.json.Json
 
 /**
  * One-way, UID-verified bridge from system_server / the real Resolver process into the
@@ -24,6 +28,7 @@ class RuntimeCaptureProvider : ContentProvider() {
     override fun onCreate(): Boolean = true
 
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle? {
+        if (method == RuntimeCaptureContract.METHOD_PUBLISH_SHORTCUTS) return acceptShortcutSnapshot(extras)
         if (method != RuntimeCaptureContract.METHOD_PUBLISH) return null
         val ctx = context ?: return null
         val callingUid = Binder.getCallingUid()
@@ -69,6 +74,42 @@ class RuntimeCaptureProvider : ContentProvider() {
             }.apply()
         PreviewCaptureSessionStore.recordIfMatching(ctx, snapshot, encoded)
         return Bundle().apply { putBoolean("accepted", true) }
+    }
+
+    /**
+     * Only a preinstalled, recognized HOME package may publish a complete shortcut snapshot.
+     * Validate the Binder UID, not a caller-supplied package name. Cross-profile rows are
+     * permitted only from this trusted launcher and never grant rule mutation.
+     */
+    private fun acceptShortcutSnapshot(extras: Bundle?): Bundle? {
+        val ctx = context ?: return null
+        val uid = Binder.getCallingUid()
+        val launcher = extras?.getString(RuntimeCaptureContract.KEY_LAUNCHER_PACKAGE)
+            ?: return null
+        if (launcher !in TRUSTED_LAUNCHERS || !trustedSystemPackage(uid, launcher)) return null
+        val user = extras.getInt(RuntimeCaptureContract.KEY_SHORTCUT_USER, -1)
+        if (user !in 0..21474) return null
+        val encoded = extras.getString(RuntimeCaptureContract.KEY_SHORTCUTS)
+            ?.takeIf { it.isNotBlank() && it.length <= RuntimeCaptureContract.MAX_SHORTCUT_IPC_CHARS }
+            ?: return null
+        val payload = runCatching {
+            Json.decodeFromString(ObservedEntrySnapshot.serializer(), encoded)
+        }.getOrNull() ?: return null
+        if (payload.version != 1 || payload.entries.size > ObservedEntryCacheCodec.MAX_ENTRIES ||
+            payload.entries.any { it.kind != IntentKind.SHORTCUT_ITEM.name ||
+                it.userId != user || it.validatedOrNull() == null }) return null
+        val saved = ObservedEntryCache(ctx).replaceLauncherSnapshot(user, payload.entries)
+        return Bundle().apply { putBoolean("accepted", saved) }
+    }
+
+    private fun trustedSystemPackage(uid: Int, packageName: String): Boolean {
+        val pm = context?.packageManager ?: return false
+        if (packageName !in pm.getPackagesForUid(uid).orEmpty()) return false
+        return runCatching {
+            @Suppress("DEPRECATION")
+            val info = pm.getApplicationInfo(packageName, 0)
+            info.uid == uid && info.flags and ApplicationInfo.FLAG_SYSTEM != 0
+        }.getOrDefault(false)
     }
 
     private fun trustedFrameworkUid(uid: Int): Boolean {
@@ -119,6 +160,11 @@ class RuntimeCaptureProvider : ContentProvider() {
                         selectionArgs: Array<out String>?): Int = 0
 
     companion object {
+        private val TRUSTED_LAUNCHERS = setOf(
+            "com.android.launcher", "com.android.launcher3",
+            "com.google.android.apps.nexuslauncher", "com.miui.home",
+            "com.sec.android.app.launcher",
+        )
         private val ORDERED_SOURCES = setOf("CHOOSER_ADAPTER_ORDER", "RESOLVER_RANKED_ORDER")
         private val RETURN_SOURCES = setOf(
             "PACKAGE_MANAGER_FILTERED_RETURN", "SYSTEM_MANAGER_RETURN",
