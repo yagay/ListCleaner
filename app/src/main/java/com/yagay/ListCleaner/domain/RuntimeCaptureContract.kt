@@ -7,6 +7,12 @@ package com.yagay.ListCleaner.domain
 object RuntimeCaptureContract {
     const val AUTHORITY = "com.yagay.ListCleaner.runtime-capture"
     const val METHOD_PUBLISH = "publish_capture_v1"
+    /** Dedicated write-only Launcher snapshot; no remote rule/config edits. */
+    const val METHOD_PUBLISH_SHORTCUTS = "publish_shortcuts_v1"
+    const val KEY_SHORTCUTS = "shortcuts_snapshot"
+    const val KEY_SHORTCUT_USER = "shortcut_user"
+    const val KEY_LAUNCHER_PACKAGE = "launcher_package"
+    const val MAX_SHORTCUT_IPC_CHARS = 350_000
     const val PREFS = "runtime_interface_captures_v1"
     const val KEY_SNAPSHOT = "snapshot"
     const val KEY_ORDERED = "ordered"
