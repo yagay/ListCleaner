@@ -24,10 +24,11 @@ internal object EntryRuntimeAudit {
         appendLine("Missing installation evidence is UNKNOWN when old startup logs have already rotated; it is not proof of failure.")
         appendLine()
 
+        // Keep the most recent evidence; older LSPosed logs may be larger than the cap.
         val lines = runtimeLogText.lineSequence()
             .filter { it.contains("ListCleaner") }
-            .take(50_000)
             .toList()
+            .takeLast(50_000)
 
         IntentKind.entries
             .filter(IntentKind::isSelectableEntryKind)
@@ -167,7 +168,10 @@ internal object EntryRuntimeAudit {
         return when (path) {
             EntryRuntimePath.RESOLVER_ACTIVITY ->
                 (line.contains("ListCleaner.Diagnostic") || line.contains("ListCleaner:")) &&
-                    (line.contains(" $kind ") || line.contains("kind=$kind")) && (isQuery(line) || isFilter(line))
+                    (line.contains(" $kind ") || line.contains("kind=$kind") ||
+                        (kind == IntentKind.PROCESS_TEXT && isLegacyTextMenuLine(line))) &&
+                    (isQuery(line) || isFilter(line) || (kind == IntentKind.PROCESS_TEXT &&
+                        line.contains("PROCESS_TEXT_PROFILE")))
             EntryRuntimePath.ROLE_CONTROLLER ->
                 line.contains("ListCleaner.RoleController") && line.contains("kind=$kind") && (isQuery(line) || isFilter(line))
             EntryRuntimePath.DIRECT_SHARE_CHOOSER ->
@@ -203,6 +207,7 @@ internal object EntryRuntimeAudit {
     }
 
     private fun relevant(kind: IntentKind, definition: EntryRuntimeDefinition?, line: String): Boolean {
+        if (kind == IntentKind.PROCESS_TEXT && isLegacyTextMenuLine(line)) return true
         if (Regex("\\bkind=${Regex.escape(kind.name)}\\b").containsMatchIn(line)) return true
         val roleName = definition?.roleName
         if (roleName != null && line.contains("ListCleaner.RoleController") && line.contains(roleName)) return true
@@ -210,6 +215,10 @@ internal object EntryRuntimeAudit {
             pathInstallationLine(kind, path, line) || pathRuntimeLine(kind, path, line)
         }
     }
+
+    private fun isLegacyTextMenuLine(line: String): Boolean =
+        line.contains("TEXT_MENU_FILTERED") || line.contains("PROCESS_TEXT_PROFILE") ||
+            line.contains("PROFILE_TEXT_SYSTEM_QUERY") || line.contains("MANAGER_TEXT_ACTION_MODE")
 
     private fun managerLogMatches(kind: IntentKind, line: String): Boolean = when (kind) {
         IntentKind.ACCESSIBILITY -> line.contains("kind=ACCESSIBILITY") || line.contains("lc-accessibility-manager")
