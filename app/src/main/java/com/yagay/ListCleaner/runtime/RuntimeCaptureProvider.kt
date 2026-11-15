@@ -16,6 +16,7 @@ import com.yagay.ListCleaner.domain.RuntimeInterfaceSnapshotCodec
 import com.yagay.ListCleaner.domain.ObservedEntrySnapshot
 import com.yagay.ListCleaner.domain.ObservedEntryCacheCodec
 import com.yagay.ListCleaner.data.ObservedEntryCache
+import com.yagay.ListCleaner.ListCleanerApp
 import kotlinx.serialization.json.Json
 
 /**
@@ -99,6 +100,9 @@ class RuntimeCaptureProvider : ContentProvider() {
             payload.entries.any { it.kind != IntentKind.SHORTCUT_ITEM.name ||
                 it.userId != user || it.validatedOrNull() == null }) return null
         val saved = ObservedEntryCache(ctx).replaceLauncherSnapshot(user, payload.entries)
+        // Invalidate only after the manager has accepted the complete snapshot, so
+        // the currently displayed space refreshes without a manual rescan.
+        if (saved) (ctx.applicationContext as? ListCleanerApp)?.catalog?.invalidate()
         return Bundle().apply { putBoolean("accepted", saved) }
     }
 
