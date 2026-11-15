@@ -152,6 +152,7 @@ object NotificationCleanupController {
     /** Root probe is read-only. Failure is not proof of an empty channel registry. */
     // Resolve UIDs in the selected Android user; reuse one Root package listing.
     private val rootPackageUids = mutableMapOf<Int, Map<String, Int>>()
+    @Volatile private var rootChannelProbeUnavailable = false
 
     @Synchronized
     fun invalidateChannelScanCache(userId: Int) {
@@ -194,17 +195,26 @@ object NotificationCleanupController {
             val valid = packages.distinct().filter {
                 it.matches(Regex("[A-Za-z0-9_]+([.][A-Za-z0-9_]+)+"))
             }
-            if (apk != null && apk.startsWith("/") && !apk.contains("'") && !apk.contains("\\n")) {
+            if (!rootChannelProbeUnavailable && apk != null && apk.startsWith("/") && !apk.contains("'") && !apk.contains("\\n")) {
                 for (batch in valid.chunked(32)) {
                     val pairs = batch.mapNotNull { pkg ->
                         targetPackageUid(pkg, userId)?.let { uid -> "$pkg $uid" }
                     }
-                    if (pairs.isEmpty()) continue
+                    if (pairs.isEmpty() || rootChannelProbeUnavailable) continue
                     val command = "CLASSPATH='$apk' app_process /system/bin " +
                         "com.yagay.ListCleaner.runtime.RootNotificationChannelProbe " +
                         pairs.joinToString(" ")
                     val response = runCatching { ComponentRootCommand.runReadOnly(command) }.getOrNull()
-                    if (response == null || response.exitCode != 0 || response.timedOut) continue
+                    if (response == null || response.exitCode != 0 || response.timedOut) {
+                        // Some Android builds cannot load APK classes via app_process.
+                        // Stop launching crashing children; use the supported listener fallback.
+                        if (response == null || !response.timedOut) {
+                            rootChannelProbeUnavailable = true
+                            android.util.Log.w("ListCleaner.Channels", "Root channel probe unavailable; falling back to listener. " +
+                                response?.output?.take(180).orEmpty())
+                        }
+                        continue
+                    }
                     val line = response.output.lineSequence().firstOrNull {
                         it.startsWith("LC_CHANNELS:")
                     } ?: continue
