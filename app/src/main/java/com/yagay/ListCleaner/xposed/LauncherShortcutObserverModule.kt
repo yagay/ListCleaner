@@ -1,6 +1,9 @@
 package com.yagay.ListCleaner.xposed
 
 import android.content.Context
+import android.net.Uri
+import android.os.Bundle
+import android.os.UserManager
 import android.content.pm.LauncherApps
 import android.content.pm.ShortcutInfo
 import android.os.Handler
@@ -8,7 +11,8 @@ import android.os.Looper
 import android.os.Process
 import android.os.UserHandle
 import android.util.Log
-import com.yagay.ListCleaner.data.RuleRepository
+import com.yagay.ListCleaner.domain.ObservedEntryCacheCodec
+import com.yagay.ListCleaner.domain.RuntimeCaptureContract
 import com.yagay.ListCleaner.domain.IntentKind
 import com.yagay.ListCleaner.domain.ObservedEntryRecord
 import com.yagay.ListCleaner.domain.PackageIdentity
@@ -17,6 +21,7 @@ import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
@@ -36,12 +41,9 @@ class LauncherShortcutObserverModule : XposedModule() {
     private val worker: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor { task ->
         Thread(task, "ListCleaner-LauncherShortcuts").apply { isDaemon = true }
     }
-    private val preferences by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        getRemotePreferences(RuleRepository.REMOTE_PREFS)
-    }
-    private val persistence by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        RemoteObservedEntryPersistence(preferences, ::record)
-    }
+    // RemotePreferences are read-only in hooked launcher processes. Send observations
+    // to the manager-owned provider, and do not erase a locked profile's prior rows.
+    private val deferredUntil = ConcurrentHashMap<Int, Long>()
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
         processName = param.processName
@@ -133,27 +135,48 @@ class LauncherShortcutObserverModule : XposedModule() {
                 LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED or
                 LauncherApps.ShortcutQuery.FLAG_MATCH_CACHED
         )
-        var count = 0
+        var observed = 0
+        var persisted = 0
+        var completed = 0
+        var deferred = 0
+        var failed = 0
         profiles.distinctBy { it }.forEach { user ->
             val userId = ReflectionAccess.userId(user) ?: return@forEach
+            val now = System.currentTimeMillis()
+            // Some profiles are reported running while credential storage is still locked.
+            // Check before querying, and avoid hammering ShortcutService on known failures.
+            val unlocked = isProfileUnlocked(context, user, userId)
+            if (unlocked == true) deferredUntil.remove(userId)
+            if (unlocked == false || now < (deferredUntil[userId] ?: 0L)) {
+                if (unlocked == false) deferredUntil[userId] = now + LOCKED_RETRY_MS
+                deferred++
+                record("SCAN_DEFERRED user=$userId reason=locked_or_backoff snapshot=retained")
+                return@forEach
+            }
             val shortcuts = try {
                 launcher.getShortcuts(query, user)
             } catch (error: Exception) {
-                // Work/private profiles can be locked while still reported as running.
-                // Retain the prior verified shortcuts for this user on query failure.
-                record("SCAN_FAILED user=$userId error=${error.javaClass.simpleName} detail=${error.message?.take(160)} snapshot=retained")
+                val locked = error is IllegalStateException &&
+                    error.message.orEmpty().contains("lock", ignoreCase = true)
+                if (locked) {
+                    deferredUntil[userId] = now + LOCKED_RETRY_MS
+                    deferred++
+                    record("SCAN_DEFERRED user=$userId reason=profile_locked snapshot=retained")
+                } else {
+                    failed++
+                    record("SCAN_FAILED user=$userId error=${error.javaClass.simpleName} detail=${error.message?.take(160)} snapshot=retained")
+                }
                 return@forEach
             } ?: run {
-                record("SCAN_FAILED user=$userId reason=null_response")
+                failed++
+                record("SCAN_FAILED user=$userId reason=null_response snapshot=retained")
                 return@forEach
             }
-            // An unexpected over-limit result is incomplete; never overwrite
-            // last verified snapshot with a clipped selection.
             if (shortcuts.size > MAX_SHORTCUTS) {
-                record("SCAN_SKIPPED user=$userId reason=oversized count=${shortcuts.size}")
+                failed++
+                record("SCAN_SKIPPED user=$userId reason=oversized count=${shortcuts.size} snapshot=retained")
                 return@forEach
             }
-            val now = System.currentTimeMillis()
             val records = shortcuts.asSequence()
                 .filter { it.isEnabled && (it.isDynamic || it.isDeclaredInManifest ||
                     it.isPinned || it.isCached) }
@@ -173,13 +196,49 @@ class LauncherShortcutObserverModule : XposedModule() {
                         userId = userId,
                     ).validatedOrNull()
                 }.distinctBy { it.key }.toList()
-            if (persistence.replaceKind(IntentKind.SHORTCUT_ITEM, records, userId)) {
-                count += records.size
-                record("SCAN_OK user=$userId shortcuts=${records.size}")
+            observed += records.size
+            if (publishShortcuts(context, userId, records)) {
+                completed++
+                persisted += records.size
+                record("SCAN_OK user=$userId observed=${records.size} persisted=${records.size}")
+            } else {
+                failed++
+                record("SCAN_FAILED user=$userId reason=provider_publish_failed observed=${records.size} snapshot=retained")
             }
         }
         lastScan = System.currentTimeMillis()
-        record("SCAN_FINISHED profiles=${profiles.size} shortcuts=$count")
+        record("SCAN_FINISHED profiles=${profiles.size} complete=$completed observed=$observed persisted=$persisted deferred=$deferred failed=$failed")
+    }
+
+    /** Null means the vendor does not expose the cross-user unlock API to HOME. */
+    private fun isProfileUnlocked(context: Context, user: UserHandle, userId: Int): Boolean? {
+        val manager = context.getSystemService(UserManager::class.java) ?: return null
+        if (userId == Process.myUid() / 100000) return manager.isUserUnlocked
+        return runCatching {
+            UserManager::class.java.getMethod("isUserUnlocked", UserHandle::class.java)
+                .invoke(manager, user) as? Boolean
+        }.getOrNull()
+    }
+
+    private fun publishShortcuts(context: Context, userId: Int, records: List<ObservedEntryRecord>): Boolean {
+        return runCatching {
+            val encoded = ObservedEntryCacheCodec.encode(records)
+            if (encoded.length > RuntimeCaptureContract.MAX_SHORTCUT_IPC_CHARS) {
+                record("SCAN_PUBLISH_SKIPPED user=$userId reason=payload_oversized chars=${encoded.length}")
+                return@runCatching false
+            }
+            val extras = Bundle().apply {
+                putString(RuntimeCaptureContract.KEY_LAUNCHER_PACKAGE, context.packageName)
+                putInt(RuntimeCaptureContract.KEY_SHORTCUT_USER, userId)
+                putString(RuntimeCaptureContract.KEY_SHORTCUTS, encoded)
+            }
+            context.contentResolver.call(
+                Uri.parse("content://${RuntimeCaptureContract.AUTHORITY}"),
+                RuntimeCaptureContract.METHOD_PUBLISH_SHORTCUTS, null, extras
+            )?.getBoolean("accepted", false) == true
+        }.onFailure {
+            record("SCAN_PUBLISH_FAILED user=$userId error=${it.javaClass.simpleName}")
+        }.getOrDefault(false)
     }
 
     private fun currentApplication(): Context? = runCatching {
@@ -199,6 +258,7 @@ class LauncherShortcutObserverModule : XposedModule() {
         const val REFRESH_MINUTES = 4L
         const val MIN_SCAN_INTERVAL_MS = 4_000L
         const val MAX_SHORTCUTS = 1024
+        const val LOCKED_RETRY_MS = 45_000L
         val LAUNCHERS = setOf(
             "com.android.launcher", "com.android.launcher3",
             "com.google.android.apps.nexuslauncher",
