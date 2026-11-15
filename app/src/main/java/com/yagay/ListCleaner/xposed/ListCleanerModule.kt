@@ -799,7 +799,7 @@ class ListCleanerModule : XposedModule() {
             }
             if (requestedAction == Intent.ACTION_PROCESS_TEXT) {
                 diagnostic(
-                    "PROCESS_TEXT_PROFILE layer=$layer targetUser=$targetUserId callerUid=$callerUid " +
+                    "PROCESS_TEXT_PROFILE kind=PROCESS_TEXT layer=$layer targetUser=$targetUserId callerUid=$callerUid " +
                         "processUser=${userContext.processUserId} source=${userContext.source} " +
                         "callerUser=${if (callerUid >= 0) com.yagay.ListCleaner.domain.AndroidUid.userId(callerUid) else -1} " +
                         "configured=${targetUserId == 0 || targetUserId in policies.otherUsers} " +
@@ -1236,7 +1236,7 @@ class ListCleanerModule : XposedModule() {
                 if (scopedTextQuery) {
                     val filtered = transform(kind, extracted.values, layer, callerUid,
                         resolvedType, openUri?.scheme, openPath, data?.host)
-                    diagnostic("PROFILE_TEXT_SYSTEM_QUERY userId=$callerUser " +
+                    diagnostic("PROFILE_TEXT_SYSTEM_QUERY kind=PROCESS_TEXT userId=$callerUser " +
                         "before=${extracted.values.size} after=${filtered?.size ?: extracted.values.size}")
                     return if (filtered == null) original else extracted.rebuild(filtered)
                 }
@@ -1397,7 +1397,7 @@ class ListCleanerModule : XposedModule() {
         }
         diagnostic("$layer $kind preset=$preset: ${values.size} -> ${titled.size}")
         if (kind == IntentKind.PROCESS_TEXT) {
-            diagnostic("TEXT_MENU_FILTERED layer=$layer callerUid=$callerUid before=${values.size} after=${titled.size} rules=${current.configured.count { it.startsWith("PROCESS_TEXT|") }}")
+            diagnostic("TEXT_MENU_FILTERED kind=PROCESS_TEXT layer=$layer userId=${activeQueryUserContext.get()?.targetUserId} callerUid=$callerUid before=${values.size} after=${titled.size} rules=${current.configured.count { it.startsWith("PROCESS_TEXT|") }}")
         }
         return titled
     }
