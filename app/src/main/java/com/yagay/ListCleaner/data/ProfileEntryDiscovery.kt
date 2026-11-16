@@ -2,6 +2,7 @@ package com.yagay.ListCleaner.data
 
 import android.content.Context
 import android.content.Intent
+import com.yagay.ListCleaner.ListCleanerApp
 import android.content.pm.ComponentInfo
 import android.content.pm.PackageManager
 import com.yagay.ListCleaner.domain.*
@@ -63,9 +64,15 @@ internal class ProfileEntryDiscovery(private val context: Context, private val q
             // or misreport an unsupported authority query as an empty provider list.
             unavailable += "provider:DOCUMENT_PROVIDER:shell_api_unavailable"
             unavailable += "provider:PHOTO_SOURCE:shell_api_unavailable"
+            // Historical observations are never authoritative live package matches.
+            // Avoid parsing their APKs: removed/locked packages would create fake
+            // errors and make an otherwise valid current scan non-cacheable.
+            val manager = context.applicationContext as? ListCleanerApp
+            val installed = manager?.spaces?.takeIf { it.selected.value == query.userId }
+                ?.installedPackages?.value
             ObservedEntryCache(context).snapshot().filter { it.userId == query.userId }.forEach { observed ->
                 val kind = runCatching { IntentKind.valueOf(observed.kind) }.getOrNull()
-                if (kind != null && query.packageInfo(observed.packageName) != null) {
+                if (kind != null && (installed == null || observed.packageName in installed)) {
                     add(ComponentCandidate(
                         rule = ComponentRule(kind, observed.packageName, observed.syntheticClass),
                         appLabel = observed.packageName, activityLabel = observed.label,
