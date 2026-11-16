@@ -15,8 +15,8 @@ internal object ProfileShellBatch {
     }
 
     fun entry(output: String, index: Int, prefix: String): String? {
-        val start = "__${prefix}_START_${index}__\\n"
-        val end = "\\n__${prefix}_END_${index}__:"
+        val start = "__${prefix}_START_${index}__\n"
+        val end = "\n__${prefix}_END_${index}__:"
         val startPosition = output.indexOf(start)
         if (startPosition < 0) return null
         val bodyStart = startPosition + start.length
