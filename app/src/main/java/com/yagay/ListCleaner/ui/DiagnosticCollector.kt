@@ -72,8 +72,13 @@ object DiagnosticCollector {
                 zip.addText("device/system-info.txt", systemInfo())
                 val app = context.applicationContext as ListCleanerApp
                 zip.addText("app/scan-probes.txt", app.catalog.lastReport)
+                zip.addText("app/profile-package-scan.txt", app.spaces.diagnosticReport())
+                zip.addText("app/profile-component-scan.txt", components?.scanDetails.orEmpty().ifBlank { "not_scanned" })
                 zip.addText("app/real-file-probe.txt", app.catalog.lastFileReport)
-                zip.addText("app/catalog-status.txt", "source=current_session_scan\npersistentCatalog=false\nscanWarning=" + app.catalog.scanWarning)
+                zip.addText("app/catalog-status.txt", "source=current_session_scan\npersistentCatalog=false\nscanWarning=" + app.catalog.scanWarning +
+                    "\nscanUser=" + app.catalog.snapshot.value.userId +
+                    "\nfailedSources=" + app.catalog.snapshot.value.evidence.failedSources +
+                    "\nunavailableSources=" + app.catalog.snapshot.value.evidence.unavailableSources)
                 zip.addText(
                     "app/component-policy.txt",
                     buildString {
