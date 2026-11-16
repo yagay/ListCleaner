@@ -378,6 +378,11 @@ class IntentCatalog(private val context: Context) {
         report.insert(0, "scanSummary userId=$userId specialFailures=${specialFailures.size} " +
             "intentProbeFailures=$intentProbeFailures shortcutFailures=$shortcutFailures " +
             "unavailableSources=${specialUnavailable.size} totalFailures=$failures\n")
+        // Unavailable APIs are a capability limit, not evidence that every supported
+        // resolver query failed. Record both independently and keep valid scan results.
+        val profileFailures = profile?.failureCount ?: 0
+        failures += profileFailures
+        profile?.let { report.appendLine("profileQueryMetrics ${it.diagnosticSummary()}") }
         report.appendLine("finishedAt=${Instant.now()} unique=${result.size} failures=$failures")
         lastReport = report.toString()
         scanWarning = when {
@@ -401,7 +406,8 @@ class IntentCatalog(private val context: Context) {
         cachedDefinitionFingerprint = fingerprint
         // An incomplete scan must be retried; caching a partial scan as complete
         // can turn a transient Shell/PackageManager failure into a persistent zero.
-        invalidated = failures > 0 || specialUnavailable.isNotEmpty()
+        // Unsupported profile providers must not permanently poison the cache.
+        invalidated = failures > 0
         result
     }
 
