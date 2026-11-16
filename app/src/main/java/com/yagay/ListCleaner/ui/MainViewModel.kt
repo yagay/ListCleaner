@@ -117,12 +117,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 selectSpace(userId)
             } else if (userId != app.spaces.currentUserId) {
                 val previousState = app.spaces.scanState.value
+                val previousPackages = installedPackages.value
                 app.spaces.refreshInstalledPackages(userId)
+                if (app.spaces.selected.value != userId) return@launch
+                val packagesChanged = previousPackages != installedPackages.value
                 if (app.spaces.scanState.value == com.yagay.ListCleaner.data.SpacePackageScanState.READY &&
                     (previousState != com.yagay.ListCleaner.data.SpacePackageScanState.READY ||
-                        candidateController.candidates.value.isEmpty())) {
-                    // Package listing may succeed even while a locked profile's resolver queries
-                    // return nothing. Retry the catalog after the user returns from unlocking it.
+                        packagesChanged || candidateController.candidates.value.isEmpty())) {
+                    // A non-empty cached Entry list does not mean the package inventory is current.
+                    // Keep each profile separate and invalidate both independently scanned catalogs.
+                    app.catalog.invalidate()
+                    if (packagesChanged) rootComponents.invalidateProfilePackages(userId)
                     refresh(forceCatalog = true)
                 }
             }
