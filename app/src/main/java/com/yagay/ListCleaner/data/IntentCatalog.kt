@@ -375,6 +375,9 @@ class IntentCatalog(private val context: Context) {
         if (launcherShortcuts.isNotEmpty()) found += launcherShortcuts
         report.appendLine("launcherShortcutHost userId=$userId current=${launcherShortcuts.size}")
         val result = com.yagay.ListCleaner.domain.unifyDocumentsUiCandidates(merge(found))
+        // Count actual APK/component failures before writing the top-level summary.
+        val profileFailures = profile?.failureCount ?: 0
+        failures += profileFailures
         report.insert(0, "scanTiming userId=$userId specialMs=$specialMillis batchMs=$batchMillis " +
             "intentQueriesMs=$intentQueryMillis shortcutsMs=${(System.nanoTime() - shortcutStartNanos) / 1_000_000} " +
             "totalMs=${(System.nanoTime() - scanStartedNanos) / 1_000_000}\n")
@@ -383,8 +386,6 @@ class IntentCatalog(private val context: Context) {
             "unavailableSources=${specialUnavailable.size} totalFailures=$failures\n")
         // Unavailable APIs are a capability limit, not evidence that every supported
         // resolver query failed. Record both independently and keep valid scan results.
-        val profileFailures = profile?.failureCount ?: 0
-        failures += profileFailures
         profile?.let { report.appendLine("profileQueryMetrics ${it.diagnosticSummary()}") }
         report.appendLine("finishedAt=${Instant.now()} unique=${result.size} failures=$failures")
         lastReport = report.toString()
