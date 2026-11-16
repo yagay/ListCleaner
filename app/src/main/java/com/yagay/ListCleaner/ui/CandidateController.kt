@@ -216,8 +216,10 @@ internal class CandidateController(
             } catch (failure: Exception) {
                 Log.e(TAG, "Candidate scan failed", failure)
                 if (isCurrent(currentGeneration, userId)) {
-                    mutableCandidates.value = lastVerifiedByUser[userId].orEmpty()
-                    mutableError.value = "${app.getString(R.string.scan_failed)} (User $userId: ${failure.javaClass.simpleName})"
+                    // Keep configured/unavailable entries on a first scan failure;
+                    // there may be no verified snapshot yet for this profile.
+                    mutableCandidates.value = lastVerifiedByUser[userId] ?: mutableCandidates.value
+                    mutableError.value = "${app.getString(R.string.scan_failed)} (User $userId: ${failure.message?.take(120) ?: failure.javaClass.simpleName})"
                 }
             } finally {
                 if (isCurrent(currentGeneration, userId)) mutableLoading.value = false
