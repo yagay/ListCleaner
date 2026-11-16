@@ -56,7 +56,9 @@ data class RootComponentScan(
     val warning: String = "",
     val observedAt: Long = 0,
     /** Null means the current user has not had a verified scan. */
-    val scannedUserId: Int? = null
+    val scannedUserId: Int? = null,
+    /** Cross-profile scan health for exported diagnostics; not a UI success flag. */
+    val scanDetails: String = ""
 )
 
 /**
