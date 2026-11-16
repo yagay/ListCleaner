@@ -185,7 +185,8 @@ class ProfileComponentCatalog(private val context: Context) {
         val installed = installedPackages(userId)
         if (installed == null) {
             lastReport = "profileComponents user=$userId state=installed_package_query_failed"
-            return RootComponentScan(warning = context.getString(R.string.root_scan_failed))
+            return RootComponentScan(warning = context.getString(R.string.root_scan_failed),
+                scanDetails = lastReport)
         }
         val errors = mutableListOf<String>()
         val discovered = CleanupKind.entries.associateWith { kind ->
@@ -254,7 +255,8 @@ class ProfileComponentCatalog(private val context: Context) {
         Log.i("ListCleaner.ProfileRoot", lastReport)
         // Missing authoritative shell results invalidate completeness. Individual state
         // metadata failures leave rows visible but non-editable instead of disappearing.
-        return RootComponentScan(items, errors.joinToString(), System.currentTimeMillis())
+        return RootComponentScan(items, errors.joinToString(), System.currentTimeMillis(),
+            scanDetails = lastReport)
     }
 
     suspend fun change(target: RootComponent, enable: Boolean): String {
