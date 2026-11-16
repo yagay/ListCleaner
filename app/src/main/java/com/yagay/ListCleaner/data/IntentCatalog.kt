@@ -173,6 +173,9 @@ class IntentCatalog(private val context: Context) {
         manualProactive: Boolean = false,
     ): List<ComponentCandidate> = withContext(Dispatchers.IO) {
         val profile = if (userId == android.os.Process.myUid() / 100000) null else ProfilePackageQuery(context, userId)
+        if (profile != null && ProfileUserAvailability.check(userId) == ProfileUnlockState.LOCKED) {
+            error("Profile user=$userId is locked or not running; keeping previous verified scan")
+        }
         val normalizedBrowserHosts = browserHosts.mapNotNull(::normalizeBrowserHost).toSortedSet()
         val discoveryFingerprint = browserDiscovery.declaredHandlersByHost.entries
             .sortedBy { it.key }
