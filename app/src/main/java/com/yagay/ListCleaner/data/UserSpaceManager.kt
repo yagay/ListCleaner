@@ -34,6 +34,15 @@ class UserSpaceManager(context: Context) {
     private val mutableInstalledPackages = MutableStateFlow<Set<String>?>(null)
     /** null means a local user or an unavailable remote inventory; FAILED is a separate state. */
     private val verifiedPackagesByUser = mutableMapOf<Int, Set<String>>()
+    private val packageScanReports = mutableMapOf<Int, String>()
+
+    fun diagnosticReport(): String = buildString {
+        appendLine("activeUser=${selected.value} state=${scanState.value}")
+        spaces.value.forEach { space ->
+            appendLine("user=${space.userId} name=${space.title} verifiedPackages=${verifiedPackagesByUser[space.userId]?.size ?: "unknown"}")
+            appendLine("  ${packageScanReports[space.userId] ?: "not_scanned"}")
+        }
+    }
     val installedPackages: StateFlow<Set<String>?> = mutableInstalledPackages.asStateFlow()
     private val mutableScanState = MutableStateFlow(SpacePackageScanState.LOCAL)
     val scanState: StateFlow<SpacePackageScanState> = mutableScanState.asStateFlow()
@@ -45,30 +54,33 @@ class UserSpaceManager(context: Context) {
             return
         }
         if (selected.value == userId) mutableScanState.value = SpacePackageScanState.LOADING
-        val packages = withContext(Dispatchers.IO) {
+        val started = System.nanoTime()
+        val (packages, detail) = withContext(Dispatchers.IO) {
             runCatching {
                 val response = ComponentRootCommand.runReadOnly("pm list packages --user $userId")
-                if (response.exitCode != 0 || response.timedOut ||
-                    response.output.contains("[output truncated]") ||
-                    response.output.contains("[output incomplete]") ||
-                    response.output.contains("Error:") ||
-                    response.output.contains("Exception")) {
-                    error("Remote user package scan failed or was truncated")
+                check(response.exitCode == 0 && !response.timedOut &&
+                    ProfileShellBatch.clean(response.output)) {
+                    "exit=${response.exitCode} timedOut=${response.timedOut} output=${response.output.take(200)}"
                 }
-                response.output.lineSequence().map { it.trim() }
+                val result = response.output.lineSequence().map { it.trim() }
                     .filter { it.startsWith("package:") }
                     .map { it.removePrefix("package:") }
                     .filter(com.yagay.ListCleaner.domain.PackageIdentity::valid)
-                    .toSet().also { check(it.isNotEmpty()) { "Remote profile returned zero packages" } }
-            }.getOrNull()
+                    .toSet()
+                check(result.isNotEmpty()) { "profile_package_inventory_empty" }
+                result to "verified count=${result.size} rootExit=${response.exitCode}"
+            }.getOrElse { failure ->
+                null to "failed reason=${failure.javaClass.simpleName} detail=${failure.message?.take(160)}"
+            }
         }
+        packageScanReports[userId] = "$detail elapsedMs=${(System.nanoTime() - started) / 1_000_000}"
         if (packages != null) verifiedPackagesByUser[userId] = packages
         if (selected.value == userId) {
             // Never turn a failed shell call into a verified empty profile.
             mutableInstalledPackages.value = packages ?: verifiedPackagesByUser[userId]
             mutableScanState.value = if (packages == null) SpacePackageScanState.FAILED
                 else SpacePackageScanState.READY
-            if (packages == null) Log.w("ListCleaner.Spaces", "Package inventory failed for user=$userId; keeping verified snapshot")
+            if (packages == null) Log.w("ListCleaner.Spaces", "Package inventory failed for user=$userId: $detail; keeping verified snapshot")
         }
     }
 
