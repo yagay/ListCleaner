@@ -74,9 +74,14 @@ internal class ProfilePackageQuery(private val context: Context, val userId: Int
 
     /** Resolve full base and split paths in batches; never use base-only shortcuts. */
     private fun prefetchPackagePaths() {
-        val names = prefetched.values.asSequence().flatMap { it.lineSequence() }
-            .mapNotNull { ComponentName.unflattenFromString(it.trim())?.packageName }
-            .filter(PackageIdentity::valid).distinct().filterNot { it in pathsByPackage }.toList()
+        prefetchPathsForPackages(prefetched.values.asSequence().flatMap { it.lineSequence() }
+            .mapNotNull { ComponentName.unflattenFromString(it.trim())?.packageName }.toList())
+    }
+
+    /** Reused by Root Components, which already discovered package names with cmd package. */
+    fun prefetchPathsForPackages(packageNames: Collection<String>) {
+        val names = packageNames.asSequence().filter(PackageIdentity::valid)
+            .distinct().filterNot { it in pathsByPackage }.toList()
         names.chunked(12).forEach { batch ->
             val commands = batch.map { name -> "pm path --user $userId ${quote(name)}" }
             val output = runCatching {
