@@ -182,6 +182,11 @@ class ProfileComponentCatalog(private val context: Context) {
     fun scan(userId: Int): RootComponentScan {
         require(userId in 0..21474)
         val started = System.nanoTime()
+        if (ProfileUserAvailability.check(userId) == ProfileUnlockState.LOCKED) {
+            lastReport = "profileComponents user=$userId state=locked_or_not_running snapshot=retained"
+            return RootComponentScan(warning = context.getString(R.string.root_scan_failed),
+                scanDetails = lastReport)
+        }
         val installed = installedPackages(userId)
         if (installed == null) {
             lastReport = "profileComponents user=$userId state=installed_package_query_failed"
