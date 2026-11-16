@@ -155,10 +155,15 @@ internal class RootComponentsController(
             try {
                 val packageRevisionBefore = packageChangeRevision()
                 val protocolBefore = app.runtime.value.componentDiscoveryProtocol
-                mutableScan.value = withContext(Dispatchers.IO) {
+                val previous = mutableScan.value
+                val scanned = withContext(Dispatchers.IO) {
                     if (targetUserId == app.spaces.currentUserId) catalog.scan()
                     else profileCatalog.scan(targetUserId)
                 }.copy(scannedUserId = targetUserId)
+                mutableScan.value = if (scanned.items.isEmpty() && scanned.warning.isNotBlank() &&
+                    previous.scannedUserId == targetUserId && previous.items.isNotEmpty()) {
+                    previous.copy(warning = scanned.warning, scanDetails = scanned.scanDetails)
+                } else scanned
                 try {
                     withContext(Dispatchers.IO) {
                         persistentComponents.syncRemote()
