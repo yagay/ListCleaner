@@ -188,6 +188,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun dismissComponentRootNotice() = rootComponents.dismissRootNotice()
     fun refreshComponents() = rootComponents.refresh()
     fun lastScanDetails(): String = app.catalog.lastReport.takeLast(8_000)
+    fun profileComponentScanDetails(): String = rootComponents.profileScanDiagnostics
 
     fun refreshAllCategories() {
         refresh(forceCatalog = true, manualProactive = true)
