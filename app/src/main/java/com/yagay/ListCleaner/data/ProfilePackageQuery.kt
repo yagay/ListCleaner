@@ -13,6 +13,20 @@ internal class ProfilePackageQuery(private val context: Context, val userId: Int
     init { require(userId in 0..21474) }
     private val packages = mutableMapOf<String, PackageInfo?>()
     private val pathsByPackage = mutableMapOf<String, List<String>>()
+    private val issues = linkedMapOf<String, Int>()
+    private var queryRows = 0
+    private var resolvedRows = 0
+    private var prefetchRetries = 0
+
+    private fun noteIssue(reason: String) {
+        issues[reason] = (issues[reason] ?: 0) + 1
+    }
+
+    val failureCount: Int get() = issues.values.sum()
+    fun diagnosticSummary(): String =
+        "profileUser=$userId rawComponents=$queryRows parsedComponents=$resolvedRows " +
+            "prefetchFallbacks=$prefetchRetries failedSources=$failureCount " +
+            "reasons=${issues.entries.joinToString(",") { "${it.key}:${it.value}" }.ifEmpty { "none" }}"
 
     private fun read(command: String): String {
         val result = ComponentRootCommand.runReadOnly(command)
@@ -45,24 +59,14 @@ internal class ProfilePackageQuery(private val context: Context, val userId: Int
         val commands = queries.map { queryCommand(it.first, it.second, it.third) }
             .distinct().filterNot { it in prefetched }
         if (commands.isEmpty()) return
-        // Limit batch size to keep RootCommand's bounded output and timeout predictable.
         commands.chunked(12).forEach { batch ->
-            val script = buildString {
-                batch.forEachIndexed { index, command ->
-                    append("printf '\\n__LC_QUERY_START_${index}__\\n'; ")
-                    append(command)
-                    append("; printf '\\n__LC_QUERY_END_${index}__\\n'; ")
-                }
-            }
-            val output = runCatching { read(script) }.getOrNull() ?: return@forEach
+            val output = runCatching {
+                read(ProfileShellBatch.script(batch, "LC_QUERY"))
+            }.getOrNull()
             batch.forEachIndexed { index, command ->
-                val start = "__LC_QUERY_START_${index}__"
-                val end = "__LC_QUERY_END_${index}__"
-                val body = output.substringAfter(start, "").substringBefore(end, "")
-                if (start in output && end in output && !body.contains("Error:") &&
-                    !body.contains("Exception") && !body.contains("Unknown command")) {
-                    prefetched[command] = body
-                }
+                val body = output?.let { ProfileShellBatch.entry(it, index, "LC_QUERY") }
+                if (body != null) prefetched[command] = body
+                else prefetchRetries++ // The direct query will retry and report the real failure.
             }
         }
         prefetchPackagePaths()
@@ -74,75 +78,101 @@ internal class ProfilePackageQuery(private val context: Context, val userId: Int
             .mapNotNull { ComponentName.unflattenFromString(it.trim())?.packageName }
             .filter(PackageIdentity::valid).distinct().filterNot { it in pathsByPackage }.toList()
         names.chunked(12).forEach { batch ->
-            val script = buildString {
-                batch.forEachIndexed { index, name ->
-                    append("printf '\\n__LC_PATH_START_${index}__\\n'; ")
-                    append("pm path --user $userId ${quote(name)}")
-                    append("; printf '\\n__LC_PATH_END_${index}__\\n'; ")
-                }
-            }
-            val output = runCatching { read(script) }.getOrNull() ?: return@forEach
+            val commands = batch.map { name -> "pm path --user $userId ${quote(name)}" }
+            val output = runCatching {
+                read(ProfileShellBatch.script(commands, "LC_PATH"))
+            }.getOrNull()
             batch.forEachIndexed { index, name ->
-                val start = "__LC_PATH_START_${index}__"
-                val end = "__LC_PATH_END_${index}__"
-                if (start !in output || end !in output) return@forEachIndexed
-                val paths = output.substringAfter(start).substringBefore(end)
-                    .lineSequence().filter { it.startsWith("package:") }
-                    .map { it.removePrefix("package:").trim() }.filter { it.startsWith("/") }.toList()
+                val body = output?.let { ProfileShellBatch.entry(it, index, "LC_PATH") }
+                if (body == null) {
+                    prefetchRetries++
+                    return@forEachIndexed
+                }
+                val paths = body.lineSequence().map { it.trim() }
+                    .filter { it.startsWith("package:") }
+                    .map { it.removePrefix("package:").trim() }
+                    .filter { it.startsWith("/") }.toList()
                 if (paths.isNotEmpty()) pathsByPackage[name] = paths
             }
         }
     }
+
     @Suppress("DEPRECATION")
     fun packageInfo(packageName: String): PackageInfo? = packages.getOrPut(packageName) {
         if (!PackageIdentity.valid(packageName)) return@getOrPut null
-        runCatching {
+        val parsed = runCatching {
             val cachedPaths = pathsByPackage[packageName].orEmpty()
             val paths = if (cachedPaths.isNotEmpty()) cachedPaths else
                 read("pm path --user $userId ${quote(packageName)}").lineSequence()
-                    .filter { it.startsWith("package:") }
-                    .map { it.removePrefix("package:").trim() }.toList()
+                    .map { it.trim() }.filter { it.startsWith("package:") }
+                    .map { it.removePrefix("package:").trim() }
+                    .filter { it.startsWith("/") }.toList()
             val apk = paths.firstOrNull { it.endsWith("/base.apk") } ?: paths.firstOrNull()
                 ?: return@runCatching null
             val flags = PackageManager.GET_ACTIVITIES or PackageManager.GET_SERVICES or
                 PackageManager.GET_RECEIVERS or PackageManager.GET_PROVIDERS or
                 PackageManager.GET_META_DATA or PackageManager.MATCH_DISABLED_COMPONENTS
-            // Parsing only base.apk drops components declared by installed feature splits.
-            // Android's package parser accepts an APK cluster directory on supported builds;
-            // retain the base-APK fallback on OEM versions that do not expose cluster parsing.
-            val archivePath = if (paths.size > 1) java.io.File(apk).parent else null
-            val parsed = archivePath?.let { directory ->
-                runCatching { context.packageManager.getPackageArchiveInfo(directory, flags) }.getOrNull()
+            val directory = if (paths.size > 1) java.io.File(apk).parent else null
+            val info = directory?.let {
+                runCatching { context.packageManager.getPackageArchiveInfo(it, flags) }.getOrNull()
             } ?: context.packageManager.getPackageArchiveInfo(apk, flags)
-            parsed?.also { info ->
-                info.applicationInfo?.apply {
+            info?.also { resolved ->
+                resolved.applicationInfo?.apply {
                     sourceDir = apk
                     publicSourceDir = apk
                     splitSourceDirs = paths.filter { it != apk }.toTypedArray()
                     splitPublicSourceDirs = splitSourceDirs
                 }
             }
-        }.getOrNull()
+        }.onFailure { noteIssue("package_path_or_archive_exception") }.getOrNull()
+        if (parsed == null) noteIssue("package_archive_unavailable")
+        parsed
     }
 
     fun query(intent: Intent, flags: Int, command: String = "query-activities"): List<ResolveInfo> {
         require(command in setOf("query-activities", "query-services", "query-receivers", "query-content-providers"))
         val key = queryCommand(intent, flags, command)
-        val output = prefetched[key] ?: read(key)
-        check(!output.contains("Unknown command") && !output.contains("Error:") &&
-            !output.contains("Exception")) { "profile_query_unsupported" }
-        return output.lineSequence().mapNotNull { line ->
-            val component = ComponentName.unflattenFromString(line.trim()) ?: return@mapNotNull null
-            if (!PackageIdentity.valid(component.packageName)) return@mapNotNull null
+        val output = try {
+            prefetched[key] ?: read(key)
+        } catch (failure: Exception) {
+            noteIssue("query_shell_failed")
+            throw failure
+        }
+        check(ProfileShellBatch.clean(output)) {
+            noteIssue("query_shell_error")
+            "profile_query_unsupported user=$userId command=$command output=${output.take(180)}"
+        }
+        return output.lineSequence().mapNotNull { raw ->
+            val line = raw.trim()
+            if (line.isEmpty() || line.startsWith("No activities found") ||
+                line.startsWith("No services found") || line.startsWith("No receivers found")
+            ) return@mapNotNull null
+            val component = ComponentName.unflattenFromString(line)
+            if (component == null) {
+                noteIssue("unrecognized_component_output")
+                return@mapNotNull null
+            }
+            queryRows++
+            if (!PackageIdentity.valid(component.packageName)) {
+                noteIssue("invalid_component_package")
+                return@mapNotNull null
+            }
             val pkg = packageInfo(component.packageName) ?: return@mapNotNull null
-            ResolveInfo().apply {
+            val info = ResolveInfo().apply {
                 when (command) {
                     "query-services" -> serviceInfo = pkg.services?.firstOrNull { it.name == component.className }
                     "query-receivers" -> activityInfo = pkg.receivers?.firstOrNull { it.name == component.className }
                     "query-content-providers" -> providerInfo = pkg.providers?.firstOrNull { it.name == component.className }
                     else -> activityInfo = pkg.activities?.firstOrNull { it.name == component.className }
                 }
-            }.takeIf { it.activityInfo != null || it.serviceInfo != null || it.providerInfo != null }
+            }
+            if (info.activityInfo == null && info.serviceInfo == null && info.providerInfo == null) {
+                noteIssue("component_missing_in_archive")
+                null
+            } else {
+                resolvedRows++
+                info
+            }
         }.toList()
     }
 
