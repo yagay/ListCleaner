@@ -118,6 +118,16 @@ internal class RootComponentsController(
      * lazily scan on the first component editor visit, then reuse results for ten minutes.
      * Failed attempts have a short retry cooldown; the explicit refresh action bypasses both.
      */
+    /** A changed remote package inventory invalidates only that user's Root scan. */
+    fun invalidateProfilePackages(userId: Int) {
+        if (userId != targetUserId) return
+        lastFullScanElapsed = -1L
+        lastAutoScanAttemptElapsed = -1L
+        lastScannedPackageRevision = -1L
+    }
+
+    val profileScanDiagnostics: String get() = profileCatalog.lastReport
+
     fun refreshIfStale() {
         val now = SystemClock.elapsedRealtime()
         if (!ComponentScanRefreshPolicy.shouldRefresh(
