@@ -16,7 +16,7 @@ import kotlinx.coroutines.withContext
 data class UserSpace(val userId: Int, val title: String)
 
 /** Distinguish an empty remote profile from a failed or unfinished Root query. */
-enum class SpacePackageScanState { LOCAL, LOADING, READY, FAILED }
+enum class SpacePackageScanState { LOCAL, LOADING, READY, FAILED, LOCKED }
 
 /**
  * One authoritative selected space for every List Cleaner editor. Root is used only for
@@ -55,6 +55,15 @@ class UserSpaceManager(context: Context) {
         }
         if (selected.value == userId) mutableScanState.value = SpacePackageScanState.LOADING
         val started = System.nanoTime()
+        val unlock = withContext(Dispatchers.IO) { ProfileUserAvailability.check(userId) }
+        if (unlock == ProfileUnlockState.LOCKED) {
+            packageScanReports[userId] = "deferred reason=profile_locked_or_not_running snapshot=retained"
+            if (selected.value == userId) {
+                mutableInstalledPackages.value = verifiedPackagesByUser[userId]
+                mutableScanState.value = SpacePackageScanState.LOCKED
+            }
+            return
+        }
         val (packages, detail) = withContext(Dispatchers.IO) {
             runCatching {
                 val response = ComponentRootCommand.runReadOnly("pm list packages --user $userId")
@@ -73,7 +82,7 @@ class UserSpaceManager(context: Context) {
                 null to "failed reason=${failure.javaClass.simpleName} detail=${failure.message?.take(160)}"
             }
         }
-        packageScanReports[userId] = "$detail elapsedMs=${(System.nanoTime() - started) / 1_000_000}"
+        packageScanReports[userId] = "$detail unlock=$unlock elapsedMs=${(System.nanoTime() - started) / 1_000_000}"
         if (packages != null) verifiedPackagesByUser[userId] = packages
         if (selected.value == userId) {
             // Never turn a failed shell call into a verified empty profile.
