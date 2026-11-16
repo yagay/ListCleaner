@@ -164,7 +164,9 @@ internal class CandidateController(
                 val oldVerified = lastVerifiedByUser[userId]
                 // A partial or failed remote scan must not replace a verified inventory
                 // with an empty/incomplete result. Surface the warning for retry.
-                val scanIncomplete = !app.catalog.scanWarning.isNullOrBlank()
+                // Unsupported cross-profile provider APIs are coverage notices, not
+                // evidence that successful Activity/Service scans must be discarded.
+                val scanIncomplete = app.catalog.snapshot.value.evidence.failedSources > 0
                 val displayed = if (scanIncomplete && oldVerified != null) oldVerified else resolvedBase
                 mutableCandidates.value = displayed
                 if (!scanIncomplete) {
@@ -196,7 +198,7 @@ internal class CandidateController(
                             val resolvedEnriched = completeLogical(enriched, configuredRules(), userId)
                             if (!isCurrent(currentGeneration, userId)) return@launch
                             val enrichmentWarning = combinedScanWarning(directShareWarning)
-                            if (app.catalog.scanWarning.isNullOrBlank()) {
+                            if (app.catalog.snapshot.value.evidence.failedSources == 0) {
                                 mutableCandidates.value = resolvedEnriched
                                 lastVerifiedByUser[userId] = resolvedEnriched
                                 lastHostsByUser[userId] = browserDiscovery.hosts
